@@ -284,7 +284,62 @@ describe('LUM-1158 Lumo removal policy', () => {
         ],
       }
     )
-    expect(kept!.map(f => f.id)).toEqual(['f1', 'f2'])
+    expect(kept!.map(f => f.id)).toEqual(['f1', 'f2', 'f3'])
+  })
+
+  it('LUM-1194: the ranker never removes a finding that cites a test file', () => {
+    const race = {
+      findings: [
+        { ...run.findings[0]!, kind: 'concurrency', filePath: 'x_test.go' },
+      ],
+    }
+    expect(
+      keptLumoFindings(race, undefined, { ranking: [{ id: 'f0', p: 3 }] })
+    ).toHaveLength(1)
+  })
+
+  it('LUM-1194 + LUM-1210: a test-file finding with a path instruction survives both, like production', () => {
+    const both = {
+      findings: [
+        {
+          ...run.findings[0]!,
+          filePath: 'src/a.test.ts',
+          pathInstruction: 'src/**',
+        },
+        { ...run.findings[0]!, filePath: 'src/b.test.ts' },
+      ],
+    }
+    const kept = keptLumoFindings(
+      both,
+      {
+        results: [
+          { id: 'f0', verdict: 'REJECTED' },
+          { id: 'f1', verdict: 'CONFIRMED' },
+        ],
+      },
+      {
+        ranking: [
+          { id: 'f0', p: 0 },
+          { id: 'f1', p: 0 },
+        ],
+      }
+    )
+    expect(kept!.map(f => f.id)).toEqual(['f0', 'f1'])
+  })
+
+  it('LUM-1194: the ranker never removes a test_defect finding; the verifier still can', () => {
+    expect(
+      keptLumoFindings(run, undefined, { ranking: [{ id: 'f3', p: 0 }] })!.map(
+        f => f.id
+      )
+    ).toEqual(['f0', 'f1', 'f2', 'f3'])
+    expect(
+      keptLumoFindings(
+        run,
+        { results: [{ id: 'f3', verdict: 'REJECTED' }] },
+        undefined
+      )!.map(f => f.id)
+    ).toEqual(['f0', 'f1', 'f2'])
   })
 
   it('LUM-1198: a finding ranked twice is decided at its first entry, like production', () => {

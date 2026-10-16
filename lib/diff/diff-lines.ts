@@ -40,9 +40,27 @@ export interface AddedFile {
 
 const HUNK_HEADER = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
 
-export function addedLinesWithNumbers(diff: string): AddedFile[] {
-  const files: AddedFile[] = []
-  let current: AddedFile | null = null
+/**
+ * LUM-1212 — one NEW-side line of a hunk: added (`+`) or context (` `).
+ * Removed lines have no new-file number and are never listed.
+ */
+export interface DiffLine extends AddedLine {
+  added: boolean
+}
+
+export interface DiffFileLines {
+  path: string
+  lines: DiffLine[]
+}
+
+/**
+ * PURE — every new-side line of every hunk (added and context) with its
+ * new-file number: the lines a review comment can sit on. Same parser and
+ * rules as `addedLinesWithNumbers` (which is this, filtered to added lines).
+ */
+export function rightSideLinesWithNumbers(diff: string): DiffFileLines[] {
+  const files: DiffFileLines[] = []
+  let current: DiffFileLines | null = null
   let cursor = 0
   // Lines still owed to the open hunk; both zero means "between hunks".
   let oldLeft = 0
@@ -54,7 +72,12 @@ export function addedLinesWithNumbers(diff: string): AddedFile[] {
     if (oldLeft > 0 || newLeft > 0) {
       const head = line[0]
       if (head === '+') {
-        if (current) current.lines.push({ lineNo: cursor, text: line.slice(1) })
+        if (current)
+          current.lines.push({
+            lineNo: cursor,
+            text: line.slice(1),
+            added: true,
+          })
         cursor++
         newLeft = Math.max(0, newLeft - 1)
         continue
@@ -65,6 +88,12 @@ export function addedLinesWithNumbers(diff: string): AddedFile[] {
       }
       if (head === '\\') continue
       if (head === ' ' || line === '') {
+        if (current)
+          current.lines.push({
+            lineNo: cursor,
+            text: line.slice(1),
+            added: false,
+          })
         cursor++
         oldLeft = Math.max(0, oldLeft - 1)
         newLeft = Math.max(0, newLeft - 1)
@@ -96,6 +125,17 @@ export function addedLinesWithNumbers(diff: string): AddedFile[] {
   }
 
   return files.filter(f => f.lines.length > 0)
+}
+
+export function addedLinesWithNumbers(diff: string): AddedFile[] {
+  return rightSideLinesWithNumbers(diff)
+    .map(f => ({
+      path: f.path,
+      lines: f.lines
+        .filter(l => l.added)
+        .map(l => ({ lineNo: l.lineNo, text: l.text })),
+    }))
+    .filter(f => f.lines.length > 0)
 }
 
 /** One file's slice of a unified diff, headers included. */

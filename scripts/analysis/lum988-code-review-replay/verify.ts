@@ -97,7 +97,13 @@ async function localShell(cwd: string, command: string): Promise<string> {
 
 type Recorded = Record<
   string,
-  { runs: Array<{ findings?: Omit<VerifierFinding, 'id'>[] }> }
+  {
+    runs: Array<{
+      findings?: Array<
+        Omit<VerifierFinding, 'id'> & { pathInstruction?: string | null }
+      >
+    }>
+  }
 >
 
 async function main(): Promise<void> {
@@ -113,7 +119,10 @@ async function main(): Promise<void> {
         .filter(
           f =>
             !onlyApplicable ||
-            (f.severity !== 'HIGH' && !SECURITY_KINDS.has(f.kind))
+            // LUM-1210: a verified path-instruction finding is outside too.
+            (f.severity !== 'HIGH' &&
+              !SECURITY_KINDS.has(f.kind) &&
+              !f.pathInstruction)
         )
       const cwd = path.join(checkouts, 'co', prKey(url))
       if (findings.length === 0 || !existsSync(cwd)) {

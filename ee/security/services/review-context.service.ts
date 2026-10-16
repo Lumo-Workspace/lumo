@@ -15,6 +15,7 @@
  * mocks `contents` but not `auth`.
  */
 import {
+  listRepoDirWithToken,
   readRepoFileWithToken,
   withRepoReadToken,
 } from '@/lib/integrations/github/contents'
@@ -23,6 +24,11 @@ import {
   loadReviewContext,
   type LoadedReviewContext,
 } from '@/ee/security/security-scan/review-context'
+import {
+  loadServerConfigContext,
+  type LoadedServerConfig,
+  type ServerConfigPlan,
+} from '@/ee/security/security-scan/server-config-context'
 
 const noContext = (error: string | null): LoadedReviewContext => ({
   text: '',
@@ -51,6 +57,55 @@ export const reviewContextService = {
           loadReviewContext({
             paths,
             ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
+            readFile: (path, signal) =>
+              readRepoFileWithToken({
+                token,
+                fullName: opts.repo,
+                path,
+                ref: opts.headSha,
+                signal,
+              }),
+          })
+      )
+    } catch (error) {
+      return noContext(error instanceof Error ? error.message : String(error))
+    }
+  },
+
+  /**
+   * LUM-1208 — the server config files a PR's server-start lines put into
+   * effect (`planServerConfigContext`), listed and read at the head with one
+   * contents:read token, masked and capped by `loadServerConfigContext`.
+   * Mints nothing when the plan has no trigger or there is no budget. Never
+   * throws: any failure is `error` with no config, and the review runs.
+   */
+  async loadServerConfig(opts: {
+    workspaceId: string
+    repo: string
+    headSha: string
+    plan: ServerConfigPlan
+    /** Every path the PR changes (never re-sent as config). */
+    changedPaths: readonly string[]
+    maxChars?: number
+  }): Promise<LoadedServerConfig> {
+    if (opts.plan.triggers.length === 0 || opts.maxChars === 0)
+      return noContext(null)
+    try {
+      return await withRepoReadToken(
+        { workspaceId: opts.workspaceId, fullName: opts.repo },
+        token =>
+          loadServerConfigContext({
+            plan: opts.plan,
+            changedPaths: opts.changedPaths,
+            ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
+            listDir: (path, signal) =>
+              listRepoDirWithToken({
+                token,
+                fullName: opts.repo,
+                path,
+                ref: opts.headSha,
+                signal,
+              }),
             readFile: (path, signal) =>
               readRepoFileWithToken({
                 token,

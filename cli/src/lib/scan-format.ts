@@ -334,6 +334,16 @@ export interface JudgeBudgetLine {
   reviewedChars: number
   coveredFiles: number
   droppedFiles: number
+  /** LUM-1208 — read-only server config the review got; absent = none. */
+  serverConfig?: { paths: string[]; chars: number }
+}
+
+/** LUM-1208 — ` · server config 1 file (255 chars, read-only): a/Trunk.toml`. */
+function serverConfigSegment(b: JudgeBudgetLine): string {
+  const c = b.serverConfig
+  if (!c || c.paths.length === 0) return ''
+  const n = c.paths.length
+  return ` · server config ${fmtCount(n)} file${n === 1 ? '' : 's'} (${fmtCount(c.chars)} chars, read-only): ${c.paths.join(', ')}`
 }
 
 /**
@@ -391,7 +401,7 @@ export function formatJudgeBudgetLine(
     parts.push(
       `reviewed ${fmtCount(partial.reviewedFiles)} of ${fmtCount(partial.totalFiles)} files, ${fmtCount(left)} left out for size (${outPct.toFixed(1)}% of the diff)`
     )
-    return `${head}: ${parts.join(' · ')}`
+    return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
   }
   const parts = [
     `diff ${fmtCount(b.diffChars)} chars`,
@@ -415,7 +425,7 @@ export function formatJudgeBudgetLine(
     const pct = b.tierChars > 0 ? (left / b.tierChars) * 100 : 0
     parts.push(`${fmtCount(left)} left, ${pct.toFixed(1)}%`)
   }
-  return `${head}: ${parts.join(' · ')}`
+  return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
 }
 
 /** LUM-762 — one planned task's coverage row (shape frozen for older CLIs). */

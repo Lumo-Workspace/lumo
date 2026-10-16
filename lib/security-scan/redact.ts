@@ -771,6 +771,9 @@ const CREDENTIAL_KEY_COMPARED_BEFORE_RE = new RegExp(
 const UNQUOTED_ASSIGNMENT_RE =
   /([A-Za-z0-9_$.-]+)(["'`]?[ \t]*(?:=(?![=>])|:(?!\/\/))[ \t]*)([^\s"'`,;&)\]{}]{8,})/g
 
+/** A redaction token with its ≤ 4-char prefix at the start of the text. */
+const REDACTION_TOKEN_AT_START_RE = /^[^\s"'`]{0,4}…\(len \d+\)/
+
 /** A shell / env reference standing in for a value: `$TOKEN`, `${API_KEY}`. */
 const ENV_REFERENCE_RE = /^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/
 
@@ -790,7 +793,16 @@ function maskUnquotedCredentialValues(line: string): string {
   return line.replace(
     UNQUOTED_ASSIGNMENT_RE,
     (whole, key: string, op: string, value: string, at: number) => {
-      if (REDACTION_TOKEN_TEST_RE.test(value)) return whole
+      // LUM-1200 follow-up #7 — a value the registry already redacted
+      // (`SECRET_KEY=djan…(len 38)`) is masked once: its `djan…(len` prefix
+      // is no fresh 8+ char value (`djan…(len 9) 38)` before).
+      if (
+        REDACTION_TOKEN_TEST_RE.test(value) ||
+        REDACTION_TOKEN_AT_START_RE.test(
+          line.slice(at + key.length + op.length)
+        )
+      )
+        return whole
       const shaped =
         isCredentialShapedToken(value) || isRandomLettersToken(value)
       if (!shaped) {
@@ -996,7 +1008,13 @@ function isCredentialShapedToken(raw: string): boolean {
  * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only, given the
  * span's content and the `KEY_WINDOW` chars before its opening quote. Unpaired
  * openers are masked regardless of `shouldMask` (fail closed).
- * `skipContractions` is the free-text pass's `isContractionApostrophe` rule.
+ * `skipContractions` is the free-text and code passes' rule set: a
+ * contraction or possessive apostrophe opens no span
+ * (`isContractionApostrophe`, `isPossessiveApostrophe`), and the
+ * ambiguous-pairing fallback starts at the first quote of the style the
+ * tokenizer met OUTSIDE every span — never inside a span that already closed
+ * (LUM-1200 follow-up #7). The blanket pass keeps `indexOf`: AI-review
+ * fingerprints are keyed on its output.
  */
 function maskQuotedSpans(
   line: string,
@@ -1008,6 +1026,7 @@ function maskQuotedSpans(
   let out = ''
   let i = 0
   let maskShapedAfter = false
+  const firstOutside: Partial<Record<string, number>> = {}
   while (i < line.length) {
     const ch = line[i]!
     if (fences && line.startsWith(FENCE, i)) {
@@ -1025,9 +1044,11 @@ function maskQuotedSpans(
       i = close + FENCE.length
       continue
     }
+    if (isQuoteChar(ch) && firstOutside[ch] === undefined) firstOutside[ch] = i
     if (
       !isQuoteChar(ch) ||
-      (skipContractions && isContractionApostrophe(line, i))
+      (skipContractions &&
+        (isContractionApostrophe(line, i) || isPossessiveApostrophe(line, i)))
     ) {
       out += ch
       i += 1
@@ -1047,9 +1068,14 @@ function maskQuotedSpans(
       continue
     }
     if (close === -1) {
-      // `indexOf` also finds a skipped contraction apostrophe, so a skip
-      // that leaves the pairing odd still masks from that apostrophe on.
-      const firstIdx = line.indexOf(ch)
+      // A skipped contraction / possessive apostrophe counts as met, so a
+      // skip that leaves the pairing odd still masks from that apostrophe
+      // on. LUM-1200 follow-up #7 — production TC19: `indexOf` found the
+      // `'` inside a closed backtick span (`` `if (url.startsWith('/ses… ``)
+      // and masked 855 chars of trace prose from there.
+      const firstIdx = skipContractions
+        ? (firstOutside[ch] ?? i)
+        : line.indexOf(ch)
       // Ambiguous pairing: fall back to masking the whole region.
       if (firstIdx < i) {
         return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions, fences, looseBackticks)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
@@ -1136,6 +1162,22 @@ function isContractionApostrophe(line: string, idx: number): boolean {
   if (!word || (word !== 'I' && word.length < 2) || STRING_PREFIX_RE.test(word))
     return false
   return /^(?:s|t|re|ve|ll|d|m)(?![A-Za-z0-9_])/i.test(line.slice(idx + 1))
+}
+
+/**
+ * LUM-1200 follow-up #7 — a `'` closing a word of 2+ letters and followed by
+ * whitespace, punctuation or the end of the text is a plural possessive
+ * (`users'`, `sessions' map`), not an opener. Read as an opener it paired
+ * with the next quote — leaving a value after that quote outside every span
+ * (`the users' key is '<value>` kept the value raw) — or, unpaired, sent the
+ * text to the ambiguous-pairing fallback. A string-literal prefix (`b'`,
+ * `rb'`) or a single letter still opens. Only consulted outside a span.
+ */
+function isPossessiveApostrophe(line: string, idx: number): boolean {
+  if (line[idx] !== "'") return false
+  const word = /[A-Za-z]+$/.exec(line.slice(0, idx))?.[0]
+  if (!word || word.length < 2 || STRING_PREFIX_RE.test(word)) return false
+  return /^(?:$|[\s.,;:!?)\]}])/.test(line.slice(idx + 1))
 }
 
 /**

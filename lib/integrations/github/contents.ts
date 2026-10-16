@@ -133,6 +133,51 @@ export async function readRepoFileWithToken(opts: {
 }
 
 /**
+ * LUM-1208 — the paths of the FILES directly in a repository directory at a
+ * ref ('' = the root), with a token the caller holds (`withRepoReadToken`).
+ * Subdirectories, symlinks and submodules are left out. A directory that does
+ * not exist (404), or a path that is a file, lists as []; any other failure
+ * throws with its status.
+ */
+export async function listRepoDirWithToken(opts: {
+  token: string
+  fullName: string
+  path: string
+  ref?: string
+  signal?: AbortSignal
+}): Promise<string[]> {
+  const [owner, repo] = splitFullName(opts.fullName)
+  const suffix = opts.path ? `/${encodeRepoPath(opts.path)}` : ''
+  const url = new URL(
+    `https://api.github.com/repos/${owner}/${repo}/contents${suffix}`
+  )
+  if (opts.ref) url.searchParams.set('ref', opts.ref)
+  const res = await fetch(url.toString(), {
+    headers: { ...GH_HEADERS, Authorization: `Bearer ${opts.token}` },
+    ...(opts.signal ? { signal: opts.signal } : {}),
+  })
+  if (res.status === 404) return []
+  if (!res.ok) {
+    logger.error(
+      `[github/contents] listRepoDir failed for ${opts.fullName}/${opts.path}: ${res.status}`
+    )
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for ${opts.fullName}/${opts.path}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as unknown
+  if (!Array.isArray(body)) return []
+  const files: string[] = []
+  for (const entry of body as Array<{ type?: unknown; path?: unknown }>)
+    if (entry.type === 'file' && typeof entry.path === 'string')
+      files.push(entry.path)
+  return files
+}
+
+/**
  * Fetches the unified diff for a pull request.
  * Returns the raw diff text.
  */

@@ -301,6 +301,49 @@ describe('LUM-988 ranker after the verifier', () => {
     await reviewVerifierService.run(job)
     expect(rankFindings).not.toHaveBeenCalled()
   })
+
+  it('LUM-1194: a confirmed test finding is never ranked away, and alone it skips the call', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('a', { ruleId: 'review:test_defect' }),
+    ])
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [{ id: 'a', p: 0, reason: 'test tidiness' }],
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    expect(rankFindings).not.toHaveBeenCalled()
+    expect(
+      (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    ).toMatchObject([{ findingId: 'a', verdict: 'CONFIRMED' }])
+  })
+
+  it('LUM-1194: next to a removable finding, a low-ranked test finding stays', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('a'),
+      row('t', { ruleId: 'review:test_defect' }),
+    ])
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [
+        { id: 't', p: 0, reason: 'test tidiness' },
+        { id: 'a', p: 5, reason: 'speculative' },
+      ],
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    const input = (rankFindings as jest.Mock).mock.calls[0]![0]
+    expect(input.findings.map((f: { id: string }) => f.id)).toEqual(['a', 't'])
+    const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    expect(verdicts.map((v: { findingId: string }) => v.findingId)).toEqual([
+      'a',
+    ])
+    expect(verdicts[0]).toMatchObject({ verdict: 'REJECTED' })
+  })
 })
 
 describe('LUM-1013 verifier reason keeps quoted prose', () => {
@@ -320,5 +363,17 @@ describe('LUM-1013 verifier reason keeps quoted prose', () => {
     await reviewVerifierService.run(job)
     const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
     expect(verdicts[0].reason).toBe(prose)
+  })
+})
+
+describe('LUM-1210 path-instruction findings skip the verifier', () => {
+  it('a row the owners asked for (verified pathInstruction) is never sent to the verifier', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('asked', { severity: 'LOW', pathInstruction: 'scripts/**' }),
+    ])
+    await reviewVerifierService.run(job)
+    expect(sandbox.attachOrCreateHuntSandbox).not.toHaveBeenCalled()
+    expect(verifyFindings).not.toHaveBeenCalled()
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
   })
 })

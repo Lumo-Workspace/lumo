@@ -177,3 +177,45 @@ describe('LUM-1131 AI review — repository learnings', () => {
     expect(call.prompt).toContain(L)
   })
 })
+
+describe('LUM-1208 AI review — server config context', () => {
+  const C = '=== frontend/Trunk.toml ===\n[serve]\naddresses = ["0.0.0.0"]\n'
+
+  it('no server config leaves the prompt byte-identical', () => {
+    expect(
+      buildReviewSystemPrompt({ withContext: true, withServerConfig: false })
+    ).toBe(buildReviewSystemPrompt(true))
+    expect(buildReviewPrompt('diff', 'ctx', '', '', { serverConfig: '' })).toBe(
+      buildReviewPrompt('diff', 'ctx')
+    )
+  })
+
+  it('announces the read-only config and keeps findings on the added line that starts the server', () => {
+    const system = buildReviewSystemPrompt({
+      withContext: true,
+      withServerConfig: true,
+    })
+    expect(system).toContain('server configuration files')
+    expect(system).toContain('on that added line')
+    expect(system).toContain('0.0.0.0')
+    // Placed right after the changed files' content, before related code.
+    expect(
+      buildReviewPrompt('diff', 'ctx', 'rel', '', { serverConfig: C })
+    ).toBe(
+      `Unified diff:\ndiff\n\nFull PR-head content of the changed files (context only):\nctx\n\nServer configuration files at the PR head that this pull request does not change (read-only context):\n${C}\n\nRelated code from other files at the PR head (context only):\nrel`
+    )
+  })
+
+  it('judgeSecurity passes the server config through to the model call', async () => {
+    gen.mockResolvedValue({ object: { findings: [], prSummary } })
+    await judgeSecurity({
+      diff: '+a',
+      context: '',
+      timeoutMs: 1,
+      serverConfig: C,
+    })
+    const call = gen.mock.calls[0]![0]
+    expect(call.system).toContain('server configuration files')
+    expect(call.prompt).toContain(C)
+  })
+})
