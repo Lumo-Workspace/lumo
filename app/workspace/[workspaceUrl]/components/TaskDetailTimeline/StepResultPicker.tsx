@@ -1,7 +1,8 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import type { PickerState } from '@/lib/test-cases/step-picker'
+import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 
 interface StepResultPickerProps {
   steps: string[]
@@ -9,6 +10,11 @@ interface StepResultPickerProps {
   result: 'PASS' | 'FAIL'
   value: PickerState
   onChange: (next: PickerState) => void
+  /**
+   * LUM-1185: 已标结果的步骤下面额外渲染的内容（记录弹窗用它放按步证据）。
+   * 没标结果的步骤不调用——证据只能挂在上报的步骤上。
+   */
+  renderMarkedStep?: (key: string, entry: PickerEntry) => ReactNode
 }
 
 const fieldClass =
@@ -21,6 +27,7 @@ export function StepResultPicker({
   result,
   value,
   onChange,
+  renderMarkedStep,
 }: StepResultPickerProps) {
   const intl = useIntl()
   const items = [
@@ -42,6 +49,12 @@ export function StepResultPicker({
       : (['PASS', 'SKIP'] as const)
   const set = (key: string, status: 'PASS' | 'FAIL' | 'SKIP') =>
     onChange({ ...value, [key]: { status, reason: value[key]?.reason ?? '' } })
+  // LUM-1185: 撤回一步的结果，回到「未标」。
+  const clear = (key: string) => {
+    const next = { ...value }
+    delete next[key]
+    onChange(next)
+  }
 
   return (
     <fieldset className='flex flex-col gap-2 text-body text-muted-foreground'>
@@ -70,6 +83,21 @@ export function StepResultPicker({
                   })}
                 </label>
               ))}
+              {entry ? (
+                <button
+                  type='button'
+                  className='text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage(
+                    { id: 'testCases.field.stepResults.clearLabel' },
+                    { label: item.label }
+                  )}
+                  onClick={() => clear(item.key)}
+                >
+                  {intl.formatMessage({
+                    id: 'testCases.field.stepResults.clear',
+                  })}
+                </button>
+              ) : null}
             </div>
             {entry?.status === 'SKIP' ? (
               <input
@@ -87,6 +115,9 @@ export function StepResultPicker({
                 }
               />
             ) : null}
+            {entry && renderMarkedStep
+              ? renderMarkedStep(item.key, entry)
+              : null}
           </div>
         )
       })}

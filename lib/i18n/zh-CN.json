@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "其余全部标为通过",
   "testCases.field.stepResults.missing": "请先标记每一步：{refs}",
   "testCases.field.stepResults.noFailure": "失败的执行需要把失败的那一步标为失败。",
+  "testCases.field.stepResults.clear": "清除",
+  "testCases.field.stepResults.clearLabel": "清除「{label}」的结果",
+  "testCases.field.stepEvidence.add": "给这一步挂文件",
+  "testCases.field.stepEvidence.addLabel": "给步骤 {step} 挂文件",
+  "testCases.field.stepEvidence.remove": "移除 {filename}",
+  "testCases.field.stepEvidence.hint": "挂在步骤上的文件也计入同一上限。",
+  "testCases.field.evidenceFiles.tooManyTotal": "这次执行加上挂在步骤上的文件共 {count} 个——最多 {max} 个。",
+  "testCases.field.evidenceFiles.badType": "“{filename}”的类型不受支持——请用 PNG、JPEG、WebP、GIF、文本或 JSON。",
   "testCases.report.state.skipped": "已跳过"
 }

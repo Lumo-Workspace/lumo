@@ -704,6 +704,38 @@ describe('recordRun — step results', () => {
       expect.anything()
     )
   })
+
+  // LUM-1185: 网页记录弹窗的形状——整次文件在前、步骤文件在后，下标指进
+  // 合并后的 evidence 数组。与 CLI --step-evidence 同一契约。
+  it('stores step evidence the record dialog points at', async () => {
+    const file = (name: string) => ({
+      type: 'file',
+      url: `https://blob.example/${name}`,
+      filename: name,
+      contentType: 'image/png',
+      size: 3,
+    })
+    await rec({
+      result: 'PASS',
+      environment: 'LOCAL',
+      evidence: [file('whole.png'), file('s2.png')],
+      stepResults: [
+        { phase: 'STEPS', index: 0, status: 'PASS' },
+        { phase: 'STEPS', index: 1, status: 'PASS', evidence: [1] },
+        { phase: 'VERIFICATION', index: 0, status: 'PASS' },
+      ],
+    })
+    expect(repo.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stepResults: [
+          expect.objectContaining({ index: 0, evidence: [] }),
+          expect.objectContaining({ index: 1, evidence: [1] }),
+          expect.objectContaining({ phase: 'VERIFICATION', evidence: [] }),
+        ],
+      }),
+      expect.anything()
+    )
+  })
 })
 
 describe('LUM-1211 error wording and missingStepRefs', () => {
