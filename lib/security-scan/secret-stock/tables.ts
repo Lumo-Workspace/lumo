@@ -131,7 +131,7 @@ export const STOCK_TABLES: readonly StockTable[] = [
   {
     label: 'TestCaseRun',
     delegate: 'testCaseRun',
-    fields: ['evidence', 'note', 'failedStepText', 'actual'],
+    fields: ['evidence', 'note', 'failedStepText', 'actual', 'stepResults'],
   },
   {
     label: 'PrCommentSyncJob',
