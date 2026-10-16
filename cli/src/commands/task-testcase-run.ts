@@ -22,6 +22,8 @@ import {
 import {
   parseStepSpecs,
   parseStepEvidence,
+  missingStepRefsLocal,
+  formatMissingStepsError,
   isUrl,
 } from '../lib/test-case-steps'
 
@@ -168,7 +170,7 @@ export async function testCaseRunInScope(
     if (!steps.value.some(s => s.phase === e.phase && s.index === e.index)) {
       const ref = `${e.phase === 'STEPS' ? 's' : 'v'}${e.index + 1}`
       console.error(
-        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail.`
+        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail|skip:<reason>.`
       )
       return 1
     }
@@ -256,6 +258,26 @@ export async function testCaseRunInScope(
     return 1
   }
   if (paths.length > 0) {
+    // LUM-1211: 服务端会因漏报逐步结果拒绝这条 run；先在本地预检，别为一条
+    // 必拒的 run 上传出孤儿证据。没有文件要传时不多发这一次请求。
+    const pre = await apiCall<{
+      testCase: { steps: string[]; verification: string[] }
+    }>(ctx, base, {}, 'test case show')
+    if (!pre.ok || !pre.data) return 1
+    const missing = missingStepRefsLocal(pre.data.testCase, {
+      result: result as 'PASS' | 'FAIL' | 'BLOCKED',
+      steps: steps.value,
+      failLocator:
+        locator.failedPhase !== null && locator.failedIndex !== null
+          ? { phase: locator.failedPhase, index: locator.failedIndex }
+          : null,
+      unprovenVerification: unproven.indices,
+    })
+    if (missing.length > 0) {
+      console.error(`Error: ${formatMissingStepsError(missing)}`)
+      return 1
+    }
+
     const fd = new FormData()
     for (const p of paths) {
       let bytes: Buffer
@@ -293,6 +315,7 @@ export async function testCaseRunInScope(
     phase: s.phase,
     index: s.index,
     status: s.status,
+    ...(s.status === 'SKIP' ? { reason: s.reason } : {}),
     durationMs: s.durationMs,
     evidence: stepEvidenceIdx.get(`${s.phase}:${s.index}`) ?? [],
   }))
@@ -317,7 +340,7 @@ export async function testCaseRunInScope(
         failureAttribution: cause.cause,
         unprovenVerification: unproven.indices,
         note: options.note?.trim() || null,
-        // LUM-1011: 旧服务端会静默丢掉这两个字段（非 strict schema）。
+        // LUM-1211: 服务端要求每一步都上报；缺了它会 400 并列出缺项，CLI 原样转述。
         ...(stepResults.length > 0 ? { stepResults } : {}),
         ...(actual !== null ? { actual } : {}),
         pullRequestNumber: prNumber,
@@ -345,8 +368,11 @@ export async function testCaseRunInScope(
   }
   if (actual !== null) console.log(`  actual: ${actual}`)
   if (stepResults.length > 0) {
-    const passed = stepResults.filter(s => s.status === 'PASS').length
-    console.log(`Steps: ${passed} passed of ${stepResults.length} reported`)
+    const n = (st: string) => stepResults.filter(r => r.status === st).length
+    const parts = [`${n('PASS')} passed`]
+    if (n('SKIP') > 0) parts.push(`${n('SKIP')} skipped`)
+    if (n('FAIL') > 0) parts.push(`${n('FAIL')} failed`)
+    console.log(`Steps: ${parts.join(', ')} of ${stepResults.length} reported`)
   }
   if (prNumber !== null) console.log(`PR: #${prNumber}`)
   if (commitSha) {

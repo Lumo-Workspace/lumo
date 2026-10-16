@@ -35,6 +35,8 @@ const customJestConfig = {
     '<rootDir>/.worktrees/',
     '<rootDir>/.claude/worktrees/',
     '<rootDir>/.auto-claude/worktrees/',
+    // LUM-1211: 共享测试 helper 不是测试套件。
+    '<rootDir>/__tests__/helpers/',
   ],
   modulePathIgnorePatterns: [
     '<rootDir>/.worktrees/',

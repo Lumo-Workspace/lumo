@@ -16,7 +16,7 @@ const keys = Object.keys(en).filter(
     k.startsWith('testCases.section.') ||
     k.startsWith('testCases.report.') ||
     k.startsWith('testCases.field.actual') ||
-    k === 'testCases.field.priorPassed' ||
+    k.startsWith('testCases.field.stepResults') ||
     k.startsWith('record.gate.tests.')
 )
 const locales = readdirSync(dir).filter(

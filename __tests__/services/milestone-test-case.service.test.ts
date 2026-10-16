@@ -1,3 +1,5 @@
+import { allPass } from '../helpers/step-results'
+
 const mockGetProject = jest.fn()
 const mockFindMilestone = jest.fn()
 const mockDispatch = jest.fn()
@@ -139,7 +141,11 @@ describe('milestoneTestCaseService', () => {
     await milestoneTestCaseService.recordRun(
       'm-1',
       'TC1',
-      { result: 'PASS', environment: 'PRODUCTION' } as never,
+      {
+        result: 'PASS',
+        environment: 'PRODUCTION',
+        stepResults: allPass(mcase),
+      } as never,
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -199,7 +205,11 @@ describe('milestoneTestCaseService', () => {
     await milestoneTestCaseService.recordRun(
       'm-1',
       'TC1',
-      { result: 'PASS', environment: 'LOCAL' } as never,
+      {
+        result: 'PASS',
+        environment: 'LOCAL',
+        stepResults: allPass(mcase),
+      } as never,
       attribution
     )
     expect(mockDispatch).toHaveBeenCalledWith('m-1')

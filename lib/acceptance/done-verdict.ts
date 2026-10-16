@@ -32,7 +32,11 @@ export type TestCaseSignal =
  * LUM-819: `UNPROVEN_PASS` 是被哪条边界封顶的。只随 `UNPROVEN_PASS` 出现，
  * 纯读端展示用——闸门从不读它（UNPROVEN 永远只是 advisory）。
  */
-export type TestCaseCeilingReason = 'environment' | 'unobserved' | 'no-evidence'
+export type TestCaseCeilingReason =
+  | 'environment'
+  | 'unobserved'
+  | 'skipped'
+  | 'no-evidence'
 
 export interface DoneVerdictSnapshot {
   crossings: {

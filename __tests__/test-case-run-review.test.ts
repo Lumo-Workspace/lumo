@@ -81,6 +81,7 @@ function reviewable(over: Partial<ReviewableRun> = {}): ReviewableRun {
     environment: 'LOCAL',
     unprovenVerification: [],
     evidenceCount: 1,
+    stepResults: [],
     requiredEnvironment: null,
     ...over,
   }

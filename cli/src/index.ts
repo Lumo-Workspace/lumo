@@ -1615,7 +1615,7 @@ taskTestCase
   )
   .option(
     '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
+    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
     collect,
     [] as string[]
   )
@@ -2491,7 +2491,7 @@ milestoneTestCase
   )
   .option(
     '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
+    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
     collect,
     [] as string[]
   )

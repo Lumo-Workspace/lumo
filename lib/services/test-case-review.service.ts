@@ -68,6 +68,7 @@ function toReviewable(row: ReviewCandidateRow): ReviewableRun {
       ? (row.unprovenVerification as Array<{ index: number; text: string }>)
       : [],
     evidenceCount: countEvidence(row.evidence),
+    stepResults: row.stepResults,
     requiredEnvironment: row.testCase.requiredEnvironment,
   }
 }

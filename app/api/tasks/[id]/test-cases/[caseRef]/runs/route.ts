@@ -45,7 +45,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     // 而不是报错退出。新 CLI 按 reason 分支，不读这个字段。
     const ceiling =
       outcome.ceiling.effective === 'UNPROVEN' &&
-      outcome.ceiling.reason === 'no-evidence'
+      (outcome.ceiling.reason === 'no-evidence' ||
+        outcome.ceiling.reason === 'skipped')
         ? { ...outcome.ceiling, unobserved: [] }
         : outcome.ceiling
     return NextResponse.json({ ...outcome, ceiling })

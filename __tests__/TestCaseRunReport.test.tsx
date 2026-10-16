@@ -144,6 +144,53 @@ describe('TestCaseRunReport', () => {
     )
   })
 
+  it('draws a skipped step with its reason', () => {
+    renderReport(
+      run({
+        result: 'PASS',
+        failureAttribution: null,
+        stepResults: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: steps[0],
+            status: 'PASS',
+            durationMs: null,
+            evidence: [],
+          },
+          {
+            phase: 'STEPS',
+            index: 1,
+            text: steps[1],
+            status: 'SKIP',
+            reason: 'no staging DB',
+            durationMs: null,
+            evidence: [],
+          },
+          {
+            phase: 'STEPS',
+            index: 2,
+            text: steps[2],
+            status: 'PASS',
+            durationMs: null,
+            evidence: [],
+          },
+          {
+            phase: 'VERIFICATION',
+            index: 0,
+            text: verification[0],
+            status: 'PASS',
+            durationMs: null,
+            evidence: [],
+          },
+        ],
+      })
+    )
+    expect(rowStates()).toEqual(['passed', 'skipped', 'passed', 'passed'])
+    expect(screen.getByLabelText('Skipped')).toBeInTheDocument()
+    expect(screen.getByText(/no staging DB/)).toBeInTheDocument()
+  })
+
   it('with only a failure point, nothing is drawn as passed', () => {
     renderReport(run({ failedPhase: 'STEPS', failedIndex: 1 }))
     expect(rowStates()).toEqual([

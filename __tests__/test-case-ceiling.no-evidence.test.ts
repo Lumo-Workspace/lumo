@@ -22,6 +22,7 @@ function run(over: Partial<CeilingRun> = {}): CeilingRun {
     environment: 'LOCAL',
     unprovenVerification: [],
     evidenceCount: 0,
+    stepResults: [],
     ...over,
   }
 }
@@ -92,6 +93,21 @@ describe('LUM-819 no-evidence ceiling', () => {
     })
     expect(advisory).toBe(
       '  • [TEST CASE] TC2 login works — reported PASS, capped to UNPROVEN (no evidence attached) (advisory)'
+    )
+  })
+
+  it('renders a skipped ceiling reason in the task status advisory', () => {
+    expect(
+      formatTestCaseVerdictAction({
+        kind: 'TEST_CASE_VERDICT',
+        signal: 'UNPROVEN_PASS',
+        number: 3,
+        title: 'skip case',
+        ceilingReason: 'skipped',
+        advisory: true,
+      })
+    ).toBe(
+      '  • [TEST CASE] TC3 skip case — reported PASS, capped to UNPROVEN (some steps were skipped) (advisory)'
     )
   })
 
