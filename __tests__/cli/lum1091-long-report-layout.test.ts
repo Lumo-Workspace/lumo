@@ -528,8 +528,8 @@ describe('LUM-1091 long-report layout', () => {
     expect(out).not.toContain('  |  ')
     expect(out).toContain(
       [
-        '  • [TEST CASE] TC4 login redirect — implementation defect, with evidence (blocks DONE until',
-        '    the user rules on it)',
+        '  • [TEST CASE] TC4 login redirect — implementation defect, with evidence (blocks DONE until the',
+        '    user rules on it)',
         '    Blocks DONE until the user rules on that run — one of:',
         '      lumo task testcase disposition LUM-9001/TC4 --known-defect',
         '      lumo task testcase disposition LUM-9001/TC4 --not-a-defect',
