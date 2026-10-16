@@ -13,7 +13,8 @@
  *     [--only-applicable] [--system-file verifier-prompt-v4.txt]
  *
  * Writes { [prUrl]: { results, steps, commands, inputTokens, outputTokens,
- * cacheReadTokens, cacheWriteTokens, error, ms } }. `score-verify.py` scores
+ * cacheReadTokens, cacheWriteTokens, error, wrapUp, ms } }. A small
+ * `--max-steps` (e.g. 2) forces the wrap-up path on most PRs (LUM-1226). `score-verify.py` scores
  * a filtered run against the step3 judgement of the unfiltered one, without
  * re-judging.
  */
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
       const rej = res.results.filter(r => r.verdict === 'REJECTED').length
       const def = res.results.filter(r => r.defaulted).length
       process.stdout.write(
-        `${url.split('github.com/')[1]} ${findings.length}f rejected=${rej} defaulted=${def} steps=${res.steps} cmds=${res.commands} in=${res.inputTokens} cacheRead=${res.cacheReadTokens} cacheWrite=${res.cacheWriteTokens} out=${res.outputTokens}${res.error ? ` ERR ${res.error.slice(0, 80)}` : ''}\n`
+        `${url.split('github.com/')[1]} ${findings.length}f rejected=${rej} defaulted=${def}${res.wrapUp ? ` wrapUp=${res.wrapUp.attempts}/${res.wrapUp.submitted ? 'submitted' : 'none'}` : ''} steps=${res.steps} cmds=${res.commands} in=${res.inputTokens} cacheRead=${res.cacheReadTokens} cacheWrite=${res.cacheWriteTokens} out=${res.outputTokens}${res.error ? ` ERR ${res.error.slice(0, 80)}` : ''}\n`
       )
     }
   }

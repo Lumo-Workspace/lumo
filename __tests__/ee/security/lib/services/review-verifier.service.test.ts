@@ -28,6 +28,7 @@ jest.mock('@/ee/security/llm/review-ranker-client', () => ({
 }))
 
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { logger } from '@/lib/logger'
 import { prSecurityScanRepository as repo } from '@/ee/security/repositories/pr-security-scan.repository'
 import * as sandbox from '@/ee/security/services/security-hunt-sandbox'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
@@ -146,6 +147,34 @@ describe('LUM-988 reviewVerifierService.run', () => {
     })
     expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
     expect(out).toEqual({ findings: 1, rejected: 1, error: null })
+  })
+
+  it('LUM-1226 logs how many verdicts defaulted and how the wrap-up went', async () => {
+    ;(verifyFindings as jest.Mock).mockResolvedValue({
+      results: [{ id: 'a', verdict: 'CONFIRMED', reason: '', defaulted: true }],
+      steps: 18,
+      commands: 15,
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      error: null,
+      wrapUp: { attempts: 2, submitted: false },
+    })
+    await reviewVerifierService.run(job)
+    const line = (logger.info as jest.Mock).mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.startsWith('[review-verifier]'))
+    expect(line).toContain(' defaulted=1 wrapUp=2/none ')
+  })
+
+  it('LUM-1226 logs defaulted=0 and no wrap-up when the search submitted', async () => {
+    await reviewVerifierService.run(job)
+    const line = (logger.info as jest.Mock).mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.startsWith('[review-verifier]'))
+    expect(line).toContain(' defaulted=0 steps=')
+    expect(line).not.toContain('wrapUp=')
   })
 
   it('on a failed VM attach records no verdict but still releases the hold and syncs', async () => {

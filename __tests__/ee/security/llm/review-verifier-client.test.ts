@@ -12,6 +12,8 @@ import { CODE_REVIEW_MODEL } from '@/lib/ai/models'
 import {
   VERIFIER_SYSTEM_PROMPT,
   VERIFIER_WRAP_UP,
+  VERIFIER_WRAP_UP_ATTEMPTS,
+  VERIFIER_WRAP_UP_RETRY,
   mergeVerdicts,
   renderFindingsForPrompt,
   verifyFindings,
@@ -109,7 +111,7 @@ describe('LUM-988 review verifier client', () => {
     ])
   })
 
-  it('forces a wrap-up turn when the budget ran out without verdicts', async () => {
+  it('asks for a wrap-up turn when the budget ran out without verdicts', async () => {
     gen
       .mockImplementationOnce(async () => ({
         steps: [{}, {}, {}],
@@ -122,10 +124,11 @@ describe('LUM-988 review verifier client', () => {
           messages: Array<{ content: string }>
           toolChoice: unknown
         }) => {
-          expect(opts.toolChoice).toEqual({
-            type: 'tool',
-            toolName: 'submit_verdicts',
-          })
+          // LUM-1226 — CODE_REVIEW_MODEL rejects a forced tool choice; the
+          // provider silently downgraded `{ type: 'tool' }` to auto, so the
+          // request says what is actually sent.
+          expect(opts.toolChoice).toBe('auto')
+          expect(Object.keys(opts.tools)).toEqual(['submit_verdicts'])
           expect(opts.messages[opts.messages.length - 1]!.content).toBe(
             VERIFIER_WRAP_UP
           )
@@ -150,6 +153,104 @@ describe('LUM-988 review verifier client', () => {
       verdict: 'CONFIRMED',
       defaulted: false,
     })
+    expect(out.wrapUp).toEqual({ attempts: 1, submitted: true })
+  })
+
+  it('LUM-1226 a wrap-up answered without submit_verdicts is asked once more, append-only, and its verdicts count', async () => {
+    const searchMsgs = [{ role: 'assistant', content: 'searched' }]
+    const prose = [{ role: 'assistant', content: 'f0 looks real.' }]
+    gen
+      .mockImplementationOnce(async () => ({
+        steps: [{}, {}],
+        totalUsage: usage,
+        response: { messages: searchMsgs },
+      }))
+      // The first wrap-up answers in prose: no tool call.
+      .mockImplementationOnce(async () => ({
+        steps: [{}],
+        totalUsage: usage,
+        response: { messages: prose },
+      }))
+      .mockImplementationOnce(
+        async (opts: { tools: Tools; toolChoice: unknown }) => {
+          await opts.tools.submit_verdicts!.execute({
+            verdicts: [{ id: 'f0', verdict: 'REJECTED', reason: 'src/a.ts:3' }],
+          })
+          return { steps: [{}], totalUsage: usage, response: { messages: [] } }
+        }
+      )
+    const out = await verifyFindings({
+      findings: [finding('f0')],
+      diff: '',
+      runShell: async () => '',
+      maxSteps: 2,
+      timeoutMs: 1000,
+    })
+    expect(gen).toHaveBeenCalledTimes(3)
+    const first = gen.mock.calls[1]![0] as { messages: unknown[] }
+    const retry = gen.mock.calls[2]![0] as {
+      messages: Array<{ role: string; content: unknown }>
+      toolChoice: unknown
+    }
+    // Append-only: the retry re-sends the first wrap-up request unchanged,
+    // then that reply, then one more instruction.
+    expect(retry.messages.slice(0, first.messages.length)).toEqual(
+      first.messages
+    )
+    expect(retry.messages.slice(first.messages.length)).toEqual([
+      ...prose,
+      { role: 'user', content: VERIFIER_WRAP_UP_RETRY },
+    ])
+    expect(retry.toolChoice).toBe('auto')
+    expect(out.results).toEqual([
+      { id: 'f0', verdict: 'REJECTED', reason: 'src/a.ts:3', defaulted: false },
+    ])
+    expect(out.wrapUp).toEqual({ attempts: 2, submitted: true })
+    expect(out.steps).toBe(4)
+    expect(out.inputTokens).toBe(300)
+  })
+
+  it('LUM-1226 when neither wrap-up attempt submits, findings default and the output says so', async () => {
+    gen.mockImplementation(async () => ({
+      steps: [{}],
+      totalUsage: usage,
+      response: { messages: [{ role: 'assistant', content: 'prose' }] },
+    }))
+    const out = await verifyFindings({
+      findings: [finding('f0')],
+      diff: '',
+      runShell: async () => '',
+      maxSteps: 1,
+      timeoutMs: 1000,
+    })
+    expect(gen).toHaveBeenCalledTimes(1 + VERIFIER_WRAP_UP_ATTEMPTS)
+    expect(out.wrapUp).toEqual({
+      attempts: VERIFIER_WRAP_UP_ATTEMPTS,
+      submitted: false,
+    })
+    expect(out.results[0]).toMatchObject({
+      verdict: 'CONFIRMED',
+      defaulted: true,
+    })
+    expect(out.error).toBeNull()
+  })
+
+  it('LUM-1226 no wrap-up is asked for when the search submitted', async () => {
+    gen.mockImplementationOnce(async (opts: { tools: Tools }) => {
+      await opts.tools.submit_verdicts!.execute({
+        verdicts: [{ id: 'f0', verdict: 'CONFIRMED', reason: 'ok' }],
+      })
+      return { steps: [{}], totalUsage: usage, response: { messages: [] } }
+    })
+    const out = await verifyFindings({
+      findings: [finding('f0')],
+      diff: '',
+      runShell: async () => '',
+      maxSteps: 3,
+      timeoutMs: 1000,
+    })
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrapUp).toBeNull()
   })
 
   it('LUM-1224 marks the latest message of every step as an Anthropic cache breakpoint, leaving the text unchanged', async () => {
@@ -225,15 +326,20 @@ describe('LUM-988 review verifier client', () => {
         },
         response: { messages: [{ role: 'assistant', content: 'x' }] },
       }))
-      .mockImplementationOnce(async () => ({
-        steps: [{}],
-        totalUsage: {
-          inputTokens: 100,
-          outputTokens: 1,
-          inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0 },
-        },
-        response: { messages: [] },
-      }))
+      .mockImplementationOnce(async (opts: { tools: Tools }) => {
+        await opts.tools.submit_verdicts!.execute({
+          verdicts: [{ id: 'f0', verdict: 'CONFIRMED', reason: 'ok' }],
+        })
+        return {
+          steps: [{}],
+          totalUsage: {
+            inputTokens: 100,
+            outputTokens: 1,
+            inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0 },
+          },
+          response: { messages: [] },
+        }
+      })
     const out = await verifyFindings({
       findings: [finding('f0')],
       diff: '',
