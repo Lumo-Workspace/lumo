@@ -15,6 +15,10 @@
  * 2026-10-06 裁定：PASS → 全部通过，FAIL → 失败点之前通过）。那些条目带
  * `backfilled: true`，读端把它们当作已落库的 PASS / FAIL 照常渲染——即这条
  * 红线对回填前的旧 run 有意放宽了，新 run 不受影响。
+ *
+ * LUM-1211：新 run 必须逐步上报（服务端覆盖检查），SKIP 是第三种显式结论。
+ * 迁移 20261117090000_lum1211_backfill_pass_step_results 把 LUM-1011 回填漏掉的
+ * PASS run 也按「全部通过」补齐（用户 2026-10-16 裁定），同样带 backfilled: true。
  */
 
 export type StepPhase = 'STEPS' | 'VERIFICATION'
@@ -26,7 +30,9 @@ export interface StoredStepResult {
   index: number
   /** 判决时刻的原文快照。 */
   text: string
-  status: 'PASS' | 'FAIL'
+  status: 'PASS' | 'FAIL' | 'SKIP'
+  /** 只属于 SKIP：为什么没检查。 */
+  reason: string | null
   durationMs: number | null
   /** 本次 run 的 evidence 数组下标。 */
   evidence: number[]
@@ -38,6 +44,7 @@ export interface StoredStepResult {
  * - notReached：在失败点之后，或整条用例没跑起来（BLOCKED）。
  * - unobserved：复验条目被声明为「本次没能观察到」（LUM-808）。
  * - unrecorded：既没有逐步结论，也没有失败点可作参照。
+ * - skipped：显式上报「本次没检查」，附原因（LUM-1211）。
  */
 export type StepState =
   | 'passed'
@@ -46,12 +53,14 @@ export type StepState =
   | 'notReached'
   | 'unobserved'
   | 'unrecorded'
+  | 'skipped'
 
 export interface StepReportRow {
   phase: StepPhase
   index: number
   text: string
   state: StepState
+  reason: string | null
   durationMs: number | null
   evidence: number[]
 }
@@ -96,12 +105,18 @@ export function parseStepResults(json: unknown): StoredStepResult[] {
     if (!raw || typeof raw !== 'object') continue
     const r = raw as Record<string, unknown>
     if (!isPhase(r.phase) || !isIndex(r.index)) continue
-    if (r.status !== 'PASS' && r.status !== 'FAIL') continue
+    if (r.status !== 'PASS' && r.status !== 'FAIL' && r.status !== 'SKIP')
+      continue
+    const reason =
+      typeof r.reason === 'string' && r.reason.trim() ? r.reason : null
+    // 没有原因的 SKIP 是坏数据：往少了读，当它不存在。
+    if (r.status === 'SKIP' && reason === null) continue
     out.push({
       phase: r.phase,
       index: r.index,
       text: typeof r.text === 'string' ? r.text : '',
       status: r.status,
+      reason: r.status === 'SKIP' ? reason : null,
       durationMs: isIndex(r.durationMs) ? r.durationMs : null,
       evidence: Array.isArray(r.evidence) ? r.evidence.filter(isIndex) : [],
     })
@@ -176,7 +191,13 @@ export function deriveStepReport(
       const pos = position(phase, index)
       let state: StepState
       if (run.result === 'BLOCKED') state = 'notReached'
-      else if (entry) state = entry.status === 'PASS' ? 'passed' : 'failed'
+      else if (entry)
+        state =
+          entry.status === 'PASS'
+            ? 'passed'
+            : entry.status === 'SKIP'
+              ? 'skipped'
+              : 'failed'
       else if (failPos !== null && pos === failPos) state = 'failed'
       else if (failPos !== null && pos > failPos) state = 'notReached'
       else if (phase === 'VERIFICATION' && unproven.has(index))
@@ -188,6 +209,7 @@ export function deriveStepReport(
         index,
         text: textFor(phase, index),
         state,
+        reason: entry?.reason ?? null,
         durationMs: entry?.durationMs ?? null,
         evidence: entry?.evidence ?? [],
       })
@@ -211,7 +233,8 @@ export function deriveStepReport(
 export interface ReportedStepResult {
   phase: StepPhase
   index: number
-  status: 'PASS' | 'FAIL'
+  status: 'PASS' | 'FAIL' | 'SKIP'
+  reason?: string | null
 }
 
 /**

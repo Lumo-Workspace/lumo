@@ -236,6 +236,7 @@ function resolveStepResults(
       index: r.index,
       text: list[r.index]!,
       status: r.status,
+      reason: null,
       durationMs: r.durationMs ?? null,
       evidence: [...new Set(r.evidence ?? [])],
     })
