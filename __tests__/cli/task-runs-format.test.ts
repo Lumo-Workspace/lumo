@@ -7,7 +7,7 @@ import {
   type RunReport,
 } from '../../cli/src/commands/task-runs'
 import { buildAgentRunReport } from '@/lib/services/agent-run-report.service'
-import { TIMELINE, RUN_BOUND } from '../fixtures/lum1188/agent-runs-timeline'
+import { TIMELINE, RUN_BOUND } from '../helpers/lum1188-agent-runs-timeline'
 
 const report = buildAgentRunReport(TIMELINE, {
   sessionCount: 2,

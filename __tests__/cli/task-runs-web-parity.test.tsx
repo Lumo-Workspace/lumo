@@ -49,7 +49,7 @@ import {
   formatRunReport,
   type RunReport,
 } from '../../cli/src/commands/task-runs'
-import { TIMELINE } from '../fixtures/lum1188/agent-runs-timeline'
+import { TIMELINE } from '../helpers/lum1188-agent-runs-timeline'
 
 const cli = formatRunReport(
   'LUM-1188',

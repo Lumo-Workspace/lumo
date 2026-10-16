@@ -21,7 +21,7 @@ import {
   agentRunReportService,
   buildAgentRunReport,
 } from '@/lib/services/agent-run-report.service'
-import { TIMELINE, RUN_BOUND } from '../fixtures/lum1188/agent-runs-timeline'
+import { TIMELINE, RUN_BOUND } from '../helpers/lum1188-agent-runs-timeline'
 
 describe('buildAgentRunReport', () => {
   const report = buildAgentRunReport(TIMELINE, null)
