@@ -13,6 +13,13 @@ import {
   type Field,
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
+import {
+  sprintBurnupLines,
+  sprintTeamPerformanceLines,
+  type ReadFailure,
+  type SprintBurnupData,
+  type SprintTeamPerformanceData,
+} from '../lib/sprint-metrics'
 import { colorEnabled, terminalWidth, truncate } from '../lib/ui'
 
 export interface ShowSprintOptions {
@@ -42,6 +49,12 @@ export interface SprintBlockers {
   stalledTaskIds: SprintBlockerItem[]
   failingAgentTaskIds: SprintBlockerItem[]
   staleOpenPrNumbers: number[]
+}
+
+/** LUM-1190: the burnup / team-performance reads (each may have failed). */
+export interface SprintMetrics {
+  burnup?: SprintBurnupData | ReadFailure | undefined
+  teamPerformance?: SprintTeamPerformanceData | ReadFailure | undefined
 }
 
 const BLOCKER_LABELS = {
@@ -82,15 +95,17 @@ function blockerItem(i: SprintBlockerItem): string {
 
 /**
  * LUM-1090 — `sprint show` as a detail view: `Label:  value` rows padded to
- * the widest label, a `Blockers` section with one blocker per line, and the
- * `Tasks (N)` table. Plain text unless `opts` turns colour on.
+ * the widest label, a `Blockers` section with one blocker per line, the
+ * LUM-1190 `Burnup` and `Team performance` sections, and the `Tasks (N)`
+ * table. Plain text unless `opts` turns colour on.
  */
 export function formatSprintShow(
   s: SprintShowData,
   progress: { done: number; total: number },
   tasks: TaskRow[],
   topBlockers?: SprintBlockers,
-  opts: DetailOptions = {}
+  opts: DetailOptions = {},
+  metrics: SprintMetrics = {}
 ): string {
   const header: Field[] = [
     { label: 'Sprint', value: `#${s.number} ${sanitizeField(s.name)}` },
@@ -112,6 +127,8 @@ export function formatSprintShow(
     ...fieldLines(progressRow, 0, opts, labelW),
   ]
   if (topBlockers) lines.push(...blockerLines(topBlockers, opts))
+  lines.push(...sprintBurnupLines(metrics.burnup, opts))
+  lines.push(...sprintTeamPerformanceLines(metrics.teamPerformance, opts))
   lines.push(
     ...taskTableSection(tasks, 'None — no task is in this sprint.', opts)
   )
@@ -183,11 +200,47 @@ export async function sprintShow(
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
+  // LUM-1190: the two secondary reads are fail-soft — a failed one renders
+  // `Could not read (…)` in its section instead of failing the whole show.
+  const [burnup, teamPerformance] = await Promise.all([
+    fetchSecondary<SprintBurnupData>(
+      `${base}/api/sprints/${sprintId}/burnup`,
+      creds.token
+    ),
+    fetchSecondary<SprintTeamPerformanceData>(
+      `${base}/api/sprints/${sprintId}/team-performance`,
+      creds.token
+    ),
+  ])
+
   process.stdout.write(
-    formatSprintShow(sprint, progress, tasks, topBlockers, {
-      width: terminalWidth(),
-      color: colorEnabled(),
-      tty: Boolean(process.stdout.isTTY),
-    }) + '\n'
+    formatSprintShow(
+      sprint,
+      progress,
+      tasks,
+      topBlockers,
+      {
+        width: terminalWidth(),
+        color: colorEnabled(),
+        tty: Boolean(process.stdout.isTTY),
+      },
+      { burnup, teamPerformance }
+    ) + '\n'
   )
+}
+
+/** GET a secondary payload; any failure comes back as a {@link ReadFailure}. */
+export async function fetchSecondary<T>(
+  url: string,
+  token: string
+): Promise<T | ReadFailure> {
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return { error: `HTTP ${res.status}` }
+    return (await res.json()) as T
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }

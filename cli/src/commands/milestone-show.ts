@@ -19,13 +19,17 @@ import {
   type Field,
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
+import {
+  milestoneMetricsLines,
+  type MilestoneMetricsData,
+} from '../lib/milestone-metrics'
 import { colorEnabled, DEFAULT_TERMINAL_WIDTH, terminalWidth } from '../lib/ui'
 
 export interface ShowMilestoneOptions {
   project?: string
 }
 
-export interface MilestoneShowData {
+export interface MilestoneShowData extends MilestoneMetricsData {
   id: string
   name: string
   /** LUM-714: derived completion stamp; non-null = the milestone is done. */
@@ -213,7 +217,7 @@ function progressLines(
 /**
  * LUM-1090 — `milestone show` as a detail view: `Label:  value` rows padded to
  * the widest label, then one headed section each for the description (wrapped
- * at the report width, every line indented), progress, sprint coverage,
+ * at the report width, every line indented), progress, metrics, sprint coverage,
  * cross-milestone learning and the task table. Plain text unless `opts`
  * turns colour on (the command entry does, on a TTY).
  */
@@ -264,6 +268,8 @@ export function formatMilestoneShow(
   const description = m.description ? sanitizeField(m.description).trim() : ''
   lines.push(...(description ? wrapLines(description, 2, opts) : ['  -']))
   lines.push(...progressLines(m.taskCounts, opts))
+  // LUM-1190: the web metric strip (tokens · budget · active time · PRs).
+  lines.push(...milestoneMetricsLines(m, opts))
   lines.push(...sprintCoverageLines(m.sprintCoverage, opts))
   lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning, opts))
   lines.push(
@@ -345,6 +351,9 @@ export async function milestoneShow(
       sprintCoverage?: MilestoneShowData['sprintCoverage']
       crossMilestoneLearning?: MilestoneShowData['crossMilestoneLearning']
       closeGate?: MilestoneShowData['closeGate']
+      costRollup?: MilestoneShowData['costRollup']
+      budget?: MilestoneShowData['budget']
+      deliveryStats?: MilestoneShowData['deliveryStats']
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
@@ -381,6 +390,9 @@ export async function milestoneShow(
         sprintCoverage: milestone.sprintCoverage,
         crossMilestoneLearning: milestone.crossMilestoneLearning,
         closeGate: milestone.closeGate,
+        costRollup: milestone.costRollup,
+        budget: milestone.budget,
+        deliveryStats: milestone.deliveryStats,
       },
       tasks,
       {
