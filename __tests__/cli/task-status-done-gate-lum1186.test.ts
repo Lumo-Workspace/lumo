@@ -2,8 +2,8 @@
  * @jest-environment node
  *
  * LUM-1186 — `lumo task status` / `task wrapup` render the server's Done gate
- * (the web Record tab's single verdict + crossings / security / tests rows),
- * the claim + faithfulness, and say plainly that an unruled proven test
+ * (the web Record tab's single verdict + crossings / security / tests rows)
+ * — the claim + faithfulness stay JSON-only — and say plainly that an unruled proven test
  * defect blocks DONE. Fail-closed: an absent or unconfirmed gate is "cannot
  * confirm", never ready.
  */
@@ -18,7 +18,6 @@ import {
 } from '@/cli/src/lib/done-gate-format'
 import {
   formatTaskStatus,
-  pushClaim,
   testCaseVerdictBlocks,
   testCaseVerdictGate,
   type TaskStatusResponse,
@@ -229,18 +228,13 @@ describe('lumo task status output', () => {
     ).toBe(false)
   })
 
-  it('renders the claim and its faithfulness verdict (sanitized, one line)', () => {
-    const lines: string[] = []
-    pushClaim(
-      lines,
+  it('the text report omits the Claim section (user ruling 2026-10-17)', () => {
+    const out = formatTaskStatus(
       status({
-        claim: {
-          text: 'Added the gate\nsecond line \u001b[31mred',
-          source: 'AGENT',
-        },
+        claim: { text: 'Added the gate', source: 'AGENT' },
         faithfulness: {
-          state: 'OVERSTATED',
-          verdict: 'OVERSTATED',
+          state: 'UNJUDGEABLE',
+          verdict: 'UNJUDGEABLE',
           evidence: [],
           reasoning: null,
           diffShas: [],
@@ -250,43 +244,11 @@ describe('lumo task status output', () => {
         },
       })
     )
-    const out = lines.join('\n')
-    expect(out).toContain('Claim\n')
-    expect(out).toContain('Claim:         Added the gate')
-    expect(out).not.toContain('second line')
-    expect(out).toContain(
-      "Source:        the agent's own claim (unverified self-report)"
-    )
-    expect(out).toContain(
-      'Faithfulness:  OVERSTATED — the claim says more than the delivery shows'
-    )
-  })
-
-  it('claim: PENDING stated, none recorded, nothing on an older server', () => {
-    const lines: string[] = []
-    pushClaim(
-      lines,
-      status({
-        claim: { text: null, source: null },
-        faithfulness: {
-          state: 'PENDING',
-          verdict: null,
-          evidence: [],
-          reasoning: null,
-          diffShas: [],
-          prNumbers: [],
-          judgedAt: null,
-          judgedClaimAt: null,
-        },
-      })
-    )
-    expect(lines.join('\n')).toContain('Claim:         none recorded')
-    expect(lines.join('\n')).toContain(
-      'Faithfulness:  PENDING — not judged yet'
-    )
-    const none: string[] = []
-    pushClaim(none, status())
-    expect(none).toEqual([])
+    expect(out).not.toMatch(/^Claim$/m)
+    expect(out).not.toContain('Claim:')
+    expect(out).not.toContain('Faithfulness:')
+    expect(out).not.toContain('unverified self-report')
+    expect(out).not.toContain('Added the gate')
   })
 })
 

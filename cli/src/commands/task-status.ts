@@ -111,13 +111,13 @@ export interface TaskStatusResponse {
     }
   }
   /** LUM-564: the agent's CLAIM — what it SAYS it did (an unverified
-   *  self-report). LUM-1186: rendered in the `Claim` section. */
+   *  self-report). JSON-only: the text report does not render it. */
   claim?: {
     text: string | null
     source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
   }
   /** LUM-583: whether the CLAIM faithfully reflects the delivery, read from
-   *  the persisted verdict. LUM-1186: rendered in the `Claim` section. */
+   *  the persisted verdict. JSON-only: the text report does not render it. */
   faithfulness?: {
     state:
       | 'FAITHFUL'
@@ -574,7 +574,8 @@ export function formatTaskStatus(
   lines.push(`Status: ${t.status}`)
   // LUM-1186: the single verdict first — the web Record tab's Done gate.
   lines.push(...doneGateSection(data.doneGate, opts))
-  pushClaim(lines, data, opts)
+  // The claim / faithfulness verdict is NOT rendered here (user ruling
+  // 2026-10-17); it stays in `--json` (additive-only contract).
 
   const {
     security: securityActions,
@@ -618,63 +619,6 @@ export function formatTaskStatus(
 
   pushOpenCrossings(lines, extras, opts)
   return lines.join('\n') + '\n'
-}
-
-const CLAIM_SOURCE_LABEL: Record<
-  NonNullable<NonNullable<TaskStatusResponse['claim']>['source']>,
-  string
-> = {
-  AGENT: "the agent's own claim",
-  RUN_SUMMARY: 'the latest run summary',
-  DIGEST: 'the turn digest',
-}
-
-const FAITHFULNESS_LABEL: Record<
-  NonNullable<TaskStatusResponse['faithfulness']>['state'],
-  string
-> = {
-  FAITHFUL: 'FAITHFUL — the claim matches the delivery',
-  UNDERREPORT: 'UNDERREPORT — the delivery did more than the claim says',
-  OVERSTATED: 'OVERSTATED — the claim says more than the delivery shows',
-  UNJUDGEABLE: 'UNJUDGEABLE — the judge could not tell from the delivery',
-  PENDING: 'PENDING — not judged yet',
-  STALE: 'STALE — the verdict is for an earlier claim; not re-judged yet',
-}
-
-/**
- * LUM-1186: the `Claim` section — what the agent SAYS it did (an unverified
- * self-report) and whether the persisted faithfulness verdict says it holds.
- * Fail-closed: an older server without the fields prints nothing rather than
- * "no claim"; PENDING / STALE are stated, never shown as a verdict.
- */
-export function pushClaim(
-  lines: string[],
-  data: TaskStatusResponse,
-  opts: LayoutOptions = {}
-): void {
-  if (!data.claim && !data.faithfulness) return
-  const fields: Field[] = []
-  if (data.claim) {
-    const text = data.claim.text ? oneLineDetail(data.claim.text) : ''
-    fields.push({
-      label: 'Claim',
-      // One line, capped like a crossing detail; sanitized (agent text).
-      value: text || 'none recorded',
-    })
-    if (data.claim.source)
-      fields.push({
-        label: 'Source',
-        value: `${CLAIM_SOURCE_LABEL[data.claim.source]} (unverified self-report)`,
-      })
-  }
-  if (data.faithfulness) {
-    const label =
-      FAITHFULNESS_LABEL[data.faithfulness.state] ??
-      sanitizeField(String(data.faithfulness.state))
-    fields.push({ label: 'Faithfulness', value: label })
-  }
-  lines.push(...sectionHeading('Claim', opts))
-  lines.push(...fieldLines(fields, 2, opts))
 }
 
 /**
