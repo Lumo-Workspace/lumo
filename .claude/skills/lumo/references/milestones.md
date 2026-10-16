@@ -167,7 +167,7 @@ Milestone test cases are cross-task, end-to-end cases and the milestone close co
 
 ```bash
 lumo milestone testcase add "Review v2" --title "PR review round-trip" --step "open a PR in a connected repo" --step "wait for the review" --verify "the review comment is on the PR" --expected "one review comment per finding" --requires-env production
-lumo milestone testcase run "Review v2" TC1 --result pass --env production --evidence https://github.com/o/r/pull/1#issuecomment-1
+lumo milestone testcase run "Review v2" TC1 --result pass --env production --step s1-2=pass --step v1=pass --evidence https://github.com/o/r/pull/1#issuecomment-1
 lumo milestone testcase list "Review v2"
 lumo milestone testcase show "Review v2" TC1
 lumo milestone testcase update "Review v2" TC1 --expected "one review comment per finding, on the right line"

@@ -120,7 +120,7 @@ lumo task testcase rm LUM-42/TC3
 | `--actual <text>`        | 仅 FAIL：失败那一步**实际**看到了什么，网页上与用例的期望并排显示                                                                                                                                  |
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --cause defect --note "页脚只剩版权行" --evidence-file ./screenshot.png
+lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --cause defect --step s1=pass --step s2=fail --note "页脚只剩版权行" --evidence-file ./screenshot.png
 ```
 
 ### 逐步结果：这次跑到了哪一步（LUM-1011）
@@ -177,16 +177,16 @@ lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-2=pass --s
 回显会把降级摆在脸上：
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env local
+lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-3=pass --step v1=pass
 # Recorded LUM-42/TC3: PASS on LOCAL → UNPROVEN (this case only proves anything on PRODUCTION)
 ```
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production
+lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pass --step v1=pass --evidence-file ./jest.json
 ```
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production
+lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pass --step v1=pass
 # Recorded LUM-42/TC3: PASS on PRODUCTION → UNPROVEN (no evidence attached — nobody else can re-read this PASS)
 ```
 
@@ -201,7 +201,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production
 `--env preview` / `--env production` **不会**去读本地 git —— 本地检出跑的不是那些环境跑的东西。把操作者的 HEAD 记成「生产验过的 commit」是假话；更糟的是如果本地 HEAD 恰好等于 PR head，陈旧性会把它判成 `fresh`，等于伪造一条「生产已验证」。非 local 要记 commit，**必须显式** `--commit <sha>`：由人断言「线上跑的就是这个」，而不是让工具猜。
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --commit 80b62a3
+lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --commit 80b62a3 --step s1-3=pass --step v1=pass
 ```
 
 给了 `--commit` 时 `commitDirty` 置 null —— 显式指定 commit 就不再声称知道工作区状态。
