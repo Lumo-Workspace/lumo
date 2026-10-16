@@ -2967,13 +2967,13 @@
   "language.switcher.label": "語言",
   "testCases.ceiling.skipped": "{count, plural, other {略過了 # 步}}",
   "testCases.field.stepResults": "每一步的結果",
-  "testCases.field.stepResults.hint": "必須標記每一步。只跳過本次沒有檢查的項目，並說明原因。",
+  "testCases.field.stepResults.hint": "必須標記每一步。只略過本次沒有檢查的項目，並說明原因。",
   "testCases.field.stepResults.pass": "通過",
   "testCases.field.stepResults.fail": "失敗",
-  "testCases.field.stepResults.skip": "跳過",
-  "testCases.field.stepResults.reason": "為什麼跳過？",
+  "testCases.field.stepResults.skip": "略過",
+  "testCases.field.stepResults.reason": "為什麼略過？",
   "testCases.field.stepResults.restPass": "其餘全部標為通過",
   "testCases.field.stepResults.missing": "請先標記每一步：{refs}",
   "testCases.field.stepResults.noFailure": "失敗的執行需要把失敗的那一步標為失敗。",
-  "testCases.report.state.skipped": "已跳過"
+  "testCases.report.state.skipped": "已略過"
 }
