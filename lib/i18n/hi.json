@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "बाकी को पास चिह्नित करें",
   "testCases.field.stepResults.missing": "पहले हर चरण चिह्नित करें: {refs}",
   "testCases.field.stepResults.noFailure": "विफल रन में जिस चरण पर वह विफल हुआ उसे विफल चिह्नित करना ज़रूरी है।",
+  "testCases.field.stepResults.clear": "हटाएँ",
+  "testCases.field.stepResults.clearLabel": "{label} का परिणाम हटाएँ",
+  "testCases.field.stepEvidence.add": "इस चरण में फ़ाइलें जोड़ें",
+  "testCases.field.stepEvidence.addLabel": "चरण {step} में फ़ाइलें जोड़ें",
+  "testCases.field.stepEvidence.remove": "{filename} हटाएँ",
+  "testCases.field.stepEvidence.hint": "चरणों में जोड़ी गई फ़ाइलें भी इसी सीमा में गिनी जाती हैं।",
+  "testCases.field.evidenceFiles.tooManyTotal": "चरणों में जोड़ी गई फ़ाइलों सहित इस रन में {count} फ़ाइलें होंगी — अधिकतम {max}।",
+  "testCases.field.evidenceFiles.badType": "“{filename}” समर्थित प्रकार नहीं है — PNG, JPEG, WebP, GIF, टेक्स्ट या JSON का उपयोग करें।",
   "testCases.report.state.skipped": "छोड़ा गया"
 }

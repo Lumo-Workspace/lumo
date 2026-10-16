@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "Tandakan selebihnya lulus",
   "testCases.field.stepResults.missing": "Tandakan setiap langkah dahulu: {refs}",
   "testCases.field.stepResults.noFailure": "Larian yang gagal memerlukan langkah tempat ia gagal ditanda sebagai gagal.",
+  "testCases.field.stepResults.clear": "Kosongkan",
+  "testCases.field.stepResults.clearLabel": "Kosongkan keputusan {label}",
+  "testCases.field.stepEvidence.add": "Lampirkan fail pada langkah ini",
+  "testCases.field.stepEvidence.addLabel": "Lampirkan fail pada langkah {step}",
+  "testCases.field.stepEvidence.remove": "Buang {filename}",
+  "testCases.field.stepEvidence.hint": "Fail yang dilampirkan pada langkah dikira dalam had yang sama.",
+  "testCases.field.evidenceFiles.tooManyTotal": "Termasuk fail yang dilampirkan pada langkah, larian ini ada {count} fail — maksimum {max}.",
+  "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang disokong — gunakan PNG, JPEG, WebP, GIF, teks atau JSON.",
   "testCases.report.state.skipped": "Dilangkau"
 }

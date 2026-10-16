@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "Tandai sisanya lulus",
   "testCases.field.stepResults.missing": "Tandai setiap langkah terlebih dahulu: {refs}",
   "testCases.field.stepResults.noFailure": "Eksekusi yang gagal memerlukan langkah tempat ia gagal ditandai sebagai gagal.",
+  "testCases.field.stepResults.clear": "Hapus",
+  "testCases.field.stepResults.clearLabel": "Hapus hasil {label}",
+  "testCases.field.stepEvidence.add": "Lampirkan file ke langkah ini",
+  "testCases.field.stepEvidence.addLabel": "Lampirkan file ke langkah {step}",
+  "testCases.field.stepEvidence.remove": "Hapus {filename}",
+  "testCases.field.stepEvidence.hint": "File yang dilampirkan ke langkah ikut dihitung dalam batas yang sama.",
+  "testCases.field.evidenceFiles.tooManyTotal": "Dengan file yang dilampirkan ke langkah, eksekusi ini berisi {count} file — maksimal {max}.",
+  "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang didukung — gunakan PNG, JPEG, WebP, GIF, teks, atau JSON.",
   "testCases.report.state.skipped": "Dilewati"
 }

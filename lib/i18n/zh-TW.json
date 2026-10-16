@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "其餘全部標為通過",
   "testCases.field.stepResults.missing": "請先標記每一步：{refs}",
   "testCases.field.stepResults.noFailure": "失敗的執行需要把失敗的那一步標為失敗。",
+  "testCases.field.stepResults.clear": "清除",
+  "testCases.field.stepResults.clearLabel": "清除「{label}」的結果",
+  "testCases.field.stepEvidence.add": "為這一步附加檔案",
+  "testCases.field.stepEvidence.addLabel": "為步驟 {step} 附加檔案",
+  "testCases.field.stepEvidence.remove": "移除 {filename}",
+  "testCases.field.stepEvidence.hint": "附加在步驟上的檔案也計入同一上限。",
+  "testCases.field.evidenceFiles.tooManyTotal": "這次執行加上附加在步驟上的檔案共 {count} 個——最多 {max} 個。",
+  "testCases.field.evidenceFiles.badType": "「{filename}」的類型不受支援——請使用 PNG、JPEG、WebP、GIF、文字或 JSON。",
   "testCases.report.state.skipped": "已略過"
 }

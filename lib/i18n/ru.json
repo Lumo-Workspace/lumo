@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "Отметить остальные как пройденные",
   "testCases.field.stepResults.missing": "Сначала отметьте каждый шаг: {refs}",
   "testCases.field.stepResults.noFailure": "Для проваленного прогона нужно отметить как проваленный шаг, на котором он упал.",
+  "testCases.field.stepResults.clear": "Сбросить",
+  "testCases.field.stepResults.clearLabel": "Сбросить результат: {label}",
+  "testCases.field.stepEvidence.add": "Прикрепить файлы к этому шагу",
+  "testCases.field.stepEvidence.addLabel": "Прикрепить файлы к шагу {step}",
+  "testCases.field.stepEvidence.remove": "Удалить {filename}",
+  "testCases.field.stepEvidence.hint": "Файлы, прикреплённые к шагам, входят в тот же лимит.",
+  "testCases.field.evidenceFiles.tooManyTotal": "С учётом файлов, прикреплённых к шагам, в этом запуске будет {count} файлов — максимум {max}.",
+  "testCases.field.evidenceFiles.badType": "«{filename}» — неподдерживаемый тип. Используйте PNG, JPEG, WebP, GIF, текст или JSON.",
   "testCases.report.state.skipped": "Пропущен"
 }

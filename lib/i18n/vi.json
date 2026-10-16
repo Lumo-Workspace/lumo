@@ -2975,5 +2975,13 @@
   "testCases.field.stepResults.restPass": "Đánh dấu các bước còn lại là đạt",
   "testCases.field.stepResults.missing": "Hãy đánh dấu mọi bước trước: {refs}",
   "testCases.field.stepResults.noFailure": "Lần chạy thất bại cần đánh dấu bước bị lỗi là không đạt.",
+  "testCases.field.stepResults.clear": "Xóa",
+  "testCases.field.stepResults.clearLabel": "Xóa kết quả của {label}",
+  "testCases.field.stepEvidence.add": "Đính kèm tệp vào bước này",
+  "testCases.field.stepEvidence.addLabel": "Đính kèm tệp vào bước {step}",
+  "testCases.field.stepEvidence.remove": "Gỡ {filename}",
+  "testCases.field.stepEvidence.hint": "Tệp đính kèm vào các bước cũng tính vào cùng giới hạn.",
+  "testCases.field.evidenceFiles.tooManyTotal": "Tính cả tệp đính kèm vào các bước, lần chạy này có {count} tệp — tối đa {max}.",
+  "testCases.field.evidenceFiles.badType": "“{filename}” không phải loại được hỗ trợ — hãy dùng PNG, JPEG, WebP, GIF, văn bản hoặc JSON.",
   "testCases.report.state.skipped": "Bỏ qua"
 }
