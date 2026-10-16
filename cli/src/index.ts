@@ -49,6 +49,9 @@ import {
 } from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
+import { inboxList } from './commands/inbox-list'
+import { draftList } from './commands/draft-list'
+import { projectOverview, workspaceOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { spotCheck, type SpotCheckOptions } from './commands/spot-check'
 import { tagCreate, tagList } from './commands/tag'
@@ -1723,6 +1726,26 @@ memberCmd
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
 
+program
+  .command('inbox')
+  .description('Your Lumo inbox (notifications) from the terminal')
+  .command('list')
+  .description(
+    'List your notifications as the web inbox shows them (LUM-1192): pending responses first, then the rest, newest first; • marks unread. Read-only.'
+  )
+  .option('--json', 'Emit { notifications, unreadCount } as JSON')
+  .action(wrap(options => inboxList(options as { json?: boolean })))
+
+program
+  .command('draft')
+  .description('Your unsent task / project drafts')
+  .command('list')
+  .description(
+    'List your own task / project drafts saved by the web composer (LUM-1192), newest first. Read-only.'
+  )
+  .option('--json', 'Emit { drafts } as JSON')
+  .action(wrap(options => draftList(options as { json?: boolean })))
+
 const auditCmd = program
   .command('audit')
   .description('Workspace audit log (workspace owners only)')
@@ -1893,6 +1916,19 @@ workspaceCmd
   )
 
 workspaceCmd
+  .command('overview')
+  .description(
+    'The Dashboard as text (LUM-1192): task totals, status distribution, projects at a glance, member workload, completions over the last 7 active days and the latest stored briefing. Read-only — never generates a briefing.'
+  )
+  .option('--report', "Print the briefing's full report under its TL;DR")
+  .option('--json', 'Emit { stats, summary } as JSON')
+  .action(
+    wrap(options =>
+      workspaceOverview(options as { json?: boolean; report?: boolean })
+    )
+  )
+
+workspaceCmd
   .command('learnings')
   .description(
     "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
@@ -1937,6 +1973,22 @@ projectCmd
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
   .action(wrap(() => projectList()))
+
+projectCmd
+  .command('overview [project]')
+  .description(
+    "A project's health and stats as on its web page (LUM-1192): stalled / high-stakes tasks, stale PRs, overdue, status distribution, workload, recent completions and the latest stored summary. <project> = name or slug (optional when the workspace has one project). Read-only."
+  )
+  .option('--report', "Print the summary's full report under its TL;DR")
+  .option('--json', 'Emit { project, stats, summary } as JSON')
+  .action(
+    wrap((ref, options) =>
+      projectOverview(
+        ref as string | undefined,
+        options as { json?: boolean; report?: boolean }
+      )
+    )
+  )
 
 projectCmd
   .command('create <name>')

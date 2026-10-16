@@ -1,21 +1,27 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth/identity'
+import { loadProjectForIdentity } from '@/lib/api/helpers'
 import { summaryService } from '@/lib/services/summary.service'
 import { getSummarySchema } from '@/lib/validation/schemas'
 
+/**
+ * GET /api/summaries/project/[projectId] — stored project summaries, newest
+ * first. Read-only: generation is `POST /api/summaries/generate/project/[id]`.
+ *
+ * LUM-1192: browser session or API key (`lumo project overview`). A project
+ * outside the credential's workspace answers 404, like a missing one.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const { projectId } = await params
 
-    const projectResult = await loadProjectAndMember(projectId, userId)
+    const projectResult = await loadProjectForIdentity(projectId, identity)
     if (projectResult instanceof NextResponse) return projectResult
 
     const { searchParams } = new URL(request.url)

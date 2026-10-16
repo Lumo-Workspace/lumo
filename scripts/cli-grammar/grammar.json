@@ -875,6 +875,29 @@
       "isInvokable": true,
       "description": "Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0."
     },
+    "draft": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Your unsent task / project drafts"
+    },
+    "draft list": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { drafts } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List your own task / project drafts saved by the web composer (LUM-1192), newest first. Read-only."
+    },
     "finding": {
       "arguments": [],
       "flags": {},
@@ -1384,6 +1407,29 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
+    },
+    "inbox": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Your Lumo inbox (notifications) from the terminal"
+    },
+    "inbox list": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { notifications, unreadCount } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List your notifications as the web inbox shows them (LUM-1192): pending responses first, then the rest, newest first; • marks unread. Read-only."
     },
     "init": {
       "arguments": [],
@@ -2743,6 +2789,32 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    },
+    "project overview": {
+      "arguments": [
+        { "name": "project", "required": false, "variadic": false }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { project, stats, summary } as JSON"
+        },
+        "--report": {
+          "long": "--report",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print the summary's full report under its TL;DR"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "A project's health and stats as on its web page (LUM-1192): stalled / high-stakes tasks, stale PRs, overdue, status distribution, workload, recent completions and the latest stored summary. <project> = name or slug (optional when the workspace has one project). Read-only."
     },
     "project update": {
       "arguments": [{ "name": "project", "required": true, "variadic": false }],
@@ -5169,6 +5241,30 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
+    },
+    "workspace overview": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { stats, summary } as JSON"
+        },
+        "--report": {
+          "long": "--report",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print the briefing's full report under its TL;DR"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "The Dashboard as text (LUM-1192): task totals, status distribution, projects at a glance, member workload, completions over the last 7 active days and the latest stored briefing. Read-only — never generates a briefing."
     },
     "workspace security-scan": {
       "arguments": [],
