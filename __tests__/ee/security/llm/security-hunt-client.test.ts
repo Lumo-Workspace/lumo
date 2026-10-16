@@ -1017,6 +1017,22 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
       reasoningTokens: 40,
       finishReason: 'tool-calls',
     })
+    // LUM-1224 — the cache share of the step's input, when reported.
+    expect(
+      traceOfStep(2, {
+        usage: {
+          inputTokens: 5000,
+          outputTokens: 10,
+          inputTokenDetails: { cacheReadTokens: 4200, cacheWriteTokens: 300 },
+        },
+      })
+    ).toEqual({
+      i: 2,
+      inputTokens: 5000,
+      outputTokens: 10,
+      cacheReadTokens: 4200,
+      cacheWriteTokens: 300,
+    })
     // No text, no tool, no usage: the step is its index and nothing else —
     // a `?` in the read-out, not a 0 that looks like a measurement.
     expect(traceOfStep(1, { text: '   ', toolCalls: [] })).toEqual({ i: 1 })
@@ -1449,8 +1465,35 @@ describe('LUM-787 transcript elision', () => {
     const out = await huntTask({ ...base, onStep: s => seen.push(s) })
 
     // Step 1: nothing to elide, nothing spent — the opening call is what
-    // every scan before this sent, byte for byte.
-    expect(prepared[0]).toBeUndefined()
+    // every scan before this sent, byte for byte, plus (LUM-1224) a cache
+    // breakpoint on the opening prompt.
+    const cc = { anthropic: { cacheControl: { type: 'ephemeral' } } }
+    const opts = (m: unknown) =>
+      (m as { providerOptions?: unknown }).providerOptions
+    expect(prepared[0]!.messages).toHaveLength(1)
+    expect(prepared[0]!.messages![0]).toMatchObject({
+      role: 'user',
+      content: gen.mock.calls[0]![0].prompt,
+      providerOptions: cc,
+    })
+    expect(prepared[0]!.system).toBeUndefined()
+    // LUM-1224 — from step 2 on the breakpoint is the latest assistant
+    // message: the next step re-sends everything up to it unchanged, and
+    // elides the result after it. Exactly one breakpoint per step.
+    expect(prepared[1]!.messages!.map(opts)).toEqual([
+      undefined,
+      cc,
+      undefined,
+      undefined,
+    ])
+    expect(prepared[2]!.messages!.map(opts)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      cc,
+      undefined,
+      undefined,
+    ])
     // Step 2: one completed step, and it is the latest — its result stays
     // whole; the only change is the gauge appended as the last message.
     // steps left = (20 000 − 1 000 spent − 4 000 reserve) / 1 000 dearest = 15.
@@ -1484,6 +1527,9 @@ describe('LUM-787 transcript elision', () => {
     // latest (a short hit) whole, and the instruction last.
     const wrap = gen.mock.calls[1]![0] as { messages: unknown[] }
     expect(wrap.messages).toHaveLength(8)
+    // LUM-1224 — the forced tool choice invalidates the cached messages, so
+    // the replay carries no breakpoint (a marker would only pay to write).
+    expect(wrap.messages.map(opts).every(o => o === undefined)).toBe(true)
     expect(resultOf(wrap.messages[2])).toEqual({ output: elisionStub(2_000) })
     expect(resultOf(wrap.messages[4])).toEqual({ output: elisionStub(2_000) })
     expect(resultOf(wrap.messages[6])).toEqual({ output: 'lib/c.ts:3: hit' })

@@ -111,3 +111,29 @@ export function elideOlderToolResults(
   })
   return { messages: out, elided, elidedChars }
 }
+
+/**
+ * LUM-1224 — the index of the last message the NEXT step will send byte for
+ * byte, which is where the prompt-cache breakpoint goes (a breakpoint past it
+ * would pay the cache-write premium for a prefix nothing reads).
+ *
+ * The next step adds one tool message and stubs one more: the oldest of the
+ * `keepSteps` results this step still sends whole. Everything before that
+ * message is final — older results are already stubs, and a stub (or a
+ * result too short to stub) never changes again. With fewer completed steps
+ * than are kept whole, nothing is stubbed next step and the whole transcript
+ * is final. -1 for an empty transcript.
+ */
+export function stablePrefixEnd(
+  messages: ReadonlyArray<ModelMessage>,
+  keepSteps: number = HUNT_ELIDE_KEEP_STEPS
+): number {
+  const toolIndexes: number[] = []
+  messages.forEach((m, i) => {
+    if (m.role === 'tool') toolIndexes.push(i)
+  })
+  const nextElided = toolIndexes[toolIndexes.length - Math.max(0, keepSteps)]
+  return keepSteps > 0 && nextElided !== undefined
+    ? nextElided - 1
+    : messages.length - 1
+}

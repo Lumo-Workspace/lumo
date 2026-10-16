@@ -74,7 +74,11 @@ import {
   HUNT_WRAP_UP_MIN_MS,
   HUNT_WRAP_UP_TIMEOUT_MS,
 } from '@/ee/security/services/security-hunt.config'
-import { elideOlderToolResults } from '@/ee/security/security-scan/hunt/transcript'
+import {
+  elideOlderToolResults,
+  stablePrefixEnd,
+} from '@/ee/security/security-scan/hunt/transcript'
+import { markCacheBreakpoint } from '@/lib/ai/prompt-cache'
 import {
   lastStepTokens,
   nextStepTokens,
@@ -305,12 +309,20 @@ export function traceOfStep(
       inputTokens?: number | undefined
       outputTokens?: number | undefined
       outputTokenDetails?: { reasoningTokens?: number | undefined } | undefined
+      inputTokenDetails?:
+        | {
+            cacheReadTokens?: number | undefined
+            cacheWriteTokens?: number | undefined
+          }
+        | undefined
     }
   }
 ): HuntStepTrace {
   const tool = step.toolCalls?.[0]?.toolName
   const text = step.text?.trim()
   const reasoning = step.usage?.outputTokenDetails?.reasoningTokens
+  const cacheRead = step.usage?.inputTokenDetails?.cacheReadTokens
+  const cacheWrite = step.usage?.inputTokenDetails?.cacheWriteTokens
   return {
     i,
     ...(tool ? { tool } : {}),
@@ -318,6 +330,8 @@ export function traceOfStep(
     ...(typeof step.usage?.inputTokens === 'number'
       ? { inputTokens: step.usage.inputTokens }
       : {}),
+    ...(typeof cacheRead === 'number' ? { cacheReadTokens: cacheRead } : {}),
+    ...(typeof cacheWrite === 'number' ? { cacheWriteTokens: cacheWrite } : {}),
     ...(typeof step.usage?.outputTokens === 'number'
       ? { outputTokens: step.usage.outputTokens }
       : {}),
@@ -676,10 +690,20 @@ export async function huntTask(
     // gauge. Step 1 is sent untouched — nothing to elide, nothing spent — so
     // the opening call stays byte-identical to what every scan before this
     // sent.
+    //
+    // LUM-1224 — plus one prompt-cache breakpoint per step, on the last
+    // message the next step will re-send unchanged (`stablePrefixEnd`): the
+    // opening prompt, then the latest assistant message (the result after it
+    // is stubbed next step, and the gauge is never re-sent). The next step
+    // then reads that prefix from the cache. Only the marker is added.
     prepareStep: ({ steps, messages }) => {
       const { messages: elided, elidedChars } = elideOlderToolResults(messages)
       pendingElidedChars = elidedChars
-      if (steps.length === 0) return undefined
+      const sent = markCacheBreakpoint(
+        elidedChars > 0 ? elided : messages,
+        stablePrefixEnd(messages)
+      )
+      if (steps.length === 0) return { messages: sent }
       const stepsLeft = stepsLeftForecast(
         steps,
         input.tokenBudget,
@@ -687,7 +711,7 @@ export async function huntTask(
       )
       return {
         messages: [
-          ...(elidedChars > 0 ? elided : messages),
+          ...sent,
           {
             role: 'user',
             content: renderBudgetLine(
