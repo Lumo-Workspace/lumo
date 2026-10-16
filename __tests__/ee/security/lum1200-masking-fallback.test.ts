@@ -143,9 +143,9 @@ describe('B. tool output masks a keyed value exactly once', () => {
     )
   })
 
-  it('fail closed: two keyed values on one line are each masked once', () => {
+  it('fail closed: two credential-keyed values on one line are each masked once', () => {
     const out = redactToolOutputLine(
-      `JWT_SECRET=${PASSPHRASE} other=${STRIPE_LIKE}`
+      `JWT_SECRET=${PASSPHRASE} api_key=${STRIPE_LIKE}`
     )
     expect(out).not.toContain(PASSPHRASE)
     expect(out).not.toContain(STRIPE_LIKE)
