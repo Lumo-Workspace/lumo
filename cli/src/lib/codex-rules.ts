@@ -91,6 +91,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'project update',
   'report',
   'session status',
+  'spot-check',
   'sprint add',
   'sprint close',
   'sprint create',

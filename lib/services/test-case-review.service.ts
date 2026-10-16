@@ -33,6 +33,13 @@ export interface ReviewPoolItem {
   evidence: unknown
   recordedAt: string
   /**
+   * LUM-1191: 执行人显示名（同 `testcase list` 口径）。null = 这条 run 没记
+   * 执行人，读作「未记录」不是「没人」。成员已被清理时兜底成 member id。
+   */
+  executedBy: string | null
+  /** 来源 session —— 有就是 agent 代跑，没有就是人手动（LUM-1008）。 */
+  sourceSessionId: string | null
+  /**
    * LUM-819 返工：证据要对照的东西。没有这些，复核人只能判断证据「像不像
    * 样」，判断不了它「证没证明预期」。
    */
@@ -73,7 +80,10 @@ function toReviewable(row: ReviewCandidateRow): ReviewableRun {
   }
 }
 
-function toPoolItem(row: ReviewCandidateRow): ReviewPoolItem {
+function toPoolItem(
+  row: ReviewCandidateRow,
+  labels: Map<string, string>
+): ReviewPoolItem {
   return {
     runId: row.id,
     taskIdentifier: `${row.task.team.identifier}-${row.task.number}`,
@@ -86,6 +96,10 @@ function toPoolItem(row: ReviewCandidateRow): ReviewPoolItem {
     note: row.note,
     evidence: row.evidence,
     recordedAt: row.createdAt.toISOString(),
+    executedBy: row.executedByMemberId
+      ? (labels.get(row.executedByMemberId) ?? row.executedByMemberId)
+      : null,
+    sourceSessionId: row.sourceSessionId,
     setup: row.testCase.setup,
     steps: row.testCase.steps,
     verification: row.testCase.verification,
@@ -186,8 +200,15 @@ export const testCaseReviewService = {
       opts.sampleSize ?? REVIEW_SAMPLE_SIZE,
       opts.random
     )
+    const rows = sample.map(r => byId.get(r.id)!)
+    // 只解析抽中那几条的执行人，不为整个候选池去查成员目录。
+    const labels = await memberRepository.labelsByIds([
+      ...new Set(
+        rows.flatMap(r => (r.executedByMemberId ? [r.executedByMemberId] : []))
+      ),
+    ])
     return {
-      sample: sample.map(r => toPoolItem(byId.get(r.id)!)),
+      sample: rows.map(r => toPoolItem(r, labels)),
       poolSize: pool.length,
       rate: deriveFalseReportRate(reviews),
     }

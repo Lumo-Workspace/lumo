@@ -21,6 +21,9 @@ const candidateSelect = {
   note: true,
   commitSha: true,
   commitDirty: true,
+  // LUM-1191: 执行人（`lumo spot-check` 列出谁跑的这条 run）。
+  executedByMemberId: true,
+  sourceSessionId: true,
   createdAt: true,
   // LUM-819 返工：复核要对照的东西——没有预期结果和标准原文，看证据只能看
   // 「像不像样」，判断不了「证没证明」。

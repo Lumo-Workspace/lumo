@@ -50,6 +50,8 @@ const ITEM = {
     { type: 'link', url: 'https://example.test/log', label: 'ci log' },
   ],
   recordedAt: '2026-09-23T08:00:00.000Z',
+  executedBy: null,
+  sourceSessionId: null,
   setup: null,
   steps: ['open the login page', 'sign in'],
   verification: ['the dashboard is shown'],

@@ -270,6 +270,33 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 - **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，DONE 闸门读都不读它。
 - 任务一旦有任意一条用例（或已 DONE），四处全部静默。
 
+## `lumo spot-check` — 抽检池（只读，LUM-1191）
+
+workspace 级、只读：与 web 的 run-reviews 页 / Dashboard 的 Spot-check 卡片同一份数据（`GET /api/test-case-reviews`）。抽检池 = 报了 PASS、封顶后仍成立（有证据、环境对、没有未观察项）、还没人复核过的 run。
+
+```bash
+lumo spot-check
+lumo spot-check --json
+```
+
+```
+False-report rate: not enough reviews to estimate a rate yet: 2 of the 10 needed, 1 sent back so far.
+7 unreviewed passes in the pool · showing a random sample of 2
+
+LUM-42/TC3  login works    PRODUCTION  2026-09-23 16:00  by Alice Chen via session 86dce765  @abcdef1+dirty  #42
+LUM-7/TC1   logout clears  LOCAL       2026-09-22 09:02  runner not recorded                 -               -
+
+Hint: reviewing is human-only — open https://…/workspace/<slug>/run-reviews in the browser to look at the evidence and rule.
+```
+
+- 第一行是**已复核结果**：虚报率读数，永远带分子分母；已复核不足 10 条时只报计数、不给百分比（同 web）。分母按 run 算，同一条 run 改过主意只算最新那次。
+- 每行一条**待复核**的 run：`<task>/TC<n>`（可直接 `lumo task testcase show`）、用例标题、环境、记录时间、执行人（同 `testcase list` 口径：`via session` = agent 代跑；`runner not recorded` = 没记，不是「没人」）、commit、PR。表头只在 TTY 上打。
+- 样本是服务端**随机抽**的（最多 20 条），每次调用都会换一批——和 web 的「Draw a new sample」一样；`--json` 原样输出服务端 payload（`sample` / `poolSize` / `rate`）。
+- **没有 CLI 复核命令**：认可 / 打回是 human-only，只能在浏览器里做（服务端拒绝 bearer）。别替用户去点，也别把这个命令和 `pr scan --review` 混淆——后者是 PR 代码审查。
+- 抽查**不进 DONE 闸**；某条用例最新一次执行被打回时，`task status` 只出一条 advisory。
+
+**When to suggest**：用户问「抽检池里还有多少没看」「虚报率多少」「最近有哪些 PASS 等着复核」→ `lumo spot-check`；要复核就把 web 链接给用户。
+
 ## When to suggest
 
 - 用户描述一条**可反复执行的手工验证剧本**（有前置条件、有编号步骤、有预期结果）→ `testcase add`。test case 是要跑很多次的。

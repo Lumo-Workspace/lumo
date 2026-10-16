@@ -114,6 +114,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
 
 - `lumo task testcase add/list/show/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录，`run --env` 必填、`run --step` 逐步必报；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`show/list` 显示与 web 一致的完整判定（UNPROVEN 封顶及原因、cause、复核、逐步报告、`N/M passing`）
+- `lumo spot-check [--json]` — 只读：workspace 抽检池（虚报率 + 随机抽出的待复核 PASS run，含执行人）；复核本身 human-only，只在浏览器
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
 
