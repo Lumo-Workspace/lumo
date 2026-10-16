@@ -1,5 +1,6 @@
 import { fmtDay } from './format'
 import { sanitizeField } from './sanitize'
+import { formatEvidenceLines } from './test-case-evidence'
 
 /**
  * LUM-1185: `testcase show / list` 的判定渲染——逐步报告、抽查复核、required
@@ -28,6 +29,8 @@ interface StepReportRow {
   state: StepState
   reason: string | null
   durationMs: number | null
+  /** LUM-1185: 挂在这一步的证据——run 原始 evidence 数组的下标。旧服务端不发。 */
+  evidence?: unknown
 }
 
 interface StepReport {
@@ -116,11 +119,31 @@ export function formatStepProgress(
   return 'no per-step results were recorded for this run'
 }
 
+/** 一行挂的证据下标；形状不对的一律丢（往少了读：多读一条会把证据挂错步）。 */
+function rowEvidence(row: StepReportRow): number[] {
+  return Array.isArray(row.evidence)
+    ? row.evidence.filter(
+        (i): i is number =>
+          typeof i === 'number' && Number.isInteger(i) && i >= 0
+      )
+    : []
+}
+
+/** 每步证据的缩进：比步骤行（4 格 + 图标）再深一层，读起来挂在那一步底下。 */
+const STEP_EVIDENCE_INDENT = '        '
+
 /**
  * 服务端算好的逐步报告 → 每步一行（所有步骤，含 not reached / unrecorded）。
  * 返回 null = 旧服务端没发 stepReport，调用方退回旧的打印方式。
+ *
+ * LUM-1185: 给了 `evidence`（这条 run 的原始证据数组）时，每步下面缩进列出挂在
+ * 该步的证据——与 web TestCaseRunReport 一样，用服务端 `rows[].evidence` 的
+ * 原始下标挑，不在 CLI 重新推导归属。
  */
-export function formatStepReportLines(report: unknown): string[] | null {
+export function formatStepReportLines(
+  report: unknown,
+  evidence?: unknown
+): string[] | null {
   if (!isStepReport(report)) return null
   const lines: string[] = []
   for (const row of report.rows) {
@@ -139,8 +162,25 @@ export function formatStepReportLines(report: unknown): string[] | null {
       `    ${MARK[row.state]} ${label(row.phase, row.index)}${text}` +
         (tail.length > 0 ? ` (${tail.join(', ')})` : '')
     )
+    const only = rowEvidence(row)
+    if (evidence !== undefined && only.length > 0)
+      lines.push(
+        ...formatEvidenceLines(evidence, STEP_EVIDENCE_INDENT, { only })
+      )
   }
   return lines
+}
+
+/**
+ * LUM-1185: 已经挂在某一步下面的证据下标（去重）。run 末尾只列其余的——同 web
+ * 的 `stepEvidence` + `EvidenceStrip exclude`。旧服务端没发 stepReport 时为空，
+ * 全部证据照旧列在末尾。
+ */
+export function stepEvidenceIndices(report: unknown): number[] {
+  if (!isStepReport(report)) return []
+  return [
+    ...new Set(report.rows.filter(isRow).flatMap(row => rowEvidence(row))),
+  ]
 }
 
 /**

@@ -2102,6 +2102,26 @@
       "isInvokable": true,
       "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
     },
+    "milestone testcase download": {
+      "arguments": [
+        { "name": "milestone", "required": true, "variadic": false },
+        { "name": "case", "required": true, "variadic": false },
+        { "name": "dir", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3"
+    },
     "milestone testcase list": {
       "arguments": [
         { "name": "milestone", "required": true, "variadic": false }
@@ -2295,7 +2315,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3"
     },
     "milestone testcase update": {
       "arguments": [
@@ -4734,6 +4754,16 @@
       "isInvokable": true,
       "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
     },
+    "task testcase download": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false },
+        { "name": "dir", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3"
+    },
     "task testcase list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
@@ -4896,7 +4926,7 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3"
     },
     "task testcase update": {
       "arguments": [

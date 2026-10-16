@@ -11,6 +11,7 @@ import {
   formatReviewLine,
   formatStepProgress,
   formatStepReportLines,
+  stepEvidenceIndices,
 } from '../lib/test-case-report'
 import { sanitizeField } from '../lib/sanitize'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
@@ -164,7 +165,9 @@ export async function testCaseShowInScope(
  */
 export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   const lines: string[] = []
-  const stepLines = formatStepReportLines(run.stepReport)
+  // LUM-1185: 挂在某一步的证据列在那一步下面（服务端 rows[].evidence 的原始
+  // 下标，同 web）；run 末尾只列没挂到任何一步的。
+  const stepLines = formatStepReportLines(run.stepReport, run.evidence)
   // 有逐步报告时，断在哪一步由进度行说；旧服务端退回单点定位。
   // failedIndex 存的是 0-based，打印回 1-based（与上面的步骤编号对齐）。
   const at =
@@ -194,6 +197,11 @@ export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   const reviewed = formatReviewLine(run.review)
   if (reviewed) lines.push(reviewed)
   // 证据一条一行：终端里能「打开」一份证据的唯一形式是 url，计数打不开。
-  lines.push(...formatEvidenceLines(run.evidence))
+  // 已在步骤下列过的不再重复。
+  lines.push(
+    ...formatEvidenceLines(run.evidence, undefined, {
+      exclude: stepEvidenceIndices(run.stepReport),
+    })
+  )
   return lines
 }

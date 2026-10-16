@@ -59,7 +59,7 @@ TC2	退款落到原卡	2 steps / 1 verify · Only proves on PRODUCTION	PASS on L
 lumo task testcase show LUM-42/TC3
 ```
 
-带证据的 run，每条证据**自己占一行**（文件名 + url），缩进挂在那条 run 底下——终端里能打开一份证据的唯一形式就是 url，计数打不开（LUM-805）：
+带证据的 run，每条证据**自己占一行**（文件名 + url），缩进挂在那条 run 底下——终端里能打开一份证据的唯一形式就是 url，计数打不开（LUM-805）。用 `--step-evidence` 挂到某一步的证据（LUM-1185）列在**那一步的行下面**（再缩进一层），没挂到任何一步的才列在这条 run 的末尾——与 web `TestCaseRunReport` 同一份分配（服务端 `stepReport.rows[].evidence`）。旧服务端不发逐步报告时全部证据照旧列在末尾：
 
 ```
   2026-09-21  FAIL on LOCAL  #123 @a1b2c3d  by Chao Li via session 86dce765  step 2: assert: the footer shows the FDIC line  — 页脚只剩版权行
@@ -99,9 +99,44 @@ run 行下面是**完整逐步报告**（LUM-1011 / LUM-1185，与 web `TestCase
     actual: Issued as store credit
 ```
 
+步骤证据挂在步骤下面，run 级证据在最后：
+
+```
+  2026-10-17  PASS on LOCAL  by Chao Li via session 86dce765
+    2 of 2 steps passed
+    ✓ step 1: open the invoice
+        invoice.png  https://lumo.example/api/files/test-evidence/…/f1
+    ✓ step 2: click Refund
+      jest.json  https://lumo.example/api/files/test-evidence/…/f2
+```
+
 被抽查过的 run（LUM-819）多一行复核结论：`spot-checked: the evidence holds · <复核人> · <日期>`，或 `spot-check sent this PASS back — the evidence did not hold it up · <复核人> · <日期>  — "<理由>"`。打回不是失败：补证据或重跑。（里程碑用例没有抽查，不打这一行。）
 
 形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务 **Record** 页的「测试用例」区段里出缩略图（LUM-1011 起 Tests tab 并入 Record；旧的 `/tests` 链接自动落到这里）。
+
+## `lumo task testcase download <task/case> <dir>` — 用 API key 把证据存到本地（LUM-1185）
+
+`/api/files/…` 下的证据要认证（匿名 401），浏览器外打不开 `show` 里的 url。`download` 用当前 CLI 的 API key 把这条用例**全部 run** 的 Lumo 托管证据下载到 `<dir>/<YYYY-MM-DD>-<result>-<run id 末 8 位>/`（目录不存在就建），每个文件一行 `saved <本地路径>`：
+
+```bash
+lumo task testcase download LUM-42/TC3 ./evidence
+lumo milestone testcase download "Review v2" TC1 ./evidence
+```
+
+```
+LUM-42/TC3  Refund to card
+
+Downloading evidence to ./evidence:
+  saved evidence/2026-10-17-pass-x1y2z3w4/invoice.png
+  CI run  https://ci.example.com/7  (external link, not downloaded)
+  ✗ jest.json: HTTP 404
+```
+
+- 只下 `/api/files/` 下的 Lumo 托管文件；外部链接只列出并注明 `external link, not downloaded`。请求一律发往已配置的 API 地址（key 不会发给证据 url 里的其它主机、也不打印），不跟随重定向；边读边写盘，单个文件超过 100 MiB 停下并删掉写了一半的文件。
+- 本地文件名 = 清理过的原文件名（去控制符、`/` `\`、`..`、前导点，按字节限长）；同名加 `-2`、`-3`，不覆盖目录里已有文件。
+- 单个文件失败打一行 `✗` 继续；任一失败命令退出码为 1。没有选 run 的选项：下的就是 `show` 列出的全部 run。
+- 只有 `download` 会写本地文件：Codex 里它留在沙箱内（会先问），`show` 仍是只连服务端、直接放行。
+- 什么时候用：要把截图 / 日志拿到本地看、附进别处，或核对证据内容（`show` 只给 url）。
 
 ## `lumo task testcase update <task/case>` — 改用例
 

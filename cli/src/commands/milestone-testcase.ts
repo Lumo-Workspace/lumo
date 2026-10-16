@@ -6,6 +6,7 @@ import {
 } from './task-testcase-add'
 import { testCaseListInScope } from './task-testcase-list'
 import { testCaseShowInScope } from './task-testcase-show'
+import { testCaseDownloadInScope } from './task-testcase-download'
 import {
   testCaseUpdateInScope,
   type TestCaseUpdateOptions,
@@ -82,6 +83,23 @@ export async function milestoneTestCaseShow(
   if (!needCase(caseRef, usage)) return 1
   const scope = await scopeFor(milestone, usage, o.project)
   return scope ? testCaseShowInScope(scope, caseRef) : 1
+}
+
+/** LUM-1185: save the case's Lumo-hosted evidence into `<dir>/<run>/`. */
+export async function milestoneTestCaseDownload(
+  milestone: string | undefined,
+  caseRef: string | undefined,
+  dir: string | undefined,
+  o: { project?: string | undefined }
+): Promise<number | void> {
+  const usage = 'lumo milestone testcase download "<milestone>" TC3 ./evidence'
+  if (!needCase(caseRef, usage)) return 1
+  if (!dir || !dir.trim()) {
+    console.error(`Error: missing <dir>. Usage: ${usage}`)
+    return 1
+  }
+  const scope = await scopeFor(milestone, usage, o.project)
+  return scope ? testCaseDownloadInScope(scope, caseRef, dir) : 1
 }
 
 export async function milestoneTestCaseUpdate(

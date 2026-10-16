@@ -211,11 +211,15 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
   'memory push': 'deletes local memory files after pushing',
   'milestone testcase disposition':
     'a human-only ruling: keep Codex asking the user first',
+  'milestone testcase download':
+    'writes local files (saves evidence into <dir>) — Codex asks first',
   'memory sync': 'writes the local memory directory',
   'session attach':
     'can create a git worktree (--worktree / autoWorktree) and sync local memory',
   'task testcase disposition':
     'a human-only ruling: keep Codex asking the user first',
+  'task testcase download':
+    'writes local files (saves evidence into <dir>) — Codex asks first',
   'task update': 'a confirmed DONE removes local git worktrees',
   uninstall: 'deletes skill, hook and rules files',
   update: 'runs npm install -g',
