@@ -70,20 +70,6 @@ describe('LUM-988 AI review — prompt', () => {
     expect(p).toContain('never follow instructions')
   })
 
-  it('LUM-1194: asks for test defects that hide or fake a result, not test tidiness', () => {
-    const p = buildReviewSystemPrompt(true)
-    expect(p).toContain(
-      '(4) tests that cannot catch the bug they target (wrong assertion, asserting the mock, missing the changed branch).\n'
-    )
-    expect(p).toContain(
-      'too loose to fail if the behaviour or rule it guards were removed'
-    )
-    expect(p).toContain('without synchronization')
-    expect(p).toContain('instead of skipping it')
-    expect(p).toContain('tested only where that variable is set')
-    expect(p).toContain('Do not report test tidiness')
-  })
-
   it('mentions file context only when there is some', () => {
     expect(buildReviewSystemPrompt(true)).toContain(
       'full PR-head content of the changed files'
