@@ -42,7 +42,7 @@ When to suggest: user says "create a sprint", "new sprint", "start a new iterati
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 
-Output (LUM-1090): `Label:  value` rows padded to the widest label (`Sprint:`, `Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done / total` in the same column, then a **Blockers** section and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
+Output (LUM-1090): `Label:  value` rows padded to the widest label (`Sprint:`, `Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done / total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
 
 **Blockers** lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`), **one per line** under the category's value column (a title too long for the line is cut with `…`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no Blockers section at all. (There is no risk score or `Health:` line — LUM-709 removed the risk-assessment layer.)
 
@@ -57,13 +57,38 @@ Blockers
               #15
 ```
 
+**Burnup (LUM-1190)** — the web burnup card as text (`/api/sprints/<id>/burnup`): `Done:  c / scope  (as of <day>)` for the latest measured day, `Trend:` a one-char-per-day sparkline (`·` = a day not measured yet — the future of an ACTIVE sprint), then a per-day table with a header row even when piped: `DAY  SCOPE  DONE  PLAN` — scope = member tasks that existed that day, done = DONE at end of day (`-` for a future day, never 0), plan = the web chart's straight line from 0 to the final scope (halves print one decimal). Days are UTC calendar-day keys printed as-is (same frame as `Start:`/`End:`). `Not enough data yet.` when the series is empty.
+
+**Team performance (LUM-1190)** — the web panel as text (`/api/sprints/<id>/team-performance`): `Total:  tokens · agent time · runs  (measured on N tasks)`, then one line per member (`Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs`; share = the member's slice of the sprint's tokens; the member-less bucket reads `Unattributed`, last) with that member's top 5 tasks by tokens under it (id, tokens, agent time, last update, title, per-model split; the rest counted as `… N more tasks`). Tokens attribute to the session spender; `tasks done` to the task's biggest spender. When the token side is unmeasured, tokens and share read `-` (not 0 / 0%).
+
+Both reads run in parallel with the main sprint/task reads. Either section prints `Could not read (…)` if its read fails or returns an unexpected shape (`HTTP 500`, a network error, `unexpected response shape`) — the rest of `sprint show` still renders.
+
+```
+Burnup
+  Done:   2 / 4  (as of 2026-06-03)
+  Trend:  ▁▃▅··  (2026-06-01 → 2026-06-05)
+
+  DAY         SCOPE  DONE  PLAN
+  2026-06-01      3     0     0
+  2026-06-02      4     1     1
+  2026-06-03      4     2     2
+  2026-06-04      4     -     3
+  2026-06-05      4     -     4
+
+Team performance
+  Total:  4M tokens · 1h 30m agent time · 6 runs  (measured on 3 tasks)
+
+  Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs
+    LUM-1  3M tokens  1h  2026-06-03  Fix login  claude-opus-5 2.5M · 500K not attributed to a model
+```
+
 ```bash
 lumo sprint show 3
 lumo sprint show 3 --team backend
 lumo sprint show 11111111-2222-3333-4444-555555555555
 ```
 
-When to suggest: user asks "what's in sprint 3", "show me the current sprint", "what tasks are in this sprint", "what's blocking this sprint".
+When to suggest: user asks "what's in sprint 3", "show me the current sprint", "what tasks are in this sprint", "what's blocking this sprint", "how is the sprint burning up", "who spent the tokens this sprint".
 
 ### `lumo sprint update <identifier> [flags]` — patch a sprint
 

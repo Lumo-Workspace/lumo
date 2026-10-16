@@ -144,7 +144,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Projects & milestones — see [milestones.md](references/milestones.md)
 
 - `lumo project list` — list projects (slugs feed `--project`) · `project create/update` — create / rename / re-own
-- `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes a Sprint-coverage section)
+- `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes Metrics — tokens/budget/active time/merged PRs + by-task — and Sprint-coverage sections)
 - `lumo milestone archive/unarchive` — soft-archive / restore
 - `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
 - `lumo milestone triage <id> <task...> --claimable|--not-claimable` — steward batch agent-claimable triage (LUM-646): mark in-milestone tasks (not) claimable; tasks not in the milestone are skipped. Feeds `lumo next --claimable`
@@ -166,7 +166,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Sprints — see [sprints.md](references/sprints.md)
 
-- `lumo sprint list/create/show/update/delete` — sprint CRUD (`show` includes Progress / Health / Blockers)
+- `lumo sprint list/create/show/update/delete` — sprint CRUD (`show` includes Progress / Blockers / Burnup / Team performance)
 - `lumo sprint start/close` — status transitions (no `--status` flag)
 - `lumo sprint add/remove <id> <task>` — bind/unbind a task
 - `lumo sprint summary [--retry]` — AI retro

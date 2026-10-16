@@ -82,7 +82,7 @@ On success: `Created milestone "Q3 Launch"  <id>`.
 
 Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
 
-Prints `Label:  value` rows padded to the widest label (`Milestone:`, `State:`, `Completed:`, `Archived:`, **`Health:`**, `Start:`, `Target:`, `Project:`), then headed sections (LUM-1090, the same grammar as `task status` — a blank line and a plain heading, bold on a TTY; rows indented two spaces): **Description** (wrapped at the terminal width — 40 to 100 columns, 100 when piped — every line indented; `-` when empty), **Progress** (`Done:  3 / 6`, `By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3`, and `Backlog:  N (not in the total)` only when there is BACKLOG work), **Sprint coverage**, **Cross-milestone learning**, and **Tasks (N)** — the task table indented two spaces (header row `ID  STATUS  PRIORITY  PROJECT  TITLE` on a TTY only, title cut to the terminal width there; piped output is headerless and untruncated), or `None — no task is in this milestone.` The `Health:` row shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
+Prints `Label:  value` rows padded to the widest label (`Milestone:`, `State:`, `Completed:`, `Archived:`, **`Health:`**, `Start:`, `Target:`, `Project:`), then headed sections (LUM-1090, the same grammar as `task status` — a blank line and a plain heading, bold on a TTY; rows indented two spaces): **Description** (wrapped at the terminal width — 40 to 100 columns, 100 when piped — every line indented; `-` when empty), **Progress** (`Done:  3 / 6`, `By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3`, and `Backlog:  N (not in the total)` only when there is BACKLOG work), **Metrics**, **Sprint coverage**, **Cross-milestone learning**, and **Tasks (N)** — the task table indented two spaces (header row `ID  STATUS  PRIORITY  PROJECT  TITLE` on a TTY only, title cut to the terminal width there; piped output is headerless and untruncated), or `None — no task is in this milestone.` The `Health:` row shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
 **Staleness hints (LUM-624/LUM-714):** the `State:` row is annotated `(stale — task progress indicates COMPLETED|ACTIVE; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` row is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
 
@@ -100,6 +100,30 @@ Sprint coverage
   #3           ACTIVE  Sprint 3  4/6 done
   #4           DRAFT   Sprint 4  0/2 done
   Unscheduled                    1 task
+```
+
+**Metrics (LUM-1190):** the text twin of the web milestone page's metric strip, same numbers (`/api/milestones/<id>` `costRollup` / `budget` / `deliveryStats`). Rows: `Tokens:` (compact total + `(measured on M of N tasks)`), `Budget:` (only when a token budget is set — `71% of 400M token budget`, `(over budget by X)` when the MEASURED burn exceeds it, `- of … (burn not measured)` when unmeasured; advisory only), `Active time:` (non-idle session time), `Merged PRs:` (`5  (rework: 1 task with more than one PR)`, or `No PRs on record`). Then three **By task** blocks (only from servers that send the per-task breakdown), each listing the top 10 tasks by its own number (the rest counted as `… N more tasks`), figures first and the title last (cut to the width on a TTY, where a header row prints): `By task — tokens` (tokens, then on the line under the row the top-3 per-model split, `+N more models`, and spend not attributed to a model), `By task — active time`, `By task — PRs` (PR count, `multi-PR` = rework, `+adds/−dels` or `no synced PRs`). **Unmeasured reads `-`, never 0** — `Tokens: -` / `Active time: -` mean nothing was measured, not zero spend. Durations use the CLI's usual `2h 14m` spelling. The section is omitted when the server sends neither rollup (older server).
+
+```
+Metrics
+  Tokens:       283.5M  (measured on 2 of 8 tasks)
+  Budget:       71% of 400M token budget
+  Active time:  2h 59m  (non-idle session time)
+  Merged PRs:   5  (rework: 1 task with more than one PR)
+
+  By task — tokens
+    LUM-497  201.2M tokens  reference-class anchors
+      claude-opus-5 168.4M · claude-haiku-5 32.8M
+    LUM-707  82.3M tokens   deferred cleanups
+      82.3M not attributed to a model
+
+  By task — active time
+    LUM-497  2h 5m  reference-class anchors
+    LUM-707  54m    deferred cleanups
+
+  By task — PRs
+    LUM-497  4 PRs  multi-PR  +2.1K/−140     reference-class anchors
+    LUM-707  1 PR             no synced PRs  deferred cleanups
 ```
 
 **Cross-milestone learning (LUM-648):** when this milestone's STEWARD sessions were injected prior-milestone distilled learning (the LUM-647 learning unit), a **Cross-milestone learning** section reports how much of it was actually used — `Injected: N prior learnings (from K prior milestones)` and `Usage rate: Z% (judged-used X/Y)`. The rate reuses lineage's `used=true/false/null` usage voting (judged at the successor milestone's close): abstentions (un-audited / judge-abstained impressions) are **excluded from the denominator**, so it is a lower bound. Below 3 judged edges it reads `insufficient (judged Y, need ≥3)` rather than a fabricated percentage. The section is omitted entirely when nothing was injected (that's "nothing to migrate", not 0%).
