@@ -49,6 +49,7 @@ import {
   instructionsForPr,
   parseInstructionsFile,
   replayPathInstructions,
+  withVerifiedInstructionClaims,
 } from '../lum1158-review-quality-bench/path-instructions-input'
 
 function opt(name: string, fallback?: string): string {
@@ -75,7 +76,12 @@ const capChars =
   JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
 
 export interface ReplayRun {
-  findings: Awaited<ReturnType<typeof judgeSecurity>>['findings']
+  /** LUM-1210: with the verified `pathInstruction` production stores. */
+  findings: Array<
+    Awaited<ReturnType<typeof judgeSecurity>>['findings'][number] & {
+      pathInstruction: string | null
+    }
+  >
   ms: number
   diffChars: number
   contextChars: number
@@ -141,7 +147,9 @@ async function reviewOnce(url: string): Promise<RunResult> {
       ...(instructions.text ? { pathInstructions: instructions.text } : {}),
     })
     return {
-      findings,
+      // LUM-1210: the claim production would store, so the removal policy
+      // (bench-lib keptLumoFindings, verify/rank) can exempt it.
+      findings: withVerifiedInstructionClaims(findings, instructions.sent),
       ms: Date.now() - t0,
       diffChars: diffText.length,
       contextChars: contextText.length,

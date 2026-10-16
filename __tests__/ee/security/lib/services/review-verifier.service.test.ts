@@ -322,3 +322,15 @@ describe('LUM-1013 verifier reason keeps quoted prose', () => {
     expect(verdicts[0].reason).toBe(prose)
   })
 })
+
+describe('LUM-1210 path-instruction findings skip the verifier', () => {
+  it('a row the owners asked for (verified pathInstruction) is never sent to the verifier', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('asked', { severity: 'LOW', pathInstruction: 'scripts/**' }),
+    ])
+    await reviewVerifierService.run(job)
+    expect(sandbox.attachOrCreateHuntSandbox).not.toHaveBeenCalled()
+    expect(verifyFindings).not.toHaveBeenCalled()
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
+  })
+})

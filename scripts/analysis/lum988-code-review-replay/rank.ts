@@ -90,6 +90,8 @@ interface Finding {
   title: string
   detail: string
   evidence: string
+  /** LUM-1210 — verified path instruction: outside the removal policy. */
+  pathInstruction?: string | null
 }
 
 type Recorded = Record<string, { runs: Array<{ findings?: Finding[] }> }>
@@ -116,7 +118,9 @@ async function main(): Promise<void> {
         .filter(({ f, id }) => {
           const r = v.get(id)
           const applicable =
-            f.severity !== 'HIGH' && !SECURITY_KINDS.has(f.kind)
+            f.severity !== 'HIGH' &&
+            !SECURITY_KINDS.has(f.kind) &&
+            !f.pathInstruction
           return !(applicable && r?.verdict === 'REJECTED')
         })
       if (kept.length === 0) {

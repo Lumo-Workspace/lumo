@@ -64,17 +64,30 @@ export function verifierHolding(
  * F1 by ~3 points. So only a non-HIGH CORRECTNESS finding can be rejected;
  * every other row keeps no verdict at all (it is not "confirmed" either —
  * the policy simply does not consult the verifier for it).
+ *
+ * LUM-1210: nor a finding a repository path instruction asked for (its
+ * `pathInstruction` claim was verified: sent in this review and matching the
+ * finding's file). The owners asked for that check on that path, so "the
+ * repository has no such rule" (the verifier) or "style" (the ranker) is no
+ * reason to drop it — on a controlled set they removed the finding in all 17
+ * runs where the review applied a concrete instruction.
  */
 export function verifierAppliesTo(f: {
   kind: string
   severity: string
+  pathInstruction?: string | null
 }): boolean {
-  return f.kind === 'CORRECTNESS' && f.severity !== 'HIGH'
+  return f.kind === 'CORRECTNESS' && f.severity !== 'HIGH' && !f.pathInstruction
 }
 
 /** The verdicts to persist: the applicable ones, keyed by finding id. */
 export function applyVerifierPolicy<
-  F extends { id: string; kind: string; severity: string },
+  F extends {
+    id: string
+    kind: string
+    severity: string
+    pathInstruction?: string | null
+  },
 >(
   findings: readonly F[],
   results: ReadonlyArray<{
@@ -116,7 +129,12 @@ export const RANKER_REASON_PREFIX = 'Ranked low:'
  * false positives, never lose a finding by omission.
  */
 export function applyRankerPolicy<
-  F extends { id: string; kind: string; severity: string },
+  F extends {
+    id: string
+    kind: string
+    severity: string
+    pathInstruction?: string | null
+  },
 >(
   findings: readonly F[],
   ranking: ReadonlyArray<{ id: string; p: number; reason: string }>,
