@@ -247,7 +247,7 @@ export const reviewVerifierService = {
             .map(r => [r.id, redactFindingProse(r.reason).slice(0, 400)])
         )
         logger.info(
-          `[review-verifier] scan=${job.scanId} findings=${findings.length} applied=${verdicts.length} rejected=${verdicts.filter(v => v.verdict === 'REJECTED').length} steps=${out.steps} commands=${out.commands} in=${out.inputTokens} out=${out.outputTokens}${out.error ? ` error=${out.error.slice(0, 120)}` : ''}`
+          `[review-verifier] scan=${job.scanId} findings=${findings.length} applied=${verdicts.length} rejected=${verdicts.filter(v => v.verdict === 'REJECTED').length} steps=${out.steps} commands=${out.commands} in=${out.inputTokens} cacheRead=${out.cacheReadTokens} cacheWrite=${out.cacheWriteTokens} out=${out.outputTokens}${out.error ? ` error=${out.error.slice(0, 120)}` : ''}`
         )
       }
     } catch (e) {

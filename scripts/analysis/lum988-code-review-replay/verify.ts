@@ -13,8 +13,9 @@
  *     [--only-applicable] [--system-file verifier-prompt-v4.txt]
  *
  * Writes { [prUrl]: { results, steps, commands, inputTokens, outputTokens,
- * error, ms } }. `score-verify.py` scores a filtered run against the step3
- * judgement of the unfiltered one, without re-judging.
+ * cacheReadTokens, cacheWriteTokens, error, ms } }. `score-verify.py` scores
+ * a filtered run against the step3 judgement of the unfiltered one, without
+ * re-judging.
  */
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -139,7 +140,7 @@ async function main(): Promise<void> {
       const rej = res.results.filter(r => r.verdict === 'REJECTED').length
       const def = res.results.filter(r => r.defaulted).length
       process.stdout.write(
-        `${url.split('github.com/')[1]} ${findings.length}f rejected=${rej} defaulted=${def} steps=${res.steps} cmds=${res.commands} in=${res.inputTokens} out=${res.outputTokens}${res.error ? ` ERR ${res.error.slice(0, 80)}` : ''}\n`
+        `${url.split('github.com/')[1]} ${findings.length}f rejected=${rej} defaulted=${def} steps=${res.steps} cmds=${res.commands} in=${res.inputTokens} cacheRead=${res.cacheReadTokens} cacheWrite=${res.cacheWriteTokens} out=${res.outputTokens}${res.error ? ` ERR ${res.error.slice(0, 80)}` : ''}\n`
       )
     }
   }

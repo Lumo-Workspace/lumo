@@ -1095,6 +1095,10 @@ export interface HuntStepTrace {
   /** Assistant text written in this step — prefix, secret-redacted. */
   text?: string
   inputTokens?: number
+  /** LUM-1224 — the part of `inputTokens` read from the prompt cache. */
+  cacheReadTokens?: number
+  /** LUM-1224 — the part of `inputTokens` written to the prompt cache. */
+  cacheWriteTokens?: number
   outputTokens?: number
   reasoningTokens?: number
   finishReason?: string

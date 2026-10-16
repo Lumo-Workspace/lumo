@@ -152,6 +152,102 @@ describe('LUM-988 review verifier client', () => {
     })
   })
 
+  it('LUM-1224 marks the latest message of every step as an Anthropic cache breakpoint, leaving the text unchanged', async () => {
+    const prepared: Array<
+      { messages?: Array<Record<string, unknown>> } | undefined
+    > = []
+    gen.mockImplementationOnce(
+      async (opts: {
+        prompt: string
+        prepareStep: (o: unknown) => unknown
+        tools: Tools
+      }) => {
+        const opening = { role: 'user', content: opts.prompt }
+        const a1 = { role: 'assistant', content: [{ type: 'text', text: 'x' }] }
+        const t1 = { role: 'tool', content: [] }
+        prepared.push(
+          (await opts.prepareStep({ steps: [], messages: [opening] })) as never
+        )
+        prepared.push(
+          (await opts.prepareStep({
+            steps: [{}],
+            messages: [opening, a1, t1],
+          })) as never
+        )
+        await opts.tools.submit_verdicts!.execute({
+          verdicts: [{ id: 'f0', verdict: 'CONFIRMED', reason: 'ok' }],
+        })
+        return {
+          steps: [{}, {}],
+          totalUsage: {
+            inputTokens: 1000,
+            outputTokens: 10,
+            inputTokenDetails: { cacheReadTokens: 700, cacheWriteTokens: 200 },
+          },
+          response: { messages: [] },
+        }
+      }
+    )
+    const out = await verifyFindings({
+      findings: [finding('f0')],
+      diff: '',
+      runShell: async () => '',
+      maxSteps: 3,
+      timeoutMs: 1000,
+    })
+    const cc = { anthropic: { cacheControl: { type: 'ephemeral' } } }
+    // Step 1: the opening prompt itself is the breakpoint.
+    expect(prepared[0]!.messages).toHaveLength(1)
+    expect(prepared[0]!.messages![0]).toMatchObject({ role: 'user' })
+    expect(prepared[0]!.messages![0]!.providerOptions).toEqual(cc)
+    // Step 2: only the latest message is marked; the prompt text is unchanged.
+    const second = prepared[1]!.messages!
+    expect(second).toHaveLength(3)
+    expect(second[0]!.providerOptions).toBeUndefined()
+    expect(second[1]!.providerOptions).toBeUndefined()
+    expect(second[2]).toMatchObject({ role: 'tool', providerOptions: cc })
+    expect(second[0]!.content).toBe(gen.mock.calls[0]![0].prompt)
+    expect(out).toMatchObject({
+      inputTokens: 1000,
+      cacheReadTokens: 700,
+      cacheWriteTokens: 200,
+    })
+  })
+
+  it('LUM-1224 the wrap-up (a different tool set, so no cache hit is possible) is sent without breakpoints', async () => {
+    gen
+      .mockImplementationOnce(async () => ({
+        steps: [{}],
+        totalUsage: {
+          inputTokens: 100,
+          outputTokens: 1,
+          inputTokenDetails: { cacheReadTokens: 50, cacheWriteTokens: 10 },
+        },
+        response: { messages: [{ role: 'assistant', content: 'x' }] },
+      }))
+      .mockImplementationOnce(async () => ({
+        steps: [{}],
+        totalUsage: {
+          inputTokens: 100,
+          outputTokens: 1,
+          inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0 },
+        },
+        response: { messages: [] },
+      }))
+    const out = await verifyFindings({
+      findings: [finding('f0')],
+      diff: '',
+      runShell: async () => '',
+      maxSteps: 1,
+      timeoutMs: 1000,
+    })
+    const wrap = gen.mock.calls[1]![0] as {
+      messages: Array<{ providerOptions?: unknown }>
+    }
+    expect(wrap.messages.every(m => m.providerOptions === undefined)).toBe(true)
+    expect(out).toMatchObject({ cacheReadTokens: 50, cacheWriteTokens: 10 })
+  })
+
   it('on a gateway error keeps every finding (CONFIRMED, defaulted) and reports the error', async () => {
     gen.mockRejectedValueOnce(new Error('gateway down'))
     const out = await verifyFindings({

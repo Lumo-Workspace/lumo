@@ -18,6 +18,7 @@ import { z } from 'zod'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { CODE_REVIEW_MODEL } from '@/lib/ai/models'
+import { cacheUsageOf, markCacheBreakpoint } from '@/lib/ai/prompt-cache'
 import {
   HUNT_COMMAND_MAX_CHARS,
   describeRunShellTool,
@@ -71,6 +72,10 @@ export interface ReviewVerifierOutput {
   commands: number
   inputTokens: number
   outputTokens: number
+  /** LUM-1224 — the part of `inputTokens` read from the prompt cache. */
+  cacheReadTokens: number
+  /** LUM-1224 — the part of `inputTokens` written to the prompt cache. */
+  cacheWriteTokens: number
   /** Why the run ended without verdicts (timeout, gateway error), else null. */
   error: string | null
 }
@@ -146,6 +151,8 @@ export async function verifyFindings(
       commands: 0,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       error: null,
     }
   const submitted: Array<{
@@ -186,12 +193,23 @@ export async function verifyFindings(
       prompt,
       tools,
       stopWhen: [hasToolCall('submit_verdicts'), stepCountIs(input.maxSteps)],
+      // LUM-1224 — every step re-sends the whole transcript, and nothing in
+      // it ever changes: mark the latest message as a cache breakpoint so the
+      // next step reads all of it from the prompt cache. Only the marker is
+      // added; the SDK's own transcript (and the wrap-up below) never has one.
+      prepareStep: ({ messages }) => ({
+        messages: markCacheBreakpoint(messages, messages.length - 1),
+      }),
       abortSignal,
     })
     let steps = res.steps.length
     let inputTokens = res.totalUsage.inputTokens ?? 0
     let outputTokens = res.totalUsage.outputTokens ?? 0
+    let { cacheReadTokens, cacheWriteTokens } = cacheUsageOf(res.totalUsage)
     if (submitted.length === 0) {
+      // No breakpoints here: this call declares a different tool set, which
+      // invalidates the whole cached prefix, so a marker would only pay the
+      // write premium for an entry nothing reads.
       const wrap = await generateText({
         model,
         system,
@@ -208,6 +226,9 @@ export async function verifyFindings(
       steps += wrap.steps.length
       inputTokens += wrap.totalUsage.inputTokens ?? 0
       outputTokens += wrap.totalUsage.outputTokens ?? 0
+      const wrapCache = cacheUsageOf(wrap.totalUsage)
+      cacheReadTokens += wrapCache.cacheReadTokens
+      cacheWriteTokens += wrapCache.cacheWriteTokens
     }
     return {
       results: mergeVerdicts(input.findings, submitted),
@@ -215,6 +236,8 @@ export async function verifyFindings(
       commands,
       inputTokens,
       outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
       error: null,
     }
   } catch (error) {
@@ -224,6 +247,8 @@ export async function verifyFindings(
       commands,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       error: error instanceof Error ? error.message : String(error),
     }
   }

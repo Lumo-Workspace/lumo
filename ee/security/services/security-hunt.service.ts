@@ -58,6 +58,7 @@ import {
   newStepLedger,
 } from '@/ee/security/security-scan/hunt/step-output'
 import { normalizeCommand } from '@/ee/security/security-scan/hunt/progress'
+import { formatTraceCache } from '@/ee/security/security-scan/hunt/trace-cache'
 import { plannedTaskCap } from '@/ee/security/security-scan/hunt/allocation'
 import {
   isTransientPlanError,
@@ -925,6 +926,11 @@ export const securityHuntService = {
         wrapUpDeadlineAt: started + input.timeBudgetMs,
         onStep,
       })
+      // LUM-1224 — how much of the search's input the prompt cache served,
+      // where a deploy log keeps it (the per-step split is in the trace).
+      logger.info(
+        `[security-hunt] cache scan=${input.job.scanId} task=${input.task.id} ${formatTraceCache(trace)}`
+      )
       return {
         candidates: out.candidates,
         // The hunt model's tokens PLUS the compressions its commands paid
