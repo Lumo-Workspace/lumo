@@ -159,6 +159,20 @@ describe('skip (LUM-1211)', () => {
   it('refuses a reason longer than 200 characters', () => {
     expect(parseStepSpecs([`s1=skip:${'x'.repeat(201)}`]).ok).toBe(false)
   })
+  it('refuses the same step as pass and skip', () => {
+    expect(parseStepSpecs(['s1=pass', 's1=skip:x']).ok).toBe(false)
+    expect(parseStepSpecs(['s1=skip:x', 's1=pass']).ok).toBe(false)
+  })
+  it('strips quotes around the reason', () => {
+    const r = parseStepSpecs(['s1=skip:"no DB"'])
+    expect(r.ok && r.value[0]?.reason).toBe('no DB')
+  })
+  it('sanitises the reason when printing', () => {
+    const [line] = formatStepResultLines([
+      { phase: 'STEPS', index: 0, status: 'SKIP', reason: 'a\u001b[31mb' },
+    ])
+    expect(line).toBe('    – step 1 (skipped: a[31mb)')
+  })
   it('prints a skipped step with its reason', () => {
     expect(
       formatStepResultLines([
