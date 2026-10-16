@@ -4463,7 +4463,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Also print the dashboard sections: cost, struggle/rework trail, trend"
+          "description": "Also print the dashboard sections: cost, struggle/rework trail, trend, and a Test cases section (each case's latest run, as in `testcase list`)"
         },
         "--json": {
           "long": "--json",
@@ -4476,7 +4476,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend)."
+      "description": "Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend) and each test case's latest run."
     },
     "task statuses": {
       "arguments": [],
