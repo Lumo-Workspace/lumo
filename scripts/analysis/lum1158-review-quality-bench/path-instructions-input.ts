@@ -10,6 +10,7 @@
 import {
   normalizePathInstructions,
   planPathInstructions,
+  verifyPathInstructionClaim,
   type PathInstruction,
   type RenderedPathInstructions,
 } from '@/ee/security/security-scan/path-instructions'
@@ -41,4 +42,26 @@ export function replayPathInstructions(
 ): RenderedPathInstructions {
   const list: PathInstruction[] = normalizePathInstructions(raw)
   return planPathInstructions(list, coveredPaths, guardPromptLineText)
+}
+
+/**
+ * PURE — LUM-1210: each finding with `pathInstruction`, the glob production
+ * would store for it (`verifyPathInstructionClaim` against the entries SENT
+ * in this review), else null. The model's raw `instruction` stays as is.
+ */
+export function withVerifiedInstructionClaims<
+  F extends { filePath: string; instruction?: unknown },
+>(
+  findings: readonly F[],
+  sent: readonly PathInstruction[]
+): Array<F & { pathInstruction: string | null }> {
+  return findings.map(f => ({
+    ...f,
+    pathInstruction: verifyPathInstructionClaim(
+      f.instruction,
+      f.filePath,
+      sent,
+      guardPromptLineText
+    ),
+  }))
 }

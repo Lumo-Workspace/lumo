@@ -113,6 +113,12 @@ env $ENV npx tsx -r dotenv/config $L/replay.ts --data $S/data --out $S/review-pi
 # then verify / rank / judge (new tags) / score as above
 ```
 
+LUM-1210: `replay.ts` stores each finding's verified claim as
+`pathInstruction` (what production stores), and the removal policy —
+`keptLumoFindings`, `verify.ts --only-applicable`, `rank.ts` — leaves those
+findings alone, as production's `verifierAppliesTo` does. Runs recorded
+before that have no `pathInstruction` and score as before.
+
 Every step caches and re-running fills in only what is missing; `judge.ts`
 refuses to re-use a tag with different inputs. To re-score a removal-policy
 change from the same review/verify/rank files, judge it under a new tag with
