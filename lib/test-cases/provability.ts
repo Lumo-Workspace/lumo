@@ -89,6 +89,7 @@ export type RunCeiling =
  *   比较是**精确相等，没有 PRODUCTION ⊇ PREVIEW ⊇ LOCAL 的层级**：层级看着
  *   聪明，实际是错的——一条测本地工具链的用例，在生产跑并不能证明它。
  * - 这次声明了没能观察到的复验条目 → `UNPROVEN(unobserved)`。
+ * - LUM-1211: 这次有显式 SKIP 的步骤 → `UNPROVEN(skipped)`。
  * - LUM-819: 这次**一条证据都没附** → `UNPROVEN(no-evidence)`。不看谁跑的
  *   （人跑了什么都没留，照样证不了），也不看证据好坏（那归人抽查）。读端推导
  *   意味着历史上的零证据 PASS 也按同一口径显示——这是用户裁定接受的后果
@@ -98,8 +99,6 @@ export type RunCeiling =
  * 「这次根本不在能证明它的地方跑」比逐条列未观察项更有信息量；而一条自己
  * 声明了哪几条没看到的 run，比「没附证据」说得更具体。
  * LUM-1211: 有显式 SKIP 的步骤排在未观察之后、无证据之前——跳过是逐步明说的。
- *
- * - LUM-1211: 这次有显式 SKIP 的步骤 → `UNPROVEN(skipped)`。
  *
  * `UNPROVEN` 只在这里产生，**永远不落列**：它不是 `TestCaseRunResult` 的值，
  * 上报路径上没有它。存一个封顶后的结论，用例一改复验段它第二天就是谎话

@@ -164,7 +164,9 @@ lumo task testcase run LUM-42/TC3 --result fail --env production --commit 0d4692
 - **run 侧**：`--unproven <n>`（1-based，可重复）标出这次没能观察到的复验条目。
 - **证据侧（LUM-819）**：一条**零证据**的 PASS 封顶为 `UNPROVEN(no-evidence)`——不看谁跑的，
   人跑了什么都没留照样证不了。读端推导，所以**历史上的零证据 PASS 也按同一口径显示**
-  （用户裁定，不按时间切线）。优先级：环境 > 未观察 > 无证据。
+  （用户裁定，不按时间切线）。- **跳过侧（LUM-1211）**：run 的逐步结果里有任何 SKIP → PASS 封顶为 `UNPROVEN(skipped)`，回显点名
+  被跳过的步骤（`s3` = 第 3 个操作步，`v1` = 第 1 条复验）及原因。
+  优先级：环境 > 未观察 > 跳过 > 无证据。
 
 封顶**只作用于 PASS**。FAIL / BLOCKED 原样保留——「证明了坏」不需要能力上限。
 `UNPROVEN` 只由读端推导，**不落库**：`TestCaseRunResult` 仍然只有

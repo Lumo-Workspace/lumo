@@ -177,6 +177,29 @@ describe('POST /api/tasks/[id]/test-cases/[caseRef]/runs', () => {
     )
   })
 
+  it.each(['no-evidence', 'skipped'] as const)(
+    'adds unobserved: [] to a %s ceiling for old CLIs',
+    async reason => {
+      recordRun.mockResolvedValue({
+        run: { id: 'run-1' },
+        ceiling: { effective: 'UNPROVEN', reason },
+      })
+      const res = await RUN_POST(
+        post('http://x/api/tasks/LUM-1/test-cases/TC1/runs', {
+          result: 'PASS',
+          environment: 'LOCAL',
+        }),
+        params()
+      )
+      const body = await res.json()
+      expect(body.ceiling).toEqual({
+        effective: 'UNPROVEN',
+        reason,
+        unobserved: [],
+      })
+    }
+  )
+
   it('maps a service 400 onto the response status', async () => {
     recordRun.mockRejectedValue(
       Object.assign(new Error('not linked to this task'), { status: 400 })

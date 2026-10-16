@@ -96,6 +96,21 @@ describe('LUM-819 no-evidence ceiling', () => {
     )
   })
 
+  it('renders a skipped ceiling reason in the task status advisory', () => {
+    expect(
+      formatTestCaseVerdictAction({
+        kind: 'TEST_CASE_VERDICT',
+        signal: 'UNPROVEN_PASS',
+        number: 3,
+        title: 'skip case',
+        ceilingReason: 'skipped',
+        advisory: true,
+      })
+    ).toBe(
+      '  • [TEST CASE] TC3 skip case — reported PASS, capped to UNPROVEN (some steps were skipped) (advisory)'
+    )
+  })
+
   it('an older server without ceilingReason still renders the advisory line', () => {
     expect(
       formatTestCaseVerdictAction({
