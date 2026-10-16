@@ -31,10 +31,10 @@ jest.mock('@/cli/src/lib/config', () => ({
 function finding(over: Partial<PrScanFinding> = {}): PrScanFinding {
   return {
     id: 'f1',
-    kind: 'VULN',
-    ruleId: 'hunt:sqli',
+    kind: 'VULNERABILITY',
+    ruleId: 'hunt:injection',
     severity: 'HIGH',
-    provenance: 'LLM_HUNT',
+    provenance: 'LLM_JUDGE',
     filePath: 'src/db.ts',
     line: 40,
     title: 'SQL built from request input',

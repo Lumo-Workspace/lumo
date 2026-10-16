@@ -71,10 +71,10 @@ const pr = (over: object) => ({
 const finding = (over: object) => ({
   id: 'f1',
   scanId: 's1',
-  kind: 'VULN',
-  ruleId: 'hunt:sqli',
+  kind: 'VULNERABILITY',
+  ruleId: 'hunt:injection',
   severity: 'HIGH',
-  provenance: 'LLM_HUNT',
+  provenance: 'LLM_JUDGE',
   filePath: 'src/db.ts',
   line: 40,
   title: 'SQL built from request input',
