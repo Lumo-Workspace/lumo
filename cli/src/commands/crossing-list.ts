@@ -14,6 +14,7 @@ import {
   commandLine,
   fieldLines,
   sectionHeading,
+  reportWidth,
   wrapLines,
   type Field,
   type LayoutOptions,
@@ -130,8 +131,11 @@ function attributionValue(c: CrossingRecord): string {
  *  response carries none. */
 export function crossingFields(
   c: CrossingRecord,
-  names?: Map<string, string>
+  names?: Map<string, string>,
+  opts: LayoutOptions = {}
 ): Field[] {
+  // Sub-rows print 4 columns in (fields at 2, subs one level deeper).
+  const subOpts = { ...opts, width: reportWidth(opts) - 4 }
   const occurrences =
     c.occurrenceCount == null
       ? NONE
@@ -165,7 +169,7 @@ export function crossingFields(
         c.explanations.length === 0
           ? NONE
           : `${c.explanations.length} (agent self-report, unverified)`,
-      sub: c.explanations.map(e => `• ${oneLine(e)}`),
+      sub: c.explanations.flatMap(e => bulletLines(oneLine(e), 0, subOpts)),
     },
     {
       label: 'Re-judge',
@@ -270,7 +274,7 @@ export function formatCrossingList(
         `${oneLine(c.ref)} [${c.severity}] ${oneLine(c.category)}`,
         opts
       ),
-      ...fieldLines(crossingFields(c, opts.actorNames), 2, opts)
+      ...fieldLines(crossingFields(c, opts.actorNames, opts), 2, opts)
     )
   }
   if (open.length > 0) {

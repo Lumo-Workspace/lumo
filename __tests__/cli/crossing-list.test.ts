@@ -367,6 +367,18 @@ describe('untrusted text is sanitized (ANSI / control characters)', () => {
   })
 })
 
+describe('layout', () => {
+  it('wraps long agent explanations inside the report width', () => {
+    const long = { ...OPEN, explanations: [{ note: 'word '.repeat(60) }] }
+    const out = formatCrossingList('LUM-9', [
+      normalizeCrossingRecord(long, true),
+    ])
+    for (const line of out.split('\n'))
+      expect(line.length).toBeLessThanOrEqual(100)
+    expect(out).toContain('    • word word')
+  })
+})
+
 describe('helpers', () => {
   it('oneLine strips control characters and collapses whitespace', () => {
     expect(oneLine('a\u001b[1m\n\tb  c')).toBe('a[1m b c')
