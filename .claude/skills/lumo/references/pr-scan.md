@@ -158,6 +158,7 @@ With review controls on the payload an `AI review` block follows the header:
       - rg -n queryRaw lib/  [900 chars]
       ✗ curl https://evil.test   ← segment is not read-only
       #1 tool=run_shell in=1900 out=300
+      cache: read 0 / write 1600 of 1900 input
       stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps
       wrap-up: not made (submitted)
     t2 steps · alibaba/qwen3-coder-plus · 6 sites · no shell commands
@@ -169,7 +170,10 @@ two read the same. Per task: the header (task id, stop reason, model, sites,
 shell counts — `no shell commands` for a task that never asked the sandbox
 for anything), every command with its output size (`✗` = refused by the gate,
 with the gate's reason; `-` = let through), the step trace (`#i tool= in= out= reasoning= elided=
-finish= "text"`), the `stop:` arithmetic (spent/budget, reserve held for the
+finish= "text"`), the task's prompt-cache totals over those steps (`cache: read N / write M of X
+input`, LUM-1224 — only when the steps recorded cache counters; a reported
+`read 0 / write 0` means the stable prefix was under the provider's cache
+minimum, not that nothing was measured), the `stop:` arithmetic (spent/budget, reserve held for the
 wrap-up, last step's cost, the price the next step was charged at, steps),
 and the wrap-up outcome. Fields a row was written without are simply not
 printed — an older scan prints exactly what it recorded.
@@ -304,7 +308,9 @@ written before the gate counted anything at all.
                      candidates, falsifierRejects, mechanicallyRejected, error,
                      resolution: { kind: 'placement', placed: { subgraph, sinkRule, sandbox }, unplaced, accepted, rejected }
                                  | { kind: 'legacy', subgraph, sinkRule, sandbox, rejected } | null,
-                     tasks: [ { taskId, stopped, sites?, model?, shell?, trace?, stop?, wrapUp? } ] } | null } ] }
+                     tasks: [ { taskId, stopped, sites?, model?, shell?, stop?, wrapUp?,
+                                trace?: [ { i, tool?, text?, inputTokens?, cacheReadTokens?, cacheWriteTokens?,
+                                            outputTokens?, reasoningTokens?, elidedChars?, finishReason? } ] } ] } | null } ] }
 ```
 
 Finding `evidence` (the redacted triggering line) is **not** in the payload

@@ -422,6 +422,10 @@ function readHuntTasks(
           if (text !== undefined) step.text = text
           for (const k of [
             'inputTokens',
+            // LUM-1224 — the parts of `inputTokens` read from / written to
+            // the prompt cache; copied so the saving is readable off the scan.
+            'cacheReadTokens',
+            'cacheWriteTokens',
             'outputTokens',
             'reasoningTokens',
             'elidedChars',
