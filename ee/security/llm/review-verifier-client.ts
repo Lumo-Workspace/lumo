@@ -19,6 +19,8 @@ import {
   stepCountIs,
   tool,
   type ModelMessage,
+  type ToolCallRepairFunction,
+  type ToolSet,
 } from 'ai'
 import { z } from 'zod'
 import '@/lib/ai/gateway'
@@ -128,23 +130,61 @@ export const VERIFIER_WRAP_UP = `Your tool budget is spent. Do not run any more 
 /**
  * LUM-1226 — CODE_REVIEW_MODEL (Sonnet 5.5) rejects a forced tool choice, so
  * the wrap-up asks with `auto` and the instruction above, and `auto` does not
- * guarantee a call. A reply without one is answered with this, appended to
- * the conversation (never an edit of it), at most once.
+ * guarantee a call; a call can also come back with input the SDK rejects (the
+ * reply then carries the tool error). Either way nothing was recorded, and
+ * this is appended to the conversation (never an edit of it), at most once.
  */
-export const VERIFIER_WRAP_UP_RETRY = `You did not call submit_verdicts. Your answer only counts through that tool: call submit_verdicts now, with a verdict for every finding id. A finding you could not refute is CONFIRMED.`
+export const VERIFIER_WRAP_UP_RETRY = `No verdicts were recorded: submit_verdicts was not called, or its input was rejected (any tool error is shown above). Call submit_verdicts now, with a verdict for every finding id. A finding you could not refute is CONFIRMED.`
 
 /** LUM-1226 — wrap-up requests at most: the first ask and one retry. */
 export const VERIFIER_WRAP_UP_ATTEMPTS = 2
 
-const VerdictsSchema = z.object({
+/** Longest reason kept per verdict; the rest is cut, never rejected. */
+export const VERIFIER_REASON_MAX_CHARS = 400
+
+/**
+ * LUM-1226 — no length limit in the schema. A `.max()` here is validated by
+ * the SDK before `execute` runs, and ONE over-long reason made the whole call
+ * invalid: every verdict in it was dropped and every finding defaulted
+ * (reproduced with Haiku 4.5 as the verifier: 537- and 413-character reasons
+ * defaulted 8 findings on 2 of 6 PRs). The length is cut in `execute`.
+ */
+export const VerdictsSchema = z.object({
   verdicts: z.array(
     z.object({
       id: z.string(),
       verdict: z.enum(['CONFIRMED', 'REJECTED']),
-      reason: z.string().max(400),
+      reason: z
+        .string()
+        .describe(
+          `One sentence. Only the first ${VERIFIER_REASON_MAX_CHARS} characters are kept.`
+        ),
     })
   ),
 })
+
+/**
+ * LUM-1226 — the one malformed `submit_verdicts` input seen in replays that
+ * is unambiguous to mend: `verdicts` sent as a JSON-encoded STRING of the
+ * array (Haiku 4.5 did it on both wrap-up attempts of one PR, after being
+ * shown the validation error, so every finding there defaulted). The string
+ * is parsed back into the array and the call re-validated by the SDK; any
+ * other invalid input is left alone (null = no repair).
+ */
+export const repairVerdictsToolCall: ToolCallRepairFunction<ToolSet> = async ({
+  toolCall,
+}) => {
+  if (toolCall.toolName !== 'submit_verdicts') return null
+  try {
+    const input = JSON.parse(toolCall.input) as Record<string, unknown>
+    if (typeof input.verdicts !== 'string') return null
+    const verdicts: unknown = JSON.parse(input.verdicts)
+    if (!Array.isArray(verdicts)) return null
+    return { ...toolCall, input: JSON.stringify({ ...input, verdicts }) }
+  } catch {
+    return null
+  }
+}
 
 /**
  * Every finding gets a result. A finding with no verdict — the agent ran out
@@ -202,7 +242,12 @@ export async function verifyFindings(
         'Submit the verdict for every finding id. Call exactly once, when done.',
       inputSchema: VerdictsSchema,
       execute: async ({ verdicts }) => {
-        submitted.push(...verdicts)
+        submitted.push(
+          ...verdicts.map(v => ({
+            ...v,
+            reason: v.reason.slice(0, VERIFIER_REASON_MAX_CHARS),
+          }))
+        )
         return { accepted: verdicts.length }
       },
     }),
@@ -225,6 +270,7 @@ export async function verifyFindings(
       prepareStep: ({ messages }) => ({
         messages: markCacheBreakpoint(messages, messages.length - 1),
       }),
+      experimental_repairToolCall: repairVerdictsToolCall,
       abortSignal,
     })
     let steps = res.steps.length
@@ -256,6 +302,7 @@ export async function verifyFindings(
           tools: { submit_verdicts: tools.submit_verdicts },
           toolChoice: 'auto',
           stopWhen: stepCountIs(1),
+          experimental_repairToolCall: repairVerdictsToolCall,
           abortSignal,
         })
         steps += wrap.steps.length
