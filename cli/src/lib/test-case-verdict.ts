@@ -9,6 +9,8 @@
  * 它渲染成一行。一份规则一处实现。
  */
 
+import { sanitizeField } from './sanitize'
+
 export type FailureCause =
   | 'IMPLEMENTATION_DEFECT'
   | 'CASE_OUTDATED'
@@ -161,7 +163,7 @@ export function formatRunOutcome(outcome: RunOutcome): string {
     const skippedItems = ceiling.skipped
       .map(
         s =>
-          `${s.phase === 'STEPS' ? 's' : 'v'}${s.index + 1} ${s.text} — ${s.reason}`
+          `${s.phase === 'STEPS' ? 's' : 'v'}${s.index + 1} ${sanitizeField(s.text)} — ${sanitizeField(s.reason)}`
       )
       .join('; ')
     return `${head} → UNPROVEN (skipped: ${skippedItems})`

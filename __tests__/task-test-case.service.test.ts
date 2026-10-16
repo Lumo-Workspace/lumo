@@ -12,6 +12,7 @@ import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/services/task-test-case.service'
+import { missingStepRefs } from '@/lib/services/test-case-core'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import type { Prisma } from '@prisma/client'
@@ -702,5 +703,71 @@ describe('recordRun — step results', () => {
       expect.objectContaining({ result: 'PASS', failedPhase: null }),
       expect.anything()
     )
+  })
+})
+
+describe('LUM-1211 error wording and missingStepRefs', () => {
+  const attribution = { memberId: 'm', sourceSessionId: null } as never
+  const tc = {
+    steps: ['a', 'b'],
+    verification: ['x', 'y', 'z'],
+  }
+
+  it('names a step reported after the break in 1-based CLI form', async () => {
+    await expect(
+      taskTestCaseService.recordRun(
+        testCase,
+        {
+          result: 'FAIL',
+          environment: 'LOCAL',
+          failureAttribution: 'UNKNOWN',
+          failedPhase: 'STEPS',
+          failedIndex: 1,
+          stepResults: [{ phase: 'VERIFICATION', index: 0, status: 'PASS' }],
+        } as never,
+        attribution
+      )
+    ).rejects.toThrow(/^v1 is reported PASS after the run broke/)
+  })
+
+  it('PASS requires every step and verification', () => {
+    expect(missingStepRefs(tc, {}, new Set(), null)).toEqual([
+      's1',
+      's2',
+      'v1',
+      'v2',
+      'v3',
+    ])
+  })
+
+  it('counts an unproven verification index as reported', () => {
+    expect(
+      missingStepRefs(
+        tc,
+        { unprovenVerification: [1] },
+        new Set(['STEPS:0', 'STEPS:1', 'VERIFICATION:0']),
+        null
+      )
+    ).toEqual(['v3'])
+  })
+
+  it('FAIL inside verification needs everything before the break only', () => {
+    // v2 (position 2 + 1 = 3) is the break; v3 is not required.
+    expect(missingStepRefs(tc, {}, new Set(['STEPS:0']), 3)).toEqual([
+      's2',
+      'v1',
+    ])
+    expect(
+      missingStepRefs(
+        tc,
+        { unprovenVerification: [0] },
+        new Set(['STEPS:0', 'STEPS:1']),
+        3
+      )
+    ).toEqual([])
+  })
+
+  it('FAIL at the first step requires nothing before it', () => {
+    expect(missingStepRefs(tc, {}, new Set(), 0)).toEqual([])
   })
 })

@@ -124,7 +124,10 @@ describe('recordRun — FAIL attribution', () => {
         },
         attribution
       )
-    ).rejects.toMatchObject({ status: 400 })
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/whose fault/i),
+    })
     expect(repo.createRun).not.toHaveBeenCalled()
   })
 

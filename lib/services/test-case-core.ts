@@ -334,7 +334,7 @@ function resolveStepResults(
     )
     if (late) {
       fail(
-        `${late.phase} ${late.index} is reported ${late.status} after the run broke — steps after the failure were not reached.`,
+        `${stepRef(late.phase, late.index)} is reported ${late.status} after the run broke — steps after the failure were not reached.`,
         400
       )
     }

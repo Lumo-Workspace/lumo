@@ -379,4 +379,25 @@ describe('formatRunOutcome skipped (LUM-1211)', () => {
       'Recorded LUM-1/TC1: PASS on LOCAL → UNPROVEN (skipped: s3 call API — no DB)'
     )
   })
+
+  it('strips control characters from the skipped text and reason', () => {
+    const out = formatRunOutcome({
+      handle: 'LUM-1/TC1',
+      reported: 'PASS',
+      environment: 'LOCAL',
+      ceiling: {
+        effective: 'UNPROVEN',
+        reason: 'skipped',
+        skipped: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: 'call\u001b[31m API',
+            reason: 'no\u001b[2J DB',
+          },
+        ],
+      },
+    })
+    expect(out).not.toContain('\u001b')
+  })
 })
