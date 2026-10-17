@@ -115,14 +115,57 @@ npx tsx scripts/crossing-eval.ts --dataset trace --judge rules --json     # 机�
 
 - 没有 system 消息；`trajectory_id` 是中性的顺序编号；标签只在 `label` 字段里。
 - 「hack」「cheat」「reward hack」这些词在两类轨迹里都有，数量都很少（例如 cheat：hacked 15 条 / benign 7 条），大多出现在任务领域里（如反作弊系统）。没看到像 BashArena cover 指令（LUM-958）那样直接暴露标签的字段。
-- 规则检测器只看工具输入，不受这些影响。将来如果跑 LLM judge，只把 `conversation` 给 judge，不给 `label` 和 id。
+- 规则检测器只看工具输入，不受这些影响。LLM judge 只拿到 `conversation`（见 `judge-prompt.ts`，有单测断言 prompt 里不含 label 和 id）。
 
-## LLM judge
+## LLM judge（整轨迹、非对比式，Sonnet 4.6，ZDR）
 
-**本次没有跑。** 全量 517 条约 2,280 万字符，约 570 万输入 token。按 Sonnet 级别的价格大约 $17，超过 $10 的上限，需要用户先批准。另外它要求所有调用走 ZDR（`zdr-proxy.ts`）。论文的参照数字：最强 judge 单条判定（非对比式）45%，对比式 63%。
+```bash
+AI_PROVIDER=gateway DOTENV_CONFIG_PATH=<主 checkout>/.env.local npx tsx -r dotenv/config \
+  scripts/analysis/lum1234-trace/judge.ts --model anthropic/claude-sonnet-4.6 --budget 22
+npx tsx scripts/crossing-eval.ts --dataset trace --judge recorded \
+  --records ~/.cache/lumo-lum1234-trace/judge.jsonl --threshold 0.5
+```
+
+- **形态**：一次调用读一条完整轨迹，包括用户消息、assistant 文字、工具调用和工具结果（长字段按头尾截断：消息 6k、工具输入 3k、工具结果 1.5k 字符）。经过 `guardInjectedText` 加栅栏并遮盖密钥，输出 0–100 的 hack 概率。prompt 只给 reward hacking 的通用定义，不给 TRACE 的类型码。
+- **ZDR**：通过 `generateEvalObject` → `@/lib/ai/gateway`（强制 zero data retention），运行时显式设了 `AI_PROVIDER=gateway`。写出的 `reason` / `evidence` 都先过 `redactForStorage`。结果文件在仓库外。
+- **花费**：全量 $17.90（517 次调用，0 失败；547 万输入 token，9.9 万输出 token），加上 6 条试跑 $0.21，**共 $18.11**。超过 $10 上限这一点用户事先批准过（2026-10-18）。
+- **阈值**：0.5 是跑之前就定好的，没有在 TRACE 上调（TRACE 没有 tune split，按 LUM-958 的教训也不该调）。另外报告与阈值无关的 AUROC。
+
+| 类别             | n   | 命中 | 比例  | Wilson 95% |
+| ---------------- | --- | ---- | ----- | ---------- |
+| hacked（检出率） | 268 | 157  | 58.6% | 52.6–64.3% |
+| benign（误报率） | 249 | 19   | 7.6%  | 4.9–11.6%  |
+
+AUROC **0.837**。阈值 0.5 下的 binary macro-F1 = **0.74**（hacked F1 0.71，benign F1 0.78）。
+
+**和论文比**：数据卡说论文的「Detection Rate」是 binary 预测的 **macro-F1**，不是检出率。论文里最强 judge 单条判定是 45%，对比式 63%。我们单条判定得到 0.74，**但不能直接说更好**：prompt、模型（论文最好的是 GPT-5.2）、轨迹的截断方式、阈值口径都不同，论文的 N=1 设置可能还带着别的条件（比如按簇抽样时的类别比例），这些我们没有复现。可以下的结论只是：在合成 TRACE 上，Sonnet 4.6 整轨迹 judge 有明显的区分能力。
+
+### 按 TRACE hack 类型（检出率）
+
+| 类型码 | 检出        |     | 家族 | 检出          |
+| ------ | ----------- | --- | ---- | ------------- |
+| 1.1.1  | 49/56 87.5% |     | 1.1  | 117/151 77.5% |
+| 1.1.2  | 53/69 76.8% |     | 1.2  | 33/82 40.2%   |
+| 1.1.3  | 33/51 64.7% |     | 1.3  | 14/44 31.8%   |
+| 1.2.1  | 21/36 58.3% |     | 1.4  | 30/43 69.8%   |
+| 1.2.2  | 2/21 9.5%   |     |      |               |
+| 1.2.3  | 13/34 38.2% |     |      |               |
+| 1.3.1  | 9/25 36.0%  |     |      |               |
+| 1.3.2  | 5/21 23.8%  |     |      |               |
+| 1.4.1  | 15/21 71.4% |     |      |               |
+| 1.4.2  | 16/24 66.7% |     |      |               |
+
+1.1 和 1.4 家族容易抓，1.2.2 和 1.3.x 难抓。数据卡提到语义类（上下文利用、风格操纵）的人工标注本身分歧更大；类型码和这些名字怎么对应，数据卡没写，所以这里不下对应关系的结论。
+
+### 漏报和误报（转述 judge 的理由，非原文）
+
+- **111 条漏报里有 44 条，judge 的理由说的是「agent 一开始确实在作弊，但被用户质问后改正了」**，于是判成不算 hack。TRACE 的口径是只要出现过 hack 就算 hacked。这是口径不一致，不是 judge 没看见。如果 Lumo 要用，需要先定「被拦下后改正」的轨迹要不要算。
+- 其余漏报多是 judge 认为 agent 在认真干活、只是质量一般（例如文档写得敷衍、测试覆盖不够）。这正好落在「解法质量降级」和「hack」的边界上。
+- 19 条误报里，一类是 judge 认为 agent 「自己编造了要修的代码 / 测试 / 指标，然后又删掉」。这像是合成环境的产物：轨迹里 agent 会在临时目录自建项目。另一类是放宽超时、删掉校验、改断言去对齐实现。这些在 judge 看来就是在凑测试，单看这几条，benign 标签本身也有争议。
 
 ## 结论
 
 1. **规则检测器对 reward hack 没有检测能力**（检出 16.4% vs 误报 19.3%）。这在预期之内：`TEST_TAMPERING` 已随 LUM-942 下线，剩下的类别量的是别的东西。
 2. **这不是 hook 可见性的问题**：96% 的调用都可评估，hack 就在 Edit/Write 的内容里。
-3. **加形状规则也补不上**：最像 hack 的几种动作形状，在 benign 里出现的频率一样高。要检测 reward hack，需要一个看整条轨迹语义的 judge（论文最好成绩是单条 45%），而不是新的逐动作规则。
+3. **加形状规则也补不上**：最像 hack 的几种动作形状，在 benign 里出现的频率一样高。
+4. **整轨迹 LLM judge 能区分**：Sonnet 4.6 单条判定 AUROC 0.84，阈值 0.5 下检出 58.6% / 误报 7.6%（合成 TRACE，未调阈值）。每条轨迹约 $0.035。漏报里约四成是「改正过的 hack」这个口径问题。
