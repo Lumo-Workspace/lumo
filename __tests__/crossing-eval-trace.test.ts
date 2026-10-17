@@ -235,6 +235,21 @@ describe('source helpers', () => {
       loadTraceRows({ file, download: false, fetchCommand: 'fetch-it' })
     ).rejects.toThrow(/unreadable cache .*not a JSON array/)
   })
+
+  it('--download never silently replaces a corrupt cache', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'lum1234-corrupt-'))
+    const file = join(dir, 'rows.json')
+    await writeFile(file, '{not json')
+    const spy = jest.spyOn(global, 'fetch')
+    try {
+      await expect(
+        loadTraceRows({ file, download: true, fetchCommand: 'fetch-it' })
+      ).rejects.toThrow(/unreadable cache/)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })
 
 describe('trace adapter', () => {

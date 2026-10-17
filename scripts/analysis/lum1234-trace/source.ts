@@ -136,11 +136,13 @@ export async function loadTraceRows(opts: {
     }
     return rows as Record<string, unknown>[]
   } catch (err) {
-    if (!opts.download) {
-      const reason =
-        (err as NodeJS.ErrnoException).code === 'ENOENT'
-          ? `missing cache ${file}`
-          : `unreadable cache ${file} (${(err as Error).message})`
+    const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'
+    // --download fills a MISSING cache; a corrupt one is never silently
+    // replaced — the user deletes it after looking.
+    if (!opts.download || !missing) {
+      const reason = missing
+        ? `missing cache ${file}`
+        : `unreadable cache ${file} (${(err as Error).message})`
       throw new Error(
         `${reason} — fetch it with \`${opts.fetchCommand}\` (gated dataset: ${TRACE_ACCESS_STEP}); or, from a parquet copy you have access to: \`${parquetHint(file)}\``
       )

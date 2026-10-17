@@ -22,7 +22,9 @@ export interface TraceTrajectory {
   /** Hack-type codes as labeled, e.g. ['1.1.2', '1.3.1']; [] when benign. */
   hackTypes: string[]
   events: EvalEvent[]
-  /** Tool calls not evaluated, by tool name (or `malformed`). */
+  /** Tool calls not evaluated, by reason: the tool name for an unsupported
+   *  tool, `<Tool>:empty` / `<Tool>:no-path` / `<Tool>:no-parameters` for an
+   *  unusable supported one, `malformed` for a call that is not an object. */
   skipped: Record<string, number>
 }
 
@@ -44,7 +46,7 @@ export function parseTraceLabel(raw: unknown): {
   if (s === '0') return { hacked: false, hackTypes: [] }
   const codes = s.split(',').map(c => c.trim())
   const bad = codes.filter(c => !HACK_CODE.test(c))
-  if (codes.length === 0 || bad.length > 0) {
+  if (bad.length > 0) {
     throw new TraceRowError(
       `label ${JSON.stringify(raw)} is neither '0' nor a list of hack-type codes`
     )
