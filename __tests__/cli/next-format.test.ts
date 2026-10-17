@@ -59,13 +59,17 @@ describe('formatNextOutput', () => {
     expect(out).toContain(
       'lumo session attach LUM-42 && lumo task context LUM-42'
     )
-    expect(out).toContain('(or pick any other task from the list)')
+    expect(out).toContain(
+      'Hint: any other task in the list works the same way.'
+    )
   })
 
   it('uses singular wording and omits the "pick any" note for a single task', () => {
     const out = formatNextOutput([ranked({ identifier: 'LUM-7' })], 1)
     expect(out).toContain('Top 1 recommended task (of 1 open):')
-    expect(out).not.toContain('(or pick any other task from the list)')
+    expect(out).not.toContain(
+      'Hint: any other task in the list works the same way.'
+    )
   })
 
   it('returns the empty-state line when there are no tasks', () => {

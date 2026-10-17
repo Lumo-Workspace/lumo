@@ -186,7 +186,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ## Next-step hints
 
-`task create/update`, `session attach`, `task context` and `next` end with a server-computed `Next:` block (≤3 suggestions, after the result line); `--no-hints` / `LUMO_NO_HINTS=1` silence it — see [tasks.md](references/tasks.md#next-step-hints).
+`task create/update`, `session attach`, `task context` and `next` end with a server-computed `Next:` block (≤3 suggestions, after the result line); `--no-hints` / `LUMO_NO_HINTS=1` silence it (and `next` / `task runs` trailing `Hint:` lines; the paging footer is data and always prints) — see [tasks.md](references/tasks.md#next-step-hints).
 
 ## Commands & flags that do NOT exist (common mistakes)
 

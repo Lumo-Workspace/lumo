@@ -4,7 +4,8 @@ import { sanitizeField } from '../lib/sanitize'
 import { renderTaskTable } from '../lib/format'
 import type { ListRenderOptions } from '../lib/list-table'
 import { rankTasks, type NextTask, type RankedTask } from '../lib/rank-tasks'
-import { formatNextSteps } from '../lib/next-steps'
+import { formatNextSteps, nextStepsSilenced } from '../lib/next-steps'
+import { hint } from '../lib/feedback'
 import {
   filterClaimable,
   formatClaimableExclusions,
@@ -163,8 +164,12 @@ export function formatNextOutput(
   totalOpen: number,
   /** Noun for the "(of N <noun>)" header — 'claimable' for the gated view. */
   poolNoun = 'open',
-  opts: ListRenderOptions = {}
+  opts: ListRenderOptions & {
+    /** Print the trailing `Next:` block and hint (default: unless `--no-hints` / `LUMO_NO_HINTS`). */
+    hints?: boolean
+  } = {}
 ): string {
+  const { hints = !nextStepsSilenced(), ...tableOpts } = opts
   const first = ranked[0]
   if (!first) return 'No open tasks assigned to you.'
 
@@ -185,7 +190,7 @@ export function formatNextOutput(
       title: sanitizeField(r.task.title),
     })),
     [],
-    { idHeader: 'TASK', ...opts }
+    { idHeader: 'TASK', ...tableOpts }
   ).split('\n')
   const offset = table.length - ranked.length
   lines.push(...table.slice(0, offset))
@@ -193,6 +198,9 @@ export function formatNextOutput(
     lines.push(table[offset + i] ?? '')
     lines.push(`     ↳ ${r.reasons.join(' · ')}`)
   })
+
+  // LUM-1232 H-2: advice only — `--no-hints` / LUMO_NO_HINTS drops it.
+  if (!hints) return lines.join('\n')
 
   lines.push('')
   // LUM-686: was a hand-written string here — the original drift source this
@@ -206,7 +214,7 @@ export function formatNextOutput(
     ])
   )
   if (ranked.length > 1) {
-    lines.push('(or pick any other task from the list)')
+    lines.push(hint('any other task in the list works the same way.'))
   }
 
   return lines.join('\n')

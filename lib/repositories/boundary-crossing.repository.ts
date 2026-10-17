@@ -677,6 +677,22 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-1232 G1: the fields a `<TEAM>-X<n>` ref is built from, for the given
+   * ids in one workspace (ids from another workspace are simply not returned).
+   */
+  async findRefFieldsByIds(workspaceId: string, ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.boundaryCrossing.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: {
+        id: true,
+        number: true,
+        task: { select: { team: { select: { identifier: true } } } },
+      },
+    })
+  },
+
+  /**
    * LUM-772 backfill read: every OPEN PROJECT_RULE_VIOLATION a compiled rule
    * produced, with the owning project (for the stored policy) and the hook
    * event id (for the full command — `detail` may be clipped). Oldest first.

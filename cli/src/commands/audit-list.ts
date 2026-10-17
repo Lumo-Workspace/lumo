@@ -31,6 +31,8 @@ export interface AuditListEvent {
   source: string
   targetType: string
   targetId: string | null
+  /** LUM-1232: `LUM-X482` for a boundary crossing; absent on older servers. */
+  targetRef?: string | null
   ip: string | null
 }
 
@@ -84,8 +86,11 @@ export function formatAuditList(
     time: fmtTimestamp(e.createdAt, { tty: env.tty }),
     action: sanitizeField(e.action),
     actor: sanitizeField(actorLabel(e)),
+    // LUM-1232 G1: the human-readable ref when the server has one.
     target: sanitizeField(
-      e.targetId ? `${e.targetType} ${e.targetId}` : e.targetType
+      e.targetRef || e.targetId
+        ? `${e.targetType} ${e.targetRef || e.targetId}`
+        : e.targetType
     ),
     source: e.source,
     ip: sanitizeField(e.ip ?? '-'),
