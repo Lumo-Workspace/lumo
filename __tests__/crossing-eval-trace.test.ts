@@ -19,7 +19,7 @@ jest.mock('@/lib/db/prisma', () => ({
   ),
 }))
 
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { formatList, main, runCli } from '../scripts/crossing-eval'
@@ -224,6 +224,58 @@ describe('source helpers', () => {
       expect(spy).toHaveBeenCalledTimes(1)
     } finally {
       spy.mockRestore()
+    }
+  })
+
+  it('downloadTrace pages through every row and refuses an empty page', async () => {
+    const page = (rows: unknown[], total: number) =>
+      new Response(
+        JSON.stringify({
+          rows: rows.map(row => ({ row })),
+          num_rows_total: total,
+        }),
+        { status: 200 }
+      )
+    const spy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(page([{ a: 1 }], 1))
+    try {
+      expect(await downloadTrace('fake-token')).toEqual([{ a: 1 }])
+      spy.mockResolvedValueOnce(page([], 3))
+      await expect(downloadTrace('fake-token')).rejects.toThrow(
+        'empty page at offset 0'
+      )
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('loadTraceRows --download writes the cache whole (no temp file left)', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'lum1234-dl-'))
+    const file = join(dir, 'sub', 'rows.json')
+    const prev = process.env.HF_TOKEN
+    process.env.HF_TOKEN = 'fake-token'
+    const spy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ rows: [{ row: { a: 1 } }], num_rows_total: 1 }),
+          { status: 200 }
+        )
+      )
+    try {
+      const rows = await loadTraceRows({
+        file,
+        download: true,
+        fetchCommand: 'fetch-it',
+      })
+      expect(rows).toEqual([{ a: 1 }])
+      expect(JSON.parse(await readFile(file, 'utf8'))).toEqual([{ a: 1 }])
+      expect(await readdir(join(dir, 'sub'))).toEqual(['rows.json'])
+    } finally {
+      spy.mockRestore()
+      if (prev === undefined) delete process.env.HF_TOKEN
+      else process.env.HF_TOKEN = prev
     }
   })
 

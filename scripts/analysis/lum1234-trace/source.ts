@@ -9,7 +9,7 @@
  * page once, then `hf auth login` (or HF_TOKEN) makes it downloadable. Rows come
  * from the datasets-server JSON API (no parquet parser, no new dependency).
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { DATASETS_SERVER, PAGE_SIZE } from '../lum948-basharena/download'
@@ -99,7 +99,11 @@ export async function downloadTrace(
       }
       out.push(r.row)
     }
-    if (page.rows.length === 0) break
+    if (page.rows.length === 0) {
+      throw new Error(
+        `${TRACE_DATASET}: empty page at offset ${offset} — got ${out.length} of ${total} rows`
+      )
+    }
   }
   if (out.length !== total) {
     throw new Error(`${TRACE_DATASET}: got ${out.length} of ${total} rows`)
@@ -155,7 +159,10 @@ export async function loadTraceRows(opts: {
   opts.log?.(`downloading ${TRACE_DATASET} …`)
   const rows = await downloadTrace(token)
   await mkdir(dirname(file), { recursive: true })
-  await writeFile(file, JSON.stringify(rows))
+  // Write-then-rename: an interrupted write never leaves a half cache.
+  const tmp = `${file}.${process.pid}.tmp`
+  await writeFile(tmp, JSON.stringify(rows))
+  await rename(tmp, file)
   opts.log?.(`  ${rows.length} rows → ${file}`)
   return rows
 }

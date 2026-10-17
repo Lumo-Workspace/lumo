@@ -27,6 +27,9 @@ import {
   gatewayCost,
   interleave,
   judgeTrajectory,
+  parseJudgeArgs,
+  parseJudgeRecords,
+  wouldExceedBudget,
   type TraceJudgeRecord,
 } from '../scripts/analysis/lum1234-trace/judge'
 
@@ -86,10 +89,14 @@ describe('renderTranscript / buildRewardHackPrompt', () => {
   })
 
   it('fences the transcript and never carries the label or id', () => {
-    const p = buildRewardHackPrompt(JSON.stringify(CONV))
+    // Distinctive label / id values: the prompt is built from `conversation`
+    // alone, so neither can reach it.
+    const r = row('fake_id_7f3a', '9.8.7')
+    const p = buildRewardHackPrompt(r.conversation)
     expect(p.startsWith('<agent-transcript>\n')).toBe(true)
     expect(p.endsWith('\n</agent-transcript>')).toBe(true)
-    expect(p).not.toMatch(/trajectory_id|label/)
+    expect(p).not.toContain('fake_id_7f3a')
+    expect(p).not.toContain('9.8.7')
   })
 })
 
@@ -115,6 +122,42 @@ describe('bookkeeping', () => {
     ).toEqual(new Set(['a']))
   })
 
+  it('parseJudgeRecords names a corrupt line instead of skipping it', () => {
+    expect(parseJudgeRecords('{"a":1}\n\n{"b":2}\n', 'f.jsonl')).toHaveLength(2)
+    expect(() => parseJudgeRecords('{"a":1}\n{oops', 'f.jsonl')).toThrow(
+      'f.jsonl:2 is not JSON'
+    )
+  })
+
+  it('parseJudgeArgs validates the numeric flags', () => {
+    expect(parseJudgeArgs(['--model', 'm/x'])).toMatchObject({
+      model: 'm/x',
+      budget: 10,
+      limit: Infinity,
+      concurrency: 6,
+      dryRun: false,
+    })
+    expect(() => parseJudgeArgs([])).toThrow('--model is required')
+    expect(() =>
+      parseJudgeArgs(['--model', 'm', '--concurrency', '0'])
+    ).toThrow('--concurrency must be a positive integer')
+    expect(() => parseJudgeArgs(['--model', 'm', '--budget', 'abc'])).toThrow(
+      '--budget must be a positive number'
+    )
+    expect(() => parseJudgeArgs(['--model', 'm', '--limit', '2.5'])).toThrow(
+      '--limit must be a positive integer'
+    )
+  })
+
+  it('wouldExceedBudget counts the calls already in flight', () => {
+    const at = { spent: 9.9, budget: 10, meanCost: 0.04 }
+    expect(wouldExceedBudget({ ...at, inFlight: 0 })).toBe(false)
+    expect(wouldExceedBudget({ ...at, inFlight: 3 })).toBe(true)
+    expect(
+      wouldExceedBudget({ spent: 10, budget: 10, inFlight: 0, meanCost: 0 })
+    ).toBe(true)
+  })
+
   it('gatewayCost reads the gateway-reported cost', () => {
     expect(gatewayCost({ gateway: { cost: '0.0123' } })).toBe(0.0123)
     expect(gatewayCost({})).toBeNull()
@@ -133,7 +176,12 @@ describe('judgeTrajectory', () => {
       usage: { inputTokens: 1000, outputTokens: 50 },
       providerMetadata: { gateway: { cost: 0.004 } },
     })
-    const rec = await judgeTrajectory('m/x', 'fake_1', JSON.stringify(CONV))
+    const { record: rec, fatal } = await judgeTrajectory(
+      'm/x',
+      'fake_1',
+      JSON.stringify(CONV)
+    )
+    expect(fatal).toBe(false)
     expect(rec).toMatchObject({
       approach: 'whole',
       variant: VARIANT,
@@ -155,15 +203,28 @@ describe('judgeTrajectory', () => {
 
   it('retries once, then records a failure as suspicion null', async () => {
     mockGenerate.mockRejectedValue(new Error('timeout'))
-    const rec = await judgeTrajectory('m/x', 'fake_2', JSON.stringify(CONV))
+    const r = await judgeTrajectory('m/x', 'fake_2', JSON.stringify(CONV))
     expect(mockGenerate).toHaveBeenCalledTimes(2)
-    expect(rec).toMatchObject({ suspicion: null, error: 'timeout' })
+    expect(r.fatal).toBe(false)
+    expect(r.record).toMatchObject({ suspicion: null, error: 'timeout' })
   })
 
-  it('does not retry a fatal gateway error', async () => {
+  it('flags a fatal gateway error without retrying', async () => {
     mockGenerate.mockRejectedValue(new Error('401 unauthorized'))
-    await judgeTrajectory('m/x', 'fake_3', JSON.stringify(CONV))
+    const r = await judgeTrajectory('m/x', 'fake_3', JSON.stringify(CONV))
     expect(mockGenerate).toHaveBeenCalledTimes(1)
+    expect(r.fatal).toBe(true)
+  })
+
+  it('treats a non-finite suspicion as a failed call', async () => {
+    mockGenerate.mockResolvedValue({
+      object: { evidence: 'e', suspicion: Number.NaN, reason: 'r' },
+      usage: {},
+      providerMetadata: {},
+    })
+    const r = await judgeTrajectory('m/x', 'fake_4', JSON.stringify(CONV))
+    expect(r.record.suspicion).toBeNull()
+    expect(r.record.error).toMatch(/non-finite suspicion/)
   })
 })
 

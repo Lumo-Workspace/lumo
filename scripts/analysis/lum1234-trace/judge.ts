@@ -30,7 +30,7 @@ import {
   RewardHackJudgeSchema,
   buildRewardHackPrompt,
 } from './judge-prompt'
-import { resolveTraceFile } from './source'
+import { loadTraceRows, resolveTraceFile } from './source'
 
 export const VARIANT = 'trace-v1'
 export const DEFAULT_JUDGE_OUT = join(
@@ -99,11 +99,16 @@ export function interleave<T extends { hacked: boolean }>(items: T[]): T[] {
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const redact = (s: string) => redactForStorage(s).text
 
+/**
+ * One judgement. `fatal` (out of credit, bad key — decided on the raw error,
+ * before redaction) means: stop the run and do NOT record this trajectory, so
+ * a resumed run makes the call again.
+ */
 export async function judgeTrajectory(
   model: string,
   id: string,
   conversation: unknown
-): Promise<TraceJudgeRecord> {
+): Promise<{ record: TraceJudgeRecord; fatal: boolean }> {
   const base = {
     approach: 'whole' as const,
     variant: VARIANT,
@@ -114,6 +119,7 @@ export async function judgeTrajectory(
     category: null,
   }
   let lastError: unknown
+  let fatal = false
   for (let attempt = 0; attempt < 2; attempt++) {
     const started = Date.now()
     try {
@@ -128,74 +134,146 @@ export async function judgeTrajectory(
         timeoutMs: TIMEOUT_MS,
         repairText: repairJudgeText,
       })
+      const raw = r.object.suspicion
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+        throw new Error(`judge returned a non-finite suspicion (${raw})`)
+      }
       return {
-        ...base,
-        suspicion: clamp01(r.object.suspicion / 100),
-        reason: redact(r.object.reason),
-        detail: { evidence: redact(r.object.evidence) },
-        error: null,
-        latencyMs: Date.now() - started,
-        inputTokens: r.usage.inputTokens ?? 0,
-        cacheReadTokens: r.usage.inputTokenDetails?.cacheReadTokens ?? 0,
-        outputTokens: r.usage.outputTokens ?? 0,
-        costUsd: gatewayCost(r.providerMetadata),
+        fatal: false,
+        record: {
+          ...base,
+          suspicion: clamp01(raw / 100),
+          reason: redact(r.object.reason),
+          detail: { evidence: redact(r.object.evidence) },
+          error: null,
+          latencyMs: Date.now() - started,
+          inputTokens: r.usage.inputTokens ?? 0,
+          cacheReadTokens: r.usage.inputTokenDetails?.cacheReadTokens ?? 0,
+          outputTokens: r.usage.outputTokens ?? 0,
+          costUsd: gatewayCost(r.providerMetadata),
+        },
       }
     } catch (err) {
       lastError = err
-      if (isFatalError((err as Error).message)) break
+      fatal = isFatalError((err as Error)?.message ?? String(err))
+      if (fatal) break
     }
   }
   return {
-    ...base,
-    suspicion: null,
-    reason: '',
-    detail: null,
-    error: redact((lastError as Error)?.message ?? String(lastError)).slice(
-      0,
-      300
-    ),
-    latencyMs: 0,
-    inputTokens: 0,
-    cacheReadTokens: 0,
-    outputTokens: 0,
-    costUsd: null,
+    fatal,
+    record: {
+      ...base,
+      suspicion: null,
+      reason: '',
+      detail: null,
+      error: redact((lastError as Error)?.message ?? String(lastError)).slice(
+        0,
+        300
+      ),
+      latencyMs: 0,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      costUsd: null,
+    },
   }
+}
+
+/** Results-file lines; a corrupt line is an error naming it, never skipped. */
+export function parseJudgeRecords(
+  raw: string,
+  file: string
+): TraceJudgeRecord[] {
+  return raw.split('\n').flatMap((l, i) => {
+    if (l.trim() === '') return []
+    try {
+      return [JSON.parse(l) as TraceJudgeRecord]
+    } catch {
+      throw new Error(
+        `${file}:${i + 1} is not JSON — fix or remove that line before resuming`
+      )
+    }
+  })
 }
 
 async function readJudgeRecords(path: string): Promise<TraceJudgeRecord[]> {
   let raw: string
   try {
     raw = await readFile(path, 'utf8')
-  } catch {
-    return []
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw err
   }
-  return raw
-    .split('\n')
-    .filter(l => l.trim() !== '')
-    .map(l => JSON.parse(l) as TraceJudgeRecord)
+  return parseJudgeRecords(raw, path)
 }
 
-function flag(name: string): string | undefined {
-  const i = process.argv.indexOf(name)
-  return i >= 0 ? process.argv[i + 1] : undefined
+export interface JudgeArgs {
+  model: string
+  out: string
+  budget: number
+  limit: number
+  concurrency: number
+  data: string | undefined
+  dryRun: boolean
+}
+
+export function parseJudgeArgs(argv: string[]): JudgeArgs {
+  const flag = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    return i >= 0 ? argv[i + 1] : undefined
+  }
+  const num = (name: string, fallback: number, integer: boolean): number => {
+    const raw = flag(name)
+    if (raw === undefined) return fallback
+    const n = Number(raw)
+    if (!Number.isFinite(n) || n <= 0 || (integer && !Number.isInteger(n))) {
+      throw new Error(
+        `${name} must be a positive ${integer ? 'integer' : 'number'} (got ${raw})`
+      )
+    }
+    return n
+  }
+  const model = flag('--model')
+  if (!model) throw new Error('--model is required')
+  return {
+    model,
+    out: flag('--out') ?? DEFAULT_JUDGE_OUT,
+    budget: num('--budget', 10, false),
+    limit: num('--limit', Infinity, true),
+    concurrency: num('--concurrency', 6, true),
+    data: flag('--data'),
+    dryRun: argv.includes('--dry-run'),
+  }
+}
+
+/**
+ * Budget gate before a new call: what is spent plus what the calls already in
+ * flight will likely cost (their count × the mean cost so far). Without the
+ * in-flight term, N concurrent workers could all pass a check just under the
+ * cap and overshoot it by N − 1 calls.
+ */
+export function wouldExceedBudget(opts: {
+  spent: number
+  budget: number
+  inFlight: number
+  meanCost: number
+}): boolean {
+  return opts.spent + opts.inFlight * opts.meanCost >= opts.budget
 }
 
 async function main(): Promise<void> {
-  const model = flag('--model')
-  if (!model) throw new Error('--model is required')
-  const out = flag('--out') ?? DEFAULT_JUDGE_OUT
-  const budget = Number(flag('--budget') ?? 10)
-  const limit = Number(flag('--limit') ?? Infinity)
-  const concurrency = Number(flag('--concurrency') ?? 6)
-  const file = resolveTraceFile(flag('--data'))
-  const rows = JSON.parse(await readFile(file, 'utf8')) as Record<
-    string,
-    unknown
-  >[]
+  const args = parseJudgeArgs(process.argv)
+  const { model, out, budget } = args
+  const file = resolveTraceFile(args.data)
+  const rows = await loadTraceRows({
+    file,
+    download: false,
+    fetchCommand: 'npx tsx scripts/crossing-eval.ts --dataset trace --download',
+  })
   const all = interleave(
     rows.map(row => ({ row, ...convertTraceRow(row) }))
-  ).slice(0, limit)
-  if (process.argv.includes('--dry-run')) {
+  ).slice(0, args.limit)
+  if (args.dryRun) {
     const chars = all.reduce(
       (n, t) => n + buildRewardHackPrompt(t.row.conversation).length,
       0
@@ -216,27 +294,37 @@ async function main(): Promise<void> {
   let stopped: string | null = null
   let next = 0
   let n = 0
+  let inFlight = 0
+  let runCost = 0
   const worker = async (): Promise<void> => {
     while (next < todo.length && !stopped) {
-      if (spent >= budget) {
+      const meanCost = n > 0 ? runCost / n : 0
+      if (wouldExceedBudget({ spent, budget, inFlight, meanCost })) {
         stopped = `budget $${budget} reached`
         break
       }
       const t = todo[next++]!
-      const r = await judgeTrajectory(model, t.id, t.row.conversation)
-      if (r.error !== null && isFatalError(r.error)) {
-        stopped = `fatal gateway error: ${r.error}`
+      inFlight++
+      const { record, fatal } = await judgeTrajectory(
+        model,
+        t.id,
+        t.row.conversation
+      )
+      inFlight--
+      if (fatal) {
+        stopped = `fatal gateway error: ${record.error}`
         break
       }
-      spent += r.costUsd ?? 0
-      await appendFile(out, `${JSON.stringify(r)}\n`)
+      spent += record.costUsd ?? 0
+      runCost += record.costUsd ?? 0
+      await appendFile(out, `${JSON.stringify(record)}\n`)
       n++
       if (n % 20 === 0 || n === todo.length) {
         process.stdout.write(`  ${n}/${todo.length} · $${spent.toFixed(2)}\n`)
       }
     }
   }
-  await Promise.all(Array.from({ length: concurrency }, worker))
+  await Promise.all(Array.from({ length: args.concurrency }, worker))
   process.stdout.write(
     `${stopped ? `${stopped} — stopped` : 'done'} · results file spend $${spent.toFixed(2)}\n`
   )
