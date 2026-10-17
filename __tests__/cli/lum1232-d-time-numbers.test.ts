@@ -190,7 +190,7 @@ describe('D2–D5 — audit / inbox / comments print absolute times', () => {
   it('audit list: UTC Z in a pipe, local + offset on a TTY', () => {
     const pipe = formatAuditList(page, {}, { tty: false, color: false })
     expect(pipe.split('\n')[0]).toMatch(
-      /^2026-10-04T15:54:12Z  member\.role_changed/
+      /^2026-10-04T15:54:12Z\tmember\.role_changed/
     )
     const tty = formatAuditList(
       page,

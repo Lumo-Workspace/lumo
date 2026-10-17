@@ -43,7 +43,7 @@ import { formatProjectList } from '@/cli/src/commands/project-list'
 import { formatShareListRows } from '@/cli/src/commands/doc-share-list'
 
 const FOOTER = /^Showing (\d+)-(\d+) of (\d+)\.$/m
-const NEXT = /^Hint: next page with `(lumo [^`]*--cursor (\d+))`$/m
+const NEXT = /^Next page: (lumo .*--cursor (\d+))$/m
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -96,10 +96,7 @@ describe('paginate + pageFooter', () => {
     expect(p.nextCursor).toBe('50')
     expect(
       pageFooter({ ...p, shown: p.items.length }, 'lumo task list')
-    ).toEqual([
-      'Showing 1-50 of 120.',
-      'Hint: next page with `lumo task list --cursor 50`',
-    ])
+    ).toEqual(['Showing 1-50 of 120.', 'Next page: lumo task list --cursor 50'])
   })
 
   it('last page: range only, no next-page command', () => {
@@ -516,7 +513,7 @@ describe('task history paging (newest page first)', () => {
       )
     ).toEqual([
       'Showing 71-120 of 120.',
-      'Hint: earlier entries with `lumo task history LUM-1 --cursor 50`',
+      'Next page: lumo task history LUM-1 --cursor 50',
     ])
     const p3 = historyPage(all, { limit: 50, offset: 100 })
     expect(p3.items.map(a => a.id)).toEqual(
@@ -533,7 +530,7 @@ describe('project list / doc share-list use the shared table (LUM-1089)', () => 
       { id: 'p2', name: 'idea', isIdea: true },
     ]
     expect(formatProjectList(projects, { tty: false, color: false })).toBe(
-      'my-project  My Project'
+      'my-project\tMy Project'
     )
     const tty = formatProjectList(projects, {
       tty: true,
@@ -550,8 +547,8 @@ describe('project list / doc share-list use the shared table (LUM-1089)', () => 
       { displayName: 'Bob Wong', role: 'VIEWER' },
     ]
     expect(formatShareListRows(rows, { tty: false, color: false })).toEqual([
-      'Alice     EDITOR',
-      'Bob Wong  VIEWER',
+      'Alice\tEDITOR',
+      'Bob Wong\tVIEWER',
     ])
     expect(
       formatShareListRows(rows, { tty: true, color: false, width: 80 })[0]

@@ -279,13 +279,18 @@ describe('formatCrossingList — dispositioned history (--all)', () => {
     const out = formatCrossingList('LUM-9', rows, {})
     expect(out).not.toContain('LUM-X7')
     expect(out).toContain('1 open (1 blocking DONE), 1 dispositioned')
-    expect(out).toContain('1 dispositioned crossing(s) not shown')
+    const notice = '1 dispositioned crossing hidden. Show it with --all.'
+    expect(out).toContain(notice)
+    // The hidden-rows notice comes after the rows it qualifies.
+    expect(out.indexOf(notice)).toBeGreaterThan(out.indexOf('LUM-X8'))
   })
 
   it('says so when there is nothing to show', () => {
-    expect(formatCrossingList('LUM-9', [], {})).toContain('No open crossings.')
+    expect(formatCrossingList('LUM-9', [], {})).toContain(
+      'No open crossings on LUM-9.'
+    )
     expect(formatCrossingList('LUM-9', [], { all: true })).toContain(
-      'No crossings recorded.'
+      'No crossings on LUM-9.'
     )
   })
 })

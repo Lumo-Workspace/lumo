@@ -1,5 +1,10 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
-import { NONE, fmtCount } from '../lib/format'
+import { NONE, fmtCount, fmtLedger } from '../lib/format'
+import {
+  childCell,
+  renderListTable,
+  type ListRenderOptions,
+} from '../lib/list-table'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -45,54 +50,54 @@ export interface OperationCostResponse {
 
 type By = 'tool' | 'model' | 'member' | 'session'
 
-/** Wide enough for `Bash · typecheck/lint/build`. */
-const LABEL_WIDTH = 28
 /** Commands listed under a `Bash · <purpose>` row. */
 const MAX_COMMANDS = 5
 
-/** Render one ranking row: label + the four token categories + total, aligned. */
-function rankRow(
-  label: string,
-  output: string,
-  input: string,
-  cacheCreate: string,
-  cacheRead: string,
-  total: string
+/**
+ * One ranking table (LUM-1232 batch A): the shared list renderer — upper-case
+ * header and right-aligned numbers on a TTY, nothing cut (the OPERATION cell
+ * is an identifier); piped, TAB-separated rows with plain integers and child
+ * rows keyed `parent/child` (L-6).
+ */
+function rankTable(
+  title: string,
+  rows: OperationCostRowDto[],
+  opts: ListRenderOptions
 ): string {
-  return `  ${label.slice(0, LABEL_WIDTH).padEnd(LABEL_WIDTH)}  ${output.padStart(10)}  ${input.padStart(10)}  ${cacheCreate.padStart(12)}  ${cacheRead.padStart(12)}  ${total.padStart(12)}`
-}
-
-function rankTable(title: string, rows: OperationCostRowDto[]): string {
   if (rows.length === 0) return ''
-  const lines = [
-    title,
-    rankRow(
-      'operation',
-      'output',
-      'input',
-      'cache_create',
-      'cache_read',
-      'total'
-    ),
+  const tty = opts.tty ?? Boolean(process.stdout.isTTY)
+  const n = (v: number) => fmtLedger(v, tty)
+  const cells = (label: string, r: OperationCostRowDto) => [
+    label,
+    n(r.output),
+    n(r.input),
+    n(r.cacheCreation),
+    n(r.cacheRead),
+    n(r.total),
   ]
-  const push = (label: string, r: OperationCostRowDto) =>
-    lines.push(
-      rankRow(
-        label,
-        fmtCount(r.output),
-        fmtCount(r.input),
-        fmtCount(r.cacheCreation),
-        fmtCount(r.cacheRead),
-        fmtCount(r.total)
-      )
-    )
+  const body: string[][] = []
   for (const r of rows.slice(0, 20)) {
-    push(sanitizeField(r.label), r)
+    const label = sanitizeField(r.label)
+    body.push(cells(label, r))
     for (const c of (r.breakdown ?? []).slice(0, MAX_COMMANDS)) {
-      push(`  ↳ ${sanitizeField(c.label)}`, c)
+      body.push(cells(childCell(label, sanitizeField(c.label), tty), c))
     }
   }
-  return lines.join('\n')
+  const table = renderListTable(body, {
+    header: [
+      'OPERATION',
+      'OUTPUT',
+      'INPUT',
+      'CACHE WRITE',
+      'CACHE READ',
+      'TOTAL',
+    ],
+    align: [undefined, 'right', 'right', 'right', 'right', 'right'],
+    ...opts,
+    tty,
+  })
+  const lines = tty ? table.split('\n').map(l => `  ${l}`) : table.split('\n')
+  return [title, ...lines].join('\n')
 }
 
 /**
@@ -127,7 +132,8 @@ export function resolveCostSince(
 export function formatOperationCost(
   data: OperationCostResponse,
   by: By,
-  sinceDay?: string | null
+  sinceDay?: string | null,
+  opts: ListRenderOptions = {}
 ): string {
   const primary =
     by === 'model'
@@ -156,13 +162,13 @@ export function formatOperationCost(
     `Per-step attribution: ${pct} of ${data.coverage.toolTurns} tool-using turns (rest fall back to per-turn split)`
   )
   out.push('')
-  out.push(rankTable(`By ${by}:`, primary))
-  if (by !== 'tool') out.push('\n' + rankTable('By tool:', data.byTool))
-  if (by !== 'model') out.push('\n' + rankTable('By model:', data.byModel))
+  out.push(rankTable(`By ${by}`, primary, opts))
+  if (by !== 'tool') out.push('\n' + rankTable('By tool', data.byTool, opts))
+  if (by !== 'model') out.push('\n' + rankTable('By model', data.byModel, opts))
   if (by !== 'member' && data.byMember.length > 1)
-    out.push('\n' + rankTable('By member:', data.byMember))
+    out.push('\n' + rankTable('By member', data.byMember, opts))
   if (by !== 'session' && data.bySession.length > 1)
-    out.push('\n' + rankTable('By session:', data.bySession))
+    out.push('\n' + rankTable('By session', data.bySession, opts))
   out.push('')
   out.push(
     note(

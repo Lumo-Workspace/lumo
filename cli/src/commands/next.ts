@@ -2,7 +2,7 @@ import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { renderTaskTable } from '../lib/format'
+import { NONE, renderTaskTable } from '../lib/format'
 import type { ListRenderOptions } from '../lib/list-table'
 import { rankTasks, type NextTask, type RankedTask } from '../lib/rank-tasks'
 import { formatNextSteps, nextStepsSilenced } from '../lib/next-steps'
@@ -180,25 +180,25 @@ export function formatNextOutput(
     '',
   ]
 
-  // LUM-1089: the shared task table; the rank rides in the id cell so the
-  // non-TTY rows keep their `1. LUM-42  …` shape. Each table row is followed
-  // by its reasons line; a TTY header (when present) comes first.
+  // LUM-1232 L-4: the ref is the first column (row order is the rank) and
+  // the ranking reasons are a WHY column — no `1.` prefix, no `↳` sub-rows.
+  // The priority is already its own column, so it is not repeated in WHY.
   const table = renderTaskTable(
-    ranked.map((r, i) => ({
-      id: `${i + 1}. ${r.identifier}`,
+    ranked.map(r => ({
+      id: r.identifier,
       status: r.task.status,
       priority: r.task.priority,
+      why:
+        r.reasons
+          .filter(x => x !== r.task.priority)
+          .map(x => sanitizeField(x))
+          .join(' · ') || NONE,
       title: sanitizeField(r.task.title),
     })),
-    [],
-    { idHeader: 'TASK', ...tableOpts }
-  ).split('\n')
-  const offset = table.length - ranked.length
-  lines.push(...table.slice(0, offset))
-  ranked.forEach((r, i) => {
-    lines.push(table[offset + i] ?? '')
-    lines.push(`     ↳ ${r.reasons.join(' · ')}`)
-  })
+    ['why'],
+    tableOpts
+  )
+  lines.push(table)
 
   // LUM-1232 H-2: advice only — `--no-hints` / LUMO_NO_HINTS drops it.
   if (!hints) return lines.join('\n')

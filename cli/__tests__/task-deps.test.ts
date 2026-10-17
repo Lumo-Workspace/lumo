@@ -36,7 +36,7 @@ describe('formatDepsList', () => {
     expect(out).toContain('lumo task deps confirm LUM-12 e2bbbbbb')
   })
   it('renders empty state', () => {
-    expect(formatDepsList('LUM-12', [])).toContain('no dependency edges')
+    expect(formatDepsList('LUM-12', [])).toBe('No dependencies on LUM-12.')
   })
 })
 

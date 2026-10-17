@@ -15,7 +15,7 @@ milestone's steward session start (LUM-647) — see [sessions.md](sessions.md).
 
 ```bash
 # List
-lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [-n N]
+lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [-n N]   # ID  SCOPE  CATEGORY  SOURCE  HEADLINE (TAB-separated when piped)
 lumo project memory list [<project>] [--category ...] [-n N]
 
 # Add (per-category fields; <task>/<project> default to the session-bound task)

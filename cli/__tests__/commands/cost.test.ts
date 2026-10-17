@@ -58,12 +58,22 @@ describe('formatOperationCost', () => {
   })
 
   it('prints per-tool input and cache_create values in the ranking', () => {
-    const out = formatOperationCost(data, 'tool')
-    const bashRow = out.split('\n').find(l => l.startsWith('  Bash'))
+    // Piped: TAB-separated, plain integers, no header.
+    const out = formatOperationCost(data, 'tool', null, { tty: false })
     // Bash row: output 10 · input 5 · cache_create 4 · cache_read 60 · total 79
-    expect(bashRow).toMatch(/\b5\b/)
-    expect(bashRow).toMatch(/\b4\b/)
-    expect(bashRow).toMatch(/\b79\b/)
+    expect(out.split('\n')).toContain('Bash\t10\t5\t4\t60\t79')
+    expect(out).not.toMatch(/^\s*OPERATION/m)
+    // TTY: upper-case header, rows indented two spaces.
+    const tty = formatOperationCost(data, 'tool', null, {
+      tty: true,
+      width: 200,
+      color: false,
+    })
+    expect(tty).toMatch(
+      /^ {2}OPERATION\s+OUTPUT\s+INPUT\s+CACHE WRITE\s+CACHE READ\s+TOTAL$/m
+    )
+    const bashRow = tty.split('\n').find(l => l.startsWith('  Bash'))
+    expect(bashRow).toMatch(/^ {2}Bash\s+10\s+5\s+4\s+60\s+79$/)
   })
 
   it('prints the per-step coverage line', () => {
@@ -84,27 +94,29 @@ describe('formatOperationCost', () => {
   })
 
   it('prints the top commands under a Bash row', () => {
-    const out = formatOperationCost(
-      {
-        ...data,
-        byTool: [
-          {
-            key: 'Bash · typecheck/lint/build',
-            label: 'Bash · typecheck/lint/build',
-            input: 0,
-            output: 0,
-            cacheRead: 90,
-            cacheCreation: 0,
-            total: 90,
-            breakdown: [
-              { key: 'tsc', label: 'tsc', input: 0, output: 0, cacheRead: 60, cacheCreation: 0, total: 60 }, // prettier-ignore
-              { key: 'npm lint', label: 'npm lint', input: 0, output: 0, cacheRead: 30, cacheCreation: 0, total: 30 }, // prettier-ignore
-            ],
-          },
-        ],
-      },
-      'tool'
-    )
+    const withBreakdown: OperationCostResponse = {
+      ...data,
+      byTool: [
+        {
+          key: 'Bash · typecheck/lint/build',
+          label: 'Bash · typecheck/lint/build',
+          input: 0,
+          output: 0,
+          cacheRead: 90,
+          cacheCreation: 0,
+          total: 90,
+          breakdown: [
+            { key: 'tsc', label: 'tsc', input: 0, output: 0, cacheRead: 60, cacheCreation: 0, total: 60 }, // prettier-ignore
+            { key: 'npm lint', label: 'npm lint', input: 0, output: 0, cacheRead: 30, cacheCreation: 0, total: 30 }, // prettier-ignore
+          ],
+        },
+      ],
+    }
+    const out = formatOperationCost(withBreakdown, 'tool', null, {
+      tty: true,
+      width: 200,
+      color: false,
+    })
     const lines = out.split('\n')
     const parent = lines.findIndex(l =>
       l.includes('Bash · typecheck/lint/build')
@@ -112,6 +124,20 @@ describe('formatOperationCost', () => {
     expect(parent).toBeGreaterThan(-1)
     expect(lines[parent + 1]).toMatch(/↳ tsc\s+.*60/)
     expect(lines[parent + 2]).toMatch(/↳ npm lint\s+.*30/)
+    // Piped, a child row stands alone: its first cell is `parent/child`.
+    const piped = formatOperationCost(withBreakdown, 'tool', null, {
+      tty: false,
+    }).split('\n')
+    const p = piped.findIndex(l =>
+      l.startsWith('Bash · typecheck/lint/build\t')
+    )
+    expect(p).toBeGreaterThan(-1)
+    expect(piped[p + 1]).toBe(
+      'Bash · typecheck/lint/build/tsc\t0\t0\t0\t60\t60'
+    )
+    expect(piped[p + 2]).toBe(
+      'Bash · typecheck/lint/build/npm lint\t0\t0\t0\t30\t30'
+    )
   })
 })
 

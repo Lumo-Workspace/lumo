@@ -1,3 +1,4 @@
+import { emptyState } from '../lib/format'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -55,8 +56,7 @@ export function resolveEdgeSelector(
  * (shared files / task mention) is summarized inline.
  */
 export function formatDepsList(identifier: string, edges: DepEdge[]): string {
-  if (edges.length === 0)
-    return `Dependencies for ${identifier}: no dependency edges.`
+  if (edges.length === 0) return emptyState('dependencies', identifier)
   const lines: string[] = [
     `Dependencies for ${identifier} (${edges.length})`,
     '',

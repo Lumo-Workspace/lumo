@@ -112,24 +112,24 @@ describe('milestoneMetricsLines', () => {
     expect(out).toContain(
       [
         '  By task — tokens',
-        '    LUM-497  201.2M tokens  reference-class anchors',
+        '    LUM-497\t201.2M tokens\treference-class anchors',
         '      claude-opus-5 168.4M · 32.8M not attributed to a model',
-        '    LUM-707  82.3M tokens   deferred cleanups',
+        '    LUM-707\t82.3M tokens\tdeferred cleanups',
         '      82.3M not attributed to a model',
       ].join('\n')
     )
     expect(out).toContain(
       [
         '  By task — active time',
-        '    LUM-497  2h 5m  reference-class anchors',
-        '    LUM-707  54m    deferred cleanups',
+        '    LUM-497\t2h 5m\treference-class anchors',
+        '    LUM-707\t54m\tdeferred cleanups',
       ].join('\n')
     )
     expect(out).toContain(
       [
         '  By task — PRs',
-        '    LUM-497  4 PRs  multi-PR  +2.1K/−140     reference-class anchors',
-        '    LUM-707  1 PR             no synced PRs  deferred cleanups',
+        '    LUM-497\t4 PRs\tmulti-PR\t+2.1K/−140\treference-class anchors',
+        '    LUM-707\t1 PR\t\tno synced PRs\tdeferred cleanups',
       ].join('\n')
     )
     expect(out).not.toContain('t3abcdef')
@@ -193,7 +193,9 @@ describe('milestoneMetricsLines', () => {
     }).join('\n')
     expect(out).toContain('LUM-109')
     expect(out).not.toContain('LUM-110')
-    expect(out.match(/ {4}… 2 more tasks/g)).toHaveLength(3)
+    expect(
+      out.match(/ {4}Showing 10 of 12 \(all of them in --json\)\./g)
+    ).toHaveLength(3)
   })
 
   it('prints a header row on a TTY with the model split still under its row', () => {

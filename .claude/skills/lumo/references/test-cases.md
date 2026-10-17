@@ -32,7 +32,7 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 
 ## `lumo task testcase list <task>` — 列表
 
-每行（tab 分列）：用例号 · 标题 · 步骤数（用例声明了 `--requires-env` 时附 `· Only proves on <ENV>`）· **最近一次执行**：结果 + 环境 + **封顶结论**（`→ UNPROVEN (no evidence | only proves on X | N skipped | N unobserved)`）+ 短 sha + 执行时间（接管道时是 UTC 的 `2026-10-06T08:00:00Z`，终端里是本地时间加时区偏移 `2026-10-06 19:00 +11:00`；LUM-1232）+ 执行人，再用 `·` 接归因（`cause: defect|outdated|external|unknown`）、裁定（`ruled KNOWN_DEFECT`）、进度（`failed at step 2` / `3 of 4 steps passed`）。从没跑过显示 `never run`。
+每行：用例号 · 标题（终端里带 `ID  TITLE  STEPS  LAST RUN` 表头、只截断最后的 LAST RUN 列；接管道时 tab 分列、无表头、不截断，LUM-1232） · 步骤数（用例声明了 `--requires-env` 时附 `· Only proves on <ENV>`）· **最近一次执行**：结果 + 环境 + **封顶结论**（`→ UNPROVEN (no evidence | only proves on X | N skipped | N unobserved)`）+ 短 sha + 执行时间（接管道时是 UTC 的 `2026-10-06T08:00:00Z`，终端里是本地时间加时区偏移 `2026-10-06 19:00 +11:00`；LUM-1232）+ 执行人，再用 `·` 接归因（`cause: defect|outdated|external|unknown`）、裁定（`ruled KNOWN_DEFECT`）、进度（`failed at step 2` / `3 of 4 steps passed`）。从没跑过显示 `never run`。
 
 列表末尾空一行打汇总，口径与 web Record 页「测试用例」行一致（服务端 `summarizeTestCases`）：`N/M passing`，有则再接 `· x failing · y unproven/blocked · z never run`；任务上还有 `· k proven defect(s) awaiting a ruling (blocks DONE)`（里程碑的关闭闸另有规则，不打这一截）。`passing` 只算封顶后仍是 PASS 的最新 run——一个零证据 PASS 不算。
 

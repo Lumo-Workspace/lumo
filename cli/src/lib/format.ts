@@ -190,6 +190,15 @@ export function fmtEnum(value: string | null | undefined): string {
 }
 
 /**
+ * A ledger number (a table whose columns add up), LUM-1232 N-2: with
+ * thousands separators on a TTY (`4,617,665,938`), a plain integer piped
+ * (`4617665938`) so it can be parsed and summed.
+ */
+export function fmtLedger(n: number, tty: boolean): string {
+  return tty ? fmtCount(n) : String(Math.round(n))
+}
+
+/**
  * The one empty-state sentence: `No <things>.` / `No <things> on <scope>.`
  * Follow-up advice goes on its own `Hint:` / `Next:` line, not here.
  */
@@ -216,14 +225,17 @@ export interface TaskTableRow {
   project?: string
   assignee?: string
   due?: string
+  /** `next`: why the task is ranked here (LUM-1232). */
+  why?: string
 }
 
-export type TaskTableColumn = 'project' | 'assignee' | 'due'
+export type TaskTableColumn = 'project' | 'assignee' | 'due' | 'why'
 
 const TASK_COLUMN_HEADER: Record<TaskTableColumn, string> = {
   project: 'PROJECT',
   assignee: 'ASSIGNEE',
   due: 'DUE',
+  why: 'WHY',
 }
 
 /**

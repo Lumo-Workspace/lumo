@@ -1,8 +1,9 @@
 // Category/field metadata + builders for the `lumo memory` commands.
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
 import { emptyState } from './format'
+import { renderListTable, type ListRenderOptions } from './list-table'
 import { sanitizeField } from './sanitize'
-import { SHORT_REF_LENGTH, shortRef } from '../../../shared/src/short-ref'
+import { shortRef } from '../../../shared/src/short-ref'
 
 type Built =
   | {
@@ -147,19 +148,29 @@ function headline(category: string, content: unknown): string {
 }
 
 /**
- * Fixed-width rows: ref  SCOPE  CATEGORY  headline  source(auto|manual).
+ * Rows: ref  SCOPE  CATEGORY  SOURCE(auto|manual)  headline — through the
+ * shared list renderer (LUM-1232 batch A: header + headline cut to the
+ * terminal on a TTY, TAB-separated piped; the free-text headline is last).
  * LUM-1230: the first column is the 8-char short ref `lumo memory show|rm|
  * promote` accept — the full cuid stays in `--json`.
  */
-export function formatMemoryList(rows: MemoryRowLike[]): string {
+export function formatMemoryList(
+  rows: MemoryRowLike[],
+  opts: ListRenderOptions = {}
+): string {
   if (rows.length === 0) return emptyState('memories')
-  const idW = SHORT_REF_LENGTH
-  const scopeW = Math.max(...rows.map(r => r.scope.length))
-  const catW = Math.max(...rows.map(r => r.category.length))
-  return rows
-    .map(r => {
-      const src = r.createdByMemberId ? 'manual' : 'auto'
-      return `${shortRef(r.id).padEnd(idW)}  ${r.scope.padEnd(scopeW)}  ${r.category.padEnd(catW)}  ${headline(r.category, r.content)}  ${src}`
-    })
-    .join('\n')
+  return renderListTable(
+    rows.map(r => [
+      shortRef(r.id),
+      r.scope,
+      r.category,
+      r.createdByMemberId ? 'manual' : 'auto',
+      headline(r.category, r.content),
+    ]),
+    {
+      header: ['ID', 'SCOPE', 'CATEGORY', 'SOURCE', 'HEADLINE'],
+      flex: 4,
+      ...opts,
+    }
+  )
 }

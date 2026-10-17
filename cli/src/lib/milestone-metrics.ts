@@ -201,7 +201,10 @@ function byTaskBlock(
   })
   const hidden = rows.length - shown.length
   if (hidden > 0) {
-    lines.push(`    … ${plural(hidden, 'more task', 'more tasks')}`)
+    // LUM-1232 PG-1: say what was shown; `--json` carries every task.
+    lines.push(
+      `    Showing ${shown.length} of ${rows.length} (all of them in --json).`
+    )
   }
   return lines
 }

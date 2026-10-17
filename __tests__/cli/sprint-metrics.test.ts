@@ -127,7 +127,7 @@ describe('sprintTeamPerformanceLines', () => {
       '  Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs'
     )
     expect(out).toMatch(
-      /\n {4}LUM-1 +3M tokens +1h +2026-06-0\d +Fix login +claude-opus-5 2\.5M · 500K not attributed to a model/
+      /\n {4}LUM-1\t3M\t1h\t2026-06-0\d\tclaude-opus-5 2\.5M · 500K not attributed to a model\tFix login/
     )
     expect(out).toContain(
       '  Unattributed  25% · 1 task done · 1M tokens · 30m agent time · 2 runs'
@@ -146,7 +146,7 @@ describe('sprintTeamPerformanceLines', () => {
     }).join('\n')
     expect(out).toContain('Total:  - tokens')
     expect(out).toContain('  Alice  - · 2 tasks done · - tokens')
-    expect(out).toMatch(/LUM-1 +- tokens +1h +\S+ +Fix login/)
+    expect(out).toMatch(/LUM-1\t-\t1h\t\S+\t-\tFix login/)
     expect(out).not.toContain('0 tokens')
     expect(out).not.toContain('0%')
   })
@@ -166,7 +166,7 @@ describe('sprintTeamPerformanceLines', () => {
     }).join('\n')
     expect(out).toContain('LUM-14')
     expect(out).not.toContain('LUM-15')
-    expect(out).toContain('    … 2 more tasks')
+    expect(out).toContain('    Showing 5 of 7 (all of them in --json).')
   })
 
   it('cuts member and task lines to the width on a TTY only', () => {

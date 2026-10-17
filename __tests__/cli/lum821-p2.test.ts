@@ -188,12 +188,12 @@ describe('task history', () => {
       )
     ).toContain(encodeURIComponent('{"c":1}'))
     expect(out).toContain('LUM-9 history (oldest first)')
-    expect(out).toMatch(/Claude Code {2}status TODO → DONE/)
+    expect(out).toMatch(/\tClaude Code\tstatus TODO → DONE/)
     expect(out).not.toContain('priority LOW')
     // LUM-1093: the hidden-entries note is now the paging footer.
     expect(out).toContain('Showing 2-2 of 2.')
     expect(out).toContain(
-      'Hint: earlier entries with `lumo task history LUM-9 --limit 1 --cursor 1`'
+      'Next page: lumo task history LUM-9 --limit 1 --cursor 1'
     )
   })
 

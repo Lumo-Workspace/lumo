@@ -74,9 +74,9 @@ describe('lumo task template list', () => {
     expect(await taskTemplateList()).toBeUndefined()
     expect(calls[0]?.url).toBe('https://api.lumo.test/api/task-templates')
     expect(out).toContain(
-      'agent-brief  Agent brief [built-in] — Goal, non-goals'
+      'agent-brief\tAgent brief\tbuilt-in\tGoal, non-goals\n'
     )
-    expect(out).toContain('bug-report   Bug report\n')
+    expect(out).toContain('bug-report\tBug report\tworkspace\t-\n')
     expect(out).toContain('--template <key>')
   })
 

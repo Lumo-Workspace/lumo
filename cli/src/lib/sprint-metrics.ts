@@ -16,6 +16,7 @@ import {
 } from './report-layout'
 import { sanitizeField } from './sanitize'
 import { renderTable, truncate } from './ui'
+import { renderListTable } from './list-table'
 
 /**
  * LUM-1190 — the `sprint show` Burnup and Team performance sections: the text
@@ -280,15 +281,26 @@ export function sprintTeamPerformanceLines(
     // The server sorts a member's tasks by tokens desc; the top few carry the
     // story (the web drill-down is collapsed by default), the rest is counted.
     const shown = row.perTask.slice(0, TEAM_TASKS_SHOWN)
+    // LUM-1232 batch A (L-2/L-5): the shared list renderer with the title as
+    // the last, flexible column — the per-model split moves before it;
+    // piped rows are TAB-separated.
     const taskRows = shown.map(t => [
       sanitizeField(t.identifier),
-      `${tokens(t.tokenCost)} tokens`,
+      tokens(t.tokenCost),
       formatDurationSec(t.activeTimeSec),
       fmtDay(t.updatedAt),
-      fit(sanitizeField(t.title), 40),
-      total === null ? '' : formatModelSplit(t.models, remainder(t)),
+      total === null ? NONE : formatModelSplit(t.models, remainder(t)) || NONE,
+      sanitizeField(t.title),
     ])
-    const table = renderTable(taskRows, { color: opts.color === true })
+    const table = renderListTable(taskRows, {
+      header: ['ID', 'TOKENS', 'AGENT TIME', 'DONE', 'MODELS', 'TITLE'],
+      flex: 5,
+      tty: opts.tty === true,
+      color: opts.color === true,
+      width: width - 4,
+    })
+    // A long MODELS cell can still outgrow a narrow terminal: on a TTY the
+    // rendered line is cut at the width (the title, last, goes first).
     lines.push(
       ...indentLines(
         table
@@ -300,7 +312,10 @@ export function sprintTeamPerformanceLines(
     )
     const hidden = row.perTask.length - shown.length
     if (hidden > 0) {
-      lines.push(`    … ${plural(hidden, 'more task', 'more tasks')}`)
+      // LUM-1232 PG-1: say what was shown; `--json` carries every task.
+      lines.push(
+        `    Showing ${shown.length} of ${row.perTask.length} (all of them in --json).`
+      )
     }
   }
   return lines

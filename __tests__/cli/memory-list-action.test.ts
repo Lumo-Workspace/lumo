@@ -71,8 +71,8 @@ it('resolves LUM-N, GETs memories, prints the formatted list', async () => {
   expect(calls[0]).toContain('/api/tasks/resolve/LUM-1')
   expect(calls[1]).toContain('/api/tasks/t1/memories')
   const printed = out.mock.calls[0]![0] as string
-  expect(printed).toMatch(/cmd_a\s+TASK\s+TRAP\s+alpha\s+auto/)
-  expect(printed).toMatch(/cmd_b\s+TASK\s+DECISION\s+beta\s+manual/)
+  expect(printed).toContain('cmd_a\tTASK\tTRAP\tauto\talpha')
+  expect(printed).toContain('cmd_b\tTASK\tDECISION\tmanual\tbeta')
 })
 
 it('filters by --category (case-insensitive)', async () => {

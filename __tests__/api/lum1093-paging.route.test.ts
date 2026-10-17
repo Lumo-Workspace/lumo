@@ -206,7 +206,7 @@ describe('e2e: lumo task list → /api/tasks/me → printed command → page 2',
   it('follows the footer command to the second page', async () => {
     expect(await taskList({})).toBeUndefined()
     expect(out).toContain('Showing 1-50 of 120.')
-    const m = /`lumo task list --cursor (\S+)`/.exec(out)
+    const m = /^Next page: lumo task list --cursor (\S+)$/m.exec(out)
     expect(m).not.toBeNull()
 
     out = ''
@@ -215,6 +215,6 @@ describe('e2e: lumo task list → /api/tasks/me → printed command → page 2',
     expect(ids[0]).toMatch(/^LUM-51\s/)
     expect(ids).toHaveLength(50)
     expect(out).toContain('Showing 51-100 of 120.')
-    expect(out).toContain('`lumo task list --cursor 100`')
+    expect(out).toContain('Next page: lumo task list --cursor 100')
   })
 })

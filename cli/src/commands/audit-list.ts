@@ -2,8 +2,8 @@ import { emptyState, fmtTimestamp } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { NEXT_PAGE_PREFIX } from '../lib/pagination'
 import { httpFailed, warn } from '../lib/errors'
-import { cmd, hint } from '../lib/feedback'
 import { shellQuote } from '../lib/confirmation'
 
 export interface AuditListOptions {
@@ -73,7 +73,7 @@ function actorLabel(e: AuditListEvent): string {
 
 /**
  * Render a page as a table (LUM-1089, header on a TTY only): UTC time,
- * action, actor, target, source, IP. A trailing hint carries the cursor for
+ * action, actor, target, source, IP. A paging footer carries the cursor for
  * the next page.
  */
 export function formatAuditList(
@@ -117,11 +117,12 @@ export function formatAuditList(
       .filter(([, v]) => v)
       // LUM-1116: shell-quote only when needed — `--limit 2`, not `--limit "2"`.
       .map(([k, v]) => `${k} ${shellQuote(String(v))}`)
+    // LUM-1232 PG-1: the paging footer (the total is not known here).
     lines.push(
-      '',
-      hint(
-        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`)}`
-      )
+      opts.cursor
+        ? `Showing ${page.events.length} more.`
+        : `Showing 1-${page.events.length}.`,
+      `${NEXT_PAGE_PREFIX} lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`
     )
   }
   return lines.join('\n')

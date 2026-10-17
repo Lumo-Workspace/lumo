@@ -1,4 +1,5 @@
-import { emptyState } from '../lib/format'
+import { NONE, emptyState } from '../lib/format'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 
@@ -10,20 +11,25 @@ export interface TaskTemplateListItem {
 }
 
 /** Render the template catalog: one line per key, built-ins marked. */
-export function formatTaskTemplateList(items: TaskTemplateListItem[]): string {
+export function formatTaskTemplateList(
+  items: TaskTemplateListItem[],
+  opts: ListRenderOptions = {}
+): string {
   if (items.length === 0) return emptyState('task templates')
-  const w = Math.max(...items.map(t => t.key.length))
-  const lines = [
+  // LUM-1232 batch A: the shared list renderer; the key (what
+  // `--template <key>` takes) first, the free-text description last.
+  return [
     'Task templates (use with `lumo task create <title> --template <key>`):',
-  ]
-  for (const t of items) {
-    const tag = t.isSystem ? ' [built-in]' : ''
-    const desc = t.description ? ` — ${sanitizeField(t.description)}` : ''
-    lines.push(
-      `  ${sanitizeField(t.key).padEnd(w)}  ${sanitizeField(t.name)}${tag}${desc}`
-    )
-  }
-  return lines.join('\n')
+    renderListTable(
+      items.map(t => [
+        sanitizeField(t.key),
+        sanitizeField(t.name),
+        t.isSystem ? 'built-in' : 'workspace',
+        t.description ? sanitizeField(t.description) : NONE,
+      ]),
+      { header: ['KEY', 'NAME', 'KIND', 'DESCRIPTION'], flex: 3, ...opts }
+    ),
+  ].join('\n')
 }
 
 /** `lumo task template list` — system + workspace task templates (LUM-970). */

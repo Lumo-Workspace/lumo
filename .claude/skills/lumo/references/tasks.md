@@ -64,7 +64,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 
 ### `lumo task template list [--json]` — task templates (LUM-970)
 
-Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
+Lists the keys `--template` accepts as a table `KEY  NAME  KIND  DESCRIPTION` (KIND is `built-in`, e.g. `agent-brief`, or `workspace`; TAB-separated when piped). `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
 
 ```bash
 lumo task template list
@@ -253,14 +253,14 @@ Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Ful
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
-Default behavior: prints every task currently assigned to the authenticated user (no project / status filter), one per line, as a fixed-width table:
+Default behavior: prints every task currently assigned to the authenticated user (no project / status filter), one per line. Piped / agent output (non-TTY) is one row per line with the fields separated by a single **TAB** (LUM-1232; `⇥` marks a TAB below), no header, nothing truncated, and column 1 is always the id:
 
 ```
-LUM-42  IN_PROGRESS  HIGH    web      Fix Slack OAuth redirect
-LUM-48  TODO         MEDIUM  backend  Investigate slow query
+LUM-42⇥IN_PROGRESS⇥HIGH⇥web⇥Fix Slack OAuth redirect
+LUM-48⇥TODO⇥MEDIUM⇥backend⇥Investigate slow query
 ```
 
-Columns align by display width (CJK counts 2). On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id. `task search` and `next` use the same table (`next` keeps the `1. LUM-N` rank in column 1; its TTY header reads `TASK  STATUS  PRIORITY  TITLE`).
+On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2), an upper-case header row comes first and only the title is cut with `…` to fit the terminal width. `task search` and `next` use the same table (`next`: `ID  STATUS  PRIORITY  WHY  TITLE`, row order is the rank).
 
 | Flag                    | Type    | Notes                                                                                       |
 | ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
@@ -287,8 +287,10 @@ Lists print **50 rows per page** by default (`--limit` 1-500 changes it). When a
 
 ```
 Showing 1-50 of 132.
-Hint: next page with `lumo task list --status todo --cursor 50`
+Next page: lumo task list --status todo --cursor 50
 ```
+
+The second line is data, not a hint: it always prints, `--no-hints` does not hide it (LUM-1232).
 
 The last page prints only the `Showing …` line; a result that fits on one page prints no footer. **If you see the footer, you have not seen everything** — run the printed command before concluding a task/doc/milestone is absent. `--json` (where offered) adds `total` and `nextCursor` (`null` on the last page). The cursor is opaque: copy it, don't compute it.
 
@@ -375,12 +377,9 @@ Output:
 ```
 Top 3 recommended tasks (of 12 open):
 
-1. LUM-42  IN_PROGRESS  URGENT  Fix Slack OAuth redirect
-     ↳ URGENT · active sprint · due 2026-06-03 (overdue) · in progress
-2. LUM-48  TODO         HIGH    Investigate slow query
-     ↳ HIGH · active sprint · unblocks 2 tasks
-3. LUM-12  TODO         MEDIUM  Add rate limiting
-     ↳ MEDIUM · blocked by 1 open dep · due 2026-06-10
+LUM-42⇥IN_PROGRESS⇥URGENT⇥active sprint · due 2026-06-03 (overdue) · in progress⇥Fix Slack OAuth redirect
+LUM-48⇥TODO⇥HIGH⇥active sprint · unblocks 2 tasks⇥Investigate slow query
+LUM-12⇥TODO⇥MEDIUM⇥blocked by 1 open dep · due 2026-06-10⇥Add rate limiting
 
 Next:
   lumo session attach LUM-42 && lumo task context LUM-42

@@ -184,6 +184,10 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo worktree prune --confirm` — remove DONE tasks' worktrees holding nothing unlanded (exit 4 envelope)
 - `lumo worktree list` — task id, branch, dirty, node_modules link
 
+## Reading list output
+
+Every list prints its ref (`LUM-42`, `TC3`, a slug, `#13`) in column 1. Piped (how agents read it): one row per line, fields separated by a single TAB, no header row, nothing truncated — split on `\t`. On a terminal: aligned columns under an upper-case header, only the last free-text column cut with `…`. A paged list ends with `Showing a-b of n.` + `Next page: <command>` (always printed). See [tasks.md](references/tasks.md#paging-lum-1093--shared-by-task-list-task-search-task-history-task-comments-list-milestone-list-doc-list).
+
 ## Next-step hints
 
 `task create/update`, `session attach`, `task context` and `next` end with a server-computed `Next:` block (≤3 suggestions, after the result line); `--no-hints` / `LUMO_NO_HINTS=1` silence it (and `next` / `task runs` trailing `Hint:` lines; the paging footer is data and always prints) — see [tasks.md](references/tasks.md#next-step-hints).
