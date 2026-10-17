@@ -31,7 +31,7 @@ const task: TaskRow = {
 describe('formatSprintShow', () => {
   it('renders sprint header, progress, and task table', () => {
     const out = formatSprintShow(sprint, progress, [task])
-    expect(out).toContain('Sprint:    #3 Sprint 3')
+    expect(out).toContain('#3  Sprint 3\nStatus:    ACTIVE')
     expect(out).toContain('Status:    ACTIVE')
     expect(out).toContain('Team:      Engineering')
     expect(out).toContain('Start:     2026-06-01')

@@ -22,7 +22,13 @@ import {
   type SprintBurnupData,
   type SprintTeamPerformanceData,
 } from '../lib/sprint-metrics'
-import { colorEnabled, terminalWidth, truncate } from '../lib/ui'
+import {
+  colorEnabled,
+  enumColor,
+  heading,
+  terminalWidth,
+  truncate,
+} from '../lib/ui'
 
 export interface ShowSprintOptions {
   team?: string
@@ -109,9 +115,12 @@ export function formatSprintShow(
   opts: DetailOptions = {},
   metrics: SprintMetrics = {}
 ): string {
+  // LUM-1232 D-1: `#<n>  <name>` first; the status coloured on a TTY (E-2).
+  const titleLine = heading(`#${s.number}  ${sanitizeField(s.name)}`, {
+    color: opts.color === true,
+  })
   const header: Field[] = [
-    { label: 'Sprint', value: `#${s.number} ${sanitizeField(s.name)}` },
-    { label: 'Status', value: s.status },
+    { label: 'Status', value: enumColor(s.status, opts.color === true) },
     { label: 'Team', value: sanitizeField(s.team.name) },
     { label: 'Start', value: fmtCalendarDay(s.startDate) },
     { label: 'End', value: fmtCalendarDay(s.endDate) },
@@ -124,6 +133,7 @@ export function formatSprintShow(
   // One label width across both groups, so the values share a column.
   const labelW = labelWidth([...header, ...progressRow])
   const lines = [
+    titleLine,
     ...fieldLines(header, 0, opts, labelW),
     '',
     ...fieldLines(progressRow, 0, opts, labelW),

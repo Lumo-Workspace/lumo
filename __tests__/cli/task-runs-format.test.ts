@@ -54,12 +54,12 @@ describe('formatRunReport', () => {
   })
 
   it('prints each run newest first: number, session, counts, tokens, attribution', () => {
-    const i2 = text.indexOf('## Run #2')
-    const i1 = text.indexOf('## Run #1')
+    const i2 = text.indexOf('Run #2')
+    const i1 = text.indexOf('Run #1')
     expect(i2).toBeGreaterThan(-1)
     expect(i1).toBeGreaterThan(i2)
     expect(text).toContain(
-      '## Run #2 · Chao Li · CLAUDE_CODE · Bound · ≈ approximate'
+      'Run #2 · Chao Li · CLAUDE_CODE · Bound · ≈ approximate'
     )
     expect(text).toContain('session sess-bou')
     expect(text).toContain(
@@ -76,7 +76,7 @@ describe('formatRunReport', () => {
   it('fences the run list as session-recap history', () => {
     expect(text).toContain('<untrusted-session-recap>')
     expect(text.indexOf('<untrusted-session-recap>')).toBeLessThan(
-      text.indexOf('## Run #2')
+      text.indexOf('Run #2')
     )
     expect(text).toContain('</untrusted-session-recap>')
   })

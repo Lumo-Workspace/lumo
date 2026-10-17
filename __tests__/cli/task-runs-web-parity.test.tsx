@@ -71,7 +71,7 @@ describe.each(TIMELINE.runs.map(r => [r.runNumber, r] as const))(
     it('web and CLI agree on number, tools, tokens, loops and badge', () => {
       const web = webHeader(run)
       expect(web).toContain(`Run #${n}`)
-      expect(cli).toContain(`## Run #${n}`)
+      expect(cli).toContain(`Run #${n} ·`)
 
       const tools = `${run.toolCallCount} tool`
       expect(web).toContain(tools)

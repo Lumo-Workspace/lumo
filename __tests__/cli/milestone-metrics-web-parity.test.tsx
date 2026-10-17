@@ -185,5 +185,5 @@ test('PRs panel: PR counts, multi-PR (rework) and change volume match', () => {
   expect(cli).toMatch(
     /LUM-497\t4 PRs\tmulti-PR\t\+2\.1K\/−140\treference-class anchors/
   )
-  expect(cli).toMatch(/LUM-707\t1 PR\t\tno synced PRs\tdeferred cleanups/)
+  expect(cli).toMatch(/LUM-707\t1 PR\t-\tno synced PRs\tdeferred cleanups/)
 })

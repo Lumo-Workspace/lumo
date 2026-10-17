@@ -166,9 +166,9 @@ export function crossingFields(
       label: 'Turn intent',
       value: orNone(c.agentContext ?? c.editChange?.agentTurnContext),
     },
-    { label: 'System explanation', value: orNone(c.systemExplanation) },
+    { label: 'Why flagged', value: orNone(c.systemExplanation) },
     {
-      label: 'Agent explanations',
+      label: 'Agent notes',
       value:
         c.explanations.length === 0
           ? NONE

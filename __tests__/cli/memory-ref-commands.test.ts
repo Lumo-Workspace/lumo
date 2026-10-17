@@ -64,7 +64,8 @@ describe('lumo memory show <memory>', () => {
     expect(String(fetchSpy.mock.calls[0]![0])).toBe(
       `https://x/api/memories/${SHORT}`
     )
-    expect(printed()).toContain(`[TRAP] ${SHORT}`)
+    expect(printed()).toMatch(new RegExp(`^${SHORT}  `, 'm'))
+    expect(printed()).toMatch(/^Type:\s+TRAP$/m)
     expect(printed()).not.toContain(FULL)
     expect(reportPull).toHaveBeenCalledWith({
       fragmentType: 'MEMORY',

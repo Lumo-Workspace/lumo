@@ -77,9 +77,10 @@ lumo memory rm kp5brom5 --confirm
 
 ### `lumo memory show <memory>` (progressive disclosure)
 
-Fetches one memory's full card from the server and prints its category tag and
-short ref (`[TRAP] kp5brom5`, `[DECISION] …`, …) followed by the structured
-`content` body (pretty-printed JSON).
+Fetches one memory's full card from the server and prints it as a detail view
+(LUM-1232): `<short ref>  <summary or headline>`, a `Type:  TRAP` row, then
+one section per content field (`What`, `Why`, `Trigger`, `Outcome`, `Steps` as
+bullets, …) — never raw JSON.
 
 - **Arg**: `<memory>` (required) — the 8-character short ref you saw in
   `... memory list` column 1, in a session-start index line (`· kp5brom5` /

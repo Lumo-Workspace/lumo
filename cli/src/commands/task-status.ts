@@ -35,7 +35,7 @@ import {
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
-import { colorEnabled, terminalWidth } from '../lib/ui'
+import { colorEnabled, enumColor, terminalWidth } from '../lib/ui'
 import { doneGateSection, type DoneGateReadout } from '../lib/done-gate-format'
 import { emptyState, fmtTokens, formatDurationSec } from '../lib/format'
 import {
@@ -74,6 +74,8 @@ export interface TaskStatusExtras {
    *  command passes `colorEnabled()`, so a pure call stays plain text). */
   width?: number | undefined
   color?: boolean | undefined
+  /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
+  tty?: boolean | undefined
 }
 
 /** One-line a possibly-multiline crossing detail and cap it so the safety block
@@ -577,11 +579,15 @@ export function formatTaskStatus(
   data: TaskStatusResponse,
   extras: TaskStatusExtras = {}
 ): string {
-  const opts: LayoutOptions = { width: extras.width, color: extras.color }
+  const opts: LayoutOptions = {
+    width: extras.width,
+    color: extras.color,
+    tty: extras.tty,
+  }
   const lines: string[] = []
   const t = data.task
   lines.push(`${t.identifier}  ${sanitizeField(t.title)}`)
-  lines.push(`Status: ${t.status}`)
+  lines.push(`Status: ${enumColor(t.status, opts.color === true)}`)
   // LUM-1186: the single verdict first — the web Record tab's Done gate.
   lines.push(...doneGateSection(data.doneGate, opts))
   // The claim / faithfulness verdict is NOT rendered here (user ruling
@@ -1036,6 +1042,7 @@ export async function taskStatus(
         data.task.identifier
       ),
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     })
   )

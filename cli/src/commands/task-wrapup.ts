@@ -657,7 +657,11 @@ export async function taskWrapup(
           resolvedId
         ),
       },
-      { width: terminalWidth(), color: colorEnabled() }
+      {
+        width: terminalWidth(),
+        color: colorEnabled(),
+        tty: Boolean(process.stdout.isTTY),
+      }
     )
   )
 }

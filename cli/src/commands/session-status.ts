@@ -345,6 +345,7 @@ export async function sessionStatus(): Promise<number | void> {
   process.stdout.write(
     formatSessionStatus(sessionId, data, {
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     })
   )

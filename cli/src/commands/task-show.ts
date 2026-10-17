@@ -133,6 +133,7 @@ export async function taskShow(
   process.stdout.write(
     formatTaskShow(data.task, {
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     }) + '\n'
   )

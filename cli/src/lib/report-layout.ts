@@ -1,5 +1,6 @@
 import {
   DEFAULT_TERMINAL_WIDTH,
+  enumColor,
   heading,
   icons,
   stringWidth,
@@ -28,15 +29,25 @@ export interface LayoutOptions {
   width?: number | undefined
   /** Emit SGR styling (default false — the command entry decides). */
   color?: boolean | undefined
-  /** Terminal vs pipe form of times (LUM-1232 T-1/T-2; default: stdout's TTY state). */
+  /**
+   * Terminal vs pipe (LUM-1232). Times use the terminal / pipe form (T-1/T-2;
+   * default: stdout's TTY state); `false` also turns wrapping off — piped
+   * output prints every logical line whole (D-4).
+   */
   tty?: boolean | undefined
 }
 
+/** Effectively "no width limit": what a piped report wraps at (D-4). */
+export const NO_WRAP_WIDTH = Number.MAX_SAFE_INTEGER
+
 /**
  * The width the reports wrap at: the terminal's, clamped to 40–100 columns
- * (prose past 100 columns reads worse, not better). Non-TTY output gets 100.
+ * (prose past 100 columns reads worse, not better). LUM-1232 D-4: an explicit
+ * `tty: false` (piped output) never wraps — paths, URLs and commands stay
+ * whole; formatters called without `tty` keep the 100-column default.
  */
 export function reportWidth(opts: LayoutOptions = {}): number {
+  if (opts.tty === false) return NO_WRAP_WIDTH
   const w = opts.width ?? DEFAULT_TERMINAL_WIDTH
   return Math.min(DEFAULT_TERMINAL_WIDTH, Math.max(40, w))
 }
@@ -115,6 +126,9 @@ export function labelWidth(fields: Field[]): number {
  * value one level deeper, so a long value never runs past the width and the
  * nesting never exceeds one level under the row.
  */
+/** A bare UPPER_SNAKE enum value (what `fieldLines` colours). */
+const ENUM_VALUE_RE = /^[A-Z][A-Z_]{2,}$/
+
 export function fieldLines(
   fields: Field[],
   indent: number,
@@ -125,7 +139,11 @@ export function fieldLines(
   const width = reportWidth(opts)
   const pad = ' '.repeat(indent)
   const out: string[] = []
-  for (const f of fields) {
+  for (let f of fields) {
+    // LUM-1232 E-2: a value that is a bare enum (`DONE`, `CONFIRMED`) is
+    // coloured by meaning on a TTY; colour off returns it unchanged.
+    if (opts.color === true && ENUM_VALUE_RE.test(f.value))
+      f = { ...f, value: enumColor(f.value, true) }
     const label = `${f.label}:`
     const shown = style.dim(label, opts.color === true)
     const valueCol = indent + labelW + 2

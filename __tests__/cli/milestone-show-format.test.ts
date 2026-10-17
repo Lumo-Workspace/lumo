@@ -29,7 +29,7 @@ const task: TaskRow = {
 describe('formatMilestoneShow', () => {
   it('renders milestone header + counts + task table', () => {
     const out = formatMilestoneShow(milestone, [task])
-    expect(out).toContain('Milestone:  Q3 Launch')
+    expect(out.split('\n')[0]).toBe('Q3 Launch')
     expect(out).toContain('State:      ACTIVE')
     expect(out).toContain('Completed:  -')
     expect(out).toContain('Archived:   -')
@@ -53,7 +53,8 @@ describe('formatMilestoneShow', () => {
       },
       []
     )
-    expect(out).toMatch(/Slug:\s+headless-web-cli/)
+    // LUM-1232 D-1: the slug is the ref on the title line.
+    expect(out.split('\n')[0]).toBe('headless-web-cli  Q3 Launch')
     expect(out).not.toContain('cmv95ivuj000l06jvjrs7b7z1')
   })
 

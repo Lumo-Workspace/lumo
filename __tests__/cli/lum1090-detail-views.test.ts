@@ -276,7 +276,9 @@ describe('LUM-1090 — colour only when the caller turns it on', () => {
       tty: true,
     })
     expect(coloured).toContain(`${ESC}[1mProgress${ESC}[22m`)
-    expect(coloured).toContain(`${ESC}[2mMilestone:${ESC}[22m`)
+    expect(coloured).toContain(`${ESC}[2mState:${ESC}[22m`)
+    // LUM-1232 E-2: a bare enum value is coloured on a TTY.
+    expect(coloured).toContain(`${ESC}[33mAT_RISK${ESC}[39m`)
   })
 
   it('sanitizes before styling: ESC in member text never reaches a styled line', () => {
