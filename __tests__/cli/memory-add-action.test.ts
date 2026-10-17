@@ -270,7 +270,7 @@ it('omits agent key when --agent is not passed', async () => {
   expect(body).not.toHaveProperty('agent')
 })
 
-it('returns 1 and makes no memories POST when --agent is invalid', async () => {
+it('returns 2 (usage error) and makes no memories POST when --agent is invalid', async () => {
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const allCalls: string[] = []
   jest.spyOn(global, 'fetch').mockImplementation(((url: any) => {

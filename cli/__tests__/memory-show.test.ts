@@ -34,7 +34,7 @@ afterEach(() => {
 })
 
 describe('memoryShow', () => {
-  it('errors (returns 1) without an id', async () => {
+  it('errors (returns 2, usage) without an id', async () => {
     expect(await memoryShow(undefined)).toBe(2)
   })
 

@@ -186,7 +186,7 @@ describe('task update tag flag mutex', () => {
     consoleSpy.mockRestore()
   })
 
-  it('returns 1 when --tag and --add-tag both set', async () => {
+  it('returns 2 (usage error) when --tag and --add-tag both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tag: ['a'],
       addTag: ['b'],
@@ -198,7 +198,7 @@ describe('task update tag flag mutex', () => {
     )
   })
 
-  it('returns 1 when --tag and --remove-tag both set', async () => {
+  it('returns 2 (usage error) when --tag and --remove-tag both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tag: ['a'],
       removeTag: ['b'],
@@ -210,7 +210,7 @@ describe('task update tag flag mutex', () => {
     )
   })
 
-  it('returns 1 when --tag-id and --add-tag-id both set', async () => {
+  it('returns 2 (usage error) when --tag-id and --add-tag-id both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tagId: ['cuid_a'],
       addTagId: ['cuid_b'],

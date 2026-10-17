@@ -187,6 +187,21 @@ describe('the stderr filter end to end (custom sink)', () => {
     expect(String(parsed.error.hint)).toMatch(/lumo task list/)
   })
 
+  it('--json: a failure with no Error: line is still one JSON object', () => {
+    out = []
+    installErrorOutput({ json: true, write: s => out.push(s) })
+    process.stderr.write('something odd happened\n')
+    finalizeErrorOutput(1)
+    expect(out).toHaveLength(1)
+    expect(JSON.parse(out[0]!)).toEqual({
+      error: {
+        code: 'UNKNOWN',
+        message: 'something odd happened',
+        exitCode: 1,
+      },
+    })
+  })
+
   it('--json: a success passes its stderr through unchanged', () => {
     out = []
     installErrorOutput({ json: true, write: s => out.push(s) })

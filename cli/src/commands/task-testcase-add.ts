@@ -45,7 +45,7 @@ export async function testCaseAddInScope(
   }
   if (steps.length === 0) {
     console.error('Error: at least one --step is required.')
-    return 1
+    return EXIT_USAGE
   }
   if (!expected) {
     console.error('Error: --expected is required and cannot be empty.')
@@ -55,7 +55,7 @@ export async function testCaseAddInScope(
   const requiredEnvironment = resolveRequiredEnvironment(options.requiresEnv)
   if (!requiredEnvironment.ok) {
     console.error(`Error: ${requiredEnvironment.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const ctx = apiContext()

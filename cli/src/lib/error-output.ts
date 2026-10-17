@@ -272,7 +272,8 @@ export function finalizeErrorOutput(
     for (const l of extra) st.write(l + '\n')
     return
   }
-  if (failed && st.sawError) {
+  if (failed) {
+    // Even a failure that printed no `Error:` line is one JSON object.
     const out = JSON.stringify(
       buildErrorJson([...st.buffered, ...extra], exitCode)
     )

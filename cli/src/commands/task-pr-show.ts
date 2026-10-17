@@ -72,8 +72,9 @@ export async function taskPrShow(
     return 1
   }
   if (res.status === 400) {
+    // The server rejected it after a request was sent: exit 1, not a usage 2.
     console.error(`Error: invalid PR number "${prNumber}"`)
-    return EXIT_USAGE
+    return 1
   }
   if (res.status === 404) {
     console.error(

@@ -47,7 +47,7 @@ describe('sessionAttach', () => {
     )
   })
 
-  it('exits 1 when identifier is missing', async () => {
+  it('exits 2 (usage error) when identifier is missing', async () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const exit = await sessionAttach(undefined)
     expect(exit).toBe(2)
