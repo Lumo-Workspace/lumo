@@ -225,3 +225,19 @@ export function dispositionUrl(
 ): string {
   return `${trimTrailingSlash(apiUrl)}/workspace/${workspaceSlug}/my-tasks/${taskIdentifier}#boundary-crossings`
 }
+
+/**
+ * LUM-1229: the web anchor of the Record tab's Test cases section — mirrors
+ * `TEST_CASES_ANCHOR` in `TaskDetailTimeline/taskTabs.ts` (a parity test pins
+ * the two). Where a human rules on a proven test-case defect.
+ */
+export const TEST_CASES_ANCHOR = 'dossier-tests'
+
+/** LUM-1229: the deep link to a task's Test cases section on the web. */
+export function testCasesUrl(
+  apiUrl: string,
+  workspaceSlug: string,
+  taskIdentifier: string
+): string {
+  return `${trimTrailingSlash(apiUrl)}/workspace/${workspaceSlug}/my-tasks/${taskIdentifier}#${TEST_CASES_ANCHOR}`
+}

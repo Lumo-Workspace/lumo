@@ -781,6 +781,8 @@ async function runTaskUpdate(
             base,
             token: creds.token,
             identifier,
+            apiUrl,
+            workspaceSlug: creds.workspaceSlug ?? '',
           })
         const statusSummary = await fetchStatusDigest(
           base,

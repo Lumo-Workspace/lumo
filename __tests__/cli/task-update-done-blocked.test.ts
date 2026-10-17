@@ -37,6 +37,8 @@ import {
   buildRemediation,
   isDoneGateRefusal,
 } from '@/cli/src/lib/blocked-error'
+import { TEST_CASES_ANCHOR as CLI_TEST_CASES_ANCHOR } from '@/cli/src/lib/open-crossings'
+import { TEST_CASES_ANCHOR as WEB_TEST_CASES_ANCHOR } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/taskTabs'
 
 type Route = (url: string, init?: RequestInit) => unknown
 
@@ -285,15 +287,23 @@ describe('task update done blocked', () => {
           prNumber: 1,
           statement: 's',
         },
+        {
+          kind: 'TEST_CASE_DEFECT',
+          ref: 'LUM-1/TC1',
+          number: 1,
+          title: 't',
+          url: 'https://x/#dossier-tests',
+        },
       ],
       [],
       { identifier: 'LUM-1', dispositionUrl: 'https://x/#boundary-crossings' }
     )
-    expect(lines.length).toBe(2)
+    expect(lines.length).toBe(3)
     const allowed = [
       'lumo crossing explain',
       'lumo crossing disposition',
       'lumo finding disposition',
+      'lumo task testcase',
       'lumo task status',
     ]
     for (const l of lines) {
@@ -310,6 +320,8 @@ describe('task update done blocked', () => {
     expect(byKind.SECURITY_FINDING).toContain('never self-approve')
     expect(byKind.BOUNDARY_CROSSING).toContain('never self-approve')
     expect(byKind.SECURITY_FINDING).toMatch(/to the user/)
+    expect(byKind.TEST_CASE_DEFECT).toContain('never self-approve')
+    expect(byKind.TEST_CASE_DEFECT).toMatch(/to the user/)
   })
 
   it('an enrichment read that fails is reported in unconfirmed[], not hidden', async () => {
@@ -333,6 +345,140 @@ describe('task update done blocked', () => {
     expect(stdout.join('')).toBe('')
     expect(stderr.join('\n')).toContain('Only the owner can delete a document')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  describe('LUM-1229: a proven test-case defect', () => {
+    const TC_MSG =
+      'Cannot move this task to DONE — 1 test case whose latest run proved an implementation defect with evidence: TC1 "login works". A human must disposition it on the task timeline (known defect — ship anyway, or not a defect). Fixing the defect first is not required to clear this.'
+    const verdict = (over: Record<string, unknown>) => ({
+      kind: 'TEST_CASE_VERDICT',
+      signal: 'PROVEN_DEFECT',
+      number: 1,
+      title: 'login works',
+      blocking: true,
+      advisory: false,
+      ...over,
+    })
+    const withVerdicts = (rows: unknown[], finding = false) => {
+      const base = statusPayload({ finding })
+      return {
+        ...base,
+        nextActions: [...(base.nextActions as unknown[]), ...rows],
+      }
+    }
+
+    it('only test-case defect: blocker with its ref, user-ruling remediation, test-cases anchor', async () => {
+      route(
+        gateRoutes({
+          gateMsg: TC_MSG,
+          status: withVerdicts([
+            verdict({}),
+            // ruled on / other signals never block
+            verdict({ number: 2, blocking: false, advisory: true }),
+            verdict({
+              number: 3,
+              signal: 'UNPROVEN_PASS',
+              blocking: false,
+              advisory: true,
+            }),
+          ]),
+        })
+      )
+      const code = await taskUpdate('LUM-1', { status: 'done', confirm: true })
+      expect(code).toBe(5)
+      const err = blocked()
+      expect(err.message).toBe(TC_MSG)
+      const tcUrl =
+        'https://api.lumo.test/workspace/lumo/my-tasks/LUM-1#dossier-tests'
+      expect(err.blockers).toEqual([
+        {
+          kind: 'TEST_CASE_DEFECT',
+          ref: 'LUM-1/TC1',
+          number: 1,
+          title: 'login works',
+          url: tcUrl,
+        },
+      ])
+      expect(err.dispositionUrl).toBe(tcUrl)
+      expect(err.unconfirmed).toEqual([])
+      expect(err.remediation).toHaveLength(1)
+      const line = err.remediation[0]!
+      expect(line).toMatch(/^TEST_CASE_DEFECT: /)
+      expect(line).toContain(
+        'lumo task testcase disposition LUM-1/TC1 --known-defect'
+      )
+      expect(line).toContain('--not-a-defect')
+      expect(line).toContain("The ruling is the user's, never the agent's")
+      expect(line).toContain('never self-approve')
+      expect(line).toContain(tcUrl)
+      expect(line).not.toMatch(/--confirm\b|--force|--yes/)
+      expect(line).not.toContain('#boundary-crossings')
+    })
+
+    it('a proven defect with no `blocking` (older server) is unconfirmed, never a guessed blocker', async () => {
+      route(
+        gateRoutes({
+          gateMsg: TC_MSG,
+          status: withVerdicts([verdict({ blocking: undefined })]),
+        })
+      )
+      expect(await taskUpdate('LUM-1', { status: 'done', confirm: true })).toBe(
+        5
+      )
+      const err = blocked()
+      expect(err.blockers).toEqual([])
+      expect(err.unconfirmed.join('\n')).toContain('TC1')
+      expect(err.dispositionUrl).toMatch(/#boundary-crossings$/)
+    })
+
+    it('mixed with a crossing and a finding: all three listed, top-level url stays on the crossings panel', async () => {
+      route(
+        gateRoutes({
+          gateMsg: CROSSING_MSG,
+          crossings: crossingsPayload,
+          status: withVerdicts([verdict({})], true),
+        })
+      )
+      expect(await taskUpdate('LUM-1', { status: 'done', confirm: true })).toBe(
+        5
+      )
+      const err = blocked()
+      expect(err.blockers.map(b => b.kind).sort()).toEqual([
+        'BOUNDARY_CROSSING',
+        'SECURITY_FINDING',
+        'TEST_CASE_DEFECT',
+      ])
+      expect(err.dispositionUrl).toBe(
+        'https://api.lumo.test/workspace/lumo/my-tasks/LUM-1#boundary-crossings'
+      )
+      const tc = err.blockers.find(b => b.kind === 'TEST_CASE_DEFECT')!
+      expect(tc.url).toBe(
+        'https://api.lumo.test/workspace/lumo/my-tasks/LUM-1#dossier-tests'
+      )
+      expect(err.remediation.map(l => l.split(':')[0])).toEqual([
+        'BOUNDARY_CROSSING',
+        'SECURITY_FINDING',
+        'TEST_CASE_DEFECT',
+      ])
+    })
+
+    it('TTY renders the test-case blocker and its link', async () => {
+      setStdoutTTY(true)
+      route(
+        gateRoutes({ gateMsg: TC_MSG, status: withVerdicts([verdict({})]) })
+      )
+      expect(await taskUpdate('LUM-1', { status: 'done', confirm: true })).toBe(
+        5
+      )
+      const out = stdout.join('')
+      expect(out).toContain('[TEST CASE] LUM-1/TC1 login works')
+      expect(out).toContain('#dossier-tests')
+      expect(out).not.toContain('Blockers: (none listed)')
+    })
+
+    it('the CLI anchor matches the web Record tab anchor', () => {
+      expect(CLI_TEST_CASES_ANCHOR).toBe(WEB_TEST_CASES_ANCHOR)
+    })
   })
 
   it('TTY: the same error as readable text, still exit 5', async () => {
