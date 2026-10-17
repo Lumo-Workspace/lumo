@@ -20,8 +20,9 @@ export function isLikelyCuid(s: string): boolean {
 /**
  * Resolve a user-typed doc reference against a list. If the input looks
  * like a cuid, do exact-id match; otherwise match the slug (the web URL
- * segment, unique per workspace — LUM-1230), then the slug's `-<number>`
- * tail (stable across renames), then a case-insensitive title.
+ * segment, unique per workspace — LUM-1230), then a case-insensitive title,
+ * then — for slug-shaped input only — the slug's `-<number>` tail, which
+ * survives a rename.
  * Multiple title hits return 'ambiguous'.
  */
 export function resolveDoc(input: string, docs: DocLike[]): ResolveResult {
@@ -35,16 +36,18 @@ export function resolveDoc(input: string, docs: DocLike[]): ResolveResult {
     d => d.slug != null && d.slug.toLowerCase() === lower
   )
   if (bySlug) return { kind: 'found', doc: bySlug }
-  // A renamed doc gets a new slug but keeps its number, so an old slug
-  // (`old-title-12`) still finds doc #12.
-  const tail = /-(\d+)$/.exec(lower)
-  if (tail) {
-    const n = Number(tail[1])
-    const byNumber = docs.find(d => d.number === n)
-    if (byNumber) return { kind: 'found', doc: byNumber }
-  }
   const hits = docs.filter(d => d.title.toLowerCase() === lower)
-  if (hits.length === 0) return { kind: 'not-found' }
+  if (hits.length === 0) {
+    // Last resort: a renamed doc gets a new slug but keeps its number, so an
+    // old slug (`old-title-12`) still finds doc #12. Only slug-shaped input
+    // (lowercase words joined by `-`) qualifies, and only after no title
+    // matched — a title like "Release-2" never lands on doc #2.
+    const tail = /^[a-z0-9]+(?:-[a-z0-9]+)*-(\d+)$/.exec(trimmed)
+    const byNumber = tail
+      ? docs.find(d => d.number === Number(tail[1]))
+      : undefined
+    return byNumber ? { kind: 'found', doc: byNumber } : { kind: 'not-found' }
+  }
   if (hits.length === 1) return { kind: 'found', doc: hits[0]! }
   return { kind: 'ambiguous', candidates: hits }
 }

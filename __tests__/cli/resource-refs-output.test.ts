@@ -177,6 +177,18 @@ describe('documents', () => {
     })
   })
 
+  it('a title wins over the number tail; non-slug input never hits a number', () => {
+    const list = [
+      { id: A, title: 'Runbook', slug: 'runbook-2', number: 2 },
+      { id: B, title: 'release-2', slug: 'release-2-7', number: 7 },
+    ]
+    expect(resolveDoc('release-2', list)).toEqual({
+      kind: 'found',
+      doc: list[1],
+    })
+    expect(resolveDoc('Notes 2', list)).toEqual({ kind: 'not-found' })
+  })
+
   it('lookupDocId resolves a slug and remembers it for output', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
