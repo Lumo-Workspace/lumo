@@ -87,7 +87,7 @@ short ref (`[TRAP] kp5brom5`, `[DECISION] …`, …) followed by the structured
   The short ref is the id's last 8 characters (its random part — leading
   characters are a timestamp shared by memories created together). A unique id
   prefix of 6+ characters or the full id (old scripts) also work. Without the
-  arg the command errors with a usage line and exits 1.
+  arg the command errors with a usage line and exits 2 (usage error).
 - **Errors**: not-logged-in (run `lumo auth login`), `401` invalid/revoked key,
   no match in your workspace (cross-workspace refs never match), a ref shorter
   than 6 characters, or an **ambiguous** ref — the error lists every candidate

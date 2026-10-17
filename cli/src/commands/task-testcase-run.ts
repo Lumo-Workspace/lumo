@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -89,14 +90,14 @@ export async function taskTestCaseRun(
     console.error(
       'Error: missing <task/case>. Usage: lumo task testcase run LUM-42/TC3 --result pass --env local'
     )
-    return 1
+    return EXIT_USAGE
   }
   const split = splitCaseHandle(handle)
   if (!split) {
     console.error(
       `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
     )
-    return 1
+    return EXIT_USAGE
   }
   return testCaseRunInScope(taskScope(split.task), split.caseRef, options)
 }
@@ -112,7 +113,7 @@ export async function testCaseRunInScope(
     console.error(
       'Error: --pr does not apply to a milestone run (a milestone spans many PRs); the commit is recorded instead.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const result = options.result?.trim().toUpperCase()
@@ -120,7 +121,7 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --result is required. Valid values: ${RESULTS.join(' | ').toLowerCase()}.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // environment 没有默认值 —— 这个命令存在的理由就是分清跑在哪个环境。
@@ -130,41 +131,41 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --env is required (no default). Valid values: ${ENVIRONMENTS.join(' | ').toLowerCase()}.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const locator = resolveRunLocator(options)
   if (!locator.ok) {
     console.error(`Error: ${locator.error}`)
-    return 1
+    return EXIT_USAGE
   }
   if (result !== 'FAIL' && locator.failedPhase !== null) {
     console.error(
       `Error: a ${result} run cannot carry a failure locator. BLOCKED means the case never ran; use --result fail to point at a step.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-1011: 逐步结果。只有 FAIL 能带 fail 步；BLOCKED 根本没跑起来。
   const steps = parseStepSpecs(options.step)
   if (!steps.ok) {
     console.error(`Error: ${steps.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const stepEvidence = parseStepEvidence(options.stepEvidence)
   if (!stepEvidence.ok) {
     console.error(`Error: ${stepEvidence.error}`)
-    return 1
+    return EXIT_USAGE
   }
   if (result === 'BLOCKED' && steps.value.length > 0) {
     console.error(
       'Error: a BLOCKED run cannot carry --step results — the case never ran. Use --result fail with the failing step instead.'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (result !== 'FAIL' && steps.value.some(s => s.status === 'FAIL')) {
     console.error(`Error: a ${result} run cannot report a failing --step.`)
-    return 1
+    return EXIT_USAGE
   }
   for (const e of stepEvidence.value) {
     if (!steps.value.some(s => s.phase === e.phase && s.index === e.index)) {
@@ -172,7 +173,7 @@ export async function testCaseRunInScope(
       console.error(
         `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail|skip:<reason>.`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
   const actual = options.actual?.trim() || null
@@ -180,7 +181,7 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --actual is for a failing run (got --result ${result.toLowerCase()}).`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-808 步骤 1：FAIL 必须说清是谁的锅。服务端有同样的闸门，这里挡一道
@@ -191,14 +192,14 @@ export async function testCaseRunInScope(
   )
   if (!cause.ok) {
     console.error(`Error: ${cause.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-808 步骤 2：本次没能观察到的复验条目（1-based → 0-based）。
   const unproven = resolveUnprovenIndices(options.unproven)
   if (!unproven.ok) {
     console.error(`Error: ${unproven.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   let prNumber: number | null = null
@@ -208,7 +209,7 @@ export async function testCaseRunInScope(
       console.error(
         `Error: invalid --pr "${options.pr}". Expected a PR number, e.g. --pr 123.`
       )
-      return 1
+      return EXIT_USAGE
     }
     prNumber = Number(raw)
   }

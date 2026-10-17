@@ -719,9 +719,9 @@ describe('testcase download commands', () => {
 
   it('rejects a missing directory or handle before any request', async () => {
     global.fetch = jest.fn() as never
-    expect(await taskTestCaseDownload('LUM-42/TC3', ' ')).toBe(1)
-    expect(await taskTestCaseDownload(undefined, dir)).toBe(1)
-    expect(await milestoneTestCaseDownload('M', 'TC3', undefined, {})).toBe(1)
+    expect(await taskTestCaseDownload('LUM-42/TC3', ' ')).toBe(2)
+    expect(await taskTestCaseDownload(undefined, dir)).toBe(2)
+    expect(await milestoneTestCaseDownload('M', 'TC3', undefined, {})).toBe(2)
     expect(global.fetch).not.toHaveBeenCalled()
   })
 

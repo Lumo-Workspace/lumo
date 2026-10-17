@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatMemoryList, type MemoryRowLike } from '../lib/memory-content'
@@ -19,7 +20,7 @@ export async function memoryTaskList(
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -35,7 +36,7 @@ export async function memoryTaskList(
     console.error(
       'Error: no <LUM-N> given and no task bound to this session.\nPass it explicitly or run `lumo session attach <LUM-N>`.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let taskId: string

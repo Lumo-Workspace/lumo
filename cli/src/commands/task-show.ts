@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -90,7 +91,7 @@ export async function taskShow(
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: missing <identifier>. Usage: lumo task show <LUM-42>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

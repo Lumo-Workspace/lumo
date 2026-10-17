@@ -28,19 +28,19 @@ describe('taskArtifactUpdate', () => {
 
   it('errors when <task> is missing', async () => {
     const code = await taskArtifactUpdate(undefined, 'a1', { kind: 'plan' })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('errors when <artifact> is missing', async () => {
     const code = await taskArtifactUpdate('LUM-9', undefined, { kind: 'plan' })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('errors when no editable flag is provided', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
     const code = await taskArtifactUpdate('LUM-9', 'a1', {})
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining(
@@ -52,7 +52,7 @@ describe('taskArtifactUpdate', () => {
   it('errors on an empty-string flag value', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
     const code = await taskArtifactUpdate('LUM-9', 'a1', { source: '' })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -96,7 +96,7 @@ describe('taskArtifactUpdate', () => {
   it('errors on invalid --agent without calling the API', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
     const code = await taskArtifactUpdate('LUM-9', 'cma_x', { agent: 'devin' })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

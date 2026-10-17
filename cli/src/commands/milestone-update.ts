@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtCalendarDay, fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -119,7 +120,7 @@ export async function milestoneUpdate(
     console.error(
       `Error: invalid token budget "${opts.tokenBudget}". Provide a positive integer (e.g. 5000000), or "" to clear.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const { payload, flagsGiven } = buildMilestoneUpdatePayload(opts)
@@ -127,7 +128,7 @@ export async function milestoneUpdate(
     console.error(
       'Error: provide at least one field to update (--name, --description, --start, --target, --token-budget)'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

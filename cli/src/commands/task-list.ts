@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
@@ -129,7 +130,7 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
       console.error(
         `Error: invalid status "${opts.status}". Allowed: ${ALLOWED_STATUSES.map(s => s.toLowerCase()).join(', ')}`
       )
-      return 1
+      return EXIT_USAGE
     }
     statusFilter = n
   }
@@ -137,7 +138,7 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

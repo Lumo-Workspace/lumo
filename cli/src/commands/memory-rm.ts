@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -57,7 +58,7 @@ export async function memoryRm(
     console.error(
       'Error: missing <memory>. Usage: lumo memory rm <memory> --confirm'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

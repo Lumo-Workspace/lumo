@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -107,7 +108,7 @@ export async function findingDisposition(
     console.error(
       'Error: pass exactly one of --false-positive or --accepted-risk (the ruling to record).'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ruling: FindingRuling = options.falsePositive
     ? 'FALSE_POSITIVE'

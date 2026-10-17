@@ -48,7 +48,7 @@ it('rejects a non-numeric --limit before any network call', async () => {
   const fetchSpy = jest.spyOn(global, 'fetch')
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const code = await memoryTaskList('LUM-1', { limit: 'foo' })
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(fetchSpy).not.toHaveBeenCalled()
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/invalid --limit/))
 })
@@ -131,6 +131,6 @@ it('errors when no arg and no binding', async () => {
   delete process.env.CLAUDE_CODE_SESSION_ID
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const code = await memoryTaskList(undefined, {})
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/no task bound/i))
 })

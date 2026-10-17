@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { printStatusDigest } from '../lib/status-digest'
 import { splitCaseHandle } from '../lib/test-case-handle'
@@ -65,14 +66,14 @@ export async function taskTestCaseDisposition(
     console.error(
       'Error: missing <task/case>. Usage: lumo task testcase disposition LUM-42/TC3 --known-defect'
     )
-    return 1
+    return EXIT_USAGE
   }
   const split = splitCaseHandle(handle)
   if (!split) {
     console.error(
       `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
     )
-    return 1
+    return EXIT_USAGE
   }
   return testCaseDispositionInScope(
     taskScope(split.task),

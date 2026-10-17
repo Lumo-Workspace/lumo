@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import {
@@ -78,7 +79,7 @@ export async function docCreate(
       console.error(
         `Error: invalid scope "${opts.scope}". Allowed: personal, workspace`
       )
-      return 1
+      return EXIT_USAGE
     }
     visibility = normalized
   }

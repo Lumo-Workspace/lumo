@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -217,13 +218,13 @@ export async function docShow(
     console.error(
       'Error: missing <doc>. Usage: lumo doc show <doc> [--raw | --section <heading>]'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (opts.raw && opts.section !== undefined) {
     console.error(
       'Error: --raw and --section are mutually exclusive (--raw prints the whole source)'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

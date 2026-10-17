@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizeScope } from './doc-create'
@@ -105,7 +106,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
 
@@ -120,7 +121,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
         console.error(
           `Error: invalid scope "${opts.scope}". Allowed: personal, workspace, all`
         )
-        return 1
+        return EXIT_USAGE
       }
       params.set('visibility', v)
     }

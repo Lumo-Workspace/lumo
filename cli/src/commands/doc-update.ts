@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import {
   extractErrorMessage,
@@ -57,7 +58,7 @@ export async function docUpdate(
 ): Promise<number | void> {
   if (!reference) {
     console.error('Error: missing <doc>. Usage: lumo doc update <doc> [flags]')
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -78,7 +79,7 @@ export async function docUpdate(
     console.error(
       'Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const id = await lookupDocId(apiUrl, creds.token, reference)
@@ -91,7 +92,7 @@ export async function docUpdate(
   if (opts.title !== undefined) {
     if (opts.title.trim().length === 0) {
       console.error('Error: --title cannot be empty')
-      return 1
+      return EXIT_USAGE
     }
     body.title = opts.title.trim()
   }
@@ -101,7 +102,7 @@ export async function docUpdate(
       console.error(
         `Error: invalid scope "${opts.scope}". Allowed: personal, workspace`
       )
-      return 1
+      return EXIT_USAGE
     }
     body.visibility = v
   }
@@ -127,7 +128,7 @@ export async function docUpdate(
       console.error(
         `Error: --if-revision must be a non-negative integer (got "${opts.ifRevision}")`
       )
-      return 1
+      return EXIT_USAGE
     }
     body.ifRevision = Number(opts.ifRevision)
   }

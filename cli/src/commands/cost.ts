@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtCount } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -200,7 +201,7 @@ export async function cost(opts: {
       console.error(
         `Error: invalid --since "${opts.since}" (expected YYYY-MM-DD or a timestamp such as 2026-10-12T09:30)`
       )
-      return 1
+      return EXIT_USAGE
     }
     params.set('since', since.iso)
     sinceDay = since.day

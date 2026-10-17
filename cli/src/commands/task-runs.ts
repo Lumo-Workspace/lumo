@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import {
   NONE,
   fmtCount,
@@ -435,7 +436,7 @@ export async function taskRuns(
     console.error(
       'Error: no <LUM-N> given and no task bound to this session.\nPass it explicitly or run `lumo session attach <LUM-N>`.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const r = await apiCall<RunReport>(

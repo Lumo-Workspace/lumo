@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import {
   extractErrorMessage,
@@ -36,7 +37,7 @@ export async function docRebuildSource(
     console.error(
       'Error: missing <doc>. Usage: lumo doc rebuild-source <doc> [--allow-shrink] [--force] [--if-revision <n>]'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let ifRevision: number | undefined
@@ -45,7 +46,7 @@ export async function docRebuildSource(
       console.error(
         `Error: --if-revision must be a non-negative integer (got "${opts.ifRevision}")`
       )
-      return 1
+      return EXIT_USAGE
     }
     ifRevision = Number(opts.ifRevision)
   }

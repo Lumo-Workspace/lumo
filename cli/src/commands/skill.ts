@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -275,7 +276,7 @@ export async function skillUpdate(
   const err = deps.err ?? ((s: string) => void process.stderr.write(s))
   if (options.user && options.project) {
     err('Error: --user and --project are mutually exclusive.\n')
-    return 1
+    return EXIT_USAGE
   }
   let agent: string | undefined
   if (options.agent !== undefined) {
@@ -284,7 +285,7 @@ export async function skillUpdate(
       err(
         `Error: Unknown agent "${options.agent}". Valid agents: ${VALID_AGENT_TOKENS.join(', ')}.\n`
       )
-      return 1
+      return EXIT_USAGE
     }
     agent = ENUM_TO_TOKEN[e]
   }

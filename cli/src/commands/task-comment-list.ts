@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, emptyState, fmtTimestamp } from '../lib/format'
 import { fetchActorNames } from '../lib/crossing-records'
 import { readCredentials } from '../lib/config'
@@ -236,12 +237,12 @@ export async function taskCommentList(
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task comments list <LUM-42>')
-    return 1
+    return EXIT_USAGE
   }
   const paging = commentPageArgs(opts)
   if (!paging.ok) {
     console.error(`Error: ${paging.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

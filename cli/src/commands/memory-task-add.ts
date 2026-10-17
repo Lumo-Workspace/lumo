@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -21,7 +22,7 @@ export async function memoryTaskAdd(
     console.error(
       'Error: --category <trap|decision|convention|procedural> is required.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const built = buildMemoryContent(options.category, options)
   if (!built.ok) {
@@ -37,7 +38,7 @@ export async function memoryTaskAdd(
       console.error(
         `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
       )
-      return 1
+      return EXIT_USAGE
     }
     agent = normalized
   }
@@ -58,7 +59,7 @@ export async function memoryTaskAdd(
       'Error: no <LUM-N> given and no task bound to this session.\n' +
         'Pass it explicitly or run `lumo session attach <LUM-N>`.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-N → task id.

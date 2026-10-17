@@ -192,7 +192,7 @@ describe('task update tag flag mutex', () => {
       addTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
@@ -204,7 +204,7 @@ describe('task update tag flag mutex', () => {
       removeTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
@@ -216,7 +216,7 @@ describe('task update tag flag mutex', () => {
       addTagId: ['cuid_b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )

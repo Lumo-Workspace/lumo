@@ -302,6 +302,6 @@ describe('taskScans', () => {
       expect.stringContaining('the security plugin is not installed')
     )
 
-    expect(await taskScans('')).toBe(1)
+    expect(await taskScans('')).toBe(2)
   })
 })

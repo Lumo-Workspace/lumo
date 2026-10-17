@@ -35,7 +35,7 @@ afterEach(() => {
 
 describe('memoryShow', () => {
   it('errors (returns 1) without an id', async () => {
-    expect(await memoryShow(undefined)).toBe(1)
+    expect(await memoryShow(undefined)).toBe(2)
   })
 
   it('prints the category tag and content on success', async () => {

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -136,13 +137,13 @@ export async function init(
 ): Promise<number> {
   if (options.upgrade) {
     process.stderr.write(`Error: ${UPGRADE_REMOVED}\n`)
-    return 1
+    return EXIT_USAGE
   }
   if (options.user && options.project) {
     process.stderr.write(
       'Error: --user and --project are mutually exclusive.\n'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const agentResult = initAgentTokens(options.agent)

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -330,13 +331,13 @@ export async function uninstall(
     process.stderr.write(
       `Error: --scope must be user, project or all (got "${scope}")\n`
     )
-    return 1
+    return EXIT_USAGE
   }
   if (opts.purge && scope !== 'all') {
     process.stderr.write(
       `Error: --purge empties the whole Lumo config directory, so it cannot be combined with --scope ${scope}; use --scope all (the default).\n`
     )
-    return 1
+    return EXIT_USAGE
   }
   const plan = planUninstall(opts, deps)
 

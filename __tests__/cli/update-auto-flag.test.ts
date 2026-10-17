@@ -63,7 +63,7 @@ describe('lumo update --auto', () => {
     expect(out).toContain('Auto-update: on')
   })
   it('rejects other values without writing', async () => {
-    expect(await update({ auto: 'maybe' })).toBe(1)
+    expect(await update({ auto: 'maybe' })).toBe(2)
     expect(err).toContain('"on" or "off"')
   })
 })

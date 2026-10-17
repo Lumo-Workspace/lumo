@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveDoc } from '../lib/resolve-doc'
@@ -25,18 +26,18 @@ export async function docMove(
 ): Promise<number | void> {
   if (!reference) {
     console.error('Error: usage: lumo doc move <doc> --parent <doc> | --root')
-    return 1
+    return EXIT_USAGE
   }
 
   const hasParent = typeof opts.parent === 'string' && opts.parent.length > 0
   const hasRoot = Boolean(opts.root)
   if (hasParent && hasRoot) {
     console.error('Error: --parent and --root are mutually exclusive')
-    return 1
+    return EXIT_USAGE
   }
   if (!hasParent && !hasRoot) {
     console.error('Error: specify --parent <doc> or --root')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

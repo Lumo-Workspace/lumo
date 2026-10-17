@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import {
@@ -29,18 +30,18 @@ export async function taskTestCaseDownload(
   const usage = 'lumo task testcase download LUM-42/TC3 ./evidence'
   if (!handle) {
     console.error(`Error: missing <task/case>. Usage: ${usage}`)
-    return 1
+    return EXIT_USAGE
   }
   const split = splitCaseHandle(handle)
   if (!split) {
     console.error(
       `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!dir || !dir.trim()) {
     console.error(`Error: missing <dir>. Usage: ${usage}`)
-    return 1
+    return EXIT_USAGE
   }
   return testCaseDownloadInScope(taskScope(split.task), split.caseRef, dir)
 }
@@ -52,7 +53,7 @@ export async function testCaseDownloadInScope(
 ): Promise<number | void> {
   if (!dir.trim()) {
     console.error('Error: missing <dir>, e.g. ./evidence')
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

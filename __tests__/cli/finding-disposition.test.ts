@@ -296,13 +296,13 @@ describe('finding disposition — envelope (no --confirm)', () => {
   })
 
   it('a ruling flag is required, and only one', async () => {
-    expect(await findingDisposition(['f1'], {})).toBe(1)
+    expect(await findingDisposition(['f1'], {})).toBe(2)
     expect(
       await findingDisposition(['f1'], {
         falsePositive: true,
         acceptedRisk: true,
       })
-    ).toBe(1)
+    ).toBe(2)
     expect(await findingDisposition([], { falsePositive: true })).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })

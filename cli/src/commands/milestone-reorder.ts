@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
@@ -24,7 +25,7 @@ export async function milestoneReorder(
     console.error(
       'Error: usage: lumo milestone reorder <ref...> [--project <ref>]'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

@@ -255,7 +255,7 @@ describe('lumo task template create', () => {
 
   it('--name and --file are required', async () => {
     serve()
-    expect(await taskTemplateCreate('triage', { file: 'b.md' }, files)).toBe(1)
+    expect(await taskTemplateCreate('triage', { file: 'b.md' }, files)).toBe(2)
     expect(err).toContain('--name and --file are required')
     expect(calls).toHaveLength(0)
   })
@@ -333,7 +333,7 @@ describe('lumo task template edit', () => {
 
   it('needs at least one change', async () => {
     serve()
-    expect(await taskTemplateEdit('bug-report', {}, files)).toBe(1)
+    expect(await taskTemplateEdit('bug-report', {}, files)).toBe(2)
     expect(err).toContain('nothing to change')
     expect(calls).toHaveLength(0)
   })

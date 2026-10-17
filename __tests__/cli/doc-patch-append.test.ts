@@ -101,7 +101,7 @@ describe('doc patch', () => {
   it('requires --section', async () => {
     const fetchMock = mockFetchOk({})
     const exit = await docPatch('cmd_1', { content: 'x' })
-    expect(exit).toBe(1)
+    expect(exit).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(stderrText()).toContain('--section')
   })
@@ -133,7 +133,7 @@ describe('doc patch', () => {
       content: 'x',
       ifRevision: 'abc',
     })
-    expect(exit).toBe(1)
+    expect(exit).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(stderrText()).toContain('--if-revision')
   })

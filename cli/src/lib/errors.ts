@@ -85,3 +85,25 @@ export function serverLacksFeature(command: string | null): string {
   const what = command ? `\`lumo ${command}\`` : 'this command'
   return `the Lumo server has no API for ${what} (HTTP 404) — it may not have deployed this feature yet. Run it again once the server has been updated (not in a loop); if it persists, check LUMO_API_URL.`
 }
+
+/**
+ * LUM-1232 X-3: the lines to print for an error a command threw. A git
+ * failure is wrapped in what Lumo was doing (never git's `fatal:` text as the
+ * whole message); anything else keeps its message. Sanitized; no colour.
+ */
+export function describeThrownError(err: unknown): string[] {
+  const raw = err instanceof Error ? err.message : String(err)
+  const msg = sanitizeField(raw).trim()
+  const fatal = /^fatal: ([\s\S]*)$/i.exec(msg)
+  if (fatal) {
+    const detail = (fatal[1] ?? '').split('\n')[0]!.trim()
+    if (/not a git repository/i.test(detail)) {
+      return [
+        'Error: this command must run inside a git checkout (git: not a git repository)',
+        'Hint: cd into your project directory and run it again.',
+      ]
+    }
+    return [`Error: git failed: ${detail}`]
+  }
+  return [`Error: ${msg}`]
+}

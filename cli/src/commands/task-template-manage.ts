@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { fmtCount } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
@@ -123,7 +124,7 @@ export async function taskTemplateCreate(
     console.error(
       'Error: --name and --file are required. Usage: lumo task template create <key> --name "<name>" --file <path.md>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const loaded = await loadTemplateFile(opts.file, deps)
   if (!loaded.ok) {
@@ -207,7 +208,7 @@ export async function taskTemplateEdit(
     console.error(
       'Error: nothing to change. Pass at least one of --name, --file, --key.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const patch: { name?: string; content?: string; key?: string } = {}
   if (opts.file !== undefined) {

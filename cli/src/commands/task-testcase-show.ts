@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { fmtInstant } from '../lib/format'
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
@@ -101,14 +102,14 @@ export async function taskTestCaseShow(
     console.error(
       'Error: missing <task/case>. Usage: lumo task testcase show LUM-42/TC3'
     )
-    return 1
+    return EXIT_USAGE
   }
   const split = splitCaseHandle(handle)
   if (!split) {
     console.error(
       `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
     )
-    return 1
+    return EXIT_USAGE
   }
   return testCaseShowInScope(taskScope(split.task), split.caseRef)
 }

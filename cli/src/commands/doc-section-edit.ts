@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import {
   extractErrorMessage,
@@ -71,11 +72,11 @@ async function docSectionEdit(
         mode === 'replace' ? '--section <heading>' : '[--section <heading>]'
       } [--content <md> | --file <path> | stdin] [--if-revision <n>]`
     )
-    return 1
+    return EXIT_USAGE
   }
   if (mode === 'replace' && (!opts.section || opts.section.trim() === '')) {
     console.error('Error: --section <heading> is required for doc patch')
-    return 1
+    return EXIT_USAGE
   }
 
   let ifRevision: number | undefined
@@ -84,7 +85,7 @@ async function docSectionEdit(
       console.error(
         `Error: --if-revision must be a non-negative integer (got "${opts.ifRevision}")`
       )
-      return 1
+      return EXIT_USAGE
     }
     ifRevision = Number(opts.ifRevision)
   }

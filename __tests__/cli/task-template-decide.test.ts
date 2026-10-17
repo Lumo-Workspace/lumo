@@ -115,7 +115,7 @@ describe('lumo task create --template', () => {
     serve({})
     expect(
       await taskCreate('T', { template: 'agent-brief', description: 'x' })
-    ).toBe(1)
+    ).toBe(2)
     expect(err).toContain('either --description or --template')
     expect(calls).toHaveLength(0)
   })
@@ -150,7 +150,7 @@ describe('lumo task decide', () => {
 
   it('missing text is a usage error', async () => {
     serve({})
-    expect(await taskDecide('LUM-42', '  ')).toBe(1)
+    expect(await taskDecide('LUM-42', '  ')).toBe(2)
     expect(calls).toHaveLength(0)
   })
 })

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtCount, fmtTokens } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -409,7 +410,7 @@ export async function report(opts: {
       console.error(
         `Error: invalid --limit "${opts.limit}" (expected an integer 1–${MAX_LIMIT})`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
 

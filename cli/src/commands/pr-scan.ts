@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtCount, fmtEnum, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -645,11 +646,11 @@ export async function prScan(
     console.error(
       'Error: usage: lumo pr scan <number> [--repo owner/repo] [--all] [--json] [--full]'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (opts.repo !== undefined && !/^[\w.-]+\/[\w.-]+$/.test(opts.repo)) {
     console.error(`Error: --repo must be owner/repo, got "${opts.repo}"`)
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -682,7 +683,7 @@ export async function prScan(
     console.error(
       'Error: choose one of --pause, --resume, --review incremental|full; --limit 1..100 requires --pause or --resume.'
     )
-    return 1
+    return EXIT_USAGE
   }
   try {
     res = await fetch(url, {

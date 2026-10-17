@@ -188,7 +188,7 @@ describe('confirmation envelope', () => {
     const err = jest
       .spyOn(process.stderr, 'write')
       .mockImplementation(() => true)
-    expect(await uninstall({ scope: 'nope' }, f.deps)).toBe(1)
+    expect(await uninstall({ scope: 'nope' }, f.deps)).toBe(2)
     err.mockRestore()
     expect(stdout).toBe('')
   })
@@ -256,7 +256,7 @@ describe('minor behaviors', () => {
       .mockImplementation(() => true)
     expect(
       await uninstall({ scope: 'user', purge: true, confirm: true }, f.deps)
-    ).toBe(1)
+    ).toBe(2)
     expect(err.mock.calls.join('')).toContain('--purge')
     err.mockRestore()
     expect(stdout).toBe('')

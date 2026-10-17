@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext } from '../lib/test-case-api'
 import { milestoneScope } from '../lib/test-case-scope'
 import {
@@ -96,7 +97,7 @@ export async function milestoneTestCaseDownload(
   if (!needCase(caseRef, usage)) return 1
   if (!dir || !dir.trim()) {
     console.error(`Error: missing <dir>. Usage: ${usage}`)
-    return 1
+    return EXIT_USAGE
   }
   const scope = await scopeFor(milestone, usage, o.project)
   return scope ? testCaseDownloadInScope(scope, caseRef, dir) : 1
@@ -136,7 +137,7 @@ export async function milestoneTestCaseRun(
     console.error(
       'Error: --pr does not apply to a milestone run (a milestone spans many PRs); the commit is recorded instead.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const scope = await scopeFor(milestone, usage, o.project)
   return scope ? testCaseRunInScope(scope, caseRef, o) : 1

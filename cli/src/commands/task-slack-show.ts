@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { reportPull } from '../lib/report-pull'
@@ -28,7 +29,7 @@ export async function taskSlackShow(
 ): Promise<number | void> {
   if (!identifier || !contextId) {
     console.error('Error: usage: lumo task slack show <LUM-42> <ref>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

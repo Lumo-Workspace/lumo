@@ -238,7 +238,7 @@ it('rejects --pr on a milestone run before any request', async () => {
     pr: '12',
     project: 'lumo',
   })
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(fetchMock).not.toHaveBeenCalled()
 })
 

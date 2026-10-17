@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtInstant } from '../lib/format'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
@@ -49,7 +50,7 @@ export async function taskTestCaseList(
     console.error(
       'Error: missing <task>. Usage: lumo task testcase list LUM-42'
     )
-    return 1
+    return EXIT_USAGE
   }
   return testCaseListInScope(taskScope(identifier))
 }

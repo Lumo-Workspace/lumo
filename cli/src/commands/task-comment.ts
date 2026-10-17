@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -38,13 +39,13 @@ export async function taskComment(
     console.error(
       'Error: missing <identifier>. Usage: lumo task comment <LUM-42> "comment body"'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!body || body.trim().length === 0) {
     console.error(
       'Error: missing <body>. Usage: lumo task comment <LUM-42> "comment body"'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
