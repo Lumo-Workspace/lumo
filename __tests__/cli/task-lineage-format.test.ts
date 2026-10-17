@@ -68,7 +68,8 @@ describe('formatLineageMarkdown', () => {
     const out = formatLineageMarkdown(base)
     expect(out).toContain('# Lineage: LUM-1')
     expect(out).toContain('Add lineage')
-    expect(out).toContain('1,800') // grouped-thousands cost
+    // LUM-1232 N-2: summary lines are compact (exact counts are in --json).
+    expect(out).toContain('Tokens: 1.8K (input 1K · output 500')
     expect(out).toContain('Session sess-1234')
     expect(out).toContain('[MERGED] MEMORY')
     expect(out).toContain('use the service layer')

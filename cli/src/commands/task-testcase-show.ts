@@ -1,4 +1,4 @@
-import { fmtDay } from '../lib/format'
+import { fmtInstant } from '../lib/format'
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
@@ -176,7 +176,7 @@ export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   const cause = formatCauseTag(run.failureAttribution)
   const executor = formatExecutor(run)
   lines.push(
-    `  ${fmtDay(run.createdAt)}  ${run.result} on ${run.environment}${formatCeilingSuffix(run.ceiling)}` +
+    `  ${fmtInstant(run.createdAt)}  ${run.result} on ${run.environment}${formatCeilingSuffix(run.ceiling)}` +
       (cause ? `  [${cause}]` : '') +
       freshnessNote(run, prs) +
       (executor ? `  ${executor}` : '') +

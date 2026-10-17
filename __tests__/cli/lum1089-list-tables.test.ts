@@ -363,7 +363,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
 
   it('milestone list: upper-case STATE/HEALTH, header on a TTY only', () => {
     const pipe = formatMilestoneList([ms], PIPE)
-    expect(pipe).toBe('ACTIVE  AT-RISK  2026-09-30  q3-launch  第三季度 Launch')
+    expect(pipe).toBe('ACTIVE  AT_RISK  2026-09-30  q3-launch  第三季度 Launch')
     const tty = formatMilestoneList([ms], TTY).split('\n')
     expect(tty[0]?.split(/\s+/)).toEqual([
       'STATE',
@@ -389,7 +389,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     }
     const out = formatMilestoneShow(data, [])
     expect(out).toContain('State:      ACTIVE\n')
-    expect(out).toContain('Health:     ON-TRACK\n')
+    expect(out).toContain('Health:     ON_TRACK\n')
     expect(milestoneState({ completedAt: 'x', archivedAt: null })).toBe(
       'COMPLETED'
     )
@@ -398,8 +398,8 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     )
     expect(formatHealth(null)).toBe('-')
     expect(Object.values(HEALTH_LABEL)).toEqual([
-      'ON-TRACK',
-      'AT-RISK',
+      'ON_TRACK',
+      'AT_RISK',
       'OVERDUE',
     ])
   })
@@ -425,8 +425,8 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     ]
     expect(formatSprintList(rows, PIPE)).toBe(
       [
-        'ACTIVE  #3   2026-06-01..2026-06-14  Sprint 3',
-        'DRAFT   #12  -..-                    冲刺',
+        'ACTIVE  #3   2026-06-01 → 2026-06-14  Sprint 3',
+        'DRAFT   #12  - → -                    冲刺',
       ].join('\n')
     )
     expect(formatSprintList(rows, TTY).split('\n')[0]?.split(/\s+/)).toEqual([

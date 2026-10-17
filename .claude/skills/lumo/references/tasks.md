@@ -187,7 +187,7 @@ Practical rules:
 Updated LUM-48 "Title"  https://…/LUM-48
 One-step DONE (no --confirm needed): the linked PR is merged and nothing blocks DONE.
   Status: IN_REVIEW → DONE
-  #926  merged   refactor: panel  https://github.com/o/r/pull/926
+  #926  MERGED   refactor: panel  https://github.com/o/r/pull/926
 <the actual worktree removal report, then the status digest>
 ```
 
@@ -204,9 +204,9 @@ lumo task update LUM-48 --status done
 #   "changes": [
 #     "Will move LUM-48 \"Title\" to DONE",
 #     "Status: IN_REVIEW → DONE",
-#     "#926  merged   refactor: panel  https://github.com/o/r/pull/926",
+#     "#926  MERGED   refactor: panel  https://github.com/o/r/pull/926",
 #     "#930  open     feat: wip        https://github.com/o/r/pull/930",
-#     "⚠ 1 linked pull request not merged: #930 open"
+#     "⚠ 1 linked pull request not merged: #930 OPEN"
 #   ],
 #   "confirmCommand": "lumo task update LUM-48 --status done --confirm"
 # }
@@ -401,7 +401,7 @@ Use when the user wants the current state of a task without the agent-handoff pa
 
 ### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first, as a table: `YYYY-MM-DD HH:MM  actor  change` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
+The task's changelog, oldest first, as a table: `<time>  actor  change` — `<time>` is `2026-10-16T22:24:00Z` (UTC) when piped, `2026-10-17 09:24 +11:00` (local + offset) on a terminal (LUM-1232); an actor the directory can't name prints `-` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42

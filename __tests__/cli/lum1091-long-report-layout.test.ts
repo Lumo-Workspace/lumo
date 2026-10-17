@@ -584,7 +584,7 @@ describe('LUM-1091 long-report layout', () => {
         '  Dependencies:   checked',
         '  AI review:      checked',
         '    AI review has not covered every file yet',
-        '    AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%',
+        '    AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left (2%)',
         '  Exploit paths:  checked',
       ].join('\n')
     )

@@ -48,7 +48,7 @@ export function describeActivity(
 ): string {
   const p = a.payload ?? {}
   const who = (id: unknown) =>
-    typeof id === 'string' ? sanitizeField(names.get(id) ?? 'unknown') : NONE
+    typeof id === 'string' ? sanitizeField(names.get(id) ?? NONE) : NONE
   const day = (v: unknown) => (typeof v === 'string' ? fmtDay(v) : NONE)
   switch (a.type) {
     case 'STATUS_CHANGED':
@@ -96,8 +96,8 @@ export function formatHistory(
   if (entries.length === 0) return emptyState('history')
   const rows = entries.map(a => {
     return [
-      fmtTimestamp(a.createdAt),
-      a.actorId ? sanitizeField(names.get(a.actorId) ?? 'unknown') : 'system',
+      fmtTimestamp(a.createdAt, { tty: opts.tty }),
+      a.actorId ? sanitizeField(names.get(a.actorId) ?? NONE) : 'system',
       describeActivity(a, names),
     ]
   })

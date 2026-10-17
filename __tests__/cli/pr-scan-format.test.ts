@@ -239,7 +239,7 @@ describe('formatPrScan', () => {
       [
         'PR #1013  feat: size the hunt by diff [LUM-787]',
         '  Repo:   Lumo-Workspace/lumo',
-        '  State:  open',
+        '  State:  OPEN',
         '  Task:   no linked task',
         '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
         '',
@@ -333,7 +333,7 @@ describe('formatPrScan', () => {
     expect(lines.slice(0, 5)).toEqual([
       'PR #1013  feat: size the hunt by diff [LUM-787]',
       '  Repo:   Lumo-Workspace/lumo',
-      '  State:  merged',
+      '  State:  MERGED',
       '  Task:   LUM-787',
       '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
     ])
@@ -505,7 +505,7 @@ describe('formatPrScan', () => {
         `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
         '  Finished:       not finished',
         '  Trigger:        PR_EVENT',
-        '  Tokens:         not metered',
+        '  Tokens:         -',
       ].join('\n')
     )
     expect(out).toMatch(/^ {2}Findings: +none on this scan$/m)
@@ -724,7 +724,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 0,
     })
     expect(out).toContain(
-      'AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%'
+      'AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left (2%)'
     )
     // The near-miss is visible WITHOUT --full or --json: that is the point.
     expect(out).not.toContain('not recorded')
@@ -740,7 +740,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 0,
     })
     expect(out).toContain(
-      'AI review budget: diff 168,516 chars · tier 180,000 · 11,484 left, 6.4%'
+      'AI review budget: diff 168,516 chars · tier 180,000 · 11,484 left (6%)'
     )
   })
 
@@ -753,7 +753,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 12,
     })
     expect(out).toContain(
-      'AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed'
+      'AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31% of the diff unreviewed'
     )
   })
 

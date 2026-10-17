@@ -78,6 +78,54 @@ export const icons = {
   arrow: '→',
 } as const
 
+const ENUM_GREEN = new Set([
+  'DONE',
+  'PASS',
+  'PASSED',
+  'CLEAN',
+  'ACCEPTED',
+  'MERGED',
+  'COMPLETED',
+  'ON_TRACK',
+])
+const ENUM_RED = new Set([
+  'FAIL',
+  'FAILED',
+  'BLOCKED',
+  'HIGH',
+  'CRITICAL',
+  'OVERDUE',
+  'FINDINGS',
+  'ERROR',
+])
+const ENUM_YELLOW = new Set([
+  'IN_REVIEW',
+  'AT_RISK',
+  'UNPROVEN',
+  'MEDIUM',
+  'RUNNING',
+  'PENDING',
+  'PARTIAL',
+])
+
+/**
+ * LUM-1232 (E-2): colour an enum value by meaning — green success, red
+ * failure / blocking, yellow attention. Unknown values and colour-off output
+ * pass through unchanged, so piped bytes never change. Apply to an already
+ * sanitized value.
+ */
+export function enumColor(
+  value: string,
+  enabled: boolean = colorEnabled()
+): string {
+  if (!enabled) return value
+  const key = value.trim().toUpperCase()
+  if (ENUM_GREEN.has(key)) return style.green(value, true)
+  if (ENUM_RED.has(key)) return style.red(value, true)
+  if (ENUM_YELLOW.has(key)) return style.yellow(value, true)
+  return value
+}
+
 export function heading(text: string, opts: { color?: boolean } = {}): string {
   return style.bold(text, opts.color ?? colorEnabled())
 }

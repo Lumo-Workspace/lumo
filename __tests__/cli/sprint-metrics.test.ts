@@ -92,8 +92,8 @@ describe('sprintBurnupLines', () => {
   it('renders done-as-of, the trend and a per-day table with a header', () => {
     const out = sprintBurnupLines(burnup).join('\n')
     expect(out).toContain('\nBurnup\n')
-    expect(out).toContain('Done:   2 / 4  (as of 2026-06-03)')
-    expect(out).toContain('Trend:  ▁▃▅··  (2026-06-01 → 2026-06-05)')
+    expect(out).toContain('Done:   2/4  (as of 2026-06-03)')
+    expect(out).toContain('Trend:  ▁▃▅··  2026-06-01 → 2026-06-05')
     expect(out).toMatch(/DAY +SCOPE +DONE +PLAN/)
     expect(out).toMatch(/2026-06-01 +3 +0 +0/)
     expect(out).toMatch(/2026-06-03 +4 +2 +2/)

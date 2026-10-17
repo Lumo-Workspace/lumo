@@ -1,4 +1,4 @@
-import { emptyState, fmtDay } from '../lib/format'
+import { emptyState, fmtInstant } from '../lib/format'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
 import { sanitizeField } from '../lib/sanitize'
@@ -101,7 +101,7 @@ export function formatListRow(c: ListRow): string {
       formatStepProgress(run.stepReport, run.result),
     ].filter((m): m is string => Boolean(m))
     last =
-      `${run.result} on ${run.environment}${formatCeilingShort(run.ceiling)}${sha}${dirty} (${fmtDay(run.createdAt)})` +
+      `${run.result} on ${run.environment}${formatCeilingShort(run.ceiling)}${sha}${dirty} ${fmtInstant(run.createdAt)}` +
       (executor ? ` ${executor}` : '') +
       marks.map(m => ` · ${m}`).join('')
   }

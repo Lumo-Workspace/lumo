@@ -1,4 +1,4 @@
-import { fmtCount, fmtDay } from '../lib/format'
+import { fmtCount, fmtDay, fmtTokens } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -231,9 +231,10 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   lines.push(`- Fragments: ${t.fragmentCount}`)
   lines.push(`- Edges: ${t.edgeCount}`)
   lines.push(
-    `- Tokens: ${fmtCount(t.tokens.total)} ` +
-      `(in ${fmtCount(t.tokens.input)} · out ${fmtCount(t.tokens.output)} · ` +
-      `cache-read ${fmtCount(t.tokens.cacheRead)} · cache-create ${fmtCount(t.tokens.cacheCreation)})`
+    // LUM-1232 N-2: a summary line is compact; exact counts are in --json.
+    `- Tokens: ${fmtTokens(t.tokens.total)} ` +
+      `(input ${fmtTokens(t.tokens.input)} · output ${fmtTokens(t.tokens.output)} · ` +
+      `cache read ${fmtTokens(t.tokens.cacheRead)} · cache write ${fmtTokens(t.tokens.cacheCreation)})`
   )
   lines.push(`- Loops: ${t.loopCount}`)
   const totalsOutcome = outcomeSummary(t.outcomes)
@@ -267,7 +268,7 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push(`## ${sanitizeField(g.label)} · ${fmtDay(g.includedAt)}`)
     if (g.cost) {
       lines.push(
-        `**Cost**: ${fmtCount(g.cost.total)} tokens · ${g.cost.loopCount} loops`
+        `**Cost**: ${fmtTokens(g.cost.total)} tokens · ${g.cost.loopCount} loops`
       )
     } else {
       lines.push('**Cost**: (no captured cost)')

@@ -70,7 +70,7 @@ describe('LUM-1156 partial review wording', () => {
         { ...PARTIAL, reviewedFiles: 150, totalFiles: 160 }
       )
     ).toBe(
-      'AI review budget: diff 90,000 chars · size limit 180,000 chars, 150 files · reviewed 150 of 160 files, 10 left out for size (11.1% of the diff)'
+      'AI review budget: diff 90,000 chars · size limit 180,000 chars, 150 files · reviewed 150 of 160 files, 10 left out for size (11% of the diff)'
     )
   })
 

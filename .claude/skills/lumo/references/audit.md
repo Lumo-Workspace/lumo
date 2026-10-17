@@ -14,8 +14,8 @@ lumo audit list --since 30d --csv > audit.csv
 ```
 
 ```
-2026-10-04 23:54  member.role_changed  Alice Chen <alice@example.com>  member cm1abc  WEB  203.0.113.9
-2026-10-04 23:50  invite.created       Alice Chen <alice@example.com>  invite cm1def  CLI  203.0.113.9
+2026-10-04T15:54:12Z  member.role_changed  Alice Chen <alice@example.com>  member cm1abc  WEB  203.0.113.9
+2026-10-04T15:50:03Z  invite.created       Alice Chen <alice@example.com>  invite cm1def  CLI  203.0.113.9
 
 Hint: more events with `lumo audit list --cursor eyJ…`
 ```

@@ -81,7 +81,7 @@ export function formatAuditList(
 ): string {
   if (page.events.length === 0) return emptyState('audit events')
   const rows = page.events.map(e => ({
-    time: fmtTimestamp(e.createdAt),
+    time: fmtTimestamp(e.createdAt, { tty: env.tty }),
     action: sanitizeField(e.action),
     actor: sanitizeField(actorLabel(e)),
     target: sanitizeField(

@@ -14,8 +14,13 @@ import { localDayLabel } from './local-day'
  *   to the local zone would show the previous day west of UTC.
  * - TIMESTAMPS (createdAt, completedAt, scan started/finished, audit time,
  *   due dates — LUM-821 stores those as the author's local midnight) are
- *   instants; {@link fmtDay} / {@link fmtTimestamp} show them in the shell's
- *   local timezone.
+ *   instants; {@link fmtDay} shows the local day, {@link fmtInstant} the full
+ *   instant.
+ *
+ * LUM-1232 (docs/cli-output-conventions.md, T-1/T-2; user ruling 2026-10-18):
+ * the CLI prints absolute times only, never relative ones. A terminal gets
+ * local time with its UTC offset (`2026-10-17 09:24 +11:00`); a pipe gets
+ * ISO 8601 in UTC with `Z` (`2026-10-16T22:24:00Z`).
  */
 
 /** The placeholder for an absent field value (no assignee, no date, n/a, …). */
@@ -44,18 +49,59 @@ export function fmtDay(iso: string | null | undefined): string {
   return localDayLabel(iso)
 }
 
-/** A timestamp → local `YYYY-MM-DD HH:MM`. Absent / unparsable → {@link NONE}. */
-export function fmtTimestamp(iso: string | null | undefined): string {
-  if (!iso) return NONE
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return NONE
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${localDayLabel(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+export interface TimeOptions {
+  /** Terminal form (local + offset) vs pipe form (UTC `Z`). Default: `process.stdout.isTTY`. */
+  tty?: boolean | undefined
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** The UTC offset in force at `d` in the local zone, as `+HH:MM` / `-HH:MM`. */
+export function utcOffsetLabel(d: Date): string {
+  const minutes = -d.getTimezoneOffset()
+  const sign = minutes < 0 ? '-' : '+'
+  const abs = Math.abs(minutes)
+  return `${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`
 }
 
 /**
- * Elapsed milliseconds → `45s`, `12m`, `2h 14m`, `3h`. Seconds only show
- * under a minute; 0 (or less) → `0s`.
+ * An instant (T-1 / T-2). Terminal: local `YYYY-MM-DD HH:MM ±HH:MM`. Pipe:
+ * UTC ISO 8601 to the second, `YYYY-MM-DDTHH:MM:SSZ`. Absent / unparsable →
+ * {@link NONE}.
+ */
+export function fmtInstant(
+  iso: string | null | undefined,
+  opts: TimeOptions = {}
+): string {
+  if (!iso) return NONE
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return NONE
+  const tty = opts.tty ?? Boolean(process.stdout.isTTY)
+  if (!tty) return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const day = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  return `${day} ${pad2(d.getHours())}:${pad2(d.getMinutes())} ${utcOffsetLabel(d)}`
+}
+
+/** Same as {@link fmtInstant} (the name older call sites use). */
+export function fmtTimestamp(
+  iso: string | null | undefined,
+  opts: TimeOptions = {}
+): string {
+  return fmtInstant(iso, opts)
+}
+
+/** A calendar-day range, `YYYY-MM-DD → YYYY-MM-DD` (T-3). */
+export function fmtDayRange(
+  start: string | null | undefined,
+  end: string | null | undefined
+): string {
+  return `${fmtCalendarDay(start)} → ${fmtCalendarDay(end)}`
+}
+
+/**
+ * Elapsed milliseconds → `45s`, `12m`, `2h 14m`, `3h`, and from 48 hours on
+ * days and hours: `54d 5h`, `3d` (N-3). Seconds only show under a minute;
+ * 0 (or less) → `0s`.
  */
 export function formatDuration(ms: number): string {
   if (!(ms > 0)) return '0s'
@@ -66,6 +112,12 @@ export function formatDuration(ms: number): string {
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
+  if (hours >= 48) {
+    const totalHours = Math.round(totalMinutes / 60)
+    const days = Math.floor(totalHours / 24)
+    const h = totalHours % 24
+    return h === 0 ? `${days}d` : `${days}d ${h}h`
+  }
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
 
@@ -104,29 +156,43 @@ export function fmtCount(n: number): string {
   )
 }
 
+/** Hours (possibly fractional) → {@link formatDuration} text; null → {@link NONE}. */
+export function formatDurationHours(hours: number | null | undefined): string {
+  return hours === null || hours === undefined || !Number.isFinite(hours)
+    ? NONE
+    : formatDuration(hours * 3_600_000)
+}
+
+/**
+ * A percentage (0–100 scale) → whole number `49%`; one decimal below 1%
+ * (`0.4%`), `0%` for zero (N-4).
+ */
+export function fmtPercent(pct: number): string {
+  if (!Number.isFinite(pct) || pct <= 0) return '0%'
+  // One decimal where a whole number would round to 0% or 100% and lie.
+  if (pct < 1 || (pct < 100 && Math.round(pct) === 100))
+    return `${Math.round(pct * 10) / 10}%`
+  return `${Math.round(pct)}%`
+}
+
+/**
+ * An enum value as UPPER_SNAKE_CASE, the way `--json` and the web spell it
+ * (E-1): `merged` → `MERGED`, `on-track` → `ON_TRACK`. Empty → {@link NONE}.
+ */
+export function fmtEnum(value: string | null | undefined): string {
+  if (value === null || value === undefined || value.trim() === '') return NONE
+  return value
+    .trim()
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase()
+}
+
 /**
  * The one empty-state sentence: `No <things>.` / `No <things> on <scope>.`
  * Follow-up advice goes on its own `Hint:` / `Next:` line, not here.
  */
 export function emptyState(things: string, scope?: string): string {
   return scope ? `No ${things} on ${scope}.` : `No ${things}.`
-}
-
-export function relativeTime(then: Date, now: Date): string {
-  const diffMs = now.getTime() - then.getTime()
-  const seconds = Math.floor(diffMs / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days === 1) return 'yesterday'
-  if (days < 7) return `${days} days ago`
-  const weeks = Math.floor(days / 7)
-  if (weeks < 5) return `${weeks}w ago`
-  const months = Math.floor(days / 30)
-  return `${months}mo ago`
 }
 
 export interface TaskRow {

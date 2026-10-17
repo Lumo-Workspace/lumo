@@ -150,7 +150,7 @@ describe('testcase list', () => {
     })
     await taskTestCaseList('LUM-1')
     const out = printed()
-    expect(out).toContain('PASS on [31mLOCAL[0m2J (2026-10-13)')
+    expect(out).toContain('PASS on [31mLOCAL[0m2J 2026-10-13T12:00:00Z')
     expect(out).not.toContain(ESC)
     expect(out).not.toContain(CSI8)
   })
@@ -184,7 +184,7 @@ describe('testcase list', () => {
       'TC2',
       'Ok',
       '1 steps / 0 verify',
-      'PASS on LOCAL (2026-10-13) by Ada TC3 Lovelace',
+      'PASS on LOCAL 2026-10-13T12:00:00Z by Ada TC3 Lovelace',
     ])
   })
 })

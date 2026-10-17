@@ -38,8 +38,8 @@ Use `--search <text>` to filter to milestones whose **name or description** cont
 
 `HEALTH` is the target-date risk light, server-computed from the milestone's target date + task progress:
 
-- `ON-TRACK` — on schedule (or all tasks done)
-- `AT-RISK` — completion lags elapsed time, or (no start date) the target is within ~7 days with work remaining
+- `ON_TRACK` — on schedule (or all tasks done)
+- `AT_RISK` — completion lags elapsed time, or (no start date) the target is within ~7 days with work remaining
 - `OVERDUE` — past the target date with tasks still open
 - `-` — no light applies (the milestone is completed or archived, or has no target date)
 

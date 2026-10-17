@@ -28,6 +28,8 @@ export interface LayoutOptions {
   width?: number | undefined
   /** Emit SGR styling (default false — the command entry decides). */
   color?: boolean | undefined
+  /** Terminal vs pipe form of times (LUM-1232 T-1/T-2; default: stdout's TTY state). */
+  tty?: boolean | undefined
 }
 
 /**

@@ -1,3 +1,4 @@
+import { fmtEnum } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
@@ -242,7 +243,7 @@ export function partitionLinkedPrs(prs: LinkedPr[]): {
 }
 
 function formatPrLine(pr: LinkedPr): string {
-  const state = (pr.state ?? 'unknown').padEnd(7)
+  const state = fmtEnum(pr.state).padEnd(7)
   const title = pr.title ? sanitizeField(pr.title) : '(untitled)'
   const url = pr.url ? `  ${pr.url}` : ''
   return `#${pr.number}  ${state}  ${title}${url}`
@@ -271,7 +272,7 @@ export function describeDoneTransition(
   const { unmerged } = partitionLinkedPrs(prs)
   if (unmerged.length > 0) {
     const summary = unmerged
-      .map(pr => `#${pr.number} ${pr.state ?? 'unknown'}`)
+      .map(pr => `#${pr.number} ${fmtEnum(pr.state)}`)
       .join(', ')
     lines.push(
       `⚠ ${unmerged.length} linked pull request${unmerged.length === 1 ? '' : 's'} not merged: ${summary}`

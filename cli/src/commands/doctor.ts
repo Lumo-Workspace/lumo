@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { WARN_PREFIX } from '../lib/errors'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import {
   describeAutoUpdate,
@@ -609,12 +610,14 @@ function renderText(report: DoctorReport): string {
       const parts = [r.kind, r.version ? `v${r.version}` : null, r.state]
       lines.push(`    ${parts.filter(Boolean).join(' · ')}`)
       if (r.detail) lines.push(`    ${r.detail}`)
-      if (r.suggestion) lines.push(`    -> ${r.suggestion}`)
+      // LUM-1232 S-1: a command sits on its own line with no arrow.
+      if (r.suggestion) lines.push(`    ${r.suggestion}`)
     }
   }
   if (report.warnings.length > 0) {
     lines.push('', 'Warnings')
-    for (const w of report.warnings) lines.push(`  ! ${w.code}: ${w.message}`)
+    for (const w of report.warnings)
+      lines.push(`  ${WARN_PREFIX} ${w.code}: ${w.message}`)
   }
   return lines.join('\n') + '\n'
 }

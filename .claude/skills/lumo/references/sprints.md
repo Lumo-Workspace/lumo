@@ -4,7 +4,7 @@
 
 ### `lumo sprint list [flags]` — list sprints in a team
 
-Prints table rows: `<STATUS>  #<number>  <start>..<end>  <name>`, sorted newest-first (server sort). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
+Prints table rows: `<STATUS>  #<number>  <start> → <end>  <name>`, sorted newest-first (server sort). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
 | Flag                   | Type    | Notes                                                 |
 | ---------------------- | ------- | ----------------------------------------------------- |
@@ -42,12 +42,12 @@ When to suggest: user says "create a sprint", "new sprint", "start a new iterati
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 
-Output (LUM-1090): `Label:  value` rows padded to the widest label (`Sprint:`, `Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done / total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
+Output (LUM-1090): `Label:  value` rows padded to the widest label (`Sprint:`, `Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done/total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
 
 **Blockers** lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`), **one per line** under the category's value column (a title too long for the line is cut with `…`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no Blockers section at all. (There is no risk score or `Health:` line — LUM-709 removed the risk-assessment layer.)
 
 ```
-Progress:  4 / 10
+Progress:  4/10
 
 Blockers
   Overdue:    LUM-1 Fix login
@@ -65,8 +65,8 @@ Both reads run in parallel with the main sprint/task reads. Either section print
 
 ```
 Burnup
-  Done:   2 / 4  (as of 2026-06-03)
-  Trend:  ▁▃▅··  (2026-06-01 → 2026-06-05)
+  Done:   2/4  (as of 2026-06-03)
+  Trend:  ▁▃▅··  2026-06-01 → 2026-06-05
 
   DAY         SCOPE  DONE  PLAN
   2026-06-01      3     0     0

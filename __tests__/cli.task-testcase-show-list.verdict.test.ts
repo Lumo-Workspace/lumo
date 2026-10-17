@@ -324,7 +324,7 @@ describe('testcase list — capped verdicts and the N/M passing summary', () => 
 
     const lines = printed().split('\n')
     expect(lines[0]).toContain('PASS on LOCAL → UNPROVEN (no evidence)')
-    expect(lines[1]).toContain('PASS on LOCAL (2026-10-06) by Ada')
+    expect(lines[1]).toContain('PASS on LOCAL 2026-10-06T08:00:00Z by Ada')
     expect(lines[1]).toContain('3 of 3 steps passed')
     expect(lines[1]).not.toContain('UNPROVEN')
     expect(lines[2]).toContain('cause: defect')

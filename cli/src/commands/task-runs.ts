@@ -219,7 +219,9 @@ function overviewLines(r: RunReport): string[] {
   )
   const t = r.totals
   out.push(
-    `Tokens: ${t.byModel.length > 0 ? `${fmtTokens(t.total)} (${tokenCell(t.byModel)})` : NONE} · ` +
+    // LUM-1232 N-1: one model → the total once (it IS that model's figure);
+    // several → total plus the per-model split.
+    `Tokens: ${t.byModel.length === 0 ? NONE : t.byModel.length === 1 ? fmtTokens(t.total) : `${fmtTokens(t.total)} (${tokenCell(t.byModel)})`} · ` +
       `loops ${orDash(t.loopCount)} · ${plural(t.runCount, 'run')}` +
       (marks.length > 0 ? `  [${marks.join('] [')}]` : '')
   )

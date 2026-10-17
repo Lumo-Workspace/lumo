@@ -38,7 +38,7 @@ describe('formatSprintShow', () => {
     expect(out).toContain('End:       2026-06-14')
     expect(out).toContain('Started:   2026-06-01')
     expect(out).toContain('Closed:    -')
-    expect(out).toContain('Progress:  4 / 10')
+    expect(out).toContain('Progress:  4/10')
     expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
   })
 
@@ -54,7 +54,7 @@ describe('formatSprintShow', () => {
     )
     expect(out).toContain('Started:   -')
     expect(out).toContain('Closed:    -')
-    expect(out).toContain('Progress:  0 / 0')
+    expect(out).toContain('Progress:  0/0')
     expect(out).toContain('\nTasks (0)\n  None — no task is in this sprint.')
     expect(out).not.toContain('LUM-')
   })

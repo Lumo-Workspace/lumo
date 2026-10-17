@@ -476,9 +476,13 @@ describe('doctor command', () => {
     expect(stdout).toContain('This machine')
     expect(stdout).toContain(up)
     expect(stdout).toContain('behind CLI 2.0.0')
-    expect(stdout).toContain('-> lumo init --user --agent claude-code')
+    expect(stdout).toContain('    lumo init --user --agent claude-code')
+    expect(stdout).not.toContain('-> lumo init')
     expect(stdout).not.toContain('--upgrade')
     expect(stdout).toContain('lumo-not-on-path')
+    // LUM-1232 S-1: warnings use the one warning marker, never `!`.
+    expect(stdout).toMatch(/^  ⚠ lumo-not-on-path: /m)
+    expect(stdout).not.toMatch(/^  ! /m)
     expect(hashSkillDir(up)).toBe(before)
   })
 

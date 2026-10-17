@@ -40,7 +40,7 @@ describe('LUM-1208 server config on the judge budget', () => {
         serverConfig: { paths: ['frontend/Trunk.toml'], chars: 255 },
       })
     ).toBe(
-      'AI review budget: diff 1,000 chars · tier 60,000 · 59,000 left, 98.3% · server config 1 file (255 chars, read-only): frontend/Trunk.toml'
+      'AI review budget: diff 1,000 chars · tier 60,000 · 59,000 left (98%) · server config 1 file (255 chars, read-only): frontend/Trunk.toml'
     )
     expect(formatJudgeBudgetLine(BUDGET)).not.toContain('server config')
   })

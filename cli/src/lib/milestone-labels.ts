@@ -7,8 +7,8 @@
 export type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 
 export const HEALTH_LABEL: Record<MilestoneHealth, string> = {
-  'on-track': 'ON-TRACK',
-  'at-risk': 'AT-RISK',
+  'on-track': 'ON_TRACK',
+  'at-risk': 'AT_RISK',
   overdue: 'OVERDUE',
 }
 
