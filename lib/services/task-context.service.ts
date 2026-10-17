@@ -3,6 +3,10 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
+import {
   activeDurationMs,
   activeDurationMsBySession,
   activeDurationMsBySessionTask,
@@ -1097,7 +1101,8 @@ export const taskContextService = {
    */
   async buildProgressSectionForTask(
     taskId: string,
-    currentSessionId: string
+    currentSessionId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<string> {
     const recovery =
       await taskContextService.buildPreviousSessionRecoveryForTask(
@@ -1121,7 +1126,7 @@ export const taskContextService = {
       body.push('', ...renderSessionRecapFollowUps(visible))
       if (overflow > 0) {
         body.push(
-          `- +${overflow} more — \`lumo task context\` for the full list`
+          `- +${overflow} more — \`${commands.taskContextBound}\` for the full list`
         )
       }
     }
@@ -1202,7 +1207,10 @@ export const taskContextService = {
     // variant that picks any active workspace integration, so the caller's
     // memberId is no longer needed here. Drop on next signature change.
     _actorMemberId: string,
-    identifier: string
+    identifier: string,
+    // LUM-1233: the commands the caller's CLI has, for the pointers the
+    // rendered sections carry (legacy names unless the route says otherwise).
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<TaskContext | null> {
     const resolved = await taskService.resolveIdentifier(
       workspaceId,
@@ -1297,6 +1305,7 @@ export const taskContextService = {
       })),
       identifier: resolved.identifier,
       commentsSummary: full.commentsSummary ?? null,
+      commands,
     })
 
     const prs = await pullRequestRepository.listByTask(resolved.id)
@@ -1325,7 +1334,8 @@ export const taskContextService = {
     )
     const memoryIndexSection = renderMemoryIndexBlock(
       budgetedMemories,
-      resolved.identifier
+      resolved.identifier,
+      commands
     )
 
     const milestone = full.milestoneId

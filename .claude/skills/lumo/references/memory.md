@@ -86,7 +86,7 @@ bullets, …) — never raw JSON.
 
 - **Arg**: `<memory>` (required) — the 8-character short ref you saw in
   `... memory list` column 1, in a session-start index line (`· kp5brom5` /
-  `→ lumo memory show kp5brom5`), in `task lineage` or `workspace learnings`.
+  `→ lumo memory show kp5brom5`), in `task show --lineage` or `workspace learnings`.
   The short ref is the id's last 8 characters (its random part — leading
   characters are a timestamp shared by memories created together). A unique id
   prefix of 6+ characters or the full id (old scripts) also work. Without the
@@ -125,7 +125,7 @@ existing injection, so during the transition both paths are active and overlap i
   to Claude Code's native recall, not decided at sync. Judge-used 履历
   still orders the resident index (so the most-proven memories list first) but
   never drops anything. Relevance/budget gating remains only on the **injection**
-  path (`lumo task context` / session-start), which does spend tokens.
+  path (`lumo task show --full` / session-start), which does spend tokens.
 - **Project-level routing only**: you still don't sync a project you're not a
   member of — that's the API route's workspace authorization. Within a project,
   everyone gets the full set.

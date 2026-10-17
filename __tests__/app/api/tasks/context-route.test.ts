@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { GET } from '@/app/api/tasks/context/[identifier]/route'
+import { LEGACY_CLI_COMMANDS } from '@/lib/cli/command-names'
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockCtx = taskContextService.getContextForIdentifier as jest.Mock
@@ -64,7 +65,12 @@ describe('GET /api/tasks/context/[identifier]', () => {
       ctx('LUM-30')
     )
     expect(res.status).toBe(404)
-    expect(mockCtx).toHaveBeenCalledWith('ws_1', 'member_1', 'LUM-30')
+    expect(mockCtx).toHaveBeenCalledWith(
+      'ws_1',
+      'member_1',
+      'LUM-30',
+      LEGACY_CLI_COMMANDS
+    )
   })
 
   it('returns the assembled context on hit', async () => {

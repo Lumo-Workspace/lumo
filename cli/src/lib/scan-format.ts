@@ -206,7 +206,7 @@ export interface ScanFieldExtras {
  * budget and the hunt's per-task table nested under their own layer), then
  * `Note` / `Queue` rows for the scan-wide notes. The scrubbed external
  * reason rides on the Code scan row it explains. Shared by `task status`,
- * `task wrapup` and `pr scan`, so the three cannot drift.
+ * `pr scan` and `task show --scans`, so they cannot drift.
  */
 export function scanFields(
   s: ScanLayerLineInput,

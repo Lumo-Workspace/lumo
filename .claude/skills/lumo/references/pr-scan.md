@@ -62,7 +62,7 @@ Off by default (`lumo workspace security-scan --request-changes on|off`, OWNER).
 
 ## Reading the output
 
-Layout (LUM-1091, shared with `task status` / `task wrapup`): a heading per
+Layout (LUM-1091, shared with `task status`): a heading per
 block, facts as `Label:  value` rows (a value too long for the line moves
 under its label), at most three indent levels, prose wrapped at 100 columns,
 every command on its own line; bold headings / dim labels only on a TTY.
@@ -316,11 +316,14 @@ written before the gate counted anything at all.
 Finding `evidence` (the redacted triggering line) is **not** in the payload
 by construction — the server never loads the column for this read.
 
-## Across a task — `lumo task scans <task>` (LUM-1189)
+## Across a task — `lumo task show <task> --scans` (LUM-1189)
 
 ```
-lumo task scans LUM-42 [--all] [--full] [--json]
+lumo task show LUM-42 --scans [--all] [--full] [--json]
 ```
+
+(`task scans` was removed in LUM-1233; the read-out is now an aspect of
+`task show`, and under `--json` it is the envelope's `scans` key.)
 
 The same read-out for **every PR linked to a task**, newest PR first — what
 the web task Record's security section shows: each PR's layers, partial
@@ -344,7 +347,7 @@ pullRequests: [ <the pr scan --json payload> ] }`.
   `view=readout` gets the web panel's read model. Another workspace's task is
   a 404.
 - **Errors** — `Error: task LUM-42 not found in workspace <slug>` (unknown or
-  another workspace's); ``Error: `lumo task scans` is not available on this
+  another workspace's); ``Error: `lumo task show --scans` is not available on this
 Lumo server …`` (no security plugin); `Error: this Lumo server does not
 serve the task scan read-out yet — use `lumo pr scan <number>` per PR.`
   (an older server answered with the panel model).
@@ -405,6 +408,6 @@ A gated mutation on the [confirmation protocol](confirmation.md) — no read rec
   shows `WEB <ruling> → OPEN`, and later pushes do not carry the old ruling back. If the user says a CLI
   ruling was a mistake, send them to the web panel.
 
-**When to suggest:** `lumo task status` / `task wrapup` lists a blocking `[SECURITY]` / `[BUG]` finding
+**When to suggest:** `lumo task status` lists a blocking `[SECURITY]` / `[BUG]` finding
 the user says is a false positive or an accepted risk; `task update --status done` exits 5 with a
 `SECURITY_FINDING` blocker; the user asks to clear, dismiss or accept a scan finding.

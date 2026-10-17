@@ -6,6 +6,7 @@ import { nextStepsService } from '@/lib/services/next-steps.service'
 import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import { cliCommandNamesFromHeaders } from '@/lib/cli/command-names'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -51,6 +52,8 @@ export async function POST(
       sessionId,
       taskIdentifier,
       ...(agent ? { agent } : {}),
+      // LUM-1233: name only the commands the caller's CLI has.
+      commands: cliCommandNamesFromHeaders(request.headers),
     })
     // LUM-528: the first session-start (startup) is structurally unbound, so a
     // bind-then-work-then-end session would never record lineage edges. Record

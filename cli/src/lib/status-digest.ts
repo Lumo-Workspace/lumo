@@ -68,7 +68,7 @@ export function assessDigest(input: StatusDigestInput): DigestDoneVerdict {
   const data = input.status.value
   const split = splitNextActions(data.nextActions)
 
-  // What blocks DONE — the same gates `task wrapup` counts.
+  // What blocks DONE — the same gates the DONE-readiness section counts.
   const blocking: string[] = []
   const unconfirmed: string[] = []
   if (input.crossings.status === 'ok') {

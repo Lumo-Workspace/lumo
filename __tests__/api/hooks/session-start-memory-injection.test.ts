@@ -50,6 +50,11 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { POST } from '@/app/api/hooks/session-start/route'
+import {
+  CURRENT_CLI_COMMANDS,
+  LEGACY_CLI_COMMANDS,
+  READ_ENTRY_MIN_CLI_VERSION,
+} from '@/lib/cli/command-names'
 
 const mockVerify = authService.verifyApiKey as jest.Mock
 const mockRecord = hookEventService.recordHookEvent as jest.Mock
@@ -79,12 +84,13 @@ const identity = {
   apiKey: { id: 'k_1', name: 'laptop', prefix: 'lum_abc' },
 }
 
-function post(body: unknown) {
+function post(body: unknown, extraHeaders: Record<string, string> = {}) {
   return new Request('http://x/api/hooks/session-start', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer lum_ok',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   })
@@ -259,5 +265,33 @@ describe('POST /api/hooks/session-start — memory injection', () => {
 
     expect(body.ok).toBe(true)
     expect(body.blockerWarningSection).toBe(warningText)
+  })
+
+  // LUM-1233: the injected progress / dependency notes name only commands the
+  // caller's CLI has — `task context` for an older CLI, `task show` for a new one.
+  it.each([
+    ['an older CLI', { 'X-Lumo-Cli-Version': '1.125.4' }, LEGACY_CLI_COMMANDS],
+    ['no version header', {}, LEGACY_CLI_COMMANDS],
+    [
+      'a current CLI',
+      { 'X-Lumo-Cli-Version': READ_ENTRY_MIN_CLI_VERSION },
+      CURRENT_CLI_COMMANDS,
+    ],
+  ])('passes the command names for %s', async (_label, headers, expected) => {
+    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
+      bound: true,
+      taskId: 'task-1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'Test task',
+    })
+    await POST(post({ sessionId: 's-1' }, headers))
+    expect(
+      (taskContextService.buildProgressSectionForTask as jest.Mock).mock
+        .calls[0]![2]
+    ).toBe(expected)
+    expect(
+      (taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock)
+        .mock.calls[0]![2]
+    ).toBe(expected)
   })
 })

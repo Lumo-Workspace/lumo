@@ -14,6 +14,7 @@ import {
   parsePageArgs,
   type PageArgs,
 } from '../lib/pagination'
+import type { OutputSink } from '../lib/output-sink'
 
 /**
  * `lumo task history <LUM-N> [--limit N] [--cursor C]` (LUM-821) — the task's field-change
@@ -139,7 +140,12 @@ export function historyPage(
 
 export async function taskHistory(
   identifier: string,
-  opts: { limit?: string; cursor?: string; json?: boolean } = {}
+  opts: {
+    limit?: string | undefined
+    cursor?: string | undefined
+    json?: boolean | undefined
+  } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
@@ -175,7 +181,8 @@ export async function taskHistory(
       listEnvelope('entries', page.items, {
         total: page.total,
         nextCursor: page.nextCursor,
-      })
+      }),
+      out
     )
     return
   }
@@ -195,10 +202,10 @@ export async function taskHistory(
     ...pageFooter(
       { ...page, shown: page.items.length },
       buildCommand(
-        `task history ${shellQuote(sanitizeField(task.identifier))}`,
+        `task show ${shellQuote(sanitizeField(task.identifier))} --history`,
         [['--limit', opts.limit]]
       )
     ),
   ]
-  process.stdout.write(lines.join('\n') + '\n')
+  out.write(lines.join('\n') + '\n')
 }

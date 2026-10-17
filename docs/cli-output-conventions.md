@@ -260,7 +260,7 @@ State:       COMPLETED
 Close gate:  open
 ```
 
-Exception: `lumo task context` stays Markdown. Its output is written to be pasted into a model's context, and that is documented in the skill.
+Exception: the task context that `lumo task show --full` prints after the detail view (formerly `lumo task context`, LUM-1233) stays Markdown. Its output is written to be pasted into a model's context, and that is documented in the skill.
 
 ### D-2. Facts are `Label:  value` rows
 
@@ -315,7 +315,7 @@ Totals
   Tokens:     11.7M (input 70 · output 13.5K · cache read 11.7M · cache write 27.2K)
 ```
 
-The numbered headings of `task wrapup` (`[1/4] Test cases`) are an allowed variant: the numbers are a step order agents rely on.
+`task wrapup` and its numbered `[1/4] …` headings were removed in LUM-1233; its DONE section is now the `DONE readiness` section of `task status`, a plain D-3 heading.
 
 ### D-4. No hard wrapping in a pipe
 
@@ -1288,13 +1288,13 @@ These outputs are parsed by agents or documented byte-for-byte in the skill. A b
 - the exit-4 `confirmation_required` envelope (JSON on stdout when piped) and its `confirmCommand`;
 - the exit-5 `DONE_BLOCKED` error and its blocker list;
 - `lumo task status`: section names and their order, and the `Done gate:` line;
-- `lumo task wrapup`: the `[n/4]` section headings;
+- `lumo task status`: the `DONE readiness` section heading (READY only, LUM-1233);
 - the first line of `task create`, `task update`, `doc create`;
 - the auth error strings in `errors.ts` (`API key invalid or revoked. Run \`lumo auth login\`.`);
 - the `Showing a-b of n.` paging line (its second line changes wording, PG-1);
 - the `Next:` block shape (`command` line, indented `why` line);
 - the `<untrusted-…>` wrappers;
-- `lumo task context` (Markdown, written for model context).
+- the task context body of `lumo task show --full` (Markdown, written for model context; formerly `lumo task context`).
 
 Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and the affected `references/*.md` in the same PR, regenerates `grammar.json` when flags change, and keeps the doc-examples test green.
 
@@ -1376,7 +1376,7 @@ The review draft listed seven open questions. The user decided all of them on 20
 
 ### Q7. `task runs` and `task lineage` use the detail layout
 
-- **Decision (2026-10-18):** both move from Markdown to the plain detail layout (D-1–D-3). `task context` keeps Markdown, because its output is meant to be pasted into a model's context.
+- **Decision (2026-10-18):** both move from Markdown to the plain detail layout (D-1–D-3). `task context` keeps Markdown, because its output is meant to be pasted into a model's context. **Update (LUM-1233, 2026-10-18):** `task context` was removed; its body is now printed by `task show --full` after the detail view and keeps Markdown under this same ruling ([cli-command-structure.md](cli-command-structure.md) Q5).
 
 ### Q8. Durations stay in hours and minutes
 

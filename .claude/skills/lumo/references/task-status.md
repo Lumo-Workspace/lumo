@@ -1,4 +1,4 @@
-# lumo task status / task wrapup — self-check, crossings, DONE
+# lumo task status — self-check, crossings, DONE readiness
 
 ## lumo task status — the self-check entry point
 
@@ -7,7 +7,7 @@ LLM, never writes. Defaults to the session-bound task; an explicit identifier
 overrides.
 
 ```bash
-lumo task status            # session-bound task (next actions / scan coverage / open crossings)
+lumo task status            # session-bound task (next actions / scan coverage / open crossings; DONE readiness when READY)
 lumo task status LUM-42     # explicit task
 lumo task status --full     # + cost, struggle/rework trail, trend, test cases
 lumo task status --json     # versioned machine-readable payload
@@ -43,7 +43,7 @@ signals, unscanned PRs, open boundary crossings.
 
 ### What it prints
 
-- **Layout (LUM-1091, shared with `task wrapup` / `pr scan`)** — each section is a blank line plus a plain heading (`Next actions (…)`, `Security scans`, `Open boundary crossings (…)`, `Cost`, …; bold on a TTY), facts are `Label:  value` rows under it (a value too long for the line moves under its label), at most three indent levels (2/4/6 spaces), prose wrapped at 100 columns, and every shell command on a line of its own. Colour (bold headings, dim labels) only on a TTY without `NO_COLOR`; piped/agent output is plain text.
+- **Layout (LUM-1091, shared with `pr scan`)** — each section is a blank line plus a plain heading (`Next actions (…)`, `Security scans`, `Open boundary crossings (…)`, `Cost`, …; bold on a TTY), facts are `Label:  value` rows under it (a value too long for the line moves under its label), at most three indent levels (2/4/6 spaces), prose wrapped at 100 columns, and every shell command on a line of its own. Colour (bold headings, dim labels) only on a TTY without `NO_COLOR`; piped/agent output is plain text.
 - **Header** — task identifier/title and `Status: <STATUS>`.
 - **Done gate (LUM-1186)** — first section, the **same verdict as the web Record tab's Done gate** (computed server-side by the shared `deriveDoneGate`; the CLI only renders it): `Done gate: BLOCKED — N items block DONE` | `READY — nothing blocks DONE` | `ACCEPTED — the task is DONE`, then three rows — `Crossings:` (`– none recorded` · `✗ N blocking, not dispositioned` · `✓ N advisory (open, does not block DONE)` · `dispositioned D/T`), `Security:` (`✗ N blocking findings not dispositioned` · `✓ no blocking findings` · `– not scanned … — not a clean result`; no row when the server has no security check) and `Tests:` (`✗ N proven defects awaiting a ruling` · `✓ no proven defects` + `P/T passing` · `– no test cases`). `✗` blocks, `✓` clear, `–` nothing to check. Fails closed: `Done gate: ⚠ CANNOT CONFIRM — could not read <plane>` (or an older server without the gate) means unknown, never ready.
 - **Default = the self-check core (LUM-733):** header, Done gate, Next actions, scan coverage, Open boundary crossings. The extra sections (**Cost**, **Struggle / rework**, **Trend**, **Test cases**) print only with `--full`.
@@ -72,7 +72,7 @@ shape changes bump it; additive fields don't. Pin on `version` when scripting.
 
 ## Every crossing in full — `lumo crossing list` (LUM-1187)
 
-Read-only. `task status` / `task wrapup` show only the open crossings, one
+Read-only. `task status` shows only the open crossings, one
 glance line each; `crossing list` shows the whole record the web Record panel
 shows:
 
@@ -139,41 +139,38 @@ A blocking **security finding** has its own terminal path: `lumo finding disposi
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
-## lumo task wrapup — the whole wrap-up in one read (LUM-841)
+## DONE readiness — the READY section of `task status` (LUM-1233)
 
-```bash
-lumo task wrapup            # session-bound task
-lumo task wrapup LUM-42     # explicit task
-```
+`lumo task wrapup` was removed (it prints `was removed. Use: lumo task status`
+and exits 2). Its last section now lives in `task status`: when the task is
+**READY** — every read succeeded, nothing blocks DONE and every linked PR is
+merged — `task status` ends with a `DONE readiness` section. Run `task status`
+near the end, when the user asks "can we close this?" / "what is left?".
 
-**When to suggest:** the task is near the end — a PR is open or merged, the user
-asks "can we close this?" / "what is left?". Use it **instead of** chaining
-`task status` + `pr scan` + a crossing read per crossing + `task update --status
-done` (just to see the envelope) + `worktree list`. Run it again after clearing
-an item.
+It holds `Readiness: READY …`, `Done gate: <headline>` with the same
+`Crossings` / `Security` / `Tests` rows, what moving to DONE would change
+(status, each linked PR with its merge state, each local worktree removed or
+kept with its reason — a kept worktree's `git -C … worktree remove` command on
+its own line), and the one command to run:
 
-Four numbered sections (`[1/4] Test cases` … `[4/4] DONE`), in the same layout as `task status` (headings, labelled rows, ≤3 indent levels, every command on its own line — LUM-1091):
+- every linked PR merged (≥1): `READY — one step: …`, then
+  `All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:`
+  and `lumo task update <id> --status done` (LUM-1106; add no other flag —
+  anything besides `--status` takes the envelope, LUM-1116);
+- no linked PR: `Show the user the lines above. Only after they approve, run:`
+  and the `--confirm` command alone on the next line.
 
-1. **Test cases** — verdict signals (an unruled `PROVEN_DEFECT` item is followed by `Blocks DONE until the user rules on that run — one of:` and the two `lumo task testcase disposition <task>/TC<n> --known-defect` / `--not-a-defect` commands, one per line, for the **user's** ruling) and the no-test-case advisory.
-2. **Security scans** — undispositioned findings (blocks DONE / advisory) and each linked PR's latest scan as layer rows, same grammar as `task status`.
-3. **Boundary crossings** — every undispositioned crossing (`• <ref> [SEVERITY] CATEGORY (<gate>)`) with what the user needs to rule on it as rows (`Re-judged`, `Detail`, `Seen`, the `⚠ irreversible category` line, `Explanations` with one `- …` line each, or `Explanation: none — add one first` with the `crossing explain` command when a blocking row has none) and the step-1 `lumo crossing disposition … --task <id>` commands — per crossing (`The user rules — one of:`) or, with several, one **batch** command per ruling after the list.
-4. **DONE** — a readiness verdict, then `Done gate: <headline>` with the same `Crossings` / `Security` / `Tests` rows as `task status` (LUM-1186), plus what moving to DONE would change (status, each linked PR with its merge state, each local worktree removed or kept with its reason — a kept worktree's `git -C … worktree remove` command on its own line). `READY` with every linked PR merged (≥1) is labelled `READY — one step: …` and ends with `All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:` and `lumo task update <id> --status done` (LUM-1106; add no other flag — anything besides `--status` takes the envelope, LUM-1116); `READY` with no linked PR ends with `Show the user the lines above. Only after they approve, run:` and the `--confirm` command alone on the next line; otherwise `Clear the items above, then run again:` and `lumo task wrapup <id>`.
-
-| Level            | Meaning                                                                                                                                                                                                                          |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `READY`          | nothing blocks and nothing is left agent-side — with ≥1 PR, all merged: run `lumo task update <id> --status done` directly (one step); with no PR: show the user the DONE lines, only after they approve run it with `--confirm` |
-| `NOT YET`        | a linked PR is not merged                                                                                                                                                                                                        |
-| `BLOCKED`        | a human-only gate would refuse DONE: blocking crossing, blocking security finding, unruled proven test-case defect — or the server's Done gate says blocked                                                                      |
-| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security / the server's Done gate) — never read this as clear                                                                                                                     |
-| `DONE`           | already closed                                                                                                                                                                                                                   |
+When the task is not READY (a PR not merged, a blocker, a failed read, already
+DONE) the section is absent; the rest of `task status` says what is left.
+`--json` adds `readiness: { level, reasons, nextCommand }` — `level` is one of
+`READY`, `NOT_YET`, `BLOCKED`, `UNCONFIRMED`, `DONE`; `nextCommand` is null
+unless READY.
 
 **Red lines.** Read-only: GETs plus local `git` inspection; it requests no
-disposition receipt and changes no status. A crossing or test-case ruling still
-walks its handshake one exit-4 envelope at a time, and the DONE `--confirm`
-command appears **only** at `READY` without a linked PR, as the user's approval
-(with all PRs merged the plain one-step command is printed instead). When the current
-directory is inside the task's worktree, run the DONE command from the main
-checkout so the worktree can be removed.
+disposition receipt and changes no status. The DONE `--confirm` command appears
+**only** at `READY` without a linked PR, as the user's approval. When the
+current directory is inside the task's worktree, run the DONE command from the
+main checkout so the worktree can be removed.
 
 ## The DONE gate
 

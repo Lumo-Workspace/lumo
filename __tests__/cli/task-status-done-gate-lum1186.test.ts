@@ -1,7 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1186 — `lumo task status` / `task wrapup` render the server's Done gate
+ * LUM-1186 — `lumo task status` and its DONE-readiness section (formerly
+ * `task wrapup`, LUM-1233) render the server's Done gate
  * (the web Record tab's single verdict + crossings / security / tests rows)
  * — the claim + faithfulness stay JSON-only — and say plainly that an unruled proven test
  * defect blocks DONE. Fail-closed: an absent or unconfirmed gate is "cannot
@@ -25,9 +26,9 @@ import {
 } from '@/cli/src/commands/task-status'
 import {
   assessReadiness,
-  formatWrapup,
-  type WrapupInput,
-} from '@/cli/src/commands/task-wrapup'
+  formatDoneReadiness,
+  type ReadinessInput,
+} from '@/cli/src/lib/done-readiness'
 import { assessDigest } from '@/cli/src/lib/status-digest'
 
 type Gate = Extract<DoneGateReadout, { confirmed: true }>
@@ -252,7 +253,7 @@ describe('lumo task status output', () => {
   })
 })
 
-function wrapInput(data: TaskStatusResponse): WrapupInput {
+function wrapInput(data: TaskStatusResponse): ReadinessInput {
   return {
     identifier: 'LUM-9001',
     status: { ok: true, value: data },
@@ -267,16 +268,16 @@ function wrapInput(data: TaskStatusResponse): WrapupInput {
     },
     crossings: { status: 'ok', crossings: [], gateEnabled: true },
     worktrees: { mainRoot: '/repo', items: [] },
-    dispositionUrl: 'https://x.test/w#boundary-crossings',
   }
 }
 
-describe('lumo task wrapup DONE section', () => {
+describe('DONE readiness section (formerly task wrapup)', () => {
   it('shows the same Done gate verdict and rows', () => {
-    const out = formatWrapup(
-      wrapInput(status({ doneGate: gate(), nextActions: [verdict()] }))
+    const input = wrapInput(
+      status({ doneGate: gate(), nextActions: [verdict()] })
     )
-    const done = out.slice(out.indexOf('[4/4] DONE'))
+    const done = formatDoneReadiness(input, assessReadiness(input)).join('\n')
+    expect(done.startsWith('\nDONE readiness')).toBe(true)
     expect(done).toContain('  Done gate: BLOCKED — 1 item blocks DONE')
     expect(done).toContain(
       '    Tests:      ✗ 1 proven defect awaiting a ruling · 3/4 passing'

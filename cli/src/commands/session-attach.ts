@@ -385,9 +385,10 @@ async function stewardAttach(args: {
   }
 }
 
-/** LUM-1092: the one pointer to `task context`, through the shared hint(). */
+/** LUM-1092: the one pointer to the task context (`task show --full`,
+ *  LUM-1233), through the shared hint(). */
 export function formatBackgroundHint(taskIdentifier: string): string {
   return hint(
-    `run ${cmd(`lumo task context ${taskIdentifier}`)} for background (team memory, test cases, sources, prior sessions)`
+    `run ${cmd(`lumo task show ${taskIdentifier} --full`)} for background (team memory, test cases, sources, prior sessions)`
   )
 }

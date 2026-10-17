@@ -459,7 +459,7 @@ describe('milestone list / doc list paging (client-side)', () => {
   })
 })
 
-describe('task comments list paging', () => {
+describe('task show --comments paging', () => {
   const threads: CommentNode[] = Array.from({ length: 55 }, (_, i) => ({
     id: `c${String(i).padStart(8, '0')}`,
     authorActorId: 'a',
@@ -477,7 +477,7 @@ describe('task comments list paging', () => {
     expect(out).not.toContain('comment 51')
     expect(FOOTER.exec(out)!.slice(1)).toEqual(['1', '50', '55'])
     expect(NEXT.exec(out)![1]).toBe(
-      'lumo task comments list LUM-1 --full --cursor 50'
+      'lumo task show LUM-1 --comments --full --cursor 50'
     )
     expect(out.lastIndexOf('</untrusted-linked-context>')).toBeLessThan(
       out.indexOf('Showing')

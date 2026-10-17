@@ -2,7 +2,7 @@
 
 ### Task ↔ Spec Artifacts
 
-Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail definition ("spec") layer and are injected into `lumo task context`.
+Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail definition ("spec") layer and are injected into `lumo task show --full`.
 
 #### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source> --agent <agent>`
 
@@ -19,7 +19,7 @@ Output: `Added [spec] "Spec" to LUM-42`
 
 #### `lumo task artifact update <task> <artifact> [--kind <kind>] [--title <title>] [--source <source>] [--agent <agent>]`
 
-Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, `source`, and `agent`** — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task context` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates. `--agent` accepts the same valid values and aliases as `artifact add`: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
+Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, `source`, and `agent`** — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task show --full` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates. `--agent` accepts the same valid values and aliases as `artifact add`: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
 
 ```bash
 lumo task artifact update LUM-42 pskvl3sh --kind plan              # re-classify spec → plan
@@ -44,7 +44,7 @@ lumo task artifact list LUM-42
 
 `--json` prints `{ version, artifact, task }` (the artifact with its full id and content).
 
-Prints one artifact's key:value header (ref, kind, title, agent, source, order, task) followed by the full content body. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task context` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates.
+Prints one artifact's key:value header (ref, kind, title, agent, source, order, task) followed by the full content body. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task show --full` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates.
 
 ```bash
 lumo task artifact show LUM-42 pskvl3sh

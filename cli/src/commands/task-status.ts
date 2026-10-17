@@ -45,6 +45,15 @@ import {
 import { formatTestCasesSummary } from '../lib/test-case-report'
 import { formatListRow } from './task-testcase-list'
 import { shortRef } from '../../../shared/src/short-ref'
+import {
+  assessReadiness,
+  assessWorktrees,
+  formatDoneReadiness,
+  readJson,
+  readinessNextCommand,
+  type ReadinessInput,
+  type ReadinessTask,
+} from '../lib/done-readiness'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -76,6 +85,9 @@ export interface TaskStatusExtras {
   color?: boolean | undefined
   /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
   tty?: boolean | undefined
+  /** LUM-1233: the DONE-readiness section (formerly `task wrapup`), rendered
+   *  only when the task is READY. Absent = not READY or not assessed. */
+  readinessLines?: string[] | undefined
 }
 
 /** One-line a possibly-multiline crossing detail and cap it so the safety block
@@ -635,6 +647,7 @@ export function formatTaskStatus(
   }
 
   pushOpenCrossings(lines, extras, opts)
+  if (extras.readinessLines) lines.push(...extras.readinessLines)
   return lines.join('\n') + '\n'
 }
 
@@ -1012,6 +1025,16 @@ export async function taskStatus(
   // resolved taskId (the identifier the status was fetched for) is the key here.
   const crossingsResult = await fetchOpenCrossings(base, creds.token, taskId)
 
+  // LUM-1233: DONE readiness (formerly `task wrapup`) — the task and its
+  // linked PRs plus the local worktrees decide whether the task is READY.
+  const readinessInput = await readReadinessInput(
+    base,
+    creds.token,
+    data,
+    crossingsResult
+  )
+  const readiness = assessReadiness(readinessInput)
+
   if (options.json) {
     // JSON.stringify escapes control chars (…), so the payload is safe
     // to emit raw — and consumers get byte-faithful server data.
@@ -1020,8 +1043,19 @@ export async function taskStatus(
     // from `[]`, which is a successful read with zero open crossings.
     const openCrossings =
       crossingsResult.status === 'ok' ? crossingsResult.crossings : null
+    // LUM-1233: `readiness` is additive — the level, its reasons and, when
+    // READY, the one command to run next.
+    const readinessJson = {
+      level: readiness.level,
+      reasons: readiness.reasons,
+      nextCommand: readinessNextCommand(readinessInput, readiness),
+    }
     process.stdout.write(
-      JSON.stringify({ ...data, openCrossings }, null, 2) + '\n'
+      JSON.stringify(
+        { ...data, openCrossings, readiness: readinessJson },
+        null,
+        2
+      ) + '\n'
     )
     return
   }
@@ -1044,6 +1078,40 @@ export async function taskStatus(
       width: terminalWidth(),
       tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
+      readinessLines:
+        readiness.level === 'READY'
+          ? formatDoneReadiness(readinessInput, readiness, {
+              width: terminalWidth(),
+              tty: Boolean(process.stdout.isTTY),
+              color: colorEnabled(),
+            })
+          : undefined,
     })
   )
+}
+
+/** The inputs of the DONE-readiness verdict for an already-read status. */
+async function readReadinessInput(
+  base: string,
+  token: string,
+  status: TaskStatusResponse,
+  crossings: OpenCrossingsResult
+): Promise<ReadinessInput> {
+  const identifier = status.task.identifier
+  const task = await readJson(
+    `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`,
+    token,
+    body => {
+      const t = (body as { task?: ReadinessTask }).task
+      if (!t) throw new Error('no task in response')
+      return t
+    }
+  )
+  return {
+    identifier,
+    status: { ok: true, value: status },
+    task,
+    crossings,
+    worktrees: assessWorktrees(identifier, task),
+  }
 }

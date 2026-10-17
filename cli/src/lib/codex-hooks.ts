@@ -214,7 +214,7 @@ export async function codexSessionHasEvents(args: {
 export function codexMemoryStoreError(command: string): string {
   return (
     `Error: \`${command}\` syncs Claude Code's local memory store, which Codex does not read.\n` +
-    '  In Codex, team memory reaches you through `lumo task context <LUM-N>` (and the session-start hook).\n' +
+    '  In Codex, team memory reaches you through `lumo task show <LUM-N> --full` (and the session-start hook).\n' +
     `  To write the files anyway, pass --dir <path>.`
   )
 }

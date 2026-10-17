@@ -33,8 +33,6 @@ import {
   crossingList,
   type CrossingListOptions,
 } from './commands/crossing-list'
-import { outcomeShow } from './commands/outcome'
-import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
 import { taskList } from './commands/task-list'
@@ -55,9 +53,9 @@ import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
 import { taskDelete } from './commands/task-delete'
-import { taskHistory } from './commands/task-history'
 import { projectCreate, projectUpdate } from './commands/project-manage'
-import { taskShow } from './commands/task-show'
+import { taskShow, type TaskShowOptions } from './commands/task-show'
+import { findRemovedCommand, removedCommandLines } from './lib/removed-commands'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
@@ -91,21 +89,17 @@ import {
   findingDisposition,
   type FindingDispositionOptions,
 } from './commands/finding-disposition'
-import { taskWrapup } from './commands/task-wrapup'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
-import { taskCommentList } from './commands/task-comment-list'
 import { taskCommentEdit, taskCommentRm } from './commands/task-comment-manage'
 import {
-  taskDepsList,
   taskDepsAdd,
   taskDepsConfirm,
   taskDepsDismiss,
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
-import { taskScans, type TaskScansOptions } from './commands/task-scans'
 import { prScan, type PrScanOptions } from './commands/pr-scan'
 import {
   workspaceSecurityScan,
@@ -115,8 +109,6 @@ import {
   workspaceLearnings,
   type WorkspaceLearningsOptions,
 } from './commands/workspace-learnings'
-import { taskLineage } from './commands/task-lineage'
-import { taskRuns } from './commands/task-runs'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -704,22 +696,6 @@ finding
     )
   )
 
-const outcome = program
-  .command('outcome')
-  .description('Read the post-hoc outcome well')
-
-outcome
-  .command('show <task>')
-  .description(
-    "Read a task's post-hoc outcome well: the falsifier verdict (REJECTED or INCONCLUSIVE, never a pass) and its rejection signals. INCONCLUSIVE means no rejection on record."
-  )
-  .option('--json', 'Print { version, outcome, task } as JSON')
-  .action(
-    wrap((task: unknown, opts: unknown) =>
-      outcomeShow(task as string, opts as { json?: boolean })
-    )
-  )
-
 program
   .command('next')
   .description(
@@ -915,21 +891,6 @@ const task = program
   .description('Inspect tasks from the terminal')
 
 task
-  .command('context <identifier>')
-  .description(
-    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <ref>).'
-  )
-  .option(
-    '--full',
-    'Print full memory bodies and the judged-used track-record footer instead of the one-line index'
-  )
-  .action(
-    wrap((identifier, options) =>
-      taskContext(identifier as string, options as { full?: boolean })
-    )
-  )
-
-task
   .command('list')
   .description(
     'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
@@ -1020,29 +981,6 @@ task
   )
 
 task
-  .command('history <identifier>')
-  .description(
-    'Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first.'
-  )
-  .option(
-    '-n, --limit <count>',
-    'Entries per page, newest page first (1-500, default 50)'
-  )
-  .option(
-    '--cursor <cursor>',
-    'Continue with earlier entries (from the footer)'
-  )
-  .option('--json', 'Emit the raw activity entries of this page as JSON')
-  .action(
-    wrap((identifier, options) =>
-      taskHistory(
-        identifier as string,
-        options as { limit?: string; cursor?: string; json?: boolean }
-      )
-    )
-  )
-
-task
   .command('statuses')
   .description(
     'Show the task status set, allowed transitions and priorities, as served by the API.'
@@ -1051,28 +989,64 @@ task
   .action(wrap(options => taskStatuses(options as { json?: boolean })))
 
 task
-  .command('show <identifier>')
+  .command('show [task]')
   .description(
-    'Show a single task: title, status, priority, assignee, project, URL, description.'
+    'Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task.'
   )
-  .option('--json', 'Print { version, task } as JSON')
+  .option(
+    '--full',
+    'Alone: the whole task context for starting work (prior sessions, memory index, linked sources, test cases). With an aspect flag: that aspect in long form'
+  )
+  .option(
+    '--memory',
+    'The task context with every memory body and the judged-used track record'
+  )
+  .option(
+    '--comments',
+    'Add the comment thread (50 top-level threads per page)'
+  )
+  .option('--history', 'Add the field-change history, oldest first')
+  .option('--scans', "Add the security scans of the task's linked PRs")
+  .option(
+    '--runs',
+    'Add the agent runs (session, summary, turns, tool calls, tokens, attribution)'
+  )
+  .option(
+    '--outcome',
+    'Add the post-hoc outcome well (REJECTED or INCONCLUSIVE)'
+  )
+  .option(
+    '--lineage',
+    'Add the causal trail: context fragments, their outcomes and run cost'
+  )
+  .option('--deps', 'Add the dependency edges (both directions)')
+  .option(
+    '--all',
+    "With --scans: every pushed head's scan, not the latest only"
+  )
+  .option('--signal', 'With --lineage: append the usage-signal health section')
+  .option(
+    '-n, --limit <count>',
+    'With exactly one of --comments / --history: entries per page (1-500, default 50)'
+  )
+  .option(
+    '--cursor <cursor>',
+    'With exactly one of --comments / --history: continue from the footer'
+  )
+  .option(
+    '--json',
+    'Print { version, task } plus one key per aspect (context, comments, history, …) as JSON'
+  )
   .action(
-    wrap((identifier, opts) =>
-      taskShow(identifier as string, opts as { json?: boolean })
+    wrap((taskArg, opts) =>
+      taskShow(taskArg as string | undefined, opts as TaskShowOptions)
     )
   )
 
 task
-  .command('wrapup [task]')
-  .description(
-    'Whole wrap-up in one read: test-case signals, security scans, open boundary crossings and DONE readiness with the DONE envelope preview. Read-only; defaults to the bound task.'
-  )
-  .action(wrap(taskArg => taskWrapup(taskArg as string | undefined)))
-
-task
   .command('status [task]')
   .description(
-    'Task self-check: next actions, security-scan coverage and open boundary crossings. Read-only; defaults to the bound task. --full adds cost, rework trail, trend and test-case runs.'
+    'Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task.'
   )
   .option(
     '--json',
@@ -1098,7 +1072,7 @@ task
   )
   .option(
     '--reply-to <comment>',
-    'Reply to a top-level comment: its #id from `task comments list` (unique prefix of 6+ chars)'
+    'Reply to a top-level comment: its #id from `task show --comments` (unique prefix of 6+ chars)'
   )
   .action(
     wrap((identifier, body, opts) =>
@@ -1295,14 +1269,14 @@ taskFigma
     )
   )
 
-// Tier-2 retrieval commands (LUM-122). `task context` prints the matching
+// Tier-2 retrieval commands (LUM-122). `task show --full` prints the matching
 // command at the end of each cheap inline card; the agent runs it to pull the
 // full content on demand.
 const taskSlack = task.command('slack').description('Inspect Slack context')
 taskSlack
   .command('show <identifier> <ref>')
   .description(
-    'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+    'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
   .option('--json', 'Print { version, slackContext } as JSON')
   .action(
@@ -1315,7 +1289,7 @@ const taskWeb = task.command('web').description('Inspect web link content')
 taskWeb
   .command('show <identifier> <ref>')
   .description(
-    'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+    'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
   .option('--json', 'Print { version, webLink } as JSON')
   .action(
@@ -1328,7 +1302,7 @@ taskWeb
 taskFigma
   .command('context <identifier> <ref>')
   .description(
-    'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+    'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
   .option(
     '--json',
@@ -1344,39 +1318,13 @@ taskFigma
 // adding a comment, and commander disallows a duplicate name.
 const taskComments = task
   .command('comments')
-  .description('Read and manage the task comment thread')
-taskComments
-  .command('list <identifier>')
   .description(
-    'List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)'
-  )
-  .option('--full', 'Print every comment, bypassing the output-token cap')
-  .option('--limit <n>', 'Top-level threads per page (1-500, default 50)')
-  .option(
-    '--cursor <cursor>',
-    'Continue from a previous page (from the footer)'
-  )
-  .option(
-    '--json',
-    'Print { version, comments, total, nextCursor, task } as JSON'
-  )
-  .action(
-    wrap((id, opts) =>
-      taskCommentList(
-        id as string,
-        opts as {
-          full?: boolean
-          limit?: string
-          cursor?: string
-          json?: boolean
-        }
-      )
-    )
+    'Manage the task comment thread (read it with `lumo task show --comments`)'
   )
 taskComments
   .command('edit <identifier> <comment> <body>')
   .description(
-    'Replace the text of one of your own comments. <comment> is its #id from `task comments list` (unique prefix of 6+ chars).'
+    'Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).'
   )
   .action(
     wrap((id, comment, body) =>
@@ -1405,17 +1353,7 @@ taskComments
 const taskDeps = task
   .command('deps')
   .description(
-    'Task dependency edges — detected candidates + confirmed blockers'
-  )
-taskDeps
-  .command('list <identifier>')
-  .description('List dependency edges (both directions)')
-  .option(
-    '--json',
-    'Print { version, dependencies, total, nextCursor, task } as JSON'
-  )
-  .action(
-    wrap((id, opts) => taskDepsList(id as string, opts as { json?: boolean }))
+    'Manage task dependency edges (read them with `lumo task show --deps`)'
   )
 taskDeps
   .command('add <identifier>')
@@ -1474,65 +1412,6 @@ taskPr
   .action(
     wrap((id, num, opts) =>
       taskPrShow(id as string, num as string, opts as { json?: boolean })
-    )
-  )
-
-task
-  .command('scans <identifier>')
-  .description(
-    'Security scans of a task across all its linked PRs: the `lumo pr scan` view, once per PR. Read-only; rule on a finding with `lumo finding disposition`.'
-  )
-  .option(
-    '--all',
-    "Every pushed head's scan per PR, newest first, instead of the latest only"
-  )
-  .option(
-    '--full',
-    'Append the per-task hunt detail under each scan (as `lumo pr scan --full`)'
-  )
-  .option(
-    '--json',
-    'Emit the versioned machine-readable payload ({ task, totals, pullRequests[] } — each entry is the `pr scan --json` payload)'
-  )
-  .action(
-    wrap((id, options) => taskScans(id as string, options as TaskScansOptions))
-  )
-
-task
-  .command('lineage <identifier>')
-  .description(
-    "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
-  )
-  .option(
-    '--signal',
-    'Append usage-signal health section (fetches /api/lineage/signal)'
-  )
-  .option(
-    '--json',
-    'Print { version, lineage } (plus signal with --signal) as JSON'
-  )
-  .action(
-    wrap((id, options) =>
-      taskLineage(id as string, options as { signal?: boolean; json?: boolean })
-    )
-  )
-
-task
-  .command('runs [task]')
-  .description(
-    "Show a task's agent runs as on the web Record page (session, summary, turns, tool calls, tokens, attribution) plus sessions and delivery progress. Defaults to the bound task."
-  )
-  .option(
-    '--full',
-    'Add attribution signals, subagents, per-model token breakdown and injected memories'
-  )
-  .option('--json', 'Emit the raw run report as JSON')
-  .action(
-    wrap((id, options) =>
-      taskRuns(
-        id as string | undefined,
-        options as { full?: boolean; json?: boolean }
-      )
     )
   )
 
@@ -1664,7 +1543,7 @@ taskArtifact
 taskArtifact
   .command('show <task> <artifact>')
   .description(
-    'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task context`), a unique id prefix or the full id.'
+    'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id.'
   )
   .option('--json', 'Print { version, artifact, task } as JSON')
   .action(
@@ -3722,7 +3601,17 @@ attachHelpSections(
   program as unknown as Parameters<typeof attachHelpSections>[0]
 )
 
-if (!isUpdateCheckWorker && !isIntrospect) {
+// LUM-1233 (RN-3): a removed command never runs — it fails with exit 2 and
+// names its replacement. Checked before Commander, so tombstones never show in
+// --help or grammar.json.
+const removedCommand =
+  !isUpdateCheckWorker && !isIntrospect
+    ? findRemovedCommand(process.argv.slice(2))
+    : null
+if (removedCommand) {
+  for (const line of removedCommandLines(removedCommand)) console.error(line)
+  exitWith(EXIT_USAGE)
+} else if (!isUpdateCheckWorker && !isIntrospect) {
   program.parseAsync(process.argv).catch(err => {
     for (const line of describeThrownError(err)) console.error(line)
     exitWith(EXIT_ERROR)

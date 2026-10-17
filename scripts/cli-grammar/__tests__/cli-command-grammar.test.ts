@@ -62,12 +62,22 @@ describe('CLI command grammar', () => {
       'milestone criteria set',
       'milestone criteria list',
       'milestone criteria verdict',
+      // LUM-1233: one way to read a task (`task show` aspects, `task status`)
+      'task context',
+      'task wrapup',
+      'task comments list',
+      'task history',
+      'task scans',
+      'task runs',
+      'task lineage',
+      'task deps list',
+      'outcome',
+      'outcome show',
     ]
     const KEPT = [
-      'outcome show',
       'crossing explain',
       'task status',
-      'task wrapup',
+      'task show',
       'milestone testcase add',
     ]
     const names = Object.keys(cmds)

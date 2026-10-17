@@ -1,3 +1,4 @@
+import type { CliCommandNames } from '@/lib/cli/command-names'
 import type { TaskArtifactAgent } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -25,6 +26,8 @@ interface BindSessionToTaskInput {
   taskIdentifier: string
   /** LUM-1051: coding agent recorded when this attach creates the row. */
   agent?: TaskArtifactAgent
+  /** LUM-1233: the commands the caller's CLI has (legacy names by default). */
+  commands?: CliCommandNames
 }
 
 export type BindSessionToTaskResult = {
@@ -147,6 +150,7 @@ export const sessionService = {
     sessionId,
     taskIdentifier,
     agent,
+    commands,
   }: BindSessionToTaskInput): Promise<BindSessionToTaskResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -297,7 +301,8 @@ export const sessionService = {
       // the dependency warning (LUM-172).
       taskDependencyService.buildBlockerWarningSectionForTask(
         task.id,
-        task.identifier
+        task.identifier,
+        commands
       ),
       // LUM-737 / LUM-1061: plugin sections (the security plugin's open PR
       // findings). Best-effort — a plugin read failure must not break attach.

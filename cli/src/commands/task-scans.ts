@@ -8,6 +8,7 @@ import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { fieldLines, wrapLines, type LayoutOptions } from '../lib/report-layout'
 import { colorEnabled, heading, terminalWidth } from '../lib/ui'
 import { formatPrScan, type PrScanPayload } from './pr-scan'
+import type { OutputSink } from '../lib/output-sink'
 
 export interface TaskScansOptions {
   /** Every pushed head's scan per PR, newest first, instead of the latest only. */
@@ -129,11 +130,12 @@ export function formatTaskScans(
  */
 export async function taskScans(
   identifier: string | undefined,
-  opts: TaskScansOptions = {}
+  opts: TaskScansOptions = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier || identifier.trim() === '') {
     console.error(
-      'Error: usage: lumo task scans <LUM-42> [--all] [--full] [--json]'
+      'Error: usage: lumo task show <LUM-42> --scans [--all] [--full] [--json]'
     )
     return EXIT_USAGE
   }
@@ -163,7 +165,7 @@ export async function taskScans(
     return 1
   }
   if (isMissingPluginRoute(res)) {
-    console.error(missingPluginMessage('task scans', 'security'))
+    console.error(missingPluginMessage('task show --scans', 'security'))
     return 1
   }
   if (res.status === 404) {
@@ -174,7 +176,7 @@ export async function taskScans(
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
-    console.error(errHttp('task scans', res.status, body.error))
+    console.error(errHttp('task show --scans', res.status, body.error))
     return 1
   }
   const data: unknown = await res.json()
@@ -186,11 +188,11 @@ export async function taskScans(
   }
   if (opts.json) {
     // JSON.stringify escapes control characters; `version` is the contract.
-    process.stdout.write(JSON.stringify(data, null, 2) + '\n')
+    out.write(JSON.stringify(data, null, 2) + '\n')
     return
   }
   printRedactionNotice(data.redactedSecrets)
-  process.stdout.write(
+  out.write(
     formatTaskScans(data, {
       full: opts.full,
       width: terminalWidth(),

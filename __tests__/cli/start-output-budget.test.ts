@@ -193,7 +193,7 @@ describe('LUM-844 start-of-session output budget', () => {
     })
     expect(attach).toContain('## ⚠ Blocked by LUM-1 (IN_PROGRESS)')
     expect(attach).toContain('## Security findings (1 undispositioned)')
-    expect(attach).toContain('lumo task context LUM-844')
+    expect(attach).toContain('lumo task show LUM-844 --full')
 
     const context = renderContext({ currentSessionId: fixture.sessionId })
     expect(context).toContain(String(fixture.task.descriptionMarkdown))
@@ -215,7 +215,7 @@ describe('LUM-844 start-of-session output budget', () => {
     const def = renderContext({})
     expect(def).not.toContain('Workaround:')
     expect(def).not.toContain('## Memory usefulness')
-    expect(def).toContain('lumo task context LUM-844 --full')
+    expect(def).toContain('lumo task show LUM-844 --full --memory')
 
     const full = renderContext({ full: true })
     expect(full).toContain(memorySection)

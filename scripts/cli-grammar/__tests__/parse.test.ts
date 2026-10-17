@@ -38,7 +38,7 @@ describe('extractLumoSegments', () => {
 
   it('finds multiple invocations in one Bash call', () => {
     const segs = extractLumoSegments(
-      'lumo session attach LUM-1 && lumo task context LUM-1'
+      'lumo session attach LUM-1 && lumo task show LUM-1 --full'
     )
     expect(segs).toHaveLength(2)
   })
@@ -71,8 +71,8 @@ describe('extractLumoSegments', () => {
 
 describe('parseInvocation', () => {
   it('resolves longest command path first', () => {
-    expect(parseInvocation('lumo task comments list LUM-5').commandPath).toBe(
-      'task comments list'
+    expect(parseInvocation('lumo task artifact list LUM-5').commandPath).toBe(
+      'task artifact list'
     )
     expect(parseInvocation('lumo task comment LUM-5 "done"').commandPath).toBe(
       'task comment'

@@ -1,4 +1,8 @@
 import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
+import {
   reviewerRoleLabel,
   type ReviewerTrust,
 } from '@/lib/context/reviewer-trust'
@@ -32,6 +36,8 @@ export interface RenderCommentsInput {
   /** LUM-N task identifier (the retrieval command argument, not the cuid). */
   identifier: string
   commentsSummary: string | null
+  /** The commands the caller's CLI has (LUM-1233); legacy by default. */
+  commands?: CliCommandNames
 }
 
 const INLINE_THRESHOLD = 3
@@ -110,7 +116,8 @@ export function renderCommentsSection(input: RenderCommentsInput): string {
     const more = unverified.length - UNVERIFIED_QUOTE_LIMIT
     if (more > 0) lines.push(`(+${more} more unverified — see the full text)`)
   }
-  lines.push(`  ↳ full text: lumo task comments list ${identifier}`)
+  const commands = input.commands ?? LEGACY_CLI_COMMANDS
+  lines.push(`  ↳ full text: ${commands.taskComments(identifier)}`)
 
   return lines.join('\n').trimEnd()
 }

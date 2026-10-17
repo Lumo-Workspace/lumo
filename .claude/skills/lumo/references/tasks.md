@@ -49,7 +49,7 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 
 ### Next-step hints
 
-`task create`, `task update`, `session attach`, `task context` and `next` end with a short `Next:` block naming what to do now — attach an unbound session, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
+`task create`, `task update`, `session attach`, `task show --full` and `next` end with a short `Next:` block naming what to do now — attach an unbound session, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
 
 The rules are computed **server-side** from task status × session binding × open crossings, so the advice tracks the real state machine rather than a hard-coded string. Capped at **3 suggestions**; a rule whose condition is already satisfied never appears. The block goes to **stdout**, after the command's own result line — the result line stays first and unchanged, so reading line 1 still works.
 
@@ -294,7 +294,7 @@ lumo task list --json --fields ref,title,status,dueDate
 
 Every filter and the page run server-side (`GET /api/tasks/me?statuses=…&milestoneIds=…&projectName=…&limit=…&cursor=…`). Against a server that predates paging the CLI filters and pages the full list itself.
 
-#### Paging (LUM-1093) — shared by `task list`, `task search`, `task history`, `task comments list`, `milestone list`, `doc list`
+#### Paging (LUM-1093) — shared by `task list`, `task search`, `task show --history`, `task show --comments`, `milestone list`, `doc list`
 
 Lists print **50 rows per page** by default (`--limit` 1-500 changes it). When a page is not the whole result, the output ends with a fixed footer — the first line is `Showing <first>-<last> of <total>.`, the second the command for the next page:
 
@@ -362,7 +362,7 @@ lumo task statuses
 
 Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
-the list, then run `lumo session attach <LUM-N>` + `lumo task context <LUM-N>`.
+the list, then run `lumo session attach <LUM-N>` + `lumo task show <LUM-N> --full`.
 
 Ranking is lexicographic: **priority** (URGENT→LOW) first, then **active-sprint
 membership**, then **dependency topology** (LUM-645: tasks with an open
@@ -397,20 +397,20 @@ LUM-48⇥TODO⇥HIGH⇥active sprint · unblocks 2 tasks⇥Investigate slow quer
 LUM-12⇥TODO⇥MEDIUM⇥blocked by 1 open dep · due 2026-06-10⇥Add rate limiting
 
 Next:
-  lumo session attach LUM-42 && lumo task context LUM-42
+  lumo session attach LUM-42 && lumo task show LUM-42 --full
       start on the top-ranked task
 Hint: any other task in the list works the same way.
 ```
 
 `--no-hints` / `LUMO_NO_HINTS=1` drops the `Next:` block and the `Hint:` line, leaving the ranked list (LUM-1232).
 
-When to suggest: the user asks "what should I work on", "what's next", "recommend my next task" (in any language), "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.
+When to suggest: the user asks "what should I work on", "what's next", "recommend my next task" (in any language), "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task show --full` for the picked task.
 
-### `lumo task show <identifier>` — print one task's detail
+### `lumo task show [task]` — print one task's detail
 
-`--json` prints `{ version, task }` — `task.ref` (`LUM-42`) first, then the server fields (the description guarded like the block body, without the block).
+`[task]` defaults to the session-bound task. Aspect flags (`--full`, `--memory`, `--comments`, `--history`, `--scans`, `--runs`, `--outcome`, `--lineage`, `--deps`) add sections — see [task-context.md](task-context.md#reading-a-task--lumo-task-show). `--json` prints `{ version, task }` (plus one key per aspect) — `task.ref` (`LUM-42`) first, then the server fields (the description guarded like the block body, without the block).
 
-Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Without `--full` it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42
@@ -418,12 +418,12 @@ lumo task show LUM-42
 
 Use when the user wants the current state of a task without the agent-handoff payload.
 
-### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
+### `lumo task show <identifier> --history [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first, as a table: `<time>  actor  change` — `<time>` is `2026-10-16T22:24:00Z` (UTC) when piped, `2026-10-17 09:24 +11:00` (local + offset) on a terminal (LUM-1232); an actor the directory can't name prints `-` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints `{ version, entries: [...], total, nextCursor }` — `entries` is this page's entries, each as before (`id, kind, type, actorId, actor, payload, createdAt, taskId`); `nextCursor` is the `--cursor` value for the next (older) page. Before LUM-1232 batch C it printed the bare array — read `.entries` now. Comments are not included — use `task comments list`.
+The task's changelog, oldest first, as a table: `<time>  actor  change` — `<time>` is `2026-10-16T22:24:00Z` (UTC) when piped, `2026-10-17 09:24 +11:00` (local + offset) on a terminal (LUM-1232); an actor the directory can't name prints `-` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + `Next page: lumo task show LUM-42 --history --cursor 50`. `--json` prints `{ version, entries: [...], total, nextCursor }` — `entries` is this page's entries, each as before (`id, kind, type, actorId, actor, payload, createdAt, taskId`); `nextCursor` is the `--cursor` value for the next (older) page. Before LUM-1232 batch C it printed the bare array — read `.entries` now. Comments are not included — use `task show --comments`.
 
 ```bash
-lumo task history LUM-42
+lumo task show LUM-42 --history
 ```
 
 ### `lumo task delete <identifier>` — move a task to the trash (LUM-821, LUM-918)
@@ -444,9 +444,9 @@ lumo task comment LUM-42 "Reproduced the redirect bug on staging — Safari only
 
 The CLI does not support @-mention chip syntax. If the user wants to ping someone, they should comment from the web UI.
 
-**Listing.** `lumo task comments list <id>` pages top-level threads 50 at a time (replies stay with their parent; `--limit` / `--cursor`, footer as in **Paging** above, printed after the fenced thread). `--full` alone prints every comment with no paging and no output-budget cap.
+**Listing.** `lumo task show <id> --comments` pages top-level threads 50 at a time (replies stay with their parent; `--limit` / `--cursor`, footer as in **Paging** above, printed after the fenced thread). `--full` alone prints every comment with no paging and no output-budget cap.
 
-**Replying (LUM-821).** `lumo task comments list` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
+**Replying (LUM-821).** `lumo task show --comments` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
 
 ```bash
 lumo task comment LUM-42 "Fixed in the latest push" --reply-to cmaaaaaa
@@ -454,7 +454,7 @@ lumo task comment LUM-42 "Fixed in the latest push" --reply-to cmaaaaaa
 
 ### `lumo task comments edit <identifier> <comment> <body>` / `lumo task comments rm <identifier> <comment>`
 
-Edit or delete **your own** comment (anyone else's → 403). `<comment>` is the short id from `task comments list`. `rm` is a soft delete that also hides the replies under a top-level comment; without `--confirm` it exits 4 with an envelope quoting the comment and deletes nothing — relay it and let the user approve.
+Edit or delete **your own** comment (anyone else's → 403). `<comment>` is the short id from `task show --comments`. `rm` is a soft delete that also hides the replies under a top-level comment; without `--confirm` it exits 4 with an envelope quoting the comment and deletes nothing — relay it and let the user approve.
 
 ```bash
 lumo task comments edit LUM-42 cmaaaaaa "Reproduced on Safari 18 only"

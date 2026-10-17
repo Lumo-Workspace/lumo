@@ -3,7 +3,7 @@
  * (`task slack show`, `task web show`, `task figma context`,
  * `task pr show`). LUM-997 found each printed member- or externally-authored
  * text with only the control-character strip. Bodies now print inside an
- * `<untrusted-linked-context>` fence (the same tag `task context` uses for
+ * `<untrusted-linked-context>` fence (the same tag `task show --full` uses for
  * these sources): wrapper tags defanged, directive-shaped content flagged at
  * the head, the server's redaction count as the first notice. Single-line
  * fields (a PR title, a Figma file name) are defanged and marked inline.
