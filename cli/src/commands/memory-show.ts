@@ -1,3 +1,5 @@
+import { formatMemoryShow } from '../lib/memory-content'
+import { colorEnabled, terminalWidth } from '../lib/ui'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -5,7 +7,6 @@ import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { REF_ERROR_STATUSES, refLookupError } from '../lib/ref-error'
-import { shortRef } from '../../../shared/src/short-ref'
 
 interface Memory {
   id: string
@@ -70,8 +71,15 @@ export async function memoryShow(
   }
 
   const { memory } = (await res.json()) as { memory: Memory }
-  console.log(sanitizeField(`[${memory.category}] ${shortRef(memory.id)}`))
-  console.log(sanitizeField(JSON.stringify(memory.content, null, 2)))
+  // LUM-1232 D-5: rendered as a detail view; `--json`-style raw content is
+  // not printed (the API response is the raw form).
+  console.log(
+    formatMemoryShow(memory, {
+      width: terminalWidth(),
+      color: colorEnabled(),
+      tty: Boolean(process.stdout.isTTY),
+    })
+  )
 
   // LUM-500: stamp the disclosure funnel with the lineage MEMORY fragmentId —
   // the resolved full id, not the (possibly short) ref typed (LUM-1230).

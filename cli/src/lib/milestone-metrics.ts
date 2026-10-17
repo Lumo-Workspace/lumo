@@ -194,12 +194,17 @@ function byTaskBlock(
   const rendered = table.split('\n')
   // On a TTY the first rendered line is the header row.
   const offset = rendered.length - shown.length
+  // A table whose rows carry a detail (the tokens table's model split) gives
+  // EVERY piped row that field — `-` when a row has none — so all rows have
+  // the same number of TAB fields (L-3, V-1).
+  const hasDetail = shown.some(r => r.detail !== undefined)
   rendered.forEach((line, i) => {
     const detail = i >= offset ? shown[i - offset]?.detail : undefined
     // LUM-1232 L-3: piped, a row stays one line — its detail rides as one
     // more TAB field; on a TTY it goes on the line under the row.
     if (!tty) {
-      lines.push(line ? `    ${line}${detail ? `\t${detail}` : ''}` : '')
+      const extra = hasDetail && i >= offset ? `\t${detail || NONE}` : ''
+      lines.push(line ? `    ${line}${extra}` : '')
       return
     }
     lines.push(line ? `    ${line}` : '')
@@ -271,7 +276,7 @@ function byTaskLines(m: MilestoneMetricsData, opts: DetailOptions): string[] {
       cells: [
         taskRef(r),
         plural(r.prCount, 'PR', 'PRs'),
-        r.multiPr ? 'multi-PR' : '',
+        r.multiPr ? 'multi-PR' : NONE,
         r.changeVolume
           ? `+${fmtTokens(r.changeVolume.additions)}/−${fmtTokens(r.changeVolume.deletions)}`
           : 'no synced PRs',

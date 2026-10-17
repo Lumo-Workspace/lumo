@@ -458,7 +458,7 @@ function formatScan(
   opts: LayoutOptions
 ): string[] {
   const lines = sectionHeading(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null)}`,
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}`,
     opts
   )
   const meta: Field[] = [
@@ -546,9 +546,15 @@ export function formatPrScan(
     full?: boolean | undefined
     width?: number | undefined
     color?: boolean | undefined
+    /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
+    tty?: boolean | undefined
   } = {}
 ): string {
-  const layout: LayoutOptions = { width: opts.width, color: opts.color }
+  const layout: LayoutOptions = {
+    width: opts.width,
+    color: opts.color,
+    tty: opts.tty,
+  }
   const pr = data.pullRequest
   const lines: string[] = [
     heading(`PR #${pr.number}  ${sanitizeField(pr.title)}`, {
@@ -769,6 +775,7 @@ export async function prScan(
     formatPrScan(data, {
       full: opts.full,
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     })
   )

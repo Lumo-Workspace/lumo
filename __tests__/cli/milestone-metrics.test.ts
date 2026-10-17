@@ -128,7 +128,7 @@ describe('milestoneMetricsLines', () => {
       [
         '  By task — PRs',
         '    LUM-497\t4 PRs\tmulti-PR\t+2.1K/−140\treference-class anchors',
-        '    LUM-707\t1 PR\t\tno synced PRs\tdeferred cleanups',
+        '    LUM-707\t1 PR\t-\tno synced PRs\tdeferred cleanups',
       ].join('\n')
     )
     expect(out).not.toContain('t3abcdef')

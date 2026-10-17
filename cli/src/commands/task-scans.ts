@@ -63,9 +63,15 @@ export function formatTaskScans(
     full?: boolean | undefined
     width?: number | undefined
     color?: boolean | undefined
+    /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
+    tty?: boolean | undefined
   } = {}
 ): string {
-  const layout: LayoutOptions = { width: opts.width, color: opts.color }
+  const layout: LayoutOptions = {
+    width: opts.width,
+    color: opts.color,
+    tty: opts.tty,
+  }
   const id = sanitizeField(data.task.identifier)
   const t = data.totals
   const lines: string[] = [
@@ -105,6 +111,7 @@ export function formatTaskScans(
         full: opts.full,
         width: opts.width,
         color: opts.color,
+        tty: opts.tty,
       }).trimEnd()
     )
   }
@@ -187,6 +194,7 @@ export async function taskScans(
     formatTaskScans(data, {
       full: opts.full,
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     })
   )

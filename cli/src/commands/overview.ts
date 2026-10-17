@@ -69,6 +69,7 @@ export async function projectOverview(
     formatProjectOverview(project.name, stats.data.stats, summary, new Date(), {
       report: opts.report === true,
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     }) + '\n'
   )

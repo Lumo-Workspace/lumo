@@ -42,7 +42,7 @@ When to suggest: user says "create a sprint", "new sprint", "start a new iterati
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 
-Output (LUM-1090): `Label:  value` rows padded to the widest label (`Sprint:`, `Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done/total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
+Output (LUM-1090): a `#<number>  <name>` first line (LUM-1232), then `Label:  value` rows padded to the widest label (`Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done/total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
 
 **Blockers** lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`), **one per line** under the category's value column (a title too long for the line is cut with `…`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no Blockers section at all. (There is no risk score or `Health:` line — LUM-709 removed the risk-assessment layer.)
 

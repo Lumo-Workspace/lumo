@@ -82,7 +82,7 @@ lumo crossing list LUM-12 --all   # + the dispositioned history
 lumo crossing list LUM-12 --all --json
 ```
 
-- per crossing: `State` (`OPEN · blocks DONE` / `OPEN · advisory` / the ruling), `Detail`, `Detected`, `Occurrences` (`×N · last seen …`), `Reversible`, `Attribution`, `Rule` (`[ref] verbatim policy rule text`), `Diff` (edit old/new summary, `-`/`+` lines capped at 12 per side, plus the PR file link; only for display-safe categories), `Turn intent`, `System explanation`, `Agent explanations`, `Re-judge`, `AI triage`, `Remediation`;
+- per crossing: `State` (`OPEN · blocks DONE` / `OPEN · advisory` / the ruling), `Detail`, `Detected`, `Occurrences` (`×N · last seen …`), `Reversible`, `Attribution`, `Rule` (`[ref] verbatim policy rule text`), `Diff` (edit old/new summary, `-`/`+` lines capped at 12 per side, plus the PR file link; only for display-safe categories), `Turn intent`, `Why flagged` (the system explanation), `Agent notes` (agent explanations), `Re-judge`, `AI triage`, `Remediation`;
 - with `--all`, dispositioned rows add `Ruled by` (member/agent name only — `unknown member` when the member directory can't name the actor; `--json` keeps `dispositionedById`), `Ruled at`, `Channel` (`WEB` / `CLI`), `Note`, `Changed` (last `from → to` correction, by whom, via which channel) and `Suppression rule` (`active` / `revoked …`); without `--all` the header says how many dispositioned rows were hidden;
 - a field the server response does not carry prints `-` — never a guessed value;
 - every free-text field is control-character-sanitized and folded to one line (diff lines are sanitized per line);

@@ -336,7 +336,7 @@ function runLines(run: RunReportRun, full: boolean): string[] {
       : run.sessionId.slice(0, 8)
     : NONE
   out.push(
-    `## Run #${run.runNumber} · ${run.member ? line(run.member) : NONE} · ${run.agent} · ${badge} · ${fmtTimestamp(run.startedAt)} · session ${session}`
+    `Run #${run.runNumber} · ${run.member ? line(run.member) : NONE} · ${run.agent} · ${badge} · ${fmtTimestamp(run.startedAt)} · session ${session}`
   )
   const cost = run.cost
     ? `${tokenCell(run.cost.byModel)}${run.preDedupe ? ` [${PRE_DEDUPE}]` : ''} · loops ${orDash(run.cost.loopCount)}`
@@ -378,7 +378,8 @@ export function formatRunReport(
 ): string {
   const full = opts.full === true
   const hints = opts.hints ?? !nextStepsSilenced()
-  const out: string[] = [`# Agent runs: ${line(identifier)}`, '']
+  // LUM-1232 batch B (D-1, Q7): a plain `<ref>  <title>` line, not Markdown.
+  const out: string[] = [`${line(identifier)}  Agent runs`, '']
   out.push(...overviewLines(r))
   if (full && r.perMember.length > 0) {
     for (const m of r.perMember) {

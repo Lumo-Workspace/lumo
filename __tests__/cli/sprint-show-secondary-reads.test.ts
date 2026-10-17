@@ -94,7 +94,7 @@ describe('sprintShow secondary reads', () => {
     await expect(done).resolves.toBeUndefined()
 
     // Each secondary failure stays inside its own section.
-    expect(out).toContain('Sprint:    #3 Sprint 3')
+    expect(out).toContain('#3  Sprint 3\nStatus:    ACTIVE')
     expect(out).toContain(
       'Burnup\n  Could not read (unexpected response shape).'
     )

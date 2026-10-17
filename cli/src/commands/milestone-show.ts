@@ -23,7 +23,13 @@ import {
   milestoneMetricsLines,
   type MilestoneMetricsData,
 } from '../lib/milestone-metrics'
-import { colorEnabled, DEFAULT_TERMINAL_WIDTH, terminalWidth } from '../lib/ui'
+import {
+  colorEnabled,
+  DEFAULT_TERMINAL_WIDTH,
+  enumColor,
+  heading,
+  terminalWidth,
+} from '../lib/ui'
 
 export interface ShowMilestoneOptions {
   project?: string
@@ -234,16 +240,23 @@ export function formatMilestoneShow(
   // LUM-1089: same upper-case words as `milestone list`'s STATE column.
   const state = milestoneState(m)
   const drift = m.staleness?.completionDrift
+  const c = opts.color === true
   const stateValue = drift
-    ? `${state}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
-    : state
+    ? `${enumColor(state, c)}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
+    : enumColor(state, c)
   const targetValue = m.staleness?.datesMissing
     ? `${fmtCalendarDay(m.targetDate)}  (no target date — schedule health unavailable)`
     : fmtCalendarDay(m.targetDate)
+  // LUM-1232 D-1: the first line is `<ref>  <title>` (the slug is the ref
+  // `milestone show` takes; the name when the server sends no slug).
+  const titleLine = heading(
+    m.slug
+      ? `${sanitizeField(m.slug)}  ${sanitizeField(m.name)}`
+      : sanitizeField(m.name),
+    { color: c }
+  )
   const lines = fieldLines(
     [
-      { label: 'Milestone', value: sanitizeField(m.name) },
-      ...(m.slug ? [{ label: 'Slug', value: sanitizeField(m.slug) }] : []),
       { label: 'State', value: stateValue },
       // null = the server could not read the gate; absent = an older server.
       ...(m.closeGate === null
@@ -259,7 +272,7 @@ export function formatMilestoneShow(
         label: 'Archived',
         value: fmtDay(m.archivedAt),
       },
-      { label: 'Health', value: formatHealth(m.health) },
+      { label: 'Health', value: enumColor(formatHealth(m.health), c) },
       { label: 'Start', value: fmtCalendarDay(m.startDate) },
       { label: 'Target', value: targetValue },
       { label: 'Project', value: sanitizeField(m.projectName) },
@@ -267,6 +280,7 @@ export function formatMilestoneShow(
     0,
     opts
   )
+  lines.unshift(titleLine)
   lines.push(...sectionHeading('Description', opts))
   const description = m.description ? sanitizeField(m.description).trim() : ''
   lines.push(...(description ? wrapLines(description, 2, opts) : ['  -']))
