@@ -210,11 +210,11 @@ Chao Li                                                                4,836,645
 After (pipe):
 
 ```
-Chao Li⇥⇥⇥⇥⇥4836645438⇥18⇥109
-Chao Li/claude-opus-5-5⇥39254⇥12667583⇥154347275⇥4601079263⇥4768133375
+Chao Li⇥-⇥-⇥-⇥-⇥4836645438⇥18⇥109
+Chao Li/claude-opus-5-5⇥39254⇥12667583⇥154347275⇥4601079263⇥4768133375⇥-⇥-
 ```
 
-(In the pipe form numbers are printed without separators so they can be summed; see N-2.)
+(In the pipe form numbers are printed without separators so they can be summed (N-2), and a cell with no value is `-` (V-1), so every row has the same number of fields.)
 
 ---
 
@@ -931,10 +931,13 @@ After:
   "version": 1,
   "tags": [
     {
+      "id": "…",
       "name": "agent-containment",
       "color": "…",
       "taskCount": 6,
-      "documentCount": 0
+      "documentCount": 0,
+      "createdAt": "…",
+      "workspaceId": "…"
     }
   ],
   "total": 19,
@@ -946,21 +949,25 @@ After:
 { "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 50, "nextCursor": "50" }
 ```
 
-(How the bare arrays get there without breaking callers is [Q3](#q3---json-envelope-add-in-place).)
+(Every field each tag has today is still there; only the wrapper is new. How the bare arrays get there is [Q3](#q3---json-envelope-add-in-place).)
 
 ### J-3. A declared field list per command
 
-Each command declares the fields it promises (its whitelist) and the skill reference documents them. Field rules:
+Each command declares the fields it promises (its whitelist) and the skill reference documents them. The whitelist says what callers may rely on; it does not remove anything. Field rules:
 
 - camelCase; the human ref is a field (`ref`), next to `id` where an id is useful;
 - timestamps are ISO 8601 strings in UTC; calendar days are `YYYY-MM-DD`;
 - enums are UPPER_SNAKE_CASE (as E-1);
 - an absent value is `null`, not an omitted key;
-- no internal-only columns (`deletedByClerkId`, `trashRootId`, `claimSnapshot*`, `order`, `workspaceId`, …).
+- a command added from now on emits only its declared fields, so it never starts exposing internal-only columns (`deletedByClerkId`, `trashRootId`, `claimSnapshot*`, `order`, `workspaceId`, …).
 
-Fields outside the whitelist that commands emit today are kept (Non-goal: `--json` only adds), marked deprecated in the reference, and only removed through the two-release process in `docs/database-migrations.md`'s spirit: announce, then drop.
+Within a `version`, JSON output only ever gains fields (J-5, [Q3](#q3---json-envelope-add-in-place)). Fields outside the whitelist that commands emit today keep being emitted, unchanged. Removing or renaming a field is only possible through the versioned process:
 
-Helper: `pickFields(row, FIELDS)` in `json-output.ts` (new, batch C).
+1. **Mark** the field deprecated in the skill reference and the CLI release notes; it is still emitted. If callers need a replacement, it is added first, in the same or an earlier release.
+2. **Wait** at least one published CLI release with the notice in place.
+3. **Remove** it only in a release that bumps the command's `version` (for example 1 → 2) and lists the removal in the release notes. Nothing is removed without a `version` bump.
+
+Helper: `pickFields(row, FIELDS)` in `json-output.ts` (new, batch C) — used only by commands that add `--json` from now on and by the optional `--json <fields>` selection.
 
 Before (`lumo task list --json` — 42 fields per task, including internal ones):
 
@@ -970,7 +977,7 @@ claimSnapshotSessionId, claimSnapshotSource, claimable, commentsSummary, comment
 deletedAt, deletedByClerkId, description, dueDate, id, inputReason, milestone, milestoneId, number, order, …
 ```
 
-After (declared fields; the rest kept but deprecated until removed):
+After (the declared fields that the reference documents; every other field above is still emitted, unchanged, unless the versioned process removes it):
 
 ```
 ref, id, title, status, priority, project, assignee, milestone, sprint, tags, dueDate,
@@ -1016,7 +1023,7 @@ After (stderr):
 ### J-5. Compatibility
 
 - Only add. Existing fields keep their names, types and meaning.
-- A breaking change (renaming, removing, reshaping) bumps `version` and follows [Q3](#q3---json-envelope-add-in-place).
+- A breaking change (renaming, removing, reshaping) only happens through the versioned process in J-3 and always bumps `version`. The one reshaping already decided is wrapping the two bare arrays ([Q3](#q3---json-envelope-add-in-place)).
 - Field selection like `gh`'s (`--json ref,title,status`) is optional and additive: bare `--json` keeps printing every field (see Q3).
 
 Helper: `json-output.ts` (new).
@@ -1130,6 +1137,8 @@ After:
 ```
 $ lumo task list --status wip; echo $?
 Error: invalid --status "wip" (allowed: backlog, todo, in_progress, in_review, done)
+Usage: lumo task list [options]
+Hint: see `lumo task list --help` for every flag.
 2
 ```
 
@@ -1301,15 +1310,15 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 
 One PR per batch, all on the same task, in this order. Each batch has tests that fail before it and real before/after output from a worktree build of the CLI.
 
-| Order | Batch | Scope                                | Rules                           | Size (approx.)                    |
-| ----- | ----- | ------------------------------------ | ------------------------------- | --------------------------------- |
-| 1     | D     | time and numbers (mostly `lib/`)     | T-1–T-3, N-1–N-4, E-1, E-2, S-1 | ~12 commands                      |
-| 2     | G     | remaining internal ids, `--no-hints` | H-1, H-2, L-4 (refs)            | ~5 commands                       |
-| 3     | E     | errors and exit codes                | X-1–X-5, J-4                    | 1 Commander hook + ~25 call sites |
-| 4     | A     | lists                                | L-1–L-6, PG-1–PG-3              | ~12 commands                      |
-| 5     | B     | detail views                         | D-1–D-5, V-1, V-2               | ~15 commands                      |
-| 6     | F     | help text                            | HT-1–HT-3                       | ~40 commands + 39 ticket refs     |
-| 7     | C     | `--json` everywhere, one envelope    | J-1–J-3, J-5                    | ~58 commands                      |
+| Order | Batch | Scope                                | Rules                                   | Size (approx.)                    |
+| ----- | ----- | ------------------------------------ | --------------------------------------- | --------------------------------- |
+| 1     | D     | time and numbers (mostly `lib/`)     | T-1–T-3, N-1–N-4, E-1, E-2, S-1         | ~12 commands                      |
+| 2     | G     | remaining internal ids, `--no-hints` | H-1, H-2 (and ref values in 3 commands) | ~5 commands                       |
+| 3     | E     | errors and exit codes                | X-1–X-5, J-4                            | 1 Commander hook + ~25 call sites |
+| 4     | A     | lists                                | L-1–L-6, PG-1–PG-3                      | ~12 commands                      |
+| 5     | B     | detail views                         | D-1–D-5, V-1, V-2                       | ~15 commands                      |
+| 6     | F     | help text                            | HT-1–HT-3                               | ~40 commands + 39 ticket refs     |
+| 7     | C     | `--json` everywhere, one envelope    | J-1–J-3, J-5                            | ~58 commands                      |
 
 The per-item audit list (location, current output, rule, batch) is attached to the task as an artifact.
 
