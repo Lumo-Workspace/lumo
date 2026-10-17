@@ -2,6 +2,7 @@
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
 import { emptyState } from './format'
 import { sanitizeField } from './sanitize'
+import { SHORT_REF_LENGTH, shortRef } from '../../../shared/src/short-ref'
 
 type Built =
   | {
@@ -145,16 +146,20 @@ function headline(category: string, content: unknown): string {
     : '(unparseable)'
 }
 
-/** Fixed-width rows: id  SCOPE  CATEGORY  headline  source(auto|manual). */
+/**
+ * Fixed-width rows: ref  SCOPE  CATEGORY  headline  source(auto|manual).
+ * LUM-1230: the first column is the 8-char short ref `lumo memory show|rm|
+ * promote` accept — the full cuid stays in `--json`.
+ */
 export function formatMemoryList(rows: MemoryRowLike[]): string {
   if (rows.length === 0) return emptyState('memories')
-  const idW = Math.max(...rows.map(r => r.id.length))
+  const idW = SHORT_REF_LENGTH
   const scopeW = Math.max(...rows.map(r => r.scope.length))
   const catW = Math.max(...rows.map(r => r.category.length))
   return rows
     .map(r => {
       const src = r.createdByMemberId ? 'manual' : 'auto'
-      return `${r.id.padEnd(idW)}  ${r.scope.padEnd(scopeW)}  ${r.category.padEnd(catW)}  ${headline(r.category, r.content)}  ${src}`
+      return `${shortRef(r.id).padEnd(idW)}  ${r.scope.padEnd(scopeW)}  ${r.category.padEnd(catW)}  ${headline(r.category, r.content)}  ${src}`
     })
     .join('\n')
 }

@@ -60,7 +60,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
-- `lumo task context <id> [--full]` — task background (memory headlines → `lumo memory show <id>`, sources, PR review todos, prior sessions); `--full` = memory bodies
+- `lumo task context <id> [--full]` — task background (memory headlines → `lumo memory show <ref>`, sources, PR review todos, prior sessions); `--full` = memory bodies
 - `lumo task slack show <id> <contextId>` · `lumo task web show <id> <linkId>` · `lumo task figma context <id> <linkId>` — stored Slack thread / web link body / Figma metadata
 - `lumo task comments list <id> [--full]` — read the comment thread (≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata
@@ -97,7 +97,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
 - `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
-- `lumo workspace learnings [--repo] [--json]` — PR-review learnings with memory ids; delete with `lumo memory rm <id>`
+- `lumo workspace learnings [--repo] [--json]` — PR-review learnings with memory refs; delete with `lumo memory rm <ref>`
 - `lumo inbox list` · `draft list` · `project overview [project]` — read-only inbox, your drafts, project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
@@ -139,11 +139,11 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Projects & milestones — see [milestones.md](references/milestones.md)
 
 - `lumo project list` — list projects (slugs feed `--project`) · `project create/update` — create / rename / re-own
-- `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes Metrics + Sprint coverage)
+- `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes Metrics + Sprint coverage); a milestone `<ref>` is its slug (the web URL segment, `list` SLUG column), name or id
 - `lumo milestone archive/unarchive` · `milestone reorder/move` — soft-archive / restore · manual ordering
-- `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
-- `lumo milestone triage <id> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo next --claimable`)
-- `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <id> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
+- `lumo milestone add/remove <ref> <task...>` — batch bind/unbind tasks
+- `lumo milestone triage <ref> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo next --claimable`)
+- `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <ref> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
 - `lumo milestone testcase add/list/show/download/update/rm/run/disposition <milestone>` — milestone test cases, the close contract
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** → [doc-editing.md](references/doc-editing.md)
@@ -165,8 +165,8 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Memory — see [memory.md](references/memory.md)
 
 - `lumo task memory add/list` · `lumo project memory add/list` — record/curate Memory (TASK vs PROJECT)
-- `lumo memory show <id>` — one memory's full card
-- `lumo memory promote <id>` / `lumo memory rm <id> --confirm` — TASK→PROJECT / delete (exit 4 envelope)
+- `lumo memory show <ref>` — one memory's full card (`<ref>` = 8-char short ref from listings / index lines; full id still works)
+- `lumo memory promote <ref>` / `lumo memory rm <ref> --confirm` — TASK→PROJECT / delete (exit 4 envelope)
 - `lumo memory sync [--dry-run] [--clean]` / `lumo memory push [--dry-run]` — down/upsync team memory with the local Claude Code store
 - `lumo memory fold [project-ref] --dry-run` — read-only preview of the daily topic-fold pass
 

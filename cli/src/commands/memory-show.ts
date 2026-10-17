@@ -3,6 +3,8 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { REF_ERROR_STATUSES, refLookupError } from '../lib/ref-error'
+import { shortRef } from '../../../shared/src/short-ref'
 
 interface Memory {
   id: string
@@ -11,10 +13,12 @@ interface Memory {
 }
 
 /**
- * `lumo memory show <memory-id>`
+ * `lumo memory show <memory>`
  *
- * Progressive disclosure: fetch one memory's full card by id from
- * `/api/memories/:id`. The agent sees memories as one-line index entries at
+ * Progressive disclosure: fetch one memory's full card from
+ * `/api/memories/:ref`. LUM-1230: `<memory>` is the 8-char short ref listings
+ * print, a unique id prefix, or the full cuid — the server resolves it inside
+ * the caller's workspace and refuses an ambiguous one with the candidates. The agent sees memories as one-line index entries at
  * session start; this pulls the body of a specific one on demand. Prints the
  * category tag and the structured content.
  */
@@ -22,7 +26,7 @@ export async function memoryShow(
   id: string | undefined
 ): Promise<number | void> {
   if (!id) {
-    console.error('Error: usage: lumo memory show <memory-id>')
+    console.error('Error: usage: lumo memory show <memory>')
     return 1
   }
 
@@ -50,9 +54,12 @@ export async function memoryShow(
     console.error(errAuth())
     return 1
   }
-  if (res.status === 404) {
+  if (REF_ERROR_STATUSES.has(res.status)) {
     console.error(
-      `Error: memory ${id} not found in workspace ${creds.workspaceSlug}`
+      await refLookupError(
+        res,
+        `memory ${sanitizeField(id)} not found in workspace ${creds.workspaceSlug}`
+      )
     )
     return 1
   }
@@ -62,10 +69,11 @@ export async function memoryShow(
   }
 
   const { memory } = (await res.json()) as { memory: Memory }
-  console.log(sanitizeField(`[${memory.category}]`))
+  console.log(sanitizeField(`[${memory.category}] ${shortRef(memory.id)}`))
   console.log(sanitizeField(JSON.stringify(memory.content, null, 2)))
 
-  // LUM-500: stamp the disclosure funnel. The arg id == lineage MEMORY
-  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
-  await reportPull({ fragmentType: 'MEMORY', fragmentId: id })
+  // LUM-500: stamp the disclosure funnel with the lineage MEMORY fragmentId —
+  // the resolved full id, not the (possibly short) ref typed (LUM-1230).
+  // Fire-and-forget — never blocks output, swallows failures.
+  await reportPull({ fragmentType: 'MEMORY', fragmentId: memory.id })
 }

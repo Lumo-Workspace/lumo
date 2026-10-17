@@ -20,6 +20,8 @@ import {
 interface MilestoneRow {
   id: string
   name: string
+  /** LUM-1230: the handle `lumo milestone <cmd> <slug>` takes (web URL segment). */
+  slug?: string | null
   /** LUM-714: derived completion stamp; non-null = the milestone is done. */
   completedAt: string | null
   targetDate: string | null
@@ -44,11 +46,14 @@ export interface MilestoneListOptions {
 
 /**
  * Render milestones as a table (LUM-1089, header on a TTY only):
- *   <STATE>  <HEALTH>  <target-date or ->  <name>
+ *   <STATE>  <HEALTH>  <target-date or ->  <slug>  <name>
  *
  * STATE is ACTIVE / COMPLETED / ARCHIVED (LUM-714) — derived, never stored.
  * HEALTH is the target-date risk light (ON-TRACK / AT-RISK / OVERDUE), or `-`
  * when no light applies (completed, archived, or no target date).
+ *
+ * SLUG (LUM-1230) is what every milestone command accepts — the name may be
+ * duplicated or hard to type; `-` from an older server that sends none.
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
@@ -62,9 +67,14 @@ export function formatMilestoneList(
       milestoneState(r),
       formatHealth(r.health),
       fmtCalendarDay(r.targetDate),
+      r.slug ? sanitizeField(r.slug) : '-',
       sanitizeField(r.name),
     ]),
-    { header: ['STATE', 'HEALTH', 'TARGET', 'NAME'], flex: 3, ...opts }
+    {
+      header: ['STATE', 'HEALTH', 'TARGET', 'SLUG', 'NAME'],
+      flex: 4,
+      ...opts,
+    }
   )
 }
 

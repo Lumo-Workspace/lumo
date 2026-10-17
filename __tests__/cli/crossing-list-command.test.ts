@@ -103,7 +103,7 @@ describe('crossingList command (LUM-1187)', () => {
     writeSpy.mockClear()
     expect(await crossingList('LUM-9', { all: true })).toBeUndefined()
     expect(stdout()).toContain('LUM-X2')
-    expect(stdout()).toMatch(/Ruled by:\s+Bob \(actor-1\)/)
+    expect(stdout()).toMatch(/Ruled by:\s+Bob\n/)
     expect(stdout()).toMatch(/Note:\s+real, acknowledged/)
     expect(stdout()).toMatch(/Channel:\s+WEB/)
   })

@@ -492,6 +492,24 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * LUM-1230: the memories of one workspace whose id starts or ends with
+   * `needle` (a short ref or id prefix, already lowercased). Capped — the
+   * caller only needs to know whether the match is unique and, if not, to
+   * list a few candidates.
+   */
+  async findIdsMatchingRef(workspaceId: string, needle: string, take = 10) {
+    return prisma.memory.findMany({
+      where: {
+        workspaceId,
+        OR: [{ id: { startsWith: needle } }, { id: { endsWith: needle } }],
+      },
+      select: { id: true, category: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.memory.create({

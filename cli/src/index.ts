@@ -830,7 +830,7 @@ const task = program
 task
   .command('context <identifier>')
   .description(
-    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <id>).'
+    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <ref>).'
   )
   .option(
     '--full',
@@ -859,7 +859,7 @@ task
   )
   .option(
     '-m, --milestone <ref>',
-    'Filter by milestone name or UUID (scopes to my tasks under that milestone)'
+    'Filter by milestone slug, name or id (scopes to my tasks under that milestone)'
   )
   .option('--json', 'Emit { tasks, total, nextCursor } as JSON')
   .action(wrap(options => taskList(options as Record<string, string>)))
@@ -889,7 +889,7 @@ task
     []
   )
   .option('--project <ref>', 'Project name or slug')
-  .option('-m, --milestone <ref>', 'Milestone name or UUID')
+  .option('-m, --milestone <ref>', 'Milestone slug, name or id')
   .option('--sprint <ref>', 'Sprint number or UUID')
   .option('--team <ref>', 'Team to resolve --sprint against')
   .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
@@ -1023,7 +1023,10 @@ task
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option('--project <ref>', 'Project name or slug')
-  .option('--milestone <ref>', 'Milestone name (case-insensitive)')
+  .option(
+    '--milestone <ref>',
+    'Milestone slug (as in the web URL) or name (case-insensitive)'
+  )
   .option('--due <date>', 'Due date, YYYY-MM-DD (your local day)')
   .option(
     '--template <key>',
@@ -1953,7 +1956,7 @@ workspaceCmd
 workspaceCmd
   .command('learnings')
   .description(
-    "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
+    "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory short ref, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <ref>`."
   )
   .option('--repo <owner/name>', "Only this repository's learnings")
   .option('--json', 'Emit { learnings } as JSON')
@@ -2092,27 +2095,27 @@ projectMemory
 const memoryCmd = program
   .command('memory')
   .description(
-    'Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)'
+    'Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)'
   )
 
 memoryCmd
-  .command('show <memoryId>')
+  .command('show <memory>')
   .description(
-    "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
+    "Show one memory's full card (category + content). <memory> is the 8-char short ref shown in listings and session-start index lines, a unique id prefix (6+ chars) or the full id; an ambiguous ref errors and lists the candidates. Use to pull the body of a memory you saw as a one-line index entry at session start."
   )
   .action(wrap((id: unknown) => memoryShow(id as string)))
 
 memoryCmd
-  .command('promote <memoryId>')
+  .command('promote <memory>')
   .description(
-    'Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks.'
+    'Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks.'
   )
   .action(wrap((id: unknown) => memoryPromote(id as string)))
 
 memoryCmd
-  .command('rm <memoryId>')
+  .command('rm <memory>')
   .description(
-    'Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card.'
+    'Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.'
   )
   .option(
     '--confirm',
@@ -2237,9 +2240,12 @@ milestoneCmd
 milestoneCmd
   .command('show <identifier>')
   .description(
-    'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name.'
+    'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .action(
     wrap((identifier, options) =>
       milestoneShow(identifier as string, options as Record<string, string>)
@@ -2251,7 +2257,10 @@ milestoneCmd
   .description(
     'Update a milestone. Provide at least one of --name, --description, --start, --target, --token-budget. Use "" to clear nullable fields. Completion is derived from task completion (LUM-714) — there is no status flag.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .option('-n, --name <text>', 'New name')
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
@@ -2271,7 +2280,10 @@ milestoneCmd
   .description(
     'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .option(
     '--confirm',
     'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
@@ -2289,9 +2301,12 @@ milestoneCmd
 milestoneCmd
   .command('archive <identifier>')
   .description(
-    'Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name.'
+    'Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .action(
     wrap((identifier, options) =>
       milestoneArchive(identifier as string, options as { project?: string })
@@ -2301,9 +2316,12 @@ milestoneCmd
 milestoneCmd
   .command('unarchive <identifier>')
   .description(
-    'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name.'
+    'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .action(
     wrap((identifier, options) =>
       milestoneUnarchive(identifier as string, options as { project?: string })
@@ -2313,9 +2331,12 @@ milestoneCmd
 milestoneCmd
   .command('add <identifier> <tasks...>')
   .description(
-    'Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back.'
+    'Bind one or more tasks to a milestone in one call. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .action(
     wrap((identifier, tasks, options) =>
       milestoneAdd(
@@ -2329,9 +2350,12 @@ milestoneCmd
 milestoneCmd
   .command('remove <identifier> <tasks...>')
   .description(
-    'Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID.'
+    'Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .action(
     wrap((identifier, tasks, options) =>
       milestoneRemove(
@@ -2345,9 +2369,12 @@ milestoneCmd
 milestoneCmd
   .command('triage <identifier> <tasks...>')
   .description(
-    'Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks.'
+    'Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .option('--claimable', 'Mark the listed tasks agent-claimable')
   .option('--not-claimable', 'Mark the listed tasks NOT agent-claimable')
   .action(
@@ -2367,9 +2394,12 @@ milestoneCmd
 milestoneCmd
   .command('summary <identifier>')
   .description(
-    'Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
+    'Show the AI-generated summary for a milestone. Identifier accepts the milestone slug (as in the web URL), name or id. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .option('--retry', 'Trigger summary regeneration before fetching')
   .action(
     wrap((identifier, options) =>
@@ -2383,9 +2413,12 @@ milestoneCmd
 milestoneCmd
   .command('changelog <identifier>')
   .description(
-    "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
+    "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts the milestone slug (as in the web URL), name or id. --json emits the raw structured payload."
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--project <ref>',
+    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
+  )
   .option('--json', 'Emit the raw structured changelog payload')
   .action(
     wrap((identifier, options) =>
@@ -2399,7 +2432,7 @@ milestoneCmd
 milestoneCmd
   .command('reorder <refs...>')
   .description(
-    "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
+    "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
   )
   .option('--project <ref>', 'Project name or slug')
   .action(
@@ -3187,7 +3220,7 @@ task
   )
   .option(
     '--milestone <ref>',
-    'Milestone name (case-insensitive); empty string to unbind'
+    'Milestone slug (as in the web URL) or name (case-insensitive); empty string to unbind'
   )
   .option(
     '--sprint <ref>',

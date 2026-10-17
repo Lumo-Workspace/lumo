@@ -170,7 +170,7 @@ Lists the workspace's PR-review learnings — what reviewers told Lumo in its re
 lumo workspace learnings                     # every repository
 lumo workspace learnings --repo acme/app     # one repository (case-insensitive)
 lumo workspace learnings --json              # { learnings: [{ id, repo, pathGlob, learning, ruleId, authorLogin, repositoryWide, inProject, createdAt }] }
-lumo memory rm <id>                          # delete one (exits 4 with an envelope until --confirm)
+lumo memory rm <ref>                         # delete one (8-char ref from the list) (exits 4 with an envelope until --confirm)
 ```
 
 Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  (no project)]` and then its text, indented. Scope is `repository` once its source PR merged, else `source PR until it merges` (a merge Lumo missed still counts at review time). `--repo` must be `owner/name` (exit 1 otherwise). A project-linked learning can also be edited or deleted in that project's memory.
@@ -185,7 +185,7 @@ Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  
 - "No diagrams in PR comments", "turn sequence diagrams on/off" → `--sequence-diagrams on|off` with `--repo`.
 - "Make Lumo request changes / approve PRs", "request changes on open findings" → `--request-changes on` (exits 4 first; relay the envelope).
 - "Stop PR authors approving their own PRs via @uselumo", "allow_author_approval" → `--allow-author-approval off` (exits 4 first; relay the envelope); turning it back on is gated too.
-- "What has Lumo learned from our review replies", "delete that learning", "undo a learning on a repo without a project" → `lumo workspace learnings [--repo]`, then `lumo memory rm <id>` (exits 4 first; relay the envelope).
+- "What has Lumo learned from our review replies", "delete that learning", "undo a learning on a repo without a project" → `lumo workspace learnings [--repo]`, then `lumo memory rm <ref>` (exits 4 first; relay the envelope).
 - "Use learnings from our other repos", "keep each repo's learnings separate", "share learnings across repositories" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
 - "Review every push", "stop pausing reviews after a few pushes", "pause automatic review after N reviewed commits" → `--auto-pause-after <n>` (`0` = never pause).
 - **Never** turn a switch off on your own initiative (e.g. to make findings go away): relay the exit-4 envelope and let the user decide. Earlier blocking findings still block Done either way.

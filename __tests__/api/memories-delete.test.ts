@@ -3,6 +3,12 @@ jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/repositories', () => ({
   memoryRepository: { findByIdWithWorkspace: jest.fn() },
 }))
+// LUM-1230: ref resolution is covered in memories-ref.test.ts; here the
+// route's own branches are under test, so refs pass through unchanged.
+jest.mock('@/lib/services/memory/memory-read.service', () => ({
+  getMemoryByIdForWorkspace: jest.fn(),
+  resolveMemoryRef: jest.fn(async (ref: string) => ref),
+}))
 jest.mock('@/lib/services', () => ({
   memoryManagementService: { delete: jest.fn() },
 }))

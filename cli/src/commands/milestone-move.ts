@@ -15,6 +15,7 @@ interface MilestoneListRow {
   id: string
   name: string
   sortOrder: number
+  slug?: string | null
 }
 
 export async function milestoneMove(
@@ -68,6 +69,7 @@ export async function milestoneMove(
     id: m.id,
     name: m.name,
     sortOrder: m.sortOrder,
+    slug: m.slug ?? null,
   }))
 
   const position: 'before' | 'after' = hasBefore ? 'before' : 'after'

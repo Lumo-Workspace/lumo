@@ -6,6 +6,7 @@ import {
   TASK_DESCRIPTION_PREAMBLE,
   renderUntrustedFence,
 } from '@/shared/src/untrusted-fence'
+import { shortRef } from '@/shared/src/short-ref'
 import { parseMemoryContent } from './schemas'
 
 /**
@@ -205,7 +206,7 @@ function tag(m: RenderableMemory): string {
  * The agent-facing framing (what to do, how to remove a wrong one) is TRUSTED
  * and sits OUTSIDE the untrusted boundary; the memory bodies themselves are
  * member/LLM-derived and stay inside `wrapUntrustedMemory`. Each item carries
- * its id so the agent can run `lumo memory rm <id> --yes` on a bad row.
+ * its short ref (LUM-1230) so the agent can run `lumo memory rm <ref>` on a bad row.
  *
  * Returns "" for an empty list so the caller omits the section entirely.
  */
@@ -214,7 +215,7 @@ export function renderLayer2ReviewSection(
 ): string {
   if (memories.length === 0) return ''
   const items = memories
-    .map(m => `${renderMemoryItem(m)}\n  ↳ id: ${m.id}`)
+    .map(m => `${renderMemoryItem(m)}\n  ↳ ref: ${shortRef(m.id)}`)
     .join('\n')
   const block = wrapUntrustedMemory(items)
   return [
@@ -222,7 +223,7 @@ export function renderLayer2ReviewSection(
     '',
     `When the previous session ended, the system auto-consolidated/promoted ${memories.length} learnings into **project-scope memory** (block below). ` +
       "Before starting this session's work, quickly sanity-check them against the code and context:",
-    '- If one is clearly wrong or over-generalized, delete it with its annotated id: `lumo memory rm <id> --yes`;',
+    '- If one is clearly wrong or over-generalized, delete it with its annotated ref: `lumo memory rm <ref> --yes`;',
     '- Otherwise ignore this section and work as usual. It appears only once, in the immediately-following session.',
     '',
     block,
@@ -334,11 +335,11 @@ export function renderMemoryIndexBlock(
     'entries may be stale or wrong; weight by source. The current user message and the',
     'active task instruction always win.',
     '',
-    `## Relevant Memory (${ordered.length}) — headlines only; full card: \`lumo memory show <id>\` · all bodies: \`lumo task context ${taskIdentifier} --full\``,
+    `## Relevant Memory (${ordered.length}) — headlines only; full card: \`lumo memory show <ref>\` · all bodies: \`lumo task context ${taskIdentifier} --full\``,
     '',
     ...ordered.map(
       (m, i) =>
-        `- ${CATEGORY_LABELS[m.category]} ${tag(m)} ${truncateHeadline(heads[i] ?? '')} · ${m.id}`
+        `- ${CATEGORY_LABELS[m.category]} ${tag(m)} ${truncateHeadline(heads[i] ?? '')} · ${shortRef(m.id)}`
     ),
     '</untrusted-team-memory>',
   ].join('\n')
@@ -346,7 +347,7 @@ export function renderMemoryIndexBlock(
 
 /** One-line manifest for an overflowed memory: scope tag + truncated headline + fetch hint. */
 export function memoryManifestLine(m: RenderableMemory): string {
-  return `- ${tag(m)} ${truncateHeadline(memoryHeadline(m))} → lumo memory show ${m.id}`
+  return `- ${tag(m)} ${truncateHeadline(memoryHeadline(m))} → lumo memory show ${shortRef(m.id)}`
 }
 
 /**

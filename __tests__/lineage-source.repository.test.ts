@@ -54,6 +54,24 @@ describe('lineageSourceRepository.labelsByType', () => {
     expect(labels.get('PR::pr-1')).toBe('#42 Add lineage table')
   })
 
+  it('LUM-1230: a memory label ends with `→ lumo memory show <short ref>`, not the cuid', async () => {
+    const id = 'cmprcce99003304jrkp5brom5'
+    mockMemory.mockResolvedValue([
+      {
+        id,
+        scope: 'PROJECT',
+        category: 'PROCEDURAL',
+        content: { workflow: 'Add new HookEventType to timeline UI' },
+      },
+    ])
+    const labels = await lineageSourceRepository.labelsByType(
+      new Map<LineageFragmentType, string[]>([['MEMORY', [id]]])
+    )
+    const label = labels.get(`MEMORY::${id}`) ?? ''
+    expect(label).toMatch(/→ lumo memory show kp5brom5$/)
+    expect(label).not.toContain(id)
+  })
+
   it('omits ids whose source row no longer exists', async () => {
     mockPr.mockResolvedValue([]) // pr-gone deleted
     const refs = new Map<LineageFragmentType, string[]>([['PR', ['pr-gone']]])

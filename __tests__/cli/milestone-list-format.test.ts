@@ -9,6 +9,7 @@ function row(overrides: Partial<Row>): Row {
   return {
     id: 'm-1',
     name: 'Q3 Launch',
+    slug: 'q3-launch',
     completedAt: null,
     targetDate: '2026-08-31T00:00:00.000Z',
     createdAt: '2026-06-01T00:00:00.000Z',
@@ -24,7 +25,7 @@ describe('formatMilestoneList', () => {
 
   it('renders a HEALTH column between state and target date', () => {
     const out = formatMilestoneList([row({ health: 'at-risk' })])
-    expect(out).toBe('ACTIVE  AT-RISK  2026-08-31  Q3 Launch')
+    expect(out).toBe('ACTIVE  AT-RISK  2026-08-31  q3-launch  Q3 Launch')
   })
 
   // LUM-714: the STATE column is derived from the two timestamps, not read
@@ -33,15 +34,16 @@ describe('formatMilestoneList', () => {
     const out = formatMilestoneList([
       row({ completedAt: '2026-06-01T00:00:00.000Z', health: null }),
     ])
-    expect(out).toBe('COMPLETED  -  2026-08-31  Q3 Launch')
+    expect(out).toBe('COMPLETED  -  2026-08-31  q3-launch  Q3 Launch')
   })
 
   it('aligns columns across rows (state, health, date, name)', () => {
     const out = formatMilestoneList([
-      row({ id: 'a', name: 'A', health: 'overdue' }),
+      row({ id: 'a', name: 'A', slug: 'a', health: 'overdue' }),
       row({
         id: 'b',
         name: 'B',
+        slug: 'b',
         completedAt: '2026-06-01T00:00:00.000Z',
         health: 'on-track',
         targetDate: null,
@@ -56,11 +58,38 @@ describe('formatMilestoneList', () => {
       'ACTIVE',
       'OVERDUE',
       '2026-08-31',
+      'a',
       'A',
     ])
-    expect(line2.split(/\s{2,}/)).toEqual(['COMPLETED', 'ON-TRACK', '-', 'B'])
+    expect(line2.split(/\s{2,}/)).toEqual([
+      'COMPLETED',
+      'ON-TRACK',
+      '-',
+      'b',
+      'B',
+    ])
     // The HEALTH column starts at the same offset on every row.
     expect(line1.indexOf('OVERDUE')).toBe(line2.indexOf('ON-TRACK'))
+  })
+
+  // LUM-1230: the slug is the handle every milestone command takes — the
+  // name may repeat or carry characters that are hard to type.
+  it('prints the slug column (the ref to type), never the id', () => {
+    const out = formatMilestoneList([
+      row({
+        id: 'cmv95ivuj000l06jvjrs7b7z1',
+        name: 'Headless 化(一):Web 展示信息 CLI 化',
+        slug: 'headless-web-cli',
+      }),
+    ])
+    expect(out).toContain('headless-web-cli')
+    expect(out).not.toContain('cmv95ivuj000l06jvjrs7b7z1')
+  })
+
+  it('shows "-" in the slug column for an older server that sends none', () => {
+    const { slug: _slug, ...noSlug } = row({})
+    const out = formatMilestoneList([noSlug])
+    expect(out).toBe('ACTIVE  -  2026-08-31  -  Q3 Launch')
   })
 
   // LUM-714: archived is a first-class STATE now, so it reads in the state

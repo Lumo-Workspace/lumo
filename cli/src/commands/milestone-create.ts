@@ -30,15 +30,18 @@ export function buildCreatePayload(
   return payload
 }
 
+/** LUM-1230: the trailing handle is the slug (what the other milestone
+ *  commands take), never the cuid; an older server without one prints none. */
 export function formatCreatedMilestoneLine(milestone: {
   id: string
   name: string
+  slug?: string | null
 }): string {
   return successLine({
     verb: 'Created',
     kind: 'milestone',
     title: milestone.name,
-    id: milestone.id,
+    ...(milestone.slug ? { id: milestone.slug } : {}),
   })
 }
 

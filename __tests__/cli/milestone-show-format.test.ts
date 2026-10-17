@@ -44,6 +44,19 @@ describe('formatMilestoneShow', () => {
     expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
   })
 
+  it('LUM-1230: shows the slug (the ref to type), never the id', () => {
+    const out = formatMilestoneShow(
+      {
+        ...milestone,
+        id: 'cmv95ivuj000l06jvjrs7b7z1',
+        slug: 'headless-web-cli',
+      },
+      []
+    )
+    expect(out).toMatch(/Slug:\s+headless-web-cli/)
+    expect(out).not.toContain('cmv95ivuj000l06jvjrs7b7z1')
+  })
+
   it('renders the health light when provided, "-" when absent', () => {
     expect(
       formatMilestoneShow({ ...milestone, health: 'at-risk' }, [])

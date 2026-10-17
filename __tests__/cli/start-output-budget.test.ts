@@ -191,9 +191,11 @@ describe('LUM-844 start-of-session output budget', () => {
     expect(context).toContain(String(fixture.task.descriptionMarkdown))
     expect(context).toContain(fixture.testCaseSection)
     expect(context).toContain('<untrusted-team-memory>')
-    expect(context).toContain('lumo memory show <id>')
+    expect(context).toContain('lumo memory show <ref>')
     for (const m of fixture.memories) {
-      expect(context).toContain(`· ${m.id}`)
+      // LUM-1230: short ref, not the bare cuid.
+      expect(context).toContain(`· ${m.id.slice(-8)}`)
+      expect(context).not.toContain(m.id)
     }
     // Traps still lead, as in the full rendering.
     expect(context.indexOf('- Trap ')).toBeLessThan(

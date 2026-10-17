@@ -32,6 +32,8 @@ export interface ShowMilestoneOptions {
 export interface MilestoneShowData extends MilestoneMetricsData {
   id: string
   name: string
+  /** LUM-1230: the handle the milestone commands take; absent on an older server. */
+  slug?: string | null
   /** LUM-714: derived completion stamp; non-null = the milestone is done. */
   completedAt: string | null
   startDate: string | null
@@ -241,6 +243,7 @@ export function formatMilestoneShow(
   const lines = fieldLines(
     [
       { label: 'Milestone', value: sanitizeField(m.name) },
+      ...(m.slug ? [{ label: 'Slug', value: sanitizeField(m.slug) }] : []),
       { label: 'State', value: stateValue },
       // null = the server could not read the gate; absent = an older server.
       ...(m.closeGate === null
@@ -339,6 +342,7 @@ export async function milestoneShow(
     milestone: {
       id: string
       name: string
+      slug?: string | null
       completedAt: string | null
       startDate: string | null
       targetDate: string | null
@@ -378,6 +382,7 @@ export async function milestoneShow(
       {
         id: milestone.id,
         name: milestone.name,
+        slug: milestone.slug ?? null,
         completedAt: milestone.completedAt,
         startDate: milestone.startDate,
         targetDate: milestone.targetDate,

@@ -44,7 +44,7 @@ When the session is bound, session-start may inject a **"🆕 Review needed: pro
 
 #### When to suggest
 
-Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id>` — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
+Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <ref>` (the 8-char ref printed under it) — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
 
 ### Blocker alert injected at `session attach` / session-start
 
