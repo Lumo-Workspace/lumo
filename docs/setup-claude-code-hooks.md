@@ -54,12 +54,6 @@ Merge this block into the file's `hooks` object:
     "SubagentStop": [
       { "type": "command", "command": "lumo hook subagent-stop" }
     ],
-    "WorktreeCreate": [
-      { "type": "command", "command": "lumo hook worktree-create" }
-    ],
-    "WorktreeRemove": [
-      { "type": "command", "command": "lumo hook worktree-remove" }
-    ],
     "FileChanged": [{ "type": "command", "command": "lumo hook file-changed" }],
     "ConfigChange": [
       { "type": "command", "command": "lumo hook config-change" }
@@ -70,6 +64,12 @@ Merge this block into the file's `hooks` object:
 
 If the file already has other hooks, add the Lumo entries alongside them
 rather than replacing the whole block.
+
+Do not add `WorktreeCreate` / `WorktreeRemove` entries for Lumo: a
+`WorktreeCreate` hook replaces Claude Code's own `git worktree add` and must
+print the new worktree's path, so a Lumo forwarder there makes
+`claude --worktree` and worktree sessions fail. Older Lumo versions installed
+them; re-running `lumo init` removes them, and `lumo doctor` flags any left.
 
 ## Step 2 — Try it
 

@@ -1406,7 +1406,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)"
+      "description": "Retired: forwards a WorktreeCreate event; `lumo init` no longer installs it and removes old entries"
     },
     "hook worktree-remove": {
       "arguments": [],
@@ -1422,7 +1422,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
+      "description": "Retired: forwards a WorktreeRemove event; `lumo init` no longer installs it and removes old entries"
     },
     "inbox": {
       "arguments": [],

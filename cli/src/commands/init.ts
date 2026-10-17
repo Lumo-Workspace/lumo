@@ -496,7 +496,7 @@ function writeSkillMarker(
  * Merge the Lumo hook entries into a hooks file — Claude Code's
  * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
  * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
- * entry was added or updated, so re-running init leaves it byte-identical
+ * entry was added, updated or removed (a retired event, LUM-1235), so re-running init leaves it byte-identical
  * (Codex re-asks for trust after any change).
  */
 export function mergeHooksFile(
@@ -507,7 +507,10 @@ export function mergeHooksFile(
 ): { path: string; stats: MergeStats } {
   const plan = planHooksMerge(settingsPath, agentToken, events)
   const { exists, merged, stats } = plan
-  const changed = stats.addedEvents.length + stats.updatedEvents.length
+  const changed =
+    stats.addedEvents.length +
+    stats.updatedEvents.length +
+    stats.removedEvents.length
   const tracked = exists && isPathGitTracked(settingsPath)
   if (plan.writes) {
     if (!exists) fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
@@ -521,9 +524,13 @@ export function mergeHooksFile(
     )
   } else {
     process.stdout.write(
-      `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
+      `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length}${stats.removedEvents.length > 0 ? `, removed ${stats.removedEvents.length}` : ''})\n`
     )
   }
+  if (stats.removedEvents.length > 0)
+    process.stdout.write(
+      `  removed retired Lumo hooks: ${stats.removedEvents.join(', ')} (they replaced Claude Code's own worktree creation)\n`
+    )
   if (tracked && changed > 0) process.stdout.write(gitDiffNote(settingsPath))
   return { path: settingsPath, stats }
 }

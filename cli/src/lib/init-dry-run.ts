@@ -295,7 +295,7 @@ function hooksItem(
   agent: string,
   home: string
 ): InitItem {
-  const { addedEvents, updatedEvents } = plan.stats
+  const { addedEvents, updatedEvents, removedEvents } = plan.stats
   const label = kind === 'codex-hooks' ? '' : ` (agent=${agent})`
   if (!plan.writes) {
     return {
@@ -343,7 +343,7 @@ function hooksItem(
     kind,
     path: file,
     action: plan.exists ? 'update' : 'install',
-    summary: `add ${addedEvents.length}, update ${updatedEvents.length} Lumo event${addedEvents.length + updatedEvents.length === 1 ? '' : 's'}${label}`,
+    summary: `add ${addedEvents.length}, update ${updatedEvents.length} Lumo event${addedEvents.length + updatedEvents.length === 1 ? '' : 's'}${removedEvents.length > 0 ? `, remove ${removedEvents.length} retired (${removedEvents.join(', ')})` : ''}${label}`,
     notes,
     diffs: [
       textDiff(

@@ -289,6 +289,33 @@ describe('claude settings hooks', () => {
     expect(w[0]!.message).toContain('SessionEnd')
   })
 
+  it('flags retired Lumo WorktreeCreate / WorktreeRemove entries (LUM-1235)', () => {
+    const f = fixture()
+    const p = join(f.repo, '.claude', 'settings.json')
+    writeSettings(p, ALL)
+    const data = JSON.parse(readFileSync(p, 'utf8'))
+    data.hooks.WorktreeCreate = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'lumo hook worktree-create --agent claude-code',
+          },
+        ],
+      },
+    ]
+    writeFileSync(p, JSON.stringify(data))
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, p)).toMatchObject({
+      state: 'incomplete',
+      suggestion: 'lumo init --project',
+    })
+    const w = warn(r, 'retired-hook-events')
+    expect(w).toHaveLength(1)
+    expect(w[0]!.message).toContain('WorktreeCreate')
+    expect(warn(r, 'missing-hook-events')).toHaveLength(0)
+  })
+
   it('ignores settings without any Lumo hook and survives invalid JSON', () => {
     const f = fixture()
     mkdirSync(join(f.home, '.claude'), { recursive: true })

@@ -16,8 +16,6 @@ export const LUMO_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
   ['SessionEnd', 'session-end'],
   ['SubagentStart', 'subagent-start'],
   ['SubagentStop', 'subagent-stop'],
-  ['WorktreeCreate', 'worktree-create'],
-  ['WorktreeRemove', 'worktree-remove'],
   ['FileChanged', 'file-changed'],
   ['ConfigChange', 'config-change'],
   ['TaskCreated', 'task-created'],
@@ -29,6 +27,23 @@ export const LUMO_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
   ['ElicitationResult', 'elicitation-result'],
   ['CwdChanged', 'cwd-changed'],
   ['InstructionsLoaded', 'instructions-loaded'],
+]
+
+/**
+ * LUM-1235: Claude Code events Lumo used to install and now removes. A
+ * WorktreeCreate command hook *replaces* `git worktree add` — it must create
+ * the worktree and print its path — so a forwarder that prints nothing breaks
+ * `claude --worktree`, `isolation: "worktree"` and the desktop app's worktree
+ * sessions. WorktreeRemove only fires for hook-created worktrees, and exiting
+ * 0 there means "removed" without git deleting anything. `mergeLumoHooks`
+ * strips Lumo's own entries for these, so `lumo init`, the first-run sync and
+ * the SessionStart drift note clean existing installs.
+ */
+export const RETIRED_LUMO_HOOK_EVENTS: ReadonlyArray<
+  readonly [string, string]
+> = [
+  ['WorktreeCreate', 'worktree-create'],
+  ['WorktreeRemove', 'worktree-remove'],
 ]
 
 /**
@@ -110,12 +125,18 @@ export type MergeStats = {
   addedEvents: string[]
   alreadyPresent: string[]
   updatedEvents: string[]
+  /** Retired events whose Lumo entry was removed (LUM-1235). */
+  removedEvents: string[]
 }
 
 export function mergeLumoHooks(
   existing: SettingsShape | undefined | null,
   agentToken: string = DEFAULT_AGENT_TOKEN,
-  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS
+  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS,
+  retired: ReadonlyArray<readonly [string, string]> = events ===
+  LUMO_HOOK_EVENTS
+    ? RETIRED_LUMO_HOOK_EVENTS
+    : []
 ): {
   merged: SettingsShape
   stats: MergeStats
@@ -128,6 +149,13 @@ export function mergeLumoHooks(
     addedEvents: [],
     alreadyPresent: [],
     updatedEvents: [],
+    removedEvents: [],
+  }
+
+  if (retired.length > 0) {
+    const { result, removedEvents } = stripRetired(base, retired)
+    base.hooks = result.hooks ?? {}
+    stats.removedEvents = removedEvents
   }
 
   for (const [event, slug] of events) {
@@ -222,6 +250,37 @@ export function removeLumoHooks(
       delete base.hooks
   }
   return { result: base as SettingsShape, removed }
+}
+
+/** Remove Lumo's entries for `retired` events, naming the events touched. */
+function stripRetired(
+  settings: SettingsShape,
+  retired: ReadonlyArray<readonly [string, string]>
+): { result: SettingsShape; removedEvents: string[] } {
+  const removedEvents: string[] = []
+  let result = settings
+  for (const [event, slug] of retired) {
+    const out = removeLumoHooks(
+      result,
+      (e, c) => e === event && isLumoHookCommand(c, slug)
+    )
+    if (out.removed === 0) continue
+    result = out.result
+    removedEvents.push(event)
+  }
+  return { result, removedEvents }
+}
+
+/**
+ * The retired events (see `RETIRED_LUMO_HOOK_EVENTS`) that still carry a
+ * Lumo entry in `hooks` — what `lumo doctor` reports as stale.
+ */
+export function retiredLumoHookEvents(hooks: unknown): string[] {
+  const { removedEvents } = stripRetired(
+    { hooks: hooks as NonNullable<SettingsShape['hooks']> },
+    RETIRED_LUMO_HOOK_EVENTS
+  )
+  return removedEvents
 }
 
 function defaultIsOurs(event: string, command: string): boolean {
