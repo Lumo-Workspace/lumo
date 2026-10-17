@@ -349,6 +349,39 @@ describe('maybeAutoSync', () => {
   })
 })
 
+describe('retired hook events (LUM-1235)', () => {
+  it('removes Lumo WorktreeCreate / WorktreeRemove from a user settings file', () => {
+    const settings = join(root, 'settings.json')
+    const hooks: Record<string, unknown> = {}
+    for (const [ev, slug] of [
+      ...LUMO_HOOK_EVENTS,
+      ['WorktreeCreate', 'worktree-create'],
+      ['WorktreeRemove', 'worktree-remove'],
+    ])
+      hooks[ev] = [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: `lumo hook ${slug} --agent claude-code`,
+            },
+          ],
+        },
+      ]
+    writeFileSync(settings, JSON.stringify({ hooks }))
+    seed([rec(settings, { kind: 'claude-settings' })])
+    maybeAutoSync('2.0.0', {
+      bundledSkillDir: bundled,
+      homeDir: join(root, 'home'),
+      log,
+    })
+    const merged = JSON.parse(readFileSync(settings, 'utf8'))
+    expect(merged.hooks).not.toHaveProperty('WorktreeCreate')
+    expect(merged.hooks).not.toHaveProperty('WorktreeRemove')
+    expect(Object.keys(merged.hooks)).toHaveLength(LUMO_HOOK_EVENTS.length)
+  })
+})
+
 describe('Codex hooks (LUM-1052 x LUM-1051)', () => {
   it('never rewrites a recorded codex-hooks file, even with a Lumo event missing', () => {
     const file = join(root, 'home', '.codex', 'hooks.json')

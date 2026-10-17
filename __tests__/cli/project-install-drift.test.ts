@@ -126,6 +126,50 @@ describe('projectInstallDrift', () => {
     ])
   })
 
+  it('committed settings still holding retired WorktreeCreate are reported (LUM-1235)', () => {
+    currentInstall()
+    const settings = buildLumoHookFragment('claude-code')
+    settings.hooks!.WorktreeCreate = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'lumo hook worktree-create --agent claude-code',
+          },
+        ],
+      },
+    ]
+    write('.claude/settings.json', json(settings))
+    git('add', '-A')
+    expect(kinds()).toEqual([
+      ['claude-settings', '.claude/settings.json', null],
+    ])
+  })
+
+  it('a settings file holding only the retired entries is still a target (LUM-1235)', () => {
+    write(
+      '.claude/settings.json',
+      json({
+        hooks: {
+          WorktreeRemove: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook worktree-remove --agent cursor',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    expect(projectClaudeSettingsTarget(repo)).toEqual({
+      path: path.join(repo, '.claude', 'settings.json'),
+      agent: 'cursor',
+    })
+  })
+
   it('the same stale files, not tracked by git: nothing reported', () => {
     git('init', '-q')
     skill('.agents', '1.102.0')

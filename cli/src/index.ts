@@ -3587,7 +3587,8 @@ const hook = program
 // --agent <token>`); the value rides to the server as the X-Lumo-Agent header
 // so auto-sedimented memories are attributed to the agent that produced them.
 // Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
-// and the server-side HookEventType slugs.
+// and the server-side HookEventType slugs. The worktree-* pair is retired
+// (RETIRED_LUMO_HOOK_EVENTS) but stays registered for settings written before.
 const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   [
     'pre-tool-use',
@@ -3636,11 +3637,11 @@ const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   ],
   [
     'worktree-create',
-    'Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)',
+    'Retired: forwards a WorktreeCreate event; `lumo init` no longer installs it and removes old entries',
   ],
   [
     'worktree-remove',
-    'Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)',
+    'Retired: forwards a WorktreeRemove event; `lumo init` no longer installs it and removes old entries',
   ],
   [
     'file-changed',
