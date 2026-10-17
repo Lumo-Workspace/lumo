@@ -1,6 +1,6 @@
 # Inbox, drafts and overviews (read-only)
 
-What the web shows on the Inbox, the composer drafts, the Dashboard and a project's page, from the terminal (LUM-1192). All four commands only read: none marks a notification read, deletes a draft or generates a briefing / summary. Everything is scoped to the workspace your API key belongs to.
+What the web shows on the Inbox, the composer drafts and a project's page, from the terminal (LUM-1192). All three commands only read: none marks a notification read, deletes a draft or generates a summary. Everything is scoped to the workspace your API key belongs to.
 
 ### `lumo inbox list [--json]` — your notifications
 
@@ -36,18 +36,6 @@ lumo draft list --json
 
 A blank draft shows `(untitled)`. `--json` prints `{ drafts: [{ id, type, data, createdAt, updatedAt }] }` — `data` is the form snapshot (`title`, `description`, `status`, `priority`, … for TASK; `name`, `description` for PROJECT). Finish or discard a draft in the web.
 
-### `lumo workspace overview [--report] [--json]` — the Dashboard
-
-```bash
-lumo workspace overview
-lumo workspace overview --report
-lumo workspace overview --json
-```
-
-Total / completed / overdue tasks, average completion time (hours, `N/A` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), projects at a glance (most overdue first), member workload, completions per day for the last 7 days that had any (the Dashboard chart), and the latest **stored** briefing (TL;DR; `--report` adds the full report). No briefing yet → `None generated yet.` — generating one is a web action (Refresh on the Dashboard).
-
-`--json` prints `{ stats, summary }` (`summary` is `null` when none exists) — `stats` is exactly what the Dashboard reads (incl. `projectBreakdown`, `topBlockers`, `prStats`, `agentStats`).
-
 ### `lumo project overview [project] [--report] [--json]` — a project's health
 
 ```bash
@@ -56,7 +44,7 @@ lumo project overview "Apollo Moon" --report
 lumo project overview apollo --json
 ```
 
-`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one project. Prints the same task stats as above plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
+`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one project. Prints total / completed / overdue tasks, average completion time (hours, `N/A` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
 
 `--json` prints `{ project: { id, name }, stats, summary }`.
 
@@ -64,5 +52,4 @@ lumo project overview apollo --json
 
 - "What's in my inbox", "did anyone mention me / assign me something" → `inbox list`.
 - "Did I leave a draft", "what was I writing" → `draft list`.
-- "How is the workspace doing", "give me the dashboard / briefing" → `workspace overview`.
 - "Is project X healthy", "what's stalled in X", "any stale PRs" → `project overview X`.

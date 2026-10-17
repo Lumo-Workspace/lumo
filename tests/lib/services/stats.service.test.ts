@@ -20,7 +20,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 
 jest.mock('@/lib/summaries/stats', () => ({
   aggregateProjectStats: jest.fn(),
-  aggregateWorkspaceStats: jest.fn(),
 }))
 
 import { getProjectStats } from '@/lib/services/stats.service'

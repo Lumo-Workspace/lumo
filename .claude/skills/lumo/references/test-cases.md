@@ -250,7 +250,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pas
 
 记完 run 时若一条证据都没有，CLI 还会打一行 `No evidence attached — …` 告诉你怎么附（`--result fail` 措辞更重）。零证据的 PASS 被封顶成 `UNPROVEN`，但仍然**不拦 DONE**——`task status` 的 advisory 行会写明 `(no evidence attached)`。
 
-**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是 **Dashboard 上的抽查卡片**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
+**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是侧边栏 Workspace 分组里的 **Run reviews**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
 
 复核结果**回写到任务上**：Tests 标签的执行历史标出「已抽查：证据成立 / 被打回（谁，何时，理由）」；用例**最新一次执行**被打回时，`lumo task status` 多一行 `• [TEST CASE] TC3 …: a spot-check by <人> sent this PASS back — the evidence did not hold it up …（advisory） — run:`，下一行单独是 `lumo task testcase show …` 命令。打回之后重新跑过，这行就消失。看到它：补更好的证据或重跑用例，不是去修一个可能没坏的实现。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
 
@@ -307,7 +307,7 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 
 ## `lumo spot-check` — 抽检池（只读，LUM-1191）
 
-workspace 级、只读：与 web 的 run-reviews 页 / Dashboard 的 Spot-check 卡片同一份数据（`GET /api/test-case-reviews`）。抽检池 = 报了 PASS、封顶后仍成立（有证据、环境对、没有未观察项）、还没人复核过的 run。
+workspace 级、只读：与 web 的 run-reviews 页同一份数据（`GET /api/test-case-reviews`）。抽检池 = 报了 PASS、封顶后仍成立（有证据、环境对、没有未观察项）、还没人复核过的 run。
 
 ```bash
 lumo spot-check

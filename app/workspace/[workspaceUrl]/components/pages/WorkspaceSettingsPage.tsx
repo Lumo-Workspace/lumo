@@ -16,16 +16,12 @@ import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
 import { PluginSlot } from '@/lib/plugins/client'
 import { Button } from '@/components/ui/button'
 
-type SummaryFrequency = 'DAILY' | 'EVERY_TWO_DAYS' | 'WEEKLY'
-
 /** The core columns this page reads; plugin-owned ones pass through (LUM-1062). */
 type Workspace = {
   id: string
   name: string
   slug: string
   logoUrl?: string | null
-  summaryEnabled?: boolean
-  summaryFrequency?: SummaryFrequency
   defaultLocale?: string
   hookEventRetentionDays?: number | null
   hookEventRetentionMode?: string
@@ -65,12 +61,6 @@ export function WorkspaceSettingsPage() {
   // Slug field
   const [slug, setSlug] = useState('')
   const [savingSlug, setSavingSlug] = useState(false)
-
-  // Summary settings
-  const [summaryEnabled, setSummaryEnabled] = useState(true)
-  const [summaryFrequency, setSummaryFrequency] =
-    useState<SummaryFrequency>('DAILY')
-  const [savingSummary, setSavingSummary] = useState(false)
 
   // LUM-1062: the whole GET /api/workspaces/me response, for plugin
   // settings sections (the security plugin reads its platform ceiling here).
@@ -113,8 +103,6 @@ export function WorkspaceSettingsPage() {
       setIsOwner(owner)
       setName(data.workspace.name)
       setSlug(data.workspace.slug)
-      setSummaryEnabled(data.workspace.summaryEnabled ?? true)
-      setSummaryFrequency(data.workspace.summaryFrequency ?? 'DAILY')
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
         name: data.workspace.name,
@@ -192,38 +180,6 @@ export function WorkspaceSettingsPage() {
       )
     } finally {
       setSavingSlug(false)
-    }
-  }
-
-  // ─── Save summary settings ────────────────────────────────────────────────
-  const handleSaveSummarySettings = async () => {
-    if (!assertOwner()) return
-    setSavingSummary(true)
-    try {
-      const data = await workspacesClient.updateMe<{ workspace: Workspace }>({
-        summaryEnabled,
-        summaryFrequency,
-      })
-      setWorkspace(prev => {
-        if (!prev) return prev
-        const updated = { ...prev } as Workspace
-        if (data.workspace.summaryEnabled !== undefined)
-          updated.summaryEnabled = data.workspace.summaryEnabled
-        if (data.workspace.summaryFrequency !== undefined)
-          updated.summaryFrequency = data.workspace.summaryFrequency
-        return updated
-      })
-      toast.success(
-        intl.formatMessage({ id: 'workspaceSettings.summaryUpdated' })
-      )
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : intl.formatMessage({ id: 'workspaceSettings.summaryUpdateFailed' })
-      )
-    } finally {
-      setSavingSummary(false)
     }
   }
 
@@ -351,89 +307,6 @@ export function WorkspaceSettingsPage() {
                 setWorkspace(prev => (prev ? { ...prev, defaultLocale } : prev))
               }
             />
-          </div>
-        )}
-
-        {/* Summary settings */}
-        {isOwner && (
-          <div className='rounded-lg border border-border overflow-hidden mb-8'>
-            <div className='px-5 py-3 border-b border-border'>
-              <p className='text-sm font-semibold text-foreground'>
-                {intl.formatMessage({ id: 'workspaceSettings.summaryTitle' })}
-              </p>
-            </div>
-
-            {/* Enable toggle */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
-              <div>
-                <p className='text-sm font-medium text-foreground'>
-                  {intl.formatMessage({
-                    id: 'workspaceSettings.summaryEnable',
-                  })}
-                </p>
-                <p className='text-xs text-muted-foreground mt-0.5'>
-                  {intl.formatMessage({ id: 'workspaceSettings.summaryDesc' })}
-                </p>
-              </div>
-              <button
-                type='button'
-                role='switch'
-                aria-checked={summaryEnabled}
-                onClick={() => setSummaryEnabled(v => !v)}
-                disabled={savingSummary}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-                  summaryEnabled ? 'bg-primary' : 'bg-input'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-card shadow-elevation-3 transition-transform ${
-                    summaryEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Frequency selector */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
-              <label className='text-sm font-medium text-foreground'>
-                {intl.formatMessage({
-                  id: 'workspaceSettings.summaryFrequency',
-                })}
-              </label>
-              <select
-                value={summaryFrequency}
-                onChange={e =>
-                  setSummaryFrequency(e.target.value as SummaryFrequency)
-                }
-                disabled={savingSummary || !summaryEnabled}
-                className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                <option value='DAILY'>
-                  {intl.formatMessage({ id: 'workspaceSettings.freqDaily' })}
-                </option>
-                <option value='EVERY_TWO_DAYS'>
-                  {intl.formatMessage({
-                    id: 'workspaceSettings.freqEveryTwoDays',
-                  })}
-                </option>
-                <option value='WEEKLY'>
-                  {intl.formatMessage({ id: 'workspaceSettings.freqWeekly' })}
-                </option>
-              </select>
-            </div>
-
-            {/* Save button */}
-            <div className='flex justify-end px-5 py-4'>
-              <Button
-                size='sm'
-                onClick={handleSaveSummarySettings}
-                disabled={savingSummary}
-              >
-                {savingSummary
-                  ? intl.formatMessage({ id: 'common.saving' })
-                  : intl.formatMessage({ id: 'common.save' })}
-              </Button>
-            </div>
           </div>
         )}
 

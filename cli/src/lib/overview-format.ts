@@ -11,10 +11,10 @@ import { sanitizeField } from './sanitize'
 import { renderTable, truncate } from './ui'
 
 /**
- * LUM-1192 — the read-only Dashboard / project overview, rendered from what
- * `GET /api/stats/*` and `GET /api/summaries/*` return. Every number is the
- * server's; this module only lays it out (same cuts as the web: the last 7
- * days of the completion trend, projects by overdue count).
+ * LUM-1192 — the read-only project overview, rendered from what
+ * `GET /api/stats/project/*` and `GET /api/summaries/project/*` return. Every
+ * number is the server's; this module only lays it out (same cut as the web:
+ * the last 7 days of the completion trend).
  */
 
 export interface StalledItem {
@@ -36,12 +36,6 @@ export interface OverviewStats {
     highStakesTaskIds: StalledItem[]
     staleOpenPrs: Array<{ number: number; openedAt: string; url: string }>
   }
-  projectBreakdown?: Array<{
-    projectName: string
-    totalTasks: number
-    completedTasks: number
-    overdueTasks: number
-  }>
 }
 
 export interface OverviewSummary {
@@ -51,7 +45,7 @@ export interface OverviewSummary {
 }
 
 export interface OverviewOptions extends LayoutOptions {
-  /** Print the full stored report under the briefing's TL;DR. */
+  /** Print the full stored report under the summary's TL;DR. */
   report?: boolean
 }
 
@@ -130,29 +124,6 @@ function trendLines(s: OverviewStats, opts: LayoutOptions): string[] {
   ]
 }
 
-function projectLines(s: OverviewStats, opts: LayoutOptions): string[] {
-  if (!s.projectBreakdown) return []
-  const lines = sectionHeading('Projects', opts)
-  if (s.projectBreakdown.length === 0) return [...lines, '  None.']
-  const sorted = [...s.projectBreakdown].sort(
-    (a, b) => b.overdueTasks - a.overdueTasks
-  )
-  const table = renderTable(
-    sorted.map(p => [
-      oneLine(p.projectName),
-      String(p.totalTasks),
-      String(p.completedTasks),
-      String(p.overdueTasks),
-    ]),
-    {
-      header: ['PROJECT', 'TASKS', 'DONE', 'OVERDUE'],
-      align: ['left', 'right', 'right', 'right'],
-      color: opts.color === true,
-    }
-  )
-  return [...lines, ...table.split('\n').map(l => `  ${l}`)]
-}
-
 /** Whole days since `iso` at `now` (floored at 0) — the web's IDLE column. */
 export function idleDaysSince(iso: string | undefined, now: Date): string {
   if (!iso) return NONE
@@ -211,24 +182,6 @@ function briefingLines(
     }
   }
   return lines
-}
-
-/** `lumo workspace overview` — the Dashboard as text. */
-export function formatWorkspaceOverview(
-  workspaceName: string,
-  stats: OverviewStats,
-  summary: OverviewSummary | null,
-  opts: OverviewOptions = {}
-): string {
-  return [
-    `Workspace: ${oneLine(workspaceName)}`,
-    '',
-    ...statsLines(stats, opts),
-    ...projectLines(stats, opts),
-    ...workloadLines(stats, opts),
-    ...trendLines(stats, opts),
-    ...briefingLines('Briefing', summary, opts),
-  ].join('\n')
 }
 
 /** `lumo project overview` — the project page's health and stats as text. */

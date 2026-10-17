@@ -73,29 +73,10 @@ export interface TaskSummaryStats {
   topBlockers: TopBlockers
 }
 
-export interface WorkspaceSummaryStats extends TaskSummaryStats {
-  projectBreakdown: Array<{
-    projectId: string
-    projectName: string
-    totalTasks: number
-    completedTasks: number
-    overdueTasks: number
-  }>
-}
-
 export interface ApiProjectSummary {
   id: string
   projectId: string
   stats: TaskSummaryStats
-  tldr: string
-  report: string
-  generatedAt: string
-}
-
-export interface ApiWorkspaceSummary {
-  id: string
-  workspaceId: string
-  stats: WorkspaceSummaryStats
   tldr: string
   report: string
   generatedAt: string

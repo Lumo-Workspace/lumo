@@ -31,16 +31,12 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-import {
-  aggregateProjectStats,
-  aggregateWorkspaceStats,
-} from '@/lib/summaries/stats'
+import { aggregateProjectStats } from '@/lib/summaries/stats'
 import { prisma } from '@/lib/db/prisma'
 
 const asMock = (fn: unknown): jest.Mock<any> => fn as jest.Mock<any>
 
 const PROJECT_ID = 'proj-1'
-const WORKSPACE_ID = 'ws-1'
 
 function setupDefaultMocks() {
   // status groupBy
@@ -217,31 +213,5 @@ describe('aggregateProjectStats', () => {
     expect(stats.prStats.total).toBe(7)
     expect(stats.prStats.merged).toBe(5)
     expect(stats.prStats.open).toBe(2)
-  })
-})
-
-describe('aggregateWorkspaceStats', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    setupDefaultMocks()
-
-    asMock(prisma.project.findMany).mockResolvedValue([
-      { id: 'proj-1', name: 'Core' },
-      { id: 'proj-2', name: 'Dashboard' },
-    ])
-
-    // task.count for per-project aggregation
-    asMock(prisma.task.count).mockImplementation(({ where }: any) => {
-      if (where?.status === 'DONE') return Promise.resolve(10)
-      if (where?.dueDate) return Promise.resolve(2)
-      return Promise.resolve(18)
-    })
-  })
-
-  it('returns projectBreakdown with one entry per project', async () => {
-    const stats = await aggregateWorkspaceStats(WORKSPACE_ID)
-    expect(stats.projectBreakdown).toHaveLength(2)
-    const proj1 = stats.projectBreakdown.find(p => p.projectId === 'proj-1')
-    expect(proj1?.projectName).toBe('Core')
   })
 })

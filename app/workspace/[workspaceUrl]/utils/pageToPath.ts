@@ -21,8 +21,6 @@ export function pageToPath(
 ): string {
   const base = `/workspace/${workspaceUrl}`
   switch (page) {
-    case 'dashboard':
-      return `${base}/dashboard`
     case 'my-tasks':
       return `${base}/my-tasks`
     case 'inbox':

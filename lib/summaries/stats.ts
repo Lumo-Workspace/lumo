@@ -1,24 +1,11 @@
 import { prisma } from '@/lib/db/prisma'
 import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
-import type {
-  TaskSummaryStats,
-  WorkspaceSummaryStats,
-  TopBlockers,
-} from '@/types/summary'
+import type { TaskSummaryStats, TopBlockers } from '@/types/summary'
 import { collectTopBlockers, stalledCutoff } from './top-blockers'
 import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
 import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
 import { usageMapTotal } from '@/lib/services/model-cost'
 import { inferredTopLevelSessionsForTasks } from '@/lib/repositories/task-attribution-where'
-
-const EMPTY_BLOCKERS: TopBlockers = {
-  overdueTaskIds: [],
-  stalledTaskIds: [],
-  failingAgentTaskIds: [],
-  staleOpenPrNumbers: [],
-  staleOpenPrs: [],
-  highStakesTaskIds: [],
-}
 
 export async function aggregateProjectStats(
   projectId: string
@@ -488,129 +475,4 @@ export async function aggregateSprintBlockers(
   }))
 
   return topBlockers
-}
-
-export async function aggregateWorkspaceStats(
-  workspaceId: string
-): Promise<WorkspaceSummaryStats> {
-  const projects = await prisma.project.findMany({
-    where: { workspaceId },
-    select: { id: true, name: true },
-  })
-
-  const projectStatsList = await Promise.all(
-    projects.map(async p => ({
-      project: p,
-      stats: await aggregateProjectStats(p.id),
-    }))
-  )
-
-  const projectCounts = await Promise.all(
-    projects.map(async p => {
-      const [total, completed, overdue] = await Promise.all([
-        prisma.task.count({ where: { projectId: p.id } }),
-        prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
-        prisma.task.count({
-          where: {
-            projectId: p.id,
-            dueDate: { lt: new Date() },
-            status: { not: 'DONE' },
-          },
-        }),
-      ])
-      return {
-        projectId: p.id,
-        projectName: p.name,
-        totalTasks: total,
-        completedTasks: completed,
-        overdueTasks: overdue,
-      }
-    })
-  )
-
-  const merged = mergeStats(projectStatsList.map(ps => ps.stats))
-
-  return {
-    ...merged,
-    topBlockers: EMPTY_BLOCKERS, // workspace-level: project tab only
-    projectBreakdown: projectCounts,
-  }
-}
-
-function mergeStats(
-  statsList: TaskSummaryStats[]
-): Omit<TaskSummaryStats, 'topBlockers'> {
-  const statusDistribution: Record<string, number> = {}
-  const priorityDistribution: Record<string, number> = {}
-  let totalTasks = 0
-  const overdueTaskIds: string[] = []
-  const memberWorkloadMap = new Map<
-    string,
-    { name: string; assigned: number; completed: number }
-  >()
-  const trendMap = new Map<string, number>()
-  let totalCompletionMs = 0
-  let completionCount = 0
-  const agentStats = { total: 0, completed: 0, failed: 0, working: 0 }
-  let prTotal = 0
-  let prMerged = 0
-  let prOpen = 0
-
-  for (const s of statsList) {
-    totalTasks += s.totalTasks
-    for (const [k, v] of Object.entries(s.statusDistribution)) {
-      statusDistribution[k] = (statusDistribution[k] ?? 0) + v
-    }
-    for (const [k, v] of Object.entries(s.priorityDistribution)) {
-      priorityDistribution[k] = (priorityDistribution[k] ?? 0) + v
-    }
-    overdueTaskIds.push(...s.overdueTasks.taskIds)
-    for (const m of s.memberWorkload) {
-      const existing = memberWorkloadMap.get(m.actorId)
-      if (existing) {
-        existing.assigned += m.assigned
-        existing.completed += m.completed
-      } else {
-        memberWorkloadMap.set(m.actorId, {
-          name: m.name,
-          assigned: m.assigned,
-          completed: m.completed,
-        })
-      }
-    }
-    for (const t of s.completionTrend) {
-      trendMap.set(t.date, (trendMap.get(t.date) ?? 0) + t.completed)
-    }
-    if (s.avgCompletionTime !== null) {
-      totalCompletionMs += s.avgCompletionTime
-      completionCount++
-    }
-    agentStats.total += s.agentStats.total
-    agentStats.completed += s.agentStats.completed
-    agentStats.failed += s.agentStats.failed
-    agentStats.working += s.agentStats.working
-    prTotal += s.prStats.total
-    prMerged += s.prStats.merged
-    prOpen += s.prStats.open
-  }
-
-  const memberWorkload = Array.from(memberWorkloadMap.entries()).map(
-    ([actorId, v]) => ({ actorId, ...v })
-  )
-  const completionTrend = Array.from(trendMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, completed]) => ({ date, completed }))
-
-  return {
-    totalTasks,
-    statusDistribution,
-    priorityDistribution,
-    overdueTasks: { count: overdueTaskIds.length, taskIds: overdueTaskIds },
-    memberWorkload,
-    completionTrend,
-    avgCompletionTime:
-      completionCount > 0 ? totalCompletionMs / completionCount : null,
-    agentStats,
-    prStats: { total: prTotal, merged: prMerged, open: prOpen },
-  }
 }

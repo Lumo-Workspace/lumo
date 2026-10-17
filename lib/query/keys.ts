@@ -99,16 +99,6 @@ export const queryKeys = {
     pool: () => ['runReviews', 'pool'] as const,
   },
 
-  summary: {
-    project: (projectId: string) => ['summary', 'project', projectId] as const,
-    workspace: () => ['summary', 'workspace'] as const,
-  },
-
-  summaries: {
-    generationJob: (jobId: string) =>
-      ['summaries', 'generation-job', jobId] as const,
-  },
-
   timeline: (taskId: string) => ['timeline', taskId] as const,
 
   lineage: (identifier: string) => ['lineage', identifier] as const,

@@ -1,13 +1,11 @@
 /**
  * @jest-environment node
  *
- * LUM-1192 — the inbox / drafts / dashboard / project stats read routes accept
+ * LUM-1192 — the inbox / drafts / project stats read routes accept
  * an API key, and stay scoped to the credential's workspace.
  *
  *   GET /api/notifications             (lumo inbox list)
  *   GET /api/drafts                    (lumo draft list)
- *   GET /api/stats/workspace           (lumo workspace overview)
- *   GET /api/summaries/workspace       (lumo workspace overview)
  *   GET /api/stats/project/[id]        (lumo project overview)
  *   GET /api/summaries/project/[id]    (lumo project overview)
  *
@@ -62,17 +60,12 @@ jest.mock('next/headers', () => ({
 
 import * as notificationsRoute from '@/app/api/notifications/route'
 import * as draftsRoute from '@/app/api/drafts/route'
-import * as workspaceStatsRoute from '@/app/api/stats/workspace/route'
-import * as workspaceSummariesRoute from '@/app/api/summaries/workspace/route'
 import * as projectStatsRoute from '@/app/api/stats/project/[projectId]/route'
 import * as projectSummariesRoute from '@/app/api/summaries/project/[projectId]/route'
 
 import { formatInbox } from '@/cli/src/commands/inbox-list'
 import { formatDraftList } from '@/cli/src/commands/draft-list'
-import {
-  formatProjectOverview,
-  formatWorkspaceOverview,
-} from '@/cli/src/lib/overview-format'
+import { formatProjectOverview } from '@/cli/src/lib/overview-format'
 
 jest.setTimeout(240_000)
 
@@ -208,14 +201,6 @@ async function seedWorkspace(
       report: `${mark} project report`,
     },
   })
-  await db.workspaceSummary.create({
-    data: {
-      workspaceId: workspace.id,
-      stats: {},
-      tldr: `${mark} workspace tldr`,
-      report: `${mark} workspace report`,
-    },
-  })
   return {
     workspaceId: workspace.id,
     teamId: team.id,
@@ -304,16 +289,6 @@ const get = {
     call(notificationsRoute.GET, 'GET', '/api/notifications', {}, as),
   drafts: (as: As, query = '') =>
     call(draftsRoute.GET, 'GET', `/api/drafts${query}`, {}, as),
-  workspaceStats: (as: As) =>
-    call(workspaceStatsRoute.GET, 'GET', '/api/stats/workspace', {}, as),
-  workspaceSummaries: (as: As) =>
-    call(
-      workspaceSummariesRoute.GET,
-      'GET',
-      '/api/summaries/workspace?limit=1',
-      {},
-      as
-    ),
   projectStats: (as: As, projectId: string) =>
     call(
       projectStatsRoute.GET,
@@ -369,31 +344,6 @@ describe('LUM-1192 API key reads (200, own workspace data)', () => {
     expect(res.text).toContain('alpha-owner draft')
   })
 
-  it('GET /api/stats/workspace: the key’s workspace', async () => {
-    const res = await get.workspaceStats(alphaKey)
-    expect(res.status).toBe(200)
-    const { stats } = res.json() as {
-      stats: {
-        totalTasks: number
-        statusDistribution: Record<string, number>
-        projectBreakdown: Array<{ projectName: string }>
-      }
-    }
-    expect(stats.totalTasks).toBe(1)
-    expect(stats.statusDistribution.DONE).toBe(1)
-    expect(stats.projectBreakdown.map(p => p.projectName)).toEqual([
-      'alpha-own project',
-    ])
-    expect(res.text).not.toContain(BRAVO_MARK)
-  })
-
-  it('GET /api/summaries/workspace: the key’s stored briefing', async () => {
-    const res = await get.workspaceSummaries(alphaKey)
-    expect(res.status).toBe(200)
-    expect(res.text).toContain('alpha-own workspace tldr')
-    expect(res.text).not.toContain(BRAVO_MARK)
-  })
-
   it('GET /api/stats/project/[own]: 200', async () => {
     const res = await get.projectStats(alphaKey, A().projectId)
     expect(res.status).toBe(200)
@@ -413,12 +363,6 @@ describe('LUM-1192 API key reads (200, own workspace data)', () => {
       `${BRAVO_MARK} task one`
     )
     expect((await get.drafts(bravoKey)).text).toContain(`${BRAVO_MARK} draft`)
-    expect((await get.workspaceStats(bravoKey)).text).toContain(
-      `${BRAVO_MARK} project`
-    )
-    expect((await get.workspaceSummaries(bravoKey)).text).toContain(
-      `${BRAVO_MARK} workspace tldr`
-    )
     expect((await get.projectStats(bravoKey, B().projectId)).status).toBe(200)
     expect(
       (await get.projectSummaries(bravoKey, B().projectId)).text
@@ -427,16 +371,9 @@ describe('LUM-1192 API key reads (200, own workspace data)', () => {
 
   it('summary GETs only read: no summary row is created', async () => {
     const db = harness.prisma!
-    const before = [
-      await db.workspaceSummary.count(),
-      await db.projectSummary.count(),
-    ]
-    await get.workspaceSummaries(alphaKey)
+    const before = await db.projectSummary.count()
     await get.projectSummaries(alphaKey, A().projectId)
-    expect([
-      await db.workspaceSummary.count(),
-      await db.projectSummary.count(),
-    ]).toEqual(before)
+    expect(await db.projectSummary.count()).toEqual(before)
   })
 })
 
@@ -489,12 +426,7 @@ describe('LUM-1192 cross-tenant: an ALPHA key never reaches BRAVO', () => {
     const drafts = await get.drafts(as)
     expect(drafts.status).toBe(200)
     expect(drafts.text).toContain('dual-alpha draft')
-    for (const res of [
-      await get.notifications(as),
-      drafts,
-      await get.workspaceStats(as),
-      await get.workspaceSummaries(as),
-    ]) {
+    for (const res of [await get.notifications(as), drafts]) {
       expect(res.status).toBe(200)
       expect(res.text).not.toContain(BRAVO_MARK)
     }
@@ -511,11 +443,8 @@ describe('LUM-1192 browser sessions keep working (active workspace)', () => {
     expect(
       (await get.drafts(bravo, `?workspaceUrl=${SLUG.bravo}`)).text
     ).toContain(`${BRAVO_MARK} dual draft`)
-    expect((await get.workspaceSummaries(bravo)).text).toContain(
-      `${BRAVO_MARK} workspace tldr`
-    )
     const alpha: As = { ...bravo, activeSlug: SLUG.alpha }
-    const res = await get.workspaceStats(alpha)
+    const res = await get.projectStats(alpha, A().projectId)
     expect(res.status).toBe(200)
     expect(res.text).not.toContain(BRAVO_MARK)
     expect((await get.projectStats(alpha, B().projectId)).status).toBe(404)
@@ -547,7 +476,7 @@ describe('LUM-1192 write methods stay browser-only', () => {
 })
 
 describe('LUM-1192 the CLI views render the same payload the web reads', () => {
-  it('inbox / drafts / workspace / project views carry the route’s data', async () => {
+  it('inbox / drafts / project views carry the route’s data', async () => {
     const inbox = (await get.notifications(alphaKey)).json() as Parameters<
       typeof formatInbox
     >[0]
@@ -563,24 +492,6 @@ describe('LUM-1192 the CLI views render the same payload the web reads', () => {
     expect(formatDraftList(drafts.drafts, { tty: false })).toMatch(
       /TASK\s+.+alpha-owner draft$/
     )
-
-    const ws = (await get.workspaceStats(alphaKey)).json() as {
-      stats: Parameters<typeof formatWorkspaceOverview>[1]
-    }
-    const wsSummary = (await get.workspaceSummaries(alphaKey)).json() as {
-      summaries: Array<
-        NonNullable<Parameters<typeof formatWorkspaceOverview>[2]>
-      >
-    }
-    const wsText = formatWorkspaceOverview(
-      'alpha',
-      ws.stats,
-      wsSummary.summaries[0] ?? null
-    )
-    expect(wsText).toMatch(/Total tasks:\s+1\b/)
-    expect(wsText).toMatch(/Completed:\s+1\b/)
-    expect(wsText).toMatch(/alpha-own project\s+1\s+1\s+0/)
-    expect(wsText).toContain('alpha-own workspace tldr')
 
     const ps = (await get.projectStats(alphaKey, A().projectId)).json() as {
       stats: Parameters<typeof formatProjectOverview>[1]

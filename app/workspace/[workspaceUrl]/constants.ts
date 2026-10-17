@@ -154,14 +154,11 @@ export const API = {
     generate: '/api/summaries/generate',
     generateProject: (projectId: string) =>
       `/api/summaries/generate/project/${projectId}`,
-    generateWorkspace: '/api/summaries/generate/workspace',
     jobStatus: (jobId: string) => `/api/summaries/generate/status/${jobId}`,
     project: (projectId: string) => `/api/summaries/project/${projectId}`,
-    workspace: '/api/summaries/workspace',
   },
   stats: {
     project: (projectId: string) => `/api/stats/project/${projectId}`,
-    workspace: '/api/stats/workspace',
   },
   pullRequests: {
     search: '/api/pull-requests/search',
@@ -256,7 +253,6 @@ export const CACHE_KEY = {
   docSort: 'lumo:doc-sort',
   drafts: 'lumo:drafts',
   projectSummary: (projectId: string) => `lumo:summary:project:${projectId}`,
-  workspaceSummary: 'lumo:summary:workspace',
   formRecoveryNewTask: 'lumo:form-recovery:new-task',
   formRecoveryNewProject: 'lumo:form-recovery:new-project',
   formRecoveryQuickDispatch: 'lumo:form-recovery:quick-dispatch',

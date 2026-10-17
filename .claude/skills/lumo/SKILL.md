@@ -98,7 +98,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 - `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
 - `lumo workspace learnings [--repo] [--json]` — PR-review learnings with memory ids; delete with `lumo memory rm <id>`
-- `lumo inbox list` · `draft list` · `workspace overview` · `project overview [project]` — read-only inbox, your drafts, Dashboard / project health + latest briefing
+- `lumo inbox list` · `draft list` · `project overview [project]` — read-only inbox, your drafts, project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 

@@ -4,7 +4,7 @@
  * on/off switch and frequency but no longer has a "Report language" select,
  * and saving it sends no summary-only language.
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { WorkspaceSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/WorkspaceSettingsPage'
 import { workspacesClient } from '@/lib/api-client'
 
@@ -78,26 +78,22 @@ it('shows one language setting — the default language', async () => {
   )) as HTMLSelectElement
   expect(select.value).toBe('zh-CN')
 
-  // The summary card's only select is the frequency one.
+  // LUM-1228: the briefing-schedule card (and its frequency select) is gone.
   const selects = screen.getAllByRole('combobox') as HTMLSelectElement[]
-  expect(selects).toHaveLength(2)
-  expect(selects.filter(s => s.value === 'DAILY')).toHaveLength(1)
+  expect(selects).toHaveLength(1)
   expect(screen.queryByText('Report Language')).toBeNull()
   expect(screen.queryByRole('option', { name: 'Chinese' })).toBeNull()
   expect(screen.getByText(/AI summaries use it too/)).toBeTruthy()
 })
 
-it('saving the summary settings sends only the switch and frequency', async () => {
+it('no longer offers the workspace briefing schedule (LUM-1228)', async () => {
   render(<WorkspaceSettingsPage />)
   await screen.findByLabelText('Default language')
-  const frequency = screen
-    .getAllByRole('combobox')
-    .find(s => (s as HTMLSelectElement).value === 'DAILY')!
-  fireEvent.change(frequency, { target: { value: 'WEEKLY' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1))
-  expect(updateMe).toHaveBeenCalledWith({
-    summaryEnabled: true,
-    summaryFrequency: 'WEEKLY',
-  })
+  expect(screen.queryByRole('switch')).toBeNull()
+  expect(
+    screen
+      .queryAllByRole('combobox')
+      .some(s => (s as HTMLSelectElement).value === 'DAILY')
+  ).toBe(false)
+  expect(updateMe).not.toHaveBeenCalled()
 })
