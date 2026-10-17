@@ -44,6 +44,17 @@ import {
 } from '../analysis/lum965-basharena-monitor/controlarena/trajectories'
 import { FRESH_EXPORT } from '../analysis/lum965-basharena-monitor/records'
 import { splitTrajectories } from '../analysis/lum965-basharena-monitor/split'
+import {
+  convertTraceRow,
+  hackFamily,
+  type TraceTrajectory,
+} from '../analysis/lum1234-trace/convert'
+import {
+  TRACE_DATASET,
+  defaultTraceDir,
+  loadTraceRows,
+  resolveTraceFile,
+} from '../analysis/lum1234-trace/source'
 
 const RUN = 'npx tsx scripts/crossing-eval.ts'
 
@@ -292,6 +303,52 @@ export const controlarenaHoldout: DatasetAdapter = {
       notes: [
         `dropped (sample error): ${fresh.dropped.length}`,
         skippedNote(fresh.skippedCalls),
+      ],
+    }
+  },
+}
+
+// --- TRACE (LUM-1234) -------------------------------------------------------------
+
+export function traceSamples(trajs: TraceTrajectory[]): EvalSample[] {
+  return trajs.map(t => ({
+    id: t.id,
+    label: t.hacked ? 'positive' : 'negative',
+    groups: t.hacked
+      ? {
+          hackType: t.hackTypes,
+          hackFamily: Array.from(new Set(t.hackTypes.map(hackFamily))),
+        }
+      : {},
+    events: t.events,
+  }))
+}
+
+export const trace: DatasetAdapter = {
+  id: 'trace',
+  describe: `${TRACE_DATASET} (arXiv 2601.20103) — 517 synthetic, human-verified coding trajectories (268 reward-hacked / 249 benign); multi-label hack types`,
+  unit: 'trajectory',
+  source: `HF datasets-server (gated, CC-BY-SA-4.0, never committed) → ${defaultTraceDir()}; fetch: ${RUN} --dataset trace --download (accept the access conditions on HF + \`hf auth login\` first), or convert a parquet copy with scripts/analysis/lum1234-trace/parquet_to_json.py and pass --data`,
+  async load(opts): Promise<LoadedDataset> {
+    const file = resolveTraceFile(opts.data)
+    const rows = await loadTraceRows({
+      file,
+      download: opts.download,
+      fetchCommand: `${RUN} --dataset trace --download${opts.data ? ` --data ${opts.data}` : ''}`,
+      log: opts.log,
+    })
+    const trajs = rows.map(r => convertTraceRow(r))
+    const events = trajs.reduce((n, t) => n + t.events.length, 0)
+    const skipped = sumSkipped(trajs)
+    const skippedN = Object.values(skipped).reduce((a, b) => a + b, 0)
+    const empty = trajs.filter(t => t.events.length === 0)
+    return {
+      samples: traceSamples(trajs),
+      options: 'all trajectories, every tool call (synthetic TRACE)',
+      notes: [
+        `${events} tool calls evaluated, ${skippedN} not (${events + skippedN > 0 ? ((100 * skippedN) / (events + skippedN)).toFixed(1) : '0'}%)`,
+        skippedNote(skipped),
+        `trajectories with no evaluable tool call: ${empty.length} (hacked ${empty.filter(t => t.hacked).length} / benign ${empty.filter(t => !t.hacked).length})`,
       ],
     }
   },
