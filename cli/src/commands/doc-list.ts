@@ -11,6 +11,7 @@ import {
   paginate,
   parsePageArgs,
 } from '../lib/pagination'
+import { docHandle } from '../lib/doc-handle'
 
 export interface ListDocOptions {
   scope?: string
@@ -23,6 +24,8 @@ export interface ListDocOptions {
 
 interface DocRow {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   visibility: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
   project: { name: string } | null
@@ -38,11 +41,12 @@ function visibilityLabel(v: DocRow['visibility'] | null | undefined): string {
   return v
 }
 
-const DOC_HEADER = ['ID', 'SCOPE', 'PROJECT', 'TITLE']
+const DOC_HEADER = ['REF', 'SCOPE', 'PROJECT', 'TITLE']
 
 function docCells(row: DocRow, indent = ''): string[] {
   return [
-    row.id,
+    // LUM-1230: the slug every doc command takes; --json keeps the id.
+    docHandle(row.id, row.slug),
     visibilityLabel(row.visibility),
     sanitizeField(row.project?.name ?? '-'),
     `${indent}${sanitizeField(row.title)}`,

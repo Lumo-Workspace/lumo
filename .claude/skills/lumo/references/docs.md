@@ -44,7 +44,7 @@ Use this when the user wants to write a new document from the terminal. Title is
 | `--task <LUM-N>`   | string              | Bind to this task immediately after create.                                                                      |
 | `--tag <name>`     | string (repeatable) | Attach tag by name. Creates tag if missing. Max 20 per call.                                                     |
 | `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
-| `--parent <doc>`   | string              | cuid or case-insensitive title. Files the new doc under this parent. Omit for root.                              |
+| `--parent <doc>`   | string              | slug, case-insensitive title or cuid. Files the new doc under this parent. Omit for root.                        |
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one. **`--file` is sandboxed:** the CLI rejects a path that resolves outside the current project directory (parent-traversal, absolute, escaping symlinks) or matches a sensitive-file denylist (`.env*`, private keys, `*.pem`/`*.key`, `credentials`, `.ssh`/`.aws` contents, …). Pass only project-local, non-secret files; there is no override flag.
 
@@ -60,11 +60,11 @@ lumo doc create "Sub-doc" --parent "RFC"
 Success output:
 
 ```
-Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42
+Created rfc-doc-cli-42 "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42
 Tags: rfc, draft
 ```
 
-The cuid (`cmd_xxx`) is still printed as a stable identifier you can pass back into other `lumo doc ...` commands; the URL switched to the per-workspace slug shape (`slugify(title)-<number>`) and the cuid is no longer a valid web URL. The `Tags:` line is omitted when no tags were attached.
+The doc is named by its slug (`slugify(title)-<number>`, the segment of its web URL — LUM-1230), which every `lumo doc ...` command accepts as `<doc>`; the cuid is no longer printed (it still works as input). The `Tags:` line is omitted when no tags were attached.
 
 ### When to suggest `doc create`
 
@@ -73,7 +73,7 @@ The cuid (`cmd_xxx`) is still printed as a stable identifier you can pass back i
 
 ## `lumo doc update <doc> [flags]` — update a document
 
-`<doc>` accepts a cuid or a case-insensitive title. Ambiguous titles fail with a candidate list — re-run with the cuid.
+`<doc>` accepts the slug (`<title>-<number>`, as in the web URL and `doc list` column 1), a case-insensitive title or the cuid. An old slug from before a rename still works (the `-<number>` tail is stable). Ambiguous titles fail with a candidate list by slug — re-run with the slug. Every `lumo doc` command names the doc by its slug in its output.
 
 | Flag                     | Type                | Notes                                                                                                                                                                       |
 | ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,7 +120,7 @@ lumo doc update RFC --tag final --add-tag oops
 
 ## `lumo doc list [flags]` — list documents
 
-Default behavior: lists every document the current user can see, as table rows: `<cuid>  <SCOPE>  <project|->  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
+Default behavior: lists every document the current user can see, as table rows: `<slug>  <SCOPE>  <project|->  <title>` (header `REF`; the slug is what `<doc>` takes), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the slug.
 
 | Flag              | Type    | Notes                                                                                  |
 | ----------------- | ------- | -------------------------------------------------------------------------------------- |
@@ -146,12 +146,12 @@ lumo doc list --scope workspace --tree
 
 ## `lumo doc move <doc> [flags]` — move a doc under a different parent or to root
 
-Reparents a doc. `<doc>` accepts a cuid or a case-insensitive title; ambiguous titles fail with a candidate list.
+Reparents a doc. `<doc>` accepts the slug, a case-insensitive title or the cuid; ambiguous titles fail with a candidate list.
 
-| Flag             | Type    | Notes                                            |
-| ---------------- | ------- | ------------------------------------------------ |
-| `--parent <doc>` | string  | New parent doc (cuid or case-insensitive title). |
-| `--root`         | boolean | Move to top level (`parentId = null`).           |
+| Flag             | Type    | Notes                                                  |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `--parent <doc>` | string  | New parent doc (slug, case-insensitive title or cuid). |
+| `--root`         | boolean | Move to top level (`parentId = null`).                 |
 
 `--parent` and `--root` are **mutually exclusive** and one is **required** (CLI errors before any network call otherwise). The new `sortOrder` is computed CLI-side as `max(sibling.sortOrder) + 1` — the moved doc lands at the end of its new sibling list. Reordering among siblings (`--before` / `--after`) is not yet supported; use the Web UI.
 

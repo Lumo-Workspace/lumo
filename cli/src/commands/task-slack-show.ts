@@ -6,13 +6,15 @@ import {
   type SlackSnapshotMessage,
 } from '../lib/tier2-render'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { sanitizeField } from '../lib/sanitize'
+import { refLookupError } from '../lib/ref-error'
 
 interface SlackSnapshot {
   messages?: SlackSnapshotMessage[]
 }
 
 /**
- * `lumo task slack show <LUM-N> <context-id>`
+ * `lumo task slack show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline Slack card. Fetches the stored thread
  * snapshot (no live Slack call) from
@@ -25,7 +27,7 @@ export async function taskSlackShow(
   contextId: string | undefined
 ): Promise<number | void> {
   if (!identifier || !contextId) {
-    console.error('Error: usage: lumo task slack show <LUM-42> <context-id>')
+    console.error('Error: usage: lumo task slack show <LUM-42> <ref>')
     return 1
   }
 
@@ -54,6 +56,17 @@ export async function taskSlackShow(
     console.error(errAuth())
     return 1
   }
+  // LUM-1230: an ambiguous (409) or too-short (400) short ref — the server
+  // message lists the candidates / the minimum length.
+  if (res.status === 409 || res.status === 400) {
+    console.error(
+      await refLookupError(
+        res,
+        `could not resolve Slack context "${sanitizeField(contextId)}"`
+      )
+    )
+    return 1
+  }
   if (res.status === 404) {
     console.error(
       `Error: task ${identifier} or slack context ${contextId} not found in workspace ${creds.workspaceSlug}`
@@ -65,14 +78,19 @@ export async function taskSlackShow(
     return 1
   }
 
-  const { snapshot, redactedSecrets } = (await res.json()) as {
+  const { id, snapshot, redactedSecrets } = (await res.json()) as {
+    /** LUM-1230: the resolved context id (absent on an older server). */
+    id?: string
     snapshot: SlackSnapshot | null
     redactedSecrets?: number
   }
   // LUM-998: fenced + guarded; the redaction count is the first notice.
   console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
 
-  // LUM-500: stamp the disclosure funnel. The contextId arg == lineage
-  // SLACK_CONTEXT fragmentId. Fire-and-forget — never blocks, swallows failures.
-  await reportPull({ fragmentType: 'SLACK_CONTEXT', fragmentId: contextId })
+  // LUM-500: stamp the disclosure funnel with the lineage SLACK_CONTEXT
+  // fragmentId — the resolved id, not a short ref (LUM-1230). Fire-and-forget.
+  await reportPull({
+    fragmentType: 'SLACK_CONTEXT',
+    fragmentId: id ?? contextId,
+  })
 }

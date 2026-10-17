@@ -20,7 +20,7 @@ describe('assertSameTeam', () => {
         { id: 'sp-1', number: 5, name: 'Sprint 5', teamId: 'team-abc' }
       )
     ).toThrow(
-      'Sprint binding skipped: sprint #5 belongs to team "team-abc", task belongs to "team-xyz"'
+      'Sprint binding skipped: sprint #5 belongs to a different team than LUM-1'
     )
   })
 })

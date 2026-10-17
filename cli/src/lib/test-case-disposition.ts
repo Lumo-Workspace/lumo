@@ -170,7 +170,7 @@ export function describeDefectRead(
 ): string[] {
   const lines = [
     `Will rule on ${subject.caseHandle} "${subject.caseTitle}" — its latest run proved an implementation defect`,
-    `Run ${subject.runId} recorded ${subject.recordedAt} with ${subject.evidenceCount} evidence entr${
+    `Latest run recorded ${subject.recordedAt} with ${subject.evidenceCount} evidence entr${
       subject.evidenceCount === 1 ? 'y' : 'ies'
     }`,
     `Ruling to record: ${RULING_WORD[ownerKind][target]}`,

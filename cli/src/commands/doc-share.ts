@@ -4,6 +4,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 const ALLOWED_ROLES = ['VIEWER', 'EDITOR', 'MANAGER'] as const
 type Role = (typeof ALLOWED_ROLES)[number]
@@ -95,6 +96,6 @@ export async function docShare(
   }
 
   console.log(
-    `Shared ${docId} ↔ ${sanitizeField(result.member.displayName)} (${role})`
+    `Shared ${docHandle(docId)} ↔ ${sanitizeField(result.member.displayName)} (${role})`
   )
 }

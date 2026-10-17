@@ -89,7 +89,8 @@ export async function tagCreate(
   process.stdout.write(formatCreatedTagLine(r.data.tag) + '\n')
 }
 
-/** LUM-1092: `Created tag "<name>"  <id>` (was `(<id>)`). */
+/** LUM-1092: `Created tag "<name>"`. LUM-1230: tags are referenced by
+ *  name (`--tag <name>`), so the cuid is not printed. */
 export function formatCreatedTagLine(tag: {
   id: string
   name: string
@@ -98,6 +99,5 @@ export function formatCreatedTagLine(tag: {
     verb: 'Created',
     kind: 'tag',
     title: tag.name,
-    id: tag.id,
   })
 }

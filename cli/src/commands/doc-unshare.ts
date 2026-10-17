@@ -4,6 +4,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 interface ShareListResponse {
   shares: Array<{
@@ -83,5 +84,7 @@ export async function docUnshare(
     console.error(errHttp('doc unshare', delRes.status, text))
     return 1
   }
-  console.log(`Unshared ${docId} ↔ ${sanitizeField(result.member.displayName)}`)
+  console.log(
+    `Unshared ${docHandle(docId)} ↔ ${sanitizeField(result.member.displayName)}`
+  )
 }

@@ -22,13 +22,13 @@ export async function taskArtifactUpdate(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <task>. Usage: lumo task artifact update <LUM-42> <artifact> --kind plan'
     )
     return 1
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact-id>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <artifact>. Usage: lumo task artifact update <LUM-42> <artifact> --kind plan'
     )
     return 1
   }

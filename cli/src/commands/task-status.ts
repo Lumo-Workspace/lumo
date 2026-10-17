@@ -44,6 +44,7 @@ import {
 } from '../lib/task-test-cases-read'
 import { formatTestCasesSummary } from '../lib/test-case-report'
 import { formatListRow } from './task-testcase-list'
+import { shortRef } from '../../../shared/src/short-ref'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -421,8 +422,8 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
           value: `${sanitizeField(where)} · PR #${a.prNumber}`,
         },
         { label: 'Gate', value: `${gate}${note}` },
-        // LUM-1128: the id `lumo finding disposition` takes.
-        { label: 'Id', value: sanitizeField(a.findingId) },
+        // LUM-1128 / LUM-1230: the short ref `lumo finding disposition` takes.
+        { label: 'Ref', value: sanitizeField(shortRef(a.findingId)) },
       ],
       4,
       opts

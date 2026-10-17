@@ -34,7 +34,7 @@ lumo sprint create --start 2026-06-01 --end 2026-06-14
 lumo sprint create --name "Sprint 4" --start 2026-06-01 --end 2026-06-14 --team backend
 ```
 
-On success: `Created sprint #<number> "<name>"  <id>`.
+On success: `Created sprint #<number> "<name>"` (`#<number>` is the handle every sprint command takes).
 
 When to suggest: user says "create a sprint", "new sprint", "start a new iteration".
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTaskResourceRef } from '@/lib/services/task-resource-ref.service'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository, taskSlackContextRepository } from '@/lib/repositories'
 import { redactSlackSnapshotForInjection } from '@/lib/security-scan/inject-guard'
@@ -54,10 +55,16 @@ export async function GET(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, contextId } = await params
+    const { id: rawId, contextId: contextIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const contextId = await resolveTaskResourceRef(
+      'slackContext',
+      task.id,
+      contextIdRef
+    )
 
     const context = await taskSlackContextRepository.getById(contextId)
     if (!context || context.taskId !== task.id)
@@ -69,7 +76,8 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { snapshot, redactedSecrets } = redactSlackSnapshotForInjection(
       context.snapshot
     )
-    return NextResponse.json({ snapshot, redactedSecrets })
+    // LUM-1230: `id` (additive) is the resolved context id for the lineage pull.
+    return NextResponse.json({ id: context.id, snapshot, redactedSecrets })
   } catch (err) {
     return errorResponse(
       err,

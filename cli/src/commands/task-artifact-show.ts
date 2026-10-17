@@ -2,7 +2,9 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { refLookupError } from '../lib/ref-error'
 
 interface Artifact {
   id: string
@@ -22,13 +24,13 @@ export async function taskArtifactShow(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact show <LUM-42> <artifact-id>'
+      'Error: missing <task>. Usage: lumo task artifact show <LUM-42> <artifact>'
     )
     return 1
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact-id>. Usage: lumo task artifact show <LUM-42> <artifact-id>'
+      'Error: missing <artifact>. Usage: lumo task artifact show <LUM-42> <artifact>'
     )
     return 1
   }
@@ -57,6 +59,17 @@ export async function taskArtifactShow(
     console.error(errAuth())
     return 1
   }
+  // LUM-1230: an ambiguous (409) or too-short (400) short ref — the server
+  // message lists the candidates / the minimum length.
+  if (res.status === 409 || res.status === 400) {
+    console.error(
+      await refLookupError(
+        res,
+        `could not resolve artifact "${sanitizeField(artifactId)}"`
+      )
+    )
+    return 1
+  }
   if (res.status === 404) {
     let serverMsg = `task ${identifier} or artifact ${artifactId} not found in workspace ${creds.workspaceSlug}`
     try {
@@ -74,7 +87,7 @@ export async function taskArtifactShow(
   }
 
   const { artifact } = (await res.json()) as { artifact: Artifact }
-  process.stdout.write(`id:     ${artifact.id}\n`)
+  process.stdout.write(`ref:    ${shortRef(artifact.id)}\n`)
   process.stdout.write(`kind:   ${sanitizeField(artifact.kind)}\n`)
   process.stdout.write(`title:  ${sanitizeField(artifact.title)}\n`)
   process.stdout.write(`source: ${sanitizeField(artifact.source)}\n`)

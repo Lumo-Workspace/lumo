@@ -1,3 +1,4 @@
+import { shortRef } from '@/shared/src/short-ref'
 export interface WebLinkCard {
   id: string
   url: string
@@ -22,7 +23,7 @@ export function webLinkCard(l: WebLinkCard, identifier: string): string {
   const lines: string[] = [titleLine]
   const body = l.note ?? l.description
   if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
-  lines.push(`  ↳ body: lumo task web show ${identifier} ${l.id}`)
+  lines.push(`  ↳ body: lumo task web show ${identifier} ${shortRef(l.id)}`)
   return lines.join('\n')
 }
 
@@ -48,7 +49,7 @@ function truncateDescriptor(text: string, max = 70): string {
 export function webLinkManifest(l: WebLinkCard, identifier: string): string {
   const title = truncateDescriptor(l.title ?? '')
   const descriptor = title ? `${title} — ${l.domain}` : `${l.url} — ${l.domain}`
-  return `- [external:web] ${descriptor} → lumo task web show ${identifier} ${l.id}`
+  return `- [external:web] ${descriptor} → lumo task web show ${identifier} ${shortRef(l.id)}`
 }
 
 /**

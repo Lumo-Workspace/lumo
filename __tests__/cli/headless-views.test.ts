@@ -212,12 +212,13 @@ describe('drafts', () => {
       '(untitled)',
     ])
   })
-  it('formatDraftList: id-first rows in server order', () => {
+  it('formatDraftList: rows in server order, no id column (LUM-1230)', () => {
     const text = formatDraftList(drafts, { tty: false, color: false })
     const rows = text.split('\n')
     expect(rows).toHaveLength(3)
-    expect(rows[0]).toMatch(/^d1\s+TASK\s+.+\s+Add OAuth$/)
-    expect(rows[1]).toMatch(/^d2\s+PROJECT\s+.+\s+Apollo$/)
+    expect(rows[0]).toMatch(/^TASK\s+.+\s+Add OAuth$/)
+    expect(rows[1]).toMatch(/^PROJECT\s+.+\s+Apollo$/)
+    expect(text).not.toMatch(/\bd1\b|\bd2\b/)
     expect(formatDraftList([])).toBe('No drafts.')
   })
 })

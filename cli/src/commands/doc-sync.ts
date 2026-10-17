@@ -3,14 +3,19 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 interface SyncedDocResponse {
-  document: { id: string; title: string }
+  document: { id: string; slug?: string | null; title: string }
 }
 
-export function formatSyncedLine(doc: { id: string; title: string }): string {
+export function formatSyncedLine(doc: {
+  id: string
+  slug?: string | null
+  title: string
+}): string {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
-  return `Synced ${doc.id} "${escaped}" from Google`
+  return `Synced ${docHandle(doc.id, doc.slug)} "${escaped}" from Google`
 }
 
 export async function docSync(reference: string): Promise<number | void> {

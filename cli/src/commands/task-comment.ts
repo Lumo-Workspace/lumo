@@ -2,7 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { apiContext } from '../lib/test-case-api'
-import { fetchThread, pickComment } from '../lib/comment-ref'
+import { fetchThread, pickComment, shortCommentId } from '../lib/comment-ref'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ResolveResponse {
@@ -154,7 +154,7 @@ export async function taskComment(
   const data = (await postRes.json()) as CommentResponse
   process.stdout.write(
     parentId
-      ? `Replied on ${resolved.identifier} to #${parentId.slice(0, 8)}  (comment ${data.comment.id})\n`
-      : `Commented on ${resolved.identifier}  (comment ${data.comment.id})\n`
+      ? `Replied on ${resolved.identifier} to #${shortCommentId(parentId)}  (comment #${shortCommentId(data.comment.id)})\n`
+      : `Commented on ${resolved.identifier}  (comment #${shortCommentId(data.comment.id)})\n`
   )
 }

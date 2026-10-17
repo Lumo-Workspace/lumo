@@ -27,7 +27,7 @@ Other
 
 ### `lumo draft list [--json]` — your drafts
 
-Your own task / project drafts the web composer saved (never another member's), newest first: `ID  TYPE  UPDATED  TITLE` (header on a TTY only).
+Your own task / project drafts the web composer saved (never another member's), newest first: `TYPE  UPDATED  TITLE` (header on a TTY only; no command takes a draft id, so none is printed — `--json` keeps it).
 
 ```bash
 lumo draft list

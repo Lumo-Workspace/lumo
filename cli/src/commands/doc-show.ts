@@ -7,9 +7,12 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface ShowDocViewModel {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   scope: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
   projectName: string | null
@@ -29,7 +32,7 @@ function scopeLabel(s: ShowDocViewModel['scope']): string {
 
 export function formatShowOutput(vm: ShowDocViewModel): string {
   const lines = [
-    `ID: ${vm.id}`,
+    `Ref: ${docHandle(vm.id, vm.slug)}`,
     `Title: ${sanitizeField(vm.title)}`,
     `Scope: ${scopeLabel(vm.scope)}`,
     `Project: ${vm.projectName ? sanitizeField(vm.projectName) : NONE}`,
@@ -47,8 +50,8 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
   // `--raw` for the whole source — which are NEVER capped (they are edit bases).
   return capRenderedOutput(full, {
     fetchHint:
-      `read one section with: lumo doc show ${vm.id} --section "<heading>", ` +
-      `or the full markdown source with: lumo doc show ${vm.id} --raw`,
+      `read one section with: lumo doc show ${docHandle(vm.id, vm.slug)} --section "<heading>", ` +
+      `or the full markdown source with: lumo doc show ${docHandle(vm.id, vm.slug)} --raw`,
     unitNoun: 'lines',
   }).text
 }
@@ -63,6 +66,8 @@ export interface ShowDocOptions {
 /** The document shape `GET /api/documents/:id` returns (defensively partial). */
 export interface DocShowDocument {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   visibility?: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
   content?: string | null
@@ -108,10 +113,10 @@ export function selectDocShowOutput(
       return {
         kind: 'error',
         message:
-          `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `Error: ${docHandle(d.id, d.slug)} has no stored markdown source (last edit was HTML-direct ` +
           `or predates markdown source storage). --raw refuses to fall back to the ` +
-          `lossy HTML→markdown render. Rebuild a base instead: run \`lumo doc show ${d.id}\`, ` +
-          `reconstruct the markdown faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\` ` +
+          `lossy HTML→markdown render. Rebuild a base instead: run \`lumo doc show ${docHandle(d.id, d.slug)}\`, ` +
+          `reconstruct the markdown faithfully, then \`lumo doc update ${docHandle(d.id, d.slug)} --file <rebuilt.md>\` ` +
           `— from then on --raw works.`,
       }
     }
@@ -124,10 +129,10 @@ export function selectDocShowOutput(
       return {
         kind: 'error',
         message:
-          `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `Error: ${docHandle(d.id, d.slug)} has no stored markdown source (last edit was HTML-direct ` +
           `or predates markdown source storage), so --section cannot slice it. ` +
-          `Rebuild a base first: run \`lumo doc show ${d.id}\`, reconstruct the markdown ` +
-          `faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\`.`,
+          `Rebuild a base first: run \`lumo doc show ${docHandle(d.id, d.slug)}\`, reconstruct the markdown ` +
+          `faithfully, then \`lumo doc update ${docHandle(d.id, d.slug)} --file <rebuilt.md>\`.`,
       }
     }
     const match = findSection(d.sourceMarkdown, opts.section)
@@ -191,6 +196,7 @@ export function selectDocShowOutput(
     kind: 'rendered',
     text: formatShowOutput({
       id: d.id,
+      slug: d.slug ?? null,
       title: d.title,
       scope: d.visibility ?? 'PRIVATE',
       projectName: d.project?.name ?? null,

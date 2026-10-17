@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 import {
   emitConfirmation,
   isConfirmed,
@@ -33,7 +34,7 @@ export function describeArtifactRm(
 ): string[] {
   const title = sanitizeField(artifact.title).replace(/"/g, '\\"')
   return [
-    `Will delete artifact ${artifact.id} "${title}" (${artifact.kind}) from ${identifier}`,
+    `Will delete artifact ${shortRef(artifact.id)} "${title}" (${artifact.kind}) from ${identifier}`,
     'Artifact deletion is irreversible',
   ]
 }
@@ -45,13 +46,13 @@ export async function taskArtifactRm(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact rm <LUM-42> <artifact-id> --confirm'
+      'Error: missing <task>. Usage: lumo task artifact rm <LUM-42> <artifact> --confirm'
     )
     return 1
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact-id>. Usage: lumo task artifact rm <LUM-42> <artifact-id> --confirm'
+      'Error: missing <artifact>. Usage: lumo task artifact rm <LUM-42> <artifact> --confirm'
     )
     return 1
   }

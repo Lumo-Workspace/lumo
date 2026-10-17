@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export async function docUnbind(
   docRef: string | undefined,
@@ -43,8 +44,8 @@ export async function docUnbind(
   }
   const data = (await res.json()) as { removed: number; taskIdentifier: string }
   if (data.removed === 0) {
-    console.log(`Already unbound ${docId} ↔ ${data.taskIdentifier}`)
+    console.log(`Already unbound ${docHandle(docId)} ↔ ${data.taskIdentifier}`)
   } else {
-    console.log(`Unbound ${docId} ↔ ${data.taskIdentifier}`)
+    console.log(`Unbound ${docHandle(docId)} ↔ ${data.taskIdentifier}`)
   }
 }

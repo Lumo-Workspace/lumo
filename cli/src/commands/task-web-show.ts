@@ -6,7 +6,7 @@ import { formatWebBody } from '../lib/tier2-render'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 /**
- * `lumo task web show <LUM-N> <link-id>`
+ * `lumo task web show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline WebLink card. Fetches the page body
  * (cached, or fetched behind the SSRF guard on first read) from
@@ -17,7 +17,7 @@ export async function taskWebShow(
   linkId: string | undefined
 ): Promise<number | void> {
   if (!identifier || !linkId) {
-    console.error('Error: usage: lumo task web show <LUM-42> <link-id>')
+    console.error('Error: usage: lumo task web show <LUM-42> <ref>')
     return 1
   }
 
@@ -68,14 +68,16 @@ export async function taskWebShow(
     return 1
   }
 
-  const { body, redactedSecrets } = (await res.json()) as {
+  const { id, body, redactedSecrets } = (await res.json()) as {
+    /** LUM-1230: the resolved link id (absent on an older server). */
+    id?: string
     body: string | null
     redactedSecrets?: number
   }
   // LUM-998: fenced + guarded; the redaction count is the first notice.
   console.log(formatWebBody(body, redactedSecrets))
 
-  // LUM-500: stamp the disclosure funnel. The linkId arg == lineage WEB_LINK
-  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
-  await reportPull({ fragmentType: 'WEB_LINK', fragmentId: linkId })
+  // LUM-500: stamp the disclosure funnel with the lineage WEB_LINK fragmentId —
+  // the resolved id, not a short ref (LUM-1230). Fire-and-forget.
+  await reportPull({ fragmentType: 'WEB_LINK', fragmentId: id ?? linkId })
 }

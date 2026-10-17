@@ -134,7 +134,7 @@ export async function testCaseDispositionInScope(
   }
   if (latest.disposition) {
     process.stdout.write(
-      `${handle} run ${latest.id} is already dispositioned (${latest.disposition.disposition}) — nothing to do.\n`
+      `${handle}'s latest run is already dispositioned (${latest.disposition.disposition}) — nothing to do.\n`
     )
     return
   }
@@ -226,7 +226,7 @@ export async function testCaseDispositionInScope(
   if (!wrote.ok) return 1
 
   process.stdout.write(
-    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. ${
+    `Dispositioned ${subject.caseHandle}'s latest run: ${ruling.target}. ${
       scope.kind === 'task'
         ? 'That run no longer blocks DONE.'
         : ruling.target === 'KNOWN_DEFECT'

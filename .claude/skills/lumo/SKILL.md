@@ -61,7 +61,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
 - `lumo task context <id> [--full]` — task background (memory headlines → `lumo memory show <ref>`, sources, PR review todos, prior sessions); `--full` = memory bodies
-- `lumo task slack show <id> <contextId>` · `lumo task web show <id> <linkId>` · `lumo task figma context <id> <linkId>` — stored Slack thread / web link body / Figma metadata
+- `lumo task slack show <id> <ref>` · `lumo task web show <id> <ref>` · `lumo task figma context <id> <ref>` (`<ref>` = 8-char short ref from the `task context` card) — stored Slack thread / web link body / Figma metadata
 - `lumo task comments list <id> [--full]` — read the comment thread (≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata
 - `lumo task lineage <id> [--signal]` — read-only causal-trail audit: fragments, run cost, disclosure funnel, Top-5 operations

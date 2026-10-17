@@ -65,7 +65,8 @@ export function assertSameTeam(
 ): void {
   if (task.teamId !== sprint.teamId) {
     throw new Error(
-      `Sprint binding skipped: sprint #${sprint.number} belongs to team "${sprint.teamId}", task belongs to "${task.teamId}"`
+      // LUM-1230: team ids are internal — name the conflict, not the uuids.
+      `Sprint binding skipped: sprint #${sprint.number} belongs to a different team than ${task.identifier}`
     )
   }
 }

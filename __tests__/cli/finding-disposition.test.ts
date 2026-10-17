@@ -214,12 +214,14 @@ describe('finding disposition — envelope (no --confirm)', () => {
   })
 
   it('an id not on the task fails closed — no envelope, nothing written', async () => {
-    const code = await findingDisposition(['f1', 'nope'], {
+    const code = await findingDisposition(['f1', 'nopenope'], {
       falsePositive: true,
     })
     expect(code).toBe(1)
     expect(stdout.join('')).toBe('')
-    expect(stderr.join('\n')).toContain('nope not found on LUM-741')
+    expect(stderr.join('\n')).toContain(
+      'finding nopenope not found on LUM-741 — nothing was written'
+    )
     expect(writes()).toHaveLength(0)
   })
 

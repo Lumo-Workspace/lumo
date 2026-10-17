@@ -203,7 +203,7 @@ describe('mutating commands append the status digest', () => {
       confirm: true,
       receipt: 'r2.1.2.3.sig',
     })
-    expect(out.join('')).toContain('Dispositioned LUM-5/TC1 run run-1')
+    expect(out.join('')).toContain("Dispositioned LUM-5/TC1's latest run")
     expectEndsWithDigest()
   })
 
