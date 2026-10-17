@@ -264,10 +264,10 @@ describe('overview formatting', () => {
       'BACKLOG 0 · TODO 3 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 4 · CANCELLED 1'
     )
   })
-  it('avgCompletionLabel: a duration (days from 48h on), - when unmeasured', () => {
+  it('avgCompletionLabel: hours and minutes (never days), - when unmeasured', () => {
     // LUM-1232 N-3 / V-1: never fractional hours, never N/A.
     expect(avgCompletionLabel(12.345)).toBe('12h 21m')
-    expect(avgCompletionLabel(1301.1)).toBe('54d 5h')
+    expect(avgCompletionLabel(1301.1)).toBe('1301h 6m')
     expect(avgCompletionLabel(null)).toBe('-')
   })
   it('idleDaysSince: whole days, - when absent', () => {

@@ -491,11 +491,23 @@ After:
   Tokens:     11.7M (input 70 · output 13.5K · cache read 11.7M · cache write 27.2K)
 ```
 
-### N-3. Durations use s / m / h / d
+### N-3. Durations use s / m / h — never days
 
-`45s`, `12m`, `2h 14m`, `3h`; from 48 hours on, days and hours: `54d 5h`. Never fractional hours.
+`45s`, `12m`, `2h 14m`, `3h`; from 48 hours on, always hours and minutes: `80h 19m`, `1301h 0m`. Never days and never fractional hours, so an agent can compare and add durations directly ([Q8](#q8-durations-stay-in-hours-and-minutes)).
 
-Helper: `formatDuration()` (existing; the day unit is new in batch D).
+Helper: `formatDuration()`, `formatDurationHours()` in `format.ts` (existing).
+
+Before (`lumo sprint show 13`, batch D output):
+
+```
+  Total:  8.2B tokens · 3d 8h agent time · 944 runs  (measured on 190 tasks)
+```
+
+After:
+
+```
+  Total:  8.2B tokens · 80h 19m agent time · 944 runs  (measured on 190 tasks)
+```
 
 Before (`lumo project overview`):
 
@@ -506,7 +518,7 @@ Avg completion:  1301.1h
 After:
 
 ```
-Avg completion:  54d 5h
+Avg completion:  1301h 6m
 ```
 
 ### N-4. Percentages and ratios
@@ -1294,7 +1306,7 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 | Lists                | `renderListTable`, `flexColumnCap` (`list-table.ts`); `renderTable` (`ui.ts`)                                                             | TAB separator for pipes, `childRows` (A)                                                              |
 | Details              | `kvBlock` (`ui.ts`); `sectionHeading`, `wrapLines`, `fieldLines` (`report-layout.ts`); `taskTableSection` (`detail-layout.ts`)            | `detailHeader`; no wrap when not a TTY (B)                                                            |
 | Time                 | `fmtCalendarDay`, `fmtDay`, `fmtTimestamp`, `relativeTime` (retired in D) (`format.ts`)                                                   | `fmtInstant`, `fmtDayRange` (D)                                                                       |
-| Numbers              | `fmtTokens`, `fmtCount`, `formatDuration` (`format.ts`)                                                                                   | days in `formatDuration`, `fmtPercent`, `{ tty }` on `fmtCount` (D)                                   |
+| Numbers              | `fmtTokens`, `fmtCount`, `formatDuration` (`format.ts`)                                                                                   | `formatDuration` stays in hours above 48h (Q8), `fmtPercent`, `{ tty }` on `fmtCount` (D)             |
 | Enums                | `milestone-labels.ts`                                                                                                                     | `fmtEnum` (D)                                                                                         |
 | Empty values         | `NONE`, `orNone` (`format.ts`)                                                                                                            | —                                                                                                     |
 | Symbols              | `icons` (`ui.ts`)                                                                                                                         | `separator`, `child`, `ellipsis`, `count` icons (D)                                                   |
@@ -1326,7 +1338,7 @@ The per-item audit list (location, current output, rule, batch) is attached to t
 
 ## 17. Decisions
 
-The review draft listed seven open questions. The user decided all of them on 2026-10-18; the rulings are recorded with `lumo task decide` on LUM-1232. Q2 differs from the draft's recommendation; the others follow it.
+The review draft listed seven open questions. The user decided all of them on 2026-10-18; the rulings are recorded with `lumo task decide` on LUM-1232. Q2 differs from the draft's recommendation; the others follow it. Q8 was added on the same day, after batch D shipped durations in days.
 
 ### Q1. Piped lists are tab-separated
 
@@ -1362,3 +1374,8 @@ The review draft listed seven open questions. The user decided all of them on 20
 ### Q7. `task runs` and `task lineage` use the detail layout
 
 - **Decision (2026-10-18):** both move from Markdown to the plain detail layout (D-1–D-3). `task context` keeps Markdown, because its output is meant to be pasted into a model's context.
+
+### Q8. Durations stay in hours and minutes
+
+- **Decision (2026-10-18, after batch D):** a duration of 48 hours or more prints as hours and minutes — `80h 19m`, `1301h 6m` — never as days (`3d 8h`, `54d 5h`). Below 48 hours the forms are unchanged (`45s`, `12m`, `2h 14m`, `3h`) (N-3).
+- **Why:** agents compare and add durations; one unit above a minute keeps that a string-to-number step instead of a calendar conversion.
