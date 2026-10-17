@@ -55,7 +55,7 @@ describe('GET /api/memories/[memoryId] with a short ref', () => {
     })
     const res = await GET(req(), params('kp5brom5'))
     expect(res.status).toBe(200)
-    expect(repo.findIdsMatchingRef).toHaveBeenCalledWith('w1', 'kp5brom5')
+    expect(repo.findIdsMatchingRef).toHaveBeenCalledWith('w1', 'kp5brom5', 11)
     expect(repo.findByIdWithWorkspace).toHaveBeenCalledWith(FULL)
   })
 
@@ -75,7 +75,7 @@ describe('GET /api/memories/[memoryId] with a short ref', () => {
     repo.findIdsMatchingRef.mockResolvedValue([])
     const res = await GET(req(), params('kp5brom5'))
     expect(res.status).toBe(404)
-    expect(repo.findIdsMatchingRef).toHaveBeenCalledWith('w1', 'kp5brom5')
+    expect(repo.findIdsMatchingRef).toHaveBeenCalledWith('w1', 'kp5brom5', 11)
     expect(repo.findByIdWithWorkspace).not.toHaveBeenCalled()
   })
 
@@ -92,10 +92,24 @@ describe('GET /api/memories/[memoryId] with a short ref', () => {
     expect(repo.findByIdWithWorkspace).not.toHaveBeenCalled()
   })
 
-  it('400 when the ref is shorter than 6 characters', async () => {
-    repo.findIdsMatchingRef.mockResolvedValue([])
+  it('400 when the ref is shorter than 6 characters — without a DB query', async () => {
     const res = await GET(req(), params('kp5b'))
     expect(res.status).toBe(400)
+    expect(repo.findIdsMatchingRef).not.toHaveBeenCalled()
+  })
+
+  it('a capped candidate list says "more than", not an exact count', async () => {
+    repo.findIdsMatchingRef.mockResolvedValue(
+      Array.from({ length: 11 }, (_, i) => ({
+        id: `cmprcce99003304jrkp5b${String(i).padStart(4, '0')}`,
+        category: 'TRAP',
+      }))
+    )
+    const res = await GET(req(), params('cmprcce99'))
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toContain('matches more than 10, including')
+    expect(body.error).not.toContain('cmprcce99003304jrkp5b0010')
   })
 })
 

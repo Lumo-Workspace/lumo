@@ -22,25 +22,32 @@ export type MilestoneMatch<T extends MilestoneLike> =
   | { kind: 'not-found' }
 
 /**
- * Pure: id exact → else slug (exact, as the web URL prints it) → else name
- * (case-insensitive). The slug tier comes first because a slug is the
- * unique handle within a project — so `beta` picks the milestone whose slug
- * is `beta` even when two milestones are both *named* "Beta" (typing `Beta`
- * is a name and stays ambiguous). Within a tier, more than one hit (a name
- * reused, or one slug in two projects) is ambiguous.
+ * Pure: id exact → else the slug typed exactly as the web URL prints it →
+ * else every case-insensitive slug or name match. An exact slug wins
+ * outright because a slug is the unique handle within a project — `beta`
+ * picks the milestone whose slug is `beta` even when two milestones are both
+ * *named* "Beta". Anything looser (`Beta`, `HEADLESS-WEB-CLI`) pools slug and
+ * name hits: one hit is found, more than one (a reused name, one slug in two
+ * projects) is ambiguous.
  */
 export function matchMilestoneRef<T extends MilestoneLike>(
   ref: string,
   milestones: readonly T[]
 ): MilestoneMatch<T> {
-  const byId = milestones.find(m => m.id === ref.trim())
+  const raw = ref.trim()
+  const byId = milestones.find(m => m.id === raw)
   if (byId) return { kind: 'found', milestone: byId }
-  const needle = ref.trim().toLowerCase()
-  const bySlug = milestones.filter(m => m.slug != null && m.slug === ref.trim())
+  const exactSlug = milestones.filter(m => m.slug != null && m.slug === raw)
+  if (exactSlug.length === 1) return { kind: 'found', milestone: exactSlug[0]! }
+  const needle = raw.toLowerCase()
   const hits =
-    bySlug.length > 0
-      ? bySlug
-      : milestones.filter(m => m.name.toLowerCase() === needle)
+    exactSlug.length > 1
+      ? exactSlug
+      : milestones.filter(
+          m =>
+            (m.slug != null && m.slug.toLowerCase() === needle) ||
+            m.name.toLowerCase() === needle
+        )
   if (hits.length === 0) return { kind: 'not-found' }
   if (hits.length === 1) return { kind: 'found', milestone: hits[0]! }
   return { kind: 'ambiguous', candidates: hits }

@@ -66,7 +66,9 @@ export function refMatchError<T>(
   ref: string,
   match: Exclude<RefMatch<T>, { kind: 'found' }>,
   idOf: (item: T) => string,
-  labelOf?: (item: T) => string
+  labelOf?: (item: T) => string,
+  /** The candidate list was capped, so more ids match than are listed. */
+  truncated = false
 ): string {
   switch (match.kind) {
     case 'too-short':
@@ -80,7 +82,10 @@ export function refMatchError<T>(
           return label ? `${idOf(c)} (${label})` : idOf(c)
         })
         .join(', ')
-      return `${noun} ref "${ref}" is ambiguous — it matches ${match.candidates.length}: ${list}. Re-run with one of these full ids`
+      const count = truncated
+        ? `more than ${match.candidates.length}, including`
+        : `${match.candidates.length}:`
+      return `${noun} ref "${ref}" is ambiguous — it matches ${count} ${list}. Re-run with one of these full ids${truncated ? ' (or a longer ref)' : ''}`
     }
   }
 }

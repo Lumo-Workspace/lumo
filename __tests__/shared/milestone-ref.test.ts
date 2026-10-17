@@ -27,6 +27,14 @@ describe('matchMilestoneRef (LUM-1230)', () => {
     })
   })
 
+  it('a slug typed in another case still resolves (was case-insensitive before)', () => {
+    const h = { id: 'm-h', name: 'Headless 化', slug: 'headless-web-cli' }
+    expect(matchMilestoneRef('HEADLESS-WEB-CLI', [h, A])).toEqual({
+      kind: 'found',
+      milestone: h,
+    })
+  })
+
   it('a shared name is ambiguous', () => {
     expect(matchMilestoneRef('Beta', [A, B, C])).toEqual({
       kind: 'ambiguous',
