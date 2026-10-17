@@ -191,8 +191,7 @@ export async function taskHistory(
       buildCommand(
         `task history ${shellQuote(sanitizeField(task.identifier))}`,
         [['--limit', opts.limit]]
-      ),
-      'earlier entries'
+      )
     ),
   ]
   process.stdout.write(lines.join('\n') + '\n')

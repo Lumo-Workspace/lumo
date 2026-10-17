@@ -41,7 +41,7 @@ describe('formatMilestoneShow', () => {
     expect(out).toContain(
       '  By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3'
     )
-    expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
+    expect(out).toContain('\nTasks (1)\n  LUM-42\tIN_PROGRESS')
   })
 
   it('LUM-1230: shows the slug (the ref to type), never the id', () => {

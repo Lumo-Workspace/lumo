@@ -149,9 +149,9 @@ test('tokens panel: per-task tokens, per-model split, coverage and budget match'
   expect(rows[1]).toContain('LUM-707')
   expect(rows[1]).toContain('82.3M')
   expect(cli).toMatch(
-    /LUM-497 +201\.2M tokens +reference-class anchors\n +claude-opus-5 168\.4M · claude-haiku-5 32\.8M/
+    /LUM-497\t201\.2M tokens\treference-class anchors\tclaude-opus-5 168\.4M · claude-haiku-5 32\.8M/
   )
-  expect(cli).toMatch(/LUM-707 +82\.3M tokens +deferred cleanups/)
+  expect(cli).toMatch(/LUM-707\t82\.3M tokens\tdeferred cleanups/)
   // Coverage + budget lines
   expect(screen.getByText('measured on 2 of 8 tasks')).toBeTruthy()
   expect(screen.getByTestId('token-budget-line').textContent).toContain(
@@ -167,8 +167,8 @@ test('active-time panel: per-task durations match', () => {
   const rows = rowFigures()
   expect(rows[0]).toContain('2h 5m')
   expect(rows[1]).toContain('54m')
-  expect(cli).toMatch(/LUM-497 +2h 5m +reference-class anchors/)
-  expect(cli).toMatch(/LUM-707 +54m +deferred cleanups/)
+  expect(cli).toMatch(/LUM-497\t2h 5m\treference-class anchors/)
+  expect(cli).toMatch(/LUM-707\t54m\tdeferred cleanups/)
 })
 
 test('PRs panel: PR counts, multi-PR (rework) and change volume match', () => {
@@ -183,7 +183,7 @@ test('PRs panel: PR counts, multi-PR (rework) and change volume match', () => {
   expect(second!.textContent).toContain('1 PR')
   expect(second!.textContent).toContain('No synced PRs')
   expect(cli).toMatch(
-    /LUM-497 +4 PRs +multi-PR +\+2\.1K\/−140 +reference-class anchors/
+    /LUM-497\t4 PRs\tmulti-PR\t\+2\.1K\/−140\treference-class anchors/
   )
-  expect(cli).toMatch(/LUM-707 +1 PR +no synced PRs +deferred cleanups/)
+  expect(cli).toMatch(/LUM-707\t1 PR\t\tno synced PRs\tdeferred cleanups/)
 })

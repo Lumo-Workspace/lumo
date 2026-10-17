@@ -43,7 +43,7 @@ import {
   type LayoutOptions,
 } from '../lib/report-layout'
 import { colorEnabled, terminalWidth } from '../lib/ui'
-import { fmtEnum } from '../lib/format'
+import { emptyState, fmtEnum } from '../lib/format'
 
 /**
  * `lumo task wrapup [task]` (LUM-841) — the whole wrap-up in one read.
@@ -245,7 +245,7 @@ function pushTestCases(
   }
   pushTestCaseActions(body, split.testCase, opts)
   if (body.length === 0) {
-    lines.push('  No test-case signals.')
+    lines.push(`  ${emptyState('test-case signals')}`)
     return
   }
   lines.push(...body)
@@ -369,7 +369,7 @@ function pushCrossings(
     return
   }
   if (result.crossings.length === 0) {
-    lines.push('  No undispositioned crossings.')
+    lines.push(`  ${emptyState('open crossings')}`)
     return
   }
   const blocking = result.crossings.filter(c => c.blocking).length

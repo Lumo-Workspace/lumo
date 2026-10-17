@@ -2,7 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
-import { fmtInstant } from '../lib/format'
+import { emptyState, fmtInstant } from '../lib/format'
 import { errAuth, errNotLoggedIn } from '../lib/errors'
 import {
   fetchActorNames,
@@ -16,7 +16,6 @@ import {
   fieldLines,
   sectionHeading,
   reportWidth,
-  wrapLines,
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
@@ -264,16 +263,20 @@ export function formatCrossingList(
   const lines: string[] = [
     `Boundary crossings on ${task}: ${open.length} open (${blocking} blocking DONE), ${ruled.length} dispositioned`,
   ]
-  if (!opts.all && ruled.length > 0)
-    lines.push(
-      ...wrapLines(
-        `${ruled.length} dispositioned crossing(s) not shown — add --all for the ruling history.`,
-        0,
-        opts
-      )
-    )
+  // LUM-1232 PG-2 / PG-3: one empty-state sentence, and rows hidden by the
+  // default filter reported once, after the rows, with the flag that shows them.
+  const hiddenNote =
+    !opts.all && ruled.length > 0
+      ? [
+          `${ruled.length} dispositioned crossing${ruled.length === 1 ? '' : 's'} hidden. Show ${ruled.length === 1 ? 'it' : 'them'} with --all.`,
+        ]
+      : []
   if (shown.length === 0) {
-    lines.push('', opts.all ? 'No crossings recorded.' : 'No open crossings.')
+    lines.push(
+      '',
+      emptyState(opts.all ? 'crossings' : 'open crossings', task),
+      ...hiddenNote
+    )
     return lines.join('\n') + '\n'
   }
   for (const c of shown) {
@@ -285,6 +288,7 @@ export function formatCrossingList(
       ...fieldLines(crossingFields(c, opts.actorNames, opts), 2, opts)
     )
   }
+  if (hiddenNote.length > 0) lines.push('', ...hiddenNote)
   if (open.length > 0) {
     lines.push(
       '',

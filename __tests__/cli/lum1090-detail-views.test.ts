@@ -169,7 +169,7 @@ describe('LUM-1090 — milestone show sections', () => {
     )
     const pipe = formatMilestoneShow(milestone, [task])
     expect(pipe).toContain(
-      '\nTasks (1)\n  LUM-42  IN_PROGRESS  HIGH  Lumo  Fix'
+      '\nTasks (1)\n  LUM-42\tIN_PROGRESS\tHIGH\tLumo\tFix'
     )
     expect(pipe).not.toContain('PRIORITY')
   })
@@ -345,12 +345,12 @@ describe('LUM-1090 — task history table', () => {
     ['b', '李超'],
   ])
 
-  it('pads the actor column by display width; header on a TTY only', () => {
+  it('TAB-separated when piped; pads the actor column by display width on a TTY (header there only)', () => {
     const pipe = formatHistory(entries, names, { tty: false }).split('\n')
     expect(pipe).toHaveLength(2)
     // LUM-1232 T-1: piped times are UTC ISO 8601 with `Z`.
-    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ  Al    created$/)
-    expect(pipe[1]).toMatch(/  李超  priority LOW → HIGH$/)
+    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\tAl\tcreated$/)
+    expect(pipe[1]).toMatch(/\t李超\tpriority LOW → HIGH$/)
     const tty = formatHistory(entries, names, {
       tty: true,
       color: false,
@@ -388,7 +388,7 @@ describe('LUM-1090 — layout helpers', () => {
     expect(taskTableSection([task], 'None.')).toEqual([
       '',
       'Tasks (1)',
-      '  LUM-42  IN_PROGRESS  HIGH  Lumo  Fix Slack OAuth redirect',
+      '  LUM-42\tIN_PROGRESS\tHIGH\tLumo\tFix Slack OAuth redirect',
     ])
   })
 })

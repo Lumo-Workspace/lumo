@@ -1,5 +1,6 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtInstant } from '../lib/format'
+import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { formatExecutor } from '../lib/test-case-executor'
 import { sanitizeField } from '../lib/sanitize'
@@ -75,9 +76,10 @@ export async function testCaseListInScope(
     return
   }
 
-  for (const c of cases) {
-    console.log(formatListRow(c))
-  }
+  // LUM-1232 batch A (L-1–L-3): the shared list renderer — a header and the
+  // LAST RUN cell cut to the terminal on a TTY; piped, the same TAB-separated
+  // rows as before.
+  console.log(formatTestCaseList(cases))
   // LUM-1185: 与 web Record 行同一口径的汇总（服务端算）。
   const summary = formatTestCasesSummary(r.data.summary, scope.kind)
   if (summary) console.log(`\n${summary}`)
@@ -88,6 +90,23 @@ export async function testCaseListInScope(
  * 最近一次执行带封顶结论、归因、裁定与进度——判定由服务端算，这里只排版。
  */
 export function formatListRow(c: ListRow): string {
+  return listRowCells(c).join('\t')
+}
+
+/** The whole list through `renderListTable` (TTY header + width; TAB piped). */
+export function formatTestCaseList(
+  cases: ListRow[],
+  opts: ListRenderOptions = {}
+): string {
+  return renderListTable(cases.map(listRowCells), {
+    header: ['ID', 'TITLE', 'STEPS', 'LAST RUN'],
+    flex: 3,
+    ...opts,
+  })
+}
+
+/** The four cells of one row: id · title · steps · latest run. */
+export function listRowCells(c: ListRow): string[] {
   // runs 新到旧，第一条就是最近一次
   const run = c.runs[0]
   // 「跑在哪个环境」必须出现在摘要行里——这是整个 feature 的目的。
@@ -113,7 +132,7 @@ export function formatListRow(c: ListRow): string {
     `${c.steps.length} steps / ${c.verification.length} verify` +
       (requires ? ` · ${requires}` : ''),
     oneCell(sanitizeField(last)),
-  ].join('\t')
+  ]
 }
 
 /** LUM-812: 已裁定的缺陷照常列出，旁边注明裁定。 */

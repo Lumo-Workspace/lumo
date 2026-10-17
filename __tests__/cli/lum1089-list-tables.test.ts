@@ -4,9 +4,10 @@
  * LUM-1089 — every list command renders through one table helper
  * (`renderListTable` on top of LUM-1086's `renderTable`):
  * - header row on a TTY only; non-TTY output stays headerless, untruncated
- *   and colourless (agents parse it — first column is the id);
+ *   and colourless (agents parse it — first column is the id), and since
+ *   LUM-1232 L-3 its fields are joined by a single TAB (no padding);
  * - on a TTY the free-text column is cut to the terminal width;
- * - columns align by display width (CJK counts 2);
+ * - on a TTY, columns align by display width (CJK counts 2);
  * - milestone state / health labels are upper-case in list and show.
  */
 import { fmtTimestamp } from '../../cli/src/lib/format'
@@ -84,7 +85,8 @@ describe('renderListTable', () => {
     })
     const lines = out.split('\n')
     expect(lines).toHaveLength(2)
-    expect(lines[0]).toBe(`LUM-1   TODO  ${LONG_TITLE}`)
+    expect(lines[0]).toBe(`LUM-1\tTODO\t${LONG_TITLE}`)
+    expect(lines[1]).toBe('LUM-22\tDONE\tshort')
     expect(out).not.toContain('…')
     expect(out).not.toContain(ESC)
   })
@@ -142,8 +144,8 @@ describe('task tables (task list / search / next)', () => {
     )
     expect(out).toBe(
       [
-        'LUM-42  IN_PROGRESS  HIGH    web      Fix Slack OAuth redirect',
-        'LUM-48  TODO         MEDIUM  backend  Investigate slow query',
+        'LUM-42\tIN_PROGRESS\tHIGH\tweb\tFix Slack OAuth redirect',
+        'LUM-48\tTODO\tMEDIUM\tbackend\tInvestigate slow query',
       ].join('\n')
     )
   })
@@ -154,9 +156,9 @@ describe('task tables (task list / search / next)', () => {
         task({ project: { id: 'p1', name: '前端' }, title: '修复登录' }),
         task({ number: 7, project: { id: 'p2', name: 'web-app' } }),
       ],
-      PIPE
+      { ...TTY, width: 200 }
     )
-    const [a = '', b = ''] = out.split('\n')
+    const [, a = '', b = ''] = out.split('\n')
     expect(colOf(a, '修复登录')).toBe(colOf(b, 'Fix Slack'))
   })
 
@@ -207,9 +209,15 @@ describe('task tables (task list / search / next)', () => {
     const names = new Map([['a1', '张三']])
     const pipe = formatSearchTable(rows, names, PIPE).split('\n')
     expect(pipe).toHaveLength(2)
-    expect(pipe[0]?.startsWith('LUM-1 ')).toBe(true)
-    expect(colOf(pipe[0] ?? '', '中文标题')).toBe(
-      colOf(pipe[1] ?? '', 'English')
+    expect(pipe[0]?.startsWith('LUM-1\t')).toBe(true)
+    expect(pipe[0]?.split('\t')).toHaveLength(7)
+    expect(pipe[0]?.endsWith('\t中文标题')).toBe(true)
+    expect(pipe[1]?.endsWith('\tEnglish')).toBe(true)
+    const wide = formatSearchTable(rows, names, { ...TTY, width: 200 }).split(
+      '\n'
+    )
+    expect(colOf(wide[1] ?? '', '中文标题')).toBe(
+      colOf(wide[2] ?? '', 'English')
     )
     const tty = formatSearchTable(rows, names, TTY).split('\n')
     expect(tty[0]?.split(/\s+/)).toEqual([
@@ -241,22 +249,24 @@ describe('task tables (task list / search / next)', () => {
     }
   }
 
-  it('next keeps `1. LUM-N` rows + reasons off a TTY, adds a header on one', () => {
+  it('next: ref-first rows with a WHY column (priority dropped) off a TTY, adds a header on one', () => {
     const list = [ranked('LUM-42', LONG_TITLE), ranked('LUM-7', '短')]
     const pipe = formatNextOutput(list, 5, 'open', PIPE).split('\n')
-    expect(pipe[2]).toBe(`1. LUM-42  TODO  MEDIUM  ${LONG_TITLE}`)
-    expect(pipe[3]).toBe('     ↳ MEDIUM')
-    expect(pipe[4]).toBe('2. LUM-7   TODO  MEDIUM  短')
+    expect(pipe[2]).toBe(`LUM-42\tTODO\tMEDIUM\t-\t${LONG_TITLE}`)
+    expect(pipe[3]).toBe('LUM-7\tTODO\tMEDIUM\t-\t短')
+    expect(pipe.join('\n')).not.toContain('↳')
     const tty = formatNextOutput(list, 5, 'open', TTY).split('\n')
     expect(tty[2]?.split(/\s+/)).toEqual([
-      'TASK',
+      'ID',
       'STATUS',
       'PRIORITY',
+      'WHY',
       'TITLE',
     ])
-    expect(tty[3]?.startsWith('1. LUM-42')).toBe(true)
+    expect(tty[3]?.startsWith('LUM-42')).toBe(true)
     expect(tty[3]?.endsWith('…')).toBe(true)
-    expect(tty[4]).toBe('     ↳ MEDIUM')
+    expect(tty[4]?.startsWith('LUM-7')).toBe(true)
+    expect(tty.join('\n')).not.toContain('↳')
   })
 })
 
@@ -283,18 +293,23 @@ describe('doc / artifact / figma lists', () => {
   it('doc list: id first, no header off a TTY, CJK aligned, header on a TTY', () => {
     const pipe = formatDocListRows(docs, PIPE)
     expect(pipe).toHaveLength(2)
-    expect(pipe[0]?.startsWith('doc_a ')).toBe(true)
-    expect(colOf(pipe[0] ?? '', '设计文档')).toBe(colOf(pipe[1] ?? '', 'Child'))
+    expect(pipe[0]?.startsWith('doc_a\t')).toBe(true)
+    expect(pipe[0]?.endsWith('\t设计文档')).toBe(true)
+    expect(pipe[1]?.endsWith('\tChild')).toBe(true)
     expect(pipe[1]).toContain('PERSONAL')
+    const wide = formatDocListRows(docs, { ...TTY, width: 200 })
+    expect(colOf(wide[1] ?? '', '设计文档')).toBe(colOf(wide[2] ?? '', 'Child'))
     const tty = formatDocListRows(docs, TTY)
     expect(tty[0]?.split(/\s+/)).toEqual(['REF', 'SCOPE', 'PROJECT', 'TITLE'])
   })
 
   it('doc list --tree indents inside the title column', () => {
     const tree = formatDocListRowsAsTree(docs, PIPE)
-    expect(tree[1]).toMatch(/\s{2}Child$/)
-    expect(colOf(tree[1] ?? '', 'Child')).toBe(
-      colOf(tree[0] ?? '', '设计文档') + 2
+    expect(tree[0]?.split('\t').pop()).toBe('设计文档')
+    expect(tree[1]?.split('\t').pop()).toBe('  Child')
+    const wide = formatDocListRowsAsTree(docs, { ...TTY, width: 200 })
+    expect(colOf(wide[2] ?? '', 'Child')).toBe(
+      colOf(wide[1] ?? '', '设计文档') + 2
     )
   })
 
@@ -336,9 +351,8 @@ describe('doc / artifact / figma lists', () => {
       now,
       PIPE
     ).split('\n')
-    expect(colOf(fresh[0] ?? '', 'Welcome')).toBe(
-      colOf(fresh[1] ?? '', '(file-level)')
-    )
+    expect(fresh[0]?.split('\t')[2]).toBe('Welcome')
+    expect(fresh[1]?.split('\t')[2]).toBe('(file-level)')
     expect(formatFigmaList([base], now, TTY).split('\n')[0]).toBe(
       'REF    FILE                                          FRAME    SYNCED'
     )
@@ -363,7 +377,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
 
   it('milestone list: upper-case STATE/HEALTH, header on a TTY only', () => {
     const pipe = formatMilestoneList([ms], PIPE)
-    expect(pipe).toBe('ACTIVE  AT_RISK  2026-09-30  q3-launch  第三季度 Launch')
+    expect(pipe).toBe('ACTIVE\tAT_RISK\t2026-09-30\tq3-launch\t第三季度 Launch')
     const tty = formatMilestoneList([ms], TTY).split('\n')
     expect(tty[0]?.split(/\s+/)).toEqual([
       'STATE',
@@ -425,8 +439,8 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     ]
     expect(formatSprintList(rows, PIPE)).toBe(
       [
-        'ACTIVE  #3   2026-06-01 → 2026-06-14  Sprint 3',
-        'DRAFT   #12  - → -                    冲刺',
+        'ACTIVE\t#3\t2026-06-01 → 2026-06-14\tSprint 3',
+        'DRAFT\t#12\t- → -\t冲刺',
       ].join('\n')
     )
     expect(formatSprintList(rows, TTY).split('\n')[0]?.split(/\s+/)).toEqual([
@@ -450,7 +464,10 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     ]
     const pipe = formatTagList(tags, PIPE).split('\n')
     expect(pipe).toHaveLength(2)
-    expect(colOf(pipe[0] ?? '', '#ff0000')).toBe(colOf(pipe[1] ?? '', '-'))
+    expect(pipe[0]?.split('\t')[1]).toBe('#ff0000')
+    expect(pipe[1]?.split('\t')[1]).toBe('-')
+    const wide = formatTagList(tags, { ...TTY, width: 200 }).split('\n')
+    expect(colOf(wide[1] ?? '', '#ff0000')).toBe(colOf(wide[2] ?? '', '-'))
     expect(formatTagList(tags, TTY).split('\n')[0]?.split(/\s+/)).toEqual([
       'NAME',
       'COLOR',
@@ -482,7 +499,10 @@ describe('milestone / sprint / tag / member / audit lists', () => {
       agents: [{ actorId: 'x', name: 'Claude Code', type: 'CODING' }],
     }
     const pipe = formatMemberList(dir, PIPE).split('\n')
-    expect(colOf(pipe[0] ?? '', 'li@')).toBe(colOf(pipe[1] ?? '', '-'))
+    expect(pipe[0]?.split('\t')[1]).toBe('li@example.com')
+    expect(pipe[1]?.split('\t')[1]).toBe('-')
+    const wide = formatMemberList(dir, { ...TTY, width: 200 }).split('\n')
+    expect(colOf(wide[1] ?? '', 'li@')).toBe(colOf(wide[2] ?? '', '-'))
     expect(pipe.slice(2)).toEqual(['', 'Agents:', '  Claude Code  (CODING)'])
     expect(formatMemberList(dir, TTY).split('\n')[0]?.split(/\s+/)).toEqual([
       'NAME',
@@ -491,7 +511,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
     ])
   })
 
-  it('audit list: rows unchanged off a TTY, header on one', () => {
+  it('audit list: TAB-separated rows off a TTY, header on one', () => {
     const page = {
       events: [
         {
@@ -511,7 +531,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
       nextCursor: null,
     }
     expect(formatAuditList(page, {}, PIPE)).toBe(
-      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}  member.role_changed  李超 <li@example.com>  member cm1abc  WEB  203.0.113.9`
+      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}\tmember.role_changed\t李超 <li@example.com>\tmember cm1abc\tWEB\t203.0.113.9`
     )
     expect(formatAuditList(page, {}, TTY).split('\n')[0]).toMatch(
       /^TIME\s+ACTION\s+ACTOR\s+TARGET\s+SOURCE\s+IP$/

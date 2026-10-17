@@ -42,7 +42,7 @@ describe('artifacts', () => {
   }
   it('artifact list prints the short ref in column 1, never the cuid', () => {
     const out = formatArtifactList([row] as never, { tty: false, color: false })
-    expect(out.startsWith('pskvl3sh  ')).toBe(true)
+    expect(out.startsWith('pskvl3sh\t')).toBe(true)
     expect(out).not.toContain(A)
   })
   it('the rm envelope names the artifact by short ref', () => {

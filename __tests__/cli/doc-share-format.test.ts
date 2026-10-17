@@ -24,15 +24,22 @@ describe('formatShareListRows', () => {
     expect(formatShareListRows([])).toEqual([])
   })
 
-  it('pads displayName to widest entry', () => {
+  it('TAB-separated when piped; pads displayName to widest entry on a TTY', () => {
     const rows: ShareListRow[] = [
       { displayName: 'Alice', role: 'EDITOR' },
       { displayName: 'Bob Wong', role: 'VIEWER' },
     ]
+    // Piped (LUM-1232 L-3): TAB-separated, no padding.
     expect(formatShareListRows(rows)).toEqual([
-      'Alice     EDITOR',
-      'Bob Wong  VIEWER',
+      'Alice\tEDITOR',
+      'Bob Wong\tVIEWER',
     ])
+    // On a TTY the name column is padded to the widest entry.
+    expect(
+      formatShareListRows(rows, { tty: true, width: 200, color: false }).slice(
+        1
+      )
+    ).toEqual(['Alice     EDITOR', 'Bob Wong  VIEWER'])
   })
 })
 

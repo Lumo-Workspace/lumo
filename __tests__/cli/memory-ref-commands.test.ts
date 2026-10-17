@@ -138,7 +138,7 @@ describe('listings print the short ref, not the cuid', () => {
         createdByMemberId: null,
       },
     ])
-    expect(text.startsWith(`${SHORT}  TASK`)).toBe(true)
+    expect(text.startsWith(`${SHORT}\tTASK`)).toBe(true)
     expect(text).not.toContain(FULL)
   })
 

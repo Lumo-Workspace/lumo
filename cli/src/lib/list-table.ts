@@ -1,4 +1,10 @@
-import { colorEnabled, renderTable, stringWidth, terminalWidth } from './ui'
+import {
+  colorEnabled,
+  renderTable,
+  stringWidth,
+  stripAnsi,
+  terminalWidth,
+} from './ui'
 
 /**
  * LUM-1089 — the one table shape every `list`-style command renders through
@@ -9,6 +15,11 @@ import { colorEnabled, renderTable, stringWidth, terminalWidth } from './ui'
  * and pipes read these lists as plain text (most have no `--json`), so the
  * non-TTY output stays headerless, untruncated and colourless — first column
  * is still the id and the column order never changes.
+ *
+ * LUM-1232 batch A (conventions L-3, decision Q1): off a TTY the fields of a
+ * row are separated by a single TAB (no padding), so a value containing
+ * spaces never makes the row ambiguous. A TAB / CR / LF inside a cell is
+ * flattened to a space first.
  *
  * On a TTY the one free-text column (`flex`, usually the title / name) is cut
  * with `…` so a row fits the terminal width; it never shrinks below
@@ -73,13 +84,7 @@ export function renderListTable(
 ): string {
   const tty = opts.tty ?? Boolean(process.stdout.isTTY)
   const color = opts.color ?? colorEnabled()
-  if (!tty) {
-    return renderTable(rows, {
-      gap: GAP,
-      color,
-      ...(opts.align ? { align: opts.align } : {}),
-    })
-  }
+  if (!tty) return tabRows(rows)
   const maxWidths: Array<number | undefined> = []
   if (opts.flex !== undefined) {
     maxWidths[opts.flex] = flexColumnCap(
@@ -95,4 +100,20 @@ export function renderListTable(
     color,
     ...(opts.align ? { align: opts.align } : {}),
   })
+}
+
+/** Pipe form: one line per row, fields joined by a TAB (L-3). */
+export function tabRows(rows: string[][]): string {
+  return rows
+    .map(r => r.map(c => stripAnsi(c).replace(/[\t\r\n\v\f]/g, ' ')).join('\t'))
+    .join('\n')
+}
+
+/**
+ * LUM-1232 L-6: the first cell of a child row (a breakdown under a parent
+ * row). On a TTY it is indented under the parent with `↳`; piped, every row
+ * must stand alone, so it carries the parent key: `parent/child`.
+ */
+export function childCell(parent: string, child: string, tty: boolean): string {
+  return tty ? `  ↳ ${child}` : `${parent}/${child}`
 }

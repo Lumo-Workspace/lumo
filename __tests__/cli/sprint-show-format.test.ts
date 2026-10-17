@@ -39,7 +39,7 @@ describe('formatSprintShow', () => {
     expect(out).toContain('Started:   2026-06-01')
     expect(out).toContain('Closed:    -')
     expect(out).toContain('Progress:  4/10')
-    expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
+    expect(out).toContain('\nTasks (1)\n  LUM-42\tIN_PROGRESS')
   })
 
   it('renders "-" for null dates and omits task table when no tasks', () => {

@@ -216,7 +216,7 @@ describe('taskStatus — output', () => {
 
   it('a task with nothing outstanding says so', () => {
     const out = formatTaskStatus({ ...PAYLOAD, nextActions: [] })
-    expect(out).toContain('\nNext actions\n  None on record.\n')
+    expect(out).toContain('\nNext actions\n  No next actions.\n')
   })
 
   it('task status no longer renders acceptance criteria or verify rounds', () => {

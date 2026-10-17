@@ -37,7 +37,7 @@ import {
 } from '../lib/report-layout'
 import { colorEnabled, terminalWidth } from '../lib/ui'
 import { doneGateSection, type DoneGateReadout } from '../lib/done-gate-format'
-import { fmtTokens, formatDurationSec } from '../lib/format'
+import { emptyState, fmtTokens, formatDurationSec } from '../lib/format'
 import {
   fetchTaskTestCases,
   type TaskTestCasesResult,
@@ -609,7 +609,7 @@ export function formatTaskStatus(
     testCaseVerdictActions.length === 0
   ) {
     lines.push(...sectionHeading('Next actions', opts))
-    lines.push('  None on record.')
+    lines.push(`  ${emptyState('next actions')}`)
   } else if (testCaseVerdictActions.some(testCaseVerdictBlocks)) {
     // LUM-1186: a proven defect holds DONE — never "advisory only".
     lines.push(...sectionHeading('Next actions', opts))

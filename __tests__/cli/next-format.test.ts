@@ -25,7 +25,7 @@ function ranked(
 }
 
 describe('formatNextOutput', () => {
-  it('renders header, numbered rows with reason lines, and a Next footer', () => {
+  it('renders header, ref-first rows with a WHY column, and a Next footer', () => {
     const out = formatNextOutput(
       [
         ranked({
@@ -48,11 +48,12 @@ describe('formatNextOutput', () => {
       12
     )
     expect(out).toContain('Top 2 recommended tasks (of 12 open):')
-    expect(out).toContain('1. LUM-42')
+    // LUM-1232: no rank prefix; WHY joins the reasons minus the priority.
     expect(out).toContain(
-      '↳ URGENT · active sprint · due 2026-06-03 · in progress'
+      '\nLUM-42\tIN_PROGRESS\tURGENT\tactive sprint · due 2026-06-03 · in progress\tFix Slack OAuth redirect\n'
     )
-    expect(out).toContain('2. LUM-48')
+    expect(out).toContain('\nLUM-48\tTODO\tMEDIUM\tHIGH\tA title\n')
+    expect(out).not.toContain('↳')
     // LUM-686: the footer moved to the shared renderer — heading on its own
     // line, command indented beneath it. Same advice, same command string.
     expect(out).toContain('Next:')
