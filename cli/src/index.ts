@@ -187,6 +187,7 @@ import {
 } from './lib/update-check'
 import { finalizeErrorOutput, installErrorOutput } from './lib/error-output'
 import { EXIT_ERROR, EXIT_USAGE } from './lib/exit-codes'
+import { attachHelpSections } from './lib/help-text'
 import { describeThrownError } from './lib/errors'
 import {
   maybeAutoSync,
@@ -446,7 +447,7 @@ function registerInit(name: string, hidden: boolean): void {
     .description(
       hidden
         ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
+        : 'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
     )
     .option(
       '--user',
@@ -462,11 +463,11 @@ function registerInit(name: string, hidden: boolean): void {
     )
     .option(
       '--agent <token>',
-      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
+      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Default: claude-code and codex.'
     )
     .option(
       '--dry-run',
-      'Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record'
+      'Print what init would change (per file: path, action, unified diff) and which Codex hooks need Trust, without writing anything'
     )
     // LUM-1118: removed; kept hidden only to print the migration error.
     .addOption(new Option('--upgrade').hideHelp())
@@ -499,7 +500,7 @@ const skill = program
 skill
   .command('status')
   .description(
-    'Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it'
+    'Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.'
   )
   .option(
     '--json',
@@ -510,7 +511,7 @@ skill
 skill
   .command('update')
   .description(
-    "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
+    'Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.'
   )
   .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
   .option(
@@ -546,7 +547,7 @@ skill
 program
   .command('doctor')
   .description(
-    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0.'
+    'Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.'
   )
   .option('--json', 'Machine-readable output')
   .action(wrap(options => doctor(options as { json?: boolean })))
@@ -554,7 +555,7 @@ program
 program
   .command('uninstall')
   .description(
-    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and Codex hooks.json (~/.codex or ./.codex), the Lumo Codex rule (.codex/rules/lumo.rules), the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
+    'Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.'
   )
   .option(
     '--scope <scope>',
@@ -599,7 +600,7 @@ const crossing = program
 crossing
   .command('list [task]')
   .description(
-    "Read-only: a task's boundary crossings with every detail the web Record panel shows (LUM-1187) — state, detail, recurrence (xN, last seen), reversibility, attribution, policy rule text, edit diff summary + PR file link, turn intent, system/agent explanations, re-judge, AI triage, remediation task; a field the response does not carry prints '-'. Open rows only by default; --all adds the dispositioned history (ruling, who ruled, when, channel, note, last from -> to correction, suppression rule + revoked). Rules nothing. Defaults to the session-bound task."
+    "Read-only: a task's boundary crossings in full, as the web Record panel shows them. Open rows only by default; --all adds the dispositioned history. Defaults to the session-bound task."
   )
   .option(
     '--all',
@@ -615,7 +616,7 @@ crossing
 crossing
   .command('explain [id]')
   .description(
-    'Append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Several crossings in one call: --file with a JSON array of {"id","note"} (LUM-845); each is reported. Targets crossings on the session-bound task.'
+    'Append an agent self-explanation to boundary crossings for the human reviewer. Append-only: it never clears a crossing or unblocks Done. --file takes a JSON array of {"id","note"}.'
   )
   .option(
     '--note <text>',
@@ -638,7 +639,7 @@ crossing
 crossing
   .command('disposition <ids...>')
   .description(
-    "Rule on one or more boundary crossings from the terminal (LUM-769; several ids = one batch per ruling, LUM-845 — each step prints ONE envelope listing every crossing in full and carrying one receipt per crossing as --receipt <id>=<token>,…; drop an id between steps to leave that crossing OPEN; every write is reported per crossing) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+    'Rule on one or more boundary crossings through a three-step handshake (show, confirm read, confirm ruling); each step exits 4 with an envelope to relay. Never supply a step flag yourself.'
   )
   .option(
     '--false-positive',
@@ -655,7 +656,7 @@ crossing
   )
   .option(
     '--receipt <token>',
-    "Read receipt(s) from the previous step's envelope (its confirmCommand carries them — a bare token for one crossing, <id>=<token>,… for a batch); required with --confirm-read (stage 1) and --confirm (stage 2), verified server-side per crossing"
+    "Receipt(s) from the previous step's envelope: a bare token for one crossing, <id>=<token>,… for a batch. Required with --confirm-read and --confirm"
   )
   .option(
     '--confirm-read',
@@ -676,12 +677,12 @@ crossing
 
 const finding = program
   .command('finding')
-  .description('Rule on PR security findings with user approval (LUM-1128)')
+  .description('Rule on PR security findings with user approval')
 
 finding
   .command('disposition <ids...>')
   .description(
-    "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+    "Record the user's ruling on one or more PR security findings, which clears a DONE blocker. Without --confirm it prints one confirmation envelope (exit 4) and writes nothing."
   )
   .option('--false-positive', 'Rule the findings false positives')
   .option(
@@ -705,19 +706,19 @@ finding
 
 const outcome = program
   .command('outcome')
-  .description('Read the post-hoc outcome well (LUM-598)')
+  .description('Read the post-hoc outcome well')
 
 outcome
   .command('show <task>')
   .description(
-    'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
+    "Read a task's post-hoc outcome well: the falsifier verdict (REJECTED or INCONCLUSIVE, never a pass) and its rejection signals. INCONCLUSIVE means no rejection on record."
   )
   .action(wrap((task: unknown) => outcomeShow(task as string)))
 
 program
   .command('next')
   .description(
-    'Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`. Use --claimable to restrict to the autonomy boundary (claimable ∩ unblocked ∩ in-budget).'
+    'Recommend the next task(s) to work on, ranked by priority, active sprint and due date (top 3 by default). --claimable keeps only claimable, unblocked, in-budget tasks.'
   )
   .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
   .option(
@@ -825,7 +826,7 @@ pr.command('scan <number>')
     'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
   )
   .description(
-    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
+    'Read PR scans and control automatic AI reviews: --review incremental|full requests one, --pause / --resume control review of every push. Rule with `lumo finding disposition`.'
   )
   .option(
     '--repo <owner/repo>',
@@ -856,15 +857,15 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the current Claude Code or Codex session to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead.'
+    'Attach this Claude Code or Codex session to a task, or with --steward to a milestone as a governance session. The binding is a lifetime lock: start a new session to switch.'
   )
   .option(
     '--steward',
-    'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
+    'Bind as a STEWARD (governance) session to a milestone (id, name or slug). Stewards plan and accept only; implementation commits/PRs are recorded as boundary crossings.'
   )
   .option(
     '--worktree',
-    "Create this task's worktree under .worktrees/ when none exists (LUM-825; only from the main checkout; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
+    "Create this task's worktree under .worktrees/ when none exists (main checkout only; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
   )
   .option(
     '--no-worktree',
@@ -891,7 +892,7 @@ const usage = program.command('usage').description('Token usage maintenance')
 usage
   .command('resync')
   .description(
-    'Correct historical (inflated) token usage from local transcripts (LUM-932). Dry run by default — prints what would change; add --apply to write. Sends token counts only, never transcript content.'
+    'Correct historical (inflated) token usage from local transcripts. Dry run by default; --apply writes. Sends token counts only, never transcript content.'
   )
   .option('--apply', 'Write the corrections (default is a dry run)')
   .option('--json', 'Print the merged server response as JSON')
@@ -943,7 +944,7 @@ task
 task
   .command('search [query]')
   .description(
-    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with "Showing X-Y of N." and the next-page command).'
+    'Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page.'
   )
   .option(
     '-a, --assignee <ref>',
@@ -989,7 +990,7 @@ task
 task
   .command('delete <identifier>')
   .description(
-    'Move a task and all its subtasks to the trash (restorable for 30 days from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope listing what goes with it.'
+    'Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it.'
   )
   .option(
     '--confirm',
@@ -1042,14 +1043,14 @@ task
 task
   .command('wrapup [task]')
   .description(
-    'Whole wrap-up in one read (LUM-841): test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: requests no receipt, changes no status. Defaults to the session-bound task.'
+    'Whole wrap-up in one read: test-case signals, security scans, open boundary crossings and DONE readiness with the DONE envelope preview. Read-only; defaults to the bound task.'
   )
   .action(wrap(taskArg => taskWrapup(taskArg as string | undefined)))
 
 task
   .command('status [task]')
   .description(
-    "Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend) and each test case's latest run."
+    'Task self-check: next actions, security-scan coverage and open boundary crossings. Read-only; defaults to the bound task. --full adds cost, rework trail, trend and test-case runs.'
   )
   .option(
     '--json',
@@ -1057,7 +1058,7 @@ task
   )
   .option(
     '--full',
-    "Also print the dashboard sections: cost, struggle/rework trail, trend, and a Test cases section (each case's latest run, as in `testcase list`)"
+    "Also print cost, the rework trail, trend and each test case's latest run (as in `testcase list`)"
   )
   .action(
     wrap((taskArg, options) =>
@@ -1198,7 +1199,7 @@ taskTemplate
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -1386,7 +1387,7 @@ taskDeps
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -1410,7 +1411,7 @@ taskPr
 task
   .command('scans <identifier>')
   .description(
-    "Security scans of a task across all its linked PRs: each PR's layers, partial reasons, size caps, findings (call chain, verifier, AI suggestion) and rulings already made — the `lumo pr scan` view, once per PR. Read-only; rule on a finding with `lumo finding disposition`."
+    'Security scans of a task across all its linked PRs: the `lumo pr scan` view, once per PR. Read-only; rule on a finding with `lumo finding disposition`.'
   )
   .option(
     '--all',
@@ -1446,7 +1447,7 @@ task
 task
   .command('runs [task]')
   .description(
-    "Show the task's agent runs as on the web Record page: per run number, session, summary, turns, tool calls, tokens, attribution; plus the Sessions tile and delivery progress. <task> defaults to the session-bound task."
+    "Show a task's agent runs as on the web Record page (session, summary, turns, tool calls, tokens, attribution) plus sessions and delivery progress. Defaults to the bound task."
   )
   .option(
     '--full',
@@ -1488,9 +1489,7 @@ taskMemory
 taskMemory
   .command('add [task]')
   .description(
-    'Record a memory on a task (<task> defaults to the bound session). ' +
-      'Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. ' +
-      'Pick --category then its fields.'
+    'Record a memory on a task (defaults to the bound session): only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Pick --category then its fields.'
   )
   .requiredOption(
     '--category <cat>',
@@ -1601,7 +1600,7 @@ taskArtifact
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -1715,7 +1714,7 @@ taskTestCase
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -1853,7 +1852,7 @@ program
   .description('Your Lumo inbox (notifications) from the terminal')
   .command('list')
   .description(
-    'List your notifications as the web inbox shows them (LUM-1192): pending responses first, then the rest, newest first; • marks unread. Read-only.'
+    'List your notifications as the web inbox shows them: pending responses first, then the rest, newest first; • marks unread. Read-only.'
   )
   .option('--json', 'Emit { notifications, unreadCount } as JSON')
   .action(wrap(options => inboxList(options as { json?: boolean })))
@@ -1863,7 +1862,7 @@ program
   .description('Your unsent task / project drafts')
   .command('list')
   .description(
-    'List your own task / project drafts saved by the web composer (LUM-1192), newest first. Read-only.'
+    'List your own task / project drafts saved by the web composer, newest first. Read-only.'
   )
   .option('--json', 'Emit { drafts } as JSON')
   .action(wrap(options => draftList(options as { json?: boolean })))
@@ -1905,7 +1904,7 @@ const workspaceCmd = program
 workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), whether PR authors may resolve/approve by command (LUM-1142), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped); LUM-1143 adds auto-review filters (--base-branches, --labels, --ignore-title, --ignore-users, --description-keyword, --path-filter); LUM-1148 the pre-merge checks (--title-check, --title-requirements, --description-check, --override-reviewers-only; custom checks in the web settings or .lumo.yaml) and LUM-1149 the linked task / issue assessment (--issue-assessment, --task-details-on-public-repos); LUM-1147 the review style (--profile, --tone, --path-instruction); LUM-1151 where the high-level PR summary goes (--summary); LUM-1155 the call-flow sequence diagram in the summary comment (--sequence-diagrams). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow or author approval on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1949,7 +1948,7 @@ workspaceCmd
   )
   .option(
     '--base-branches <regex>',
-    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all. Empty list: every base for repositories connected before LUM-1143, the default branch only for repositories connected later',
+    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all',
     collectList
   )
   .option(
@@ -2032,7 +2031,7 @@ workspaceCmd
 workspaceCmd
   .command('learnings')
   .description(
-    "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory short ref, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <ref>`."
+    "List the workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first, including unlinked repositories. Delete one with `lumo memory rm <ref>`."
   )
   .option('--repo <owner/name>', "Only this repository's learnings")
   .option('--json', 'Emit { learnings } as JSON')
@@ -2078,7 +2077,7 @@ projectCmd
 projectCmd
   .command('overview [project]')
   .description(
-    "A project's health and stats as on its web page (LUM-1192): stalled / high-stakes tasks, stale PRs, overdue, status distribution, workload, recent completions and the latest stored summary. <project> = name or slug (optional when the workspace has one project). Read-only."
+    "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
   )
   .option('--report', "Print the summary's full report under its TL;DR")
   .option('--json', 'Emit { project, stats, summary } as JSON')
@@ -2177,7 +2176,7 @@ const memoryCmd = program
 memoryCmd
   .command('show <memory>')
   .description(
-    "Show one memory's full card (category + content). <memory> is the 8-char short ref shown in listings and session-start index lines, a unique id prefix (6+ chars) or the full id; an ambiguous ref errors and lists the candidates. Use to pull the body of a memory you saw as a one-line index entry at session start."
+    "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
   )
   .action(wrap((id: unknown) => memoryShow(id as string)))
 
@@ -2195,7 +2194,7 @@ memoryCmd
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -2207,7 +2206,7 @@ memoryCmd
 memoryCmd
   .command('sync')
   .description(
-    'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block). Only touches files it owns; never clobbers your own memory. Resolves the project from the bound session unless --project is given.'
+    'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project.'
   )
   .option(
     '--project <ref>',
@@ -2243,7 +2242,7 @@ memoryCmd
 memoryCmd
   .command('push')
   .description(
-    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success.'
+    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success.'
   )
   .option(
     '--project <ref>',
@@ -2331,7 +2330,7 @@ milestoneCmd
 milestoneCmd
   .command('update <identifier>')
   .description(
-    'Update a milestone. Provide at least one of --name, --description, --start, --target, --token-budget. Use "" to clear nullable fields. Completion is derived from task completion (LUM-714) — there is no status flag.'
+    'Update a milestone: at least one of --name, --description, --start, --target, --token-budget ("" clears a nullable field). Completion is derived from its tasks.'
   )
   .option(
     '--project <ref>',
@@ -2362,7 +2361,7 @@ milestoneCmd
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -2377,7 +2376,7 @@ milestoneCmd
 milestoneCmd
   .command('archive <identifier>')
   .description(
-    'Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts the slug (as in the web URL), the name or the id.'
+    'Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.'
   )
   .option(
     '--project <ref>',
@@ -2407,7 +2406,7 @@ milestoneCmd
 milestoneCmd
   .command('add <identifier> <tasks...>')
   .description(
-    'Bind one or more tasks to a milestone in one call. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back.'
+    'Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back.'
   )
   .option(
     '--project <ref>',
@@ -2426,7 +2425,7 @@ milestoneCmd
 milestoneCmd
   .command('remove <identifier> <tasks...>')
   .description(
-    'Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID.'
+    'Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned.'
   )
   .option(
     '--project <ref>',
@@ -2445,7 +2444,7 @@ milestoneCmd
 milestoneCmd
   .command('triage <identifier> <tasks...>')
   .description(
-    'Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks.'
+    'Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them.'
   )
   .option(
     '--project <ref>',
@@ -2470,7 +2469,7 @@ milestoneCmd
 milestoneCmd
   .command('summary <identifier>')
   .description(
-    'Show the AI-generated summary for a milestone. Identifier accepts the milestone slug (as in the web URL), name or id. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
+    'Show the AI-generated summary of a milestone (slug, name or id), or "(no summary generated yet)". --retry queues regeneration before fetching.'
   )
   .option(
     '--project <ref>',
@@ -2489,7 +2488,7 @@ milestoneCmd
 milestoneCmd
   .command('changelog <identifier>')
   .description(
-    "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts the milestone slug (as in the web URL), name or id. --json emits the raw structured payload."
+    "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones."
   )
   .option(
     '--project <ref>',
@@ -2537,7 +2536,7 @@ milestoneCmd
 const milestoneTestCase = milestoneCmd
   .command('testcase')
   .description(
-    'Milestone test cases — cross-task end-to-end cases and the milestone close contract (LUM-1135). The close gate opens only when every case’s latest run passed (or a proven defect was dispositioned known).'
+    "Milestone test cases: cross-task end-to-end cases. The close gate opens only when every case's latest run passed (or a proven defect was dispositioned known)."
   )
 
 milestoneTestCase
@@ -2676,7 +2675,7 @@ milestoneTestCase
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .option(
@@ -2877,7 +2876,7 @@ sprintCmd
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -2899,14 +2898,14 @@ sprintCmd
 sprintCmd
   .command('close <identifier>')
   .description(
-    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move.'
+    'Close an ACTIVE sprint. Unfinished tasks need --move-all (to the next sprint) or --backlog-all (to the backlog); either without --confirm exits 4 with an envelope.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option('--move-all', 'Move all unfinished tasks to the next sprint')
   .option('--backlog-all', 'Return all unfinished tasks to the backlog')
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -2964,7 +2963,7 @@ const doc = program.command('doc').description('Manage Lumo documents')
 doc
   .command('create [title]')
   .description(
-    'Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc.'
+    'Create a document. Body from --content, --file or piped stdin (pick one); --scope defaults to personal. --task LUM-N binds it to a task, --parent files it under another doc.'
   )
   .option('--content <text>', 'Inline markdown content')
   .option('--file <path>', 'Read markdown content from file')
@@ -3003,7 +3002,7 @@ doc
 doc
   .command('update <doc>')
   .description(
-    'Update an existing document. <doc> accepts the slug (as in the web URL), a case-insensitive title (ambiguous titles fail with candidates) or the id. Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a document (<doc> = slug, case-insensitive title or id). Body from --content, --file or piped stdin; 422 if it drops tables/rows/headings unless --allow-shrink.'
   )
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
@@ -3053,7 +3052,7 @@ doc
 doc
   .command('show <doc>')
   .description(
-    'Show document header and body (doc = slug as in the web URL, title or id). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr).'
+    "Show a document's header and body (doc = slug, title or id). --raw prints the byte-identical markdown source (the edit base); --section <heading> prints one section of it."
   )
   .option(
     '--raw',
@@ -3075,7 +3074,7 @@ doc
 doc
   .command('patch <doc>')
   .description(
-    'Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed.'
+    'Replace one heading-addressed section of the markdown source, leaving the rest untouched. 409 on a concurrent edit; 422 if the section loses tables/rows/headings unless --allow-shrink.'
   )
   .requiredOption(
     '--section <heading>',
@@ -3100,7 +3099,7 @@ doc
 doc
   .command('append <doc>')
   .description(
-    'Append markdown at the end of a heading-addressed section (before the next same-or-higher heading), or at the document end when --section is omitted. Pure insertion — no existing byte is modified — which makes it the safest write for running logs/ledgers. 409 on concurrent edits.'
+    'Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits.'
   )
   .option(
     '--section <heading>',
@@ -3133,7 +3132,7 @@ doc
 doc
   .command('rebuild-source <doc>')
   .description(
-    "Regenerate the stored markdown source from the doc's HTML body using a lossless serializer (tables/rows/headings round-trip), re-enabling doc show --raw / diff / patch / append for a source-less doc. The rebuilt source is structure-guarded: any table/tr/heading shrink is rejected with 422 (no silent flattening) unless --allow-shrink is passed. A doc that already has a source is refused with 409 unless --force re-derives it (replacing a byte-faithful source with a serializer-derived one)."
+    'Regenerate the markdown source from the HTML body with a lossless serializer, re-enabling show --raw / diff / patch / append. 422 on a structure shrink; 409 if a source exists unless --force.'
   )
   .option(
     '--allow-shrink',
@@ -3145,7 +3144,7 @@ doc
   )
   .option(
     '--confirm',
-    'The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs'
+    'The user has approved replacing the existing source; pair with --force as the envelope instructs'
   )
   .option(
     '--if-revision <n>',
@@ -3200,11 +3199,11 @@ doc
 doc
   .command('delete <doc>')
   .description(
-    'Move a document and everything nested under it to the trash (restorable for 30 days by its owner from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope with the title.'
+    'Move a document and everything nested under it to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with a confirmation envelope.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
@@ -3230,7 +3229,7 @@ doc
 doc
   .command('unbind <doc> <task>')
   .description(
-    'Unbind a document from a task. Removes EXPLICIT mentions only — purely CONTENT-derived mentions (from @LUM-N in the body) cannot be removed via CLI and fail with 409; edit the doc body in the web UI instead.'
+    'Unbind a document from a task. Removes explicit mentions only; a mention derived from @LUM-N in the body fails with 409 and must be removed by editing the doc body.'
   )
   .action(
     wrap((docRef, task) =>
@@ -3278,7 +3277,7 @@ doc
 task
   .command('update <identifier>')
   .description(
-    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use "" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a task: at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint or a tag flag. "" clears description, assignee, milestone or sprint.'
   )
   .option('-t, --title <text>', 'New title')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -3342,7 +3341,7 @@ task
   )
   .option(
     '--confirm',
-    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+    'With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4.'
   )
   .action(
     wrap((identifier, options) =>
@@ -3359,7 +3358,7 @@ const worktree = program
 worktree
   .command('add <identifier> [slug]')
   .description(
-    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off the remote default branch (origin/HEAD), link node_modules when present, copy the husky shim when husky owns hooks, and apply .lumo/worktree.json (linkPaths, copyPaths, notes). Run from the main checkout.'
+    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/HEAD and apply .lumo/worktree.json. Run from the main checkout.'
   )
   .option(
     '--base <ref>',
@@ -3375,7 +3374,7 @@ worktree
   )
   .option(
     '--confirm',
-    'The user has seen and approved the verifyCommand shown in the confirmation envelope (LUM-755). Only meaningful with --verify.'
+    'The user has seen and approved the verifyCommand shown in the confirmation envelope. Only meaningful with --verify.'
   )
   .action(
     wrap((identifier, slug, options) => {
@@ -3397,11 +3396,11 @@ worktree
 worktree
   .command('rm <identifier>')
   .description(
-    'Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch.'
+    "Remove a task's worktree. Without --confirm (or with uncommitted changes and no --force) exits 4 with an envelope naming what would be discarded. Keeps the branch unless --delete-branch."
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .option('--force', 'Remove even with uncommitted changes (discards them)')
@@ -3433,11 +3432,11 @@ worktree
 worktree
   .command('prune')
   .description(
-    'Remove the worktrees of tasks that are already DONE (closed on the web or another machine too). Keeps any worktree with uncommitted changes, commits that are neither pushed nor the head of a merged linked PR, or the current directory inside it. Without --confirm exits 4 with an envelope listing what goes and what stays. Never deletes branches.'
+    'Remove the worktrees of DONE tasks, keeping any with uncommitted or unpushed work or the current directory inside. Without --confirm exits 4 with an envelope. Never deletes branches.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .action(wrap(options => worktreePrune(options as { confirm?: boolean })))
 
@@ -3588,6 +3587,12 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
       )
     )
 }
+
+// LUM-1232 batch F (HT-1): `Examples:` / `Exit codes:` sections, after every
+// command is registered. Data lives in cli/src/lib/help-text.ts.
+attachHelpSections(
+  program as unknown as Parameters<typeof attachHelpSections>[0]
+)
 
 if (!isUpdateCheckWorker && !isIntrospect) {
   program.parseAsync(process.argv).catch(err => {
