@@ -159,7 +159,7 @@ describe('task status --full — Test cases section (LUM-1186)', () => {
     for (const l of listLines) expect(section).toContain(`  ${l}`)
 
     expect(section).toContain(
-      'PASS on LOCAL → UNPROVEN (no evidence) @abcdef1 (2026-10-16)'
+      'PASS on LOCAL → UNPROVEN (no evidence) @abcdef1 2026-10-16T10:00:00Z'
     )
     expect(section).toContain('3 of 3 steps passed')
     expect(section).toContain('cause: defect')

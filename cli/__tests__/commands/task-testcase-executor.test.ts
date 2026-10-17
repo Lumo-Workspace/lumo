@@ -122,7 +122,7 @@ describe('testcase list', () => {
     await taskTestCaseList('LUM-1')
 
     expect(printed()).toContain(
-      'PASS on LOCAL (2026-10-06) by Ada Lovelace via session 86dce765'
+      'PASS on LOCAL 2026-10-06T08:00:00Z by Ada Lovelace via session 86dce765'
     )
   })
 })
@@ -148,9 +148,9 @@ describe('testcase show', () => {
 
     await taskTestCaseShow('LUM-1/TC1')
 
-    expect(printed()).toContain('2026-10-06  PASS on LOCAL  by Bo')
+    expect(printed()).toContain('2026-10-06T08:00:00Z  PASS on LOCAL  by Bo')
     expect(printed()).toContain(
-      '2026-10-06  PASS on LOCAL  runner not recorded'
+      '2026-10-06T08:00:00Z  PASS on LOCAL  runner not recorded'
     )
   })
 })

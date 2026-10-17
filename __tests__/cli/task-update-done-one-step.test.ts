@@ -211,8 +211,8 @@ describe('task update --status done, one step', () => {
     // Then the changes summary: what moved, and every merged PR.
     expect(out).toMatch(/One-step DONE/)
     expect(out).toContain('Status: IN_REVIEW → DONE')
-    expect(out).toMatch(/#926\s+merged/)
-    expect(out).toMatch(/#927\s+merged/)
+    expect(out).toMatch(/#926\s+MERGED/)
+    expect(out).toMatch(/#927\s+MERGED/)
     expect(out).not.toContain('confirmation_required')
     expect(stderr).toEqual([])
   })

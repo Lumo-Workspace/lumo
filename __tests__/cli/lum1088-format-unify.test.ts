@@ -36,7 +36,14 @@ describe('date helpers (in-process, timezone-independent)', () => {
     // Built from local components, so the expectation holds in every zone.
     const iso = new Date(2026, 8, 15, 9, 5).toISOString()
     expect(fmtDay(iso)).toBe('2026-09-15')
-    expect(fmtTimestamp(iso)).toBe('2026-09-15 09:05')
+    // LUM-1232 T-2: a terminal gets local time plus the UTC offset; T-1: a
+    // pipe gets UTC ISO 8601 with `Z`.
+    expect(fmtTimestamp(iso, { tty: true })).toMatch(
+      /^2026-09-15 09:05 [+-]\d\d:\d\d$/
+    )
+    expect(fmtTimestamp(iso, { tty: false })).toBe(
+      new Date(iso).toISOString().replace(/\.\d{3}Z$/, 'Z')
+    )
   })
 
   it('fmtDay / fmtTimestamp map absent or unparsable input to NONE', () => {
@@ -53,7 +60,8 @@ function inZone(tz: string): Record<string, string> {
     'console.log(JSON.stringify({',
     "  calendar: fmtCalendarDay('2026-06-01T00:00:00.000Z'),",
     "  day: fmtDay('2026-06-01T00:00:00.000Z'),",
-    "  ts: fmtTimestamp('2026-06-01T00:30:00.000Z'),",
+    "  ts: fmtTimestamp('2026-06-01T00:30:00.000Z', { tty: true }),",
+    "  pipe: fmtTimestamp('2026-06-01T00:30:00.000Z', { tty: false }),",
     '}))',
   ].join('\n')
   const out = execFileSync(
@@ -73,13 +81,15 @@ describe('date helpers across timezones (child process with TZ set)', () => {
   it('a timestamp is shown in the local zone', () => {
     expect(inZone('America/Los_Angeles')).toMatchObject({
       day: '2026-05-31',
-      ts: '2026-05-31 17:30',
+      ts: '2026-05-31 17:30 -07:00',
+      pipe: '2026-06-01T00:30:00Z',
     })
     expect(inZone('Asia/Shanghai')).toMatchObject({
       day: '2026-06-01',
-      ts: '2026-06-01 08:30',
+      ts: '2026-06-01 08:30 +08:00',
+      pipe: '2026-06-01T00:30:00Z',
     })
-    expect(inZone('UTC').ts).toBe('2026-06-01 00:30')
+    expect(inZone('UTC').ts).toBe('2026-06-01 00:30 +00:00')
   })
 })
 

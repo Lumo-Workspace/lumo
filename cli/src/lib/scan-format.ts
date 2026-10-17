@@ -1,4 +1,4 @@
-import { fmtCount } from './format'
+import { fmtCount, fmtPercent } from './format'
 import { sanitizeField } from './sanitize'
 import {
   formatQueueExits,
@@ -367,7 +367,7 @@ function serverConfigSegment(b: JudgeBudgetLine): string {
 /**
  * LUM-814 — one line of budget arithmetic under the layer line:
  *
- *   `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
+ *   `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left (2%)`
  *   `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 ·
  *    12 of 41 files dropped, 30.9% of the diff unreviewed`
  *   `AI review budget: not recorded on this scan`
@@ -417,7 +417,7 @@ export function formatJudgeBudgetLine(
     if (b.diffChars > partial.capChars)
       parts.push(`over by ${fmtCount(b.diffChars - partial.capChars)}`)
     parts.push(
-      `reviewed ${fmtCount(partial.reviewedFiles)} of ${fmtCount(partial.totalFiles)} files, ${fmtCount(left)} left out for size (${outPct.toFixed(1)}% of the diff)`
+      `reviewed ${fmtCount(partial.reviewedFiles)} of ${fmtCount(partial.totalFiles)} files, ${fmtCount(left)} left out for size (${fmtPercent(outPct)} of the diff)`
     )
     return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
   }
@@ -436,12 +436,12 @@ export function formatJudgeBudgetLine(
         ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
         : 0
     parts.push(
-      `${fmtCount(b.droppedFiles)} of ${fmtCount(total)} files dropped, ${unreviewed.toFixed(1)}% of the diff unreviewed`
+      `${fmtCount(b.droppedFiles)} of ${fmtCount(total)} files dropped, ${fmtPercent(unreviewed)} of the diff unreviewed`
     )
   } else {
     const left = Math.max(0, b.tierChars - b.diffChars)
     const pct = b.tierChars > 0 ? (left / b.tierChars) * 100 : 0
-    parts.push(`${fmtCount(left)} left, ${pct.toFixed(1)}%`)
+    parts.push(`${fmtCount(left)} left (${fmtPercent(pct)})`)
   }
   return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
 }

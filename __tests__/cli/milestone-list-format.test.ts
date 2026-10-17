@@ -25,7 +25,7 @@ describe('formatMilestoneList', () => {
 
   it('renders a HEALTH column between state and target date', () => {
     const out = formatMilestoneList([row({ health: 'at-risk' })])
-    expect(out).toBe('ACTIVE  AT-RISK  2026-08-31  q3-launch  Q3 Launch')
+    expect(out).toBe('ACTIVE  AT_RISK  2026-08-31  q3-launch  Q3 Launch')
   })
 
   // LUM-714: the STATE column is derived from the two timestamps, not read
@@ -63,13 +63,13 @@ describe('formatMilestoneList', () => {
     ])
     expect(line2.split(/\s{2,}/)).toEqual([
       'COMPLETED',
-      'ON-TRACK',
+      'ON_TRACK',
       '-',
       'b',
       'B',
     ])
     // The HEALTH column starts at the same offset on every row.
-    expect(line1.indexOf('OVERDUE')).toBe(line2.indexOf('ON-TRACK'))
+    expect(line1.indexOf('OVERDUE')).toBe(line2.indexOf('ON_TRACK'))
   })
 
   // LUM-1230: the slug is the handle every milestone command takes — the

@@ -1,4 +1,4 @@
-import { emptyState, fmtCalendarDay } from '../lib/format'
+import { emptyState, fmtDayRange } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
@@ -41,7 +41,7 @@ export function formatSprintList(
     rows.map(r => [
       r.status,
       `#${r.number}`,
-      `${fmtCalendarDay(r.startDate)}..${fmtCalendarDay(r.endDate)}`,
+      fmtDayRange(r.startDate, r.endDate),
       sanitizeField(r.name),
     ]),
     { header: ['STATUS', 'SPRINT', 'DATES', 'NAME'], flex: 3, ...opts }

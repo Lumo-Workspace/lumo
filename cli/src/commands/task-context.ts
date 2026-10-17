@@ -2,7 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
-import { fmtCalendarDay, formatDuration, relativeTime } from '../lib/format'
+import { fmtCalendarDay, fmtInstant, formatDuration } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { resolveSessionId } from '../lib/session-id'
 import {
@@ -135,12 +135,12 @@ export async function taskContext(
 
 /**
  * Render a TaskContextResponse as the agent-facing markdown handoff. Pure
- * function; the `now` parameter makes "X ago" phrasing deterministic in
- * tests.
+ * apart from the TTY check of {@link fmtInstant}. `_now` is kept for callers;
+ * since LUM-1232 times are absolute, so it no longer affects the output.
  */
 export function formatTaskContextMarkdown(
   data: TaskContextResponse,
-  now: Date,
+  _now: Date,
   opts: TaskContextFormatOptions = {}
 ): string {
   const lines: string[] = []
@@ -269,9 +269,10 @@ export function formatTaskContextMarkdown(
     const recaps: string[] = []
     for (const s of sessions) {
       const shortId = s.id.slice(0, 8)
-      const ago = relativeTime(new Date(s.lastActivityAt), now)
+      // LUM-1232 (T-1/T-2): absolute time only — no `2 days ago`.
+      const at = fmtInstant(s.lastActivityAt)
       const dur = formatDuration(s.durationMs)
-      recaps.push(`### Session ${shortId} · ${ago} · ${dur}`)
+      recaps.push(`### Session ${shortId} · ${at} · ${dur}`)
       recaps.push(`**Summary**: ${recapLine(s.headline)}`)
       recaps.push(...renderSessionRecapFollowUps(s.unresolved.map(recapLine)))
       recaps.push('')

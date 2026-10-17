@@ -60,7 +60,7 @@ describe('formatMilestoneShow', () => {
   it('renders the health light when provided, "-" when absent', () => {
     expect(
       formatMilestoneShow({ ...milestone, health: 'at-risk' }, [])
-    ).toContain('Health:     AT-RISK')
+    ).toContain('Health:     AT_RISK')
     expect(formatMilestoneShow({ ...milestone, health: null }, [])).toContain(
       'Health:     -'
     )

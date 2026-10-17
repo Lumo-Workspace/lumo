@@ -1,4 +1,9 @@
-import { fmtCalendarDay, fmtTimestamp, NONE } from './format'
+import {
+  fmtCalendarDay,
+  fmtTimestamp,
+  formatDurationHours,
+  NONE,
+} from './format'
 import {
   fieldLines,
   labelWidth,
@@ -72,7 +77,8 @@ export function statusLine(dist: Record<string, number>): string {
 
 /** Average hours to DONE, one decimal (as the web card), or `N/A`. */
 export function avgCompletionLabel(hours: number | null): string {
-  return hours === null ? 'N/A' : `${Math.round(hours * 10) / 10}h`
+  // LUM-1232 N-3: `54d 5h`, never fractional hours; absent → `-` (V-1).
+  return formatDurationHours(hours)
 }
 
 /** One line: no control characters, whitespace runs collapsed. */

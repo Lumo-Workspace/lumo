@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
+import { fmtInstant } from '../lib/format'
 import { errAuth, errNotLoggedIn } from '../lib/errors'
 import {
   fetchActorNames,
@@ -143,7 +144,7 @@ export function crossingFields(
   const occurrences =
     c.occurrenceCount == null
       ? NONE
-      : `×${c.occurrenceCount} · last seen ${orNone(c.lastSeenAt)}`
+      : `×${c.occurrenceCount} · last seen ${fmtInstant(c.lastSeenAt, { tty: opts.tty })}`
   const rule =
     c.policyRuleText || c.policyRuleRef
       ? `${c.policyRuleRef ? `[${oneLine(c.policyRuleRef)}] ` : ''}${orNone(
@@ -153,7 +154,7 @@ export function crossingFields(
   const fields: Field[] = [
     { label: 'State', value: stateLabel(c) },
     { label: 'Detail', value: orNone(c.detail) },
-    { label: 'Detected', value: orNone(c.detectedAt) },
+    { label: 'Detected', value: fmtInstant(c.detectedAt, { tty: opts.tty }) },
     { label: 'Occurrences', value: occurrences },
     {
       label: 'Reversible',
@@ -205,7 +206,10 @@ export function crossingFields(
     const change = c.lastDispositionChange
     fields.push(
       { label: 'Ruled by', value: actorLabel(c.dispositionedById, names) },
-      { label: 'Ruled at', value: orNone(c.dispositionedAt) },
+      {
+        label: 'Ruled at',
+        value: fmtInstant(c.dispositionedAt, { tty: opts.tty }),
+      },
       { label: 'Channel', value: orNone(c.dispositionChannel) },
       { label: 'Note', value: orNone(c.dispositionNote) },
       {
@@ -227,7 +231,7 @@ export function crossingFields(
                 : ''
             } · ${
               c.suppressionRule.revokedAt
-                ? `revoked ${oneLine(c.suppressionRule.revokedAt)}`
+                ? `revoked ${fmtInstant(c.suppressionRule.revokedAt, { tty: opts.tty })}`
                 : 'active'
             }`
           : NONE,
@@ -383,6 +387,7 @@ export async function crossingList(
       actorNames,
       width: terminalWidth(),
       color: colorEnabled(),
+      tty: Boolean(process.stdout.isTTY),
     })
   )
 }

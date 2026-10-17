@@ -83,10 +83,10 @@ export function notificationSentence(n: InboxNotification): string {
   return `${actor} ${verb} ${subject}`
 }
 
-function itemLines(n: InboxNotification): string[] {
+function itemLines(n: InboxNotification, tty?: boolean): string[] {
   const mark = n.read ? ' ' : icons.bullet
   const lines = [
-    `${mark} ${fmtTimestamp(n.createdAt)}  ${notificationSentence(n)}`,
+    `${mark} ${fmtTimestamp(n.createdAt, { tty })}  ${notificationSentence(n)}`,
   ]
   if (n.commentPreview && n.type === 'TASK_MENTIONED') {
     lines.push(`    "${truncate(flat(n.commentPreview), 120)}"`)
@@ -111,12 +111,12 @@ export function formatInbox(
   ]
   if (pending.length > 0) {
     lines.push(...sectionHeading('Needs your response', opts))
-    for (const n of pending) lines.push(...itemLines(n))
+    for (const n of pending) lines.push(...itemLines(n, opts.tty))
   }
   if (other.length > 0) {
     if (pending.length > 0) lines.push(...sectionHeading('Other', opts))
     else lines.push('')
-    for (const n of other) lines.push(...itemLines(n))
+    for (const n of other) lines.push(...itemLines(n, opts.tty))
   }
   return lines.join('\n')
 }

@@ -80,7 +80,7 @@ describe('LUM-1090 — one label width per detail view', () => {
     const out = formatSprintShow(sprint, { done: 4, total: 10 }, [])
     const rows = out.split('\nBlockers')[0]!.split('\nTasks')[0]!.split('\n')
     expect(new Set(valueColumns(rows))).toEqual(new Set([11]))
-    expect(out).toContain('Closed:    -\n\nProgress:  4 / 10')
+    expect(out).toContain('Closed:    -\n\nProgress:  4/10')
   })
 
   it('task show: header line, then rows in one value column', () => {
@@ -348,14 +348,17 @@ describe('LUM-1090 — task history table', () => {
   it('pads the actor column by display width; header on a TTY only', () => {
     const pipe = formatHistory(entries, names, { tty: false }).split('\n')
     expect(pipe).toHaveLength(2)
-    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d  Al    created$/)
+    // LUM-1232 T-1: piped times are UTC ISO 8601 with `Z`.
+    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ  Al    created$/)
     expect(pipe[1]).toMatch(/  李超  priority LOW → HIGH$/)
     const tty = formatHistory(entries, names, {
       tty: true,
       color: false,
       width: 100,
     }).split('\n')
-    expect(tty[0]).toBe('WHEN              ACTOR  CHANGE')
+    // LUM-1232 T-2: a TTY shows local time with its UTC offset.
+    expect(tty[0]).toBe(`${'WHEN'.padEnd(25)}ACTOR  CHANGE`)
+    expect(tty[1]).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d [+-]\d\d:\d\d  Al /)
     expect(tty).toHaveLength(3)
   })
 })

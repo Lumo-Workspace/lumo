@@ -43,6 +43,7 @@ import {
   type LayoutOptions,
 } from '../lib/report-layout'
 import { colorEnabled, terminalWidth } from '../lib/ui'
+import { fmtEnum } from '../lib/format'
 
 /**
  * `lumo task wrapup [task]` (LUM-841) — the whole wrap-up in one read.
@@ -187,7 +188,7 @@ export function assessReadiness(input: WrapupInput): Readiness {
   if (unmerged.length > 0)
     notYet.push(
       `${plural(unmerged.length, 'linked PR')} not merged (${unmerged
-        .map(p => `#${p.number} ${p.state ?? 'unknown'}`)
+        .map(p => `#${p.number} ${fmtEnum(p.state)}`)
         .join(', ')})`
     )
   if (notYet.length > 0) return { level: 'NOT_YET', reasons: notYet }

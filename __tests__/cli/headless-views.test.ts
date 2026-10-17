@@ -264,9 +264,11 @@ describe('overview formatting', () => {
       'BACKLOG 0 · TODO 3 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 4 · CANCELLED 1'
     )
   })
-  it('avgCompletionLabel: one decimal in hours, N/A when unmeasured', () => {
-    expect(avgCompletionLabel(12.345)).toBe('12.3h')
-    expect(avgCompletionLabel(null)).toBe('N/A')
+  it('avgCompletionLabel: a duration (days from 48h on), - when unmeasured', () => {
+    // LUM-1232 N-3 / V-1: never fractional hours, never N/A.
+    expect(avgCompletionLabel(12.345)).toBe('12h 21m')
+    expect(avgCompletionLabel(1301.1)).toBe('54d 5h')
+    expect(avgCompletionLabel(null)).toBe('-')
   })
   it('idleDaysSince: whole days, - when absent', () => {
     expect(
@@ -283,7 +285,7 @@ describe('overview formatting', () => {
     expect(text).toMatch(/Total tasks:\s+10/)
     expect(text).toMatch(/Completed:\s+4/)
     expect(text).toMatch(/Overdue:\s+2/)
-    expect(text).toMatch(/Avg completion:\s+12.3h/)
+    expect(text).toMatch(/Avg completion:\s+12h 21m/)
     expect(text).toMatch(/Alice Chen\s+5\s+3/)
     expect(text).not.toContain('2026-10-02  2')
     expect(text).toContain('2026-10-03  3')

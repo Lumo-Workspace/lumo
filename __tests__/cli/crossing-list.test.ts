@@ -244,7 +244,7 @@ describe('formatCrossingList — dispositioned history (--all)', () => {
     expect(out).toMatch(/Note:\s+build output only/)
     expect(out).toMatch(/Channel:\s+CLI/)
     expect(out).toContain('CONFIRMED → FALSE_POSITIVE by Alice at')
-    expect(out).toContain('revoked 2026-10-03T00:00:00.000Z')
+    expect(out).toContain('revoked 2026-10-03T00:00:00Z')
     expect(out).toContain('LUM-88 Fix cleanup script (DONE, remediated)')
   })
 
@@ -296,9 +296,7 @@ describe('formatCrossingList — open-row details', () => {
       normalizeCrossingRecord(OPEN, true),
     ])
     expect(out).toMatch(/State:\s+OPEN · blocks DONE/)
-    expect(out).toMatch(
-      /Occurrences:\s+×3 · last seen 2026-10-05T11:00:00.000Z/
-    )
+    expect(out).toMatch(/Occurrences:\s+×3 · last seen 2026-10-05T11:00:00Z/)
     expect(out).toMatch(/Rule:\s+\[R3\] Never weaken an assertion/)
     expect(out).toContain('- expect(a).toBe(1)')
     expect(out).toContain('+ // removed')

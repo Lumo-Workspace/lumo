@@ -1,4 +1,4 @@
-import { emptyState, fmtTimestamp } from '../lib/format'
+import { NONE, emptyState, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -71,7 +71,7 @@ export function commentPlainText(html: string): string {
 /** Render one comment (and its nested replies) as an indented text block. */
 function renderCommentBlock(c: CommentNode, indent: string): string {
   const lines: string[] = []
-  const author = sanitizeField(c.authorActorId ?? 'unknown')
+  const author = sanitizeField(c.authorActorId ?? NONE)
   // `#<short id>` is the handle `task comment --reply-to` and
   // `task comments edit/rm` take (LUM-821).
   lines.push(

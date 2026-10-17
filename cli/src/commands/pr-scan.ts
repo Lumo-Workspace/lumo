@@ -1,4 +1,4 @@
-import { fmtCount, fmtTimestamp } from '../lib/format'
+import { NONE, fmtCount, fmtEnum, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -40,7 +40,7 @@ import {
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
-import { colorEnabled, heading, terminalWidth } from '../lib/ui'
+import { colorEnabled, enumColor, heading, terminalWidth } from '../lib/ui'
 
 export interface PrScanOptions {
   review?: 'incremental' | 'full'
@@ -379,8 +379,8 @@ function plural(n: number, one: string, many: string): string {
 }
 
 function formatTokens(n: number | null): string {
-  // null = not metered (team rule: null ≠ 0) — say so rather than print 0.
-  return n === null ? 'not metered' : fmtCount(n)
+  // null = not metered (team rule: null ≠ 0): `-`, never 0 (LUM-1232 V-1).
+  return n === null ? NONE : fmtCount(n)
 }
 
 /** The hunt's audit header (`--full`) as labelled rows (LUM-1091). */
@@ -556,7 +556,13 @@ export function formatPrScan(
     ...fieldLines(
       [
         { label: 'Repo', value: sanitizeField(pr.repo) },
-        { label: 'State', value: sanitizeField(pr.state) },
+        {
+          label: 'State',
+          value: enumColor(
+            fmtEnum(sanitizeField(pr.state)),
+            layout.color === true
+          ),
+        },
         {
           label: 'Task',
           value: pr.task ? sanitizeField(pr.task.identifier) : 'no linked task',

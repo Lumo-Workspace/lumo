@@ -2,6 +2,7 @@ import {
   NONE,
   fmtCalendarDay,
   fmtDay,
+  fmtDayRange,
   fmtTokens,
   formatDurationSec,
 } from './format'
@@ -197,12 +198,12 @@ export function sprintBurnupLines(
         {
           label: 'Done',
           value: lastMeasured
-            ? `${lastMeasured.completed} / ${scopeTotal}  (as of ${fmtCalendarDay(lastMeasured.date)})`
-            : `${NONE} / ${scopeTotal}  (nothing measured yet)`,
+            ? `${lastMeasured.completed}/${scopeTotal}  (as of ${fmtCalendarDay(lastMeasured.date)})`
+            : `${NONE}/${scopeTotal}  (nothing measured yet)`,
         },
         {
           label: 'Trend',
-          value: `${burnupSparkline(series, scopeTotal)}  (${fmtCalendarDay(burnup.start)} → ${fmtCalendarDay(burnup.end)})`,
+          value: `${burnupSparkline(series, scopeTotal)}  ${fmtDayRange(burnup.start, burnup.end)}`,
           whole: true,
         },
       ],

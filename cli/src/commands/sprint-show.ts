@@ -119,7 +119,7 @@ export function formatSprintShow(
     { label: 'Closed', value: fmtDay(s.closedAt) },
   ]
   const progressRow: Field[] = [
-    { label: 'Progress', value: `${progress.done} / ${progress.total}` },
+    { label: 'Progress', value: `${progress.done}/${progress.total}` },
   ]
   // One label width across both groups, so the values share a column.
   const labelW = labelWidth([...header, ...progressRow])

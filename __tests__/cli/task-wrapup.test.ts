@@ -178,7 +178,7 @@ describe('lumo task wrapup (LUM-841)', () => {
     expect(out).toContain('  • cx-1 [MEDIUM] TEST_FILE_DELETED (blocks DONE)')
     // DONE readiness + envelope preview: PR merge state and worktree cleanup
     expect(out).toContain('Readiness: BLOCKED')
-    expect(out).toContain('#77  merged ')
+    expect(out).toContain('#77  MERGED ')
     expect(out).toContain('Will remove worktree /repo/.worktrees/LUM-9001-x')
   })
 
@@ -472,7 +472,7 @@ describe('lumo task wrapup (LUM-841)', () => {
       if (open.task.ok) open.task.value.pullRequests![0]!.state = 'open'
       const r = assessReadiness(open)
       expect(r.level).toBe('NOT_YET')
-      expect(r.reasons.join('\n')).toContain('#77 open')
+      expect(r.reasons.join('\n')).toContain('#77 OPEN')
     })
 
     test('an advisory crossing does not hold READY', () => {

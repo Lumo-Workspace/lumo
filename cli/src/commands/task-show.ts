@@ -13,7 +13,7 @@ import {
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
-import { colorEnabled, heading, terminalWidth } from '../lib/ui'
+import { colorEnabled, enumColor, heading, terminalWidth } from '../lib/ui'
 
 interface ShowResponse {
   task: {
@@ -62,8 +62,11 @@ export function formatTaskShow(
         : label
   }
   const fields: Field[] = [
-    { label: 'Status', value: task.status },
-    { label: 'Priority', value: task.priority },
+    { label: 'Status', value: enumColor(task.status, opts.color === true) },
+    {
+      label: 'Priority',
+      value: enumColor(task.priority, opts.color === true),
+    },
     { label: 'Project', value: sanitizeField(task.project.name) },
     { label: 'Assignee', value: assignee },
   ]
