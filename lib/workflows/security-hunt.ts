@@ -664,6 +664,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(batch.stop ? { stop: batch.stop } : {}),
           ...(batch.wrapUp ? { wrapUp: batch.wrapUp } : {}),
+          // LUM-1226 — submitted / kept / dropped, per attempt.
+          ...(batch.submission ? { submission: batch.submission } : {}),
         })
         outcomes[task.id] = {
           stopped: batch.stopped,
@@ -734,6 +736,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(retry.stop ? { stop: retry.stop } : {}),
           ...(retry.wrapUp ? { wrapUp: retry.wrapUp } : {}),
+          // LUM-1226 — submitted / kept / dropped, per attempt.
+          ...(retry.submission ? { submission: retry.submission } : {}),
         })
         outcomes[task.id] = {
           stopped: retry.stopped,

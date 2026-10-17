@@ -492,6 +492,42 @@ describe('LUM-739 hunt service', () => {
     expect(worked.wrapUpWarnings).toBeUndefined()
   })
 
+  // LUM-1226 — the client drops an invalid candidate on its own instead of
+  // losing the call; the counts must reach the audit row and a deploy log.
+  it('LUM-1226 huntBatch carries submission counts out of the client and logs them', async () => {
+    const submission = {
+      calls: 1,
+      submitted: 3,
+      kept: 2,
+      dropped: 1,
+      reasons: ['cwe'],
+    }
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'done',
+      submission,
+    })
+    const out = await securityHuntService.huntBatch(batchInput())
+    expect(out.submission).toEqual(submission)
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^\[security-hunt\] candidates scan=\S+ task=\S+ submitted=3 kept=2 dropped=1 calls=1 reasons=cwe$/
+      )
+    )
+    ;(logger.info as jest.Mock).mockClear()
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+    })
+    const never = await securityHuntService.huntBatch(batchInput())
+    expect(never.submission).toBeUndefined()
+    expect(logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('[security-hunt] candidates')
+    )
+  })
+
   it('huntBatch records what the agent asked the shell for, refusals included', async () => {
     // Across 46 production tasks the agent never called `submit_candidates` on
     // its own, and the audit could not tell "spent the allowance mapping" from

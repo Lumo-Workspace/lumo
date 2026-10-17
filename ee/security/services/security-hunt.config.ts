@@ -802,6 +802,8 @@ export interface HuntTaskAudit {
   model?: string
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
+  /** LUM-1226 — see `HuntSubmissionFacts`; absent when the tool never ran. */
+  submission?: HuntSubmissionFacts
   taskId: string
   objective: string
   category: HuntCategory
@@ -1158,6 +1160,21 @@ export interface HuntWrapUpFacts {
   error?: string
 }
 
+/**
+ * LUM-1226 — what `submit_candidates` was sent and what survived it. A
+ * candidate that breaks the contract is dropped on its own instead of voiding
+ * the call, so `kept < submitted` is now an outcome to read, not a silence.
+ */
+export interface HuntSubmissionFacts {
+  /** `submit_candidates` calls that reached `execute`. */
+  calls: number
+  submitted: number
+  kept: number
+  dropped: number
+  /** Distinct schema field paths (and `limit`) the dropped ones failed on. */
+  reasons?: string[]
+}
+
 export interface HuntCompressStats {
   /** Compressions that replaced the output. */
   calls: number
@@ -1299,6 +1316,8 @@ export interface HuntBatchOutput {
   trace: HuntStepTrace[]
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
+  /** LUM-1226 — see `HuntSubmissionFacts`. */
+  submission?: HuntSubmissionFacts
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`

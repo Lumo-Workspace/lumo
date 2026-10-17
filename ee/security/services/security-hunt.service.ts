@@ -59,6 +59,7 @@ import {
 } from '@/ee/security/security-scan/hunt/step-output'
 import { normalizeCommand } from '@/ee/security/security-scan/hunt/progress'
 import { formatTraceCache } from '@/ee/security/security-scan/hunt/trace-cache'
+import { formatHuntSubmission as formatSubmission } from '@/ee/security/security-scan/hunt/candidate'
 import { plannedTaskCap } from '@/ee/security/security-scan/hunt/allocation'
 import {
   isTransientPlanError,
@@ -931,6 +932,13 @@ export const securityHuntService = {
       logger.info(
         `[security-hunt] cache scan=${input.job.scanId} task=${input.task.id} ${formatTraceCache(trace)}`
       )
+      // LUM-1226 — a candidate that breaks the contract is dropped on its
+      // own now; this line is where a deploy log shows that it happened.
+      if (out.submission) {
+        logger.info(
+          `[security-hunt] candidates scan=${input.job.scanId} task=${input.task.id} ${formatSubmission(out.submission)}`
+        )
+      }
       return {
         candidates: out.candidates,
         // The hunt model's tokens PLUS the compressions its commands paid
@@ -947,6 +955,7 @@ export const securityHuntService = {
         trace,
         ...(out.stop ? { stop: out.stop } : {}),
         ...(out.wrapUp ? { wrapUp: clipWrapUp(out.wrapUp) } : {}),
+        ...(out.submission ? { submission: out.submission } : {}),
         compress,
         ...vm,
       }
