@@ -1,4 +1,5 @@
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { emitJson, withVersion } from '../lib/json-output'
 import { missingPluginMessage } from '../lib/plugin-route'
 import {
   emitConfirmation,
@@ -396,7 +397,7 @@ export async function workspaceSecurityScan(
   }
 
   if (opts.json) {
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    emitJson(withVersion(result))
     return
   }
   if (update) process.stdout.write('Security scan settings saved.\n\n')

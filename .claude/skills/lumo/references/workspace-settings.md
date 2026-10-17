@@ -58,7 +58,7 @@ lumo workspace security-scan --repos                                  # list eve
 lumo workspace security-scan --repo acme/app                          # one repository
 lumo workspace security-scan --repo acme/app --review off             # exit 4 envelope until --confirm
 lumo workspace security-scan --repo acme/app --drafts on              # turning on needs no confirmation
-lumo workspace security-scan --repos --json                           # { repositories: [{ repo, autoReview, reviewDrafts }], canEdit }
+lumo workspace security-scan --repos --json                           # { version, repositories: [{ repo, autoReview, reviewDrafts }], canEdit }
 ```
 
 ```
@@ -169,7 +169,7 @@ Lists the workspace's PR-review learnings — what reviewers told Lumo in its re
 ```bash
 lumo workspace learnings                     # every repository
 lumo workspace learnings --repo acme/app     # one repository (case-insensitive)
-lumo workspace learnings --json              # { learnings: [{ id, repo, pathGlob, learning, ruleId, authorLogin, repositoryWide, inProject, createdAt }] }
+lumo workspace learnings --json              # { version, learnings: [{ id, repo, pathGlob, learning, ruleId, authorLogin, repositoryWide, inProject, createdAt }] }
 lumo memory rm <ref>                         # delete one (8-char ref from the list) (exits 4 with an envelope until --confirm)
 ```
 

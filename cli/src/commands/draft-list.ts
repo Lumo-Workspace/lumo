@@ -1,4 +1,5 @@
 import { emptyState, fmtTimestamp } from '../lib/format'
+import { emitJson, withVersion } from '../lib/json-output'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -52,7 +53,9 @@ export async function draftList(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    emitJson(
+      withVersion({ ...r.data, total: r.data.drafts.length, nextCursor: null })
+    )
     return
   }
   process.stdout.write(formatDraftList(r.data.drafts) + '\n')

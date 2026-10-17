@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, listEnvelope } from '../lib/json-output'
 import { NONE, emptyState, fmtDay, fmtTimestamp } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -168,9 +169,14 @@ export async function taskHistory(
   }
   const page = historyPage(activities, pageArgs)
   if (opts.json) {
-    // Unchanged array shape — agents already parse it (LUM-1093 keeps the
-    // --json contract; paging is driven by --limit / --cursor).
-    process.stdout.write(JSON.stringify(page.items, null, 2) + '\n')
+    // Batch C: the former bare array is wrapped once (release notes);
+    // `total` / `nextCursor` drive --limit / --cursor paging.
+    emitJson(
+      listEnvelope('entries', page.items, {
+        total: page.total,
+        nextCursor: page.nextCursor,
+      })
+    )
     return
   }
   const dir = await fetchDirectory(ctx)

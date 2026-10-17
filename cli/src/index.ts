@@ -713,7 +713,12 @@ outcome
   .description(
     "Read a task's post-hoc outcome well: the falsifier verdict (REJECTED or INCONCLUSIVE, never a pass) and its rejection signals. INCONCLUSIVE means no rejection on record."
   )
-  .action(wrap((task: unknown) => outcomeShow(task as string)))
+  .option('--json', 'Print { version, outcome, task } as JSON')
+  .action(
+    wrap((task: unknown, opts: unknown) =>
+      outcomeShow(task as string, opts as { json?: boolean })
+    )
+  )
 
 program
   .command('next')
@@ -725,9 +730,12 @@ program
     '--claimable',
     'Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)'
   )
+  .option('--json', 'Print { version, tasks, total, nextCursor } as JSON')
   .action(
     wrap(options =>
-      nextCommand(options as { count?: string; claimable?: boolean })
+      nextCommand(
+        options as { count?: string; claimable?: boolean; json?: boolean }
+      )
     )
   )
 
@@ -805,7 +813,8 @@ priorityCmd
   .description(
     'Print the team priority append history, newest-first (the current declaration is marked with *).'
   )
-  .action(wrap(() => priorityList()))
+  .option('--json', 'Print { version, priorities, current } as JSON')
+  .action(wrap(opts => priorityList(opts as { json?: boolean })))
 
 const pr = program
   .command('pr')
@@ -885,7 +894,8 @@ session
   .description(
     'Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
-  .action(wrap(() => sessionStatus()))
+  .option('--json', 'Print { version, session } as JSON')
+  .action(wrap(opts => sessionStatus(opts as { json?: boolean })))
 
 const usage = program.command('usage').description('Token usage maintenance')
 
@@ -938,7 +948,14 @@ task
     '-m, --milestone <ref>',
     'Filter by milestone slug, name or id (scopes to my tasks under that milestone)'
   )
-  .option('--json', 'Emit { tasks, total, nextCursor } as JSON')
+  .option(
+    '--json',
+    'Print { version, tasks, total, nextCursor, deprecatedFields } as JSON'
+  )
+  .option(
+    '--fields <list>',
+    'With --json: print only these comma-separated task fields, e.g. ref,title,status (an unknown name lists the valid ones)'
+  )
   .action(wrap(options => taskList(options as Record<string, string>)))
 
 task
@@ -1038,7 +1055,12 @@ task
   .description(
     'Show a single task: title, status, priority, assignee, project, URL, description.'
   )
-  .action(wrap(identifier => taskShow(identifier as string)))
+  .option('--json', 'Print { version, task } as JSON')
+  .action(
+    wrap((identifier, opts) =>
+      taskShow(identifier as string, opts as { json?: boolean })
+    )
+  )
 
 task
   .command('wrapup [task]')
@@ -1238,8 +1260,14 @@ taskFigma
 taskFigma
   .command('list <task>')
   .description('List Figma links attached to a task')
+  .option('--json', 'Print { version, figmaLinks, total, nextCursor } as JSON')
   .action(
-    wrap((taskId: unknown) => taskFigmaList({ identifier: taskId as string }))
+    wrap((taskId: unknown, opts: unknown) =>
+      taskFigmaList({
+        identifier: taskId as string,
+        json: (opts as { json?: boolean }).json,
+      })
+    )
   )
 
 taskFigma
@@ -1276,7 +1304,12 @@ taskSlack
   .description(
     'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
-  .action(wrap((id, ctx) => taskSlackShow(id as string, ctx as string)))
+  .option('--json', 'Print { version, slackContext } as JSON')
+  .action(
+    wrap((id, ctx, opts) =>
+      taskSlackShow(id as string, ctx as string, opts as { json?: boolean })
+    )
+  )
 
 const taskWeb = task.command('web').description('Inspect web link content')
 taskWeb
@@ -1284,7 +1317,12 @@ taskWeb
   .description(
     'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
-  .action(wrap((id, link) => taskWebShow(id as string, link as string)))
+  .option('--json', 'Print { version, webLink } as JSON')
+  .action(
+    wrap((id, link, opts) =>
+      taskWebShow(id as string, link as string, opts as { json?: boolean })
+    )
+  )
 
 // taskFigma already exists above → attach the context leaf to it.
 taskFigma
@@ -1292,7 +1330,15 @@ taskFigma
   .description(
     'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
-  .action(wrap((id, link) => taskFigmaContext(id as string, link as string)))
+  .option(
+    '--json',
+    'Print { version, figmaLink, designContextAvailable, note } as JSON'
+  )
+  .action(
+    wrap((id, link, opts) =>
+      taskFigmaContext(id as string, link as string, opts as { json?: boolean })
+    )
+  )
 
 // Plural `comments` parent: `task comment <id> <body>` already exists for
 // adding a comment, and commander disallows a duplicate name.
@@ -1310,11 +1356,20 @@ taskComments
     '--cursor <cursor>',
     'Continue from a previous page (from the footer)'
   )
+  .option(
+    '--json',
+    'Print { version, comments, total, nextCursor, task } as JSON'
+  )
   .action(
     wrap((id, opts) =>
       taskCommentList(
         id as string,
-        opts as { full?: boolean; limit?: string; cursor?: string }
+        opts as {
+          full?: boolean
+          limit?: string
+          cursor?: string
+          json?: boolean
+        }
       )
     )
   )
@@ -1355,7 +1410,13 @@ const taskDeps = task
 taskDeps
   .command('list <identifier>')
   .description('List dependency edges (both directions)')
-  .action(wrap(id => taskDepsList(id as string)))
+  .option(
+    '--json',
+    'Print { version, dependencies, total, nextCursor, task } as JSON'
+  )
+  .action(
+    wrap((id, opts) => taskDepsList(id as string, opts as { json?: boolean }))
+  )
 taskDeps
   .command('add <identifier>')
   .requiredOption('--blocked-by <blocker>', 'blocker task (LUM-N)')
@@ -1406,7 +1467,15 @@ taskPr
   .description(
     'Show the synced PR record (diff/review comments when available)'
   )
-  .action(wrap((id, num) => taskPrShow(id as string, num as string)))
+  .option(
+    '--json',
+    'Print { version, pullRequest, task, liveDiffAvailable, note } as JSON'
+  )
+  .action(
+    wrap((id, num, opts) =>
+      taskPrShow(id as string, num as string, opts as { json?: boolean })
+    )
+  )
 
 task
   .command('scans <identifier>')
@@ -1438,9 +1507,13 @@ task
     '--signal',
     'Append usage-signal health section (fetches /api/lineage/signal)'
   )
+  .option(
+    '--json',
+    'Print { version, lineage } (plus signal with --signal) as JSON'
+  )
   .action(
     wrap((id, options) =>
-      taskLineage(id as string, options as { signal?: boolean })
+      taskLineage(id as string, options as { signal?: boolean; json?: boolean })
     )
   )
 
@@ -1477,6 +1550,7 @@ taskMemory
     'Filter by trap|decision|convention|procedural (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
+  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
   .action(
     wrap((taskArg: unknown, opts: unknown) =>
       memoryTaskList(
@@ -1580,16 +1654,26 @@ taskArtifact
 taskArtifact
   .command('list <task>')
   .description('List artifacts attached to a task, in order')
-  .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
+  .option('--json', 'Print { version, artifacts, total, nextCursor } as JSON')
+  .action(
+    wrap((taskId: unknown, opts: unknown) =>
+      taskArtifactList(taskId as string, opts as { json?: boolean })
+    )
+  )
 
 taskArtifact
   .command('show <task> <artifact>')
   .description(
     'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task context`), a unique id prefix or the full id.'
   )
+  .option('--json', 'Print { version, artifact, task } as JSON')
   .action(
-    wrap((taskId: unknown, artifactId: unknown) =>
-      taskArtifactShow(taskId as string, artifactId as string)
+    wrap((taskId: unknown, artifactId: unknown, opts: unknown) =>
+      taskArtifactShow(
+        taskId as string,
+        artifactId as string,
+        opts as { json?: boolean }
+      )
     )
   )
 
@@ -1657,14 +1741,27 @@ taskTestCase
   .description(
     "List a task's test cases with each one's latest run (result, environment, commit)"
   )
-  .action(wrap((taskId: unknown) => taskTestCaseList(taskId as string)))
+  .option(
+    '--json',
+    'Print { version, testCases, total, nextCursor, summary } as JSON'
+  )
+  .action(
+    wrap((taskId: unknown, opts: unknown) =>
+      taskTestCaseList(taskId as string, opts as { json?: boolean })
+    )
+  )
 
 taskTestCase
   .command('show <task/case>')
   .description(
     'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3'
   )
-  .action(wrap((handle: unknown) => taskTestCaseShow(handle as string)))
+  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
+  .action(
+    wrap((handle: unknown, opts: unknown) =>
+      taskTestCaseShow(handle as string, opts as { json?: boolean })
+    )
+  )
 
 taskTestCase
   .command('download <task/case> <dir>')
@@ -2072,7 +2169,8 @@ projectCmd
   .description(
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
-  .action(wrap(() => projectList()))
+  .option('--json', 'Print { version, projects, total, nextCursor } as JSON')
+  .action(wrap(opts => projectList(opts as { json?: boolean })))
 
 projectCmd
   .command('overview [project]')
@@ -2131,6 +2229,7 @@ projectMemory
     'Filter by trap|decision|convention|procedural (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
+  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
   .action(
     wrap((p: unknown, opts: unknown) =>
       memoryProjectList(p as string | undefined, opts as Record<string, string>)
@@ -2178,7 +2277,12 @@ memoryCmd
   .description(
     "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
   )
-  .action(wrap((id: unknown) => memoryShow(id as string)))
+  .option('--json', 'Print { version, memory } as JSON')
+  .action(
+    wrap((id: unknown, opts: unknown) =>
+      memoryShow(id as string, opts as { json?: boolean })
+    )
+  )
 
 memoryCmd
   .command('promote <memory>')
@@ -2295,6 +2399,7 @@ milestoneCmd
     '--cursor <cursor>',
     'Continue from a previous page (from the footer)'
   )
+  .option('--json', 'Print { version, milestones, total, nextCursor } as JSON')
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
 milestoneCmd
@@ -2321,6 +2426,7 @@ milestoneCmd
     '--project <ref>',
     'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
   )
+  .option('--json', 'Print { version, milestone, tasks } as JSON')
   .action(
     wrap((identifier, options) =>
       milestoneShow(identifier as string, options as Record<string, string>)
@@ -2585,9 +2691,16 @@ milestoneTestCase
     '--project <ref>',
     'Project name or slug (needed when the milestone name is ambiguous)'
   )
+  .option(
+    '--json',
+    'Print { version, testCases, total, nextCursor, summary } as JSON'
+  )
   .action(
     wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseList(ms as string, options as { project?: string })
+      milestoneTestCaseList(
+        ms as string,
+        options as { project?: string; json?: boolean }
+      )
     )
   )
 
@@ -2600,12 +2713,13 @@ milestoneTestCase
     '--project <ref>',
     'Project name or slug (needed when the milestone name is ambiguous)'
   )
+  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
   .action(
     wrap((ms: unknown, caseRef: unknown, options: unknown) =>
       milestoneTestCaseShow(
         ms as string,
         caseRef as string,
-        options as { project?: string }
+        options as { project?: string; json?: boolean }
       )
     )
   )
@@ -2825,6 +2939,7 @@ sprintCmd
     'Filter by status: draft | active | closed (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Show only the first N sprints')
+  .option('--json', 'Print { version, sprints, total, nextCursor } as JSON')
   .action(wrap(options => sprintList(options as Record<string, string>)))
 
 sprintCmd
@@ -2833,9 +2948,16 @@ sprintCmd
     'Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.'
   )
   .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option(
+    '--json',
+    'Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON'
+  )
   .action(
     wrap((identifier, options) =>
-      sprintShow(identifier as string, options as { team?: string })
+      sprintShow(
+        identifier as string,
+        options as { team?: string; json?: boolean }
+      )
     )
   )
 
@@ -3011,13 +3133,13 @@ doc
   .option('--project <ref>', 'Project name/slug; pass "" to clear')
   .option(
     '--tag <name>',
-    'Set tags by name (bulk replace, repeatable)',
+    'Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
   .option(
     '--tag-id <cuid>',
-    'Set tags by id (bulk replace, repeatable)',
+    'Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
@@ -3062,11 +3184,15 @@ doc
     '--section <heading>',
     'Print one heading-addressed section of the markdown source (prefix with #… to pin depth, e.g. "## Status")'
   )
+  .option(
+    '--json',
+    'Print { version, document } as JSON (not with --raw / --section)'
+  )
   .action(
     wrap((reference, opts) =>
       docShow(
         reference as string | undefined,
-        opts as { raw?: boolean; section?: string }
+        opts as { raw?: boolean; section?: string; json?: boolean }
       )
     )
   )
@@ -3181,6 +3307,7 @@ doc
     'Continue from a previous page (from the footer)'
   )
   .option('--tree', 'Render as an indented tree (paged in tree order)')
+  .option('--json', 'Print { version, documents, total, nextCursor } as JSON')
   .action(wrap(opts => docList(opts as Record<string, string>)))
 
 doc
@@ -3315,13 +3442,13 @@ task
   )
   .option(
     '--tag <name>',
-    'Set tags by name (bulk replace, repeatable)',
+    'Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
   .option(
     '--tag-id <cuid>',
-    'Set tags by id (bulk replace, repeatable)',
+    'Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
@@ -3427,7 +3554,8 @@ worktree
   .description(
     'List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked.'
   )
-  .action(wrap(() => worktreeList()))
+  .option('--json', 'Print { version, worktrees, total, nextCursor } as JSON')
+  .action(wrap(opts => worktreeList(opts as { json?: boolean })))
 
 worktree
   .command('prune')

@@ -1,4 +1,5 @@
 import { fmtCount } from '../lib/format'
+import { JSON_VERSION, stringifyJson } from '../lib/json-output'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -115,7 +116,7 @@ export async function usageResync(options?: {
 
   if (options?.json) {
     process.stdout.write(
-      JSON.stringify({ dryRun: !apply, results }, null, 2) + '\n'
+      stringifyJson({ version: JSON_VERSION, dryRun: !apply, results })
     )
     if (batchError) {
       console.error(batchError)

@@ -318,11 +318,16 @@ describe('overview formatting', () => {
 })
 
 describe('commands (GET only, Bearer)', () => {
-  it('inbox list → GET /api/notifications; --json is the payload', async () => {
+  it('inbox list → GET /api/notifications; --json is the payload in the envelope', async () => {
     const payload = { notifications: [base], unreadCount: 1 }
     serve({ '/api/notifications': payload })
     await inboxList({ json: true })
-    expect(JSON.parse(out)).toEqual(payload)
+    expect(JSON.parse(out)).toEqual({
+      version: 1,
+      ...payload,
+      total: 1,
+      nextCursor: null,
+    })
     expect(calls).toHaveLength(1)
     expect(calls[0]!.init?.method).toBeUndefined()
     expect(

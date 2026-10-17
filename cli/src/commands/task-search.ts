@@ -1,4 +1,6 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { TASK_LIST_DEPRECATED_FIELDS } from './task-list'
+import { emitJson, withVersion } from '../lib/json-output'
 import { readCredentials } from '../lib/config'
 import { shellQuote } from '../lib/confirmation'
 import { sanitizeField } from '../lib/sanitize'
@@ -70,6 +72,24 @@ export interface SearchTaskRow {
   dueDate: string | null
   assigneeActorId: string | null
   project?: { id: string; name: string } | null
+}
+
+/**
+ * The `task search --json` envelope: every server field kept (J-5), `ref`
+ * added first, and the same deprecated internal fields as `task list`
+ * named in `deprecatedFields` (J-3 step 1).
+ */
+export function searchJson(
+  items: SearchTaskRow[],
+  truncated: boolean,
+  page: { total: number | null; nextCursor: string | null }
+): Record<string, unknown> {
+  return withVersion({
+    tasks: items.map(t => ({ ref: `${t.teamIdentifier}-${t.number}`, ...t })),
+    truncated,
+    ...page,
+    deprecatedFields: [...TASK_LIST_DEPRECATED_FIELDS],
+  })
 }
 
 interface SearchResponse {
@@ -308,17 +328,7 @@ export async function taskSearch(
 
   const page = searchPage(r.data, pageArgs)
   if (opts.json) {
-    process.stdout.write(
-      JSON.stringify(
-        {
-          tasks: page.items,
-          truncated: r.data.truncated ?? false,
-          ...pageJson(page),
-        },
-        null,
-        2
-      ) + '\n'
-    )
+    emitJson(searchJson(page.items, r.data.truncated ?? false, pageJson(page)))
     return
   }
   const lines = [formatSearchTable(page.items, actorNameMap(dir))]

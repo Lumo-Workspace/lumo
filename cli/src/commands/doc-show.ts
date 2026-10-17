@@ -9,6 +9,11 @@ import { sanitizeField } from '../lib/sanitize'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { docHandle } from '../lib/doc-handle'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
 
 export interface ShowDocViewModel {
   id: string
@@ -62,6 +67,8 @@ export interface ShowDocOptions {
   raw?: boolean
   /** Print just one heading-addressed section of the markdown source (LUM-409). */
   section?: string
+  /** Print the document as the server returned it, in the JSON envelope. */
+  json?: boolean
 }
 
 /** The document shape `GET /api/documents/:id` returns (defensively partial). */
@@ -226,6 +233,12 @@ export async function docShow(
     )
     return EXIT_USAGE
   }
+  if (opts.json && (opts.raw || opts.section !== undefined)) {
+    console.error(
+      'Error: --json cannot be combined with --raw or --section (the JSON document already carries sourceMarkdown)'
+    )
+    return EXIT_USAGE
+  }
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
@@ -253,6 +266,11 @@ export async function docShow(
   if (!d) {
     console.error('Error: server returned an empty document response')
     return 1
+  }
+
+  if (opts.json) {
+    emitJson(detailEnvelope('document', stripInternalFields(d)))
+    return
   }
 
   const sel = selectDocShowOutput(d, opts)

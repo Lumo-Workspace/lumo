@@ -135,7 +135,7 @@ describe('lumo audit list', () => {
   it('lumo audit list: --json prints the page as returned', async () => {
     serve(page)
     await auditList({ json: true })
-    expect(JSON.parse(out)).toEqual(page)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...page, total: null })
   })
 
   it('lumo audit list: an empty log says so', () => {

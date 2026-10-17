@@ -4,6 +4,11 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSessionId } from '../lib/session-id'
 import { NOT_LOGGED_IN_MESSAGE, errAuth, errHttp } from '../lib/errors'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
 
 interface SignalRow {
   id: string
@@ -33,7 +38,8 @@ async function authBase(): Promise<
  * plus its backing rejection signals.
  */
 export async function outcomeShow(
-  taskId: string | undefined
+  taskId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!taskId || taskId.trim() === '') {
     console.error('Error: a task is required: lumo outcome show <task>')
@@ -68,6 +74,12 @@ export async function outcomeShow(
   const well = (await res.json()) as {
     verdict: 'REJECTED' | 'INCONCLUSIVE'
     signals: SignalRow[]
+  }
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('outcome', stripInternalFields(well), { task: taskId })
+    )
+    return
   }
 
   const mark = well.verdict === 'REJECTED' ? '✗' : '·'

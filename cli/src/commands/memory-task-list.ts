@@ -4,10 +4,12 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatMemoryList, type MemoryRowLike } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface ListOptions {
   category?: string
   limit?: string
+  json?: boolean
 }
 
 export async function memoryTaskList(
@@ -85,6 +87,12 @@ export async function memoryTaskList(
     rows = rows.filter(
       m => m.category.toLowerCase() === options.category!.toLowerCase()
     )
+  // `total` counts the filtered list before `--limit` cuts it.
+  const total = rows.length
   if (limit !== undefined) rows = rows.slice(0, limit)
+  if (options.json) {
+    emitJson(listEnvelope('memories', stripInternalFields(rows), { total }))
+    return
+  }
   process.stdout.write(formatMemoryList(rows) + '\n')
 }

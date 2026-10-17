@@ -62,9 +62,9 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 - `lumo task context <id> [--full]` — task background (memory headlines → `lumo memory show <ref>`, sources, PR review todos, prior sessions); `--full` = memory bodies
 - `lumo task slack show <id> <ref>` · `lumo task web show <id> <ref>` · `lumo task figma context <id> <ref>` (`<ref>` = 8-char short ref from the `task context` card) — stored Slack thread / web link body / Figma metadata
-- `lumo task comments list <id> [--full]` — read the comment thread (≠ `task comment`)
+- `lumo task comments list <id> [--full] [--json]` — read the comment thread (≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata
-- `lumo task lineage <id> [--signal]` — read-only causal-trail audit: fragments, run cost, disclosure funnel, Top-5 operations
+- `lumo task lineage <id> [--signal] [--json]` — read-only causal-trail audit: fragments, run cost, disclosure funnel, Top-5 operations
 - `lumo task runs [id] [--full] [--json]` — the web Record page's Agent runs (summary, turns, tools, tokens) + Sessions tile
 
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
@@ -83,7 +83,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task history <id>` — field-change log, oldest first
 - `lumo task delete <id>` — move to trash (restorable 30 days); exits 4 without `--confirm`
-- `lumo next [--count N] [--claimable]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
+- `lumo next [--count N] [--claimable] [--json]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
 - `lumo task show <id>` — one task's detail
 - `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or reply
 - `lumo task comments edit <id> <comment> <body>` / `comments rm <id> <comment>` — edit / delete your own comment (`rm` exits 4 without `--confirm`)
@@ -187,6 +187,10 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ## Reading list output
 
 Every list prints its ref (`LUM-42`, `TC3`, a slug, `#13`) in column 1. Piped (how agents read it): one row per line, fields separated by a single TAB, no header row, nothing truncated — split on `\t`. On a terminal: aligned columns under an upper-case header, only the last free-text column cut with `…`. A paged list ends with `Showing a-b of n.` + `Next page: <command>` (always printed). See [tasks.md](references/tasks.md#paging-lum-1093--shared-by-task-list-task-search-task-history-task-comments-list-milestone-list-doc-list).
+
+## JSON output
+
+Every read-only command takes `--json` (except `task context` / `task wrapup`): one object on stdout, never a bare array, always with `version` (bumped only on a breaking change). Lists add `total` (`null` = unknown) and `nextCursor` (`null` = last page). Fields are only ever added; a field is removed only after a deprecation notice and a `version` bump. `task list --json --fields ref,title,status` selects fields. Errors stay on stderr (above).
 
 ## Next-step hints
 

@@ -190,6 +190,6 @@ describe('workspaceSecurityScan --repos / --repo', () => {
   it('--repos --json prints the payload', async () => {
     serve([{ body: VIEW }])
     await workspaceSecurityScan({ repos: true, json: true })
-    expect(JSON.parse(out)).toEqual(VIEW)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...VIEW })
   })
 })

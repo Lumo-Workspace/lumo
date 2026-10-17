@@ -18,6 +18,8 @@ There is **no `SATISFIED` / `PASS`**. "N sprints and nobody touched it" is the _
 
 ## `lumo outcome show <task>`
 
+`--json` prints `{ version, outcome: { verdict, signals }, task }`.
+
 Read the well for a task — the verdict plus its backing signals.
 
 ```bash

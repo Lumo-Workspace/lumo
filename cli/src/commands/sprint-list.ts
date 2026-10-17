@@ -6,6 +6,7 @@ import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface SprintRow {
   id: string
@@ -24,6 +25,7 @@ export interface SprintListOptions {
   team?: string | undefined
   status?: string | undefined
   limit?: string | undefined
+  json?: boolean | undefined
 }
 
 const VALID_STATUSES = ['DRAFT', 'ACTIVE', 'CLOSED'] as const
@@ -112,5 +114,9 @@ export async function sprintList(
   }
 
   const data = (await res.json()) as SprintsResponse
+  if (options.json) {
+    emitJson(listEnvelope('sprints', stripInternalFields(data.sprints)))
+    return
+  }
   process.stdout.write(formatSprintList(data.sprints) + '\n')
 }

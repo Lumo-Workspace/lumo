@@ -1,4 +1,5 @@
 import { resolveProject } from '../lib/resolve'
+import { emitJson, withVersion } from '../lib/json-output'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
   formatProjectOverview,
@@ -52,16 +53,12 @@ export async function projectOverview(
   if (!stats.ok || !stats.data || !summaries.ok) return 1
   const summary = summaries.data?.summaries?.[0] ?? null
   if (opts.json) {
-    process.stdout.write(
-      JSON.stringify(
-        {
-          project: { id: project.id, name: project.name },
-          stats: stats.data.stats,
-          summary,
-        },
-        null,
-        2
-      ) + '\n'
+    emitJson(
+      withVersion({
+        project: { id: project.id, name: project.name },
+        stats: stats.data.stats,
+        summary,
+      })
     )
     return
   }

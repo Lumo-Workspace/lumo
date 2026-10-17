@@ -9,6 +9,12 @@ import {
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { sanitizeField } from '../lib/sanitize'
 import { refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
 
 interface SlackSnapshot {
   messages?: SlackSnapshotMessage[]
@@ -25,7 +31,8 @@ interface SlackSnapshot {
  */
 export async function taskSlackShow(
   identifier: string | undefined,
-  contextId: string | undefined
+  contextId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !contextId) {
     console.error('Error: usage: lumo task slack show <LUM-42> <ref>')
@@ -85,8 +92,30 @@ export async function taskSlackShow(
     snapshot: SlackSnapshot | null
     redactedSecrets?: number
   }
-  // LUM-998: fenced + guarded; the redaction count is the first notice.
-  console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
+  if (opts.json) {
+    // Message text gets the guard of the text view's fence body.
+    emitJson(
+      detailEnvelope(
+        'slackContext',
+        stripInternalFields({
+          id: id ?? null,
+          snapshot: snapshot
+            ? {
+                ...snapshot,
+                messages: (snapshot.messages ?? []).map(m => ({
+                  ...m,
+                  text: guardJsonBlock(m.text),
+                })),
+              }
+            : null,
+          redactedSecrets: redactedSecrets ?? null,
+        })
+      )
+    )
+  } else {
+    // LUM-998: fenced + guarded; the redaction count is the first notice.
+    console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
+  }
 
   // LUM-500: stamp the disclosure funnel with the lineage SLACK_CONTEXT
   // fragmentId — the resolved id, not a short ref (LUM-1230). Fire-and-forget.

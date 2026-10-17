@@ -156,6 +156,7 @@ async function statusJson(deps: SkillDeps) {
   out = ''
   expect(await skillStatus({ json: true }, deps)).toBe(0)
   return JSON.parse(out) as {
+    version: number
     schemaVersion: number
     cliVersion: string
     skills: Array<Record<string, unknown>>
@@ -229,7 +230,9 @@ describe('lumo skill status', () => {
       'cliVersion',
       'schemaVersion',
       'skills',
+      'version',
     ])
+    expect(s.version).toBe(1)
     expect(s.schemaVersion).toBe(SKILL_STATUS_SCHEMA_VERSION)
     expect(s.schemaVersion).toBe(1)
     expect(s.cliVersion).toBe(CLI)

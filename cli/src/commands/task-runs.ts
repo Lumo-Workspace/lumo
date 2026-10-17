@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, withVersion } from '../lib/json-output'
 import {
   NONE,
   fmtCount,
@@ -449,7 +450,7 @@ export async function taskRuns(
   if (!r.ok || !r.data) return 1
 
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    emitJson(withVersion(r.data))
     return
   }
   process.stdout.write(

@@ -195,6 +195,8 @@ Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_I
 
 ### `lumo session status` — show current binding
 
+`--json` prints `{ version, session }` — the server's session record (binding, role, event count, attribution); `{ sessionId, exists: false }` before the session has any server-side state.
+
 ```bash
 lumo session status
 ```

@@ -64,7 +64,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 
 ### `lumo task template list [--json]` — task templates (LUM-970)
 
-Lists the keys `--template` accepts as a table `KEY  NAME  KIND  DESCRIPTION` (KIND is `built-in`, e.g. `agent-brief`, or `workspace`; TAB-separated when piped). `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
+Lists the keys `--template` accepts as a table `KEY  NAME  KIND  DESCRIPTION` (KIND is `built-in`, e.g. `agent-brief`, or `workspace`; TAB-separated when piped). `--json` prints `{ version, templates: [{ key, name, description, isSystem, content }], total, nextCursor }` — it includes each template's Markdown `content` (before LUM-1232 batch C it was a bare array; read `.templates` now). Built-in template bodies are English in every language; only their name and description are localized.
 
 ```bash
 lumo task template list
@@ -269,7 +269,8 @@ On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2
 | `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (slug, name or id).                                 |
 | `-n, --limit <count>`   | integer | Tasks per page (1-500, default **50**).                                                     |
 | `--cursor <cursor>`     | string  | Next page — copy it from the footer (or `nextCursor` in `--json`).                          |
-| `--json`                | boolean | `{ tasks, total, nextCursor }`.                                                             |
+| `--json`                | boolean | `{ version, tasks, total, nextCursor, deprecatedFields }` — see **`--json` fields** below.  |
+| `--fields <list>`       | string  | With `--json`: only these comma-separated fields per task (from the list below).            |
 
 ```bash
 lumo task list                                  # everything assigned to me
@@ -278,6 +279,18 @@ lumo task list --cursor 50                      # page 2 (from the footer)
 lumo task list --project backend --status todo
 lumo task list --milestone "Q3 Launch"
 ```
+
+#### `task list --json` fields
+
+The fields callers may rely on (the whitelist; `--fields` accepts exactly these): `ref` (`LUM-42`), `id`, `title`, `status`, `priority`, `project` (`{ id, name, … }`), `assignee`, `milestone`, `sprint`, `tags`, `dueDate`, `blockedByOpenCount`, `unblocksOpenCount`, `createdAt`, `updatedAt`. Bare `--json` still prints every other field the server returns, unchanged.
+
+**Deprecated** (still emitted; listed in the envelope's `deprecatedFields`; removed only in a release that bumps `version`): `workspaceId`, `order`, `viewOrder`, `deletedAt`, `deletedByClerkId`, `trashRootId`, `claimSnapshot`, `claimSnapshotAt`, `claimSnapshotSessionId`, `claimSnapshotSource`. Don't build on them.
+
+```bash
+lumo task list --json --fields ref,title,status,dueDate
+```
+
+`--fields` without `--json`, or an unknown field name, is a usage error (exit 2) that lists the valid names.
 
 Every filter and the page run server-side (`GET /api/tasks/me?statuses=…&milestoneIds=…&projectName=…&limit=…&cursor=…`). Against a server that predates paging the CLI filters and pages the full list itself.
 
@@ -292,7 +305,7 @@ Next page: lumo task list --status todo --cursor 50
 
 The second line is data, not a hint: it always prints, `--no-hints` does not hide it (LUM-1232).
 
-The last page prints only the `Showing …` line; a result that fits on one page prints no footer. **If you see the footer, you have not seen everything** — run the printed command before concluding a task/doc/milestone is absent. `--json` (where offered) adds `total` and `nextCursor` (`null` on the last page). The cursor is opaque: copy it, don't compute it.
+The last page prints only the `Showing …` line; a result that fits on one page prints no footer. **If you see the footer, you have not seen everything** — run the printed command before concluding a task/doc/milestone is absent. `--json` adds `total` and `nextCursor` (`null` on the last page). The cursor is opaque: copy it, don't compute it.
 
 ### When to suggest `task list`
 
@@ -301,7 +314,7 @@ The last page prints only the `Showing …` line; a result that fits on one page
 
 ### `lumo task search [query] [flags]` — search tasks across the workspace (LUM-821)
 
-`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), paged 50 at a time (`--limit` / `--cursor`, footer as in **Paging** above; a fuzzy query ranks at most 500 matches — when it hits that cap the output still ends with `(result capped at 500 — narrow the filters)` and `--json` has `truncated: true`).
+`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), paged 50 at a time (`--limit` / `--cursor`, footer as in **Paging** above; a fuzzy query ranks at most 500 matches — when it hits that cap the output still ends with `(result capped at 500 — narrow the filters)` and `--json` has `truncated: true`). `--json` prints `{ version, tasks, truncated, total, nextCursor, deprecatedFields }`; each task gains `ref` (`LUM-42`) first and keeps every server field; the internal fields named in `deprecatedFields` are the same as `task list`'s and are deprecated (still emitted, removed only with a `version` bump).
 
 `[query]` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, or as the task number (`42`, `LUM-42`). Typo tolerance is a **tiered fallback** — it only runs when what you typed matches nothing, so a correctly spelled word is never widened (`content` never pulls in "context", `form` never "from"/"for"): (1) exact substring / number; if that finds nothing, (2) typo matching of title words via Postgres `pg_trgm` for non-numeric terms of 4+ letters (`serch`, `filtr`, `dashbord`, `migraton` find their task); if that finds nothing too, (3) one swapped pair of adjacent letters (`oauht` → "OAuth"). A typo'd title word must be ≥ 4 letters and at most one letter shorter than the term. Results are ranked by a relevance score summed over the terms: task number 2.0, title substring 1.0, trigram typo 0.9 × similarity, letter swap 0.85, description substring 0.5. `--exact` switches the fallback tiers off.
 
@@ -344,6 +357,8 @@ lumo task statuses
 ```
 
 ### `lumo next [--count <N>] [--claimable]` — recommend the next task to work on
+
+`--json` prints `{ version, tasks, total, nextCursor, poolSize, claimable }` — the ranked tasks in order, each with `ref` (first) and `reasons` (`excluded` too with `--claimable`); no `Next:` block.
 
 Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
@@ -393,6 +408,8 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
+`--json` prints `{ version, task }` — `task.ref` (`LUM-42`) first, then the server fields (the description guarded like the block body, without the block).
+
 Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
@@ -403,7 +420,7 @@ Use when the user wants the current state of a task without the agent-handoff pa
 
 ### `lumo task history <identifier> [-n <count>] [--cursor <c>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first, as a table: `<time>  actor  change` — `<time>` is `2026-10-16T22:24:00Z` (UTC) when piped, `2026-10-17 09:24 +11:00` (local + offset) on a terminal (LUM-1232); an actor the directory can't name prints `-` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints this page's entries as a bare array (unchanged shape, no `total`). Comments are not included — use `task comments list`.
+The task's changelog, oldest first, as a table: `<time>  actor  change` — `<time>` is `2026-10-16T22:24:00Z` (UTC) when piped, `2026-10-17 09:24 +11:00` (local + offset) on a terminal (LUM-1232); an actor the directory can't name prints `-` (header `WHEN  ACTOR  CHANGE` and change cut to the terminal width on a TTY only; piped output headerless and whole — LUM-1090) for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Paged from the newest end: the first page is the latest 50 entries (`-n` changes the page size); when older entries exist the footer reads `Showing 71-120 of 120.` + ``Hint: earlier entries with `lumo task history LUM-42 --cursor 50` ``. `--json` prints `{ version, entries: [...], total, nextCursor }` — `entries` is this page's entries, each as before (`id, kind, type, actorId, actor, payload, createdAt, taskId`); `nextCursor` is the `--cursor` value for the next (older) page. Before LUM-1232 batch C it printed the bare array — read `.entries` now. Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42

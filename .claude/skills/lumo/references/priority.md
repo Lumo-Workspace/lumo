@@ -26,6 +26,8 @@ rejected (the API's Zod layer returns 400).
 
 ## `lumo priority list`
 
+`--json` prints `{ version, priorities, total, nextCursor, current }` (history newest-first).
+
 Print the append history, newest-first. The current declaration (the row with
 the latest `effectiveFrom`) is marked with a leading `*`:
 

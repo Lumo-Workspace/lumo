@@ -1,4 +1,5 @@
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { emitJson, withVersion } from '../lib/json-output'
 
 export interface TaskWorkflowCatalog {
   statuses: Array<{ value: string; transitionsTo: string[] }>
@@ -37,7 +38,7 @@ export async function taskStatuses(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    emitJson(withVersion(r.data))
     return
   }
   process.stdout.write(formatTaskStatuses(r.data) + '\n')

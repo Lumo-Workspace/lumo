@@ -65,25 +65,25 @@ export async function milestoneTestCaseAdd(
 
 export async function milestoneTestCaseList(
   milestone: string | undefined,
-  o: { project?: string | undefined }
+  o: { project?: string | undefined; json?: boolean | undefined }
 ): Promise<number | void> {
   const scope = await scopeFor(
     milestone,
     'lumo milestone testcase list "<milestone>"',
     o.project
   )
-  return scope ? testCaseListInScope(scope) : 1
+  return scope ? testCaseListInScope(scope, { json: o.json }) : 1
 }
 
 export async function milestoneTestCaseShow(
   milestone: string | undefined,
   caseRef: string | undefined,
-  o: { project?: string | undefined }
+  o: { project?: string | undefined; json?: boolean | undefined }
 ): Promise<number | void> {
   const usage = 'lumo milestone testcase show "<milestone>" TC3'
   if (!needCase(caseRef, usage)) return 1
   const scope = await scopeFor(milestone, usage, o.project)
-  return scope ? testCaseShowInScope(scope, caseRef) : 1
+  return scope ? testCaseShowInScope(scope, caseRef, { json: o.json }) : 1
 }
 
 /** LUM-1185: save the case's Lumo-hosted evidence into `<dir>/<run>/`. */

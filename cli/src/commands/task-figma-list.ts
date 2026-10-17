@@ -3,6 +3,7 @@ import { listFigmaLinks, type FigmaLinkJson } from '../lib/figma-api'
 import { sanitizeField } from '../lib/sanitize'
 import { shortRef } from '../../../shared/src/short-ref'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 const STALE_MS = 25 * 24 * 3600 * 1000
 
@@ -45,8 +46,13 @@ export function formatFigmaList(
 
 export async function taskFigmaList(args: {
   identifier: string
+  json?: boolean | undefined
 }): Promise<number> {
   const { links } = await listFigmaLinks(args.identifier)
+  if (args.json) {
+    emitJson(listEnvelope('figmaLinks', stripInternalFields(links)))
+    return 0
+  }
   if (links.length === 0) {
     console.log(emptyState('Figma links', args.identifier))
     return 0

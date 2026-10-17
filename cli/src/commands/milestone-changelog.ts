@@ -1,4 +1,5 @@
 import { NONE, fmtCalendarDay } from '../lib/format'
+import { withVersion } from '../lib/json-output'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
@@ -181,7 +182,9 @@ export function renderChangelogOutput(
   cl: MilestoneChangelogPayload,
   opts: { json?: boolean }
 ): string {
-  return opts.json ? JSON.stringify(cl, null, 2) : formatMilestoneChangelog(cl)
+  return opts.json
+    ? JSON.stringify(withVersion(cl), null, 2)
+    : formatMilestoneChangelog(cl)
 }
 
 export async function milestoneChangelog(

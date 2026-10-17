@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { stringifyJson, withVersion } from '../lib/json-output'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -119,7 +120,7 @@ export async function skillStatus(
   if (!env) return 1
   const status = buildSkillStatus(env.cliVersion, env.homeDir, env.cwd)
   if (options.json) {
-    env.out(JSON.stringify(status, null, 2) + '\n')
+    env.out(stringifyJson(withVersion(status)))
     return 0
   }
   env.out(`Lumo skill copies (CLI ${env.cliVersion})\n\n`)

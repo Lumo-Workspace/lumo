@@ -9,10 +9,12 @@ import { errHttp, errNotLoggedIn } from '../lib/errors'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
 } from '../lib/pagination'
 import { docHandle } from '../lib/doc-handle'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface ListDocOptions {
   scope?: string
@@ -21,6 +23,7 @@ export interface ListDocOptions {
   limit?: string
   cursor?: string
   tree?: boolean
+  json?: boolean
 }
 
 interface DocRow {
@@ -155,6 +158,12 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   // here — after tree ordering with --tree, so a page reads top to bottom.
   const ordered = opts.tree ? orderAsTree(rows) : rows
   const page = paginate(ordered, pageArgs)
+  if (opts.json) {
+    emitJson(
+      listEnvelope('documents', stripInternalFields(page.items), pageJson(page))
+    )
+    return
+  }
   const lines = opts.tree
     ? formatDocListRowsAsTree(page.items, {}, ordered)
     : formatDocListRows(page.items)

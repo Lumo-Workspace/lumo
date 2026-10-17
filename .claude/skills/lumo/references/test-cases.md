@@ -32,6 +32,8 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 
 ## `lumo task testcase list <task>` — 列表
 
+`--json` prints `{ version, testCases, total, nextCursor, summary }` (each case with its runs).
+
 每行：用例号 · 标题（终端里带 `ID  TITLE  STEPS  LAST RUN` 表头、只截断最后的 LAST RUN 列；接管道时 tab 分列、无表头、不截断，LUM-1232） · 步骤数（用例声明了 `--requires-env` 时附 `· Only proves on <ENV>`）· **最近一次执行**：结果 + 环境 + **封顶结论**（`→ UNPROVEN (no evidence | only proves on X | N skipped | N unobserved)`）+ 短 sha + 执行时间（接管道时是 UTC 的 `2026-10-06T08:00:00Z`，终端里是本地时间加时区偏移 `2026-10-06 19:00 +11:00`；LUM-1232）+ 执行人，再用 `·` 接归因（`cause: defect|outdated|external|unknown`）、裁定（`ruled KNOWN_DEFECT`）、进度（`failed at step 2` / `3 of 4 steps passed`）。从没跑过显示 `never run`。
 
 列表末尾空一行打汇总，口径与 web Record 页「测试用例」行一致（服务端 `summarizeTestCases`）：`N/M passing`，有则再接 `· x failing · y unproven/blocked · z never run`；任务上还有 `· k proven defect(s) awaiting a ruling (blocks DONE)`（里程碑的关闭闸另有规则，不打这一截）。`passing` 只算封顶后仍是 PASS 的最新 run——一个零证据 PASS 不算。
@@ -52,6 +54,8 @@ TC2	退款落到原卡	2 steps / 1 verify · Only proves on PRODUCTION	PASS on L
 **执行人**（LUM-1008）：`by <成员名>`；run 来自 agent session 时再附 `via session <短 id>`。CLI 跑的 run 记下的成员是 token 主人，所以「人手动」还是「agent 代跑」看有没有 `via session`（`testcase run` 在 Claude Code 里跑时自动带上当前 session；1.96.0 之前的 CLI 不带，那些 run 没有 `via session`）。`runner not recorded` = 这条 run 没记执行人（不是「没人」）；旧服务端不发这个字段时什么都不打。`show` 的每条 run 行同样带它。
 
 ## `lumo task testcase show <task/case>` — 详情 + 执行历史
+
+`--json` prints `{ version, testCase, runs, pullRequests }`.
 
 标题下一行是用例的环境约束（`Only proves on PRODUCTION`，没声明不打），然后四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。每条 run 的结论行：`<执行时间>  <上报结果> on <环境>[ → UNPROVEN (原因)]  [cause: …]  <PR / commit 与陈旧性>  <执行人>  — <note>`。封顶原因与 `testcase run` 回显同一套措辞（环境 / 未观察 / 跳过 / 无证据）。
 

@@ -38,6 +38,7 @@ describe('whoami output', () => {
   it('emits JSON behind --json', () => {
     const [line] = formatWhoami(creds, { json: true })
     expect(JSON.parse(line as string)).toEqual({
+      version: 1,
       email: 'cli@uselumo.ai',
       workspace: { slug: 'lumo', name: 'Lumo' },
       apiKey: { name: 'Claude Code', prefix: 'lum_68d4' },

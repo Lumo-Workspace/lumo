@@ -1,4 +1,5 @@
 import { emptyState, fmtTimestamp } from '../lib/format'
+import { emitJson, withVersion } from '../lib/json-output'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
@@ -182,7 +183,8 @@ export async function auditList(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    // Paged by cursor; the server does not count the whole result.
+    emitJson(withVersion({ ...r.data, total: null }))
     return
   }
   process.stdout.write(formatAuditList(r.data, opts) + '\n')

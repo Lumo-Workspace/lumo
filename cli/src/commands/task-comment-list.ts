@@ -19,10 +19,13 @@ import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
   type PageArgs,
 } from '../lib/pagination'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
 
 interface ResolveResponse {
   id: string
@@ -177,6 +180,36 @@ export interface TaskCommentListOptions {
   full?: boolean | undefined
   limit?: string | undefined
   cursor?: string | undefined
+  json?: boolean | undefined
+}
+
+/** A comment for `--json`: the body guarded as the text view's fence body. */
+function commentJson(c: CommentNode): CommentNode {
+  return {
+    ...c,
+    body: guardJsonBlock(c.body),
+    ...(c.replies ? { replies: c.replies.map(commentJson) } : {}),
+  }
+}
+
+/**
+ * The `--json` envelope for one page of top-level threads (replies nested
+ * under their parent); `--full` alone is every thread on one page.
+ */
+export function commentListJson(
+  comments: CommentNode[],
+  page: PageArgs | null,
+  task: string
+): Record<string, unknown> {
+  const p = page
+    ? paginate(comments, page)
+    : { items: comments, total: comments.length, nextCursor: null }
+  return listEnvelope(
+    'comments',
+    stripInternalFields(p.items.map(commentJson)),
+    pageJson(p),
+    { task }
+  )
 }
 
 /**
@@ -310,6 +343,10 @@ export async function taskCommentList(
   }
 
   const { comments } = (await res.json()) as { comments: CommentNode[] }
+  if (opts.json) {
+    emitJson(commentListJson(comments ?? [], paging.page, resolved.identifier))
+    return
+  }
   if (!comments || comments.length === 0) {
     console.log(emptyState('comments'))
     return

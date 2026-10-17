@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, withVersion } from '../lib/json-output'
 import { fmtCount } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
@@ -100,7 +101,7 @@ export async function taskTemplateShow(
       isSystem: t.isSystem,
       content: t.content,
     }
-    process.stdout.write(JSON.stringify(out, null, 2) + '\n')
+    emitJson(withVersion(out))
     return
   }
   // The Markdown body only, so `> file.md` saves the template as-is

@@ -13,7 +13,10 @@ Columns align by display width (CJK names count 2). On a TTY a `NAME  COLOR  TAS
 
 ```bash
 lumo tag list
+lumo tag list --json
 ```
+
+`--json` prints `{ version, tags: [{ id, name, color, taskCount, documentCount, createdAt, workspaceId }], total, nextCursor }` (`nextCursor` is always `null`). Before CLI batch C (LUM-1232) it printed the bare `tags` array — read `.tags` now.
 
 ### `lumo tag create <name> [--color <hex>]`
 

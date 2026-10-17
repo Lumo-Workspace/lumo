@@ -6,6 +6,8 @@ Commands for **reading a faithful edit base and writing back surgically** — th
 
 ## `lumo doc show <doc> [--raw | --section <heading>]` — print one document's detail
 
+`--json` prints `{ version, document }` — the server's document (id, slug, title, visibility, `contentMarkdown`, `sourceMarkdown`, `contentRevision`, …); it cannot be combined with `--raw` / `--section` (exit 2).
+
 Default mode prints a key:value header (id, title, scope, project, created/updated, **revision**, mentioned tasks) and the content rendered back to markdown. `Revision:` is the body's optimistic-concurrency counter — feed it back as `--if-revision` on `doc update` / `doc patch` / `doc append`.
 
 ```bash

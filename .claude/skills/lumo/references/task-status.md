@@ -86,7 +86,7 @@ lumo crossing list LUM-12 --all --json
 - with `--all`, dispositioned rows add `Ruled by` (member/agent name only — `unknown member` when the member directory can't name the actor; `--json` keeps `dispositionedById`), `Ruled at`, `Channel` (`WEB` / `CLI`), `Note`, `Changed` (last `from → to` correction, by whom, via which channel) and `Suppression rule` (`active` / `revoked …`); without `--all` the header says how many dispositioned rows were hidden;
 - a field the server response does not carry prints `-` — never a guessed value;
 - every free-text field is control-character-sanitized and folded to one line (diff lines are sanitized per line);
-- `--json` prints `{ task, gateEnabled, crossings }` with the server's raw rows (same `--all` filter);
+- `--json` prints `{ version, task, gateEnabled, crossings, total, nextCursor }` with the server's raw rows (same `--all` filter);
 - it rules nothing — ruling stays `lumo crossing disposition` (the user's call) or the web panel.
 
 When to suggest: the user asks what was flagged on a task and how it was ruled,

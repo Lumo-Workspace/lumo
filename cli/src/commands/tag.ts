@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, listEnvelope } from '../lib/json-output'
 import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -49,7 +50,8 @@ export async function tagList(
   if (!r.ok || !r.data) return 1
   const tags = [...r.data.tags].sort((a, b) => a.name.localeCompare(b.name))
   if (opts.json) {
-    process.stdout.write(JSON.stringify(tags, null, 2) + '\n')
+    // Batch C: the former bare array is wrapped once (release notes).
+    emitJson(listEnvelope('tags', tags))
     return
   }
   process.stdout.write(formatTagList(tags) + '\n')

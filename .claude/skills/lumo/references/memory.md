@@ -51,6 +51,8 @@ lumo memory push --dry-run         # list what would be pushed without sending
 lumo memory fold --dry-run         # preview the next auto-fold pass; writes nothing
 ```
 
+`--json` on `task memory list` / `project memory list` prints `{ version, memories, total, nextCursor }` (`total` counts the filtered list before `-n` cuts it); `memory show --json` prints `{ version, memory }` (full id, category, raw content).
+
 When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
 `lumo task memory add --category trap --trigger ... --outcome ...` records onto
 the bound task; `lumo project memory add ...` records onto its project.

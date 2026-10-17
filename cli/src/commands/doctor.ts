@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import { stringifyJson, withVersion } from '../lib/json-output'
 import * as os from 'os'
 import * as path from 'path'
 import { WARN_PREFIX } from '../lib/errors'
@@ -642,7 +643,7 @@ export async function doctor(
     report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
   }
   process.stdout.write(
-    options.json ? JSON.stringify(report, null, 2) + '\n' : renderText(report)
+    options.json ? stringifyJson(withVersion(report)) : renderText(report)
   )
   return 0
 }

@@ -11,6 +11,11 @@ import {
 } from '../lib/milestone-labels'
 import { renderListTable } from '../lib/list-table'
 import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import {
   fieldLines,
   indentLines,
   sectionHeading,
@@ -33,6 +38,7 @@ import {
 
 export interface ShowMilestoneOptions {
   project?: string
+  json?: boolean
 }
 
 export interface MilestoneShowData extends MilestoneMetricsData {
@@ -375,6 +381,15 @@ export async function milestoneShow(
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
+
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('milestone', stripInternalFields(milestone), {
+        tasks: stripInternalFields(tasks),
+      })
+    )
+    return
+  }
 
   // Look up project display name. If the caller passed `--project <ref>`
   // we already know it; otherwise hit /api/projects once.

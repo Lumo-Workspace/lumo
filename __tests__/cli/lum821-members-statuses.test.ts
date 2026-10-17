@@ -65,7 +65,14 @@ describe('lumo member list', () => {
   it('--json emits the directory', async () => {
     serve({ members: [], agentActors: [] }, '/api/workspaces/members')
     await memberList({ json: true })
-    expect(JSON.parse(out)).toEqual({ members: [], agents: [] })
+    expect(JSON.parse(out)).toEqual({
+      version: 1,
+      members: [],
+      agents: [],
+      total: 0,
+      nextCursor: null,
+      deprecatedFields: ['clerkId'],
+    })
   })
 
   it('empty directory reads "No members."', () => {
