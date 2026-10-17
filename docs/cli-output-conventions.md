@@ -1,6 +1,6 @@
 # CLI output conventions
 
-**Status: draft for review.** Nothing here is in effect until the open questions at the end are decided and recorded on the task. Code changes follow in batches A–G (see [Rollout](#rollout-batches)).
+**Status: agreed (2026-10-18).** The open questions of the review draft were decided by the user on 2026-10-18 and recorded on LUM-1232; the outcomes are in [Decisions](#17-decisions). Code changes follow in batches A–G (see [Rollout batches](#16-rollout-batches)). Until a batch lands, the "before" output is still what the CLI prints.
 
 This document is the one rulebook for what `lumo` prints: lists, detail views, times, numbers, enums, empty values, symbols, `--json`, errors and exit codes, paging, hints and help text. The model is the GitHub CLI (`gh`), with ideas from `kubectl`, `vercel`, `stripe` and [clig.dev](https://clig.dev). Where Lumo differs on purpose, the rule says so.
 
@@ -26,8 +26,8 @@ Each rule has:
 13. [Help text](#13-help-text)
 14. [Formats agents depend on (do not break)](#14-formats-agents-depend-on-do-not-break)
 15. [Helper map](#15-helper-map)
-16. [Rollout batches](#rollout-batches)
-17. [Open questions](#open-questions)
+16. [Rollout batches](#16-rollout-batches)
+17. [Decisions](#17-decisions)
 
 ---
 
@@ -43,13 +43,27 @@ These apply to every rule below; each rule's examples show them at work.
 | Pipe     | stdout is not a terminal (agents, `\| grep`, files) | No colour, no header row, no truncation, no wrapping, machine-stable fields |
 | `--json` | the flag is given                                   | One JSON document on stdout, nothing else                                   |
 
-`gh` uses the same split: tables with headers and relative times on a terminal; tab-separated rows with absolute times in a pipe; `--json` for scripts. Lumo agents read the pipe form, so the pipe form is a contract, not a degraded view.
+`gh` uses the same split: tables with headers on a terminal, tab-separated rows in a pipe, `--json` for scripts. (Unlike `gh`, Lumo never prints relative times; see [Q2](#q2-absolute-time-only).) Lumo agents read the pipe form, so the pipe form is a contract, not a degraded view.
 
 Helper: `colorEnabled()`, `terminalWidth()` in `ui.ts` (existing); `renderListTable()` in `list-table.ts` (existing).
 
-**Streams.** Data, success lines, hints and the `Next:` block go to **stdout**. Errors and warnings (`Error:`, `⚠`) go to **stderr**. The audit found this already holds everywhere; keep it. The exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error stay on stdout (see [§14](#14-formats-agents-depend-on-do-not-break)).
+**Streams.** One table decides where every kind of line goes; every other section refers to it.
 
-**Presentation only.** These rules change how output looks, never what a command does, which rows it returns, or which exit code a given outcome gets (except usage errors, see [Q4](#q4-should-usage-errors-exit-2)).
+| Output                                                                                | Stream |
+| ------------------------------------------------------------------------------------- | ------ |
+| data: rows, facts, sections, success lines, empty-state sentences                     | stdout |
+| the paging footer (`Showing …` / `Next page: …`) and hidden-rows notices              | stdout |
+| advice on a successful run: the `Next:` block, `Hint:` lines, `Note:` lines           | stdout |
+| report sections that list problems as data (`lumo doctor`'s `Warnings` section)       | stdout |
+| the exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error                  | stdout |
+| `--json` output                                                                       | stdout |
+| `Error:` lines and the `Hint:` / `Usage:` lines that belong to that error             | stderr |
+| runtime warnings (`⚠ …` from `warn()`) — something went wrong, the command carried on | stderr |
+| the JSON error object under `--json`                                                  | stderr |
+
+The audit found data and errors already split this way; keep it. The exit-4 and exit-5 outputs are on stdout because agents parse them as results (see [§14](#14-formats-agents-depend-on-do-not-break)).
+
+**Presentation only.** These rules change how output looks, never what a command does, which rows it returns, or which exit code a given outcome gets (except usage errors, see [Q4](#q4-usage-errors-exit-2)).
 
 **Untrusted text is sanitized first and styled after.** Every server- or agent-authored string goes through `sanitizeField` before any formatting helper; colour is applied last. `<untrusted-…>` wrappers are content, not decoration: formatting never removes or rewrites them.
 
@@ -73,9 +87,9 @@ TC2	show 显示 cause、抽查复核和完整逐步报告	2 steps / 1 verify	PAS
 After (TTY):
 
 ```
-ID   RESULT  ENV    COMMIT   RUN AT    STEPS   TITLE
-TC1  PASS    LOCAL  8841947  1d ago    3/3     show 显示 UNPROVEN 封顶及原因与 required env
-TC2  PASS    LOCAL  8841947  1d ago    3/3     show 显示 cause、抽查复核和完整逐步报告
+ID   RESULT  ENV    COMMIT   RUN AT                   STEPS  TITLE
+TC1  PASS    LOCAL  8841947  2026-10-17 00:53 +08:00  3/3    show 显示 UNPROVEN 封顶及原因与 required env
+TC2  PASS    LOCAL  8841947  2026-10-17 00:53 +08:00  3/3    show 显示 cause、抽查复核和完整逐步报告
 
 11/11 passing
 ```
@@ -109,7 +123,7 @@ By tool
 
 ### L-3. Pipe form: no header, no truncation, stable fields
 
-In a pipe the table has no header row, no colour and no truncation; one item is one line, and column order never changes. The field separator is decided in [Q1](#q1-should-piped-lists-be-tab-separated) (recommended: a single TAB, as `gh` does).
+In a pipe the table has no header row, no colour and no truncation; one item is one line, and column order never changes. Fields are separated by a single TAB, as in `gh` ([Q1](#q1-piped-lists-are-tab-separated)).
 
 Helper: `renderListTable()` non-TTY branch (existing; separator change is new in batch A).
 
@@ -120,7 +134,7 @@ LUM-1    DONE  MEDIUM  Lumo    Add Keyboard Shortcuts to Description Editor Bubb
 LUM-858  DONE  HIGH    Lumo    工作区数据导出(GDPR 可携带权)
 ```
 
-After (if Q1 is accepted; `⇥` marks a TAB):
+After (`⇥` marks a TAB):
 
 ```
 LUM-1⇥DONE⇥MEDIUM⇥Lumo⇥Add Keyboard Shortcuts to Description Editor Bubble Menu
@@ -129,9 +143,19 @@ LUM-858⇥DONE⇥HIGH⇥Lumo⇥工作区数据导出(GDPR 可携带权)
 
 ### L-4. The first column is the ref
 
-The first column is the item's human-readable ref — the same handle the matching `show` command accepts (`LUM-42`, `LUM-X924`, `TC3`, `#13`, a slug). No rank number, bullet or other prefix goes in front of it; if rank matters, the row order carries it.
+The first column is the item's human-readable ref: the handle you pass to the matching `show` command, written the way the web app writes it. No rank number, bullet or other prefix goes in front of it; if rank matters, the row order carries it.
 
-Helper: `renderListTable()` (existing); refs from the server (LUM-1230).
+| List                          | First column | Matching `show` argument                        |
+| ----------------------------- | ------------ | ----------------------------------------------- |
+| `task list`, `next`, `search` | `LUM-42`     | `lumo task show LUM-42`                         |
+| `crossing list`               | `LUM-X924`   | `lumo crossing … LUM-X924`                      |
+| `milestone list`              | slug         | `lumo milestone show <slug>`                    |
+| `sprint list`                 | `#13`        | `lumo sprint show 13` (the `#` is display only) |
+| `task testcase list LUM-42`   | `TC3`        | `lumo task testcase show LUM-42/TC3`            |
+
+A list scoped to one parent (the test cases of one task) prints the short ref; the full handle is `<parent>/<short ref>`, and the command's help says so. Every example in this document that shows a list follows this rule, including the examples under time (§4) and enums (§6).
+
+Helper: `renderListTable()` (existing); refs come from the server (the human-readable refs work).
 
 Before (`lumo next` in a terminal — the `1.` prefix pushes every row out of line with its header):
 
@@ -355,9 +379,11 @@ Implications
 
 Two kinds of date exist and must not be mixed up (already documented in `format.ts`): **instants** (created, ruled, detected, run at) and **calendar days** (sprint start/end, milestone start/target, due date).
 
-### T-1. Instants in a pipe: RFC 3339 in UTC
+Decided on 2026-10-18 ([Q2](#q2-absolute-time-only)): **the CLI only prints absolute times.** There are no relative times (`3h ago`, `yesterday`) anywhere, because the CLI is read mostly by agents.
 
-In the pipe form, an instant is printed as RFC 3339 in UTC, to the second: `2026-10-17T01:24:30Z`. No local time without a zone, no milliseconds. In `--json`, the server's ISO string is passed through unchanged.
+### T-1. Instants in a pipe and in `--json`: ISO 8601 in UTC with `Z`
+
+In the pipe form, an instant is printed as ISO 8601 in UTC with a trailing `Z`, to the second: `2026-10-17T01:24:30Z`. No local time, no offset, no milliseconds. In `--json`, the server's ISO 8601 UTC string (`…Z`) is passed through unchanged.
 
 Helper: `fmtInstant(iso, { tty })` in `format.ts` (new, batch D; replaces direct use of `fmtTimestamp`).
 
@@ -375,11 +401,11 @@ After (pipe):
 2026-10-16T12:33:00Z⇥system⇥boundary crossing detected
 ```
 
-### T-2. Instants on a TTY: decided in Q2
+### T-2. Instants on a TTY: local time with its UTC offset
 
-Recommended (see [Q2](#q2-relative-time-or-local-time-with-zone)): relative time in list columns (`3h ago`, `yesterday`, `5 days ago`, then the local date after 30 days), and local time with its UTC offset in detail views: `2026-10-17 09:24 +08:00`.
+On a terminal, an instant is printed in the shell's local time zone, to the minute, followed by the zone's UTC offset: `2026-10-17 09:24 +11:00`. The same form is used in list columns, facts and prose. The offset is the one in force at that instant (so a date across a daylight-saving change shows its own offset).
 
-Helper: `relativeTime()` (existing) and `fmtInstant()` (new).
+Helper: `fmtInstant(iso, { tty })` in `format.ts` (new, batch D). `relativeTime()` is retired; its one caller (`task context`'s session list) moves to `fmtInstant()`.
 
 Before (`lumo crossing list` in a terminal — raw UTC ISO with milliseconds):
 
@@ -389,7 +415,7 @@ Before (`lumo crossing list` in a terminal — raw UTC ISO with milliseconds):
   Ruled at:            2026-10-16T17:15:41.024Z
 ```
 
-After (TTY, shell in UTC+8):
+After (TTY, shell in UTC+8; the same values in a pipe print as `2026-10-16T17:10:09Z` and so on, per T-1):
 
 ```
   Detected:     2026-10-17 01:10 +08:00
@@ -397,9 +423,11 @@ After (TTY, shell in UTC+8):
   Ruled at:     2026-10-17 01:15 +08:00
 ```
 
-### T-3. Calendar days: `YYYY-MM-DD`, never shifted
+### T-3. Calendar days: `YYYY-MM-DD`, never shifted; instants are never cut to a day
 
 A calendar day prints as `YYYY-MM-DD` in every mode, read from its UTC date and never converted to the local zone. A range is `start → end`. No parentheses, no time, no zone.
+
+An instant is not a calendar day. Where a column only needs the day an instant fell on (for example "completed"), a TTY may show the local day (`2026-10-15`), but the pipe form still prints the full UTC instant from T-1, because a bare day without a zone is ambiguous.
 
 Helper: `fmtCalendarDay()` (existing), `fmtDayRange()` in `format.ts` (new, batch D).
 
@@ -415,11 +443,11 @@ After:
 
 ```
 #13  ACTIVE  2026-10-05 → 2026-10-18  Sprint 13
-TC1  PASS    LOCAL  8841947  1d ago  3/3  …
+TC1  PASS    LOCAL  8841947  2026-10-17 00:53 +08:00  3/3  …
   Trend:  ▁▂▃▃▃▄▄▅▆▆▇██·  2026-10-05 → 2026-10-18
 ```
 
-(The testcase "run at" value is an instant, so it follows T-1/T-2, not T-3.)
+(The first line is `sprint list`, ref first per L-4. The testcase "run at" value is an instant, so it follows T-1/T-2, not T-3: a full local time with offset on a TTY.)
 
 ---
 
@@ -527,7 +555,7 @@ security-scan-v2  ACTIVE  ON_TRACK  2026-10-30  Security Scan v2
     #1559  MERGED  feat: task status --full lists each test case's latest run [LUM-1186]
 ```
 
-(Words that are not enums — `checked`, `skipped`, `open` in prose — stay lower case.)
+(Words that are not enums — `checked`, `skipped`, `open` in prose — stay lower case. The `milestone list` row is shown in its final column order, ref first per L-4; batch D changes only the casing, batch A the order.)
 
 ### E-2. Colour only adds; it never carries meaning alone
 
@@ -643,7 +671,7 @@ Kept from the existing rule: `✓` marks environment and flow confirmations (log
 
 Helper: `successLine()` in `feedback.ts` (existing).
 
-Before (captured while writing this draft — a flow confirmation and a resource change):
+Before (captured while writing this document — a flow confirmation and a resource change):
 
 ```
 ✓ Worktree ready: /Users/…/lumo/.worktrees/LUM-1232-cli-output-conventions
@@ -665,7 +693,7 @@ Showing 1-50 of 1094.
 Next page: lumo task list --cursor 50
 ```
 
-The second line is reworded from `Hint: next page with …` so that it is data, not a hint (see [Q5](#q5-should-the-paging-footer-obey---no-hints)). A result that fits on one page prints no footer. When the total is not known, the first line is `Showing 1-50.`.
+The second line is reworded from `Hint: next page with …` so that it is data, not a hint ([Q5](#q5-the-paging-footer-ignores---no-hints)). Both lines go to stdout. A result that fits on one page prints no footer. When the total is not known, the first line is `Showing 1-50.`.
 
 Helper: `pageFooter()`, `parsePageArgs()` in `pagination.ts` (existing; wording change in batch A).
 
@@ -739,7 +767,7 @@ No open crossings on LUM-1185.
 
 ### PG-3. Empty state
 
-An empty result prints exactly one sentence on stdout and exits 0: `No <things>.` or `No <things> on <scope>.` An optional `Hint:` line may follow (suppressed by `--no-hints`). In `--json`, an empty result is the normal envelope with an empty array.
+An empty result prints exactly one sentence on stdout and exits 0: `No <things>.` or `No <things> on <scope>.` An optional `Hint:` line may follow on stdout (suppressed by `--no-hints`). In `--json`, an empty result is the normal envelope with an empty array.
 
 Helper: `emptyState()` in `format.ts` (existing).
 
@@ -771,12 +799,12 @@ No test cases on LUM-1.
 
 ### H-1. Four kinds of trailing text
 
-| Kind       | Shape                         | Purpose                                    | `--no-hints` |
-| ---------- | ----------------------------- | ------------------------------------------ | ------------ |
-| Next steps | `Next:` block (command + why) | commands worth running now                 | hidden       |
-| Hint       | `Hint: <text>`                | advice                                     | hidden       |
-| Note       | `Note: <text>`                | how far a printed number can be trusted    | shown        |
-| Warning    | `⚠ <text>` on stderr          | something is wrong but the command went on | shown        |
+| Kind       | Shape                         | Purpose                                   | `--no-hints` |
+| ---------- | ----------------------------- | ----------------------------------------- | ------------ |
+| Next steps | `Next:` block (command + why) | commands worth running now                | hidden       |
+| Hint       | `Hint: <text>`                | advice                                    | hidden       |
+| Note       | `Note: <text>`                | how far a printed number can be trusted   | shown        |
+| Warning    | `⚠ <text>` on stderr          | something went wrong; the command went on | shown        |
 
 `More:` and free-standing asides such as `(or pick any other task from the list)` are not separate kinds: they become `Hint:` lines.
 
@@ -799,7 +827,7 @@ Hint: any other task in the list works the same way.
 ### H-2. What `--no-hints` (and `LUMO_NO_HINTS=1`) covers
 
 Hidden: every `Next:` block and every `Hint:` line on a successful run.
-Not hidden: data, `Note:` lines, warnings, errors and the hint that belongs to an error, the paging footer (pending [Q5](#q5-should-the-paging-footer-obey---no-hints)), and the exit-4 / exit-5 envelopes.
+Not hidden: data, `Note:` lines, warnings, errors and the hint that belongs to an error, the paging footer ([Q5](#q5-the-paging-footer-ignores---no-hints)), and the exit-4 / exit-5 envelopes.
 
 All hint output goes through one gate, `nextStepsSilenced()`. Commands may not call `formatNextSteps()` directly and print the result.
 
@@ -918,7 +946,7 @@ After:
 { "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 50, "nextCursor": "50" }
 ```
 
-(How the bare arrays get there without breaking callers is [Q3](#q3-how-does-the---json-envelope-migrate).)
+(How the bare arrays get there without breaking callers is [Q3](#q3---json-envelope-add-in-place).)
 
 ### J-3. A declared field list per command
 
@@ -988,7 +1016,7 @@ After (stderr):
 ### J-5. Compatibility
 
 - Only add. Existing fields keep their names, types and meaning.
-- A breaking change (renaming, removing, reshaping) bumps `version` and follows [Q3](#q3-how-does-the---json-envelope-migrate).
+- A breaking change (renaming, removing, reshaping) bumps `version` and follows [Q3](#q3---json-envelope-add-in-place).
 - Field selection like `gh`'s (`--json ref,title,status`) is optional and additive: bare `--json` keeps printing every field (see Q3).
 
 Helper: `json-output.ts` (new).
@@ -1032,7 +1060,7 @@ Hint: see `lumo pr scan --help` for every flag.
 
 ### X-2. Say what to do next
 
-An error that the user can fix ends with one `Hint:` line naming the fix. A not-found error names a command that lists the valid values.
+An error that the user can fix ends with one `Hint:` line naming the fix. That line goes to stderr with the error (see the streams table in §1), and `--no-hints` does not remove it. A not-found error names a command that lists the valid values.
 
 Helper: `notFound(kind, ref, listCommand)` in `errors.ts` (new, batch E); `refLookupError()` in `ref-error.ts` (existing).
 
@@ -1072,14 +1100,16 @@ Hint: cd into your project and run it again.
 
 ### X-4. Exit codes
 
-| Code | Meaning                                                                                                         | Stream of the message |
-| ---- | --------------------------------------------------------------------------------------------------------------- | --------------------- |
-| 0    | success, including an empty result                                                                              | —                     |
-| 1    | the command failed: not found, auth, permission, server, network                                                | stderr                |
-| 2    | usage error: unknown flag, missing or extra argument, invalid flag value ([Q4](#q4-should-usage-errors-exit-2)) | stderr                |
-| 3    | reserved                                                                                                        | —                     |
-| 4    | confirmation required: an exit-4 envelope was printed; unchanged                                                | stdout                |
-| 5    | blocked by a human-only gate (`DONE_BLOCKED`); unchanged                                                        | stdout                |
+| Code | Meaning                                                                                                  | stdout                                | stderr                                                   |
+| ---- | -------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------- |
+| 0    | success, including an empty result                                                                       | data, footer, hints                   | runtime warnings, if any                                 |
+| 1    | the command failed: not found, auth, permission, server, network                                         | nothing (or the rows already printed) | `Error:` + its `Hint:`; JSON error under `--json`        |
+| 2    | usage error: unknown flag, missing or extra argument, invalid flag value ([Q4](#q4-usage-errors-exit-2)) | nothing                               | `Error:` + `Usage:` + `Hint:`; JSON error under `--json` |
+| 3    | reserved                                                                                                 | —                                     | —                                                        |
+| 4    | confirmation required: an exit-4 envelope was printed; unchanged                                         | the envelope                          | —                                                        |
+| 5    | blocked by a human-only gate (`DONE_BLOCKED`); unchanged                                                 | the `DONE_BLOCKED` error              | —                                                        |
+
+These columns follow the streams table in §1.
 
 **Lumo's 4 is not `gh`'s 4.** In `gh`, exit 4 means "authentication required" (and 2 means "cancelled"). In Lumo, 4 means "the user must confirm, then re-run `confirmCommand`" and 5 means "blocked; relay, don't retry". These meanings are fixed and documented in the skill; Lumo does not adopt `gh`'s 2 or 4. Authentication failures stay at exit 1 with the fixed `lumo auth login` message.
 
@@ -1105,18 +1135,18 @@ Error: invalid --status "wip" (allowed: backlog, todo, in_progress, in_review, d
 
 ### X-5. Warnings
 
-A warning is one line on stderr starting with `⚠` (`warn()`); the command continues and exits by its own outcome.
+A runtime warning is one line on stderr starting with `⚠` (`warn()`); the command continues and exits by its own outcome. A report section that lists problems as its data (`lumo doctor`'s `Warnings`) is output, not a runtime warning: it stays on stdout, and uses the same `⚠` marker.
 
 Helper: `warn()` in `errors.ts` (existing).
 
-Before (`lumo doctor` — the warning is on stdout with an ASCII marker):
+Before (`lumo doctor` — the report's `Warnings` section, on stdout, with an ASCII marker):
 
 ```
 Warnings
   ! codex-untrusted: Codex hooks trust unverified (…/.codex/hooks.json) — open /hooks in Codex and Trust …
 ```
 
-After (the `Warnings` section stays in the report; each line uses `⚠`, see S-1):
+After (the section stays on stdout as report data; each line uses `⚠`, see S-1):
 
 ```
 Warnings
@@ -1254,7 +1284,7 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 | Modes, colour, width | `colorEnabled`, `terminalWidth`, `style` (`ui.ts`)                                                                                        | `enumColor` (D)                                                                                       |
 | Lists                | `renderListTable`, `flexColumnCap` (`list-table.ts`); `renderTable` (`ui.ts`)                                                             | TAB separator for pipes, `childRows` (A)                                                              |
 | Details              | `kvBlock` (`ui.ts`); `sectionHeading`, `wrapLines`, `fieldLines` (`report-layout.ts`); `taskTableSection` (`detail-layout.ts`)            | `detailHeader`; no wrap when not a TTY (B)                                                            |
-| Time                 | `fmtCalendarDay`, `fmtDay`, `fmtTimestamp`, `relativeTime` (`format.ts`)                                                                  | `fmtInstant`, `fmtDayRange` (D)                                                                       |
+| Time                 | `fmtCalendarDay`, `fmtDay`, `fmtTimestamp`, `relativeTime` (retired in D) (`format.ts`)                                                   | `fmtInstant`, `fmtDayRange` (D)                                                                       |
 | Numbers              | `fmtTokens`, `fmtCount`, `formatDuration` (`format.ts`)                                                                                   | days in `formatDuration`, `fmtPercent`, `{ tty }` on `fmtCount` (D)                                   |
 | Enums                | `milestone-labels.ts`                                                                                                                     | `fmtEnum` (D)                                                                                         |
 | Empty values         | `NONE`, `orNone` (`format.ts`)                                                                                                            | —                                                                                                     |
@@ -1267,7 +1297,7 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 
 ---
 
-## Rollout batches
+## 16. Rollout batches
 
 One PR per batch, all on the same task, in this order. Each batch has tests that fail before it and real before/after output from a worktree build of the CLI.
 
@@ -1285,44 +1315,41 @@ The per-item audit list (location, current output, rule, batch) is attached to t
 
 ---
 
-## Open questions
+## 17. Decisions
 
-Each needs a decision from the user before the matching batch starts. The recommendation is what this draft assumes.
+The review draft listed seven open questions. The user decided all of them on 2026-10-18; the rulings are recorded with `lumo task decide` on LUM-1232. Q2 differs from the draft's recommendation; the others follow it.
 
-### Q1. Should piped lists be tab-separated?
+### Q1. Piped lists are tab-separated
 
-- **Today:** pipes get space-aligned columns; `task testcase list` already uses tabs in every mode.
-- **Options:** (a) keep space alignment; (b) single TAB between fields, like `gh`.
-- **Recommendation: (b) TAB.** A title with spaces makes space-split parsing ambiguous; a TAB is not. `awk '{print $1}'` and "first word is the ref" keep working because a TAB is whitespace. Callers that cut by fixed character positions break; none were found in the skill or our scripts. Migration: ship in batch A, call it out in the CLI release notes and in the skill's list section, no compatibility switch.
+- **Decision (2026-10-18):** in a pipe, list fields are separated by a single TAB, as in `gh` (L-3).
+- **Why:** a title with spaces makes space-split parsing ambiguous; a TAB is not. `awk '{print $1}'` and "the first word is the ref" keep working because a TAB is whitespace.
+- **Migration:** ships in batch A, announced in the CLI release notes and in the skill's list section; no compatibility switch. `task testcase list` already uses TABs.
 
-### Q2. Relative time, or local time with zone?
+### Q2. Absolute time only
 
-- **Today:** a mix of raw UTC ISO (`crossing list`), local time without a zone (`history`, `audit list`, `inbox`), and bare dates.
-- **Options:** (a) relative everywhere on a TTY (`gh`'s choice); (b) local time with offset everywhere; (c) relative in list columns, local time with offset in detail views.
-- **Recommendation: (c),** with RFC 3339 UTC in every pipe and in `--json` (T-1). A list is scanned for "how recent"; a detail view is read for "exactly when", and an offset (`+08:00`) makes it unambiguous for teammates in other zones. Agents read the pipe form, so they always get the unambiguous UTC value.
+- **Decision (2026-10-18; differs from the draft, which recommended relative times in list columns):** the CLI prints absolute times only, never relative ones, because the CLI is read mostly by agents. On a terminal: local time with its UTC offset, `2026-10-17 09:24 +11:00`. In a pipe or `--json`: ISO 8601 in UTC with a trailing `Z` (T-1, T-2).
+- **Calendar days** (sprint, milestone and due dates) are unaffected: `YYYY-MM-DD`, never shifted (T-3).
+- **Migration:** batch D. `relativeTime()` is retired.
 
-### Q3. How does the `--json` envelope migrate?
+### Q3. `--json` envelope: add in place
 
-- **Today:** 24 different shapes; 2 bare arrays (`tag list`, `task history`); 5 with `version`.
-- **Options:** (a) add fields in place (`version`, `total`, `nextCursor`) with a compatibility layer; (b) a switch such as `--json-v2` or `LUMO_JSON_VERSION=2`; (c) `gh`-style field selection, where `--json` alone keeps the old shape.
-- **Recommendation: (a) in place, plus optional field selection from (c).** Object outputs only gain fields, so nothing that reads them breaks, and no permanent second code path is needed. The two bare arrays are the only breaking change: wrap them into the envelope once (`{ "version": 1, "tags": [...] }`), announced in the release notes and the skill. `--json <fields>` (optional value, so bare `--json` is unchanged) can come later in batch C for callers that want a smaller payload. A `--json-v2` switch is not recommended: it doubles the code and the docs for every command, for the sake of two commands.
+- **Decision (2026-10-18):** existing JSON outputs only gain fields (`version`, `total`, `nextCursor`); an optional `--json <fields>` selection may follow in batch C, with bare `--json` unchanged. No `--json-v2` switch.
+- **The one breaking change:** `tag list --json` and `task history --json` stop being bare arrays and are wrapped in the envelope (`{ "version": 1, "tags": [...] }`), announced in the release notes and the skill.
 
-### Q4. Should usage errors exit 2?
+### Q4. Usage errors exit 2
 
-- **Today:** usage errors, not-found and server errors all exit 1; `index.ts` reserves 2 for auth.
-- **Recommendation: yes, 2 for usage errors** (unknown flag, missing or extra argument, invalid flag value, caught before any network call). It lets an agent tell "I called it wrong — fix the command" from "the call was right, the thing failed". This follows the long-standing Unix convention for bad usage; `gh` uses 2 for "cancelled", which Lumo has no equivalent for. Auth stays 1. Codes 4 and 5 are unchanged.
+- **Decision (2026-10-18):** usage errors (unknown flag, missing or extra argument, invalid flag value, caught before any network call) exit 2 (X-4). Authentication failures stay at 1; 4 and 5 are unchanged.
+- **Why:** an agent can tell "I called it wrong — fix the command" from "the call was right, the thing failed". `gh` uses 2 for "cancelled", which Lumo has no equivalent for.
 
-### Q5. Should the paging footer obey `--no-hints`?
+### Q5. The paging footer ignores `--no-hints`
 
-- **Today:** the footer's second line is a `Hint:` line and `--no-hints` does not hide it.
-- **Recommendation: no — the footer always prints, and its second line stops being a hint** (`Next page: lumo task list --cursor 50`). It tells the reader the list is incomplete and carries the cursor; hiding it would let an agent believe it saw everything, which is exactly what the footer exists to prevent. `--no-hints` keeps hiding only advice.
+- **Decision (2026-10-18):** the footer always prints, on stdout, and its second line stops being a hint: `Next page: lumo task list --cursor 50` (PG-1).
+- **Why:** it tells the reader the list is incomplete and carries the cursor; hiding it would let an agent believe it saw everything. `--no-hints` keeps hiding only advice.
 
-### Q6. Enum casing in human output
+### Q6. Enums are UPPER_SNAKE
 
-- **Today:** `DONE`, `merged`, `ON-TRACK` side by side.
-- **Recommendation: UPPER_SNAKE exactly as in `--json`** (E-1). One spelling to grep for across text and JSON, and it matches the web app. Flags keep accepting lower case.
+- **Decision (2026-10-18):** enum values print in UPPER_SNAKE_CASE exactly as in `--json` (`ON_TRACK`, `MERGED`); flags keep accepting lower case (E-1).
 
-### Q7. Markdown output of `task runs` and `task lineage`
+### Q7. `task runs` and `task lineage` use the detail layout
 
-- **Today:** both print Markdown (`#`, `**`, `-`), unlike every other detail view.
-- **Recommendation: move both to the plain detail layout** (D-1–D-3). Keep Markdown only for `task context`, whose output is meant to be pasted into a model's context.
+- **Decision (2026-10-18):** both move from Markdown to the plain detail layout (D-1–D-3). `task context` keeps Markdown, because its output is meant to be pasted into a model's context.
