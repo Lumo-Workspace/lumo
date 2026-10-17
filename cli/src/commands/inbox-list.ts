@@ -13,6 +13,8 @@ export interface InboxNotification {
   actionTakenAt: string | null
   createdAt: string
   actor: { name: string } | null
+  /** Set even when the task row is gone (then `task` is null). */
+  taskId?: string | null
   task: { title: string; number: number; teamIdentifier: string } | null
   sprint: { name: string } | null
   project: { name: string } | null
@@ -57,7 +59,8 @@ const flat = (s: string) => sanitizeField(s).replace(/\s+/g, ' ').trim()
 /**
  * `<actor> <verb> <subject>` — the web inbox sentence: the actor falls back
  * to "Lumo AI", the subject is the sprint / project / milestone / document
- * the type is about, else the task (`LUM-1 Title`), else "a task".
+ * the type is about, else the task (`LUM-1 Title`), else "a deleted task"
+ * when the notification names a task that no longer exists, else "a task".
  */
 export function notificationSentence(n: InboxNotification): string {
   const actor = n.actor ? flat(n.actor.name) : 'Lumo AI'
@@ -77,6 +80,11 @@ export function notificationSentence(n: InboxNotification): string {
     subject = flat(n.document.title)
   } else if (n.task) {
     subject = `${n.task.teamIdentifier}-${n.task.number} ${flat(n.task.title)}`
+  } else if (n.taskId) {
+    // LUM-1232 G3: the server batch-loads tasks without a deletion filter, so
+    // a taskId with no task means the task row is gone — say so instead of a
+    // bare "a task" that reads like missing data.
+    subject = 'a deleted task'
   } else {
     subject = 'a task'
   }

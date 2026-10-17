@@ -385,7 +385,10 @@ Top 3 recommended tasks (of 12 open):
 Next:
   lumo session attach LUM-42 && lumo task context LUM-42
       start on the top-ranked task
+Hint: any other task in the list works the same way.
 ```
+
+`--no-hints` / `LUMO_NO_HINTS=1` drops the `Next:` block and the `Hint:` line, leaving the ranked list (LUM-1232).
 
 When to suggest: the user asks "what should I work on", "what's next", "recommend my next task" (in any language), "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.
 

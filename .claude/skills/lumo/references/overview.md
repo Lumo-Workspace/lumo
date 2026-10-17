@@ -23,6 +23,8 @@ Other
     "can you look at this?"
 ```
 
+A notification about a task that has since been deleted reads `… a deleted task` (LUM-1232).
+
 `--json` prints `{ notifications: [...], unreadCount }` — each notification has `id, type, read, requiresAction, actionTakenAt, createdAt, actor, task {teamIdentifier, number, title}, sprint, project, milestone, document, commentPreview`. Mark read / delete stays in the web inbox.
 
 ### `lumo draft list [--json]` — your drafts

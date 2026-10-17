@@ -7,6 +7,8 @@ import {
   formatDurationSec,
 } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
+import { hint } from '../lib/feedback'
+import { nextStepsSilenced } from '../lib/next-steps'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
@@ -367,9 +369,14 @@ function runLines(run: RunReportRun, full: boolean): string[] {
 export function formatRunReport(
   identifier: string,
   r: RunReport,
-  opts: { full?: boolean } = {}
+  opts: {
+    full?: boolean
+    /** Print the trailing hint (default: unless `--no-hints` / `LUMO_NO_HINTS`). */
+    hints?: boolean
+  } = {}
 ): string {
   const full = opts.full === true
+  const hints = opts.hints ?? !nextStepsSilenced()
   const out: string[] = [`# Agent runs: ${line(identifier)}`, '']
   out.push(...overviewLines(r))
   if (full && r.perMember.length > 0) {
@@ -404,10 +411,13 @@ export function formatRunReport(
       body: body.join('\n'),
     })
   )
-  if (!full) {
+  // LUM-1232 H-1/H-2: one hint spelling, and `--no-hints` drops it.
+  if (!full && hints) {
     out.push('')
     out.push(
-      'More: --full adds attribution signals, subagents, per-model tokens and injected memories; --json for the raw report.'
+      hint(
+        '`--full` adds attribution signals, subagents, per-model tokens and injected memories; `--json` prints the raw report.'
+      )
     )
   }
   return out.join('\n') + '\n'
@@ -440,5 +450,7 @@ export async function taskRuns(
     process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
     return
   }
-  process.stdout.write(formatRunReport(identifier, r.data, opts))
+  process.stdout.write(
+    formatRunReport(identifier, r.data, { full: opts.full === true })
+  )
 }

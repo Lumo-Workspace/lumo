@@ -30,6 +30,9 @@ export interface AuditEventView {
   source: AuditSource
   targetType: string
   targetId: string | null
+  /** LUM-1232: the target's human-readable ref (`LUM-X482` for a boundary
+   *  crossing) when one exists; null otherwise — show `targetId` then. */
+  targetRef: string | null
   ip: string | null
   userAgent: string | null
   metadata: unknown

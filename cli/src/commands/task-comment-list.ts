@@ -1,4 +1,5 @@
 import { NONE, emptyState, fmtTimestamp } from '../lib/format'
+import { fetchActorNames } from '../lib/crossing-records'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -30,6 +31,8 @@ interface ResolveResponse {
 export interface CommentNode {
   id: string
   authorActorId: string | null
+  /** LUM-1232: the author's display name from the server; absent on older servers. */
+  authorName?: string | null
   body: string
   createdAt: string
   replies?: CommentNode[]
@@ -46,6 +49,10 @@ export interface CommentThreadOptions {
   /** The `lumo <…>` sub-command the fetch-more pointer advertises. Defaults to
    *  the task thread. */
   fetchCommand?: string | undefined
+  /** Actor id → member / agent name (LUM-1232 G2). When given, an author is
+   *  printed by name, or `-` when the directory cannot name it — never as a
+   *  raw actor id. */
+  actorNames?: Map<string, string> | undefined
 }
 
 /**
@@ -69,9 +76,22 @@ export function commentPlainText(html: string): string {
 }
 
 /** Render one comment (and its nested replies) as an indented text block. */
-function renderCommentBlock(c: CommentNode, indent: string): string {
+function renderCommentBlock(
+  c: CommentNode,
+  indent: string,
+  names?: Map<string, string>
+): string {
   const lines: string[] = []
-  const author = sanitizeField(c.authorActorId ?? NONE)
+  const id = c.authorActorId
+  const author = sanitizeField(
+    c.authorName
+      ? c.authorName
+      : id === null
+        ? NONE
+        : names
+          ? (names.get(id) ?? NONE)
+          : id
+  )
   // `#<short id>` is the handle `task comment --reply-to` and
   // `task comments edit/rm` take (LUM-821).
   lines.push(
@@ -83,7 +103,7 @@ function renderCommentBlock(c: CommentNode, indent: string): string {
   }
   for (const reply of c.replies ?? []) {
     lines.push('')
-    lines.push(renderCommentBlock(reply, indent + '  '))
+    lines.push(renderCommentBlock(reply, indent + '  ', names))
   }
   return lines.join('\n')
 }
@@ -100,7 +120,7 @@ export function formatCommentThread(
   opts: CommentThreadOptions = {}
 ): string {
   if (comments.length === 0) return emptyState('comments')
-  const blocks = comments.map(c => renderCommentBlock(c, ''))
+  const blocks = comments.map(c => renderCommentBlock(c, '', opts.actorNames))
   if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
   const fetchCommand = opts.fetchCommand ?? 'task comments list'
@@ -179,10 +199,15 @@ export function formatCommentPage(
   comments: CommentNode[],
   page: PageArgs | null,
   identifier: string,
-  opts: TaskCommentListOptions
+  opts: TaskCommentListOptions,
+  actorNames?: Map<string, string>
 ): string {
   if (!page)
-    return formatCommentThread(comments, { full: opts.full, identifier })
+    return formatCommentThread(comments, {
+      full: opts.full,
+      identifier,
+      actorNames,
+    })
   const p = paginate(comments, page)
   const footer = pageFooter(
     { ...p, shown: p.items.length },
@@ -197,7 +222,11 @@ export function formatCommentPage(
   const body =
     p.items.length === 0
       ? '(no comments on this page)'
-      : formatCommentThread(p.items, { full: opts.full, identifier })
+      : formatCommentThread(p.items, {
+          full: opts.full,
+          identifier,
+          actorNames,
+        })
   return [body, ...footer].join('\n')
 }
 
@@ -284,7 +313,15 @@ export async function taskCommentList(
     console.log(emptyState('comments'))
     return
   }
+  // LUM-1232 G2: authors by name from the member directory, not actor ids.
+  const actorNames = await fetchActorNames(base, creds.token)
   console.log(
-    formatCommentPage(comments, paging.page, resolved.identifier, opts)
+    formatCommentPage(
+      comments,
+      paging.page,
+      resolved.identifier,
+      opts,
+      actorNames
+    )
   )
 }

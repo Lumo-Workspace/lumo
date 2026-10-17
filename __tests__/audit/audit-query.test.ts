@@ -174,6 +174,7 @@ describe('LUM-907 audit CSV export', () => {
       source: 'WEB',
       targetType: 'invite',
       targetId: 'inv_1',
+      targetRef: null,
       ip: '203.0.113.9',
       userAgent: '=cmd|"/c calc"!A1',
       metadata: { email: '@evil' },

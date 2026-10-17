@@ -176,7 +176,9 @@ describe('lumo next has no hard-coded LUM prefix', () => {
       score: 1,
     })
     const out = formatNextOutput([task('SPEC-1'), task('SPEC-2')] as never, 2)
-    expect(out).toContain('(or pick any other task from the list)')
+    expect(out).toContain(
+      'Hint: any other task in the list works the same way.'
+    )
     expect(out).not.toContain('LUM')
   })
 })
