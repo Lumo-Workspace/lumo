@@ -8,6 +8,8 @@
  * `1301.1h`, `49.2%`, `ON-TRACK`, `merged`, `not metered`, `!` warnings.
  */
 import { execFileSync } from 'child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
 import path from 'path'
 import * as format from '../../cli/src/lib/format'
 import {
@@ -114,14 +116,26 @@ describe('T-2 across zones (child process with TZ set)', () => {
  * `script(1)` proves the terminal branch; a plain pipe proves the other.
  */
 describe('T-1 / T-2 — default follows stdout: script(1) TTY vs pipe', () => {
-  const code = [
-    "import { fmtTimestamp } from './cli/src/lib/format'",
-    "process.stdout.write('[' + fmtTimestamp('2026-10-16T22:24:00.000Z') + ']\\n')",
-  ].join('\n')
+  // The program lives in a file (no `-e`), so script(1) gets a plain argv on
+  // macOS and a single-line `-c` command on Linux — no quoting of newlines.
+  let program = ''
+  beforeAll(() => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'lum1232-tty-'))
+    program = path.join(dir, 'print-time.ts')
+    const lib = path.join(ROOT, 'cli/src/lib/format')
+    writeFileSync(
+      program,
+      `import { fmtTimestamp } from ${JSON.stringify(lib)}\n` +
+        "process.stdout.write('[' + fmtTimestamp('2026-10-16T22:24:00.000Z') + ']\\n')\n"
+    )
+  })
+  afterAll(() =>
+    rmSync(path.dirname(program), { recursive: true, force: true })
+  )
   const env = { ...process.env, TZ: 'Australia/Sydney' }
 
   it('piped stdout prints UTC with Z', () => {
-    const out = execFileSync(TSX, ['-e', code], {
+    const out = execFileSync(TSX, [program], {
       cwd: ROOT,
       env,
       encoding: 'utf8',
@@ -132,8 +146,8 @@ describe('T-1 / T-2 — default follows stdout: script(1) TTY vs pipe', () => {
   it('a pseudo-terminal prints local time with its offset', () => {
     const args =
       process.platform === 'darwin'
-        ? ['-q', '/dev/null', TSX, '-e', code]
-        : ['-qec', `${TSX} -e ${JSON.stringify(code)}`, '/dev/null']
+        ? ['-q', '/dev/null', TSX, program]
+        : ['-qec', `${TSX} ${program}`, '/dev/null']
     const out = execFileSync('script', args, {
       cwd: ROOT,
       env,

@@ -4,8 +4,10 @@ import { localDayLabel } from './local-day'
 
 /**
  * Shared CLI value formatters — LUM-1088: the one place dates, timestamps,
- * durations, token counts, empty values and empty states are spelled. Pure
- * (no clock / env beyond the process timezone), no colour.
+ * durations, token counts, empty values and empty states are spelled. No
+ * clock and no colour; the only environment read is the process timezone and,
+ * when a caller does not pass `{ tty }`, whether stdout is a terminal
+ * ({@link fmtInstant}).
  *
  * Dates come in two kinds and must not be mixed up:
  * - CALENDAR-DAY fields (sprint start/end, milestone start/target) are stored
