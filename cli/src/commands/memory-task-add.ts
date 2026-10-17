@@ -6,6 +6,7 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
+import { shortRef } from '../../../shared/src/short-ref'
 
 interface AddOptions extends MemoryFlags {
   category?: string
@@ -139,7 +140,9 @@ export async function memoryTaskAdd(
       memory?: { id?: string }
     }
     if (typeof b.outcome === 'string') outcome = b.outcome
-    if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
+    // LUM-1230: print the 8-char short ref, never the bare cuid.
+    if (b.memory && typeof b.memory.id === 'string')
+      memId = shortRef(b.memory.id)
   } catch {
     /* keep defaults */
   }

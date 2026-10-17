@@ -19,7 +19,9 @@ lumo project update mobile-app --owner alice@example.com
 
 ### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>] [--limit <n>] [--cursor <c>]` — list milestones in a project
 
-Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
+Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <slug>  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
+
+**Milestone refs (LUM-1230):** every `<identifier>` / `<ref>` that names a milestone (`show`, `update`, `delete`, `archive`, `unarchive`, `add`, `remove`, `triage`, `summary`, `changelog`, `reorder`, `move`, `testcase … <milestone>`, `task create|update|list --milestone`) takes the milestone's **slug** — the `SLUG` column here and the segment of the web URL (`/projects/<project>/milestones/<slug>`) — or its name (case-insensitive), or its id (old scripts). An exact slug wins over a name; a name shared by several milestones, or a slug present in two projects, is **rejected** with every candidate listed by slug (`beta ("Beta"), beta-2 ("Beta")`) — nothing is picked silently. Without `--project`, a workspace with several projects is searched whole; pass `--project <ref>` when the same slug exists in two projects. `SLUG` prints `-` from an older server that sends none.
 
 By default, only **non-archived** milestones are listed. Use `--archived` to show **only** archived milestones, or `--all` to show **both** archived and non-archived. Archived rows show `ARCHIVED` in the `STATE` column.
 
@@ -76,13 +78,13 @@ lumo milestone create "Q3 Launch"
 lumo milestone create "Q3 Launch" --start 2026-06-01 --target 2026-08-31
 ```
 
-On success: `Created milestone "Q3 Launch"  <id>`.
+On success: `Created milestone "Q3 Launch"  <slug>` (the slug every other milestone command takes; nothing after the title from an older server that returns no slug).
 
 ### `lumo milestone show <identifier>` — show milestone detail + tasks
 
-Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
+Accepts the slug, the name or the id (see **Milestone refs** above).
 
-Prints `Label:  value` rows padded to the widest label (`Milestone:`, `State:`, `Completed:`, `Archived:`, **`Health:`**, `Start:`, `Target:`, `Project:`), then headed sections (LUM-1090, the same grammar as `task status` — a blank line and a plain heading, bold on a TTY; rows indented two spaces): **Description** (wrapped at the terminal width — 40 to 100 columns, 100 when piped — every line indented; `-` when empty), **Progress** (`Done:  3 / 6`, `By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3`, and `Backlog:  N (not in the total)` only when there is BACKLOG work), **Metrics**, **Sprint coverage**, **Cross-milestone learning**, and **Tasks (N)** — the task table indented two spaces (header row `ID  STATUS  PRIORITY  PROJECT  TITLE` on a TTY only, title cut to the terminal width there; piped output is headerless and untruncated), or `None — no task is in this milestone.` The `Health:` row shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
+Prints `Label:  value` rows padded to the widest label (`Milestone:`, `Slug:` (when the server sends one), `State:`, `Completed:`, `Archived:`, **`Health:`**, `Start:`, `Target:`, `Project:`), then headed sections (LUM-1090, the same grammar as `task status` — a blank line and a plain heading, bold on a TTY; rows indented two spaces): **Description** (wrapped at the terminal width — 40 to 100 columns, 100 when piped — every line indented; `-` when empty), **Progress** (`Done:  3 / 6`, `By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3`, and `Backlog:  N (not in the total)` only when there is BACKLOG work), **Metrics**, **Sprint coverage**, **Cross-milestone learning**, and **Tasks (N)** — the task table indented two spaces (header row `ID  STATUS  PRIORITY  PROJECT  TITLE` on a TTY only, title cut to the terminal width there; piped output is headerless and untruncated), or `None — no task is in this milestone.` The `Health:` row shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
 **Staleness hints (LUM-624/LUM-714):** the `State:` row is annotated `(stale — task progress indicates COMPLETED|ACTIVE; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` row is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
 
@@ -217,7 +219,7 @@ lumo milestone delete "Q3 Launch" --confirm  # after the user approved
 
 ### `lumo milestone archive <identifier>` — soft-archive a milestone
 
-Soft-archives a milestone by setting `archivedAt`. The milestone is **hidden from `milestone list` by default** (use `--archived` or `--all` to see it), but its **history and task links are preserved**, and the action is **reversible** via `milestone unarchive`. This is distinct from `milestone delete`, which is a **hard delete**. While archived, the milestone **rejects edits** (`milestone update`) and **new task bindings** (`task --milestone`, `milestone add`) with a 409 until it is restored. `<identifier>` accepts a UUID or name; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Soft-archives a milestone by setting `archivedAt`. The milestone is **hidden from `milestone list` by default** (use `--archived` or `--all` to see it), but its **history and task links are preserved**, and the action is **reversible** via `milestone unarchive`. This is distinct from `milestone delete`, which is a **hard delete**. While archived, the milestone **rejects edits** (`milestone update`) and **new task bindings** (`task --milestone`, `milestone add`) with a 409 until it is restored. `<identifier>` accepts the slug, name or id (see **Milestone refs**).
 
 ```bash
 lumo milestone archive "Q3 Launch"
@@ -226,7 +228,7 @@ lumo milestone archive 11111111-2222-3333-4444-555555555555
 
 ### `lumo milestone unarchive <identifier>` — restore an archived milestone
 
-Restores an archived milestone by clearing `archivedAt`. It reappears in `milestone list` and can be edited and bound to tasks again. Idempotent — unarchiving an already-active milestone is a no-op. Same identifier / `--project` rules as `milestone archive`: `<identifier>` accepts a UUID or name; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Restores an archived milestone by clearing `archivedAt`. It reappears in `milestone list` and can be edited and bound to tasks again. Idempotent — unarchiving an already-active milestone is a no-op. Same identifier / `--project` rules as `milestone archive`: `<identifier>` accepts the slug, name or id (see **Milestone refs**).
 
 ```bash
 lumo milestone unarchive "Q3 Launch"
@@ -234,7 +236,7 @@ lumo milestone unarchive "Q3 Launch"
 
 ### `lumo milestone add <identifier> <task...>` — bind tasks to a milestone (batch)
 
-Binds **one or more** tasks to a milestone in a single call — the batch counterpart of `task update --milestone <ref>` (which only takes one task at a time). `<identifier>` accepts a milestone name or UUID; each `<task>` accepts `LUM-N` or a task UUID. `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Binds **one or more** tasks to a milestone in a single call — the batch counterpart of `task update --milestone <ref>` (which only takes one task at a time). `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**); each `<task>` accepts `LUM-N` or a task UUID.
 
 Task refs are deduped (case-insensitive, order preserved). Each task is PATCHed independently — **partial failures do not roll back**: a task that fails (e.g. not found, or its project has no milestone of that name) is reported on its own line while the rest still bind. Exit code is non-zero if **any** task failed.
 
@@ -254,7 +256,7 @@ Q3 Launch: 2 added, 1 failed
 
 ### `lumo milestone remove <identifier> <task...>` — unbind tasks from a milestone (batch)
 
-Unbinds **one or more** tasks from a milestone in one call. A task that is **not currently in this milestone is skipped** (idempotent) — it is never reassigned away from a different milestone. `<identifier>` accepts a name or UUID; each `<task>` accepts `LUM-N` or a task UUID. `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Unbinds **one or more** tasks from a milestone in one call. A task that is **not currently in this milestone is skipped** (idempotent) — it is never reassigned away from a different milestone. `<identifier>` accepts the slug, name or id (see **Milestone refs**); each `<task>` accepts `LUM-N` or a task UUID.
 
 ```bash
 lumo milestone remove "Q3 Launch" LUM-1 LUM-5
@@ -278,7 +280,7 @@ Q3 Launch: 1 removed, 1 skipped
 
 The **steward's batch annotation** for the F4/自治边界 loop. Marks **one or more** in-milestone tasks agent-claimable (or not) in one call — the "可领范围" leg of the autonomy-boundary triad (契约 F1 / 预算 F2 / 可领范围 F4). Exactly one direction is required: `--claimable` or `--not-claimable` (mutually exclusive; the CLI errors before any network call if both or neither is given).
 
-Mirrors `milestone add/remove`: dedupes refs, and a task **not in this milestone is skipped** (triage is milestone-scoped, never touches tasks elsewhere). `<identifier>` accepts a name or UUID; each `<task>` accepts `LUM-N` or a task UUID. `--project <ref>` is required when the identifier is a name and the workspace has >1 project. Best-effort — partial failures do not roll back.
+Mirrors `milestone add/remove`: dedupes refs, and a task **not in this milestone is skipped** (triage is milestone-scoped, never touches tasks elsewhere). `<identifier>` accepts the slug, name or id (see **Milestone refs**); each `<task>` accepts `LUM-N` or a task UUID. Best-effort — partial failures do not roll back.
 
 Setting the marker is a **governance** action, so a STEWARD session (`lumo session attach --steward <milestone>`) passes the server-side binding guard. `claimable` is **fail-closed**: a task is not auto-claimable until triaged. Once tasks are triaged, an agent runs `lumo next --claimable` to get only claimable ∩ unblocked (F3) ∩ in-budget (F2) work. A single task can also be toggled with `lumo task update <id> --claimable | --not-claimable`.
 
@@ -299,13 +301,13 @@ Agent-Native Milestones: 1 marked claimable, 1 skipped
 
 ### `lumo milestone summary <identifier> [--retry]` — fetch AI-generated milestone retro
 
-Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has more than one project. When no summary exists yet the command prints `(no summary generated yet)`.
+Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**). When no summary exists yet the command prints `(no summary generated yet)`.
 
 A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the test-case close gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
 
 | Flag              | Type    | Notes                                                                                                  |
 | ----------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `--project <ref>` | string  | Project name or slug. Required when identifier is a name and the workspace has >1 project.             |
+| `--project <ref>` | string  | Project name or slug. Narrows the milestone lookup; needed only when the slug exists in two projects.  |
 | `--retry`         | boolean | Queue a regeneration (async, server returns 202) before fetching. Only valid on a COMPLETED milestone. |
 
 ```bash
@@ -318,7 +320,7 @@ When to suggest: user asks "summarize the milestone", "milestone retro", "give m
 
 ### `lumo milestone changelog <identifier> [--project <ref>] [--json]` — structured changelog (LUM-649)
 
-Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no completion gate**: it runs on a milestone in any state, so an active milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no completion gate**: it runs on a milestone in any state, so an active milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**).
 
 Honest-reporting contract (why this is more than a task list):
 
@@ -328,10 +330,10 @@ Honest-reporting contract (why this is more than a task list):
 
 `--json` emits the raw structured payload (milestone / headline baseline stats / entries) unchanged for programmatic use.
 
-| Flag              | Type    | Notes                                                                                      |
-| ----------------- | ------- | ------------------------------------------------------------------------------------------ |
-| `--project <ref>` | string  | Project name or slug. Required when identifier is a name and the workspace has >1 project. |
-| `--json`          | boolean | Emit the raw structured changelog payload instead of the human markdown.                   |
+| Flag              | Type    | Notes                                                                                                 |
+| ----------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `--project <ref>` | string  | Project name or slug. Narrows the milestone lookup; needed only when the slug exists in two projects. |
+| `--json`          | boolean | Emit the raw structured changelog payload instead of the human markdown.                              |
 
 ```bash
 lumo milestone changelog "Agent-Native Milestones"
@@ -343,7 +345,7 @@ When to suggest: user asks for a "changelog", "release notes", "what shipped in 
 
 ### `lumo milestone reorder <ref...> [--project <ref>]` — set the full milestone order
 
-Reorders a project's milestones. Pass **every** milestone in the project (by name, case-insensitive, or its cuid) in the desired order — the command rewrites each milestone's `sortOrder` to match. An incomplete list (not every milestone named), an unknown ref, or a duplicate is rejected **before any network mutation**, with a message naming the offending / missing milestones.
+Reorders a project's milestones. Pass **every** milestone in the project (by slug, by name (case-insensitive) or by id) in the desired order — the command rewrites each milestone's `sortOrder` to match. An incomplete list (not every milestone named), an unknown ref, or a duplicate is rejected **before any network mutation**, with a message naming the offending / missing milestones.
 
 ```bash
 lumo milestone reorder "Q3 Launch" "Beta" "Alpha"
@@ -363,7 +365,7 @@ Reordered 3 milestones:
 
 ### `lumo milestone move <ref> --before <ref> | --after <ref> [--project <ref>]` — move one milestone
 
-Moves a single milestone immediately before or after a target milestone, leaving the rest in their current relative order. `--before` and `--after` are **mutually exclusive and exactly one is required** (the CLI errors before any network call if both or neither is given). Refs resolve by cuid or case-insensitive name.
+Moves a single milestone immediately before or after a target milestone, leaving the rest in their current relative order. `--before` and `--after` are **mutually exclusive and exactly one is required** (the CLI errors before any network call if both or neither is given). Refs resolve by slug, case-insensitive name or id.
 
 ```bash
 lumo milestone move "Alpha" --before "Q3 Launch"
@@ -381,6 +383,6 @@ Moved "Alpha" before "Q3 Launch". New order:
 
 Both commands resolve to a full ordered list client-side and call the same `PATCH /api/projects/<id>/milestones/reorder` endpoint (which requires the list to name every milestone exactly once). New milestones created via `milestone create` are appended to the bottom of the order.
 
-**Ambiguous names:** milestone names are not unique within a project (only the slug is). A ref whose name matches more than one milestone is **rejected** with an `ambiguous milestone name … re-run with the id` error listing the candidate cuids — pass the cuid instead. This applies to every name-based milestone ref (`reorder`, `move`, and also `show` / `update` / `delete` / `summary` / `add` / `remove`).
+**Ambiguous names:** milestone names are not unique within a project (only the slug is). A ref whose name matches more than one milestone is **rejected** with an `ambiguous milestone … re-run with one of these slugs` error listing the candidates as `<slug> ("<name>")` — pass the slug instead. This applies to every name-based milestone ref (`reorder`, `move`, and also `show` / `update` / `delete` / `summary` / `add` / `remove`).
 
 When to suggest: user asks to "reorder milestones", "move milestone X before/after Y", "put this milestone first".

@@ -29,10 +29,11 @@ lumo project memory add [<project>] --category convention --rule "..." --applies
 # Aliases: gemini → gemini-cli, copilot → github-copilot (case-insensitive)
 # Omitting --agent records the memory as produced by Claude Code.
 
-# Single-memory ops (memoryId from `... memory list` column 1)
-lumo memory show <memoryId>        # show one memory's full card by id
-lumo memory promote <memoryId>     # TASK → PROJECT
-lumo memory rm <memoryId> --confirm  # hard delete (without --confirm: exit 4 + envelope)
+# Single-memory ops (<memory> = the 8-char ref in `... memory list` column 1 and
+# in session-start index lines; a unique id prefix of 6+ chars or the full id also work)
+lumo memory show <memory>          # show one memory's full card
+lumo memory promote <memory>       # TASK → PROJECT
+lumo memory rm <memory> --confirm  # hard delete (without --confirm: exit 4 + envelope)
 
 # Downsync team memory into the local Claude Code memory store
 # (Claude Code only: in a Codex shell `memory sync` / `memory push` exit 1 unless --dir is given — Codex never reads this store)
@@ -67,29 +68,36 @@ lumo task memory add LUM-42 --category decision --what "Store doc content as Tip
 lumo project memory add lumo --category procedural --workflow "Sync locale files after a copy change" --trigger "any lib/i18n/en.json change" --step "npm run i18n:sync" --step "npm run i18n:check" --agent claude-code
 
 # Curate
-lumo memory show cmpi19iqabc123
-lumo memory promote cmpi19iqabc123
-lumo memory rm cmpi19iqabc123 --confirm
+lumo memory show kp5brom5
+lumo memory promote kp5brom5
+lumo memory rm kp5brom5 --confirm
 ```
 
-`memory rm` is gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it fetches the card and exits **4** with an envelope (`Will hard-delete memory <id> [TRAP]` · `Content: <first line>` · no undo) and deletes nothing. Show that to the user first; `--yes` is a legacy alias of `--confirm`.
+`memory rm` is gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it fetches the card and exits **4** with an envelope (`Will hard-delete memory <ref> [TRAP]` · `Content: <first line>` · no undo) and deletes nothing. Show that to the user first; `--yes` is a legacy alias of `--confirm`.
 
-### `lumo memory show <id>` (progressive disclosure)
+### `lumo memory show <memory>` (progressive disclosure)
 
-Fetches one memory's full card by id from the server and prints its category tag
-(`[TRAP]`, `[DECISION]`, `[CONVENTION]`, `[WORKFLOW]`, …) followed by the
-structured `content` body (pretty-printed JSON).
+Fetches one memory's full card from the server and prints its category tag and
+short ref (`[TRAP] kp5brom5`, `[DECISION] …`, …) followed by the structured
+`content` body (pretty-printed JSON).
 
-- **Arg**: `<memoryId>` (required) — the id you saw in `... memory list` column 1
-  or as a one-line index entry at session start. Without it the command errors
-  with a usage line and exits 1.
+- **Arg**: `<memory>` (required) — the 8-character short ref you saw in
+  `... memory list` column 1, in a session-start index line (`· kp5brom5` /
+  `→ lumo memory show kp5brom5`), in `task lineage` or `workspace learnings`.
+  The short ref is the id's last 8 characters (its random part — leading
+  characters are a timestamp shared by memories created together). A unique id
+  prefix of 6+ characters or the full id (old scripts) also work. Without the
+  arg the command errors with a usage line and exits 1.
 - **Errors**: not-logged-in (run `lumo auth login`), `401` invalid/revoked key,
-  `404` memory not found in your workspace (cross-workspace ids 404 too), other
-  non-2xx → generic HTTP error; all exit 1.
+  no match in your workspace (cross-workspace refs never match), a ref shorter
+  than 6 characters, or an **ambiguous** ref — the error lists every candidate
+  (full id + category) and nothing is picked; re-run with one of them. Other
+  non-2xx → generic HTTP error; all exit 1. `promote` and `rm` resolve the
+  same way. `--json`-style raw payloads keep the full id.
 
 **When to suggest**: at session start memories arrive as one-line index entries.
 When a specific entry looks relevant to the task at hand, run
-`lumo memory show <id>` to pull its full body before acting on it — read the
+`lumo memory show <ref>` to pull its full body before acting on it — read the
 detail on demand instead of carrying every memory's content in context.
 
 ### `lumo memory sync` (downsync to local Claude Code memory)
@@ -292,7 +300,7 @@ unsure → TASK.
 
 ### When to promote (TASK → PROJECT)
 
-`lumo memory promote <id>` only when the lesson **recurs across 2+ different
+`lumo memory promote <ref>` only when the lesson **recurs across 2+ different
 tasks**, would help a _different_ task, and no equivalent PROJECT memory exists.
 A wrong promotion is costly (every agent sees it forever) — prefer leaving it at TASK.
 

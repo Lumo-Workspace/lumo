@@ -1507,7 +1507,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)"
+      "description": "Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)"
     },
     "memory fold": {
       "arguments": [
@@ -1528,13 +1528,11 @@
       "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
     },
     "memory promote": {
-      "arguments": [
-        { "name": "memoryId", "required": true, "variadic": false }
-      ],
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks."
+      "description": "Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks."
     },
     "memory push": {
       "arguments": [],
@@ -1569,9 +1567,7 @@
       "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success."
     },
     "memory rm": {
-      "arguments": [
-        { "name": "memoryId", "required": true, "variadic": false }
-      ],
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
       "flags": {
         "--confirm": {
           "long": "--confirm",
@@ -1592,16 +1588,14 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card."
+      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory show": {
-      "arguments": [
-        { "name": "memoryId", "required": true, "variadic": false }
-      ],
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
+      "description": "Show one memory's full card (category + content). <memory> is the 8-char short ref shown in listings and session-start index lines, a unique id prefix (6+ chars) or the full id; an ambiguous ref errors and lists the candidates. Use to pull the body of a memory you saw as a one-line index entry at session start."
     },
     "memory sync": {
       "arguments": [],
@@ -1670,12 +1664,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back."
+      "description": "Bind one or more tasks to a milestone in one call. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back."
     },
     "milestone archive": {
       "arguments": [
@@ -1688,12 +1682,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name."
+      "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts the slug (as in the web URL), the name or the id."
     },
     "milestone changelog": {
       "arguments": [
@@ -1714,12 +1708,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
+      "description": "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts the milestone slug (as in the web URL), name or id. --json emits the raw structured payload."
     },
     "milestone create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
@@ -1780,7 +1774,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         },
         "--yes": {
           "long": "--yes",
@@ -1895,12 +1889,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID."
+      "description": "Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID."
     },
     "milestone reorder": {
       "arguments": [{ "name": "refs", "required": true, "variadic": true }],
@@ -1916,7 +1910,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
+      "description": "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
     },
     "milestone show": {
       "arguments": [
@@ -1929,12 +1923,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name."
+      "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id."
     },
     "milestone summary": {
       "arguments": [
@@ -1947,7 +1941,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         },
         "--retry": {
           "long": "--retry",
@@ -1960,7 +1954,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
+      "description": "Show the AI-generated summary for a milestone. Identifier accepts the milestone slug (as in the web URL), name or id. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
     },
     "milestone testcase": {
       "arguments": [],
@@ -2412,12 +2406,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks."
+      "description": "Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts the slug (as in the web URL), the name or the id; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks."
     },
     "milestone unarchive": {
       "arguments": [
@@ -2430,12 +2424,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name."
+      "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id."
     },
     "milestone update": {
       "arguments": [
@@ -2464,7 +2458,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (when identifier is a name)"
+          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         },
         "--start": {
           "long": "--start",
@@ -3720,7 +3714,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <id>)."
+      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <ref>)."
     },
     "task create": {
       "arguments": [{ "name": "title", "required": true, "variadic": false }],
@@ -3755,7 +3749,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Milestone name (case-insensitive)"
+          "description": "Milestone slug (as in the web URL) or name (case-insensitive)"
         },
         "--new-scope": {
           "long": "--new-scope",
@@ -4080,7 +4074,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Filter by milestone name or UUID (scopes to my tasks under that milestone)"
+          "description": "Filter by milestone slug, name or id (scopes to my tasks under that milestone)"
         },
         "--project": {
           "long": "--project",
@@ -4393,7 +4387,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Milestone name or UUID"
+          "description": "Milestone slug, name or id"
         },
         "--priority": {
           "long": "--priority",
@@ -5053,7 +5047,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Milestone name (case-insensitive); empty string to unbind"
+          "description": "Milestone slug (as in the web URL) or name (case-insensitive); empty string to unbind"
         },
         "--not-claimable": {
           "long": "--not-claimable",
@@ -5304,7 +5298,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory id, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <id>`."
+      "description": "List the workspace's PR-review learnings (LUM-1157): what reviewers told Lumo in review threads, newest first — with the memory short ref, repository, path glob, author, date and scope, including learnings of repositories linked to no Lumo project (those appear in no project's memory). Any member may read; delete one with `lumo memory rm <ref>`."
     },
     "workspace security-scan": {
       "arguments": [],

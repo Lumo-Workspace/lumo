@@ -79,9 +79,14 @@ describe('success lines share one shape', () => {
   })
 
   it('milestone / sprint create keep their documented lines', () => {
-    expect(formatCreatedMilestoneLine({ id: 'm-1', name: 'Q3 Launch' })).toBe(
-      'Created milestone "Q3 Launch"  m-1'
-    )
+    // LUM-1230: the trailing handle is the slug, not the cuid.
+    expect(
+      formatCreatedMilestoneLine({
+        id: 'm-1',
+        name: 'Q3 Launch',
+        slug: 'q3-launch',
+      })
+    ).toBe('Created milestone "Q3 Launch"  q3-launch')
     expect(
       formatCreatedSprintLine({ id: 'sp-3', number: 3, name: 'Sprint 3' })
     ).toBe('Created sprint #3 "Sprint 3"  sp-3')

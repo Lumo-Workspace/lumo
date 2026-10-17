@@ -353,6 +353,7 @@ describe('milestone / sprint / tag / member / audit lists', () => {
   const ms = {
     id: 'm1',
     name: '第三季度 Launch',
+    slug: 'q3-launch',
     completedAt: null,
     targetDate: '2026-09-30T00:00:00Z',
     createdAt: '2026-06-01T00:00:00Z',
@@ -362,9 +363,15 @@ describe('milestone / sprint / tag / member / audit lists', () => {
 
   it('milestone list: upper-case STATE/HEALTH, header on a TTY only', () => {
     const pipe = formatMilestoneList([ms], PIPE)
-    expect(pipe).toBe('ACTIVE  AT-RISK  2026-09-30  第三季度 Launch')
+    expect(pipe).toBe('ACTIVE  AT-RISK  2026-09-30  q3-launch  第三季度 Launch')
     const tty = formatMilestoneList([ms], TTY).split('\n')
-    expect(tty[0]?.split(/\s+/)).toEqual(['STATE', 'HEALTH', 'TARGET', 'NAME'])
+    expect(tty[0]?.split(/\s+/)).toEqual([
+      'STATE',
+      'HEALTH',
+      'TARGET',
+      'SLUG',
+      'NAME',
+    ])
   })
 
   it('milestone show uses the same upper-case state + health words', () => {

@@ -62,7 +62,7 @@ it('promote errors on missing id (no network)', async () => {
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   expect(await memoryPromote(undefined)).toBe(1)
   expect(fetchSpy).not.toHaveBeenCalled()
-  expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memoryId>/))
+  expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memory>/))
 })
 
 it('rm without --confirm: fetches the card, exits 4 with the envelope, sends no DELETE (LUM-755)', async () => {

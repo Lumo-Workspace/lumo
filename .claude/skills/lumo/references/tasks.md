@@ -6,18 +6,18 @@ Core task CRUD — create, update, list, recommend-next, show, comment. For depe
 
 Use this when the user wants to file a new task from the terminal. Title is positional and required (non-empty).
 
-| Flag                     | Type   | Notes                                                                               |
-| ------------------------ | ------ | ----------------------------------------------------------------------------------- |
-| `-d, --description <>`   | string | Optional task description.                                                          |
-| `--template <key>`       | string | Pre-fill the description from a task template. Not with `--description`.            |
-| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.            |
-| `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                 |
-| `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**    |
-| `--milestone <ref>`      | string | Milestone name (case-insensitive) within the resolved project. Omit for no binding. |
-| `--sprint <ref>`         | string | Sprint number or UUID to bind the task to on creation. Omit for no sprint binding.  |
-| `--due <date>`           | string | Due date `YYYY-MM-DD`, your local day (same convention as the web due-date picker). |
-| `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.       |
-| `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                           |
+| Flag                     | Type   | Notes                                                                                                                                                                   |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-d, --description <>`   | string | Optional task description.                                                                                                                                              |
+| `--template <key>`       | string | Pre-fill the description from a task template. Not with `--description`.                                                                                                |
+| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.                                                                                                |
+| `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                                                                                                     |
+| `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**                                                                                        |
+| `--milestone <ref>`      | string | Milestone slug (as in the web URL) or name (case-insensitive) within the resolved project; an ambiguous name is rejected with the candidate slugs. Omit for no binding. |
+| `--sprint <ref>`         | string | Sprint number or UUID to bind the task to on creation. Omit for no sprint binding.                                                                                      |
+| `--due <date>`           | string | Due date `YYYY-MM-DD`, your local day (same convention as the web due-date picker).                                                                                     |
+| `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.                                                                                           |
+| `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                                                                                                               |
 
 Examples:
 
@@ -118,7 +118,7 @@ Pure flag-driven update. Provide at least one of:
 | `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                             |
 | `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
-| `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
+| `--milestone <ref>`      | string              | Milestone slug (as in the web URL) or name (case-insensitive) within the task's project; an ambiguous name is rejected with the candidate slugs. `--milestone ""` unbinds.                                                                                            |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
 | `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                         |
 | `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
@@ -266,7 +266,7 @@ Columns align by display width (CJK counts 2). On a terminal (stdout is a TTY) a
 | ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
 | `-s, --status <value>`  | enum    | Filter by status: `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive). |
 | `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).                       |
-| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                                     |
+| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (slug, name or id).                                 |
 | `-n, --limit <count>`   | integer | Tasks per page (1-500, default **50**).                                                     |
 | `--cursor <cursor>`     | string  | Next page — copy it from the footer (or `nextCursor` in `--json`).                          |
 | `--json`                | boolean | `{ tasks, total, nextCursor }`.                                                             |
@@ -310,7 +310,7 @@ The last page prints only the `Showing …` line; a result that fits on one page
 | `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                 |
 | `-p, --priority <level>`          | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate.                                     |
 | `--project <ref>`                 | string              | Project name or slug.                                                                            |
-| `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |
+| `-m, --milestone <ref>`           | string              | Milestone slug, name or id.                                                                      |
 | `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
 | `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
 | `-n, --limit <count>`             | integer             | Tasks per page (1-500, default 50).                                                              |

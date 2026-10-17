@@ -190,6 +190,124 @@ describe('resolveMilestoneId', () => {
   })
 })
 
+describe('resolveMilestoneId — slug (LUM-1230)', () => {
+  const HEADLESS = {
+    id: 'cmv95ivuj000l06jvjrs7b7z1',
+    name: 'Headless 化(一):Web 展示信息 CLI 化',
+    slug: 'headless-web-cli',
+    projectId: 'p-1',
+  }
+
+  it('resolves the web URL slug of a milestone whose name has special characters', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ projects: [{ id: 'p-1', name: 'Lumo', isIdea: false }] })
+      )
+      .mockResolvedValueOnce(jsonResponse({ milestones: [HEADLESS] }))
+    const result = await resolveMilestoneId(
+      'http://x',
+      'tok',
+      'headless-web-cli',
+      undefined
+    )
+    expect(result).toEqual({
+      id: HEADLESS.id,
+      name: HEADLESS.name,
+      projectId: 'p-1',
+    })
+  })
+
+  it('still accepts the cuid (old scripts keep working)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ projects: [{ id: 'p-1', name: 'Lumo', isIdea: false }] })
+      )
+      .mockResolvedValueOnce(jsonResponse({ milestones: [HEADLESS] }))
+    const result = await resolveMilestoneId(
+      'http://x',
+      'tok',
+      HEADLESS.id,
+      undefined
+    )
+    expect(result.id).toBe(HEADLESS.id)
+  })
+
+  it('searches the whole workspace when it has several projects and no --project', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          projects: [
+            { id: 'p-1', name: 'Lumo', isIdea: false },
+            { id: 'p-2', name: 'Other', isIdea: false },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ milestones: [HEADLESS] }))
+    const result = await resolveMilestoneId(
+      'http://x',
+      'tok',
+      'headless-web-cli',
+      undefined
+    )
+    expect(mockFetch.mock.calls[1]![0]).toBe(
+      'http://x/api/milestones/workspace?filter=all'
+    )
+    expect(result).toEqual({
+      id: HEADLESS.id,
+      name: HEADLESS.name,
+      projectId: 'p-1',
+    })
+  })
+
+  it('a slug used in two projects is ambiguous and asks for --project', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          projects: [
+            { id: 'p-1', name: 'Lumo', isIdea: false },
+            { id: 'p-2', name: 'Other', isIdea: false },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          milestones: [
+            { id: 'm-1', name: 'Beta', slug: 'beta', projectId: 'p-1' },
+            { id: 'm-2', name: 'Beta', slug: 'beta', projectId: 'p-2' },
+          ],
+        })
+      )
+    const err = await resolveMilestoneId(
+      'http://x',
+      'tok',
+      'beta',
+      undefined
+    ).catch((e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toMatch(/ambiguous/)
+    expect((err as Error).message).toContain('--project')
+    expect((err as Error).message).not.toContain('m-1')
+  })
+
+  it('an ambiguous name lists the candidates by slug, never picks one', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ projects: [{ id: 'p-1', name: 'Lumo', isIdea: false }] })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          milestones: [
+            { id: 'm-1', name: 'Beta', slug: 'beta' },
+            { id: 'm-2', name: 'Beta', slug: 'beta-2' },
+          ],
+        })
+      )
+    await expect(
+      resolveMilestoneId('http://x', 'tok', 'Beta', undefined)
+    ).rejects.toThrow(/beta \("Beta"\), beta-2 \("Beta"\)/)
+  })
+})
+
 describe('resolveProjectId network failure', () => {
   it('wraps fetch errors with the api-url context', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))

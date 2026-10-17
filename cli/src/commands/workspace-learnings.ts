@@ -2,6 +2,7 @@ import { apiCall, apiContext } from '../lib/test-case-api'
 import { missingPluginMessage } from '../lib/plugin-route'
 import { sanitizeField } from '../lib/sanitize'
 import { fmtDay } from '../lib/format'
+import { shortRef } from '../../../shared/src/short-ref'
 
 /**
  * LUM-1157 — `lumo workspace learnings [--repo <owner/name>] [--json]`: the
@@ -52,14 +53,14 @@ export function formatReviewLearnings(
     const scope = l.repositoryWide ? 'repository' : 'source PR until it merges'
     const project = l.inProject ? '' : '  (no project)'
     return [
-      `${sanitizeField(l.id)}  ${where}  @${sanitizeField(l.authorLogin)}  ${fmtDay(l.createdAt)}  ${scope}${project}`,
+      `${sanitizeField(shortRef(l.id))}  ${where}  @${sanitizeField(l.authorLogin)}  ${fmtDay(l.createdAt)}  ${scope}${project}`,
       `  ${sanitizeField(l.learning)}`,
     ].join('\n')
   })
   return [
     ...blocks,
     '',
-    'Delete one with `lumo memory rm <id>` (exits 4 with a confirmation envelope until --confirm).',
+    'Delete one with `lumo memory rm <ref>` (exits 4 with a confirmation envelope until --confirm).',
   ].join('\n')
 }
 

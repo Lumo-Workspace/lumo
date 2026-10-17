@@ -31,12 +31,16 @@ export interface CrossingListOptions {
 export interface CrossingListFormatOptions extends LayoutOptions {
   /** Include dispositioned rows. */
   all?: boolean
-  /** actorId → display name, for "who ruled". Missing ids print as the id. */
+  /** actorId → display name, for "who ruled". LUM-1230: a missing id prints
+   *  as `unknown member`, never the raw uuid (`--json` keeps the id). */
   actorNames?: Map<string, string>
 }
 
 /** Shown wherever the response carries no value for a field. */
 const NONE = '-'
+/** LUM-1230: an actor the members list cannot name (removed member, older
+ *  server) — the internal id is not printed in its place. */
+export const UNKNOWN_ACTOR = 'unknown member'
 /** Lines of each diff side printed before eliding the rest. */
 export const DIFF_SIDE_LINES = 12
 /** A single diff line is cut at this many characters. */
@@ -104,7 +108,7 @@ function actorLabel(
 ): string {
   if (!actorId) return NONE
   const name = names?.get(actorId)
-  return name ? `${oneLine(name)} (${oneLine(actorId)})` : oneLine(actorId)
+  return name ? oneLine(name) : UNKNOWN_ACTOR
 }
 
 function stateLabel(c: CrossingRecord): string {

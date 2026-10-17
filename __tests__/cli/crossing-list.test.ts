@@ -238,17 +238,41 @@ describe('formatCrossingList — dispositioned history (--all)', () => {
     })
     expect(out).toContain('LUM-X7 [MEDIUM] DESTRUCTIVE_COMMAND')
     expect(out).toMatch(/State:\s+FALSE_POSITIVE/)
-    expect(out).toMatch(/Ruled by:\s+Alice \(actor-alice\)/)
+    // LUM-1230: the name only — the actor id never reaches prose output.
+    expect(out).toMatch(/Ruled by:\s+Alice\n/)
+    expect(out).not.toContain('actor-alice')
     expect(out).toMatch(/Note:\s+build output only/)
     expect(out).toMatch(/Channel:\s+CLI/)
-    expect(out).toContain('CONFIRMED → FALSE_POSITIVE by Alice (actor-alice)')
+    expect(out).toContain('CONFIRMED → FALSE_POSITIVE by Alice at')
     expect(out).toContain('revoked 2026-10-03T00:00:00.000Z')
     expect(out).toContain('LUM-88 Fix cleanup script (DONE, remediated)')
   })
 
-  it('falls back to the actor id when the name is unknown', () => {
+  it('says "unknown member" (not the actor id) when the name is unknown', () => {
     const out = formatCrossingList('LUM-9', rows, { all: true })
-    expect(out).toMatch(/Ruled by:\s+actor-alice/)
+    expect(out).toMatch(/Ruled by:\s+unknown member/)
+    expect(out).not.toContain('actor-alice')
+  })
+
+  it('LUM-1230: a real ruler uuid never reaches the prose (production case)', () => {
+    const uuid = '7129f67e-232f-4171-b02b-f5bece6ec12e'
+    const ruled = normalizeCrossingRecord(
+      {
+        ...RULED,
+        dispositionedById: uuid,
+        lastDispositionChange: {
+          ...RULED.lastDispositionChange,
+          actorId: uuid,
+        },
+      },
+      true
+    )
+    const out = formatCrossingList('LUM-9', [ruled], {
+      all: true,
+      actorNames: new Map([[uuid, 'Chao Li']]),
+    })
+    expect(out).toMatch(/Ruled by:\s+Chao Li\n/)
+    expect(out).not.toContain(uuid)
   })
 
   it('hides dispositioned rows without --all and says how many', () => {

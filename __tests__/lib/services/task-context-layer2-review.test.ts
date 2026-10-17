@@ -127,7 +127,7 @@ describe('buildLayer2ReviewSectionForTask', () => {
     )
     expect(out.section).toContain('Review needed')
     expect(out.section).toContain('enum mid-migration')
-    expect(out.section).toContain('id: mem_42')
+    expect(out.section).toContain('ref: mem_42')
     expect(out.section).toContain('lumo memory rm')
     // Member-authored bodies are wrapped as untrusted.
     expect(out.section).toContain('<untrusted-team-memory>')

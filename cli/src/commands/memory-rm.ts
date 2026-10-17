@@ -8,6 +8,8 @@ import {
 } from '../lib/confirmation'
 import { resolveSessionId } from '../lib/session-id'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { REF_ERROR_STATUSES, refLookupError } from '../lib/ref-error'
+import { shortRef } from '../../../shared/src/short-ref'
 
 type RmOptions = ConfirmFlags
 
@@ -38,7 +40,9 @@ export function describeMemoryRm(memory: {
   category: string
   content: unknown
 }): string[] {
-  const lines = [`Will hard-delete memory ${memory.id} [${memory.category}]`]
+  const lines = [
+    `Will hard-delete memory ${shortRef(memory.id)} [${memory.category}]`,
+  ]
   const summary = summarizeMemoryContent(memory.content)
   if (summary) lines.push(`Content: ${summary}`)
   lines.push('The memory is removed for the whole team; there is no undo')
@@ -51,7 +55,7 @@ export async function memoryRm(
 ): Promise<number | void> {
   if (!memoryId) {
     console.error(
-      'Error: missing <memoryId>. Usage: lumo memory rm <memoryId> --confirm'
+      'Error: missing <memory>. Usage: lumo memory rm <memory> --confirm'
     )
     return 1
   }
@@ -71,7 +75,9 @@ export async function memoryRm(
   // records nothing.
   const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
-  const notFound = `Error: memory ${memoryId} not found — pass the full memory id (cuid) from \`lumo task memory list\` / \`lumo project memory list\`; truncated id prefixes are not resolved`
+  // LUM-1230: the server resolves a short ref / unique prefix and explains a
+  // miss or an ambiguous ref; this is the fallback for an older server.
+  const notFound = `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo task memory list\` / \`lumo project memory list\``
 
   // LUM-755: without --confirm, fetch the card so the envelope shows what
   // would be deleted, then stop — no DELETE is sent.
@@ -89,8 +95,8 @@ export async function memoryRm(
       console.error(errAuth())
       return 1
     }
-    if (showRes.status === 404) {
-      console.error(notFound)
+    if (REF_ERROR_STATUSES.has(showRes.status)) {
+      console.error(await refLookupError(showRes, notFound))
       return 1
     }
     if (!showRes.ok) {
@@ -115,13 +121,13 @@ export async function memoryRm(
     )
     return 1
   }
-  if (res.status === 404) {
-    console.error(notFound)
+  if (REF_ERROR_STATUSES.has(res.status)) {
+    console.error(await refLookupError(res, notFound))
     return 1
   }
   if (res.status !== 204) {
     console.error(errHttp('delete', res.status))
     return 1
   }
-  process.stdout.write(`Deleted memory ${memoryId}\n`)
+  process.stdout.write(`Deleted memory ${sanitizeField(memoryId)}\n`)
 }
