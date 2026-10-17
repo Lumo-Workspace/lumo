@@ -77,7 +77,7 @@ export function statusLine(dist: Record<string, number>): string {
 
 /** Average hours to DONE, one decimal (as the web card), or `N/A`. */
 export function avgCompletionLabel(hours: number | null): string {
-  // LUM-1232 N-3: `54d 5h`, never fractional hours; absent → `-` (V-1).
+  // LUM-1232 N-3: `1301h 6m`, never fractional hours or days; absent → `-` (V-1).
   return formatDurationHours(hours)
 }
 

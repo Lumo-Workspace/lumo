@@ -282,17 +282,18 @@ describe('N-1 — a number appears once', () => {
   })
 })
 
-describe('N-3 — durations in s / m / h / d', () => {
-  it('switches to days and hours from 48 hours on', () => {
+describe('N-3 — durations in s / m / h, never days', () => {
+  it('stays in hours and minutes from 48 hours on — never days (ruling 2026-10-18)', () => {
     expect(formatDuration(47 * 3_600_000)).toBe('47h')
-    expect(formatDuration(48 * 3_600_000)).toBe('2d')
-    expect(formatDuration((54 * 24 + 5) * 3_600_000)).toBe('54d 5h')
-    expect(formatDurationHours(1301.1)).toBe('54d 5h')
+    expect(formatDuration(48 * 3_600_000)).toBe('48h 0m')
+    expect(formatDuration((80 * 60 + 19) * 60_000)).toBe('80h 19m')
+    expect(formatDuration((54 * 24 + 5) * 3_600_000)).toBe('1301h 0m')
+    expect(formatDurationHours(1301.1)).toBe('1301h 6m')
     expect(formatDurationHours(null)).toBe('-')
   })
 
   it('project overview: Avg completion is never fractional hours (D10)', () => {
-    expect(avgCompletionLabel(1301.1)).toBe('54d 5h')
+    expect(avgCompletionLabel(1301.1)).toBe('1301h 6m')
     expect(avgCompletionLabel(null)).toBe('-')
   })
 })

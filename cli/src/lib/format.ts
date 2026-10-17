@@ -101,8 +101,10 @@ export function fmtDayRange(
 }
 
 /**
- * Elapsed milliseconds → `45s`, `12m`, `2h 14m`, `3h`, and from 48 hours on
- * days and hours: `54d 5h`, `3d` (N-3). Seconds only show under a minute;
+ * Elapsed milliseconds → `45s`, `12m`, `2h 14m`, `3h`; from 48 hours on always
+ * hours and minutes, `80h 19m` / `1301h 0m`, never days, so values can be
+ * compared and added up (N-3, user ruling 2026-10-18). Seconds only show
+ * under a minute;
  * 0 (or less) → `0s`.
  */
 export function formatDuration(ms: number): string {
@@ -114,12 +116,7 @@ export function formatDuration(ms: number): string {
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  if (hours >= 48) {
-    const totalHours = Math.round(totalMinutes / 60)
-    const days = Math.floor(totalHours / 24)
-    const h = totalHours % 24
-    return h === 0 ? `${days}d` : `${days}d ${h}h`
-  }
+  if (hours >= 48) return `${hours}h ${minutes}m`
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
 

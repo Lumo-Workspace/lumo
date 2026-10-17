@@ -44,7 +44,7 @@ lumo project overview "Apollo Moon" --report
 lumo project overview apollo --json
 ```
 
-`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one project. Prints total / completed / overdue tasks, average completion time (a duration — `12h 21m`, or days and hours from 48 hours on such as `54d 5h`; `-` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
+`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one project. Prints total / completed / overdue tasks, average completion time (hours and minutes — `12h 21m`, `1301h 6m`, never days; `-` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
 
 `--json` prints `{ project: { id, name }, stats, summary }`.
 
