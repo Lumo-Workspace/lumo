@@ -186,6 +186,11 @@ refuses DONE with **409** on an undispositioned blocking boundary crossing, a
 blocking security finding, or a test case whose latest run is a proven defect;
 the CLI turns that into exit 5 with a structured `DONE_BLOCKED` error listing
 every blocker (LUM-755, see [tasks.md](tasks.md) and [confirmation.md](confirmation.md)).
+A proven test-case defect appears there as a `TEST_CASE_DEFECT` blocker
+(`ref: <task>/TC<n>`) whose remediation is the user's ruling,
+`lumo task testcase disposition <task>/TC<n> --known-defect | --not-a-defect`,
+and the error's `dispositionUrl` points at the Test cases section
+(`#dossier-tests`) when that is the only kind blocking (LUM-1229).
 
 ## When a defect appears — fix in place, don't spin off a new task
 
