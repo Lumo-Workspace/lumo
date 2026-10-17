@@ -195,8 +195,14 @@ function byTaskBlock(
   // On a TTY the first rendered line is the header row.
   const offset = rendered.length - shown.length
   rendered.forEach((line, i) => {
-    lines.push(line ? `    ${line}` : '')
     const detail = i >= offset ? shown[i - offset]?.detail : undefined
+    // LUM-1232 L-3: piped, a row stays one line — its detail rides as one
+    // more TAB field; on a TTY it goes on the line under the row.
+    if (!tty) {
+      lines.push(line ? `    ${line}${detail ? `\t${detail}` : ''}` : '')
+      return
+    }
+    lines.push(line ? `    ${line}` : '')
     if (detail) lines.push(`      ${detail}`)
   })
   const hidden = rows.length - shown.length

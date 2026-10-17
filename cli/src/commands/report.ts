@@ -444,7 +444,9 @@ export function formatReport(
     if (ct.items.length < ct.total) {
       out.push(
         `Showing 1-${ct.items.length} of ${ct.total}.`,
-        `All rows: add --limit ${Math.min(ct.total, MAX_LIMIT)}`
+        ct.total <= MAX_LIMIT
+          ? `All rows: add --limit ${ct.total}`
+          : `More rows: add --limit ${MAX_LIMIT} (the maximum); --json carries the same page`
       )
     }
   }

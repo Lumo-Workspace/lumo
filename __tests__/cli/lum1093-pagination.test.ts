@@ -505,16 +505,12 @@ describe('task history paging (newest page first)', () => {
     expect(p1.items[0]!.id).toBe('a70')
     expect(p1.items[49]!.id).toBe('a119')
     expect(p1.nextCursor).toBe('50')
-    expect(
-      pageFooter(
-        { ...p1, shown: 50 },
-        'lumo task history LUM-1',
-        'earlier entries'
-      )
-    ).toEqual([
-      'Showing 71-120 of 120.',
-      'Next page: lumo task history LUM-1 --cursor 50',
-    ])
+    expect(pageFooter({ ...p1, shown: 50 }, 'lumo task history LUM-1')).toEqual(
+      [
+        'Showing 71-120 of 120.',
+        'Next page: lumo task history LUM-1 --cursor 50',
+      ]
+    )
     const p3 = historyPage(all, { limit: 50, offset: 100 })
     expect(p3.items.map(a => a.id)).toEqual(
       Array.from({ length: 20 }, (_, i) => `a${i}`)

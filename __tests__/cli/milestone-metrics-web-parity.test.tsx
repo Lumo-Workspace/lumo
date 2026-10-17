@@ -149,7 +149,7 @@ test('tokens panel: per-task tokens, per-model split, coverage and budget match'
   expect(rows[1]).toContain('LUM-707')
   expect(rows[1]).toContain('82.3M')
   expect(cli).toMatch(
-    /LUM-497\t201\.2M tokens\treference-class anchors\n +claude-opus-5 168\.4M · claude-haiku-5 32\.8M/
+    /LUM-497\t201\.2M tokens\treference-class anchors\tclaude-opus-5 168\.4M · claude-haiku-5 32\.8M/
   )
   expect(cli).toMatch(/LUM-707\t82\.3M tokens\tdeferred cleanups/)
   // Coverage + budget lines

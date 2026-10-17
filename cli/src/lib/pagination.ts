@@ -22,10 +22,10 @@
 import { shellQuote } from './confirmation'
 import { sanitizeField } from './sanitize'
 
-/** User-ruled default page size (LUM-1093 decision, 2026-10-13). */
 /** The paging footer's second line (PG-1). */
 export const NEXT_PAGE_PREFIX = 'Next page:'
 
+/** User-ruled default page size (LUM-1093 decision, 2026-10-13). */
 export const DEFAULT_PAGE_SIZE = 50
 /** Upper bound for `--limit` (the servers cap a page at the same size). */
 export const MAX_PAGE_SIZE = 500
@@ -128,7 +128,6 @@ export function buildCommand(base: string, flags: CommandFlag[]): string {
 /**
  * The footer lines for a page, or `[]` when there is nothing to say (the page
  * is the whole result). `command` is the next-page command without `--cursor`.
- * `noun` names what the next page holds (default `next page`).
  */
 export function pageFooter(
   page: Pick<Page<unknown>, 'total' | 'offset' | 'nextCursor'> & {
@@ -136,8 +135,7 @@ export function pageFooter(
     /** 1-based position of the first shown row (default `offset + 1`). */
     first?: number
   },
-  command: string,
-  noun = 'next page'
+  command: string
 ): string[] {
   if (page.nextCursor === null && page.offset === 0) return []
   const first = page.first ?? page.offset + 1
@@ -149,7 +147,6 @@ export function pageFooter(
   if (page.nextCursor !== null) {
     lines.push(`${NEXT_PAGE_PREFIX} ${command} --cursor ${page.nextCursor}`)
   }
-  void noun // kept for callers; one wording now (PG-1)
   return lines
 }
 

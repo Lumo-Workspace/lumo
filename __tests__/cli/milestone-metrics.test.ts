@@ -107,15 +107,14 @@ describe('milestoneMetricsLines', () => {
     expect(out).toContain(
       'Merged PRs:   5  (rework: 1 task with more than one PR)'
     )
-    // Tokens: sorted by tokens desc, figures first, the model split under
-    // each row; the null-token task is absent.
+    // Tokens: sorted by tokens desc, figures first; piped, the model split
+    // is one more TAB field on the row (one row per line, LUM-1232 L-3); the
+    // null-token task is absent.
     expect(out).toContain(
       [
         '  By task — tokens',
-        '    LUM-497\t201.2M tokens\treference-class anchors',
-        '      claude-opus-5 168.4M · 32.8M not attributed to a model',
-        '    LUM-707\t82.3M tokens\tdeferred cleanups',
-        '      82.3M not attributed to a model',
+        '    LUM-497\t201.2M tokens\treference-class anchors\tclaude-opus-5 168.4M · 32.8M not attributed to a model',
+        '    LUM-707\t82.3M tokens\tdeferred cleanups\t82.3M not attributed to a model',
       ].join('\n')
     )
     expect(out).toContain(
