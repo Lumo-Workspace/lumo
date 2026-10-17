@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatPrShow } from '../lib/tier2-render'
@@ -42,7 +43,7 @@ export async function taskPrShow(
 ): Promise<number | void> {
   if (!identifier || !prNumber) {
     console.error('Error: usage: lumo task pr show <LUM-42> <number>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -71,6 +72,7 @@ export async function taskPrShow(
     return 1
   }
   if (res.status === 400) {
+    // The server rejected it after a request was sent: exit 1, not a usage 2.
     console.error(`Error: invalid PR number "${prNumber}"`)
     return 1
   }

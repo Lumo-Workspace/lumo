@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
@@ -30,7 +31,7 @@ export async function docShare(
     console.error(
       'Error: usage: lumo doc share <doc> <member> [--role viewer|editor|manager]'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let role: Role = 'VIEWER'
@@ -40,7 +41,7 @@ export async function docShare(
       console.error(
         `Error: invalid role "${opts.role}". Allowed: viewer, editor, manager`
       )
-      return 1
+      return EXIT_USAGE
     }
     role = normalized
   }

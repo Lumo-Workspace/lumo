@@ -235,7 +235,7 @@ describe('project create / update', () => {
   })
 
   it('update with no fields fails before any network call', async () => {
-    expect(await projectUpdate('api', {})).toBe(1)
+    expect(await projectUpdate('api', {})).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

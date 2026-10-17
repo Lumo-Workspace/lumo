@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { localDayLabel } from '../lib/local-day'
 import { sanitizeField } from '../lib/sanitize'
@@ -29,7 +30,7 @@ export async function taskDecide(
     process.stderr.write(
       'Error: usage: lumo task decide <LUM-42> "<decision text>"\n'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

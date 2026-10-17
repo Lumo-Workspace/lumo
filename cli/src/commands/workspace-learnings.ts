@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { missingPluginMessage } from '../lib/plugin-route'
 import { sanitizeField } from '../lib/sanitize'
@@ -70,7 +71,7 @@ export async function workspaceLearnings(
   const repo = opts.repo?.trim()
   if (opts.repo !== undefined && !/^[^/\s]+\/[^/\s]+$/.test(repo ?? '')) {
     console.error('Error: --repo must be owner/name.')
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

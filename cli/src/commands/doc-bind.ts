@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
@@ -24,7 +25,7 @@ export async function docBind(
 ): Promise<number | void> {
   if (!docRef || !task) {
     console.error('Error: usage: lumo doc bind <doc> <task>')
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { shellQuote } from '../lib/confirmation'
 import { sanitizeField } from '../lib/sanitize'
@@ -176,14 +177,14 @@ export async function taskSearch(
     console.error(
       `Error: invalid status "${statuses.bad}". Allowed: ${STATUSES.map(s => s.toLowerCase()).join(', ')}`
     )
-    return 1
+    return EXIT_USAGE
   }
   const priorities = normalizeEnumList(opts.priority, PRIORITIES)
   if (!priorities.ok) {
     console.error(
       `Error: invalid priority "${priorities.bad}". Allowed: low, medium, high, urgent`
     )
-    return 1
+    return EXIT_USAGE
   }
   // Both bounds are inclusive local days → the instant window
   // [dueAfter 00:00 local, dueBefore+1 00:00 local).
@@ -205,7 +206,7 @@ export async function taskSearch(
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const ctx = apiContext()

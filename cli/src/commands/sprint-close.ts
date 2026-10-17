@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
@@ -96,7 +97,7 @@ export async function sprintClose(
     console.error(
       'Error: --move-all and --backlog-all are mutually exclusive. Pick one.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

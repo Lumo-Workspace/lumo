@@ -43,9 +43,9 @@ test('LUM-1056 review controls use POST with validated mutually exclusive action
       })
     )
     fetchMock.mockClear()
-    expect(await prScan('7', { pause: true, resume: true })).toBe(1)
-    expect(await prScan('7', { resume: true, limit: '0' })).toBe(1)
-    expect(await prScan('7', { limit: '2' })).toBe(1)
+    expect(await prScan('7', { pause: true, resume: true })).toBe(2)
+    expect(await prScan('7', { resume: true, limit: '0' })).toBe(2)
+    expect(await prScan('7', { limit: '2' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   } finally {
     global.fetch = original
@@ -632,8 +632,8 @@ describe('prScan (command)', () => {
   })
 
   it('rejects a non-numeric number and a malformed --repo before any request', async () => {
-    expect(await prScan('abc')).toBe(1)
-    expect(await prScan('1013', { repo: 'nope' })).toBe(1)
+    expect(await prScan('abc')).toBe(2)
+    expect(await prScan('1013', { repo: 'nope' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

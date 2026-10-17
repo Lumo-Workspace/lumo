@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
@@ -37,7 +38,7 @@ export async function docShareList(
 ): Promise<number | void> {
   if (!docRef) {
     console.error('Error: usage: lumo doc share-list <doc>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

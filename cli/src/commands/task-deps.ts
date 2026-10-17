@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -268,7 +269,7 @@ export async function taskDepsList(
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task deps list <LUM-42>')
-    return 1
+    return EXIT_USAGE
   }
   const ctx = getCtx()
   if (typeof ctx === 'number') return ctx
@@ -290,7 +291,7 @@ export async function taskDepsAdd(
     console.error(
       'Error: usage: lumo task deps add <LUM-42> --blocked-by <LUM-9>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ctx = getCtx()
   if (typeof ctx === 'number') return ctx
@@ -325,7 +326,7 @@ export async function taskDepsConfirm(
     console.error(
       'Error: usage: lumo task deps confirm <LUM-42> <edge> [--reverse]'
     )
-    return 1
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
@@ -371,7 +372,7 @@ export async function taskDepsDismiss(
 ): Promise<number | void> {
   if (!identifier || !selector) {
     console.error('Error: usage: lumo task deps dismiss <LUM-42> <edge>')
-    return 1
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
@@ -416,7 +417,7 @@ export async function taskDepsRm(
 ): Promise<number | void> {
   if (!identifier || !selector) {
     console.error('Error: usage: lumo task deps rm <LUM-42> <edge> --confirm')
-    return 1
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved

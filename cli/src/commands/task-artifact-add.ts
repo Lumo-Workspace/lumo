@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
@@ -26,42 +27,42 @@ export async function taskArtifactAdd(
     console.error(
       'Error: missing <task>. Usage: lumo task artifact add <LUM-42> --kind spec --title "Spec" --file spec.md --source Superpowers'
     )
-    return 1
+    return EXIT_USAGE
   }
   const kind = options.kind?.trim()
   const title = options.title?.trim()
   const source = options.source?.trim()
   if (!kind) {
     console.error('Error: --kind is required and cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (!title) {
     console.error('Error: --title is required and cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (!source) {
     console.error(
       'Error: --source is required (the spec-gen framework, formal name e.g. Superpowers, "Spec Kit", BMad, OpenSpec, GSD).'
     )
-    return 1
+    return EXIT_USAGE
   }
   const agentRaw = options.agent?.trim()
   if (!agentRaw) {
     console.error(
       `Error: --agent is required. Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
     )
-    return 1
+    return EXIT_USAGE
   }
   const agent = normalizeAgent(agentRaw)
   if (!agent) {
     console.error(
       `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!options.file) {
     console.error('Error: --file <path> is required.')
-    return 1
+    return EXIT_USAGE
   }
 
   const verdict = checkArtifactFilePath(options.file)

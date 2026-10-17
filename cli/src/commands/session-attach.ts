@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as os from 'os'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -80,7 +81,7 @@ export async function sessionAttach(
         ? 'Error: missing <identifier>. Usage: lumo session attach --steward <milestone id | name | slug>'
         : 'Error: missing <identifier>. Usage: lumo session attach <LUM-42>'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-932: strict — when the call can't be told apart from a running

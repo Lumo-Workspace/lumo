@@ -90,37 +90,37 @@ describe('doc update tag flag mutex', () => {
     consoleSpy.mockRestore()
   })
 
-  it('returns error code 1 when --tag and --add-tag are both set', async () => {
+  it('returns 2 (usage error) when --tag and --add-tag are both set', async () => {
     const exitCode = await docUpdate('cmd_x', {
       tag: ['a'],
       addTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
   })
 
-  it('returns error code 1 when --tag and --remove-tag are both set', async () => {
+  it('returns 2 (usage error) when --tag and --remove-tag are both set', async () => {
     const exitCode = await docUpdate('cmd_x', {
       tag: ['a'],
       removeTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
   })
 
-  it('returns error code 1 when --tag-id and --add-tag-id are both set', async () => {
+  it('returns 2 (usage error) when --tag-id and --add-tag-id are both set', async () => {
     const exitCode = await docUpdate('cmd_x', {
       tagId: ['cuid_a'],
       addTagId: ['cuid_b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )

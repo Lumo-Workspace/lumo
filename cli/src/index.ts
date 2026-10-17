@@ -185,7 +185,9 @@ import {
   printUpdateNoticeIfAny,
   runBackgroundRefresh,
 } from './lib/update-check'
-import { sanitizeField } from './lib/sanitize'
+import { finalizeErrorOutput, installErrorOutput } from './lib/error-output'
+import { EXIT_ERROR, EXIT_USAGE } from './lib/exit-codes'
+import { describeThrownError } from './lib/errors'
 import {
   maybeAutoSync,
   shouldAutoSync,
@@ -231,6 +233,14 @@ if (isUpdateCheckWorker) {
     maybeAutoSync(pkg.version, { quiet: process.argv[2] === 'hook' })
 }
 
+// LUM-1232 batch E: one error shape on stderr (`Error:` / `Usage:` / `Hint:`),
+// and with `--json` one JSON error object instead. Installed before the
+// trackers below so they still see every line. Not for `lumo hook …` (its
+// stderr is read by the agent harness as-is).
+if (!isIntrospect && !isUpdateCheckWorker && process.argv[2] !== 'hook') {
+  installErrorOutput({ json: process.argv.slice(2).includes('--json') })
+}
+
 // LUM-843: a 401 that a command reported only as `HTTP 401` still ends with
 // the `lumo auth login` remediation, so agents need no whoami pre-probe.
 const authTracker =
@@ -247,6 +257,45 @@ const versionTracker =
     ? installVersionCompatTracker(pkg.version)
     : null
 
+/** The command being run (set in preAction; null before parsing finishes). */
+let currentCommand: CommandLike | null = null
+
+interface CommandLike {
+  name(): string
+  usage(): string
+  parent: unknown
+  commands: readonly CommandLike[]
+  aliases(): string[]
+}
+
+/** `Usage:` / `--help` context for the failing command, if known. */
+function usageContext(cmd: CommandLike | null): {
+  usage: string | null
+  helpCommand: string | null
+} {
+  if (!cmd) return { usage: null, helpCommand: null }
+  const path = commandPathOf(cmd)
+  const base = path ? `lumo ${path}` : 'lumo'
+  return { usage: `${base} ${cmd.usage()}`, helpCommand: base }
+}
+
+/**
+ * The deepest registered command named by argv (options skipped) — what a
+ * Commander parse error is about, since preAction never ran for it.
+ */
+function commandFromArgv(root: CommandLike, argv: string[]): CommandLike {
+  let node = root
+  for (const tok of argv) {
+    if (tok.startsWith('-')) continue
+    const next = node.commands.find(
+      c => c.name() === tok || c.aliases().includes(tok)
+    )
+    if (!next) break
+    node = next
+  }
+  return node
+}
+
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
@@ -254,6 +303,7 @@ function exitWith(code: number): never {
   if (netHint) console.error(netHint)
   const versionHint = versionTracker?.hintFor(code)
   if (versionHint) console.error(versionHint)
+  finalizeErrorOutput(code, usageContext(currentCommand))
   process.exit(code)
 }
 
@@ -283,8 +333,13 @@ type CommandFn = (...args: unknown[]) => Promise<number | void>
 
 /**
  * Exit-code convention (LUM-755). A command returns the code to propagate:
+ * (LUM-1232: the constants live in cli/src/lib/exit-codes.ts.)
  *   0 / undefined  success
- *   1              general error (message on stderr)
+ *   1              general error (message on stderr): not found, auth,
+ *                  permission, server, network
+ *   2              usage error — unknown flag, missing / extra argument,
+ *                  invalid flag value — caught before any network call
+ *                  (`Error:` + `Usage:` + `Hint:` on stderr)
  *   4              confirmation required — a mutation that needs the user's
  *                  approval printed a `confirmation_required` envelope on
  *                  stdout (see cli/src/lib/confirmation.ts); re-run the
@@ -294,7 +349,7 @@ type CommandFn = (...args: unknown[]) => Promise<number | void>
  *                  `DONE_BLOCKED` error on stdout listing every blocker
  *                  (see cli/src/lib/blocked-error.ts); nothing on the CLI
  *                  can clear it — relay it, don't retry
- * 2 (auth) and 3 (validation) are reserved for a later pass.
+ * 3 is reserved. Lumo's 4 is not gh's 4 (gh: authentication required).
  */
 function wrap(fn: CommandFn) {
   return async (...args: unknown[]) => {
@@ -302,9 +357,10 @@ function wrap(fn: CommandFn) {
       const code = await fn(...args)
       if (typeof code === 'number' && code !== 0) exitWith(code)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`Error: ${sanitizeField(msg)}`)
-      exitWith(1)
+      // LUM-1232 X-3: a thrown git / tool message is wrapped, never passed
+      // through as the whole error.
+      for (const line of describeThrownError(err)) console.error(line)
+      exitWith(EXIT_ERROR)
     }
   }
 }
@@ -317,9 +373,29 @@ const program = new Command()
   // point at --help instead of dead-ending on "unknown option". Subcommands
   // created via .command() inherit these settings.
   .showSuggestionAfterError(true)
-  .showHelpAfterError(
-    '(run the command with --help to list its valid flags and arguments)'
-  )
+  // LUM-1232 batch E: a parse error prints `Error: …`, then `Usage:` and a
+  // `Hint:` pointing at --help (added by finalizeErrorOutput), and exits 2.
+  // Subcommands inherit both settings.
+  .configureOutput({
+    outputError: (str, write) => write(str.replace(/^error: /, 'Error: ')),
+  })
+  .exitOverride(err => {
+    if (err.exitCode === 0) process.exit(0) // --help / --version
+    finalizeErrorOutput(
+      EXIT_USAGE,
+      usageContext(
+        commandFromArgv(
+          program as unknown as CommandLike,
+          // What was actually parsed (== process.argv for the real CLI).
+          (
+            (program as unknown as { rawArgs?: string[] }).rawArgs ??
+            process.argv
+          ).slice(2)
+        )
+      )
+    )
+    process.exit(EXIT_USAGE)
+  })
   // LUM-686: global mute for the trailing next-step block. `LUMO_NO_HINTS=1`
   // does the same for a whole shell.
   .option('--no-hints', 'suppress the trailing next-step suggestions')
@@ -330,6 +406,7 @@ const program = new Command()
 program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
   versionTracker?.setCommand(commandPathOf(actionCommand))
+  currentCommand = actionCommand as unknown as CommandLike
 })
 
 const auth = program.command('auth').description('Manage Lumo authentication')
@@ -3514,9 +3591,8 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
 
 if (!isUpdateCheckWorker && !isIntrospect) {
   program.parseAsync(process.argv).catch(err => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: ${sanitizeField(msg)}`)
-    process.exit(1)
+    for (const line of describeThrownError(err)) console.error(line)
+    exitWith(EXIT_ERROR)
   })
 }
 

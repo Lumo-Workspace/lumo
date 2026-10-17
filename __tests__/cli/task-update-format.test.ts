@@ -186,37 +186,37 @@ describe('task update tag flag mutex', () => {
     consoleSpy.mockRestore()
   })
 
-  it('returns 1 when --tag and --add-tag both set', async () => {
+  it('returns 2 (usage error) when --tag and --add-tag both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tag: ['a'],
       addTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
   })
 
-  it('returns 1 when --tag and --remove-tag both set', async () => {
+  it('returns 2 (usage error) when --tag and --remove-tag both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tag: ['a'],
       removeTag: ['b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )
   })
 
-  it('returns 1 when --tag-id and --add-tag-id both set', async () => {
+  it('returns 2 (usage error) when --tag-id and --add-tag-id both set', async () => {
     const exitCode = await taskUpdate('LUM-1', {
       tagId: ['cuid_a'],
       addTagId: ['cuid_b'],
       title: 'something',
     })
-    expect(exitCode).toBe(1)
+    expect(exitCode).toBe(2)
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('mutually exclusive')
     )

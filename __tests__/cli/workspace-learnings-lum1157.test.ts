@@ -113,7 +113,7 @@ describe('workspaceLearnings', () => {
   })
   it('a malformed --repo is an error before any request', async () => {
     serve(VIEW)
-    await expect(workspaceLearnings({ repo: 'nope' })).resolves.toBe(1)
+    await expect(workspaceLearnings({ repo: 'nope' })).resolves.toBe(2)
     expect(urls).toEqual([])
     expect(err).toMatch(/owner\/name/)
   })

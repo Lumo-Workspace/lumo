@@ -443,9 +443,9 @@ describe('lumo skill update', () => {
 
   it('rejects --user with --project and an unknown agent', async () => {
     const w = world()
-    expect(await skillUpdate({ user: true, project: true }, w.deps)).toBe(1)
+    expect(await skillUpdate({ user: true, project: true }, w.deps)).toBe(2)
     expect(err).toContain('mutually exclusive')
-    expect(await skillUpdate({ agent: 'nope' }, w.deps)).toBe(1)
+    expect(await skillUpdate({ agent: 'nope' }, w.deps)).toBe(2)
     expect(err).toContain('Unknown agent "nope"')
   })
 

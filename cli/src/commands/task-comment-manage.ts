@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
@@ -24,7 +25,7 @@ export async function taskCommentEdit(
 ): Promise<number | void> {
   if (!body || body.trim().length === 0) {
     console.error('Error: missing <body> — the new comment text')
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

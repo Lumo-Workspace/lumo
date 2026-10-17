@@ -116,6 +116,18 @@ What the CLI does instead: when `task update <id> --status done --confirm` is re
 
 **Exit 4 vs exit 5:** 4 means "the user must approve, then you can proceed"; 5 means "a human must adjudicate — nothing on this command moves it". On exit 5, relay `blockers` and `remediation` to the user. Do not retry `task update`, and do not look for a flag on it. For every blocker kind the adjudication can happen in the terminal — `lumo crossing disposition <id> …` / `lumo finding disposition <findingId> …` / `lumo task testcase disposition <task>/TC<n> …` are themselves exit-4 commands, so the user's ruling still comes through the protocol, never from you. Once every blocker is cleared, re-run the original `task update … --confirm` (its envelope was already approved). A 409 that is not a DONE gate (e.g. a permission refusal) keeps the plain exit-1 text on stderr.
 
+## Exit codes
+
+| Code | Meaning                                                                                             | Where the output goes                                       |
+| ---- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 0    | success (an empty result too)                                                                       | stdout                                                      |
+| 1    | the command failed: not found, auth, permission, server, network                                    | stderr: `Error: …` + `Hint: …`                              |
+| 2    | usage error — unknown flag, missing / extra argument, invalid flag value; caught before any request | stderr: `Error: …` + `Usage: lumo …` + `Hint: see … --help` |
+| 4    | confirmation required (this protocol)                                                               | stdout: the envelope                                        |
+| 5    | blocked by a human-only gate (`DONE_BLOCKED`)                                                       | stdout: the structured error                                |
+
+With `--json`, a 1 or 2 prints nothing on stdout and exactly one JSON object on stderr: `{"error":{"code":"NOT_FOUND","message":"…","hint":"…","exitCode":1}}` (`code` is `USAGE`, `NOT_FOUND`, `AUTH`, `FORBIDDEN`, `CONFLICT`, `SERVER`, `NETWORK` or `UNKNOWN`). Exit 4 and 5 keep their stdout envelopes in every mode. Lumo's 4 is **not** gh's 4 (gh uses 4 for "authentication required"); never treat a Lumo 4 as an auth problem, and never retry a 2 unchanged — fix the command first (LUM-1232).
+
 ## Example exchange
 
 (With every linked PR merged and nothing blocking, the same command would run in one step instead — LUM-1106. Here #930 is open, so it stops.)

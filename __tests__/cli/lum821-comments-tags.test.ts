@@ -184,7 +184,7 @@ describe('lumo tag list / create', () => {
     })
   })
   it('create validates color / length before any network call', async () => {
-    expect(await tagCreate('x', { color: 'red' })).toBe(1)
+    expect(await tagCreate('x', { color: 'red' })).toBe(2)
     expect(await tagCreate('y'.repeat(31))).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })

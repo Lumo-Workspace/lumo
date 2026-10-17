@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatFigmaContext } from '../lib/tier2-render'
@@ -40,7 +41,7 @@ export async function taskFigmaContext(
 ): Promise<number | void> {
   if (!identifier || !linkId) {
     console.error('Error: usage: lumo task figma context <LUM-42> <ref>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

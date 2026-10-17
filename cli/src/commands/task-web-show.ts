@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -18,7 +19,7 @@ export async function taskWebShow(
 ): Promise<number | void> {
   if (!identifier || !linkId) {
     console.error('Error: usage: lumo task web show <LUM-42> <ref>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

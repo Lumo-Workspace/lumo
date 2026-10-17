@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -127,7 +128,7 @@ export async function taskScans(
     console.error(
       'Error: usage: lumo task scans <LUM-42> [--all] [--full] [--json]'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

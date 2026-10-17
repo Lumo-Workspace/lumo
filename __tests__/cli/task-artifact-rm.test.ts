@@ -26,12 +26,12 @@ describe('taskArtifactRm', () => {
 
   it('errors when <task> is missing', async () => {
     const code = await taskArtifactRm(undefined, 'a1', { yes: true })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('errors when <artifact> is missing', async () => {
     const code = await taskArtifactRm('LUM-9', undefined, { yes: true })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   // Without --confirm the command walks the confirmation protocol (exit 4 +

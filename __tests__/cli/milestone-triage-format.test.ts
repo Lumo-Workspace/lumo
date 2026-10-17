@@ -69,7 +69,7 @@ function wireFetch(patchStatus = 200): void {
 describe('LUM-646 milestone triage', () => {
   it('requires a direction (rejects when neither flag is set)', async () => {
     const code = await milestoneTriage('M1', ['LUM-1'], {})
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(stderr.join('\n')).toMatch(/--claimable or --not-claimable/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -79,7 +79,7 @@ describe('LUM-646 milestone triage', () => {
       claimable: true,
       notClaimable: true,
     })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(stderr.join('\n')).toMatch(/mutually exclusive/)
   })
 

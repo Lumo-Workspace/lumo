@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -72,7 +73,7 @@ export async function tagCreate(
   }
   if (opts.color !== undefined && !COLOR_RE.test(opts.color)) {
     console.error(`Error: --color expects #rrggbb, got "${opts.color}"`)
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

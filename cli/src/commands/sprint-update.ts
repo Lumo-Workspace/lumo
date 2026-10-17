@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -71,15 +72,15 @@ export async function sprintUpdate(
   // Reject empty strings — these fields can't be cleared.
   if (opts.name !== undefined && opts.name === '') {
     console.error('Error: --name cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (opts.start !== undefined && opts.start === '') {
     console.error('Error: --start cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (opts.end !== undefined && opts.end === '') {
     console.error('Error: --end cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
 
   const { payload, flagsGiven } = buildSprintUpdatePayload(opts)
@@ -87,7 +88,7 @@ export async function sprintUpdate(
     console.error(
       'Error: provide at least one field to update (--name, --start, --end)'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

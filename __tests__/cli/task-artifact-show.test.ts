@@ -35,12 +35,12 @@ describe('taskArtifactShow', () => {
 
   it('errors when <task> is missing', async () => {
     const code = await taskArtifactShow(undefined, 'a1')
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('errors when <artifact> is missing', async () => {
     const code = await taskArtifactShow('LUM-9', undefined)
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('GETs the single-artifact route and prints header + content', async () => {

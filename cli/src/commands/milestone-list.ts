@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -100,13 +101,13 @@ export async function milestoneList(
 
   if (options.archived && options.all) {
     console.error('Error: --archived and --all are mutually exclusive.')
-    return 1
+    return EXIT_USAGE
   }
   const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
   const pageArgs = parsePageArgs(options.limit, options.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const query = new URLSearchParams({ filter })

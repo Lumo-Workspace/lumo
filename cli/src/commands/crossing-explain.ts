@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readFileSync } from 'fs'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -57,7 +58,7 @@ export async function crossingExplain(
       console.error(
         'Error: --file carries the ids and notes — pass either --file or <id> --note, not both.'
       )
-      return 1
+      return EXIT_USAGE
     }
     const loaded = loadExplainFile(options.file)
     if (typeof loaded === 'string') {
@@ -77,7 +78,7 @@ export async function crossingExplain(
       console.error(
         'Error: --note "<text>" is required (the explanation to record).'
       )
-      return 1
+      return EXIT_USAGE
     }
     items = [{ id: crossingId, note }]
   }

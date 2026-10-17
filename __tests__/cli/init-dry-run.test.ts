@@ -516,17 +516,20 @@ describe('lumo init --upgrade is removed', () => {
     [{ upgrade: true }],
     [{ upgrade: true, dryRun: true }],
     [{ upgrade: true, project: true }],
-  ])('%o exits 1 with the migration message and writes nothing', async opts => {
-    const e = env()
-    const roots = [e.home, e.project, process.env.LUMO_CONFIG_DIR as string]
-    const before = snapshot(roots)
-    expect(await init(opts, e.deps)).toBe(1)
-    expect(stderr).toBe(
-      'Error: `lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.\n'
-    )
-    expect(stdout).toBe('')
-    expect(snapshot(roots)).toEqual(before)
-  })
+  ])(
+    '%o exits 2 (usage) with the migration message and writes nothing',
+    async opts => {
+      const e = env()
+      const roots = [e.home, e.project, process.env.LUMO_CONFIG_DIR as string]
+      const before = snapshot(roots)
+      expect(await init(opts, e.deps)).toBe(2)
+      expect(stderr).toBe(
+        'Error: `lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.\n'
+      )
+      expect(stdout).toBe('')
+      expect(snapshot(roots)).toEqual(before)
+    }
+  )
 })
 
 describe('startup side effects', () => {

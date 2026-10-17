@@ -309,7 +309,7 @@ describe('testcase run with steps', () => {
     ],
   ])('refuses %s before any request', async (_label, opts) => {
     const code = await taskTestCaseRun('LUM-1/TC1', { env: 'local', ...opts })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(errors()).toMatch(/Error:/)
     expect(global.fetch).not.toHaveBeenCalled()
   })

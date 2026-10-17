@@ -1005,14 +1005,15 @@ With `--json`, a failure prints nothing on stdout and exactly one JSON object on
   "error": {
     "code": "NOT_FOUND",
     "message": "task LUM-999999 not found in workspace lumo",
-    "hint": "lumo task list"
+    "hint": "list tasks with `lumo task list`, or search with `lumo task search <text>`.",
+    "exitCode": 1
   }
 }
 ```
 
-`code` is one of `USAGE`, `NOT_FOUND`, `AUTH`, `FORBIDDEN`, `CONFLICT`, `SERVER`, `NETWORK`, `UNKNOWN`. The exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error keep their current shape and stream (stdout) — they are not errors in this sense.
+`code` is one of `USAGE`, `NOT_FOUND`, `AUTH`, `FORBIDDEN`, `CONFLICT`, `SERVER`, `NETWORK`, `UNKNOWN`; `exitCode` repeats the process exit code, and any other stderr line (a warning, the `Usage:` line of a usage error) rides in `details`. The exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error keep their current shape and stream (stdout) — they are not errors in this sense.
 
-Helper: `emitJsonError()` in `json-output.ts` (new, batch E); hooked into `wrap()` in `cli/src/index.ts`.
+Helper: `installErrorOutput()` / `finalizeErrorOutput()` / `buildErrorJson()` in `error-output.ts` (batch E), installed by `cli/src/index.ts` and finalised in `exitWith()`.
 
 Before (a `--json` read of a missing task, e.g. `lumo task status LUM-999999 --json`: stdout empty, stderr plain text):
 
@@ -1027,7 +1028,8 @@ After (stderr):
   "error": {
     "code": "NOT_FOUND",
     "message": "task LUM-999999 not found in workspace lumo",
-    "hint": "lumo task list"
+    "hint": "list tasks with `lumo task list`, or search with `lumo task search <text>`.",
+    "exitCode": 1
   }
 }
 ```
@@ -1060,7 +1062,7 @@ After — every existing key keeps its name and meaning; new keys are added besi
 
 Every error line starts with `Error: ` (capital E), followed by a message that starts lower case and says what failed. Commander's own messages (`error: unknown option …`) are rewritten to the same prefix.
 
-Helper: `errAuth()`, `errHttp()`, `httpFailed()` in `errors.ts` (existing); `usageError()` in `errors.ts` and a `configureOutput({ outputError })` hook in `index.ts` (new, batch E).
+Helper: `errAuth()`, `errHttp()`, `httpFailed()` in `errors.ts` (existing); `normalizeErrorLine()` in `error-output.ts` and Commander's `configureOutput({ outputError })` + `exitOverride()` in `index.ts` (batch E).
 
 Before (`lumo pr scan` with no number, `lumo task testcase show` with two arguments):
 
@@ -1072,16 +1074,16 @@ error: missing required argument 'number'
 After:
 
 ```
-Error: missing required argument <number>
-Usage: lumo pr scan <number> [options]
-Hint: see `lumo pr scan --help` for every flag.
+Error: missing required argument 'number'
+Usage: lumo pr scan [options] <number>
+Hint: see `lumo pr scan --help` for every flag and argument.
 ```
 
 ### X-2. Say what to do next
 
 An error that the user can fix ends with one `Hint:` line naming the fix. That line goes to stderr with the error (see the streams table in §1), and `--no-hints` does not remove it. A not-found error names a command that lists the valid values.
 
-Helper: `notFound(kind, ref, listCommand)` in `errors.ts` (new, batch E); `refLookupError()` in `ref-error.ts` (existing).
+Helper: `notFoundHint()` in `error-output.ts` (batch E) adds the listing command to any not-found error without a Hint; `refLookupError()` in `ref-error.ts` (existing).
 
 Before (`lumo task show LUM-999999`):
 
@@ -1102,7 +1104,7 @@ Hint: list tasks with `lumo task list`, or search with `lumo task search <text>`
 
 Errors from git, the network or the server are wrapped in a sentence that says what Lumo was doing; the raw text, if useful, follows after a colon.
 
-Helper: `errors.ts` (existing pattern of `httpFailed`); `gitFailed(action, detail)` in `errors.ts` (new, batch E).
+Helper: `describeThrownError()` in `errors.ts` (batch E), used by `wrap()` in `index.ts` for every thrown error.
 
 Before (`lumo worktree list` outside a repository):
 
@@ -1150,7 +1152,7 @@ After:
 $ lumo task list --status wip; echo $?
 Error: invalid --status "wip" (allowed: backlog, todo, in_progress, in_review, done)
 Usage: lumo task list [options]
-Hint: see `lumo task list --help` for every flag.
+Hint: see `lumo task list --help` for every flag and argument.
 2
 ```
 
@@ -1300,21 +1302,21 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 
 ## 15. Helper map
 
-| Rule area            | Existing helper (file)                                                                                                                    | New in batch                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Modes, colour, width | `colorEnabled`, `terminalWidth`, `style` (`ui.ts`)                                                                                        | `enumColor` (D)                                                                                       |
-| Lists                | `renderListTable`, `flexColumnCap` (`list-table.ts`); `renderTable` (`ui.ts`)                                                             | TAB separator for pipes, `childRows` (A)                                                              |
-| Details              | `kvBlock` (`ui.ts`); `sectionHeading`, `wrapLines`, `fieldLines` (`report-layout.ts`); `taskTableSection` (`detail-layout.ts`)            | `detailHeader`; no wrap when not a TTY (B)                                                            |
-| Time                 | `fmtCalendarDay`, `fmtDay`, `fmtTimestamp`, `relativeTime` (retired in D) (`format.ts`)                                                   | `fmtInstant`, `fmtDayRange` (D)                                                                       |
-| Numbers              | `fmtTokens`, `fmtCount`, `formatDuration` (`format.ts`)                                                                                   | `formatDuration` stays in hours above 48h (Q8), `fmtPercent`, `{ tty }` on `fmtCount` (D)             |
-| Enums                | `milestone-labels.ts`                                                                                                                     | `fmtEnum` (D)                                                                                         |
-| Empty values         | `NONE`, `orNone` (`format.ts`)                                                                                                            | —                                                                                                     |
-| Symbols              | `icons` (`ui.ts`)                                                                                                                         | `separator`, `child`, `ellipsis`, `count` icons (D)                                                   |
-| Paging, empty state  | `parsePageArgs`, `pageFooter`, `pageJson` (`pagination.ts`); `emptyState` (`format.ts`)                                                   | `hiddenRows`; footer wording (A)                                                                      |
-| Hints                | `formatNextSteps`, `emitNextSteps`, `nextStepsSilenced` (`next-steps.ts`); `hint`, `note` (`feedback.ts`)                                 | `emitHint` (G)                                                                                        |
-| `--json`             | `pageJson` (`pagination.ts`)                                                                                                              | `json-output.ts`: `emitJson`, `listEnvelope`, `detailEnvelope`, `pickFields` (C); `emitJsonError` (E) |
-| Errors, exit codes   | `errAuth`, `errHttp`, `httpFailed`, `warn` (`errors.ts`); `refLookupError` (`ref-error.ts`); `EXIT_CONFIRMATION_REQUIRED`, `EXIT_BLOCKED` | `usageError`, `notFound`, `gitFailed`; `exit-codes.ts`; Commander `outputError` hook (E)              |
-| Help text            | Commander defaults                                                                                                                        | `help.ts`: `examplesHelp`, `exitCodesHelp`; grammar lint test (F)                                     |
+| Rule area            | Existing helper (file)                                                                                                                    | New in batch                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Modes, colour, width | `colorEnabled`, `terminalWidth`, `style` (`ui.ts`)                                                                                        | `enumColor` (D)                                                                                                                                             |
+| Lists                | `renderListTable`, `flexColumnCap` (`list-table.ts`); `renderTable` (`ui.ts`)                                                             | TAB separator for pipes, `childRows` (A)                                                                                                                    |
+| Details              | `kvBlock` (`ui.ts`); `sectionHeading`, `wrapLines`, `fieldLines` (`report-layout.ts`); `taskTableSection` (`detail-layout.ts`)            | `detailHeader`; no wrap when not a TTY (B)                                                                                                                  |
+| Time                 | `fmtCalendarDay`, `fmtDay`, `fmtTimestamp`, `relativeTime` (retired in D) (`format.ts`)                                                   | `fmtInstant`, `fmtDayRange` (D)                                                                                                                             |
+| Numbers              | `fmtTokens`, `fmtCount`, `formatDuration` (`format.ts`)                                                                                   | `formatDuration` stays in hours above 48h (Q8), `fmtPercent`, `{ tty }` on `fmtCount` (D)                                                                   |
+| Enums                | `milestone-labels.ts`                                                                                                                     | `fmtEnum` (D)                                                                                                                                               |
+| Empty values         | `NONE`, `orNone` (`format.ts`)                                                                                                            | —                                                                                                                                                           |
+| Symbols              | `icons` (`ui.ts`)                                                                                                                         | `separator`, `child`, `ellipsis`, `count` icons (D)                                                                                                         |
+| Paging, empty state  | `parsePageArgs`, `pageFooter`, `pageJson` (`pagination.ts`); `emptyState` (`format.ts`)                                                   | `hiddenRows`; footer wording (A)                                                                                                                            |
+| Hints                | `formatNextSteps`, `emitNextSteps`, `nextStepsSilenced` (`next-steps.ts`); `hint`, `note` (`feedback.ts`)                                 | `emitHint` (G)                                                                                                                                              |
+| `--json`             | `pageJson` (`pagination.ts`)                                                                                                              | `json-output.ts`: `emitJson`, `listEnvelope`, `detailEnvelope`, `pickFields` (C)                                                                            |
+| Errors, exit codes   | `errAuth`, `errHttp`, `httpFailed`, `warn` (`errors.ts`); `refLookupError` (`ref-error.ts`); `EXIT_CONFIRMATION_REQUIRED`, `EXIT_BLOCKED` | `error-output.ts` (`normalizeErrorLine`, `notFoundHint`, JSON errors), `describeThrownError`; `exit-codes.ts`; Commander `outputError` + `exitOverride` (E) |
+| Help text            | Commander defaults                                                                                                                        | `help.ts`: `examplesHelp`, `exitCodesHelp`; grammar lint test (F)                                                                                           |
 
 ---
 

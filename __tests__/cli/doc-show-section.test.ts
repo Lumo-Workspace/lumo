@@ -170,7 +170,7 @@ describe('doc show --section', () => {
 
   it('--raw and --section are mutually exclusive', async () => {
     const exit = await docShow('cmd_1', { raw: true, section: 'A queue' })
-    expect(exit).toBe(1)
+    expect(exit).toBe(2)
     expect(stderrText()).toContain('mutually exclusive')
   })
 })

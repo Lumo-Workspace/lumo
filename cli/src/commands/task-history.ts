@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, emptyState, fmtDay, fmtTimestamp } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -142,7 +143,7 @@ export async function taskHistory(
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

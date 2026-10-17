@@ -527,7 +527,7 @@ describe('report()', () => {
   })
 
   it('rejects a bad --limit / --since before any network call', async () => {
-    expect(await report({ limit: '0' })).toBe(1)
+    expect(await report({ limit: '0' })).toBe(2)
     expect(await report({ since: 'soon' })).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })

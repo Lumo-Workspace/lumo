@@ -60,7 +60,7 @@ it('surfaces 404 not found on promote', async () => {
 it('promote errors on missing id (no network)', async () => {
   const fetchSpy = jest.spyOn(global, 'fetch')
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
-  expect(await memoryPromote(undefined)).toBe(1)
+  expect(await memoryPromote(undefined)).toBe(2)
   expect(fetchSpy).not.toHaveBeenCalled()
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memory>/))
 })

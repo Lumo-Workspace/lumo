@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
@@ -26,13 +27,13 @@ export async function taskArtifactShow(
     console.error(
       'Error: missing <task>. Usage: lumo task artifact show <LUM-42> <artifact>'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!artifactId) {
     console.error(
       'Error: missing <artifact>. Usage: lumo task artifact show <LUM-42> <artifact>'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

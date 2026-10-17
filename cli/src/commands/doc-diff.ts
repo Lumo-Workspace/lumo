@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
@@ -30,11 +31,11 @@ export async function docDiff(
     console.error(
       'Error: missing <doc>. Usage: lumo doc diff <doc> --file <local.md>'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!opts.file) {
     console.error('Error: --file <local.md> is required for doc diff')
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

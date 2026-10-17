@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtDayRange } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -59,7 +60,7 @@ export async function sprintList(
       console.error(
         `Error: invalid --status "${options.status}". Valid values: draft | active | closed`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
 
@@ -69,7 +70,7 @@ export async function sprintList(
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

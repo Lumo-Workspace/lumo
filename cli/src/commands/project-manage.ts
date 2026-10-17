@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { fetchDirectory, resolveDirectoryMember } from '../lib/directory'
@@ -72,7 +73,7 @@ export async function projectUpdate(
   if (opts.name !== undefined) {
     if (!opts.name.trim()) {
       console.error('Error: --name cannot be empty')
-      return 1
+      return EXIT_USAGE
     }
     body.name = opts.name.trim()
   }
@@ -83,7 +84,7 @@ export async function projectUpdate(
     console.error(
       'Error: provide at least one field to update (--name, --description, --owner)'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1
