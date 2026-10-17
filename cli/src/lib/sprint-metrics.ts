@@ -131,6 +131,8 @@ export function isSprintTeamPerformanceData(
 
 /** Tasks listed under each member in Team performance (top by tokens). */
 export const TEAM_TASKS_SHOWN = 5
+/** TTY cap for a task row's per-model split (the title needs the rest). */
+const MODELS_TTY_WIDTH = 28
 
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`
@@ -289,7 +291,13 @@ export function sprintTeamPerformanceLines(
       tokens(t.tokenCost),
       formatDurationSec(t.activeTimeSec),
       fmtDay(t.updatedAt),
-      total === null ? NONE : formatModelSplit(t.models, remainder(t)) || NONE,
+      // On a TTY the split is capped so the title keeps room; piped it is whole.
+      fit(
+        total === null
+          ? NONE
+          : formatModelSplit(t.models, remainder(t)) || NONE,
+        MODELS_TTY_WIDTH
+      ),
       sanitizeField(t.title),
     ])
     const table = renderListTable(taskRows, {
