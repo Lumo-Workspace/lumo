@@ -163,6 +163,36 @@ describe('committed Lumo install behind the CLI', () => {
     )
   })
 
+  it('an uncommitted settings file with a retired WorktreeCreate hook: named once, without the PR step (LUM-1235)', async () => {
+    const file = path.join(repo, '.claude', 'settings.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        hooks: {
+          WorktreeCreate: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook worktree-create --agent claude-code',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    const note =
+      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --project --agent claude-code` (preview with `--dry-run`) to remove them'
+    expect(await statusLine('claude-code', 's1')).toBe(
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
+    )
+    expect(await statusLine('claude-code', 's1')).toBe(
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
+    )
+  })
+
   it('a probe that throws leaves the status line as it was', async () => {
     skill(home, '.claude', '1.70.0')
     staleRules()

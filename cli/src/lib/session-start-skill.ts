@@ -8,6 +8,7 @@ import {
   projectDriftNote,
   projectDriftOnce,
   projectNotesPath,
+  retiredHooksNote,
   type ProjectDriftItem,
 } from './project-install-drift'
 import { skillCopyStatus, type SkillCopyStatus } from './skill-copies'
@@ -271,6 +272,8 @@ export function sessionStartSkillInfo(
       restart: ownCopyInDrift,
     })
     if (driftNote) notes.push(driftNote)
+    const retiredNote = retiredHooksNote(drift)
+    if (retiredNote) notes.push(retiredNote)
     // The restart hint is about reloading the skill: without a readable copy
     // there is nothing to reload, so neither hint nor record.
     if (tag !== null && input.sessionId) {
