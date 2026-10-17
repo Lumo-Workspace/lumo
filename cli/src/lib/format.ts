@@ -165,11 +165,14 @@ export function formatDurationHours(hours: number | null | undefined): string {
 
 /**
  * A percentage (0–100 scale) → whole number `49%`; one decimal below 1%
- * (`0.4%`), `0%` for zero (N-4).
+ * (`0.4%`), `<0.1%` / `>99.9%` next to the edges, `0%` for zero (N-4).
  */
 export function fmtPercent(pct: number): string {
   if (!Number.isFinite(pct) || pct <= 0) return '0%'
-  // One decimal where a whole number would round to 0% or 100% and lie.
+  // One decimal where a whole number would round to 0% or 100% and lie; a
+  // value even closer to the edge says so instead of rounding onto it.
+  if (pct < 0.1) return '<0.1%'
+  if (pct < 100 && pct > 99.9) return '>99.9%'
   if (pct < 1 || (pct < 100 && Math.round(pct) === 100))
     return `${Math.round(pct * 10) / 10}%`
   return `${Math.round(pct)}%`

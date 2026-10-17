@@ -290,6 +290,9 @@ describe('N-4 — percentages', () => {
     expect(fmtPercent(99.8)).toBe('99.8%')
     expect(fmtPercent(100)).toBe('100%')
     expect(fmtPercent(0)).toBe('0%')
+    // Never rounds a non-zero / non-full share onto the edge.
+    expect(fmtPercent(0.04)).toBe('<0.1%')
+    expect(fmtPercent(99.97)).toBe('>99.9%')
   })
 })
 
