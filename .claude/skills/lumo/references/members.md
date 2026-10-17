@@ -17,7 +17,7 @@ Agents:
   Claude Code  (CODING)
 ```
 
-`--json` prints `{ members: [{ memberId, displayName, email, actorId, role }], agents: [{ actorId, name, type }] }` — `actorId` is what tasks store as their assignee.
+`--json` prints `{ version, members: [{ memberId, displayName, email, actorId, role, clerkId }], agents: [{ actorId, name, type }], total, nextCursor }` (`total` counts members; `clerkId` is deprecated — still emitted, listed in `deprecatedFields: ["clerkId"]`, removed only with a `version` bump) — `actorId` is what tasks store as their assignee.
 
 ### When to suggest `member list`
 

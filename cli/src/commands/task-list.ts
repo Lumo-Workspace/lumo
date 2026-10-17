@@ -13,6 +13,12 @@ import {
   type Page,
   type PageArgs,
 } from '../lib/pagination'
+import {
+  emitJson,
+  listEnvelope,
+  parseFieldList,
+  pickFields,
+} from '../lib/json-output'
 
 export { formatTaskListTable } from '../lib/format'
 export type { TaskRow } from '../lib/format'
@@ -33,6 +39,74 @@ export interface ListTaskOptions {
   cursor?: string
   milestone?: string
   json?: boolean
+  fields?: string
+}
+
+/**
+ * The fields `task list --json` promises (J-3) — what the skill reference
+ * documents and what `--fields` may select. Every other field the server
+ * returns is still emitted unchanged (J-5: only add).
+ */
+export const TASK_LIST_FIELDS = [
+  'ref',
+  'id',
+  'title',
+  'status',
+  'priority',
+  'project',
+  'assignee',
+  'milestone',
+  'sprint',
+  'tags',
+  'dueDate',
+  'blockedByOpenCount',
+  'unblocksOpenCount',
+  'createdAt',
+  'updatedAt',
+] as const
+
+/**
+ * Internal-only fields still emitted by bare `task list --json`, marked
+ * deprecated (J-3 step 1). They are removed only in a release that bumps
+ * the envelope `version`.
+ */
+export const TASK_LIST_DEPRECATED_FIELDS = [
+  'workspaceId',
+  'order',
+  'viewOrder',
+  'deletedAt',
+  'deletedByClerkId',
+  'trashRootId',
+  'claimSnapshot',
+  'claimSnapshotAt',
+  'claimSnapshotSessionId',
+  'claimSnapshotSource',
+] as const
+
+/** `ref` (e.g. LUM-42) first, then every field the server returned. */
+export function taskListJsonRow(t: ListedTask): Record<string, unknown> {
+  return { ref: `${t.teamIdentifier}-${t.number}`, ...t }
+}
+
+/**
+ * The `task list --json` envelope: `{ version, tasks, total, nextCursor,
+ * deprecatedFields }`, or only the selected fields per task with `--fields`.
+ */
+export function taskListJson(
+  page: Page<ListedTask>,
+  fields?: readonly string[]
+): Record<string, unknown> {
+  const rows = page.items.map(taskListJsonRow)
+  if (fields) {
+    return listEnvelope(
+      'tasks',
+      rows.map(r => pickFields(r, fields)),
+      pageJson(page)
+    )
+  }
+  return listEnvelope('tasks', rows, pageJson(page), {
+    deprecatedFields: [...TASK_LIST_DEPRECATED_FIELDS],
+  })
 }
 
 /** A row of GET /api/tasks/me (the fields `task list` reads). */
@@ -141,6 +215,20 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
     return EXIT_USAGE
   }
 
+  let fields: string[] | undefined
+  if (opts.fields !== undefined) {
+    if (!opts.json) {
+      console.error('Error: --fields only works with --json')
+      return EXIT_USAGE
+    }
+    const parsed = parseFieldList(opts.fields, TASK_LIST_FIELDS)
+    if (!parsed.ok) {
+      console.error(`Error: ${parsed.error}`)
+      return EXIT_USAGE
+    }
+    fields = parsed.fields
+  }
+
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
@@ -200,9 +288,7 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
     pageArgs
   )
   if (opts.json) {
-    process.stdout.write(
-      JSON.stringify({ tasks: page.items, ...pageJson(page) }, null, 2) + '\n'
-    )
+    emitJson(taskListJson(page, fields))
     return
   }
   process.stdout.write(formatTaskListPage(page, opts) + '\n')

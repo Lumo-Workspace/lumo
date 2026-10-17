@@ -25,7 +25,7 @@ Other
 
 A notification about a task that has since been deleted reads `… a deleted task` (LUM-1232).
 
-`--json` prints `{ notifications: [...], unreadCount }` — each notification has `id, type, read, requiresAction, actionTakenAt, createdAt, actor, task {teamIdentifier, number, title}, sprint, project, milestone, document, commentPreview`. Mark read / delete stays in the web inbox.
+`--json` prints `{ version, notifications: [...], unreadCount, total, nextCursor }` (the server returns the newest 50, unpaged: `nextCursor` is always `null`, `total` is the row count, or `null` when 50 came back and older ones may exist) — each notification has `id, type, read, requiresAction, actionTakenAt, createdAt, actor, task {teamIdentifier, number, title}, sprint, project, milestone, document, commentPreview`. Mark read / delete stays in the web inbox.
 
 ### `lumo draft list [--json]` — your drafts
 
@@ -36,7 +36,7 @@ lumo draft list
 lumo draft list --json
 ```
 
-A blank draft shows `(untitled)`. `--json` prints `{ drafts: [{ id, type, data, createdAt, updatedAt }] }` — `data` is the form snapshot (`title`, `description`, `status`, `priority`, … for TASK; `name`, `description` for PROJECT). Finish or discard a draft in the web.
+A blank draft shows `(untitled)`. `--json` prints `{ version, drafts: [{ id, type, data, createdAt, updatedAt }], total, nextCursor }` — `data` is the form snapshot (`title`, `description`, `status`, `priority`, … for TASK; `name`, `description` for PROJECT). Finish or discard a draft in the web.
 
 ### `lumo project overview [project] [--report] [--json]` — a project's health
 
@@ -48,7 +48,7 @@ lumo project overview apollo --json
 
 `<project>` is the name or slug (`lumo project list`); omit it when the workspace has one project. Prints total / completed / overdue tasks, average completion time (hours and minutes — `12h 21m`, `1301h 6m`, never days; `-` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
 
-`--json` prints `{ project: { id, name }, stats, summary }`.
+`--json` prints `{ version, project: { id, name }, stats, summary }`.
 
 ### When to suggest
 

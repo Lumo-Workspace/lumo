@@ -1,4 +1,5 @@
 import { NONE, emptyState } from '../lib/format'
+import { emitJson, listEnvelope } from '../lib/json-output'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
@@ -50,7 +51,8 @@ export async function taskTemplateList(
       isSystem: t.isSystem,
       content: t.content,
     }))
-    process.stdout.write(JSON.stringify(out, null, 2) + '\n')
+    // Batch C: the former bare array is wrapped once (release notes).
+    emitJson(listEnvelope('templates', out))
     return
   }
   process.stdout.write(formatTaskTemplateList(r.data.templates) + '\n')

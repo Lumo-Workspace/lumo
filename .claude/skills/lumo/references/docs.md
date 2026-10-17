@@ -120,6 +120,8 @@ lumo doc update RFC --tag final --add-tag oops
 
 ## `lumo doc list [flags]` — list documents
 
+`--json` prints `{ version, documents, total, nextCursor }` for the same page (rows keep the full id and the slug).
+
 Default behavior: lists every document the current user can see, as table rows: `<slug>  <SCOPE>  <project|->  <title>` (header `REF`; the slug is what `<doc>` takes), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the slug.
 
 | Flag              | Type    | Notes                                                                                  |

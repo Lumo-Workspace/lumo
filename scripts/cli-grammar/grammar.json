@@ -513,6 +513,14 @@
           "enumCaseInsensitive": false,
           "description": "Continue from a previous page (from the footer)"
         },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, documents, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": null,
@@ -699,6 +707,14 @@
     "doc show": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, document } as JSON (not with --raw / --section)"
+        },
         "--raw": {
           "long": "--raw",
           "short": null,
@@ -836,7 +852,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set tags by name (bulk replace, repeatable)"
+          "description": "Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*"
         },
         "--tag-id": {
           "long": "--tag-id",
@@ -844,7 +860,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set tags by id (bulk replace, repeatable)"
+          "description": "Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*"
         },
         "--title": {
           "long": "--title",
@@ -1592,7 +1608,16 @@
     },
     "memory show": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, memory } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
@@ -1816,6 +1841,14 @@
           "enumCaseInsensitive": false,
           "description": "Continue from a previous page (from the footer)"
         },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, milestones, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": null,
@@ -1917,6 +1950,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, milestone, tasks } as JSON"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -2121,6 +2162,14 @@
         { "name": "milestone", "required": true, "variadic": false }
       ],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -2298,6 +2347,14 @@
         { "name": "case", "required": true, "variadic": false }
       ],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, testCase, runs, pullRequests } as JSON"
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -2507,6 +2564,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Number of tasks to recommend (default 3)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, tasks, total, nextCursor } as JSON"
         }
       },
       "hasSubcommands": false,
@@ -2522,7 +2587,16 @@
     },
     "outcome show": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, outcome, task } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Read a task's post-hoc outcome well: the falsifier verdict (REJECTED or INCONCLUSIVE, never a pass) and its rejection signals. INCONCLUSIVE means no rejection on record."
@@ -2615,7 +2689,16 @@
     },
     "priority list": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, priorities, current } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Print the team priority append history, newest-first (the current declaration is marked with *)."
@@ -2645,7 +2728,16 @@
     },
     "project list": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, projects, total, nextCursor } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
@@ -2790,6 +2882,14 @@
           "enum": ["trap", "decision", "convention", "procedural"],
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, memories, total, nextCursor } as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -2961,7 +3061,16 @@
     },
     "session status": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, session } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing."
@@ -3238,6 +3347,14 @@
     "sprint list": {
       "arguments": [],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, sprints, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": "-n",
@@ -3291,6 +3408,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON"
+        },
         "--team": {
           "long": "--team",
           "short": null,
@@ -3500,7 +3625,16 @@
     },
     "task artifact list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, artifacts, total, nextCursor } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List artifacts attached to a task, in order"
@@ -3537,7 +3671,16 @@
         { "name": "task", "required": true, "variadic": false },
         { "name": "artifact", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, artifact, task } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task context`), a unique id prefix or the full id."
@@ -3649,6 +3792,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print every comment, bypassing the output-token cap"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, comments, total, nextCursor, task } as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -3890,7 +4041,16 @@
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, dependencies, total, nextCursor, task } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List dependency edges (both directions)"
@@ -3944,14 +4104,32 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "ref", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, figmaLink, designContextAvailable, note } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
     },
     "task figma list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, figmaLinks, total, nextCursor } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List Figma links attached to a task"
@@ -4012,6 +4190,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, lineage } (plus signal with --signal) as JSON"
+        },
         "--signal": {
           "long": "--signal",
           "short": null,
@@ -4036,13 +4222,21 @@
           "enumCaseInsensitive": false,
           "description": "Continue from a previous page (from the footer)"
         },
+        "--fields": {
+          "long": "--fields",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --json: print only these comma-separated task fields, e.g. ref,title,status (an unknown name lists the valid ones)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit { tasks, total, nextCursor } as JSON"
+          "description": "Print { version, tasks, total, nextCursor, deprecatedFields } as JSON"
         },
         "--limit": {
           "long": "--limit",
@@ -4218,6 +4412,14 @@
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, memories, total, nextCursor } as JSON"
+        },
         "--limit": {
           "long": "--limit",
           "short": "-n",
@@ -4243,7 +4445,16 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "number", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, pullRequest, task, liveDiffAvailable, note } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the synced PR record (diff/review comments when available)"
@@ -4430,7 +4641,16 @@
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, task } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show a single task: title, status, priority, assignee, project, URL, description."
@@ -4447,7 +4667,16 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "ref", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, slackContext } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
@@ -4744,7 +4973,16 @@
     },
     "task testcase list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List a task's test cases with each one's latest run (result, environment, commit)"
@@ -4901,7 +5139,16 @@
       "arguments": [
         { "name": "task/case", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, testCase, runs, pullRequests } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3"
@@ -5087,7 +5334,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set tags by name (bulk replace, repeatable)"
+          "description": "Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*"
         },
         "--tag-id": {
           "long": "--tag-id",
@@ -5095,7 +5342,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set tags by id (bulk replace, repeatable)"
+          "description": "Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*"
         },
         "--title": {
           "long": "--title",
@@ -5122,7 +5369,16 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "ref", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, webLink } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the fetched web link body as plain text (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
@@ -5600,7 +5856,16 @@
     },
     "worktree list": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, worktrees, total, nextCursor } as JSON"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked."

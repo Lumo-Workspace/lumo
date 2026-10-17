@@ -15,6 +15,12 @@ import {
   type LayoutOptions,
 } from '../lib/report-layout'
 import { colorEnabled, enumColor, heading, terminalWidth } from '../lib/ui'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
 
 interface ShowResponse {
   task: {
@@ -87,7 +93,8 @@ export function formatTaskShow(
 }
 
 export async function taskShow(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: missing <identifier>. Usage: lumo task show <LUM-42>')
@@ -130,6 +137,25 @@ export async function taskShow(
   }
 
   const data = (await res.json()) as ShowResponse
+  if (opts.json) {
+    // `ref` first (J-3); the description gets the same guard as the text
+    // view's fence body.
+    const t = data.task
+    emitJson(
+      detailEnvelope(
+        'task',
+        stripInternalFields({
+          ref: t.identifier,
+          ...t,
+          description: guardJsonBlock(t.description),
+          ...(t.descriptionMarkdown !== undefined
+            ? { descriptionMarkdown: guardJsonBlock(t.descriptionMarkdown) }
+            : {}),
+        })
+      )
+    )
+    return
+  }
   process.stdout.write(
     formatTaskShow(data.task, {
       width: terminalWidth(),

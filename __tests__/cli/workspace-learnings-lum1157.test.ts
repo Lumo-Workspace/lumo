@@ -109,7 +109,7 @@ describe('workspaceLearnings', () => {
   it('--json prints the view as is', async () => {
     serve(VIEW)
     await workspaceLearnings({ json: true })
-    expect(JSON.parse(out)).toEqual(VIEW)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...VIEW })
   })
   it('a malformed --repo is an error before any request', async () => {
     serve(VIEW)

@@ -1,4 +1,5 @@
 import { readCredentials, type Credentials } from '../lib/config'
+import { JSON_VERSION } from '../lib/json-output'
 import { sanitizeField } from '../lib/sanitize'
 
 export interface WhoamiOptions {
@@ -18,6 +19,7 @@ export function formatWhoami(
   if (opts.json) {
     return [
       JSON.stringify({
+        version: JSON_VERSION,
         email: creds.email,
         workspace: { slug: creds.workspaceSlug, name: creds.workspaceName },
         apiKey: { name: creds.apiKeyName, prefix: creds.apiKeyPrefix },

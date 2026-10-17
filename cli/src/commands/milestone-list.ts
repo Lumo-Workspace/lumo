@@ -9,9 +9,11 @@ import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
 } from '../lib/pagination'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 import {
   formatHealth,
   milestoneState,
@@ -43,6 +45,7 @@ export interface MilestoneListOptions {
   search?: string | undefined
   limit?: string | undefined
   cursor?: string | undefined
+  json?: boolean | undefined
 }
 
 /**
@@ -126,6 +129,16 @@ export async function milestoneList(
   // LUM-1093: the route returns the project's whole (filtered) list, so the
   // page is cut here.
   const page = paginate(data.milestones, pageArgs)
+  if (options.json) {
+    emitJson(
+      listEnvelope(
+        'milestones',
+        stripInternalFields(page.items),
+        pageJson(page)
+      )
+    )
+    return
+  }
   const lines = [
     page.items.length === 0 && page.total > 0
       ? 'No milestones on this page.'

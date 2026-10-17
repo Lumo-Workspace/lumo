@@ -32,6 +32,8 @@ Output: `Updated [plan] "Final spec" (OpenSpec) on LUM-42`. A 404 (task or artif
 
 #### `lumo task artifact list <task>`
 
+`--json` prints `{ version, artifacts, total, nextCursor }` (full ids; internal columns such as `order` are left out).
+
 Lists artifacts on the task in order: `<ref>  <kind>  <agent>  <source>  <title>` (`<ref>` = the 8-char short ref the other artifact commands take; header `REF`), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the ref. Prints `No artifacts on <task>.` when there are none.
 
 ```bash
@@ -39,6 +41,8 @@ lumo task artifact list LUM-42
 ```
 
 #### `lumo task artifact show <task> <artifact>`
+
+`--json` prints `{ version, artifact, task }` (the artifact with its full id and content).
 
 Prints one artifact's key:value header (ref, kind, title, agent, source, order, task) followed by the full content body. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task context` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates.
 
@@ -83,6 +87,8 @@ without re-calling Figma.
 ```
 
 #### `lumo task figma list <task>` — list attachments
+
+`--json` prints `{ version, figmaLinks, total, nextCursor }`.
 
 ```
 $ lumo task figma list LUM-42

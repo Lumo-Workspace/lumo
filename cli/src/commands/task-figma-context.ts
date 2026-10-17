@@ -6,6 +6,12 @@ import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { sanitizeField } from '../lib/sanitize'
 import { refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonInline } from '../lib/json-guard'
 
 interface FigmaMetadata {
   id: string
@@ -37,7 +43,8 @@ interface FigmaContextResponse {
  */
 export async function taskFigmaContext(
   identifier: string | undefined,
-  linkId: string | undefined
+  linkId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !linkId) {
     console.error('Error: usage: lumo task figma context <LUM-42> <ref>')
@@ -91,9 +98,29 @@ export async function taskFigmaContext(
     return 1
   }
 
-  const { metadata, note } = (await res.json()) as FigmaContextResponse
-  // LUM-998: file / frame name and sync error are guarded inline.
-  console.log(formatFigmaContext(metadata, note))
+  const { metadata, note, designContextAvailable } =
+    (await res.json()) as FigmaContextResponse
+  if (opts.json) {
+    // The same inline guard as the text view, on the same three fields.
+    emitJson(
+      detailEnvelope(
+        'figmaLink',
+        stripInternalFields({
+          ...metadata,
+          fileName: guardJsonInline(metadata.fileName),
+          frameName: guardJsonInline(metadata.frameName),
+          lastSyncError: guardJsonInline(metadata.lastSyncError),
+        }),
+        {
+          designContextAvailable: designContextAvailable ?? null,
+          note: note ?? null,
+        }
+      )
+    )
+  } else {
+    // LUM-998: file / frame name and sync error are guarded inline.
+    console.log(formatFigmaContext(metadata, note))
+  }
 
   // LUM-500: stamp the disclosure funnel with the lineage FIGMA fragmentId —
   // the resolved id the server echoes (the arg may be a short ref, LUM-1230).

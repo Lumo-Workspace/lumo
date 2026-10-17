@@ -7,6 +7,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { shortRef } from '../../../shared/src/short-ref'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface ArtifactRow {
   id: string
@@ -18,7 +19,8 @@ export interface ArtifactRow {
 }
 
 export async function taskArtifactList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -61,6 +63,10 @@ export async function taskArtifactList(
   }
 
   const { artifacts } = (await res.json()) as { artifacts: ArtifactRow[] }
+  if (opts.json) {
+    emitJson(listEnvelope('artifacts', stripInternalFields(artifacts)))
+    return
+  }
   if (artifacts.length === 0) {
     process.stdout.write(emptyState('artifacts', identifier) + '\n')
     return

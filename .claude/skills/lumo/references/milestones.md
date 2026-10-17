@@ -2,6 +2,8 @@
 
 ### `lumo project list` — list projects in the workspace
 
+`--json` prints `{ version, projects, total, nextCursor }` (each project with its id, name and `slug`).
+
 Prints `<slug>  <Display Name>` rows (the shared list table: a `SLUG  NAME` header on a TTY only; piped output has no header and keeps this column order). The slug column matches the `--project <ref>` argument accepted by `task create`, so users (and you) can copy a slug straight from this output into a create command.
 
 ```bash
@@ -18,6 +20,8 @@ lumo project update mobile-app --owner alice@example.com
 ```
 
 ### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>] [--limit <n>] [--cursor <c>]` — list milestones in a project
+
+`--json` prints `{ version, milestones, total, nextCursor }` for the same page.
 
 Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <slug>  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
@@ -81,6 +85,8 @@ lumo milestone create "Q3 Launch" --start 2026-06-01 --target 2026-08-31
 On success: `Created milestone "Q3 Launch"  <slug>` (the slug every other milestone command takes; nothing after the title from an older server that returns no slug).
 
 ### `lumo milestone show <identifier>` — show milestone detail + tasks
+
+`--json` prints `{ version, milestone, tasks }` (the server's milestone payload — task counts, health, close gate, metrics — and its tasks).
 
 Accepts the slug, the name or the id (see **Milestone refs** above).
 
@@ -175,6 +181,8 @@ lumo milestone update "Q3 Launch" --token-budget ""
 ```
 
 ### `lumo milestone testcase add|list|show|download|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
+
+`list --json` prints `{ version, testCases, total, nextCursor, summary }`; `show --json` prints `{ version, testCase, runs, pullRequests }`.
 
 Milestone test cases are cross-task, end-to-end cases and the milestone close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
 
@@ -328,7 +336,7 @@ Honest-reporting contract (why this is more than a task list):
 - **Claim provenance.** Each DONE task shows its frozen `claimSnapshot` tagged with its source + session (`Claim [RUN_SUMMARY · sess-1]: …`). A synthesized-but-empty claim reads `(no claim recorded)` (fail-closed "no material"), distinct from a never-synthesized `(not synthesized)`.
 - **Nothing silently dropped.** A DONE task with no merged PR renders an explicit `PRs: (no merged PR)`. Entries are ordered newest-delivery-first (by task `updatedAt` — Task has no `completedAt` column, so this is a best-available proxy).
 
-`--json` emits the raw structured payload (milestone / headline baseline stats / entries) unchanged for programmatic use.
+`--json` emits the structured payload (milestone / headline baseline stats / entries) for programmatic use, every field unchanged plus `version`.
 
 | Flag              | Type    | Notes                                                                                                 |
 | ----------------- | ------- | ----------------------------------------------------------------------------------------------------- |

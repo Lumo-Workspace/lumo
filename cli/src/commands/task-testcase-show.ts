@@ -15,6 +15,16 @@ import {
 } from '../lib/test-case-report'
 import { sanitizeField } from '../lib/sanitize'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+
+export interface TestCaseShowOptions {
+  /** Print the case, its runs and the linked PRs as JSON. */
+  json?: boolean | undefined
+}
 
 export interface RunRow {
   id: string
@@ -96,7 +106,8 @@ function freshnessNote(run: RunRow, prs: PrRow[]): string {
 }
 
 export async function taskTestCaseShow(
-  handle: string | undefined
+  handle: string | undefined,
+  opts: TestCaseShowOptions = {}
 ): Promise<number | void> {
   if (!handle) {
     console.error(
@@ -111,12 +122,13 @@ export async function taskTestCaseShow(
     )
     return EXIT_USAGE
   }
-  return testCaseShowInScope(taskScope(split.task), split.caseRef)
+  return testCaseShowInScope(taskScope(split.task), split.caseRef, opts)
 }
 
 export async function testCaseShowInScope(
   scope: TestCaseScope,
-  caseRef: string
+  caseRef: string,
+  opts: TestCaseShowOptions = {}
 ): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
@@ -130,6 +142,15 @@ export async function testCaseShowInScope(
   if (!r.ok || !r.data) return 1
 
   const { testCase: c, runs, pullRequests } = r.data
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('testCase', stripInternalFields(c), {
+        runs: stripInternalFields(runs),
+        pullRequests: stripInternalFields(pullRequests ?? []),
+      })
+    )
+    return
+  }
   console.log(`${scope.label}/TC${c.number}  ${sanitizeField(c.title)}`)
   const requires = formatRequiredEnvironment(c.requiredEnvironment)
   if (requires) console.log(requires)

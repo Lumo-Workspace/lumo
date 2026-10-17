@@ -10,6 +10,7 @@ import {
 } from '../lib/confirmation'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { successLine } from '../lib/feedback'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface ResolveResponse {
   id: string
@@ -265,7 +266,8 @@ async function resolveTaskAndEdge(
 
 /** `lumo task deps list <LUM-N>` */
 export async function taskDepsList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task deps list <LUM-42>')
@@ -277,6 +279,17 @@ export async function taskDepsList(
   if (typeof task === 'number') return task
   const edges = await fetchDeps(ctx, task.id)
   if (typeof edges === 'number') return edges
+  if (opts.json) {
+    emitJson(
+      listEnvelope(
+        'dependencies',
+        stripInternalFields(edges),
+        {},
+        { task: task.identifier }
+      )
+    )
+    return
+  }
   // Whole-block sanitization (session-attach style): edge titles, reasons and
   // sample paths are server-controlled free text.
   console.log(sanitizeField(formatDepsList(task.identifier, edges)))

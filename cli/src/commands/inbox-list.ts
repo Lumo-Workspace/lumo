@@ -1,4 +1,5 @@
 import { emptyState, fmtTimestamp } from '../lib/format'
+import { emitJson, withVersion } from '../lib/json-output'
 import { sectionHeading, type LayoutOptions } from '../lib/report-layout'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -129,6 +130,23 @@ export function formatInbox(
   return lines.join('\n')
 }
 
+/** The server returns at most this many notifications, newest first. */
+export const INBOX_SERVER_CAP = 50
+
+/**
+ * `total` / `nextCursor` for the inbox envelope (J-2). The notifications API
+ * has no paging — it returns the newest INBOX_SERVER_CAP rows — so
+ * `nextCursor` is always null, and `total` is the row count, or null
+ * (unknown) when the cap was reached and older rows may exist.
+ */
+export function inboxPage(data: InboxResponse): {
+  total: number | null
+  nextCursor: null
+} {
+  const n = data.notifications.length
+  return { total: n < INBOX_SERVER_CAP ? n : null, nextCursor: null }
+}
+
 /** `lumo inbox list` (LUM-1192) — your notifications, read-only. */
 export async function inboxList(
   opts: { json?: boolean } = {}
@@ -143,7 +161,7 @@ export async function inboxList(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    emitJson(withVersion({ ...r.data, ...inboxPage(r.data) }))
     return
   }
   process.stdout.write(formatInbox(r.data, { color: colorEnabled() }) + '\n')

@@ -6,10 +6,12 @@ import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface ListOptions {
   category?: string
   limit?: string
+  json?: boolean
 }
 
 export async function memoryProjectList(
@@ -73,6 +75,14 @@ export async function memoryProjectList(
     rows = rows.filter(
       m => m.category.toLowerCase() === options.category!.toLowerCase()
     )
+  // `total` counts the filtered list before `--limit` cuts it.
+  const total = rows.length
   if (limit !== undefined) rows = rows.slice(0, limit)
+  if (options.json) {
+    // No cursor exists for this list: `nextCursor` stays null and a `total`
+    // above the row count means -n cut it (documented in memory.md).
+    emitJson(listEnvelope('memories', stripInternalFields(rows), { total }))
+    return
+  }
   process.stdout.write(formatMemoryList(rows) + '\n')
 }

@@ -18,6 +18,11 @@ import {
   httpFailed,
   warn,
 } from '../lib/errors'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
 
 type Outcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
 type Disclosure = 'FULL' | 'INDEX'
@@ -105,7 +110,7 @@ export interface UsageSignalHealth {
 
 export async function taskLineage(
   identifier: string | undefined,
-  opts?: { signal?: boolean }
+  opts?: { signal?: boolean; json?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -150,6 +155,20 @@ export async function taskLineage(
   }
 
   const data = (await res.json()) as LineageResponse
+  if (opts?.json) {
+    const related: Record<string, unknown> = {}
+    if (opts.signal) {
+      related.signal = await fetchSignalForJson(apiUrl, creds.token)
+    }
+    emitJson(
+      detailEnvelope(
+        'lineage',
+        stripInternalFields(data),
+        stripInternalFields(related)
+      )
+    )
+    return
+  }
   process.stdout.write(
     formatLineageMarkdown(data, {
       width: terminalWidth(),
@@ -178,6 +197,32 @@ export async function taskLineage(
     }
     const signalJson = (await signalRes.json()) as UsageSignalHealth
     process.stdout.write('\n' + formatSignalHealth(signalJson) + '\n')
+  }
+}
+
+/**
+ * `--signal` under `--json`: the signal health payload, or null when it
+ * cannot be read (the warning goes to stderr, as on the text path).
+ */
+async function fetchSignalForJson(
+  apiUrl: string,
+  token: string
+): Promise<UsageSignalHealth | null> {
+  try {
+    const res = await fetch(`${trimTrailingSlash(apiUrl)}/api/lineage/signal`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      process.stderr.write(
+        warn(`${httpFailed('signal health fetch', res.status)}\n`)
+      )
+      return null
+    }
+    return (await res.json()) as UsageSignalHealth
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stderr.write(warn(`could not fetch signal health (${msg})\n`))
+    return null
   }
 }
 

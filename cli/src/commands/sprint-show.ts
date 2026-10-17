@@ -5,6 +5,11 @@ import { fmtCalendarDay, fmtDay, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import {
   fieldLines,
   labelWidth,
   reportWidth,
@@ -32,6 +37,7 @@ import {
 
 export interface ShowSprintOptions {
   team?: string
+  json?: boolean
 }
 
 export interface SprintShowData {
@@ -230,6 +236,24 @@ export async function sprintShow(
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
   const [burnup, teamPerformance] = await secondary
+  if (opts.json) {
+    // A failed secondary read is `{ error }` here, as the text view's
+    // `Could not read (…)` line.
+    emitJson(
+      detailEnvelope(
+        'sprint',
+        stripInternalFields(sprint),
+        stripInternalFields({
+          progress,
+          topBlockers: topBlockers ?? null,
+          tasks,
+          burnup,
+          teamPerformance,
+        })
+      )
+    )
+    return
+  }
 
   process.stdout.write(
     formatSprintShow(

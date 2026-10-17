@@ -1,4 +1,5 @@
 import { readCredentials } from '../lib/config'
+import { emitJson, withVersion } from '../lib/json-output'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
@@ -367,12 +368,14 @@ export async function crossingList(
               (r as { disposition?: unknown }).disposition != null
             )
         )
-    process.stdout.write(
-      JSON.stringify(
-        { task: taskId, gateEnabled: result.gateEnabled, crossings },
-        null,
-        2
-      ) + '\n'
+    emitJson(
+      withVersion({
+        task: taskId,
+        gateEnabled: result.gateEnabled,
+        crossings,
+        total: crossings.length,
+        nextCursor: null,
+      })
     )
     return
   }

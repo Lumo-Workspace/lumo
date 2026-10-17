@@ -66,14 +66,15 @@ describe('Commander errors (LUM-1232 E1/E2)', () => {
   })
 
   it('--json: the same failure is one JSON object with code USAGE', async () => {
-    const r = await run(['task', 'show', 'LUM-1', '--json'], true)
+    // `task show` takes --json itself; the unknown flag is the failure.
+    const r = await run(['task', 'show', 'LUM-1', '--json', '--bogus'], true)
     expect(r.code).toBe(2)
     const lines = r.stderr.trim().split('\n')
     expect(lines).toHaveLength(1)
     const parsed = JSON.parse(lines[0]!) as { error: Record<string, unknown> }
     expect(parsed.error).toMatchObject({
       code: 'USAGE',
-      message: "unknown option '--json'",
+      message: "unknown option '--bogus'",
       exitCode: 2,
     })
     expect(String(parsed.error.hint)).toContain('lumo task show --help')

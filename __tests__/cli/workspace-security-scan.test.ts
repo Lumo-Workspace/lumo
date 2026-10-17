@@ -207,7 +207,7 @@ describe('workspaceSecurityScan', () => {
   it('--json prints the payload', async () => {
     serve([{ body: ALL_ON }])
     await workspaceSecurityScan({ json: true })
-    expect(JSON.parse(out)).toEqual(ALL_ON)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...ALL_ON })
   })
 })
 

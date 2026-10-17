@@ -83,7 +83,11 @@ describe('lumo task template list', () => {
   it('--json includes the Markdown content', async () => {
     serve({ templates })
     await taskTemplateList({ json: true })
-    expect(JSON.parse(out)[1]).toEqual(templates[1])
+    const body = JSON.parse(out)
+    expect(body.version).toBe(1)
+    expect(body.total).toBe(2)
+    expect(body.nextCursor).toBeNull()
+    expect(body.templates[1]).toEqual(templates[1])
   })
 
   it('an empty catalog says so', () => {

@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, withVersion } from '../lib/json-output'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { missingPluginMessage } from '../lib/plugin-route'
 import { sanitizeField } from '../lib/sanitize'
@@ -85,7 +86,7 @@ export async function workspaceLearnings(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    emitJson(withVersion(r.data))
     return
   }
   process.stdout.write(formatReviewLearnings(r.data, repo) + '\n')

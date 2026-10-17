@@ -158,6 +158,8 @@ lumo worktree prune --confirm    # after the user approved
 
 ## `lumo worktree list`
 
+`--json` prints `{ version, worktrees, total, nextCursor }`; each row is `{ task, branch, dirty, nodeModulesLinked, path }` (`nodeModulesLinked` is null when the main checkout has no `node_modules`).
+
 Lists worktrees under `.worktrees/` with task id, branch, dirty state, and —
 only when the main checkout has a `node_modules` — whether it is symlinked (a
 `MISSING` link is the first thing to check when jest/tsc misbehaves). Read-only; runnable from

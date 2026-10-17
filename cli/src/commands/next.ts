@@ -12,6 +12,7 @@ import {
   formatClaimableExclusions,
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface NextOptions {
   count?: string
@@ -20,6 +21,8 @@ export interface NextOptions {
    * that are claimable AND unblocked (F3) AND within milestone budget (F2).
    */
   claimable?: boolean
+  /** Print the ranked tasks (with their reasons) as JSON. */
+  json?: boolean
 }
 
 interface ActiveSprintsResponse {
@@ -124,6 +127,15 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
         0,
         count
       )
+      if (opts.json) {
+        emitJson(
+          nextJson(ranked, gate.kept.length, {
+            claimable: true,
+            excluded: gate.excluded,
+          })
+        )
+        return
+      }
       process.stdout.write(
         formatClaimableOutput(ranked, gate.kept.length, gate.excluded) + '\n'
       )
@@ -132,7 +144,39 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
   }
 
   const ranked = rankTasks(open, activeSprintIds, new Date()).slice(0, count)
+  if (opts.json) {
+    emitJson(nextJson(ranked, open.length, { claimable: false }))
+    return
+  }
   process.stdout.write(formatNextOutput(ranked, open.length) + '\n')
+}
+
+/**
+ * The `--json` envelope: the ranked tasks in rank order, each the server's
+ * task row plus its `ref` (first) and ranking `reasons`. `poolSize` is the
+ * number of tasks the ranking chose from (open, or claimable with
+ * `--claimable`, which also carries the exclusion tally).
+ */
+export function nextJson(
+  ranked: RankedTask[],
+  poolSize: number,
+  extra: {
+    claimable: boolean
+    excluded?: import('../lib/claimable-filter').ClaimableExclusions
+  }
+): Record<string, unknown> {
+  return listEnvelope(
+    'tasks',
+    ranked.map(r =>
+      stripInternalFields({
+        ref: r.identifier,
+        ...r.task,
+        reasons: r.reasons,
+      })
+    ),
+    {},
+    { poolSize, ...extra }
+  )
 }
 
 /**

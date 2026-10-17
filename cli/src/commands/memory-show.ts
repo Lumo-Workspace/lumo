@@ -7,6 +7,11 @@ import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { REF_ERROR_STATUSES, refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
 
 interface Memory {
   id: string
@@ -25,7 +30,8 @@ interface Memory {
  * category tag and the structured content.
  */
 export async function memoryShow(
-  id: string | undefined
+  id: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!id) {
     console.error('Error: usage: lumo memory show <memory>')
@@ -71,15 +77,19 @@ export async function memoryShow(
   }
 
   const { memory } = (await res.json()) as { memory: Memory }
-  // LUM-1232 D-5: rendered as a detail view; `--json`-style raw content is
-  // not printed (the API response is the raw form).
-  console.log(
-    formatMemoryShow(memory, {
-      width: terminalWidth(),
-      color: colorEnabled(),
-      tty: Boolean(process.stdout.isTTY),
-    })
-  )
+  if (opts.json) {
+    emitJson(detailEnvelope('memory', stripInternalFields(memory)))
+  } else {
+    // LUM-1232 D-5: rendered as a detail view; the raw content is what
+    // `--json` prints.
+    console.log(
+      formatMemoryShow(memory, {
+        width: terminalWidth(),
+        color: colorEnabled(),
+        tty: Boolean(process.stdout.isTTY),
+      })
+    )
+  }
 
   // LUM-500: stamp the disclosure funnel with the lineage MEMORY fragmentId —
   // the resolved full id, not the (possibly short) ref typed (LUM-1230).

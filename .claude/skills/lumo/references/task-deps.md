@@ -4,6 +4,8 @@ Hard dependency edges between tasks — manual declarations plus auto-detected c
 
 ## `lumo task deps list <LUM-N>` — show all dependency edges
 
+`--json` prints `{ version, dependencies, total, nextCursor, task }` (each edge with its full id).
+
 Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED (pending confirmation)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
 
 ```bash

@@ -1,4 +1,5 @@
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { emitJson, withVersion } from '../lib/json-output'
 import { missingPluginMessage } from '../lib/plugin-route'
 import {
   emitConfirmation,
@@ -588,7 +589,7 @@ export async function workspaceRepoReview(
       }
     : result
   if (opts.json) {
-    process.stdout.write(JSON.stringify(shown, null, 2) + '\n')
+    emitJson(withVersion(shown))
     return
   }
   if (update) process.stdout.write('Repository review settings saved.\n\n')

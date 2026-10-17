@@ -4,6 +4,8 @@
 
 ### `lumo sprint list [flags]` — list sprints in a team
 
+`--json` prints `{ version, sprints, total, nextCursor }`.
+
 Prints table rows: `<STATUS>  #<number>  <start> → <end>  <name>`, sorted newest-first (server sort). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
 | Flag                   | Type    | Notes                                                 |
@@ -39,6 +41,8 @@ On success: `Created sprint #<number> "<name>"` (`#<number>` is the handle every
 When to suggest: user says "create a sprint", "new sprint", "start a new iteration".
 
 ### `lumo sprint show <identifier> [--team <ref>]` — show sprint detail + task table
+
+`--json` prints `{ version, sprint, progress, topBlockers, tasks, burnup, teamPerformance }` (a secondary read that fails is `{ error }`).
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 

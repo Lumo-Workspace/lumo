@@ -191,6 +191,7 @@ describe('lumo task template show', () => {
     serve()
     await taskTemplateShow('bug-report', { json: true })
     expect(JSON.parse(out)).toEqual({
+      version: 1,
       key: 'bug-report',
       name: 'Bug report',
       description: null,

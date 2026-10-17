@@ -916,7 +916,7 @@ After:
 
 Helper: `emitJson()`, `listEnvelope()`, `detailEnvelope()` in `json-output.ts` (new, batch C); `pageJson()` in `pagination.ts` (existing).
 
-Before (`lumo tag list --json` and `lumo task history --json` are bare arrays; `lumo inbox list --json` has no `nextCursor`; only 5 commands carry `version`):
+Before (`lumo tag list --json` and `lumo task history --json` are bare arrays — so is `lumo task template list --json`, which the audit missed; `lumo inbox list --json` has no `nextCursor`; only 5 commands carry `version`):
 
 ```json
 [
@@ -958,10 +958,10 @@ After:
 ```
 
 ```json
-{ "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 50, "nextCursor": "50" }
+{ "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 3, "nextCursor": null }
 ```
 
-(Every field each tag has today is still there; only the wrapper is new. How the bare arrays get there is [Q3](#q3---json-envelope-add-in-place).)
+(Every field each tag has today is still there; only the wrapper is new. How the bare arrays get there is [Q3](#q3---json-envelope-add-in-place). The notifications API is not paged — it returns the newest 50 — so `inbox list` always has `nextCursor: null`, and `total` is `null` (unknown) when 50 rows came back.)
 
 ### J-3. A declared field list per command
 
@@ -979,7 +979,7 @@ Within a `version`, JSON output only ever gains fields (J-5, [Q3](#q3---json-env
 2. **Wait** at least one published CLI release with the notice in place.
 3. **Remove** it only in a release that bumps the command's `version` (for example 1 → 2) and lists the removal in the release notes. Nothing is removed without a `version` bump.
 
-Helper: `pickFields(row, FIELDS)` in `json-output.ts` (new, batch C) — used only by commands that add `--json` from now on and by the optional `--json <fields>` selection.
+Helper: `stripInternalFields()` in `json-output.ts` (new, batch C) — applied by every command that adds `--json` from now on; `pickFields()` / `parseFieldList()` back the `--fields` selection (J-5). `task list --json` lists its deprecated fields in the envelope as `deprecatedFields`.
 
 Before (`lumo task list --json` — 42 fields per task, including internal ones):
 
@@ -1037,8 +1037,8 @@ After (stderr):
 ### J-5. Compatibility
 
 - Only add. Existing fields keep their names, types and meaning.
-- A breaking change (renaming, removing, reshaping) only happens through the versioned process in J-3 and always bumps `version`. The one reshaping already decided is wrapping the two bare arrays ([Q3](#q3---json-envelope-add-in-place)).
-- Field selection like `gh`'s (`--json ref,title,status`) is optional and additive: bare `--json` keeps printing every field (see Q3).
+- A breaking change (renaming, removing, reshaping) only happens through the versioned process in J-3 and always bumps `version`. The one reshaping already decided is wrapping the bare arrays (`tag list`, `task history`, and `task template list`, [Q3](#q3---json-envelope-add-in-place)).
+- Field selection is optional and additive: bare `--json` keeps printing every field (see Q3). It is a separate flag, `--fields ref,title,status` (with `--json`), on `task list` — not `--json [fields]`. An optional value on `--json` would take the next word, so `lumo task status --json LUM-42` would read `LUM-42` as a field list.
 
 Helper: `json-output.ts` (new).
 
@@ -1051,7 +1051,7 @@ Before (`lumo inbox list --json`):
 After — every existing key keeps its name and meaning; new keys are added beside them:
 
 ```json
-{ "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 50, "nextCursor": "50" }
+{ "version": 1, "notifications": [ … ], "unreadCount": 0, "total": 3, "nextCursor": null }
 ```
 
 ---
@@ -1314,7 +1314,7 @@ Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and 
 | Symbols              | `icons` (`ui.ts`)                                                                                                                         | `separator`, `child`, `ellipsis`, `count` icons (D)                                                                                                         |
 | Paging, empty state  | `parsePageArgs`, `pageFooter`, `pageJson` (`pagination.ts`); `emptyState` (`format.ts`)                                                   | `hiddenRows`; footer wording (A)                                                                                                                            |
 | Hints                | `formatNextSteps`, `emitNextSteps`, `nextStepsSilenced` (`next-steps.ts`); `hint`, `note` (`feedback.ts`)                                 | `emitHint` (G)                                                                                                                                              |
-| `--json`             | `pageJson` (`pagination.ts`)                                                                                                              | `json-output.ts`: `emitJson`, `listEnvelope`, `detailEnvelope`, `pickFields` (C)                                                                            |
+| `--json`             | `pageJson` (`pagination.ts`)                                                                                                              | `json-output.ts`: `emitJson`, `listEnvelope`, `detailEnvelope`, `withVersion`, `stripInternalFields`, `pickFields` (C)                                      |
 | Errors, exit codes   | `errAuth`, `errHttp`, `httpFailed`, `warn` (`errors.ts`); `refLookupError` (`ref-error.ts`); `EXIT_CONFIRMATION_REQUIRED`, `EXIT_BLOCKED` | `error-output.ts` (`normalizeErrorLine`, `notFoundHint`, JSON errors), `describeThrownError`; `exit-codes.ts`; Commander `outputError` + `exitOverride` (E) |
 | Help text            | Commander defaults                                                                                                                        | `help.ts`: `examplesHelp`, `exitCodesHelp`; grammar lint test (F)                                                                                           |
 
@@ -1358,6 +1358,7 @@ The review draft listed seven open questions. The user decided all of them on 20
 
 - **Decision (2026-10-18):** existing JSON outputs only gain fields (`version`, `total`, `nextCursor`); an optional `--json <fields>` selection may follow in batch C, with bare `--json` unchanged. No `--json-v2` switch.
 - **The one breaking change:** `tag list --json` and `task history --json` stop being bare arrays and are wrapped in the envelope (`{ "version": 1, "tags": [...] }`), announced in the release notes and the skill.
+- **As built (batch C):** `task template list --json` was a third bare array the audit missed; it is wrapped the same way (`{ "version": 1, "templates": [...] }`) and announced with the other two. The field selection shipped as `--fields <list>` on `task list` (see J-5 for why not `--json <fields>`).
 
 ### Q4. Usage errors exit 2
 

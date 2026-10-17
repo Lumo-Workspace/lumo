@@ -4,6 +4,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { promptLine } from '../lib/line-prompt'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface PriorityView {
   id: string
@@ -89,7 +90,9 @@ export async function priority(
  * Prints the append history newest-first, marking the current declaration
  * (the row with the latest effectiveFrom).
  */
-export async function priorityList(): Promise<number | void> {
+export async function priorityList(
+  opts: { json?: boolean } = {}
+): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
@@ -120,6 +123,17 @@ export async function priorityList(): Promise<number | void> {
   }
 
   const data = (await res.json()) as ListResponse
+  if (opts.json) {
+    emitJson(
+      listEnvelope(
+        'priorities',
+        stripInternalFields(data.history),
+        {},
+        { current: stripInternalFields(data.current ?? null) }
+      )
+    )
+    return
+  }
   if (data.history.length === 0) {
     process.stdout.write('No priorities declared yet.\n')
     return

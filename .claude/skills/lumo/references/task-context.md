@@ -56,6 +56,8 @@ All five are **read-only** (no live Slack/GitHub/Figma calls except the web body
 
 ### `lumo task slack show <identifier> <ref>` — full Slack thread snapshot
 
+`--json` prints `{ version, slackContext: { id, snapshot, redactedSecrets } }` (message text guarded like the block body, without the block).
+
 Prints the **stored** snapshot (no live Slack call) inside an `<untrusted-linked-context>` block, one line per message as `author: text`. Author falls back to `@<userId>` when the display name is missing. Empty snapshot prints `(no messages in stored snapshot)` (no block). Registry secrets in message bodies are redacted server-side before printing (`AKIA…(len 20)` form, LUM-784); when any were, the first line inside the block is `⚠ N suspected credential(s) were redacted before injection …` — the tokens are redactions, not the source text.
 
 ```bash
@@ -63,6 +65,8 @@ lumo task slack show LUM-42 pskvl3sh
 ```
 
 ### `lumo task web show <identifier> <ref>` — fetched web link body
+
+`--json` prints `{ version, webLink: { id, body, redactedSecrets } }` (body guarded like the block body, without the block).
 
 Fetches the page body on demand behind the SSRF guard (cached after first read), printed as plain text inside an `<untrusted-linked-context>` block. Empty body prints `(empty body)` (no block). Fetch failures (blocked host, timeout) print the server's error message. Registry secrets in the body are redacted server-side before printing, with the same `⚠ N suspected credential(s) were redacted …` first line inside the block as `slack show` when any were (LUM-784).
 
@@ -72,6 +76,8 @@ lumo task web show LUM-42 pskvl3sh
 
 ### `lumo task figma context <identifier> <ref>` — Figma link metadata
 
+`--json` prints `{ version, figmaLink, designContextAvailable, note }`.
+
 **v1 metadata fallback.** Prints cached design metadata as `file:` / `frame:` / `url:` / `synced:` lines (plus `syncError:` if the last sync failed). Live design context (layers, variables, code connect) requires the Figma MCP server, so the command ends with a `note:` saying so.
 
 ```bash
@@ -79,6 +85,8 @@ lumo task figma context LUM-42 pskvl3sh
 ```
 
 ### `lumo task comments list <identifier>` — comment thread
+
+`--json` prints `{ version, comments, total, nextCursor, task }` for the same page of top-level threads (replies nested; bodies guarded like the block body, without the block).
 
 Prints the thread inside one `<untrusted-linked-context>` block: each comment as `#<short id> · author · <time>` (`2026-10-16T22:24:00Z` when piped, local time with UTC offset on a terminal) then its plain-text body (bodies stored as HTML, stripped to text). Replies indent two spaces under their parent. The author is the member's or agent's name, or `@<login>` for a GitHub reviewer whose comment was mirrored (server-sent `authorName`); `-` when it cannot be named — never a raw actor id (LUM-1232). No comments prints `No comments.` When capped, the fetch-more pointer prints after the closing tag.
 
@@ -94,6 +102,8 @@ lumo task comments list LUM-42 --full   # every comment, no cap
 
 ### `lumo task pr show <identifier> <number>` — synced PR metadata
 
+`--json` prints `{ version, pullRequest, task, liveDiffAvailable, note }`.
+
 **v1 metadata fallback.** Prints the synced PR record: a `#<number> (repo) title` header, then `state:` (` · draft` when draft), `ci:`, `author:`, `branch: <head> → <base>`, and `url:` lines. Live diff + review comments require the GitHub integration, so the command ends with a `note:` saying so.
 
 ```bash
@@ -101,6 +111,8 @@ lumo task pr show LUM-42 128
 ```
 
 ## `lumo task lineage <id>`
+
+`--json` prints `{ version, lineage }` (the server's `{ task, totals, groups }`), plus `signal` with `--signal` (null when it cannot be read).
 
 Read-only audit view over the task's `LineageEdge` rows. Entry point is the task identifier only (PR-number lookup is a future addition).
 

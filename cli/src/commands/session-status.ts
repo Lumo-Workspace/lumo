@@ -15,6 +15,11 @@ import {
 } from '../lib/codex-hooks'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import {
   commandLine,
   fieldLines,
   indentLines,
@@ -283,7 +288,9 @@ export function formatSessionStatus(
   return lines.join('\n') + '\n'
 }
 
-export async function sessionStatus(): Promise<number | void> {
+export async function sessionStatus(
+  opts: { json?: boolean } = {}
+): Promise<number | void> {
   const sessionId = await resolveSessionId({ write: false })
   if (!sessionId) {
     console.error(noSessionMessage('lumo session status'))
@@ -317,6 +324,12 @@ export async function sessionStatus(): Promise<number | void> {
   if (res.status === 404) {
     // Session row only materializes after the first hook event or an
     // explicit `session attach`. Until then there's nothing to report.
+    if (opts.json) {
+      // The server's own `exists` flag, false: no row for this session yet.
+      emitJson(detailEnvelope('session', { sessionId, exists: false }))
+      if (isCodexShell()) console.error(codexHooksSilentWarning())
+      return
+    }
     process.stdout.write(
       `Session ${sessionId} has no server-side state yet (no task bound, no hook events).\n` +
         `Run \`lumo session attach <LUM-N>\` to bind it.\n`
@@ -341,6 +354,10 @@ export async function sessionStatus(): Promise<number | void> {
     })
     if (untrusted && untrusted.length > 0)
       console.error(codexUntrustedEventsWarning(untrusted))
+  }
+  if (opts.json) {
+    emitJson(detailEnvelope('session', stripInternalFields(data)))
+    return
   }
   process.stdout.write(
     formatSessionStatus(sessionId, data, {

@@ -6,6 +6,11 @@ import { sanitizeField } from '../lib/sanitize'
 import { shortRef } from '../../../shared/src/short-ref'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
 
 interface Artifact {
   id: string
@@ -21,7 +26,8 @@ interface Artifact {
 
 export async function taskArtifactShow(
   identifier: string | undefined,
-  artifactId: string | undefined
+  artifactId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -88,6 +94,14 @@ export async function taskArtifactShow(
   }
 
   const { artifact } = (await res.json()) as { artifact: Artifact }
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('artifact', stripInternalFields(artifact), {
+        task: identifier,
+      })
+    )
+    return
+  }
   process.stdout.write(`ref:    ${shortRef(artifact.id)}\n`)
   process.stdout.write(`kind:   ${sanitizeField(artifact.kind)}\n`)
   process.stdout.write(`title:  ${sanitizeField(artifact.title)}\n`)

@@ -5,6 +5,7 @@ import { slugify } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface ProjectRow {
   id: string
@@ -35,7 +36,25 @@ export function formatProjectList(
   return renderListTable(rows, { header: ['SLUG', 'NAME'], flex: 1, ...opts })
 }
 
-export async function projectList(): Promise<number | void> {
+/**
+ * The `--json` envelope: the same projects the table lists (idea projects
+ * left out), each with the `slug` the table prints — the ref
+ * `--project <ref>` accepts.
+ */
+export function projectListJson(
+  projects: ProjectRow[]
+): Record<string, unknown> {
+  return listEnvelope(
+    'projects',
+    projects
+      .filter(p => !p.isIdea)
+      .map(p => stripInternalFields({ ...p, slug: slugify(p.name) }))
+  )
+}
+
+export async function projectList(
+  opts: { json?: boolean } = {}
+): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
@@ -66,5 +85,9 @@ export async function projectList(): Promise<number | void> {
   }
 
   const data = (await res.json()) as ProjectsResponse
+  if (opts.json) {
+    emitJson(projectListJson(data.projects))
+    return
+  }
   process.stdout.write(formatProjectList(data.projects) + '\n')
 }

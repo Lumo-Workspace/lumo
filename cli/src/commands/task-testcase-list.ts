@@ -11,6 +11,12 @@ import {
   formatTestCasesSummary,
 } from '../lib/test-case-report'
 import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+
+export interface TestCaseListOptions {
+  /** Print the cases (with their runs) and the summary as JSON. */
+  json?: boolean | undefined
+}
 
 export interface ListRow {
   number: number
@@ -45,7 +51,8 @@ function oneCell(text: string): string {
 }
 
 export async function taskTestCaseList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: TestCaseListOptions = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -53,11 +60,12 @@ export async function taskTestCaseList(
     )
     return EXIT_USAGE
   }
-  return testCaseListInScope(taskScope(identifier))
+  return testCaseListInScope(taskScope(identifier), opts)
 }
 
 export async function testCaseListInScope(
-  scope: TestCaseScope
+  scope: TestCaseScope,
+  opts: TestCaseListOptions = {}
 ): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
@@ -71,6 +79,17 @@ export async function testCaseListInScope(
   if (!r.ok || !r.data) return 1
 
   const cases = r.data.testCases
+  if (opts.json) {
+    emitJson(
+      listEnvelope(
+        'testCases',
+        stripInternalFields(cases),
+        {},
+        { summary: stripInternalFields(r.data.summary ?? null) }
+      )
+    )
+    return
+  }
   if (cases.length === 0) {
     console.log(emptyState('test cases', scope.label))
     return
