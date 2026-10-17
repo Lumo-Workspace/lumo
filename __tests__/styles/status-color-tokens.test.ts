@@ -70,7 +70,6 @@ describe('status color tokens (globals.css)', () => {
 
 describe('status dots reference bg-status-* utilities', () => {
   const files = [
-    '../../app/workspace/[workspaceUrl]/components/summary/StatusDistributionChart.tsx',
     '../../app/workspace/[workspaceUrl]/components/pages/ProjectsPage.tsx',
   ]
 

@@ -82,7 +82,6 @@ export type Page =
   | 'documents'
   | 'document-editor'
   | 'drafts'
-  | 'dashboard'
   | 'sprints'
   | 'sprint-detail'
   | 'milestone-detail'

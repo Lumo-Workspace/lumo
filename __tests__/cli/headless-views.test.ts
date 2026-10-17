@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1192: `lumo inbox list`, `lumo draft list`, `lumo workspace overview`,
- * `lumo project overview` — the formatters (web wording / order / cuts) and
+ * LUM-1192: `lumo inbox list`, `lumo draft list`, `lumo project overview` —
+ * the formatters (web wording / order / cuts) and
  * the commands' read-only calls (GET only, Bearer, --json passthrough).
  */
 jest.mock('@/cli/src/lib/config', () => ({
@@ -29,11 +29,12 @@ import {
   formatDraftList,
   type DraftRow,
 } from '@/cli/src/commands/draft-list'
-import { projectOverview, workspaceOverview } from '@/cli/src/commands/overview'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { projectOverview } from '@/cli/src/commands/overview'
 import {
   avgCompletionLabel,
   formatProjectOverview,
-  formatWorkspaceOverview,
   idleDaysSince,
   statusLine,
   type OverviewStats,
@@ -249,10 +250,6 @@ const stats: OverviewStats = {
       },
     ],
   },
-  projectBreakdown: [
-    { projectName: 'Calm', totalTasks: 4, completedTasks: 2, overdueTasks: 0 },
-    { projectName: 'Hot', totalTasks: 6, completedTasks: 2, overdueTasks: 2 },
-  ],
 }
 const summary = {
   tldr: 'All good.\u001b[2J',
@@ -279,14 +276,13 @@ describe('overview formatting', () => {
     ).toBe('10d')
     expect(idleDaysSince(undefined, new Date())).toBe('-')
   })
-  it('workspace overview: cards, projects by overdue, workload, last 7 trend days, briefing', () => {
-    const text = formatWorkspaceOverview('Lumo HQ', stats, summary)
-    expect(text).toContain('Workspace: Lumo HQ')
+  it('project overview: cards, workload, last 7 trend days, summary', () => {
+    const now = new Date('2026-10-16T12:00:00Z')
+    const text = formatProjectOverview('Apollo', stats, summary, now)
     expect(text).toMatch(/Total tasks:\s+10/)
     expect(text).toMatch(/Completed:\s+4/)
     expect(text).toMatch(/Overdue:\s+2/)
     expect(text).toMatch(/Avg completion:\s+12.3h/)
-    expect(text.indexOf('Hot')).toBeLessThan(text.indexOf('Calm'))
     expect(text).toMatch(/Alice Chen\s+5\s+3/)
     expect(text).not.toContain('2026-10-02  2')
     expect(text).toContain('2026-10-03  3')
@@ -295,9 +291,9 @@ describe('overview formatting', () => {
     expect(text).not.toContain('\u001b')
     expect(text).not.toContain('Line two')
     expect(
-      formatWorkspaceOverview('Lumo HQ', stats, summary, { report: true })
+      formatProjectOverview('Apollo', stats, summary, now, { report: true })
     ).toContain('Line two')
-    expect(formatWorkspaceOverview('W', stats, null)).toContain(
+    expect(formatProjectOverview('A', stats, null, now)).toContain(
       'None generated yet.'
     )
   })
@@ -335,19 +331,6 @@ describe('commands (GET only, Bearer)', () => {
     await draftList()
     expect(calls.map(c => c.url)).toEqual(['https://api.lumo.test/api/drafts'])
     expect(out).toBe('No drafts.\n')
-  })
-  it('workspace overview → stats + latest stored briefing only (never a generate route)', async () => {
-    serve({
-      '/api/stats/workspace': { stats },
-      '/api/summaries/workspace?limit=1': { summaries: [summary] },
-    })
-    await workspaceOverview()
-    expect(calls.map(c => c.url).sort()).toEqual([
-      'https://api.lumo.test/api/stats/workspace',
-      'https://api.lumo.test/api/summaries/workspace?limit=1',
-    ])
-    expect(calls.every(c => c.init?.method === undefined)).toBe(true)
-    expect(out).toContain('Workspace: Lumo HQ')
   })
   it('project overview resolves the slug, then reads stats + summary', async () => {
     serve({
@@ -390,5 +373,31 @@ describe('resolveProject', () => {
     await expect(
       resolveProject('https://api.lumo.test', 'tok', undefined)
     ).resolves.toMatchObject({ id: 'p1', name: 'Only' })
+  })
+})
+
+describe('lumo workspace overview is gone (LUM-1228)', () => {
+  const root = process.cwd()
+  it('is not in the command grammar; project overview still is', () => {
+    const grammar = readFileSync(
+      join(root, 'scripts/cli-grammar/grammar.json'),
+      'utf8'
+    )
+    expect(grammar).not.toContain('"workspace overview"')
+    expect(grammar).toContain('"project overview"')
+  })
+  it('is not registered, documented or allow-listed', () => {
+    const read = (f: string) => readFileSync(join(root, f), 'utf8')
+    for (const f of [
+      'cli/src/index.ts',
+      'cli/src/lib/codex-rules.ts',
+      '.claude/skills/lumo/SKILL.md',
+      '.claude/skills/lumo/references/overview.md',
+    ]) {
+      expect(read(f)).not.toMatch(/workspace overview|workspaceOverview/)
+    }
+    expect(read('cli/src/index.ts')).not.toMatch(
+      /workspaceCmd\s*\.command\('overview'\)/
+    )
   })
 })

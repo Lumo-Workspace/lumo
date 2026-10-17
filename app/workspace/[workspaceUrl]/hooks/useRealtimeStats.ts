@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { statsClient } from '@/lib/api-client/stats'
-import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+import type { TaskSummaryStats } from '@/types/summary'
 
 interface UseRealtimeStatsReturn<T> {
   stats: T | null
@@ -38,37 +38,6 @@ export function useProjectRealtimeStats(
       cancelled = true
     }
   }, [projectId, tick])
-
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  return { stats, loading, error, refetch }
-}
-
-export function useWorkspaceRealtimeStats(): UseRealtimeStatsReturn<WorkspaceSummaryStats> {
-  const [stats, setStats] = useState<WorkspaceSummaryStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    statsClient
-      .getWorkspaceStats<{ stats: WorkspaceSummaryStats }>()
-      .then(data => {
-        if (!cancelled) setStats(data.stats)
-      })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load stats')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tick])
 
   const refetch = useCallback(() => setTick(t => t + 1), [])
 

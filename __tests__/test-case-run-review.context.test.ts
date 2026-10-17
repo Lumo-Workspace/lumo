@@ -244,20 +244,19 @@ describe('LUM-819 rework: review in context', () => {
     }
   })
 
-  it('the review entry lives on the dashboard, not the sidebar', () => {
+  it('the review entry lives in the sidebar (LUM-1228: the Dashboard card is gone)', () => {
     const src = (f: string) =>
       readFileSync(
         join(process.cwd(), 'app/workspace/[workspaceUrl]', f),
         'utf8'
       )
-    expect(src('components/Sidebar.tsx')).not.toMatch(/run-reviews|runReviews/)
-    const dashboard = src('components/pages/DashboardPage.tsx')
-    expect(dashboard).toMatch(/<SpotCheckCard/)
-    expect(dashboard).toMatch(/onOpen=\{onOpenRunReviews\}/)
+    const sidebar = src('components/Sidebar.tsx')
+    expect(sidebar).toMatch(/\/run-reviews`/)
+    expect(sidebar).toMatch(/onNavigate\('run-reviews'\)/)
     expect(src('components/WorkspacePageRouter.tsx')).toMatch(
-      /onOpenRunReviews=\{\(\) => navigateTo\('run-reviews'\)\}/
+      /case 'run-reviews':/
     )
-    // the page itself is still routable (the dashboard card links to it)
+    // the page itself is still routable
     expect(src('utils/pathToPage.ts')).toMatch(/'\/run-reviews'/)
   })
 })

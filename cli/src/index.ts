@@ -51,7 +51,7 @@ import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
 import { inboxList } from './commands/inbox-list'
 import { draftList } from './commands/draft-list'
-import { projectOverview, workspaceOverview } from './commands/overview'
+import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { spotCheck, type SpotCheckOptions } from './commands/spot-check'
 import { tagCreate, tagList } from './commands/tag'
@@ -1947,19 +1947,6 @@ workspaceCmd
   .action(
     wrap(options =>
       workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
-    )
-  )
-
-workspaceCmd
-  .command('overview')
-  .description(
-    'The Dashboard as text (LUM-1192): task totals, status distribution, projects at a glance, member workload, completions over the last 7 active days and the latest stored briefing. Read-only — never generates a briefing.'
-  )
-  .option('--report', "Print the briefing's full report under its TL;DR")
-  .option('--json', 'Emit { stats, summary } as JSON')
-  .action(
-    wrap(options =>
-      workspaceOverview(options as { json?: boolean; report?: boolean })
     )
   )
 

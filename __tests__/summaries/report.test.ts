@@ -8,11 +8,10 @@ import {
   SUMMARY_SYSTEM_PROMPT_ZH,
   SUMMARY_SYSTEM_PROMPT_ZH_HANT,
   buildProjectPrompt,
-  buildWorkspacePrompt,
   summarySystemPrompt,
 } from '@/lib/summaries/report'
 import { parseReport } from '@/lib/summaries/parse-report'
-import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+import type { TaskSummaryStats } from '@/types/summary'
 
 const EMPTY_BLOCKERS = {
   overdueTaskIds: [],
@@ -38,21 +37,6 @@ function makeStats(): TaskSummaryStats {
   }
 }
 
-function makeWorkspaceStats(): WorkspaceSummaryStats {
-  return {
-    ...makeStats(),
-    projectBreakdown: [
-      {
-        projectId: 'p1',
-        projectName: 'Web',
-        totalTasks: 20,
-        completedTasks: 5,
-        overdueTasks: 7,
-      },
-    ],
-  }
-}
-
 describe('buildProjectPrompt', () => {
   it('report prompt has no risk assessment block', () => {
     const prompt = buildProjectPrompt(makeStats(), {
@@ -66,17 +50,6 @@ describe('buildProjectPrompt', () => {
     // The stats the briefing is actually written from still reach the model.
     expect(prompt).toContain('Total Tasks: 20')
     expect(prompt).toContain('Overdue Tasks: 7')
-  })
-})
-
-describe('buildWorkspacePrompt', () => {
-  it('lists projects without a risk level', () => {
-    const prompt = buildWorkspacePrompt(makeWorkspaceStats(), {
-      workspaceName: 'Lumo',
-      locale: 'en',
-    })
-    expect(prompt).toContain('  Web: total=20, completed=5, overdue=7')
-    expect(prompt).not.toContain('Risk Assessment')
   })
 })
 

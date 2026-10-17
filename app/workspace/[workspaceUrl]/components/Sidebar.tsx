@@ -11,6 +11,7 @@ import {
   FileEdit,
   Search,
   CalendarClock,
+  ClipboardCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useSignOut } from '@/lib/auth/client'
@@ -320,6 +321,28 @@ export function AppSidebar({
                     <File />
                     <span>
                       {intl.formatMessage({ id: 'sidebar.documents' })}
+                    </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* LUM-1228: the run-reviews (spot-check) page's entry — it used
+                  to be the Dashboard's Spot-check card. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPage === 'run-reviews'}
+                  tooltip={intl.formatMessage({ id: 'runReviews.title' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/run-reviews`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('run-reviews')
+                    }}
+                  >
+                    <ClipboardCheck />
+                    <span>
+                      {intl.formatMessage({ id: 'runReviews.title' })}
                     </span>
                   </Link>
                 </SidebarMenuButton>

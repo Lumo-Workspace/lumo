@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
-import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+import type { TaskSummaryStats } from '@/types/summary'
 import { parseReport } from './parse-report'
 import {
   summaryLanguageFor,
@@ -89,11 +89,6 @@ interface ProjectContext {
   locale: string
 }
 
-interface WorkspaceContext {
-  workspaceName: string
-  locale: string
-}
-
 // ─── Prompt builders ─────────────────────────────────────────────────────────
 
 export function buildProjectPrompt(
@@ -150,69 +145,6 @@ Agent Stats: total=${stats.agentStats.total}, completed=${stats.agentStats.compl
 PR Stats: total=${stats.prStats.total}, merged=${stats.prStats.merged}, open=${stats.prStats.open}`
 }
 
-export function buildWorkspacePrompt(
-  stats: WorkspaceSummaryStats,
-  ctx: WorkspaceContext
-): string {
-  const { workspaceName } = ctx
-
-  const statusLines = Object.entries(stats.statusDistribution)
-    .map(([k, v]) => `  ${k}: ${v}`)
-    .join('\n')
-
-  const priorityLines = Object.entries(stats.priorityDistribution)
-    .map(([k, v]) => `  ${k}: ${v}`)
-    .join('\n')
-
-  const workloadLines =
-    stats.memberWorkload.length > 0
-      ? stats.memberWorkload
-          .map(
-            m => `  ${m.name}: assigned=${m.assigned}, completed=${m.completed}`
-          )
-          .join('\n')
-      : '  No assignees'
-
-  const trendLines =
-    stats.completionTrend.length > 0
-      ? stats.completionTrend.map(t => `  ${t.date}: ${t.completed}`).join('\n')
-      : '  No data'
-
-  const projectBreakdownLines = stats.projectBreakdown
-    .map(
-      p =>
-        `  ${p.projectName}: total=${p.totalTasks}, completed=${p.completedTasks}, overdue=${p.overdueTasks}`
-    )
-    .join('\n')
-
-  return `## Workspace: ${workspaceName}
-
-## Aggregate Statistics
-Total Tasks: ${stats.totalTasks}
-
-Status Distribution:
-${statusLines}
-
-Priority Distribution:
-${priorityLines}
-
-Overdue Tasks: ${stats.overdueTasks.count}
-
-Member Workload:
-${workloadLines}
-
-Completion Trend (last 30 days):
-${trendLines}
-
-Average Completion Time: ${stats.avgCompletionTime !== null ? `${stats.avgCompletionTime.toFixed(1)} hours` : 'N/A'}
-
-Agent Stats: total=${stats.agentStats.total}, completed=${stats.agentStats.completed}, failed=${stats.agentStats.failed}, working=${stats.agentStats.working}
-PR Stats: total=${stats.prStats.total}, merged=${stats.prStats.merged}, open=${stats.prStats.open}
-
-## Project Breakdown
-${projectBreakdownLines}`
-}
-
 // ─── Report generators ────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPTS: Record<SummaryLanguage, string> = {
@@ -250,31 +182,6 @@ export async function generateProjectReport(
       locale: ctx.locale,
       projectName: ctx.projectName,
     })
-  }
-
-  return object
-}
-
-export async function generateWorkspaceReport(
-  stats: WorkspaceSummaryStats,
-  ctx: WorkspaceContext
-): Promise<SummaryReport> {
-  const systemPrompt = summarySystemPrompt(ctx.locale)
-  const prompt = buildWorkspacePrompt(stats, ctx)
-
-  const { object } = await generateObject({
-    model: gateway(GENERATION_MODEL),
-    schema: SummaryReportSchema,
-    system: systemPrompt,
-    prompt,
-  })
-
-  const parsed = parseReport(object.report, ctx.locale)
-  if (parsed.todayFocus.length === 0) {
-    logger.warn(
-      "generateWorkspaceReport: report had no Today's Focus section",
-      { locale: ctx.locale, workspaceName: ctx.workspaceName }
-    )
   }
 
   return object

@@ -2,15 +2,10 @@ import { statsRepository } from '@/lib/repositories/stats.repository'
 import {
   aggregateProjectStats,
   aggregateSprintBlockers,
-  aggregateWorkspaceStats,
 } from '@/lib/summaries/stats'
 import { STALE_PR_DAYS } from '@/lib/summaries/top-blockers'
 import { reconcileStaleProjectPrs } from './stale-pr-reconcile.service'
-import type {
-  TaskSummaryStats,
-  TopBlockers,
-  WorkspaceSummaryStats,
-} from '@/types/summary'
+import type { TaskSummaryStats, TopBlockers } from '@/types/summary'
 
 export async function getProjectStats(
   projectId: string,
@@ -48,15 +43,4 @@ export async function getSprintBlockers(
     throw Object.assign(new Error('Workspace not found'), { status: 404 })
 
   return aggregateSprintBlockers(sprintId)
-}
-
-export async function getWorkspaceStats(
-  workspaceId: string
-): Promise<WorkspaceSummaryStats> {
-  const workspace = await statsRepository.findWorkspaceId(workspaceId)
-
-  if (!workspace)
-    throw Object.assign(new Error('Workspace not found'), { status: 404 })
-
-  return aggregateWorkspaceStats(workspaceId)
 }

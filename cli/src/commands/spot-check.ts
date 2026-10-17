@@ -7,7 +7,7 @@ import { hint } from '../lib/feedback'
 
 /**
  * LUM-1191: `lumo spot-check` — the run-review pool the web run-reviews page
- * and the Dashboard Spot-check card show, read-only.
+ * shows, read-only.
  *
  * Everything here is rendered from what GET /api/test-case-reviews already
  * derived (pool, random sample, false-report rate) — no ceiling / pool logic
