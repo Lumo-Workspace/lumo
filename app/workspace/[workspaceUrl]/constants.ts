@@ -40,11 +40,6 @@ export const API = {
     dependency: (taskId: string, depId: string) =>
       `/api/tasks/${taskId}/dependencies/${depId}`,
   },
-  // LUM-819 (D): 抽查池（GET）与单条 run 复核（POST，仅浏览器会话）。
-  runReviews: {
-    pool: '/api/test-case-reviews',
-    review: (runId: string) => `/api/test-case-reviews/${runId}`,
-  },
   projects: {
     list: '/api/projects',
     byId: (id: string) => `/api/projects/${id}`,

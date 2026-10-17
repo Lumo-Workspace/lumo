@@ -25,7 +25,6 @@ import {
   DispositionBadge,
   EnvironmentBadge,
   ExecutorLabel,
-  ReviewBadge,
   VerdictBadge,
 } from './RunHistoryList'
 import { runAnchorId } from './taskTabs'
@@ -315,15 +314,12 @@ export function TestCaseRunReport({
             </p>
           ) : null}
 
-          {run.note ||
-          stepEvidence.length < countRaw(run.evidence) ||
-          run.review ? (
+          {run.note || stepEvidence.length < countRaw(run.evidence) ? (
             <div className='flex flex-col gap-2 border-t border-border px-3 py-2.5 text-caption'>
               {run.note ? (
                 <p className='text-muted-foreground'>{run.note}</p>
               ) : null}
               <EvidenceStrip evidence={run.evidence} exclude={stepEvidence} />
-              <ReviewBadge run={run} />
             </div>
           ) : null}
         </>

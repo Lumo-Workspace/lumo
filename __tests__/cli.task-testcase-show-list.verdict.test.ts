@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-1185 — `lumo task testcase show / list` 展示与 web Test cases 区段一致的
- * 判定：UNPROVEN 封顶及原因、failure cause、required env、抽查复核、完整逐步
+ * 判定：UNPROVEN 封顶及原因、failure cause、required env、完整逐步
  * 报告（not reached / unrecorded / 进度计数），以及 list 末尾的 N/M passing。
  *
  * 响应夹具用**服务端同一组纯函数**生成（deriveStoredRunCeiling /
@@ -25,7 +25,6 @@ import {
 } from '@/cli/src/lib/test-case-verdict'
 import {
   formatRequiredEnvironment,
-  formatReviewLine,
   formatStepDuration,
   formatStepProgress,
   formatStepReportLines,
@@ -227,7 +226,7 @@ describe('testcase show — the full verdict', () => {
     expect(out).toContain('    - step 1: open the invoice (no per-step result)')
   })
 
-  it('prints the spot-check review under the run', async () => {
+  it('prints no spot-check review line, even when a server still sends one (LUM-1231)', async () => {
     respond({
       testCase: tc,
       runs: [
@@ -245,9 +244,10 @@ describe('testcase show — the full verdict', () => {
 
     await taskTestCaseShow('LUM-42/TC3')
 
-    expect(printed()).toContain(
-      '    spot-check sent this PASS back — the evidence did not hold it up · Bo · 2026-10-07  — "wrong page"'
-    )
+    const out = printed()
+    expect(out).toContain('PASS on LOCAL')
+    expect(out).not.toMatch(/spot-check/i)
+    expect(out).not.toContain('wrong page')
   })
 
   it('falls back to the old rendering when an old server sends no verdict fields', async () => {
@@ -432,18 +432,6 @@ describe('pure formatters', () => {
   it('formatStepDuration matches the web report', () => {
     expect(formatStepDuration(300)).toBe('300ms')
     expect(formatStepDuration(1200)).toBe('1.2s')
-  })
-
-  it('formatReviewLine reads an accepted review', () => {
-    expect(
-      formatReviewLine({
-        accepted: true,
-        note: null,
-        reviewer: 'Bo',
-        reviewedAt: '2026-10-07T00:00:00.000Z',
-      })
-    ).toBe('    spot-checked: the evidence holds · Bo · 2026-10-07')
-    expect(formatReviewLine(null)).toBeNull()
   })
 
   it('formatRequiredEnvironment ignores unknown values', () => {

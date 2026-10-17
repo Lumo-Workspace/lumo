@@ -8,7 +8,6 @@ import { formatStepResultLines } from '../lib/test-case-steps'
 import { formatCauseTag, formatCeilingSuffix } from '../lib/test-case-verdict'
 import {
   formatRequiredEnvironment,
-  formatReviewLine,
   formatStepProgress,
   formatStepReportLines,
   stepEvidenceIndices,
@@ -40,12 +39,11 @@ export interface RunRow {
   /** LUM-808: FAIL 的归因（IMPLEMENTATION_DEFECT …）。 */
   failureAttribution?: string | null
   /**
-   * LUM-1185: 服务端推导的封顶结论 / 逐步报告 / 抽查复核。Optional —— 旧服务端
-   * 不发；CLI 只渲染，不重算。
+   * LUM-1185: 服务端推导的封顶结论 / 逐步报告。Optional —— 旧服务端不发；
+   * CLI 只渲染，不重算。（`review` 自 LUM-1231 起恒为 null，不渲染。）
    */
   ceiling?: unknown
   stepReport?: unknown
-  review?: unknown
 }
 
 export interface PrRow {
@@ -193,9 +191,6 @@ export function formatRunLines(run: RunRow, prs: PrRow[]): string[] {
   // LUM-812: 裁定清的是「拦」不是「有这回事」—— run 照打，底下注明谁拍过板。
   const ruled = formatDispositionLine(run.disposition)
   if (ruled) lines.push(ruled)
-  // LUM-819: 抽查复核的结论。
-  const reviewed = formatReviewLine(run.review)
-  if (reviewed) lines.push(reviewed)
   // 证据一条一行：终端里能「打开」一份证据的唯一形式是 url，计数打不开。
   // 已在步骤下列过的不再重复。
   lines.push(

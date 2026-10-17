@@ -87,7 +87,7 @@ run 行下面是**完整逐步报告**（LUM-1011 / LUM-1185，与 web `TestCase
 | `-`  | `(no per-step result)`           | 没逐步结论、也没有失败点可参照     |
 | `»`  | `(skipped: 原因)`                | 显式 SKIP                          |
 
-有耗时的步骤附 `300ms` / `1.2s`。再往下依次是实际观察、裁定、抽查复核、证据：
+有耗时的步骤附 `300ms` / `1.2s`。再往下依次是实际观察、裁定、证据：
 
 ```
   2026-10-06  FAIL on PRODUCTION  [cause: defect]  by Chao Li
@@ -110,7 +110,7 @@ run 行下面是**完整逐步报告**（LUM-1011 / LUM-1185，与 web `TestCase
       jest.json  https://lumo.example/api/files/test-evidence/…/f2
 ```
 
-被抽查过的 run（LUM-819）多一行复核结论：`spot-checked: the evidence holds · <复核人> · <日期>`，或 `spot-check sent this PASS back — the evidence did not hold it up · <复核人> · <日期>  — "<理由>"`。打回不是失败：补证据或重跑。（里程碑用例没有抽查，不打这一行。）
+`--json` 里每条 run 仍带 `review` 键，自 LUM-1231 起**恒为 `null`**（抽查功能已删除；键保留只为不打断依赖该形状的脚本）。
 
 形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务 **Record** 页的「测试用例」区段里出缩略图（LUM-1011 起 Tests tab 并入 Record；旧的 `/tests` 链接自动落到这里）。
 
@@ -250,9 +250,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production --step s1-3=pas
 
 记完 run 时若一条证据都没有，CLI 还会打一行 `No evidence attached — …` 告诉你怎么附（`--result fail` 措辞更重）。零证据的 PASS 被封顶成 `UNPROVEN`，但仍然**不拦 DONE**——`task status` 的 advisory 行会写明 `(no evidence attached)`。
 
-**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是侧边栏 Workspace 分组里的 **Run reviews**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
-
-复核结果**回写到任务上**：Tests 标签的执行历史标出「已抽查：证据成立 / 被打回（谁，何时，理由）」；用例**最新一次执行**被打回时，`lumo task status` 多一行 `• [TEST CASE] TC3 …: a spot-check by <人> sent this PASS back — the evidence did not hold it up …（advisory） — run:`，下一行单独是 `lumo task testcase show …` 命令。打回之后重新跑过，这行就消失。看到它：补更好的证据或重跑用例，不是去修一个可能没坏的实现。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
+**没有抽查复核**：LUM-819 的抽查池（网页与 CLI 入口）已在 LUM-1231 删除。别人要看一条 PASS 站不站得住，读的就是任务里这条 run 的证据——所以跑的当下就附证据。
 
 **commit 坐标只在 `--env local` 时自动探测**（`git rev-parse HEAD` + `git status --porcelain`）。不在 git 仓库里就留 null，不编造。
 
@@ -289,13 +287,12 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 
 CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE**。
 
-| 位置                               | 门槛               | 长相                                                                      |
-| ---------------------------------- | ------------------ | ------------------------------------------------------------------------- |
-| `session attach` / `task context`  | 零用例（不看 PR）  | `## Test cases` 小节                                                      |
-| `Next:` 块                         | 有 PR + 零用例     | 一条 `lumo task testcase add …` 建议，排在最后                            |
-| `lumo task status` 的 next actions | 有 PR + 零用例     | `• [TEST CASE] … (advisory) — run:` + 下一行单独的命令                    |
-| `lumo task status` 的 next actions | 用例有判决信号     | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)`      |
-| `lumo task status` 的 next actions | 最新执行被抽查打回 | `• [TEST CASE] TC3 …: a spot-check by … sent this PASS back … (advisory)` |
+| 位置                               | 门槛              | 长相                                                                 |
+| ---------------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `session attach` / `task context`  | 零用例（不看 PR） | `## Test cases` 小节                                                 |
+| `Next:` 块                         | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后                       |
+| `lumo task status` 的 next actions | 有 PR + 零用例    | `• [TEST CASE] … (advisory) — run:` + 下一行单独的命令               |
+| `lumo task status` 的 next actions | 用例有判决信号    | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)` |
 
 几条语义：
 
@@ -304,33 +301,6 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 - **同一屏不重复**：`session attach` / `task context` 已经渲染了 `## Test cases` 小节，它们的 `Next:` 块就不再重复这条。
 - **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，DONE 闸门读都不读它。
 - 任务一旦有任意一条用例（或已 DONE），四处全部静默。
-
-## `lumo spot-check` — 抽检池（只读，LUM-1191）
-
-workspace 级、只读：与 web 的 run-reviews 页同一份数据（`GET /api/test-case-reviews`）。抽检池 = 报了 PASS、封顶后仍成立（有证据、环境对、没有未观察项）、还没人复核过的 run。
-
-```bash
-lumo spot-check
-lumo spot-check --json
-```
-
-```
-False-report rate: not enough reviews to estimate a rate yet: 2 of the 10 needed, 1 sent back so far.
-7 unreviewed passes in the pool · showing a random sample of 2
-
-LUM-42/TC3  login works    PRODUCTION  2026-09-23 16:00  by Alice Chen via session 86dce765  @abcdef1+dirty  #42
-LUM-7/TC1   logout clears  LOCAL       2026-09-22 09:02  runner not recorded                 -               -
-
-Hint: reviewing is human-only — open https://…/workspace/<slug>/run-reviews in the browser to look at the evidence and rule.
-```
-
-- 第一行是**已复核结果**：虚报率读数，永远带分子分母；已复核不足 10 条时只报计数、不给百分比（同 web）。分母按 run 算，同一条 run 改过主意只算最新那次。
-- 每行一条**待复核**的 run：`<task>/TC<n>`（可直接 `lumo task testcase show`）、用例标题、环境、记录时间、执行人（同 `testcase list` 口径：`via session` = agent 代跑；`runner not recorded` = 没记，不是「没人」）、commit、PR。表头只在 TTY 上打。
-- 样本是服务端**随机抽**的（最多 20 条），每次调用都会换一批——和 web 的「Draw a new sample」一样；`--json` 原样输出服务端 payload（`sample` / `poolSize` / `rate`）。
-- **没有 CLI 复核命令**：认可 / 打回是 human-only，只能在浏览器里做（服务端拒绝 bearer）。别替用户去点，也别把这个命令和 `pr scan --review` 混淆——后者是 PR 代码审查。
-- 抽查**不进 DONE 闸**；某条用例最新一次执行被打回时，`task status` 只出一条 advisory。
-
-**When to suggest**：用户问「抽检池里还有多少没看」「虚报率多少」「最近有哪些 PASS 等着复核」→ `lumo spot-check`；要复核就把 web 链接给用户。
 
 ## When to suggest
 

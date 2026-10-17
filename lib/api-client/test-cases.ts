@@ -27,19 +27,14 @@ export interface RunDisposition {
   channel: TestCaseDispositionChannel
 }
 
-/** LUM-819 返工：一条 run 的最新抽查复核（谁、何时、结论）。 */
-export interface RunReviewView {
-  accepted: boolean
-  note: string | null
-  reviewer: string
-  reviewedAt: string
-}
-
-/** 读端看到的一条 run —— Prisma 的行，外加它的裁定与最新抽查复核。 */
+/** 读端看到的一条 run —— Prisma 的行，外加它的裁定。 */
 export type TestCaseRunView = TestCaseRun & {
   disposition: RunDisposition | null
-  /** 可选：只有任务的用例列表带；单条详情等读端没有它。 */
-  review?: RunReviewView | null
+  /**
+   * LUM-1231：抽查功能已删除，恒为 null。键保留只为不打断依赖 `--json` 形状的
+   * 外部脚本；与 `TestCaseRunReview` 表一起在两步迁移里删。
+   */
+  review?: null
   /**
    * LUM-1008：执行人显示名。null = 这条 run 没记执行人；缺省 = 这个读端没带
    * （例如 recordRun 的回包）。

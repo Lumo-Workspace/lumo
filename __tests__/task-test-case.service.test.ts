@@ -40,10 +40,19 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     labelsByIds: jest.fn().mockResolvedValue(new Map()),
   },
 }))
-// LUM-819 返工：listForTask 把每条 run 的最新抽查复核带上。默认没人抽查过。
-jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
-  testCaseRunReviewRepository: { listForTask: jest.fn().mockResolvedValue([]) },
-}))
+// LUM-1231：抽查功能已删除，复核 repository 不复存在。这个 virtual 替身只用来
+// 证明读端不再碰它（run.review 恒为 null）。
+jest.mock(
+  // relative path: `@/` goes through moduleNameMapper, which rejects a
+  // virtual mock of a file that no longer exists.
+  '../lib/repositories/test-case-run-review.repository',
+  () => ({
+    testCaseRunReviewRepository: {
+      listForTask: jest.fn().mockResolvedValue([]),
+    },
+  }),
+  { virtual: true }
+)
 jest.mock('@/lib/db/transaction', () => ({
   runInTransaction: (fn: (tx: unknown) => unknown) => fn({}),
 }))
@@ -444,7 +453,7 @@ describe('listForTask', () => {
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
     expect(testCases[0]!.runs.map(r => r.id)).toEqual(['r2', 'r1'])
-    // nobody spot-checked these runs → an explicit null, never undefined
+    // LUM-1231: the key stays for the --json contract, always an explicit null
     expect(testCases[0]!.runs.map(r => r.review)).toEqual([null, null])
   })
 
@@ -496,7 +505,7 @@ describe('executor', () => {
 
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
-    // one executor lookup for the whole task (the reviewer lookup is separate)
+    // one executor lookup for the whole task
     const executorCalls = labelsByIds.mock.calls.filter(([ids]) =>
       (ids as string[]).includes('m-1')
     )
@@ -825,7 +834,7 @@ describe('read-side verdict (LUM-1185)', () => {
     ...over,
   })
   const reviewRepo = jest.requireMock(
-    '@/lib/repositories/test-case-run-review.repository'
+    '../lib/repositories/test-case-run-review.repository'
   ).testCaseRunReviewRepository.listForTask as jest.Mock
   afterEach(() => reviewRepo.mockResolvedValue([]))
 
@@ -905,7 +914,7 @@ describe('read-side verdict (LUM-1185)', () => {
     ).toEqual(['reached', 'failed', 'notReached'])
   })
 
-  it('getDetail carries the ceiling, step report and spot-check review', async () => {
+  it('getDetail carries the ceiling and step report; review is always null (LUM-1231)', async () => {
     repo.findById.mockResolvedValue({
       ...testCase,
       requiredEnvironment: 'PRODUCTION',
@@ -936,11 +945,8 @@ describe('read-side verdict (LUM-1185)', () => {
       'unrecorded',
       'unrecorded',
     ])
-    expect(runs[0]!.review).toEqual({
-      accepted: false,
-      note: 'screenshot is of the wrong page',
-      reviewer: 'm-9',
-      reviewedAt: '2026-10-07T00:00:00.000Z',
-    })
+    // a stored review row is no longer read: the field is null, not the review
+    expect(runs[0]!.review).toBeNull()
+    expect(reviewRepo).not.toHaveBeenCalled()
   })
 })
