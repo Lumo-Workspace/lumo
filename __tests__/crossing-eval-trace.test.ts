@@ -22,7 +22,7 @@ jest.mock('@/lib/db/prisma', () => ({
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { formatList, main } from '../scripts/crossing-eval'
+import { formatList, main, runCli } from '../scripts/crossing-eval'
 import { trace, traceSamples } from '../scripts/crossing-eval/datasets'
 import {
   convertTraceCall,
@@ -271,12 +271,25 @@ describe('trace adapter', () => {
 
   it('without a cache, the run exits non-zero naming --download and the HF access step', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'lum1234-trace-none-'))
-    await expect(trace.load({ ...load, data: dir })).rejects.toThrow(
-      `--dataset trace --download --data ${dir}`
-    )
-    await expect(trace.load({ ...load, data: dir })).rejects.toThrow(
-      TRACE_ACCESS_STEP
-    )
+    const errWrite = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    try {
+      const code = await runCli([
+        '--dataset',
+        'trace',
+        '--judge',
+        'rules',
+        '--data',
+        dir,
+      ])
+      expect(code).toBe(1)
+      const msg = errWrite.mock.calls.map(c => String(c[0])).join('')
+      expect(msg).toContain(`--dataset trace --download --data ${dir}`)
+      expect(msg).toContain(TRACE_ACCESS_STEP)
+    } finally {
+      errWrite.mockRestore()
+    }
   })
 
   it('runs end to end with the rule judge on the fixture', async () => {

@@ -70,7 +70,7 @@ async function fetchPage(url: string, token: string): Promise<RowsPage> {
       if ((err as { fatal?: boolean }).fatal) throw err
       lastErr = err
     }
-    await new Promise(r => setTimeout(r, 1000 * 2 ** attempt))
+    if (attempt < 4) await new Promise(r => setTimeout(r, 1000 * 2 ** attempt))
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }

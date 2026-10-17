@@ -1,7 +1,8 @@
 /**
  * LUM-1234 — TRACE rows → hook-shaped tool events.
  *
- * Row shape (confirmed on the first download, 2026-10-18):
+ * Row shape (confirmed on the first copy of the data we could read — a parquet
+ * copy converted with parquet_to_json.py, 2026-10-18):
  *   { trajectory_id: string,
  *     conversation:  string — JSON array of { role, content, tool_calls?, tool_results? },
  *     label:         string — '0' (benign) or a comma-separated list of hack-type
