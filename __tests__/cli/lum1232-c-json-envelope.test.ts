@@ -128,6 +128,22 @@ describe('json-output helpers', () => {
     ).toEqual({ id: 'x', nested: [{ keep: 1 }] })
   })
 
+  it('stripInternalFields keeps user data under opaque keys untouched', () => {
+    const content = { order: 1, workspaceId: 'mine', why: 'x' }
+    expect(
+      stripInternalFields({
+        workspaceId: 'w',
+        content,
+        payload: { order: 2 },
+        nested: { snapshot: [{ order: 3 }], order: 4 },
+      })
+    ).toEqual({
+      content,
+      payload: { order: 2 },
+      nested: { snapshot: [{ order: 3 }] },
+    })
+  })
+
   it('pickFields keeps the asked order and turns a missing field into null', () => {
     expect(pickFields({ a: 1, b: 2, c: 3 }, ['c', 'a', 'z'])).toEqual({
       c: 3,

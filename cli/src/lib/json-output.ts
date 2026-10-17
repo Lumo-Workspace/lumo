@@ -97,8 +97,25 @@ export const INTERNAL_FIELDS: readonly string[] = [
 ]
 
 /**
- * A deep copy of `value` without the INTERNAL_FIELDS keys, at any depth.
- * Arrays and plain objects are walked; everything else is returned as is.
+ * Keys whose value is user-authored or opaque data (a memory's content, an
+ * activity payload, a Slack snapshot, a web page body …). It is copied as
+ * is: a user's own `order` or `workspaceId` key inside it is data, not an
+ * internal column.
+ */
+export const OPAQUE_FIELDS: readonly string[] = [
+  'content',
+  'payload',
+  'metadata',
+  'data',
+  'snapshot',
+  'body',
+]
+
+/**
+ * A deep copy of `value` without the INTERNAL_FIELDS keys, at any depth of
+ * the resource structure. Arrays and plain objects are walked, except the
+ * values under OPAQUE_FIELDS keys, which are kept untouched; everything else
+ * is returned as is.
  */
 export function stripInternalFields<T>(value: T): T {
   if (Array.isArray(value)) {
@@ -108,7 +125,7 @@ export function stripInternalFields<T>(value: T): T {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (INTERNAL_FIELDS.includes(k)) continue
-      out[k] = stripInternalFields(v)
+      out[k] = OPAQUE_FIELDS.includes(k) ? v : stripInternalFields(v)
     }
     return out as T
   }

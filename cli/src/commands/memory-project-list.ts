@@ -79,6 +79,8 @@ export async function memoryProjectList(
   const total = rows.length
   if (limit !== undefined) rows = rows.slice(0, limit)
   if (options.json) {
+    // No cursor exists for this list: `nextCursor` stays null and a `total`
+    // above the row count means -n cut it (documented in memory.md).
     emitJson(listEnvelope('memories', stripInternalFields(rows), { total }))
     return
   }
