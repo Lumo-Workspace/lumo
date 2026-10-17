@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface BindFormatArgs {
   docId: string
@@ -12,9 +13,9 @@ export interface BindFormatArgs {
 
 export function formatBindOutput(args: BindFormatArgs): string {
   if (args.alreadyBound)
-    return `Already bound ${args.docId} ↔ ${args.identifier}`
+    return `Already bound ${docHandle(args.docId)} ↔ ${args.identifier}`
   const upgrade = args.upgradedFromContent ? ' (upgraded from content)' : ''
-  return `Bound ${args.docId} ↔ ${args.identifier}${upgrade}`
+  return `Bound ${docHandle(args.docId)} ↔ ${args.identifier}${upgrade}`
 }
 
 export async function docBind(

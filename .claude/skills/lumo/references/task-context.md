@@ -38,15 +38,15 @@ The command prints a markdown document to stdout with these sections, in order:
 
 Context injection is split into tiers: `lumo task context <LUM-N>` emits a **cheap inline card** per source instead of dumping full bodies. Slack/docs/artifacts/comments get an **LLM summary**; web/Figma/PR get **metadata only**. Each card ends with the **retrieval command** for the heavy content.
 
-Run the matching command below when the card isn't enough. Pass the same `LUM-N` plus the id the card shows for that source:
+Run the matching command below when the card isn't enough. Pass the same `LUM-N` plus the ref the card shows for that source — the 8-char short ref (LUM-1230; a unique id prefix of 6+ chars or the full id also work, an ambiguous one errors with the candidates):
 
-| source         | retrieval command                       | id from card |
-| -------------- | --------------------------------------- | ------------ |
-| Slack thread   | `lumo task slack show <id> <contextId>` | `contextId`  |
-| Web link body  | `lumo task web show <id> <linkId>`      | `linkId`     |
-| Figma metadata | `lumo task figma context <id> <linkId>` | `linkId`     |
-| Comment thread | `lumo task comments list <id>`          | —            |
-| PR detail      | `lumo task pr show <id> <number>`       | `number`     |
+| source         | retrieval command                    | ref from card |
+| -------------- | ------------------------------------ | ------------- |
+| Slack thread   | `lumo task slack show <id> <ref>`    | short ref     |
+| Web link body  | `lumo task web show <id> <ref>`      | short ref     |
+| Figma metadata | `lumo task figma context <id> <ref>` | short ref     |
+| Comment thread | `lumo task comments list <id>`       | —             |
+| PR detail      | `lumo task pr show <id> <number>`    | `number`      |
 
 All five are **read-only** (no live Slack/GitHub/Figma calls except the web body fetch). Web/Figma/PR are v1 metadata-degraded: they print a `note:` saying live content needs an external integration.
 
@@ -54,28 +54,28 @@ All five are **read-only** (no live Slack/GitHub/Figma calls except the web body
 
 **Output budget:** the whole `task context` handoff is capped to the output-token budget (25,000 tokens). On overflow, output is truncated and ends in a pointer to the precise sub-commands (`lumo task status` / `task comments list --full` / `task lineage` / `doc show`) to pull any dropped section just-in-time.
 
-### `lumo task slack show <identifier> <contextId>` — full Slack thread snapshot
+### `lumo task slack show <identifier> <ref>` — full Slack thread snapshot
 
 Prints the **stored** snapshot (no live Slack call) inside an `<untrusted-linked-context>` block, one line per message as `author: text`. Author falls back to `@<userId>` when the display name is missing. Empty snapshot prints `(no messages in stored snapshot)` (no block). Registry secrets in message bodies are redacted server-side before printing (`AKIA…(len 20)` form, LUM-784); when any were, the first line inside the block is `⚠ N suspected credential(s) were redacted before injection …` — the tokens are redactions, not the source text.
 
 ```bash
-lumo task slack show LUM-42 ctx_abc123
+lumo task slack show LUM-42 pskvl3sh
 ```
 
-### `lumo task web show <identifier> <linkId>` — fetched web link body
+### `lumo task web show <identifier> <ref>` — fetched web link body
 
 Fetches the page body on demand behind the SSRF guard (cached after first read), printed as plain text inside an `<untrusted-linked-context>` block. Empty body prints `(empty body)` (no block). Fetch failures (blocked host, timeout) print the server's error message. Registry secrets in the body are redacted server-side before printing, with the same `⚠ N suspected credential(s) were redacted …` first line inside the block as `slack show` when any were (LUM-784).
 
 ```bash
-lumo task web show LUM-42 wl_abc123
+lumo task web show LUM-42 pskvl3sh
 ```
 
-### `lumo task figma context <identifier> <linkId>` — Figma link metadata
+### `lumo task figma context <identifier> <ref>` — Figma link metadata
 
 **v1 metadata fallback.** Prints cached design metadata as `file:` / `frame:` / `url:` / `synced:` lines (plus `syncError:` if the last sync failed). Live design context (layers, variables, code connect) requires the Figma MCP server, so the command ends with a `note:` saying so.
 
 ```bash
-lumo task figma context LUM-42 cfl_abc123
+lumo task figma context LUM-42 pskvl3sh
 ```
 
 ### `lumo task comments list <identifier>` — comment thread

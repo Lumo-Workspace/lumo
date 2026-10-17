@@ -376,23 +376,25 @@ finding is cleared for DONE; the web delivery panel stays a second surface (and 
 ruling). Resolving the GitHub review thread does **not** clear the gate.
 
 ```bash
-lumo finding disposition cmabc123 --false-positive --note "test fixture, not a real key"
-lumo finding disposition cmabc123 cmdef456 --accepted-risk --note "internal-only endpoint"
+lumo finding disposition pskvl3sh --false-positive --note "test fixture, not a real key"
+lumo finding disposition pskvl3sh 6z9j2q6d --accepted-risk --note "internal-only endpoint"
 ```
 
 A gated mutation on the [confirmation protocol](confirmation.md) — no read receipts, no extra steps:
 
 - **Without `--confirm`** it reads the findings from the server and prints ONE `confirmation_required`
-  envelope (exit 4, nothing written): one line per finding — id, `[SEVERITY]`, title, rule and location,
+  envelope (exit 4, nothing written): one line per finding — short ref, `[SEVERITY]`, title, rule and location,
   PR, `blocks DONE` / `advisory`, `OPEN → <ruling>`, the note — then the ⚠ DONE consequence. Relay every
   line to the user.
 - **Only after the user approves in chat**, run the envelope's `confirmCommand` (your command plus
   `--confirm`). Each finding is reported `✓` / `✗` (exit 1 if any failed), then the status digest.
   **Never add `--confirm` yourself.**
-- Ids come from `lumo task status` (`Id:` under each `[SECURITY]` / `[BUG]` item) or `DONE_BLOCKED`
-  `blockers[].findingId`. Several ids = one envelope; one ruling per call. An id not on the task fails
-  closed (exit 1, nothing written); a finding already carrying the ruling is skipped — its
-  `Finding <id> is already <RULING> — skipped.` note is a line in the envelope's `changes` (stdout stays one
+- Refs come from `lumo task status` (`Ref:` under each `[SECURITY]` / `[BUG]` item — the 8-char short
+  ref) or `DONE_BLOCKED` (its remediation names the short refs; `blockers[].findingId` is the full id,
+  which also works, as does a unique id prefix of 6+ chars). Several refs = one envelope; one ruling per
+  call. A ref not on the task, too short or matching several findings fails closed (exit 1, nothing
+  written, candidates listed); a finding already carrying the ruling is skipped — its
+  `Finding <ref> is already <RULING> — skipped.` note is a line in the envelope's `changes` (stdout stays one
   JSON document off a TTY), and is printed as plain text when every id was skipped (exit 0, no envelope).
 - `--accepted-risk` means the risk is real and knowingly carried — ask the user for the why and pass it
   as `--note`.

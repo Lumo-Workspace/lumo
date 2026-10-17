@@ -373,6 +373,7 @@ function scheduleLazyRefresh(
 /** A mentioned document as shaped by miscRepository.findDocumentsForContext. */
 interface ContextDocument {
   id: string
+  slug?: string | null
   title: string
   updatedAt: Date
   summary: string | null
@@ -1273,7 +1274,12 @@ export const taskContextService = {
       _actorMemberId
     )) as ContextDocument[]
     const docSection = renderDocumentSection(
-      docs.map(d => ({ id: d.id, title: d.title, summary: d.summary }))
+      docs.map(d => ({
+        id: d.id,
+        slug: d.slug ?? null,
+        title: d.title,
+        summary: d.summary,
+      }))
     )
     // Serve the cached summaries now; refresh stale ones in the background.
     scheduleStaleDocumentSummaries(docs, workspaceId)

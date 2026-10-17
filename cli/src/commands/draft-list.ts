@@ -23,8 +23,9 @@ export function draftTitle(d: DraftRow): string {
 }
 
 /**
- * Drafts as an `ID  TYPE  UPDATED  TITLE` table (LUM-1089 shape: header on a
- * TTY only), newest first as the server returns them.
+ * Drafts as a `TYPE  UPDATED  TITLE` table — LUM-1230: no command takes a
+ * draft id, so the cuid column is gone (`--json` keeps it). LUM-1089 shape: header on a
+ * TTY only; newest first as the server returns them.
  */
 export function formatDraftList(
   drafts: DraftRow[],
@@ -32,8 +33,8 @@ export function formatDraftList(
 ): string {
   if (drafts.length === 0) return emptyState('drafts')
   return renderListTable(
-    drafts.map(d => [d.id, d.type, fmtTimestamp(d.updatedAt), draftTitle(d)]),
-    { header: ['ID', 'TYPE', 'UPDATED', 'TITLE'], flex: 3, ...opts }
+    drafts.map(d => [d.type, fmtTimestamp(d.updatedAt), draftTitle(d)]),
+    { header: ['TYPE', 'UPDATED', 'TITLE'], flex: 2, ...opts }
   )
 }
 

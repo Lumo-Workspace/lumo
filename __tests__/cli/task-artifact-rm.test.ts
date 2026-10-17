@@ -29,7 +29,7 @@ describe('taskArtifactRm', () => {
     expect(code).toBe(1)
   })
 
-  it('errors when <artifact-id> is missing', async () => {
+  it('errors when <artifact> is missing', async () => {
     const code = await taskArtifactRm('LUM-9', undefined, { yes: true })
     expect(code).toBe(1)
   })

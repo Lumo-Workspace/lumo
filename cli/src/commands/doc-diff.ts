@@ -6,6 +6,7 @@ import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { checkArtifactFilePath } from '../lib/path-guard'
 import { formatUnifiedDiff } from '../lib/unified-diff'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface DocDiffOptions {
   file?: string
@@ -70,7 +71,11 @@ export async function docDiff(
     return 1
   }
   const data = (await res.json()) as {
-    document?: { id: string; sourceMarkdown?: string | null }
+    document?: {
+      id: string
+      slug?: string | null
+      sourceMarkdown?: string | null
+    }
   }
   const d = data.document
   if (!d) {
@@ -79,16 +84,16 @@ export async function docDiff(
   }
   if (typeof d.sourceMarkdown !== 'string') {
     console.error(
-      `Error: ${d.id} has no stored markdown source to diff against (last edit ` +
+      `Error: ${docHandle(d.id, d.slug)} has no stored markdown source to diff against (last edit ` +
         `was HTML-direct or predates markdown source storage). Upload a markdown ` +
-        `base once (\`lumo doc update ${d.id} --file <base.md>\`) and diff from then on.`
+        `base once (\`lumo doc update ${docHandle(d.id, d.slug)} --file <base.md>\`) and diff from then on.`
     )
     return 1
   }
 
   if (d.sourceMarkdown === localText) {
     console.log(
-      `Clean: remote markdown source of ${d.id} matches ${opts.file} (${Buffer.byteLength(localText, 'utf8')} bytes)`
+      `Clean: remote markdown source of ${docHandle(d.id, d.slug)} matches ${opts.file} (${Buffer.byteLength(localText, 'utf8')} bytes)`
     )
     return
   }
@@ -96,7 +101,7 @@ export async function docDiff(
   const diff = formatUnifiedDiff(
     d.sourceMarkdown,
     localText,
-    `remote/${d.id} (sourceMarkdown)`,
+    `remote/${docHandle(d.id, d.slug)} (sourceMarkdown)`,
     `local/${opts.file}`
   )
   // Byte-level divergence with identical line sequences (e.g. trailing
@@ -104,7 +109,7 @@ export async function docDiff(
   console.log(
     diff !== ''
       ? sanitizeField(diff)
-      : `Divergent: byte-level difference only (e.g. trailing newline) between remote ${d.id} and ${opts.file}`
+      : `Divergent: byte-level difference only (e.g. trailing newline) between remote ${docHandle(d.id, d.slug)} and ${opts.file}`
   )
   return 1
 }

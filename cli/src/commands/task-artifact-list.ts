@@ -3,6 +3,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
@@ -76,12 +77,13 @@ export function formatArtifactList(
 ): string {
   return renderListTable(
     artifacts.map(a => [
-      a.id,
+      // LUM-1230: the 8-char short ref show/update/rm take (the API keeps full ids).
+      shortRef(a.id),
       sanitizeField(a.kind),
       AGENT_LABELS[a.agent] ?? sanitizeField(a.agent),
       sanitizeField(a.source),
       sanitizeField(a.title),
     ]),
-    { header: ['ID', 'KIND', 'AGENT', 'SOURCE', 'TITLE'], flex: 4, ...opts }
+    { header: ['REF', 'KIND', 'AGENT', 'SOURCE', 'TITLE'], flex: 4, ...opts }
   )
 }

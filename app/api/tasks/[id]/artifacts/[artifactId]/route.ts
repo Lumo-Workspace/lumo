@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTaskResourceRef } from '@/lib/services/task-resource-ref.service'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskArtifactService } from '@/lib/services/task-artifact.service'
@@ -51,10 +52,16 @@ export async function GET(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, artifactId } = await params
+    const { id: rawId, artifactId: artifactIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const artifactId = await resolveTaskResourceRef(
+      'artifact',
+      task.id,
+      artifactIdRef
+    )
 
     const artifact = await taskArtifactService.getById(task.id, artifactId)
     return NextResponse.json({ artifact })
@@ -68,10 +75,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, artifactId } = await params
+    const { id: rawId, artifactId: artifactIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const artifactId = await resolveTaskResourceRef(
+      'artifact',
+      task.id,
+      artifactIdRef
+    )
 
     const body = await request.json().catch(() => null)
     const parsed = updateArtifactBodySchema.safeParse(body)
@@ -93,10 +106,16 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, artifactId } = await params
+    const { id: rawId, artifactId: artifactIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const artifactId = await resolveTaskResourceRef(
+      'artifact',
+      task.id,
+      artifactIdRef
+    )
 
     await taskArtifactService.removeArtifact(task.id, artifactId)
     return new NextResponse(null, { status: 204 })

@@ -38,7 +38,7 @@ describe('taskArtifactShow', () => {
     expect(code).toBe(1)
   })
 
-  it('errors when <artifact-id> is missing', async () => {
+  it('errors when <artifact> is missing', async () => {
     const code = await taskArtifactShow('LUM-9', undefined)
     expect(code).toBe(1)
   })
@@ -54,7 +54,7 @@ describe('taskArtifactShow', () => {
     expect(String(url)).toBe('https://api.test/api/tasks/LUM-9/artifacts/a1')
     expect((init as RequestInit | undefined)?.method).toBeUndefined()
     const output = writeSpy.mock.calls.map(c => c[0]).join('')
-    expect(output).toContain('id:     a1')
+    expect(output).toContain('ref:    a1')
     expect(output).toContain('kind:   spec')
     expect(output).toContain('title:  Spec')
     expect(output).toContain('## Requirements')

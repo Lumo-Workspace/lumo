@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTaskResourceRef } from '@/lib/services/task-resource-ref.service'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
@@ -57,10 +58,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, linkId } = await params
+    const { id: rawId, linkId: linkIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const linkId = await resolveTaskResourceRef('webLink', task.id, linkIdRef)
 
     const body = await taskWebLinkService.fetchBody(
       identity.workspaceId,
@@ -69,7 +72,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     // LUM-784: the body is printed verbatim into the agent's context by
     // `web show` — redact every registry secret on the way out; the count
     // lets the CLI print the notice.
-    return NextResponse.json(redactWebBodyForInjection(body))
+    // LUM-1230: `id` (additive) is the resolved link id, so a CLI that was
+    // given a short ref can stamp the lineage pull with the real fragment id.
+    return NextResponse.json({ id: linkId, ...redactWebBodyForInjection(body) })
   } catch (err) {
     return errorResponse(err, 'GET /api/tasks/[id]/web-links/[linkId]/body')
   }

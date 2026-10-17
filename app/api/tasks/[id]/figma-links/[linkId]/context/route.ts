@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTaskResourceRef } from '@/lib/services/task-resource-ref.service'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskFigmaLinkRepository } from '@/lib/repositories/task-figma-link.repository'
@@ -59,10 +60,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, linkId } = await params
+    const { id: rawId, linkId: linkIdRef } = await params
     const task = await resolveTask(rawId, identity.workspaceId)
     if (!task)
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    // LUM-1230: short ref / unique prefix / full id, within this task.
+    const linkId = await resolveTaskResourceRef('figmaLink', task.id, linkIdRef)
 
     const link = await taskFigmaLinkRepository.findById(linkId)
     if (!link || link.taskId !== task.id)

@@ -135,7 +135,7 @@ A gated mutation on the [confirmation protocol](confirmation.md), as a **three-s
 
 **Batch form (LUM-845):** `lumo crossing disposition <id1> <id2> <id3> --false-positive --note "…"` — same handshake, ONE envelope per step for the whole batch (a `── [i/N] crossing <id> ──` block per crossing, nothing trimmed), one receipt per crossing carried as `--receipt <ref>=<token>,…`. Mixed rulings = one batch per ruling. If the user disputes one, drop its id from the `confirmCommand` (it stays OPEN); adding an id after step 1 is refused. Step 3 reports every crossing `✓`/`✗`, exit 1 if any failed.
 
-A blocking **security finding** has its own terminal path: `lumo finding disposition <id...> --false-positive | --accepted-risk [--note "…"]` — a plain exit-4 envelope (no receipts); relay it, add `--confirm` only after the user approves. Ids are on each `[SECURITY]` item's `Id:` row. See [pr-scan.md](pr-scan.md#finding-disposition).
+A blocking **security finding** has its own terminal path: `lumo finding disposition <id...> --false-positive | --accepted-risk [--note "…"]` — a plain exit-4 envelope (no receipts); relay it, add `--confirm` only after the user approves. Refs (8-char short refs; the full id also works) are on each `[SECURITY]` item's `Ref:` row. See [pr-scan.md](pr-scan.md#finding-disposition).
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 

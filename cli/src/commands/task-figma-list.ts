@@ -1,6 +1,7 @@
 import { emptyState, fmtDay } from '../lib/format'
 import { listFigmaLinks, type FigmaLinkJson } from '../lib/figma-api'
 import { sanitizeField } from '../lib/sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 
 const STALE_MS = 25 * 24 * 3600 * 1000
@@ -29,14 +30,15 @@ export function formatFigmaList(
       link.thumbnailFetchedAt === null ||
       now - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
     return [
-      link.id,
+      // LUM-1230: the 8-char short ref `figma context` / `figma rm` take.
+      shortRef(link.id),
       sanitizeField(link.fileName),
       sanitizeField(link.frameName ?? '(file-level)'),
       fmtDay(link.lastSyncedAt),
       stale && !!link.thumbnailUrl ? '⚠ thumbnail stale' : '',
     ]
   })
-  const header = ['ID', 'FILE', 'FRAME', 'SYNCED']
+  const header = ['REF', 'FILE', 'FRAME', 'SYNCED']
   if (rows.some(r => r[4])) header.push('NOTE')
   return renderListTable(rows, { header, flex: 2, ...opts })
 }

@@ -1,3 +1,4 @@
+import { shortRef } from '@/shared/src/short-ref'
 import { agentLabel } from '@/lib/agents/agent-label'
 
 export interface ArtifactCard {
@@ -48,7 +49,9 @@ export function renderArtifactSection(
       if (preview) blocks.push(preview)
     }
 
-    blocks.push(`  ↳ full text: lumo task artifact show ${identifier} ${a.id}`)
+    blocks.push(
+      `  ↳ full text: lumo task artifact show ${identifier} ${shortRef(a.id)}`
+    )
     blocks.push('')
   }
   return blocks.join('\n').trimEnd()

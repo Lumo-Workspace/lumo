@@ -1166,8 +1166,10 @@ taskFigma
   )
 
 taskFigma
-  .command('rm <task> <link-id-or-url>')
-  .description('Remove a Figma link from a task (idempotent)')
+  .command('rm <task> <link>')
+  .description(
+    'Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing'
+  )
   .action(
     wrap((taskId: unknown, linkIdOrUrl: unknown) =>
       taskFigmaRm({
@@ -1193,20 +1195,26 @@ taskFigma
 // full content on demand.
 const taskSlack = task.command('slack').description('Inspect Slack context')
 taskSlack
-  .command('show <identifier> <contextId>')
-  .description('Show the full stored Slack thread snapshot')
+  .command('show <identifier> <ref>')
+  .description(
+    'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+  )
   .action(wrap((id, ctx) => taskSlackShow(id as string, ctx as string)))
 
 const taskWeb = task.command('web').description('Inspect web link content')
 taskWeb
-  .command('show <identifier> <linkId>')
-  .description('Show the fetched web link body as plain text')
+  .command('show <identifier> <ref>')
+  .description(
+    'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+  )
   .action(wrap((id, link) => taskWebShow(id as string, link as string)))
 
 // taskFigma already exists above → attach the context leaf to it.
 taskFigma
-  .command('context <identifier> <linkId>')
-  .description('Show the cached Figma design context (metadata)')
+  .command('context <identifier> <ref>')
+  .description(
+    'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+  )
   .action(wrap((id, link) => taskFigmaContext(id as string, link as string)))
 
 // Plural `comments` parent: `task comment <id> <body>` already exists for
@@ -1470,9 +1478,9 @@ taskArtifact
   )
 
 taskArtifact
-  .command('update <task> <artifact-id>')
+  .command('update <task> <artifact>')
   .description(
-    'Update an artifact’s kind / title / source (not content). Provide at least one flag.'
+    'Update an artifact’s kind / title / source (not content). Provide at least one flag. <artifact>: the 8-char short ref in `artifact list` column 1, a unique id prefix or the full id.'
   )
   .option('--kind <kind>', 'New artifact kind (opaque)')
   .option('--title <title>', 'New artifact title')
@@ -1500,9 +1508,9 @@ taskArtifact
   .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
 
 taskArtifact
-  .command('show <task> <artifact-id>')
+  .command('show <task> <artifact>')
   .description(
-    'Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1.'
+    'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task context`), a unique id prefix or the full id.'
   )
   .action(
     wrap((taskId: unknown, artifactId: unknown) =>
@@ -1511,9 +1519,9 @@ taskArtifact
   )
 
 taskArtifact
-  .command('rm <task> <artifact-id>')
+  .command('rm <task> <artifact>')
   .description(
-    'Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
+    'Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
   )
   .option(
     '--confirm',
@@ -2898,7 +2906,7 @@ doc
   )
   .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
-  .option('--parent <doc>', 'File under this parent doc (cuid or title)')
+  .option('--parent <doc>', 'File under this parent doc (slug, title or id)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .action(
@@ -2927,7 +2935,7 @@ doc
 doc
   .command('update <doc>')
   .description(
-    'Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update an existing document. <doc> accepts the slug (as in the web URL), a case-insensitive title (ambiguous titles fail with candidates) or the id. Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
   )
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
@@ -2977,7 +2985,7 @@ doc
 doc
   .command('show <doc>')
   .description(
-    'Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr).'
+    'Show document header and body (doc = slug as in the web URL, title or id). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr).'
   )
   .option(
     '--raw',
@@ -3113,7 +3121,7 @@ doc
   .description(
     'Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only.'
   )
-  .option('--parent <doc>', 'New parent doc (cuid or title)')
+  .option('--parent <doc>', 'New parent doc (slug, title or id)')
   .option('--root', 'Move to top level (no parent)')
   .action(
     wrap((reference, opts) =>

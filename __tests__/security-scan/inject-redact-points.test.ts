@@ -21,6 +21,13 @@
  */
 // LUM-1064: plugin cases live in __tests__/ee/security/security-scan/inject-redact-points.test.ts.
 // LUM-1064: core test, run without the security plugin (the OSS build).
+// LUM-1230: ref resolution is covered in task-resource-ref tests; here the
+// routes' own behaviour is under test, so ids pass through unchanged.
+jest.mock('@/lib/services/task-resource-ref.service', () => ({
+  resolveTaskResourceRef: jest.fn(
+    async (_kind: string, _taskId: string, ref: string) => ref
+  ),
+}))
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
@@ -444,6 +451,7 @@ describe('⑩ tier-2 retrieval routes — Slack snapshot + web body', () => {
       })
     ).json()
     expect(clean).toEqual({
+      id: 'l1',
       body: '# Clean page\nnothing here',
       redactedSecrets: 0,
     })

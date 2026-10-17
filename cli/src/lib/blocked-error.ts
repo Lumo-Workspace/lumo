@@ -33,6 +33,7 @@ import {
   testCasesUrl,
 } from './open-crossings'
 import { sanitizeField } from './sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 
 export const EXIT_BLOCKED = 5
 
@@ -267,7 +268,7 @@ export function buildRemediation(
   if (kinds.has('SECURITY_FINDING')) {
     const ids = blockers
       .filter(b => b.kind === 'SECURITY_FINDING')
-      .map(b => (b as { findingId: string }).findingId)
+      .map(b => shortRef((b as { findingId: string }).findingId))
     lines.push(
       `SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or relay the finding to the user and, once they rule, record it with \`lumo finding disposition ${ids.join(' ')} --false-positive\` or \`--accepted-risk\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
     )
@@ -333,7 +334,7 @@ function blockerLine(b: DoneBlocker): string {
     case 'BOUNDARY_CROSSING':
       return `[${b.severity}] ${b.category} ${b.ref}: ${b.detail}`
     case 'SECURITY_FINDING':
-      return `[${b.severity}] ${b.ruleId} ${b.findingId} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
+      return `[${b.severity}] ${b.ruleId} ${shortRef(b.findingId)} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
     case 'TEST_CASE_DEFECT':
       return `[TEST CASE] ${b.ref} ${b.title} — implementation defect, with evidence (blocks DONE until the user rules on it)`
   }

@@ -3,6 +3,8 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatFigmaContext } from '../lib/tier2-render'
 import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { sanitizeField } from '../lib/sanitize'
+import { refLookupError } from '../lib/ref-error'
 
 interface FigmaMetadata {
   id: string
@@ -24,7 +26,7 @@ interface FigmaContextResponse {
 }
 
 /**
- * `lumo task figma context <LUM-N> <link-id>`
+ * `lumo task figma context <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline Figma card. Reads the cached design
  * metadata (file/frame name, url, thumbnail, last sync) from
@@ -37,7 +39,7 @@ export async function taskFigmaContext(
   linkId: string | undefined
 ): Promise<number | void> {
   if (!identifier || !linkId) {
-    console.error('Error: usage: lumo task figma context <LUM-42> <link-id>')
+    console.error('Error: usage: lumo task figma context <LUM-42> <ref>')
     return 1
   }
 
@@ -66,6 +68,17 @@ export async function taskFigmaContext(
     console.error(errAuth())
     return 1
   }
+  // LUM-1230: an ambiguous (409) or too-short (400) short ref — the server
+  // message lists the candidates / the minimum length.
+  if (res.status === 409 || res.status === 400) {
+    console.error(
+      await refLookupError(
+        res,
+        `could not resolve Figma link "${sanitizeField(linkId)}"`
+      )
+    )
+    return 1
+  }
   if (res.status === 404) {
     console.error(
       `Error: task ${identifier} or figma link ${linkId} not found in workspace ${creds.workspaceSlug}`
@@ -81,7 +94,11 @@ export async function taskFigmaContext(
   // LUM-998: file / frame name and sync error are guarded inline.
   console.log(formatFigmaContext(metadata, note))
 
-  // LUM-500: stamp the disclosure funnel. The linkId arg == lineage FIGMA
-  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
-  await reportPull({ fragmentType: 'FIGMA', fragmentId: linkId })
+  // LUM-500: stamp the disclosure funnel with the lineage FIGMA fragmentId —
+  // the resolved id the server echoes (the arg may be a short ref, LUM-1230).
+  // Fire-and-forget — never blocks output, swallows failures.
+  await reportPull({
+    fragmentType: 'FIGMA',
+    fragmentId: metadata?.id ?? linkId,
+  })
 }

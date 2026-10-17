@@ -39,9 +39,9 @@ describe('buildCreateSprintPayload', () => {
 })
 
 describe('formatCreatedSprintLine', () => {
-  it('renders #number + name + id', () => {
+  it('renders #number + name, no uuid (LUM-1230)', () => {
     expect(
       formatCreatedSprintLine({ id: 'sp-3', number: 3, name: 'Sprint 3' })
-    ).toBe('Created sprint #3 "Sprint 3"  sp-3')
+    ).toBe('Created sprint #3 "Sprint 3"')
   })
 })

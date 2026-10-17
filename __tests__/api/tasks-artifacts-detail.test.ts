@@ -1,4 +1,11 @@
 /** @jest-environment node */
+// LUM-1230: ref resolution is covered in task-resource-ref tests; here the
+// routes' own behaviour is under test, so ids pass through unchanged.
+jest.mock('@/lib/services/task-resource-ref.service', () => ({
+  resolveTaskResourceRef: jest.fn(
+    async (_kind: string, _taskId: string, ref: string) => ref
+  ),
+}))
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/repositories', () => ({
   taskRepository: {

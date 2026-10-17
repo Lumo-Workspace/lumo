@@ -1,3 +1,4 @@
+import { shortRef } from '@/shared/src/short-ref'
 import type { TaskFigmaLink } from '@prisma/client'
 
 function figmaTitle(link: TaskFigmaLink): string {
@@ -25,7 +26,7 @@ export function figmaCard(link: TaskFigmaLink, identifier: string): string {
   }
   lines.push(`  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`)
   lines.push(
-    `  ↳ design context: lumo task figma context ${identifier} ${link.id}`
+    `  ↳ design context: lumo task figma context ${identifier} ${shortRef(link.id)}`
   )
   return lines.join('\n')
 }
@@ -49,7 +50,7 @@ function truncateDescriptor(text: string, max = 70): string {
  * verbatim.
  */
 export function figmaManifest(link: TaskFigmaLink, identifier: string): string {
-  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${identifier} ${link.id}`
+  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${identifier} ${shortRef(link.id)}`
 }
 
 /**

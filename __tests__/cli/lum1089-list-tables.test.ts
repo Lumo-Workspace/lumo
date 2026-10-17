@@ -287,7 +287,7 @@ describe('doc / artifact / figma lists', () => {
     expect(colOf(pipe[0] ?? '', '设计文档')).toBe(colOf(pipe[1] ?? '', 'Child'))
     expect(pipe[1]).toContain('PERSONAL')
     const tty = formatDocListRows(docs, TTY)
-    expect(tty[0]?.split(/\s+/)).toEqual(['ID', 'SCOPE', 'PROJECT', 'TITLE'])
+    expect(tty[0]?.split(/\s+/)).toEqual(['REF', 'SCOPE', 'PROJECT', 'TITLE'])
   })
 
   it('doc list --tree indents inside the title column', () => {
@@ -312,7 +312,7 @@ describe('doc / artifact / figma lists', () => {
     expect(formatArtifactList(rows, PIPE)).toContain(LONG_TITLE)
     const tty = formatArtifactList(rows, TTY).split('\n')
     expect(tty[0]?.split(/\s+/)).toEqual([
-      'ID',
+      'REF',
       'KIND',
       'AGENT',
       'SOURCE',
@@ -340,7 +340,7 @@ describe('doc / artifact / figma lists', () => {
       colOf(fresh[1] ?? '', '(file-level)')
     )
     expect(formatFigmaList([base], now, TTY).split('\n')[0]).toBe(
-      'ID     FILE                                          FRAME    SYNCED'
+      'REF    FILE                                          FRAME    SYNCED'
     )
     const stale = { ...base, thumbnailFetchedAt: '2026-05-01T00:00:00Z' }
     const out = formatFigmaList([stale], now, TTY).split('\n')

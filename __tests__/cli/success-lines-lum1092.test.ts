@@ -67,14 +67,16 @@ describe('agent-parsed first lines are byte-identical (regression)', () => {
 
 describe('success lines share one shape', () => {
   it('tag create: id after two spaces, no parentheses', () => {
+    // LUM-1230: tags are referenced by name; no cuid is printed.
     expect(formatCreatedTagLine({ id: 'tag_1', name: 'ui' })).toBe(
-      'Created tag "ui"  tag_1'
+      'Created tag "ui"'
     )
   })
 
   it('project create: id after two spaces, no parentheses', () => {
+    // LUM-1230: the slug `--project` takes, not the cuid.
     expect(formatCreatedProjectLine({ id: 'p_1', name: 'Core' })).toBe(
-      'Created project "Core"  p_1'
+      'Created project "Core"  core'
     )
   })
 
@@ -89,7 +91,7 @@ describe('success lines share one shape', () => {
     ).toBe('Created milestone "Q3 Launch"  q3-launch')
     expect(
       formatCreatedSprintLine({ id: 'sp-3', number: 3, name: 'Sprint 3' })
-    ).toBe('Created sprint #3 "Sprint 3"  sp-3')
+    ).toBe('Created sprint #3 "Sprint 3"')
   })
 
   const edge: DepEdge = {

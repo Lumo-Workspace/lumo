@@ -8,6 +8,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { emitConfirmation, type ConfirmFlags } from '../lib/confirmation'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface DocRebuildSourceOptions extends ConfirmFlags {
   allowShrink?: boolean
@@ -88,7 +89,7 @@ export async function docRebuildSource(
         command: 'doc rebuild-source',
         changes: [
           sanitizeField(message),
-          `Will replace the existing (byte-faithful) markdown source of ${id} with a freshly serialized one — inspect it first with \`lumo doc show ${reference} --raw\``,
+          `Will replace the existing (byte-faithful) markdown source of ${docHandle(id)} with a freshly serialized one — inspect it first with \`lumo doc show ${reference} --raw\``,
         ],
         extraFlags: ['--force'],
       })
@@ -114,6 +115,7 @@ export async function docRebuildSource(
 
   const { document } = (await res.json()) as {
     document: {
+      slug?: string | null
       id: string
       title: string
       contentRevision?: number
@@ -126,7 +128,7 @@ export async function docRebuildSource(
       ? ` (${document.sourceBytes} bytes)`
       : ''
   console.log(
-    `Rebuilt markdown source for ${document.id} "${escaped}"${bytes}. ` +
-      `\`lumo doc show ${document.id} --raw\` now works.`
+    `Rebuilt markdown source for ${docHandle(document.id, document.slug)} "${escaped}"${bytes}. ` +
+      `\`lumo doc show ${docHandle(document.id, document.slug)} --raw\` now works.`
   )
 }

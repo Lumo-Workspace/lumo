@@ -1,7 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { fetchDirectory, resolveDirectoryMember } from '../lib/directory'
-import { resolveProjectId } from '../lib/resolve'
+import { resolveProjectId, slugify } from '../lib/resolve'
 import { successLine } from '../lib/feedback'
 
 /** LUM-821: `lumo project create` / `lumo project update`. */
@@ -45,13 +45,15 @@ export async function projectCreate(
   process.stdout.write(formatCreatedProjectLine(r.data.project) + '\n')
 }
 
-/** LUM-1092: `Created project "<name>"  <id>` (was `(<id>)`). */
+/** LUM-1092: `Created project "<name>"  <slug>` — LUM-1230: the slug
+ *  `--project` takes, never the cuid. */
 export function formatCreatedProjectLine(project: ProjectRow): string {
+  const slug = slugify(project.name)
   return successLine({
     verb: 'Created',
     kind: 'project',
     title: project.name,
-    id: project.id,
+    ...(slug ? { id: slug } : {}),
   })
 }
 

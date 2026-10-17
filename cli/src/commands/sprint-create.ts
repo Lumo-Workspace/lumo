@@ -40,7 +40,7 @@ export function formatCreatedSprintLine(sprint: {
     kind: 'sprint',
     ref: `#${sprint.number}`,
     title: sprint.name,
-    id: sprint.id,
+    // LUM-1230: `#<number>` is the handle; the uuid is not printed.
   })
 }
 

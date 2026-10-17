@@ -8,6 +8,7 @@ import {
   type ConfirmFlags,
 } from '../lib/confirmation'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export type DeleteDocOptions = ConfirmFlags
 
@@ -18,7 +19,7 @@ export const DOC_TRASH_HINT = 'restorable for 30 days from Settings → Trash'
 export function describeDocDelete(id: string, title: string): string[] {
   const escaped = sanitizeField(title).replace(/"/g, '\\"')
   return [
-    `Will move document ${id} "${escaped}" to the trash — ${DOC_TRASH_HINT}, then permanently deleted`,
+    `Will move document ${docHandle(id)} "${escaped}" to the trash — ${DOC_TRASH_HINT}, then permanently deleted`,
     'Every document nested under it goes to the trash with it and comes back on restore; while trashed they are hidden from lists, the doc tree and task context',
     'To erase it at once instead (e.g. a GDPR erasure request), delete it permanently from Settings → Trash afterwards',
   ]
@@ -81,6 +82,6 @@ export async function docDelete(
   }
   const escaped = sanitizeField(title).replace(/"/g, '\\"')
   process.stdout.write(
-    `Moved ${id}${title ? ` "${escaped}"` : ''} to the trash (${DOC_TRASH_HINT})\n`
+    `Moved ${docHandle(id)}${title ? ` "${escaped}"` : ''} to the trash (${DOC_TRASH_HINT})\n`
   )
 }

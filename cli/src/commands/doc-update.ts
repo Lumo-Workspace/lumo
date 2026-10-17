@@ -15,6 +15,7 @@ import { resolveTagRefs } from '../lib/tag-resolver'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
+import { docHandle } from '../lib/doc-handle'
 
 export interface UpdateDocOptions {
   title?: string
@@ -36,12 +37,14 @@ export interface UpdateDocOptions {
 
 export function formatUpdatedDocLine(doc: {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   url: string
   tags?: string[]
 }): string {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
-  const head = `Updated ${doc.id} "${escaped}"  ${doc.url}`
+  const head = `Updated ${docHandle(doc.id, doc.slug)} "${escaped}"  ${doc.url}`
   if (doc.tags && doc.tags.length > 0) {
     return `${head}\nTags: ${doc.tags.map(sanitizeField).join(', ')}`
   }
@@ -238,8 +241,15 @@ export async function docUpdate(
       ? (document.docTags ?? []).map(t => t.name)
       : undefined
 
-  const lineDoc: { id: string; title: string; url: string; tags?: string[] } = {
+  const lineDoc: {
+    id: string
+    slug?: string | null
+    title: string
+    url: string
+    tags?: string[]
+  } = {
     id: document.id,
+    slug: document.slug,
     title: document.title,
     url: docUrlStr,
   }

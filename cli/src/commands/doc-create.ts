@@ -9,6 +9,7 @@ import { resolveTagRefs } from '../lib/tag-resolver'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export type Scope = 'PRIVATE' | 'WORKSPACE'
 
@@ -42,12 +43,14 @@ export function normalizeScope(value: string): Scope | null {
 
 export function formatCreatedDocLine(doc: {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   url: string
   tags?: string[]
 }): string {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
-  const head = `Created ${doc.id} "${escaped}"  ${doc.url}`
+  const head = `Created ${docHandle(doc.id, doc.slug)} "${escaped}"  ${doc.url}`
   if (doc.tags && doc.tags.length > 0) {
     return `${head}\nTags: ${doc.tags.map(sanitizeField).join(', ')}`
   }
@@ -157,6 +160,7 @@ export async function docCreate(
   console.log(
     formatCreatedDocLine({
       id: document.id,
+      slug: document.slug,
       title: document.title,
       url: fullUrl,
       tags: responseTagNames,
@@ -182,6 +186,6 @@ export async function docCreate(
       )
       return 1
     }
-    console.log(`Bound ${document.id} ↔ ${opts.task}`)
+    console.log(`Bound ${docHandle(document.id, document.slug)} ↔ ${opts.task}`)
   }
 }
