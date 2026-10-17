@@ -1,11 +1,11 @@
 /**
  * @jest-environment jsdom
  *
- * LUM-819 返工：抽查结论回写到任务的执行历史；从抽查卡片深链进来时那条 run
- * 被标出来。
+ * LUM-819 返工：从 `#run-<id>` 深链进来时那条 run 被标出来。LUM-1231 起抽查
+ * 功能已删除，执行历史不再显示复核结论。
  */
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 
 jest.mock('react-intl', () => {
   const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
@@ -53,8 +53,8 @@ const run = (id: string, review: unknown) =>
     review,
   }) as never
 
-describe('RunHistoryList — spot-check verdicts', () => {
-  it('shows who sent a pass back, when, and why — and marks the deep-linked run', () => {
+describe('RunHistoryList — run deep links (spot-check removed, LUM-1231)', () => {
+  it('renders no spot-check verdict line, even for a legacy review payload, and marks the deep-linked run', () => {
     window.location.hash = '#run-r-back'
     render(
       <RunHistoryList
@@ -65,32 +65,18 @@ describe('RunHistoryList — spot-check verdicts', () => {
             reviewer: 'Ann',
             reviewedAt: '2026-09-23T09:00:00.000Z',
           }),
-          run('r-ok', {
-            accepted: true,
-            note: null,
-            reviewer: 'Bo',
-            reviewedAt: '2026-09-22T09:00:00.000Z',
-          }),
           run('r-none', null),
         ]}
         pullRequests={[]}
         requiredEnvironment={null}
       />
     )
-    expect(
-      screen.getByText(
-        'Spot-check sent this pass back — the evidence did not hold it up · Ann · 2026-09-23'
-      )
-    ).toBeInTheDocument()
-    expect(screen.getByText('“log is from another branch”')).toBeInTheDocument()
-    expect(
-      screen.getByText('Spot-checked: the evidence holds · Bo · 2026-09-22')
-    ).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent(/Spot-check/i)
+    expect(document.body).not.toHaveTextContent('log is from another branch')
     // evidence strips are <li>s too — address the run rows by their anchor id
     const row = (id: string) => document.getElementById(`run-${id}`)!
     expect(row('r-back').className).toMatch(/outline/)
-    expect(row('r-ok').className).not.toMatch(/outline/)
-    expect(row('r-none')).not.toHaveTextContent(/Spot-check/)
+    expect(row('r-none').className).not.toMatch(/outline/)
   })
 
   it('a deep link jumps straight to the linked run', () => {

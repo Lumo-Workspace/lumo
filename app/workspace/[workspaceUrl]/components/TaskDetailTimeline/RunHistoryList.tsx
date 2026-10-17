@@ -240,37 +240,7 @@ export function DispositionBadge({ run }: { run: TestCaseRunView }) {
 }
 
 /**
- * LUM-819 返工：这条 run 被人抽查过的结论。抽查在 workspace 的抽查页做，结果
- * 回写到这里——任务负责人得知道自己的某个 PASS 被人看过、被认可还是被打回。
- *
- * 打回不是失败：它说的是「证据撑不起这个 PASS」，措辞上与 FAIL 分开。
- */
-export function ReviewBadge({ run }: { run: TestCaseRunView }) {
-  const intl = useIntl()
-  if (!run.review) return null
-  const values = {
-    reviewer: run.review.reviewer,
-    date: run.review.reviewedAt.slice(0, 10),
-  }
-  return (
-    <span className='flex basis-full flex-wrap items-baseline gap-1 text-muted-foreground'>
-      <span className='text-foreground'>
-        {intl.formatMessage(
-          {
-            id: run.review.accepted
-              ? 'testCases.review.accepted'
-              : 'testCases.review.rejected',
-          },
-          values
-        )}
-      </span>
-      {run.review.note ? <span>“{run.review.note}”</span> : null}
-    </span>
-  )
-}
-
-/**
- * LUM-819 返工：从抽查卡片深链进来时（`…/tests#run-<id>`），把那条 run 滚进
+ * LUM-819 返工：从 run 深链进来时（`…/tests#run-<id>`），把那条 run 滚进
  * 视野并标出来。hash 在挂载后才读得到、且用例列表是异步加载的，所以在
  * effect 里读，不在 render 里读（render 纯度）。
  */
@@ -464,7 +434,6 @@ export function RunHistoryList({
               <span className='text-muted-foreground'>{r.note}</span>
             ) : null}
             <EvidenceStrip evidence={r.evidence} />
-            <ReviewBadge run={r} />
           </li>
         )
       })}

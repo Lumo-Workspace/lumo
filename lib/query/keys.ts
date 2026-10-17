@@ -94,11 +94,6 @@ export const queryKeys = {
     tree: () => ['documents', 'tree'] as const,
   },
 
-  // LUM-819 (D): workspace 抽查池 + 虚报率。
-  runReviews: {
-    pool: () => ['runReviews', 'pool'] as const,
-  },
-
   timeline: (taskId: string) => ['timeline', taskId] as const,
 
   lineage: (identifier: string) => ['lineage', identifier] as const,

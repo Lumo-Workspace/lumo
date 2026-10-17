@@ -51,11 +51,6 @@ jest.mock('@/lib/services/test-case-reminder.service', () => ({
 jest.mock('@/lib/services/done-verdict.service', () => ({
   readTestCaseAdvisories: jest.fn(() => Promise.resolve([])),
 }))
-jest.mock('@/lib/services/test-case-review.service', () => ({
-  testCaseReviewService: {
-    sentBackForTask: jest.fn(() => Promise.resolve([])),
-  },
-}))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
 import { taskStatusService } from '@/lib/services/task-status.service'

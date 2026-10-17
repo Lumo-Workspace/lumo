@@ -32,7 +32,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `inbox`, `draft`, `workspace/project overview`                       | [overview.md](references/overview.md)                     |
 | `task deps *` (dependency edges)                                     | [task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
-| `task testcase *`, `spot-check`                                      | [test-cases.md](references/test-cases.md)                 |
+| `task testcase *`                                                    | [test-cases.md](references/test-cases.md)                 |
 | `task status/wrapup`, `crossing *` — self-check, DONE gate           | [task-status.md](references/task-status.md)               |
 | `cost`, `report` — token cost / tokens + DONE per window             | [task-context.md](references/task-context.md)             |
 | `outcome show` — post-hoc outcome well                               | [outcome.md](references/outcome.md)                       |
@@ -111,7 +111,6 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Test cases — see [test-cases.md](references/test-cases.md)
 
 - `lumo task testcase add/list/show/download/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`download` 用 API key 存证据
-- `lumo spot-check [--json]` — 只读 workspace 抽检池；复核本身 human-only，只在浏览器
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
 

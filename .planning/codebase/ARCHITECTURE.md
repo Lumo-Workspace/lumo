@@ -168,7 +168,6 @@
   - `projects/` → list projects
   - `projects/[projectSlug]/` → project detail
   - `my-tasks/` → user's assigned tasks
-  - `run-reviews/` → spot-check pool of reported passes
   - `documents/` → document browser
   - `documents/[docId]/` → document editor
 

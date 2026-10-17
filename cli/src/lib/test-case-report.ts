@@ -1,4 +1,3 @@
-import { fmtDay } from './format'
 import { sanitizeField } from './sanitize'
 import { formatEvidenceLines } from './test-case-evidence'
 
@@ -181,30 +180,6 @@ export function stepEvidenceIndices(report: unknown): number[] {
   return [
     ...new Set(report.rows.filter(isRow).flatMap(row => rowEvidence(row))),
   ]
-}
-
-/**
- * LUM-819 的抽查复核结论，措辞同 web ReviewBadge。打回不是失败——它说的是证据
- * 撑不起这个 PASS。
- */
-export function formatReviewLine(review: unknown): string | null {
-  if (!review || typeof review !== 'object') return null
-  const r = review as Record<string, unknown>
-  if (typeof r.accepted !== 'boolean') return null
-  const who =
-    typeof r.reviewer === 'string' && r.reviewer.trim()
-      ? ` · ${sanitizeField(r.reviewer.trim())}`
-      : ''
-  const when =
-    typeof r.reviewedAt === 'string' ? ` · ${fmtDay(r.reviewedAt)}` : ''
-  const note =
-    typeof r.note === 'string' && r.note.trim()
-      ? `  — "${sanitizeField(r.note.trim())}"`
-      : ''
-  const verdict = r.accepted
-    ? 'spot-checked: the evidence holds'
-    : 'spot-check sent this PASS back — the evidence did not hold it up'
-  return `    ${verdict}${who}${when}${note}`
 }
 
 /** 用例级的环境约束，同 web 卡片标题行的「Only proves on X」。 */

@@ -53,7 +53,6 @@ import { inboxList } from './commands/inbox-list'
 import { draftList } from './commands/draft-list'
 import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
-import { spotCheck, type SpotCheckOptions } from './commands/spot-check'
 import { tagCreate, tagList } from './commands/tag'
 import { taskDelete } from './commands/task-delete'
 import { taskHistory } from './commands/task-history'
@@ -1821,14 +1820,6 @@ auditCmd
   .option('--json', 'Emit the page as JSON')
   .option('--csv', 'Write the filtered log as CSV to stdout (capped)')
   .action(wrap(options => auditList(options as AuditListOptions)))
-
-program
-  .command('spot-check')
-  .description(
-    'Read-only view of the test-case run spot-check pool (same data as the web run-reviews page): false-report rate, pool size, and a random sample of unreviewed reported passes with task, case, environment, recorded time and who ran it. Reviewing stays human-only in the browser.'
-  )
-  .option('--json', 'Emit the pool as JSON')
-  .action(wrap(options => spotCheck(options as SpotCheckOptions)))
 
 const workspaceCmd = program
   .command('workspace')

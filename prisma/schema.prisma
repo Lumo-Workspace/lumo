@@ -4100,6 +4100,9 @@ model TestCaseRunDisposition {
 ///
 /// 只认浏览器会话（Clerk）：复核是「某个人亲眼看过证据并裁定」，bearer 身份在
 /// 路由解析 body 之前就被 403（与 human-verdict 同一条信任边界）。
+///
+/// LUM-1231：抽查功能已删除，产品不再读写这张表。按两步迁移（CLAUDE.md
+/// 「Destructive Migrations」）在后续 release 里删表与两个反向关系。
 model TestCaseRunReview {
   id            String  @id @default(cuid())
   testCaseRunId String

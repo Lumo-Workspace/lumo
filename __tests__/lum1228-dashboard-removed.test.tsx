@@ -89,7 +89,7 @@ jest.mock('@/components/ui/badge', () => ({
 import '@testing-library/jest-dom'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { AppSidebar } from '@/app/workspace/[workspaceUrl]/components/Sidebar'
 import { pathToPage } from '@/app/workspace/[workspaceUrl]/utils/pathToPage'
 import { pageToPath } from '@/app/workspace/[workspaceUrl]/utils/pageToPath'
@@ -99,9 +99,9 @@ const WS_DIR = join(root, 'app/workspace/[workspaceUrl]')
 
 /**
  * LUM-1228 — the workspace Dashboard page was removed (user ruling
- * 2026-10-17: no redirect, the old URL is a plain 404). The run-reviews page
- * it used to link to keeps a visible entry in the sidebar, and every default
- * landing still resolves to My Tasks.
+ * 2026-10-17: no redirect, the old URL is a plain 404), and every default
+ * landing still resolves to My Tasks. LUM-1231 then removed the run-reviews
+ * (spot-check) page it used to link to, the same way.
  */
 describe('Dashboard removed (LUM-1228)', () => {
   it('has no /dashboard route: no page and no catch-all that could serve it, so Next answers 404', () => {
@@ -177,31 +177,30 @@ describe('Dashboard removed (LUM-1228)', () => {
   })
 })
 
-describe('run-reviews keeps a visible entry (LUM-1228)', () => {
-  it('the sidebar links to the run-reviews page and navigates in-app', () => {
-    const onNavigate = jest.fn()
+describe('run-reviews removed (LUM-1231)', () => {
+  it('the sidebar has no Run reviews entry and no /run-reviews link', () => {
     render(
       <AppSidebar
         currentPage={'my-tasks' as never}
-        onNavigate={onNavigate}
+        onNavigate={jest.fn()}
         unreadCount={0}
         draftCount={0}
       />
     )
-    const label = screen.getByText('runReviews.title')
-    expect(label).toBeVisible()
-    const link = label.closest('a')!
-    expect(link).toHaveAttribute('href', '/workspace/lumo/run-reviews')
-    fireEvent.click(link)
-    expect(onNavigate).toHaveBeenCalledWith('run-reviews')
+    expect(screen.queryByText('runReviews.title')).not.toBeInTheDocument()
+    const hrefs = Array.from(document.querySelectorAll('a')).map(a =>
+      a.getAttribute('href')
+    )
+    expect(hrefs.some(h => h?.endsWith('/run-reviews'))).toBe(false)
   })
 
-  it('the run-reviews route still resolves', () => {
+  it('has no /run-reviews route, and a stale client entry resolves to My Tasks', () => {
+    expect(existsSync(join(WS_DIR, 'run-reviews'))).toBe(false)
     expect(pathToPage('/workspace/lumo/run-reviews', 'lumo').page).toBe(
-      'run-reviews'
+      'my-tasks'
     )
-    expect(pageToPath('lumo', 'run-reviews')).toBe(
-      '/workspace/lumo/run-reviews'
+    expect(pageToPath('lumo', 'run-reviews' as never)).toBe(
+      '/workspace/lumo/my-tasks'
     )
   })
 })

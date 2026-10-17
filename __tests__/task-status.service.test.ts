@@ -46,11 +46,25 @@ jest.mock('@/lib/services/test-case-reminder.service', () => ({
 jest.mock('@/lib/services/done-verdict.service', () => ({
   readTestCaseAdvisories: jest.fn(() => Promise.resolve([])),
 }))
-jest.mock('@/lib/services/test-case-review.service', () => ({
-  testCaseReviewService: {
-    sentBackForTask: jest.fn(() => Promise.resolve([])),
-  },
-}))
+// LUM-1231: the spot-check service is gone. This virtual stand-in answers the
+// way the removed one did for a task whose latest run was sent back — so if
+// task status ever reads it again, the "spot-check sent this PASS back" line
+// reappears and the LUM-1231 test below fails.
+jest.mock(
+  // relative path: `@/` goes through moduleNameMapper, which rejects a
+  // virtual mock of a file that no longer exists.
+  '../lib/services/test-case-review.service',
+  () => ({
+    testCaseReviewService: {
+      sentBackForTask: jest.fn(() =>
+        Promise.resolve([
+          { number: 1, title: 'login', reviewer: 'Ann', note: 'wrong page' },
+        ])
+      ),
+    },
+  }),
+  { virtual: true }
+)
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
 import {
@@ -200,6 +214,16 @@ describe('taskStatusService.statusForTask (LUM-942)', () => {
       'TEST_CASE',
       'TEST_CASE_VERDICT',
     ])
+  })
+})
+
+describe('spot-check removed (LUM-1231)', () => {
+  it('task status carries no spot-check "sent back" advisory', async () => {
+    const s = await taskStatusService.statusForTask('t-1')
+    expect(JSON.stringify(s.nextActions)).not.toMatch(
+      /spot-check|sent this PASS back/i
+    )
+    expect(s.nextActions.filter(a => a.kind === 'TEST_CASE')).toEqual([])
   })
 })
 

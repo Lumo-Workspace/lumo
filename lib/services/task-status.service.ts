@@ -27,8 +27,6 @@ import {
   doneGateReadout,
   type DoneGateReadout,
 } from '@/lib/acceptance/done-gate'
-import { testCaseReviewService } from '@/lib/services/test-case-review.service'
-import { reviewSentBackStatement } from '@/lib/test-cases/review'
 import {
   aggregateRetroStruggle,
   type RetroStruggleAggregate,
@@ -210,7 +208,6 @@ export const taskStatusService = {
       pluginStatus,
       testCaseState,
       testCaseVerdicts,
-      reviewSentBacks,
       doneGateInputs,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
@@ -239,8 +236,6 @@ export const taskStatusService = {
       // LUM-808: per-case latest-run verdict signal (same derivation as the
       // DONE gate), fail-soft.
       readTestCaseAdvisories(taskId),
-      // LUM-819: latest runs sent back on spot-check review. Advisory only.
-      testCaseReviewService.sentBackForTask(taskId),
       // LUM-1186: the Done gate's reads (fail-closed inside, never throws);
       // derived below once the header's status is known.
       workspaceId === undefined
@@ -356,16 +351,6 @@ export const taskStatusService = {
             advisory: !blocking,
           }
         }),
-        // LUM-819: a spot-check sent this PASS back. Reuses `TEST_CASE` so old
-        // CLIs render it as advisory.
-        ...reviewSentBacks.map(
-          (r): NextActionTestCase => ({
-            kind: 'TEST_CASE',
-            statement: reviewSentBackStatement(r),
-            command: `lumo task testcase show ${identifier}/TC${r.number}`,
-            advisory: true,
-          })
-        ),
       ],
       ...(doneGateInputs
         ? { doneGate: doneGateReadout(doneGateInputs, header.status) }

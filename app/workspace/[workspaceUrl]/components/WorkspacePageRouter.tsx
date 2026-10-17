@@ -22,7 +22,6 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
-import { RunReviewPage } from './pages/RunReviewPage'
 import { DraftsPage } from './DraftsPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
 import { SprintDetailClient } from '../sprints/[sprintId]/SprintDetailClient'
@@ -394,9 +393,6 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'milestone-detail':
       return <MilestoneDetailPage onOpenTask={handleOpenTask} />
-
-    case 'run-reviews':
-      return <RunReviewPage workspaceUrl={workspaceUrl} />
 
     case 'inbox':
       return (
