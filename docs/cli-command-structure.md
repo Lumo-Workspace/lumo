@@ -1,6 +1,6 @@
 # CLI command structure conventions
 
-**Status: draft for review (2026-10-18).** Nothing in this document is implemented yet. The [Open questions](#14-open-questions) need the user's ruling before batch 1 starts; once decided, they move to a Decisions section and the status changes to "agreed". Until a batch lands, the "current" column of the [mapping](#12-mapping-current--target) is what the CLI accepts.
+**Status: agreed (2026-10-18).** The open questions of the review draft were decided by the user on 2026-10-18 and recorded on LUM-1233 with `lumo task decide`; the outcomes are in [Decisions](#14-decisions). Q3 differs from the draft's recommendation; the others follow it. Code changes follow in batches 1, 3 and 4 (see [Rollout batches](#13-rollout-batches)). Until a batch lands, the "current" column of the [mapping](#12-mapping-current--target) is what the CLI accepts.
 
 This document is the one rulebook for **which commands exist and what they are called**: command shape, verbs, read/write separation, flags versus subcommands, the bound task, global flags, confirmation, and how a command is renamed or removed. It is the sister of [`cli-output-conventions.md`](cli-output-conventions.md), which governs **what a command prints**. Where the two meet (help text, `--json`, exit codes), the output conventions win and this document only refers to them.
 
@@ -23,7 +23,7 @@ Each rule has an id (`CS-1`, `VB-2`, …) so PRs and the skill can cite it. Each
 11. [Frozen commands (do not change)](#11-frozen-commands-do-not-change)
 12. [Mapping: current → target](#12-mapping-current--target)
 13. [Rollout batches](#13-rollout-batches)
-14. [Open questions](#14-open-questions)
+14. [Decisions](#14-decisions)
 
 ---
 
@@ -64,7 +64,7 @@ What the numbers say:
 
 ### CS-1. `lumo <noun> <verb>`
 
-Every command is a noun followed by a verb: `lumo task show`, `lumo doc update`, `lumo testcase run`.
+Every command is a noun followed by a verb: `lumo task show`, `lumo doc update`, `lumo task testcase run`.
 
 - **Nouns are singular**: `task`, `comment`, `dep`, `testcase` — never `comments`, `deps`, `learnings`.
 - **At most two noun levels**: `lumo task artifact add` is the deepest shape. A third noun level becomes a flag or its own top-level noun.
@@ -84,14 +84,14 @@ Enforced: the grammar test above (`isInvokable && hasSubcommands` must be false)
 
 Commands about the CLI itself, or about "me" across everything, have no noun:
 
-| Command     | Job                                                                                                          |
-| ----------- | ------------------------------------------------------------------------------------------------------------ |
-| `init`      | install the skill, hooks and Codex rule (frozen)                                                             |
-| `uninstall` | remove what `init` installed                                                                                 |
-| `update`    | update the CLI                                                                                               |
-| `doctor`    | diagnose the local install (frozen)                                                                          |
-| `whoami`    | the logged-in identity                                                                                       |
-| `status`    | proposed: my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next)) |
+| Command     | Job                                                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| `init`      | install the skill, hooks and Codex rule (frozen)                                                   |
+| `uninstall` | remove what `init` installed                                                                       |
+| `update`    | update the CLI                                                                                     |
+| `doctor`    | diagnose the local install (frozen)                                                                |
+| `whoami`    | the logged-in identity                                                                             |
+| `status`    | my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next)) |
 
 The list is closed: a new tool-level command needs a change to this table. `setup` (an alias of `init`) is removed under [RN-1](#rn-1-no-aliases).
 
@@ -110,9 +110,9 @@ The list is closed: a new tool-level command needs a change to this table. `setu
 | `delete` | destroy an object                                                                     | write           |
 | `add`    | attach an existing thing to a container, or append an entry                           | write           |
 | `remove` | detach a thing from a container; the thing itself survives                            | write           |
-| `run`    | execute or record an execution (`testcase run`)                                       | write           |
+| `run`    | execute or record an execution (`task testcase run`)                                  | write           |
 
-`delete` versus `remove` is the one distinction to get right: `milestone remove <m> LUM-4` takes the task out of the milestone and the task survives; `testcase delete LUM-4/TC2` destroys the test case. When the object is owned by its parent and has no life outside it (a test case, an artifact, a comment), the verb is `delete`. When it is a link between two things that both survive (a dependency edge, a Figma link, a task in a sprint), the verb is `remove`.
+`delete` versus `remove` is the one distinction to get right: `milestone remove <m> LUM-4` takes the task out of the milestone and the task survives; `task testcase delete LUM-4/TC2` destroys the test case. When the object is owned by its parent and has no life outside it (a test case, an artifact, a comment), the verb is `delete`. When it is a link between two things that both survive (a dependency edge, a Figma link, a task in a sprint), the verb is `remove`.
 
 ### VB-2. Banned synonyms
 
@@ -132,26 +132,25 @@ These words never appear as a verb. The right word is in the second column.
 
 Some actions are not any of the eight. They are allowed when they name a real domain action that none of the core verbs describes, and they are listed here; a new one needs a change to this table.
 
-| Verb                                                                       | Where                             | Why not a core verb                                                                      |
-| -------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| `status`                                                                   | `task`, `session`, `skill`        | a computed state check, not a stored object (`task status`, `session status` are frozen) |
-| `attach`                                                                   | `session`                         | frozen                                                                                   |
-| `decide`                                                                   | `task`                            | records a ruling in the task's Decisions                                                 |
-| `disposition`                                                              | `crossing`, `finding`, `testcase` | the human-only ruling handshake                                                          |
-| `explain`                                                                  | `crossing`                        | the agent's account of a crossing                                                        |
-| `confirm`, `dismiss`                                                       | `task dep`                        | rule on a detected candidate edge                                                        |
-| `download`                                                                 | `testcase`                        | writes evidence files to a local directory                                               |
-| `review`                                                                   | `pr`                              | request or control an AI review (new, batch 3)                                           |
-| `scan`                                                                     | `pr`                              | read a PR's scans ([Q8](#q8-keep-pr-scan-or-rename-it-to-pr-show))                       |
-| `diff`, `patch`, `append`, `move`, `sync`, `import-gdoc`, `rebuild-source` | `doc`                             | live-doc editing and import                                                              |
-| `archive`, `unarchive`, `move`, `reorder`, `triage`                        | `milestone`                       | ordering and lifecycle                                                                   |
-| `start`, `close`                                                           | `sprint`                          | lifecycle                                                                                |
-| `sync`, `push`, `fold`                                                     | `memory`                          | local memory store                                                                       |
-| `refresh`                                                                  | `task figma`                      | re-fetch from Figma                                                                      |
-| `resync`                                                                   | `usage`                           | correct historical usage                                                                 |
-| `prune`                                                                    | `worktree`                        | clean up                                                                                 |
-| `login`, `logout`                                                          | `auth`                            | authentication                                                                           |
-| hook event names                                                           | `hook`                            | frozen; named after the agent's hook events                                              |
+| Verb                                                                       | Where                                                        | Why not a core verb                                                                      |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `status`                                                                   | `task`, `session`, `skill`                                   | a computed state check, not a stored object (`task status`, `session status` are frozen) |
+| `attach`                                                                   | `session`                                                    | frozen                                                                                   |
+| `decide`                                                                   | `task`                                                       | records a ruling in the task's Decisions                                                 |
+| `disposition`                                                              | `crossing`, `finding`, `task testcase`, `milestone testcase` | the human-only ruling handshake                                                          |
+| `explain`                                                                  | `crossing`                                                   | the agent's account of a crossing                                                        |
+| `confirm`, `dismiss`                                                       | `task dep`                                                   | rule on a detected candidate edge                                                        |
+| `download`                                                                 | `task testcase`, `milestone testcase`                        | writes evidence files to a local directory                                               |
+| `review`                                                                   | `pr`                                                         | request or control an AI review (new, batch 3)                                           |
+| `diff`, `patch`, `append`, `move`, `sync`, `import-gdoc`, `rebuild-source` | `doc`                                                        | live-doc editing and import                                                              |
+| `archive`, `unarchive`, `move`, `reorder`, `triage`                        | `milestone`                                                  | ordering and lifecycle                                                                   |
+| `start`, `close`                                                           | `sprint`                                                     | lifecycle                                                                                |
+| `sync`, `push`, `fold`                                                     | `memory`                                                     | local memory store                                                                       |
+| `refresh`                                                                  | `task figma`                                                 | re-fetch from Figma                                                                      |
+| `resync`                                                                   | `usage`                                                      | correct historical usage                                                                 |
+| `prune`                                                                    | `worktree`                                                   | clean up                                                                                 |
+| `login`, `logout`                                                          | `auth`                                                       | authentication                                                                           |
+| hook event names                                                           | `hook`                                                       | frozen; named after the agent's hook events                                              |
 
 A domain verb must not mean the same as a core verb (`context` meant `show`; it goes).
 
@@ -161,19 +160,19 @@ A domain verb must not mean the same as a core verb (`context` meant `show`; it 
 
 ### RW-1. A read command has no flag with a side effect
 
-`list` and `show` (and `status`, `scan`, `diff`) never change state. A flag that writes belongs on a write command. Today three commands break this:
+`list` and `show` (and `status`, `diff`) never change state. A flag that writes belongs on a write command. Today three commands break this:
 
-| Command                               | Side-effect flag                             | Target                                                           |
-| ------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
-| `pr scan`                             | `--review`, `--pause`, `--resume`, `--limit` | `pr review` ([mapping 3d](#3d-pr-scan-read-and-pr-review-write)) |
-| `milestone summary`, `sprint summary` | `--retry` (queues a regeneration)            | `milestone update` / `sprint update --refresh-summary`           |
-| `workspace security-scan`             | every setting flag (no flag = read)          | `workspace security-scan show` / `update`                        |
+| Command                               | Side-effect flag                             | Target                                                             |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `pr scan`                             | `--review`, `--pause`, `--resume`, `--limit` | `pr review` ([mapping 3d](#3d-pr-show-reads-and-pr-review-writes)) |
+| `milestone summary`, `sprint summary` | `--retry` (queues a regeneration)            | `milestone update` / `sprint update --refresh-summary`             |
+| `workspace security-scan`             | every setting flag (no flag = read)          | `workspace security-scan show` / `update`                          |
 
 Enforced: new grammar test — leaves whose verb is `list`, `show` or `status` may not declare a flag from a deny list (batch 3).
 
 ### RW-2. A write runs when called; `--dry-run` previews
 
-A write command does its job when called. If it can preview, the preview is `--dry-run` (as `init`, `skill update`, `memory sync`, `memory push` already do). A write that needs the user's approval uses `--confirm` and exit 4 ([CF-1](#cf-1-confirmation-is---confirm-plus-exit-4-only)), never a default-off "apply" switch. `usage resync --apply` is the one switch of that kind ([Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync)).
+A write command does its job when called. If it can preview, the preview is `--dry-run` (as `init`, `skill update`, `memory sync`, `memory push` already do). A write that needs the user's approval uses `--confirm` and exit 4 ([CF-1](#cf-1-confirmation-is---confirm-plus-exit-4-only)), never a default-off "apply" switch. `usage resync --apply` was the one switch of that kind; it goes ([Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync)).
 
 ### RW-3. A write ends with its result, not a second read
 
@@ -187,7 +186,7 @@ Unchanged from today: writes print what changed, and the writes that already end
 
 Everything an agent reads to understand one object comes from that object's `show`, with a flag per aspect. Aspects do not get their own subcommand.
 
-For a task (`--full`, `--comments`, `--history`, `--scans`, `--runs` and `--outcome` were ruled by the user on 2026-10-18; `--lineage` and `--deps` are this draft's proposal under the same rule):
+For a task (`--full`, `--comments`, `--history`, `--scans`, `--runs` and `--outcome` were ruled by the user on 2026-10-18; `--lineage`, `--deps` and `--memory` were proposed by the draft and accepted the same day):
 
 ```
 lumo task show [<task>]                 # the task: title, status, fields, description
@@ -199,10 +198,11 @@ lumo task show [<task>] --runs          # + agent runs                 (was: tas
 lumo task show [<task>] --outcome       # + the post-hoc outcome well  (was: outcome show)
 lumo task show [<task>] --lineage       # + the causal trail           (was: task lineage)
 lumo task show [<task>] --deps          # + dependency edges           (was: task deps list)
+lumo task show [<task>] --memory        # + full memory bodies         (was: task context --full)
 lumo task status [<task>]               # state and next actions; READY adds the DONE-readiness section (was: task wrapup)
 ```
 
-The same rule applies to milestones (`--summary`, `--changelog`), sprints (`--summary`), docs (`--members`) and memory (`--learnings`); see the [mapping](#12-mapping-current--target).
+The same rule applies to milestones (`--summary`, `--changelog`), sprints (`--summary`), docs (`--members`) and memory (`--learnings`); see the [mapping](#12-mapping-current--target). `task show --full` prints the detail view and then the old `task context` body unchanged as Markdown ([Q5](#q5-what-task-show---full-prints)).
 
 A sub-object that has its own ref and its own lifecycle (a test case, an artifact, a Figma link) keeps its own noun with `list` and `show`. The test is: "would an agent read this to understand the parent?" — then it is an aspect.
 
@@ -222,10 +222,10 @@ A sub-object that has its own ref and its own lifecycle (a test case, an artifac
 
 ### AR-1. The primary object is positional; context objects are flags
 
-The thing the command acts on is the positional argument. Things that only locate it are flags: `--task`, `--milestone`, `--repo`, and the global `--project` ([GF-1](#gf-1-three-global-flags)).
+The thing the command acts on is the positional argument. Things that only locate it are flags: `--task`, `--milestone`, `--repo`, and the global `--project` ([GF-1](#gf-1-two-global-flags-and-one-standard-flag)).
 
 ```
-lumo testcase run LUM-4/TC2 …          # the case is positional
+lumo task testcase run LUM-4/TC2 …     # the case is positional
 lumo crossing disposition 3f2a… --task LUM-4   # the crossing is positional; the task only locates it
 ```
 
@@ -240,27 +240,35 @@ When the task is the primary object or the context of a command, it may be omitt
 
 The output's first line names the resolved ref (D-1 of the output conventions), so an implicit target is always visible.
 
-Today 6 commands accept this (`task status`, `task runs`, `task wrapup`, `task memory add/list`, `crossing list`). Batches 1 and 3 extend it to every command whose primary or context object is a task (`task show`, `task update`, `task comment add`, `testcase list/add`, …).
+**An optional positional never comes before a required one.** The task may be an optional positional only when it is the command's only positional, or the last one (`task show [<task>]`, `task dep add [<task>] --blocked-by …`, `task testcase list [<task>]`). When the command has another required positional, the task becomes the `--task <ref>` flag instead, so the parser never has to guess which word is the task:
 
-Enforced: grammar — every `task` positional is `required: false` unless listed in AR-3 (batch 3).
+```
+lumo task comment add "Looks good" [--task LUM-4]     # body is the only positional
+lumo task comment update <comment> <body> [--task LUM-4]
+```
+
+Today 6 commands accept this (`task status`, `task runs`, `task wrapup`, `task memory add/list`, `crossing list`). Batches 1 and 3 extend it to every command whose primary or context object is a task (`task show`, `task update`, `task comment add`, `task testcase list/add`, …).
+
+Enforced: grammar — every `task` positional is `required: false` unless listed in AR-3, and no optional positional precedes a required one (batch 3).
 
 ### AR-3. What is deleted is always named
 
-A `delete` or `remove` never takes its target from the binding: `task delete` requires the task ref, `testcase delete` the case handle. The owning task of a case handle (`TC2` → `LUM-4/TC2`) may still come from the binding, because the case itself is named.
+A `delete` or `remove` never takes its target from the binding: `task delete` requires the task ref, `task testcase delete` the full case handle (`LUM-4/TC2`).
 
 ---
 
 ## 7. Global flags and short flags
 
-### GF-1. Three global flags
+### GF-1. Two global flags and one standard flag
 
-| Flag              | Meaning                                                                                                      | Status                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `--json`          | one JSON document on stdout (output conventions §11)                                                         | on every read since LUM-1232 batch C; writes gain it when touched |
-| `--no-hints`      | hide advice (`Next:`, `Hint:`); same as `LUMO_NO_HINTS=1` (output conventions §10)                           | global today                                                      |
-| `--project <ref>` | the project to resolve names in (milestones, docs, memory, task lists); defaults to the bound task's project | batch 3: replaces ~30 per-command `--project` flags               |
+| Flag              | Kind     | Meaning                                                                                                      | Status                                                     |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `--no-hints`      | global   | hide advice (`Next:`, `Hint:`); same as `LUMO_NO_HINTS=1` (output conventions §10)                           | global today                                               |
+| `--project <ref>` | global   | the project to resolve names in (milestones, docs, memory, task lists); defaults to the bound task's project | batch 3: replaces ~30 per-command `--project` flags        |
+| `--json`          | standard | one JSON document on stdout (output conventions §11)                                                         | on every read since LUM-1232 batch C; see below for writes |
 
-A global flag means the same on every command and is accepted on every command. A command that cannot honour it (`--json` on a write not yet converted) fails with exit 2 instead of ignoring it.
+- **Global** means defined once on the program: every command accepts it and it means the same everywhere. A command that has no use for it (`--project` on `whoami`) accepts and ignores it.
+- **Standard** means defined per command, with the same name and meaning wherever it exists. `--json` exists on every read command. A write command gains `--json` when a batch touches it; until then `--json` on that write is an unknown option and fails like any other usage error (exit 2) — it is never silently ignored.
 
 `--project` today has two meanings: a project name on most commands, and a boolean "install into this repo" on `init`, `setup` and `skill update`. The boolean has to move before `--project` can be global ([Q6](#q6-the-boolean---project-on-init-and-skill-update)).
 
@@ -284,7 +292,7 @@ A global flag means the same on every command and is accepted on every command. 
 
 A gated write without `--confirm` prints the `confirmation_required` envelope on stdout and exits 4; the user approves; the agent runs the envelope's `confirmCommand` verbatim. That protocol is frozen ([§11](#11-frozen-commands-do-not-change)).
 
-- **`--yes` is removed** from the 11 commands that still accept it as an alias of `--confirm` ([mapping 3i](#3i---yes-removed)).
+- **`--yes` is removed** from the 11 commands that still accept it as an alias of `--confirm` ([mapping 3i](#3i---yes-removed)), including the frozen `worktree rm` (see [§11](#11-frozen-commands-do-not-change) for why that is not a conflict).
 - No interactive y/N prompt anywhere; `priority` without text is the last interactive prompt and goes ([Q2](#q2-where-priority-lives)).
 - The three disposition handshakes (`--confirm-read`, `--receipt`, `--confirm`) on `crossing disposition`, `finding disposition` and test-case `disposition` keep their flags exactly.
 
@@ -324,7 +332,13 @@ Every PR that removes or renames a command or flag also:
 
 ### RN-3. Running a removed name
 
-By default a removed name fails like any unknown command: exit 2, `Error: unknown command …`. Whether the CLI also prints a pointer to the new name is [Q4](#q4-what-a-removed-command-prints). Either way the command does not run.
+A removed name never runs. It fails with exit 2 and a pointer to its replacement ([Q4](#q4-what-a-removed-command-prints)):
+
+```
+Error: lumo task context was removed. Use: lumo task show --full
+```
+
+Under `--json` the error object has `"code": "COMMAND_REMOVED"`. The pointers live in one tombstone table in the CLI; tombstones are hidden from `--help` and from `grammar.json`, the same table feeds the release notes and the skill's "do not exist" list, and an entry is dropped two minor releases after the removal. This is not an alias: nothing the old name did is reachable through it.
 
 ---
 
@@ -346,7 +360,7 @@ The safety rule does not change: a command that can read an arbitrary local file
 
 ## 11. Frozen commands (do not change)
 
-These names and flags are relied on by hooks, installed settings, server-written envelopes or the gates. No batch renames, removes or changes their meaning:
+These are relied on by hooks, installed settings, server-written envelopes or the gates. **The freeze covers the command name, its behaviour and the flags listed here** (including `--confirm` and `--force` where the command has them): no batch renames, removes or changes their meaning. It does not protect a compatibility alias: `--yes`, an alias of `--confirm`, is removed from every command by CF-1, frozen ones included (`worktree rm --yes` → `worktree rm --confirm`). Envelopes already print `--confirm`, so nothing that reads them changes.
 
 | What                                                                                             | Why                                                                        |
 | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
@@ -359,7 +373,7 @@ These names and flags are relied on by hooks, installed settings, server-written
 | `worktree add`, `worktree rm`                                                                    | worktree tooling and envelopes (exempt from VB-2)                          |
 | `init`, `doctor`                                                                                 | install and diagnosis                                                      |
 
-Moving test-case `disposition` from `task testcase` to `testcase` (batch 3) keeps its flags; the server-written `confirmCommand` follows RN-2 step 5.
+Test-case `disposition` keeps its handshake flags; batch 3a only changes the milestone form's case argument (`<m> <n>` → `<m>/TC<n>`), and the server-written `confirmCommand` follows RN-2 step 5.
 
 ---
 
@@ -369,20 +383,22 @@ One row per command. **Batch** is the PR that changes it. **Release note** is th
 
 ### Batch 1 — one way to read a task
 
-Ruled by the user on 2026-10-18.
+Ruled by the user on 2026-10-18 (`--lineage`, `--deps` and `--memory` accepted the same day). Removed names print the Q4 pointer.
 
-| Current                        | Target                                                                                  | Release note                                                                                                                                      |
-| ------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `task context <task> [--full]` | `task show [<task>] --full` (memory bodies: see [Q5](#q5-what-task-show---full-prints)) | `task context` removed → use `task show --full`                                                                                                   |
-| `task wrapup [<task>]`         | `task status [<task>]` (READY adds the readiness section and the next command)          | `task wrapup` removed → use `task status`                                                                                                         |
-| `task show <task>`             | `task show [<task>]` + aspect flags                                                     | Changed: `task show` takes `--full`, `--comments`, `--history`, `--scans`, `--runs`, `--outcome`, `--lineage`; the task defaults to the bound one |
-| `task status [<task>]`         | unchanged name; READY output adds the readiness section                                 | Changed: `task status` shows DONE readiness and the next command when READY                                                                       |
-| `task comments list <task>`    | `task show [<task>] --comments`                                                         | `task comments list` removed → use `task show --comments`                                                                                         |
-| `task history <task>`          | `task show [<task>] --history`                                                          | `task history` removed → use `task show --history`                                                                                                |
-| `task scans <task>`            | `task show [<task>] --scans [--all] [--full]`                                           | `task scans` removed → use `task show --scans`                                                                                                    |
-| `task runs [<task>]`           | `task show [<task>] --runs [--full]`                                                    | `task runs` removed → use `task show --runs`                                                                                                      |
-| `outcome show <task>`          | `task show [<task>] --outcome`                                                          | `outcome show` removed → use `task show --outcome`                                                                                                |
-| `task lineage <task>`          | `task show [<task>] --lineage [--signal]`                                               | `task lineage` removed → use `task show --lineage`                                                                                                |
+| Current                      | Target                                                                         | Release note                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task context <task>`        | `task show [<task>] --full` ([Q5](#q5-what-task-show---full-prints))           | `task context` removed → use `task show --full`                                                                                                                         |
+| `task context <task> --full` | `task show [<task>] --full --memory`                                           | `task context --full` removed → use `task show --full --memory`                                                                                                         |
+| `task wrapup [<task>]`       | `task status [<task>]` (READY adds the readiness section and the next command) | `task wrapup` removed → use `task status`                                                                                                                               |
+| `task show <task>`           | `task show [<task>]` + aspect flags                                            | Changed: `task show` takes `--full`, `--comments`, `--history`, `--scans`, `--runs`, `--outcome`, `--lineage`, `--deps`, `--memory`; the task defaults to the bound one |
+| `task status [<task>]`       | unchanged name; READY output adds the readiness section                        | Changed: `task status` shows DONE readiness and the next command when READY                                                                                             |
+| `task comments list <task>`  | `task show [<task>] --comments`                                                | `task comments list` removed → use `task show --comments`                                                                                                               |
+| `task history <task>`        | `task show [<task>] --history`                                                 | `task history` removed → use `task show --history`                                                                                                                      |
+| `task scans <task>`          | `task show [<task>] --scans [--all] [--full]`                                  | `task scans` removed → use `task show --scans`                                                                                                                          |
+| `task runs [<task>]`         | `task show [<task>] --runs [--full]`                                           | `task runs` removed → use `task show --runs`                                                                                                                            |
+| `outcome show <task>`        | `task show [<task>] --outcome`                                                 | `outcome show` removed → use `task show --outcome`                                                                                                                      |
+| `task lineage <task>`        | `task show [<task>] --lineage [--signal]`                                      | `task lineage` removed → use `task show --lineage`                                                                                                                      |
+| `task deps list <task>`      | `task show [<task>] --deps`                                                    | `task deps list` removed → use `task show --deps`                                                                                                                       |
 
 Also in batch 1 (no command of its own): `session attach` output and SessionStart text, server `Next:` hints (version-gated, RN-2), `SKILL.md` Core workflow, and Q7 of the output conventions (which names `task context`).
 
@@ -390,28 +406,30 @@ Also in batch 1 (no command of its own): `session attach` output and SessionStar
 
 Batch 3 is several PRs, one per sub-batch, in the order below.
 
-#### 3a. One `testcase` noun
+#### 3a. One argument shape for test cases
 
-Argument shape per [Q3](#q3-arguments-of-the-top-level-testcase) (recommended form shown).
+Decided by the user on 2026-10-18 ([Q3](#q3-test-case-arguments), differs from the draft): `task testcase` and `milestone testcase` both stay. Every per-case command takes one handle, `<parent>/TC<n>` — `LUM-42/TC3` for a task, `<milestone-slug>/TC3` for a milestone (for example `headless-web-cli/TC3`). The two nouns have the same verbs, flags and output, built on one implementation; `SKILL.md` and `references/` describe them once. `rm` becomes `delete` (Q9).
 
-| Current                                     | Target                                                    | Release note                                                                      |
-| ------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `task testcase add <task>`                  | `testcase add [<task>]`                                   | `task testcase add` removed → use `testcase add`                                  |
-| `task testcase list <task>`                 | `testcase list [<task>]`                                  | `task testcase list` removed → use `testcase list`                                |
-| `task testcase show <task>/TC<n>`           | `testcase show <task>/TC<n>` (or `TC<n>`)                 | `task testcase show` removed → use `testcase show`                                |
-| `task testcase update <task>/TC<n>`         | `testcase update <case>`                                  | `task testcase update` removed → use `testcase update`                            |
-| `task testcase rm <task>/TC<n>`             | `testcase delete <case>`                                  | `task testcase rm` removed → use `testcase delete`                                |
-| `task testcase run <task>/TC<n>`            | `testcase run <case>`                                     | `task testcase run` removed → use `testcase run`                                  |
-| `task testcase download <case> <dir>`       | `testcase download <case> <dir>`                          | `task testcase download` removed → use `testcase download`                        |
-| `task testcase disposition <case>`          | `testcase disposition <case>` (handshake flags unchanged) | `task testcase disposition` removed → use `testcase disposition`                  |
-| `milestone testcase add <m>`                | `testcase add --milestone <m>`                            | `milestone testcase add` removed → use `testcase add --milestone`                 |
-| `milestone testcase list <m>`               | `testcase list --milestone <m>`                           | `milestone testcase list` removed → use `testcase list --milestone`               |
-| `milestone testcase show <m> <n>`           | `testcase show TC<n> --milestone <m>`                     | `milestone testcase show` removed → use `testcase show --milestone`               |
-| `milestone testcase update <m> <n>`         | `testcase update TC<n> --milestone <m>`                   | `milestone testcase update` removed → use `testcase update --milestone`           |
-| `milestone testcase rm <m> <n>`             | `testcase delete TC<n> --milestone <m>`                   | `milestone testcase rm` removed → use `testcase delete --milestone`               |
-| `milestone testcase run <m> <n>`            | `testcase run TC<n> --milestone <m>`                      | `milestone testcase run` removed → use `testcase run --milestone`                 |
-| `milestone testcase download <m> <n> <dir>` | `testcase download TC<n> <dir> --milestone <m>`           | `milestone testcase download` removed → use `testcase download --milestone`       |
-| `milestone testcase disposition <m> <n>`    | `testcase disposition TC<n> --milestone <m>`              | `milestone testcase disposition` removed → use `testcase disposition --milestone` |
+| Current                                     | Target                                                       | Release note                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `task testcase add <task>`                  | `task testcase add [<task>]`                                 | Changed: the task defaults to the bound one                                                 |
+| `task testcase list <task>`                 | `task testcase list [<task>]`                                | Changed: the task defaults to the bound one                                                 |
+| `task testcase show <task>/TC<n>`           | unchanged                                                    | —                                                                                           |
+| `task testcase update <task>/TC<n>`         | unchanged                                                    | —                                                                                           |
+| `task testcase rm <task>/TC<n>`             | `task testcase delete <task>/TC<n>`                          | `task testcase rm` removed → use `task testcase delete`                                     |
+| `task testcase run <task>/TC<n>`            | unchanged                                                    | —                                                                                           |
+| `task testcase download <task>/TC<n> <dir>` | unchanged                                                    | —                                                                                           |
+| `task testcase disposition <task>/TC<n>`    | unchanged (handshake flags unchanged)                        | —                                                                                           |
+| `milestone testcase add <m>`                | `milestone testcase add <m>` (same flags as the task form)   | —                                                                                           |
+| `milestone testcase list <m>`               | `milestone testcase list <m>` (same output as the task form) | —                                                                                           |
+| `milestone testcase show <m> <n>`           | `milestone testcase show <m>/TC<n>`                          | Changed: `milestone testcase show <m> <n>` → `milestone testcase show <m>/TC<n>`            |
+| `milestone testcase update <m> <n>`         | `milestone testcase update <m>/TC<n>`                        | Changed: `milestone testcase update <m> <n>` → `<m>/TC<n>`                                  |
+| `milestone testcase rm <m> <n>`             | `milestone testcase delete <m>/TC<n>`                        | `milestone testcase rm` removed → use `milestone testcase delete <m>/TC<n>`                 |
+| `milestone testcase run <m> <n>`            | `milestone testcase run <m>/TC<n>`                           | Changed: `milestone testcase run <m> <n>` → `<m>/TC<n>`                                     |
+| `milestone testcase download <m> <n> <dir>` | `milestone testcase download <m>/TC<n> <dir>`                | Changed: `milestone testcase download <m> <n> <dir>` → `<m>/TC<n> <dir>`                    |
+| `milestone testcase disposition <m> <n>`    | `milestone testcase disposition <m>/TC<n>`                   | Changed: `milestone testcase disposition <m> <n>` → `<m>/TC<n>` (handshake flags unchanged) |
+
+The old two-argument milestone form fails with exit 2 and the Q4 pointer (`Use: lumo milestone testcase run headless-web-cli/TC3`). A milestone slug is unique within a project; when two projects share a slug, the global `--project` picks one, as today.
 
 #### 3b. Memory scope is a flag
 
@@ -438,18 +456,20 @@ Same pattern as the existing `--add-tag` / `--remove-tag`.
 | `doc bind <doc> <task>`             | `doc update <doc> --add-task <task>`              | `doc bind` removed → use `doc update --add-task`         |
 | `doc unbind <doc> <task>`           | `doc update <doc> --remove-task <task>`           | `doc unbind` removed → use `doc update --remove-task`    |
 
-#### 3d. `pr scan` reads and `pr review` writes
+#### 3d. `pr show` reads and `pr review` writes
 
-| Current                                    | Target                                                                                           | Release note                                          |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `pr scan <n> [--all --full --repo --json]` | `pr scan <n>` with the same read flags (name per [Q8](#q8-keep-pr-scan-or-rename-it-to-pr-show)) | Changed: `pr scan` only reads                         |
-| `pr scan <n> --review incremental\|full`   | `pr review <n> [--full]` (incremental by default)                                                | `pr scan --review` removed → use `pr review`          |
-| `pr scan <n> --pause [--limit N]`          | `pr review <n> --pause [--limit N]`                                                              | `pr scan --pause` removed → use `pr review --pause`   |
-| `pr scan <n> --resume [--limit N]`         | `pr review <n> --resume [--limit N]`                                                             | `pr scan --resume` removed → use `pr review --resume` |
+`pr scan` becomes `pr show` ([Q8](#q8-keep-pr-scan-or-rename-it-to-pr-show)); its write flags move to the new `pr review`.
+
+| Current                                    | Target                                            | Release note                                          |
+| ------------------------------------------ | ------------------------------------------------- | ----------------------------------------------------- |
+| `pr scan <n> [--all --full --repo --json]` | `pr show <n> [--all --full --repo --json]`        | `pr scan` removed → use `pr show`                     |
+| `pr scan <n> --review incremental\|full`   | `pr review <n> [--full]` (incremental by default) | `pr scan --review` removed → use `pr review`          |
+| `pr scan <n> --pause [--limit N]`          | `pr review <n> --pause [--limit N]`               | `pr scan --pause` removed → use `pr review --pause`   |
+| `pr scan <n> --resume [--limit N]`         | `pr review <n> --resume [--limit N]`              | `pr scan --resume` removed → use `pr review --resume` |
 
 #### 3e. One `usage` noun
 
-Shape per [Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync) (recommended form shown).
+Shape per [Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync).
 
 | Current                                     | Target                                                                                  | Release note                                                                            |
 | ------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -459,7 +479,7 @@ Shape per [Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync) (recom
 
 #### 3f. One summary for "what is on my plate"
 
-Name per [Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next), placement of priority per [Q2](#q2-where-priority-lives).
+`lumo status` per [Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next); `priority` per [Q2](#q2-where-priority-lives).
 
 | Current                                          | Target                                                    | Release note                                             |
 | ------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------------- |
@@ -502,7 +522,7 @@ Spelling stays `--project <ref>` where it is a project name, so most rows need n
 | `milestone unarchive --project`        | global `--project`                                                                          | —                                                                 |
 | `milestone update --project`           | global `--project`                                                                          | —                                                                 |
 | `report --project`                     | global `--project` (command itself: 3e)                                                     | —                                                                 |
-| `milestone testcase * --project`       | global `--project` (commands themselves: 3a)                                                | —                                                                 |
+| `milestone testcase * --project`       | global `--project` (case argument: 3a)                                                      | —                                                                 |
 
 #### 3h. `--force` has one meaning
 
@@ -515,31 +535,30 @@ Spelling stays `--project <ref>` where it is a project name, so most rows need n
 
 Every row: `--yes` removed, `--confirm` unchanged. Release note per row: `` `<command> --yes` removed → use `--confirm` ``.
 
-| Current                       | Target                                                     |
-| ----------------------------- | ---------------------------------------------------------- |
-| `doc delete --yes`            | `doc delete --confirm`                                     |
-| `memory rm --yes`             | `memory delete --confirm` (rename: 3b)                     |
-| `milestone delete --yes`      | `milestone delete --confirm`                               |
-| `milestone testcase rm --yes` | `testcase delete --confirm` (rename: 3a)                   |
-| `sprint close --yes`          | `sprint close --confirm`                                   |
-| `sprint delete --yes`         | `sprint delete --confirm`                                  |
-| `task artifact rm --yes`      | `task artifact delete --confirm` (rename: 3j)              |
-| `task deps rm --yes`          | `task dep remove --confirm` (rename: 3j)                   |
-| `task template rm --yes`      | `task template delete --confirm` (rename: 3j)              |
-| `task testcase rm --yes`      | `testcase delete --confirm` (rename: 3a)                   |
-| `worktree rm --yes`           | `worktree rm --confirm` (name frozen; only the alias goes) |
+| Current                       | Target                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `doc delete --yes`            | `doc delete --confirm`                                                            |
+| `memory rm --yes`             | `memory delete --confirm` (rename: 3b)                                            |
+| `milestone delete --yes`      | `milestone delete --confirm`                                                      |
+| `milestone testcase rm --yes` | `milestone testcase delete --confirm` (rename: 3a)                                |
+| `sprint close --yes`          | `sprint close --confirm`                                                          |
+| `sprint delete --yes`         | `sprint delete --confirm`                                                         |
+| `task artifact rm --yes`      | `task artifact delete --confirm` (rename: 3j)                                     |
+| `task deps rm --yes`          | `task dep remove --confirm` (rename: 3j)                                          |
+| `task template rm --yes`      | `task template delete --confirm` (rename: 3j)                                     |
+| `task testcase rm --yes`      | `task testcase delete --confirm` (rename: 3a)                                     |
+| `worktree rm --yes`           | `worktree rm --confirm` (name and behaviour frozen; only the alias goes, see §11) |
 
 #### 3j. Names that break VB-1, VB-2, CS-1 or RW-1
 
-Renames and aspect moves, no behaviour change; whether they ship at all is [Q9](#q9-do-pure-renames-ship).
+Renames and aspect moves, no behaviour change; shipped per [Q9](#q9-do-pure-renames-ship). Optional task refs follow AR-2: never before a required positional.
 
 | Current                                     | Target                                                                                     | Release note                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `task comment <task> <body>`                | `task comment add [<task>] <body>`                                                         | `task comment <task> <body>` removed → use `task comment add`                  |
-| `task comments edit <task> <id> <body>`     | `task comment update <task> <id> <body>`                                                   | `task comments edit` removed → use `task comment update`                       |
-| `task comments rm <task> <id>`              | `task comment delete <task> <id>`                                                          | `task comments rm` removed → use `task comment delete`                         |
+| `task comment <task> <body>`                | `task comment add <body> [--task <task>]`                                                  | `task comment <task> <body>` removed → use `task comment add`                  |
+| `task comments edit <task> <id> <body>`     | `task comment update <id> <body> [--task <task>]`                                          | `task comments edit` removed → use `task comment update`                       |
+| `task comments rm <task> <id>`              | `task comment delete <id> [--task <task>]`                                                 | `task comments rm` removed → use `task comment delete`                         |
 | `task deps add <task> --blocked-by`         | `task dep add [<task>] --blocked-by`                                                       | `task deps add` removed → use `task dep add`                                   |
-| `task deps list <task>`                     | `task show [<task>] --deps`                                                                | `task deps list` removed → use `task show --deps`                              |
 | `task deps confirm <task> <edge>`           | `task dep confirm <task> <edge>`                                                           | `task deps confirm` removed → use `task dep confirm`                           |
 | `task deps dismiss <task> <edge>`           | `task dep dismiss <task> <edge>`                                                           | `task deps dismiss` removed → use `task dep dismiss`                           |
 | `task deps rm <task> <edge>`                | `task dep remove <task> <edge>`                                                            | `task deps rm` removed → use `task dep remove`                                 |
@@ -570,22 +589,22 @@ Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `c
 
 "Names removed" are leaf commands that stop existing; "new names" are leaves that did not exist before; "flag-only" rows keep the command name.
 
-| Batch | Rows | Names removed                          | New names | Flag-only rows |
-| ----- | ---- | -------------------------------------- | --------- | -------------- |
-| 1     | 10   | 8                                      | 0         | 2              |
-| 3a    | 16   | 16                                     | 8         | 0              |
-| 3b    | 8    | 7                                      | 4         | 1              |
-| 3c    | 5    | 5                                      | 0         | 0              |
-| 3d    | 4    | 0                                      | 1         | 4              |
-| 3e    | 3    | 2                                      | 1         | 1              |
-| 3f    | 5    | 3 (+ `priority` stops being invokable) | 2         | 0              |
-| 3g    | 28   | 1                                      | 0         | 27             |
-| 3h    | 2    | 0                                      | 0         | 1              |
-| 3i    | 11   | 0                                      | 0         | 11             |
-| 3j    | 22   | 18                                     | 15        | 3              |
-| 4     | 0    | 0                                      | 0         | 0              |
+| Batch | Rows | Names removed                           | New names | Flag- or argument-only rows |
+| ----- | ---- | --------------------------------------- | --------- | --------------------------- |
+| 1     | 12   | 9 (`task context --full` is a flag row) | 0         | 3                           |
+| 3a    | 16   | 2                                       | 2         | 14                          |
+| 3b    | 8    | 7                                       | 4         | 1                           |
+| 3c    | 5    | 5                                       | 0         | 0                           |
+| 3d    | 4    | 1                                       | 2         | 3                           |
+| 3e    | 3    | 2                                       | 1         | 1                           |
+| 3f    | 5    | 3 (+ `priority` stops being invokable)  | 2         | 0                           |
+| 3g    | 28   | 1                                       | 0         | 27                          |
+| 3h    | 2    | 0                                       | 0         | 1                           |
+| 3i    | 11   | 0                                       | 0         | 11                          |
+| 3j    | 21   | 17                                      | 15        | 3                           |
+| 4     | 0    | 0                                       | 0         | 0                           |
 
-Leaf commands excluding `hook *`: **149 today → 119** after batches 1 and 3 (30 fewer), and 5 fewer top-level commands, 32 → 27 (`outcome`, `inbox`, `draft`, `cost`, `report`, `next`, `setup` go; `testcase` and `status` arrive). If Q8 picks `pr show`, one more rename, same count. Each batch's PR prints the exact grammar diff.
+Leaf commands excluding `hook *`: **149 today → 127** after batches 1 and 3 (22 fewer), and 6 fewer top-level commands, 32 → 26 (`outcome`, `inbox`, `draft`, `cost`, `report`, `next`, `setup` go; `status` arrives). Each batch's PR prints the exact grammar diff.
 
 ---
 
@@ -594,8 +613,8 @@ Leaf commands excluding `hook *`: **149 today → 119** after batches 1 and 3 (3
 | Order | Batch | Scope                                                | Branch                                | Depends on                                        |
 | ----- | ----- | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------- |
 | 0     | —     | this document                                        | `lumo/LUM-1233-cli-command-structure` | —                                                 |
-| 1     | 1     | one way to read a task                               | `lumo/LUM-1233-read-entry`            | this document agreed                              |
-| 2     | 3a–3j | merges, renames, flag clean-up; one PR per sub-batch | `lumo/LUM-1233-<sub-batch>`           | batch 1 (3j's `task show --deps` needs AF-1)      |
+| 1     | 1     | one way to read a task                               | `lumo/LUM-1233-read-entry`            | this document (agreed 2026-10-18)                 |
+| 2     | 3a–3j | merges, renames, flag clean-up; one PR per sub-batch | `lumo/LUM-1233-<sub-batch>`           | batch 1                                           |
 | 3     | 4     | Codex rules from the grammar                         | `lumo/LUM-1233-codex-rules`           | can go before batch 3 to make its renames cheaper |
 
 Batch 2 of the original plan (aliases) is cancelled by the 2026-10-18 ruling.
@@ -606,70 +625,53 @@ Batch 2 of the original plan (aliases) is cancelled by the 2026-10-18 ruling.
 
 ---
 
-## 14. Open questions
+## 14. Decisions
 
-Each needs the user's ruling before the batch that depends on it. The recommendation is the draft's default.
+The review draft listed nine open questions. The user decided all of them on 2026-10-18; the rulings are recorded with `lumo task decide` on LUM-1233. **Q3 differs from the draft's recommendation**; the others follow it.
 
 ### Q1. Name of the summary that replaces `inbox`, `draft` and `next`
 
-- **Options:** (a) `lumo status` — sections Inbox, Drafts, Next, with `--inbox`, `--drafts`, `--next` to pick one; (b) `lumo inbox` with `--drafts` and `--next`; (c) `lumo home`; (d) keep three commands, renamed to `inbox list`, `draft list`, `task list --next`.
-- **Recommendation: (a) `lumo status`.** It is `gh status` (assigned work, review requests and mentions in one call), so it is the name an agent guesses first, and it is one call instead of three. The risk is confusion with `task status` and `session status`; the help text of each says which scope it covers, and the three never take the same arguments (`lumo status` takes no task ref).
+- **Decision (2026-10-18):** `lumo status`, with the sections Inbox, Drafts and Next; `--inbox`, `--drafts` and `--next` print one section. `next --count` becomes `--limit` (`-n`).
+- **Why:** it is `gh status` (assigned work, review requests and mentions in one call), the name an agent guesses first, and one call instead of three. Its help text says it is about "me across the workspace", to keep it apart from `task status` and `session status`; it never takes a task ref.
+- **Rejected:** `lumo inbox` with flags, `lumo home`, keeping three commands.
 
 ### Q2. Where `priority` lives
 
-Today `lumo priority [text]` is a group that writes (and prompts interactively without text), with `priority list` under it. It was not called in 30 days.
+- **Decision (2026-10-18):** `priority create <text>` and `priority list`; the current priority also shows as one line in `lumo status`. `lumo priority [text]` stops being a command and its interactive prompt goes.
+- **Why:** the smallest change that satisfies CS-2 (no invokable group) and CF-1 (no interactive prompt), and the append-only history stays readable from the CLI. The priority is a team declaration, so it does not move under `project`.
 
-- **Options:** (a) `priority create <text>` and `priority list`, plus the current priority as one line in `lumo status`; (b) only `lumo status` shows it, and writing it moves to the web; (c) under a project: `project update --priority`.
-- **Recommendation: (a).** Smallest change that satisfies CS-2 (no invokable group) and CF-1 (no interactive prompt); keeps the append-only history readable from the CLI. (c) is wrong because the priority is a team declaration, not a project field.
+### Q3. Test-case arguments
 
-### Q3. Arguments of the top-level `testcase`
-
-`task testcase run` is the most called command (1,815). Its handle `LUM-42/TC3` is well learned.
-
-- **Options:**
-  - (a) **Task cases keep the handle; milestone cases use a flag.** `testcase list [<task>]`, `testcase add [<task>] --title …`, `testcase run <task>/TC<n>` or `testcase run TC<n>` (bound task); milestone: `testcase list --milestone <m>`, `testcase run TC<n> --milestone <m>`.
-  - (b) **Owner always a flag.** `testcase run TC3 --task LUM-42`, `testcase run TC3 --milestone m1`.
-  - (c) **One handle for both.** `LUM-42/TC3` and `m1/TC3`, told apart by shape.
-- **Recommendation: (a).** The common call only loses the word `task` (`lumo testcase run LUM-42/TC3 …`), which is exactly what agents already guessed 19+ times. (b) makes the most frequent call longer. (c) is ambiguous because milestone slugs are free text and can look like task refs.
+- **Decision (2026-10-18; differs from the draft, which recommended one top-level `testcase` noun):** no top-level `testcase`. `task testcase` and `milestone testcase` both stay. Every per-case command takes a single handle `<parent>/TC<n>`: `LUM-42/TC3` for a task case, `<milestone-slug>/TC3` for a milestone case (`headless-web-cli/TC3`). The two nouns have identical verbs, flags and output and share one implementation; `SKILL.md` and `references/` describe them once.
+- **Consequences:** the task form is unchanged except `rm` → `delete` (Q9) and the optional task on `list`/`add` (AR-2). The milestone form changes from two positionals (`<m> <n>`) to the handle. See [mapping 3a](#3a-one-argument-shape-for-test-cases).
+- **Why:** the parent stays explicit in the command, and one handle shape covers both, without a flag.
 
 ### Q4. What a removed command prints
 
-Not an alias: the command fails either way, with exit 2.
-
-- **Options:** (a) plain `Error: unknown command 'context'` (Commander's default, with its generic "did you mean" when the spelling is close); (b) a tombstone: `Error: lumo task context was removed in 1.N. Use: lumo task show --full`, also under `--json` as `{"error":{"code":"COMMAND_REMOVED",…}}`.
-- **Recommendation: (b).** Skill copies in customer repos lag the CLI (`skill update` skips locally edited copies and never downgrades), so agents with an old `SKILL.md` will keep calling removed names after an upgrade; one line saves them a `--help` round trip and a guess. Keep it honest: tombstones are hidden from help and from `grammar.json`, never run anything, live in one table that also feeds the release notes and the skill's "do not exist" list, and are dropped after two minor releases.
-- If the user rejects (b), RN-3 stays as written: unknown command, exit 2.
+- **Decision (2026-10-18):** a tombstone error, not an alias: `Error: lumo task context was removed. Use: lumo task show --full`, exit 2, `"code": "COMMAND_REMOVED"` under `--json`. The command never runs. Tombstones are hidden from `--help` and `grammar.json`, live in one table that also feeds the release notes and the skill's "do not exist" list, and are dropped two minor releases after the removal ([RN-3](#rn-3-running-a-removed-name)).
+- **Why:** skill copies in customer repos lag the CLI (`skill update` skips locally edited copies and never downgrades), so agents with an old `SKILL.md` keep calling removed names after an upgrade; one line saves a `--help` round trip and a guess.
 
 ### Q5. What `task show --full` prints
 
-`task context` prints Markdown (output conventions Q7 kept it that way, because it is pasted into a model's context); `task show` uses the plain detail layout (D-1–D-3). `task context --full` additionally prints every memory body.
-
-- **Options for the format:** (a) `task show --full` prints the detail view, then the old context body unchanged as Markdown sections; (b) all of it converted to the detail layout; (c) all Markdown.
-- **Options for memory bodies:** (i) `--full` keeps the one-line memory index, and a new aspect flag `--memory` prints the full bodies (old `task context --full`); (ii) `--full` always prints full bodies.
-- **Recommendation: (a) + (i).** (a) is the only one that keeps both LUM-1232 rulings and lets the batch-1 test compare the old context output section by section. (i) keeps the default `--full` call at today's `task context` size; full memory bodies are rare and expensive.
+- **Decision (2026-10-18):** `task show --full` prints the detail view (D-1–D-3), then the old `task context` body unchanged as Markdown, with the one-line memory index. Full memory bodies (old `task context --full`) come from the aspect flag `--memory`.
+- **Why:** keeps both LUM-1232 rulings (detail layout for `show`, Markdown for the paste-into-context body; output conventions Q7 moves from `task context` to `task show --full`), lets the batch-1 test compare the old context output section by section, and keeps the common `--full` call at today's `task context` size.
 
 ### Q6. The boolean `--project` on `init` and `skill update`
 
-`init`, `setup` and `skill update` use `--project` as a boolean ("install into this repo"), which collides with a global `--project <ref>`. `init` is on the frozen list.
-
-- **Options:** (a) rename to `--scope project|user`, as `uninstall --scope` already does; (b) keep the booleans and exempt these commands from the global flag; (c) give the global flag another name (`--in-project`).
-- **Recommendation: (a).** One flag, one meaning (GF-1). The `init` command name, its effect and the hook names it writes are unchanged, so the freeze's reason (installed settings depend on the names) is not touched; only the user-typed flag changes, with a release note. Asking because `init` is frozen.
+- **Decision (2026-10-18):** `init --project` / `--user` and `skill update --project` become `--scope project|user`, as `uninstall --scope` already is. `--project <ref>` is then global (GF-1).
+- **Why:** one flag, one meaning. The `init` command name, its behaviour and the hook names it writes are unchanged, so the freeze is not touched; only the typed flag changes, with a release note.
 
 ### Q7. Shape of `usage` and the `--apply` switch on `usage resync`
 
-- **`cost` + `report`:** `cost` groups token cost by tool/model/member/session over an ISO-date window; `report` gives team totals per member over local days plus a completed-task list. **Recommendation:** one `usage show` with `--by` (default `tool`), the window flags of `report` (`--since`, `--until`, local days), and `--tasks` to append the completed-task list. Alternative: two verbs, `usage show` and `usage report` (`report` would be a new domain verb).
-- **`usage resync --apply`:** today a dry run unless `--apply`. RW-2 says writes run when called and preview with `--dry-run`. **Recommendation:** `usage resync` applies; `--dry-run` previews; `--apply` is removed. Alternative: keep the safe default by making it a gated write (exit 4 + `--confirm`), which means an agent could no longer run it without the user.
+- **Decision (2026-10-18):** one `usage show` with `--by tool|model|member|session` (default `tool`), the local-day window flags of `report` (`--since`, `--until`), and `--tasks` to append the completed-task list. `usage resync` applies when called; `--dry-run` previews; `--apply` is removed.
+- **Why:** one noun and one read verb for usage (VB-1), and RW-2: writes run when called and preview with `--dry-run`, like `init`, `skill update`, `memory sync` and `memory push`.
 
 ### Q8. Keep `pr scan`, or rename it to `pr show`
 
-The brief keeps `pr scan` as the read and adds `pr review` for writes. Agents guessed `pr show` 7 times, and the task-side equivalent becomes `task show --scans`.
-
-- **Options:** (a) keep `pr scan <n>` (read only); (b) rename to `pr show <n>` (scans are what a Lumo PR record shows), so the noun's read verb is `show` like everywhere else.
-- **Recommendation: (b)**, in the same 3d PR, because "scan" reads like an action (it sounds like it starts a scan), and `show` is the core read verb (VB-1). This is a rename, not an alias: `pr scan` would be removed with a release note. If the user prefers the brief's wording, (a) is fine and `scan` stays in the domain-verb table.
+- **Decision (2026-10-18):** rename to `pr show <n>` (read only) in the 3d PR; write flags move to `pr review`. `pr scan` is removed with a release note and a Q4 tombstone.
+- **Why:** "scan" reads like an action (it sounds like it starts a scan), `show` is the core read verb (VB-1), and the task side is `task show --scans`.
 
 ### Q9. Do pure renames ship
 
-Sub-batch 3j renames commands only to satisfy VB-1/VB-2/CS-1 (`rm` → `delete`, `edit` → `update`, `comments` → `comment`, `deps` → `dep`, `overview` → `show`), without merging anything. With no aliases, each one breaks a habit and old skill copies.
-
-- **Options:** (a) ship all of 3j; (b) ship only the renames inside nouns that batch 3 already touches (`memory`, `testcase`), leave the rest as listed exceptions; (c) none.
-- **Recommendation: (a).** The point of the convention is that an agent can predict a name from the rules; every exception is one more thing `SKILL.md` has to spell out. The renamed commands are mostly rarely called (`task comments edit` 3, `task template rm` 1, `task deps rm` 0), so the habit cost is low. `worktree rm` stays an exception because it is frozen, and `task statuses` because `task status` is taken.
+- **Decision (2026-10-18):** yes, all of 3j: `rm` → `delete`/`remove`, `edit` → `update`, `comments` → `comment`, `deps` → `dep`, `overview` → `show`, and the summary/changelog aspects. Exceptions stay listed: `worktree rm` (frozen) and `task statuses` (`task status` is taken).
+- **Why:** an agent can predict a name from the rules only if the rules have no silent exceptions; the renamed commands are mostly rarely called (`task comments edit` 3, `task template rm` 1, `task deps rm` 0 in 30 days), so the habit cost is low.
