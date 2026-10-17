@@ -171,9 +171,10 @@ describe('documents', () => {
     const renamed = [
       { id: A, title: 'Design notes B', slug: 'design-notes-b-12', number: 12 },
     ]
-    expect(resolveDoc('design-notes-12', renamed)).toEqual({
+    expect(resolveDoc('Design-Notes-12', renamed)).toEqual({
       kind: 'found',
       doc: renamed[0],
+      viaNumber: true,
     })
   })
 
@@ -187,6 +188,22 @@ describe('documents', () => {
       doc: list[1],
     })
     expect(resolveDoc('Notes 2', list)).toEqual({ kind: 'not-found' })
+  })
+
+  it('lookupDocId says when an old slug was resolved by its number', async () => {
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        documents: [
+          { id: B, title: 'Renamed', slug: 'renamed-12', number: 12 },
+        ],
+      }),
+    } as Response)
+    expect(await lookupDocId('http://x', 'tok', 'old-title-12')).toBe(B)
+    expect(String(err.mock.calls[0]![0])).toContain(
+      'using doc #12 by its number — now renamed-12'
+    )
   })
 
   it('lookupDocId resolves a slug and remembers it for output', async () => {

@@ -73,7 +73,7 @@ The doc is named by its slug (`slugify(title)-<number>`, the segment of its web 
 
 ## `lumo doc update <doc> [flags]` — update a document
 
-`<doc>` accepts the slug (`<title>-<number>`, as in the web URL and `doc list` column 1), a case-insensitive title or the cuid. An old slug from before a rename still works (the `-<number>` tail is stable). Ambiguous titles fail with a candidate list by slug — re-run with the slug. Every `lumo doc` command names the doc by its slug in its output.
+`<doc>` accepts the slug (`<title>-<number>`, as in the web URL and `doc list` column 1), a case-insensitive title or the cuid. An old slug from before a rename still works: when no slug or title matches, a slug-shaped ref falls back to its `-<number>` tail (stable across renames) and a `Note:` on stderr names the doc it landed on. Ambiguous titles fail with a candidate list by slug — re-run with the slug. Every `lumo doc` command names the doc by its slug in its output.
 
 | Flag                     | Type                | Notes                                                                                                                                                                       |
 | ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -8,7 +8,8 @@ export interface DocLike {
 }
 
 export type ResolveResult =
-  | { kind: 'found'; doc: DocLike }
+  /** `viaNumber`: matched only by an old slug's `-<number>` tail. */
+  | { kind: 'found'; doc: DocLike; viaNumber?: true }
   | { kind: 'ambiguous'; candidates: DocLike[] }
   | { kind: 'not-found' }
 
@@ -42,11 +43,14 @@ export function resolveDoc(input: string, docs: DocLike[]): ResolveResult {
     // old slug (`old-title-12`) still finds doc #12. Only slug-shaped input
     // (lowercase words joined by `-`) qualifies, and only after no title
     // matched — a title like "Release-2" never lands on doc #2.
-    const tail = /^[a-z0-9]+(?:-[a-z0-9]+)*-(\d+)$/.exec(trimmed)
+    // The caller tells the user when this fallback picked the doc.
+    const tail = /^[a-z0-9]+(?:-[a-z0-9]+)*-(\d+)$/.exec(lower)
     const byNumber = tail
       ? docs.find(d => d.number === Number(tail[1]))
       : undefined
-    return byNumber ? { kind: 'found', doc: byNumber } : { kind: 'not-found' }
+    return byNumber
+      ? { kind: 'found', doc: byNumber, viaNumber: true }
+      : { kind: 'not-found' }
   }
   if (hits.length === 1) return { kind: 'found', doc: hits[0]! }
   return { kind: 'ambiguous', candidates: hits }

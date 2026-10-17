@@ -40,6 +40,12 @@ export async function lookupDocId(
   const result = resolveDoc(reference, documents)
   if (result.kind === 'found') {
     rememberDocSlug(result.doc.id, result.doc.slug)
+    if (result.viaNumber) {
+      // Never a silent pick: say which doc the old slug's number landed on.
+      console.error(
+        `Note: no doc has the slug "${sanitizeField(reference)}"; using doc #${result.doc.number} by its number — now ${docHandle(result.doc.id, result.doc.slug)} "${sanitizeField(result.doc.title)}".`
+      )
+    }
     return result.doc.id
   }
   if (result.kind === 'ambiguous') {
