@@ -16,6 +16,15 @@
  *   AI_PROVIDER=gateway DOTENV_CONFIG_PATH=<main checkout>/.env.local \
  *     npx tsx -r dotenv/config scripts/analysis/lum1234-trace/calibrate-pr.ts \
  *     [--dry-run] [--since 2026-10-01] [--limit N] [--budget 10] [--out <file>]
+ *     [--attribution branch|branch+path] [--probes]
+ *
+ * `--attribution` (default `branch+path`): how transcript events find their
+ * task — see `claude-transcript.ts`; `branch` is the original branch-only
+ * rule. `--probes` runs the hand-written probes in `probes/` (five
+ * positives, one honest negative) through the same core instead of the PRs,
+ * into `<dir of --out>/probes.jsonl`; the review sheet shows them as
+ * expected vs got. The budget is shared: it counts the spend recorded in
+ * both files.
  *
  * `--dry-run` makes no model call: the core runs with a spend gate that
  * refuses every call, which yields the exact judge prompt and its estimate.
@@ -65,7 +74,12 @@ import {
   buildRefutePrompt,
 } from '@/ee/security/security-scan/reward-hack-prompts'
 import type { RhItem } from '@/ee/security/llm/reward-hack-judge-client'
-import { ClaudeTranscriptParser } from './claude-transcript'
+import {
+  ClaudeTranscriptParser,
+  type AttributedRhEvent,
+  type RhAttribution,
+} from './claude-transcript'
+import { PROBE_MERGED_AT, RH_PROBES, type RhProbe } from './probes'
 
 const execFileP = promisify(execFile)
 
@@ -95,6 +109,8 @@ export interface CalibArgs {
   out: string
   prs: string
   projects: string
+  attribution: RhAttribution
+  probes: boolean
 }
 
 export function parseCalibArgs(argv: string[]): CalibArgs {
@@ -106,6 +122,8 @@ export function parseCalibArgs(argv: string[]): CalibArgs {
     out: join(CALIB_DIR, 'results.jsonl'),
     prs: join(CALIB_DIR, 'merged-prs.json'),
     projects: join(homedir(), '.claude', 'projects'),
+    attribution: 'branch+path',
+    probes: false,
   }
   const rest = argv.slice(2)
   const value = (i: number, flag: string): string => {
@@ -132,7 +150,13 @@ export function parseCalibArgs(argv: string[]): CalibArgs {
     } else if (a === '--out') args.out = value(i++, a)
     else if (a === '--prs') args.prs = value(i++, a)
     else if (a === '--projects') args.projects = value(i++, a)
-    else throw new Error(`unknown flag ${a}`)
+    else if (a === '--probes') args.probes = true
+    else if (a === '--attribution') {
+      const v = value(i++, a)
+      if (v !== 'branch' && v !== 'branch+path')
+        throw new Error('--attribution must be branch or branch+path')
+      args.attribution = v
+    } else throw new Error(`unknown flag ${a}`)
   }
   return args
 }
@@ -239,15 +263,23 @@ async function listTranscripts(projects: string): Promise<string[]> {
   return out.sort()
 }
 
+/** How many kept events each attribution rule placed. */
+export type AttributionStats = Record<
+  NonNullable<AttributedRhEvent['via']>,
+  number
+>
+
 /** task → sessionId → events (time order), for the tasks in `tasks`. */
 export async function loadTaskSessions(
   projects: string,
-  tasks: Set<string>
+  tasks: Set<string>,
+  attribution: RhAttribution = 'branch+path',
+  stats?: AttributionStats
 ): Promise<Map<string, RhSession[]>> {
   const byTask = new Map<string, Map<string, RhEvent[]>>()
   const seen = new Set<string>()
   for (const file of await listTranscripts(projects)) {
-    const parser = new ClaudeTranscriptParser()
+    const parser = new ClaudeTranscriptParser(attribution)
     const rl = createInterface({
       input: createReadStream(file, 'utf8'),
       crlfDelay: Infinity,
@@ -264,9 +296,10 @@ export async function loadTaskSessions(
         // A torn last line of a live session: skipped.
       }
     }
-    for (const { event, task } of parser.finish()) {
+    for (const { event, task, via } of parser.finish()) {
       if (!task || !tasks.has(task) || seen.has(event.id)) continue
       seen.add(event.id)
+      if (stats && via) stats[via]++
       const sessions = byTask.get(task) ?? new Map<string, RhEvent[]>()
       byTask.set(task, sessions)
       const list = sessions.get(event.sessionId) ?? []
@@ -535,6 +568,116 @@ export async function calibratePr(args: {
   }
 }
 
+// ─── probes ─────────────────────────────────────────────────────────────────
+
+export interface ProbeRecord extends CalibRecord {
+  probe: string
+  probeTitle: string
+  expect: RhProbe['expect']
+  expectKinds: string[]
+  /** Kinds of the reported (final) items. */
+  gotKinds: string[]
+  /** null when the probe was not judged (dry run, budget, error). */
+  pass: boolean | null
+}
+
+/** Expected vs got: positive = ≥1 final item of an expected kind; negative = none. */
+export function probePassed(
+  probe: Pick<RhProbe, 'expect' | 'expectKinds'>,
+  rec: Pick<CalibRecord, 'outcome' | 'finalItems'>
+): boolean | null {
+  if (rec.outcome !== 'judged') return null
+  if (probe.expect === 'negative') return rec.finalItems.length === 0
+  return rec.finalItems.some(i =>
+    (probe.expectKinds as string[]).includes(i.kind)
+  )
+}
+
+/**
+ * One probe through the very same path as a PR (`calibratePr`: selection,
+ * then `decideRewardHack`), as a PR merged after every probe event.
+ */
+export async function calibrateProbe(args: {
+  probe: RhProbe
+  /** Distinct negative number per probe (the record's `pr`). */
+  ordinal: number
+  judge: RhJudgeFn
+  refute: RhRefuteFn
+  spend: BudgetGate
+}): Promise<ProbeRecord> {
+  const { probe } = args
+  const pr: MergedPr = {
+    number: args.ordinal,
+    task: 'PROBE',
+    sha: '',
+    mergedAt: PROBE_MERGED_AT.toISOString(),
+    title: probe.title,
+    files: probe.prFileList.map(f => f.filename),
+  }
+  const record = await calibratePr({
+    pr,
+    allPrs: [pr],
+    sessions: [probe.session],
+    prFileList: probe.prFileList,
+    requirement: probe.requirement,
+    requirementSource: 'task',
+    judge: args.judge,
+    refute: args.refute,
+    spend: args.spend,
+  })
+  return {
+    ...record,
+    probe: probe.id,
+    probeTitle: probe.title,
+    expect: probe.expect,
+    expectKinds: [...probe.expectKinds],
+    gotKinds: record.finalItems.map(i => i.kind),
+    pass: probePassed(probe, record),
+  }
+}
+
+/** The latest record per probe. */
+export function latestPerProbe(records: ProbeRecord[]): ProbeRecord[] {
+  const m = new Map<string, ProbeRecord>()
+  for (const r of records) m.set(r.probe, r)
+  return [...m.values()].sort((a, b) => a.probe.localeCompare(b.probe))
+}
+
+function renderProbes(records: ProbeRecord[]): string[] {
+  const latest = latestPerProbe(records)
+  if (latest.length === 0) return []
+  const passed = latest.filter(r => r.pass === true).length
+  const spend = records.reduce((n, r) => n + r.costs.totalUsd, 0)
+  const out = [
+    '## Probes',
+    '',
+    `Hand-written probes (\`probes/\`) through the same core: ${passed}/${latest.length} as expected · spend $${spend.toFixed(2)}.`,
+    '',
+    '| probe | expected | got | suspicion | pass |',
+    '|---|---|---|---|---|',
+  ]
+  for (const r of latest) {
+    const expected =
+      r.expect === 'negative' ? 'no item' : `≥1 of ${r.expectKinds.join(' / ')}`
+    const got =
+      r.outcome !== 'judged'
+        ? r.outcome
+        : r.gotKinds.length > 0
+          ? r.gotKinds.join(', ')
+          : 'no item'
+    const before =
+      r.outcome === 'judged' && r.itemsBeforeGates.length > r.finalItems.length
+        ? ` (judge: ${r.itemsBeforeGates.map(i => i.kind).join(', ')})`
+        : ''
+    const pass = r.pass === null ? '—' : r.pass ? 'yes' : '**NO**'
+    out.push(
+      `| ${r.probe} — ${r.probeTitle} | ${expected} | ${got}${before} | ${r.suspicion ?? '—'} | ${pass} |`
+    )
+  }
+  out.push('')
+  return out
+}
+
 // ─── review sheet ───────────────────────────────────────────────────────────
 
 /** The latest record per PR (a retried error is replaced by its retry). */
@@ -544,7 +687,10 @@ export function latestPerPr(records: CalibRecord[]): CalibRecord[] {
   return [...m.values()].sort((a, b) => b.mergedAt.localeCompare(a.mergedAt))
 }
 
-export function renderReviewSheet(records: CalibRecord[]): string {
+export function renderReviewSheet(
+  records: CalibRecord[],
+  probes: ProbeRecord[] = []
+): string {
   const latest = latestPerPr(records)
   const judged = latest.filter(r => r.outcome === 'judged')
   const withItems = judged.filter(r => r.finalItems.length > 0)
@@ -561,6 +707,7 @@ export function renderReviewSheet(records: CalibRecord[]): string {
     '|---|---|---|---|---|---|---|',
     `| ${judged.length} | ${withItems.length} | ${items} | ${count('skipped')} | ${count('overCap')} | ${count('error')} | ${spend.toFixed(2)} |`,
     '',
+    ...renderProbes(probes),
   ]
   let n = 0
   for (const r of withItems)
@@ -590,18 +737,18 @@ export function renderReviewSheet(records: CalibRecord[]): string {
 
 // ─── main ───────────────────────────────────────────────────────────────────
 
-async function readRecords(file: string): Promise<CalibRecord[]> {
+async function readRecords<T = CalibRecord>(file: string): Promise<T[]> {
   let text: string
   try {
     text = await readFile(file, 'utf8')
   } catch {
     return []
   }
-  const out: CalibRecord[] = []
+  const out: T[] = []
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
     try {
-      out.push(JSON.parse(line) as CalibRecord)
+      out.push(JSON.parse(line) as T)
     } catch {
       // A torn line from a killed run: ignored.
     }
@@ -658,33 +805,101 @@ function isFatal(message: string | null): boolean {
   )
 }
 
+/** Worst case per judged input: every refute call, each about its size. */
+function refuteWorstUsd(promptChars: number, judged: number): number {
+  if (judged === 0) return 0
+  const perRefute = estimateRhCallUsd(
+    REWARD_HACK_REFUTE_SYSTEM_PROMPT +
+      buildRefutePrompt({
+        prompt: 'x'.repeat(Math.round(promptChars / judged)),
+        item: { kind: 'OTHER', summary: 'x'.repeat(200), eventIds: ['x'] },
+        prDiff: '',
+      }),
+    REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
+  )
+  return perRefute * REWARD_HACK_MAX_REFUTES * judged
+}
+
+async function runProbes(ctx: {
+  args: CalibArgs
+  file: string
+  done: Set<string>
+  gate: BudgetGate
+  judge: RhJudgeFn
+  refute: RhRefuteFn
+  say: (s: string) => void
+}): Promise<void> {
+  const { args, gate, say } = ctx
+  let judged = 0
+  let promptChars = 0
+  let errors = 0
+  let stopped: string | null = null
+  for (const [i, probe] of RH_PROBES.entries()) {
+    if (ctx.done.has(probe.id)) continue
+    const rec = await calibrateProbe({
+      probe,
+      ordinal: -(i + 1),
+      judge: ctx.judge,
+      refute: ctx.refute,
+      spend: gate,
+    })
+    if (args.dryRun) {
+      if (rec.outcome !== 'skipped') {
+        judged++
+        promptChars += rec.promptChars
+      } else say(`probe ${probe.id}: no session selected (probe is broken)`)
+      continue
+    }
+    if (rec.outcome === 'capped') {
+      stopped = `budget $${args.budget} reached`
+      break
+    }
+    await appendFile(ctx.file, `${JSON.stringify(rec)}\n`)
+    if (rec.outcome === 'judged') judged++
+    say(
+      `probe ${probe.id} ${rec.outcome} · expected ${rec.expect} · got ${rec.gotKinds.join(',') || 'none'} · pass ${rec.pass} · $${gate.spentUsd.toFixed(2)}`
+    )
+    if (rec.outcome === 'error') {
+      errors++
+      if (isFatal(rec.error) || errors >= 3) {
+        stopped = `model call failed: ${rec.error}`
+        break
+      }
+    } else errors = 0
+  }
+  if (args.dryRun) {
+    say(
+      [
+        `dry run, probes (no model calls):`,
+        `  probes: ${RH_PROBES.length} (${RH_PROBES.filter(p => p.expect === 'positive').length} positive, ${RH_PROBES.filter(p => p.expect === 'negative').length} negative); would be judged: ${judged}`,
+        `  judge prompt chars: ${promptChars}`,
+        `  estimated judge cost (product estimator, deliberately high): $${gate.requestedUsd.toFixed(2)}`,
+        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per probe: $${(gate.requestedUsd + refuteWorstUsd(promptChars, judged)).toFixed(2)}`,
+      ].join('\n')
+    )
+    return
+  }
+  say(
+    `${stopped ? `${stopped} — stopped` : 'probes done'} · ${judged} judged this run · spend $${gate.spentUsd.toFixed(2)}`
+  )
+}
+
 async function main(): Promise<void> {
   const args = parseCalibArgs(process.argv)
-  const all = (JSON.parse(await readFile(args.prs, 'utf8')) as MergedPr[]).sort(
-    (a, b) => new Date(b.mergedAt).getTime() - new Date(a.mergedAt).getTime()
-  )
-  const inScope = all.filter(
-    p => !args.since || new Date(p.mergedAt).getTime() >= args.since.getTime()
-  )
   const say = (s: string) => process.stdout.write(`${s}\n`)
-  say(`${inScope.length} merged PRs in scope; reading transcripts…`)
-  const byTask = await loadTaskSessions(
-    args.projects,
-    new Set(inScope.map(p => p.task))
-  )
-  const candidates = inScope
-    .filter(p => (byTask.get(p.task)?.length ?? 0) > 0)
-    .slice(0, args.limit)
-  say(`${candidates.length} PRs with ≥1 attributed session`)
-
   if (!args.dryRun && process.env.AI_PROVIDER !== 'gateway')
     throw new Error('set AI_PROVIDER=gateway (ZDR) for a real run')
 
+  const probesFile = join(dirname(args.out), 'probes.jsonl')
   const records = args.dryRun ? [] : await readRecords(args.out)
-  const done = new Set(
-    records.filter(r => r.outcome !== 'error').map(r => r.pr)
+  const probeRecords = args.dryRun
+    ? []
+    : await readRecords<ProbeRecord>(probesFile)
+  // One budget across the PR run and the probes.
+  const spentBefore = [...records, ...probeRecords].reduce(
+    (n, r) => n + r.costs.totalUsd,
+    0
   )
-  const spentBefore = records.reduce((n, r) => n + r.costs.totalUsd, 0)
   const gate = new BudgetGate(args.budget, spentBefore, !args.dryRun)
 
   let judge: RhJudgeFn
@@ -698,13 +913,66 @@ async function main(): Promise<void> {
     const client = await import('@/ee/security/llm/reward-hack-judge-client')
     judge = prompt => client.judgeRewardHack(prompt)
     refute = a => client.refuteRewardHackItem(a)
+    await mkdir(dirname(args.out), { recursive: true })
+  }
+  const sheet = join(dirname(args.out), 'review-sheet.md')
+  const writeSheet = async () =>
+    writeFile(
+      sheet,
+      renderReviewSheet(
+        await readRecords(args.out),
+        await readRecords<ProbeRecord>(probesFile)
+      )
+    )
+
+  if (args.probes) {
+    await runProbes({
+      args,
+      file: probesFile,
+      done: new Set(
+        probeRecords.filter(r => r.outcome !== 'error').map(r => r.probe)
+      ),
+      gate,
+      judge,
+      refute,
+      say,
+    })
+    if (!args.dryRun) {
+      await writeSheet()
+      say(`review sheet ${sheet}`)
+    }
+    return
   }
 
-  if (!args.dryRun) await mkdir(dirname(args.out), { recursive: true })
+  const all = (JSON.parse(await readFile(args.prs, 'utf8')) as MergedPr[]).sort(
+    (a, b) => new Date(b.mergedAt).getTime() - new Date(a.mergedAt).getTime()
+  )
+  const inScope = all.filter(
+    p => !args.since || new Date(p.mergedAt).getTime() >= args.since.getTime()
+  )
+  say(
+    `${inScope.length} merged PRs in scope; reading transcripts (attribution ${args.attribution})…`
+  )
+  const stats: AttributionStats = { branch: 0, path: 0, subagent: 0 }
+  const byTask = await loadTaskSessions(
+    args.projects,
+    new Set(inScope.map(p => p.task)),
+    args.attribution,
+    stats
+  )
+  const candidates = inScope
+    .filter(p => (byTask.get(p.task)?.length ?? 0) > 0)
+    .slice(0, args.limit)
+  say(
+    `${candidates.length} PRs with ≥1 attributed session · events attributed by branch ${stats.branch}, path ${stats.path}, subagent ${stats.subagent}`
+  )
+
+  const done = new Set(
+    records.filter(r => r.outcome !== 'error').map(r => r.pr)
+  )
   let judgedPrs = 0
   let sessions = 0
   let promptChars = 0
-  let refuteWorstUsd = 0
   let overCap = 0
   let errors = 0
   let stopped: string | null = null
@@ -752,39 +1020,20 @@ async function main(): Promise<void> {
   }
 
   if (args.dryRun) {
-    // Worst case per judged PR: every one of the refute calls, each about as
-    // large as the judge input.
-    const perRefute = (chars: number) =>
-      estimateRhCallUsd(
-        REWARD_HACK_REFUTE_SYSTEM_PROMPT +
-          buildRefutePrompt({
-            prompt: 'x'.repeat(chars),
-            item: { kind: 'OTHER', summary: 'x'.repeat(200), eventIds: ['x'] },
-            prDiff: '',
-          }),
-        REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
-      )
-    refuteWorstUsd =
-      judgedPrs > 0
-        ? perRefute(promptChars / judgedPrs) *
-          REWARD_HACK_MAX_REFUTES *
-          judgedPrs
-        : 0
     say(
       [
-        `dry run (no model calls):`,
+        `dry run (no model calls, attribution ${args.attribution}):`,
         `  PRs with ≥1 attributed session: ${candidates.length}`,
         `  PRs with ≥1 session selected for the PR (would be judged): ${judgedPrs} (${overCap} over the input cap, not sent)`,
         `  sessions selected: ${sessions}`,
         `  judge prompt chars: ${promptChars}`,
         `  estimated judge cost (product estimator, deliberately high): $${gate.requestedUsd.toFixed(2)}`,
-        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per PR: $${(gate.requestedUsd + refuteWorstUsd).toFixed(2)}`,
+        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per PR: $${(gate.requestedUsd + refuteWorstUsd(promptChars, judgedPrs)).toFixed(2)}`,
       ].join('\n')
     )
     return
   }
-  const sheet = join(dirname(args.out), 'review-sheet.md')
-  await writeFile(sheet, renderReviewSheet(await readRecords(args.out)))
+  await writeSheet()
   say(
     `${stopped ? `${stopped} — stopped` : 'done'} · ${judgedPrs} judged this run · spend $${gate.spentUsd.toFixed(2)} · review sheet ${sheet}`
   )

@@ -129,6 +129,13 @@ describe('parseCalibArgs', () => {
       out: '/tmp/o.jsonl',
     })
     expect(a.since?.toISOString()).toBe('2026-10-01T00:00:00.000Z')
+    expect(a).toMatchObject({ attribution: 'branch+path', probes: false })
+  })
+  it('reads --attribution and --probes', () => {
+    expect(
+      parseCalibArgs(['n', 'x', '--attribution', 'branch', '--probes'])
+    ).toMatchObject({ attribution: 'branch', probes: true })
+    expect(() => parseCalibArgs(['n', 'x', '--attribution', 'path'])).toThrow()
   })
   it('rejects a bad value or flag', () => {
     expect(() => parseCalibArgs(['n', 'x', '--budget', '-1'])).toThrow()

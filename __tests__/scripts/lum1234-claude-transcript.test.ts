@@ -10,6 +10,7 @@ import {
   genuinePromptText,
   parseClaudeTranscript,
   taskOfBranch,
+  taskOfWorktreePath,
   transcriptSessionId,
 } from '@/scripts/analysis/lum1234-trace/claude-transcript'
 
@@ -276,5 +277,134 @@ describe('clipToolResponse', () => {
     expect(clipToolResponse({ stdout: 'a', originalFile: 'b' })).toEqual({
       stdout: 'a',
     })
+  })
+})
+
+describe('taskOfWorktreePath', () => {
+  it('reads LUM-<n> from a .worktrees or .claude/worktrees segment only', () => {
+    expect(
+      taskOfWorktreePath('/r/lumo/.worktrees/LUM-12-add-thing/src/a.ts')
+    ).toBe('LUM-12')
+    expect(
+      taskOfWorktreePath('/r/lumo/.claude/worktrees/LUM-12-x/src/a.ts')
+    ).toBe('LUM-12')
+    expect(taskOfWorktreePath('/r/lumo/.worktrees/LUM-12')).toBe('LUM-12')
+    expect(taskOfWorktreePath('C:\\r\\.worktrees\\LUM-9-y\\a.ts')).toBe('LUM-9')
+    // A task id anywhere else in the path is not a worktree.
+    expect(taskOfWorktreePath('/r/lumo/docs/LUM-12-notes.md')).toBeNull()
+    expect(taskOfWorktreePath('/r/lumo/src/LUM-12/a.ts')).toBeNull()
+    expect(taskOfWorktreePath('/r/x.worktrees/LUM-12-a/b.ts')).toBeNull()
+    expect(taskOfWorktreePath('/r/.worktrees/LUM-12x/b.ts')).toBeNull()
+    expect(taskOfWorktreePath('/r/.worktrees/foo-LUM-12-a/b.ts')).toBeNull()
+    expect(taskOfWorktreePath(null)).toBeNull()
+  })
+})
+
+describe('task attribution (branch+path)', () => {
+  const WT = '/r/lumo/.worktrees/LUM-5-thing'
+  const MAIN = { gitBranch: 'main', cwd: '/r/lumo' }
+  const sub = { ...MAIN, isSidechain: true, agentId: 'ag1' }
+
+  function subagentRun(extra: object = sub, writePath = `${WT}/src/a.ts`) {
+    return [
+      user('u1', 'implement the change', extra),
+      assistant('a1', [toolUse('t1', 'Bash', { command: 'npm test' })], extra),
+      user('r1', [toolResult('t1', 'PASS')], extra),
+      assistant(
+        'a2',
+        [
+          toolUse('t2', 'Edit', {
+            file_path: writePath,
+            old_string: 'a',
+            new_string: 'b',
+          }),
+        ],
+        extra
+      ),
+      user('r2', [toolResult('t2', 'ok')], extra),
+      assistant('a3', [text('done')], extra),
+    ]
+  }
+
+  it('a subagent on main editing a task worktree: its edit by path, its prompt / tool / STOP by subagent', () => {
+    const events = parseClaudeTranscript(subagentRun())
+    expect(events.map(e => [e.event.id, e.task, e.via])).toEqual([
+      ['u1', 'LUM-5', 'subagent'],
+      ['t1', 'LUM-5', 'subagent'],
+      ['t2', 'LUM-5', 'path'],
+      ['a3', 'LUM-5', 'subagent'],
+    ])
+  })
+
+  it('--attribution branch keeps the original rule: nothing on main is a task', () => {
+    const events = parseClaudeTranscript(subagentRun(), 'branch')
+    expect(events.map(e => e.task)).toEqual([null, null, null, null])
+  })
+
+  it('a different task branch wins over the subagent task', () => {
+    const entries = subagentRun()
+    // The result entry's branch stamps the tool event.
+    entries[2] = { ...entries[2]!, gitBranch: 'lumo/LUM-8-other' }
+    const events = parseClaudeTranscript(entries)
+    expect(events.find(e => e.event.id === 't1')).toMatchObject({
+      task: 'LUM-8',
+      via: 'branch',
+    })
+    expect(events.find(e => e.event.id === 'u1')!.task).toBe('LUM-5')
+  })
+
+  it('a main (non-subagent) session: only the write itself is attributed', () => {
+    const events = parseClaudeTranscript(subagentRun(MAIN))
+    expect(events.map(e => [e.event.id, e.task])).toEqual([
+      ['u1', null],
+      ['t1', null],
+      ['t2', 'LUM-5'],
+      ['a3', null],
+    ])
+  })
+
+  it('a tool event run from a task worktree cwd is attributed by cwd; a write is placed by its file, not its cwd', () => {
+    const inWt = { gitBranch: 'HEAD', cwd: `${WT}/src` }
+    const events = parseClaudeTranscript(
+      subagentRun({ ...inWt }, '/r/lumo/src/a.ts')
+    )
+    expect(events.map(e => [e.event.id, e.task])).toEqual([
+      ['u1', null],
+      ['t1', 'LUM-5'],
+      ['t2', null],
+      ['a3', null],
+    ])
+  })
+
+  it('a write outside any worktree, or a task id only as a substring, attributes nothing', () => {
+    const events = parseClaudeTranscript(
+      subagentRun(sub, '/r/lumo/docs/LUM-5-plan.md')
+    )
+    expect(events.every(e => e.task === null)).toBe(true)
+  })
+
+  it('a subagent whose writes name two tasks is not propagated', () => {
+    const entries = [
+      ...subagentRun(),
+      assistant(
+        'a4',
+        [
+          toolUse('t3', 'Write', {
+            file_path: '/r/lumo/.worktrees/LUM-6-y/b.ts',
+            content: 'q',
+          }),
+        ],
+        sub
+      ),
+      user('r3', [toolResult('t3', 'ok')], sub),
+    ]
+    const events = parseClaudeTranscript(entries)
+    expect(events.map(e => [e.event.id, e.task])).toEqual([
+      ['u1', null],
+      ['t1', null],
+      ['t2', 'LUM-5'],
+      ['t3', 'LUM-6'],
+      ['a3', null],
+    ])
   })
 })

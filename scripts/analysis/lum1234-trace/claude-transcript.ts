@@ -30,18 +30,39 @@
  * Ids: the entry `uuid` (prompts, stops) or the `tool_use_id`; repeats (a
  * resumed or forked session copies history) are dropped. Session: the
  * transcript `sessionId`, or `<sessionId>:<agentId>` for a subagent
- * (sidechain) transcript. Task: the entry's `gitBranch` `lumo/LUM-<n>-…` →
- * `LUM-<n>`; any other branch (main, HEAD, …) is no task's.
+ * (sidechain) transcript.
+ *
+ * Task attribution (`attribution`, default `branch+path`). The product binds a
+ * session to its task; transcripts have no binding, so it is rebuilt:
+ *  - branch: the entry's `gitBranch` `lumo/LUM-<n>-…` → `LUM-<n>`; any other
+ *    branch (main, HEAD, …) is no task's. Always wins when present.
+ *  - path (`branch+path` only): a write (Write/Edit/MultiEdit/NotebookEdit/
+ *    apply_patch) whose file paths lie under ONE task worktree
+ *    (`…/.worktrees/LUM-<n>-…/` or `…/.claude/worktrees/LUM-<n>-…/`, a whole
+ *    path segment — never a task id found anywhere in the text); any other
+ *    tool event by the entry's `cwd` under such a worktree.
+ *  - subagent (`branch+path` only): a subagent transcript works on one task.
+ *    When its writes name exactly one task by path, its prompts, STOPs and
+ *    other tool events with no task of their own take that task.
+ *    Subagent entries carry the parent's branch and cwd (often `main` and the
+ *    main checkout), so without this their edits in a task worktree are lost.
  */
-import type { RhEvent } from '@/ee/security/security-scan/reward-hack-input'
+import {
+  rhEventFilePaths,
+  type RhEvent,
+} from '@/ee/security/security-scan/reward-hack-input'
 
 /** Our cut on one tool response string kept per event. */
 export const TOOL_RESPONSE_MAX_CHARS = 8_000
 
+export type RhAttribution = 'branch' | 'branch+path'
+
 export interface AttributedRhEvent {
   event: RhEvent
-  /** `LUM-<n>` from the entry's branch; null when not a task branch. */
+  /** `LUM-<n>` the event is attributed to; null when none. */
   task: string | null
+  /** Which rule attributed it (null when `task` is null). */
+  via: 'branch' | 'path' | 'subagent' | null
 }
 
 type Rec = Record<string, unknown>
@@ -59,6 +80,29 @@ const TASK_BRANCH = /^lumo\/(LUM-\d+)(?:-|$)/
 export function taskOfBranch(branch: string | null | undefined): string | null {
   if (!branch) return null
   return TASK_BRANCH.exec(branch)?.[1] ?? null
+}
+
+const WORKTREE_TASK =
+  /(?:^|\/)(?:\.worktrees|\.claude\/worktrees)\/(LUM-\d+)(?:-[^/]*)?(?=\/|$)/
+
+/**
+ * `LUM-<n>` when `path` lies under a task worktree directory
+ * (`.worktrees/LUM-<n>-…` or `.claude/worktrees/LUM-<n>-…`, matched as whole
+ * path segments); null otherwise.
+ */
+export function taskOfWorktreePath(
+  path: string | null | undefined
+): string | null {
+  if (!path) return null
+  return WORKTREE_TASK.exec(path.replace(/\\/g, '/'))?.[1] ?? null
+}
+
+/** The one task every worktree path of a write names; null if none or mixed. */
+function taskOfPaths(paths: string[]): string | null {
+  const tasks = new Set(
+    paths.map(taskOfWorktreePath).filter((t): t is string => t !== null)
+  )
+  return tasks.size === 1 ? [...tasks][0]! : null
 }
 
 /** `sessionId`, or `<sessionId>:<agentId>` for a subagent's entries. */
@@ -201,6 +245,7 @@ interface PendingTool {
   input: unknown
   session: string
   branch: string | null
+  cwd: string | null
 }
 
 interface LastText {
@@ -210,15 +255,26 @@ interface LastText {
   branch: string | null
 }
 
+interface Raw {
+  event: RhEvent
+  branchTask: string | null
+  pathTask: string | null
+  /** The task a write's file paths name (subagent attribution). */
+  writeTask: string | null
+}
+
 /**
  * Feed entries in file order (one parser per transcript file, or across
  * files — state is kept per session), then `finish()` for every event.
  */
 export class ClaudeTranscriptParser {
-  private readonly out: AttributedRhEvent[] = []
+  private readonly out: Raw[] = []
   private readonly seen = new Set<string>()
   private readonly pending = new Map<string, PendingTool>()
   private readonly lastText = new Map<string, LastText>()
+  private readonly sidechains = new Set<string>()
+
+  constructor(private readonly attribution: RhAttribution = 'branch+path') {}
 
   private emit(
     id: string,
@@ -227,13 +283,33 @@ export class ClaudeTranscriptParser {
     toolName: string | null,
     payload: unknown,
     at: Date,
-    branch: string | null
+    branch: string | null,
+    cwd: string | null = null
   ): void {
     if (this.seen.has(id)) return
     this.seen.add(id)
+    const event: RhEvent = {
+      id,
+      sessionId: session,
+      type,
+      toolName,
+      payload,
+      createdAt: at,
+    }
+    const writes = type === 'POST_TOOL_USE' ? rhEventFilePaths(event) : []
+    const writeTask = writes.length > 0 ? taskOfPaths(writes) : null
+    // A write is placed by the files it wrote, never by where it ran from.
+    const pathTask =
+      writes.length > 0
+        ? writeTask
+        : type === 'POST_TOOL_USE'
+          ? taskOfWorktreePath(cwd)
+          : null
     this.out.push({
-      event: { id, sessionId: session, type, toolName, payload, createdAt: at },
-      task: taskOfBranch(branch),
+      event,
+      branchTask: taskOfBranch(branch),
+      pathTask,
+      writeTask,
     })
   }
 
@@ -259,7 +335,9 @@ export class ClaudeTranscriptParser {
     const at = timeOf(entry)
     const uuid = str(entry.uuid)
     const branch = str(entry.gitBranch)
+    const cwd = str(entry.cwd)
     if (!session || !at) return
+    if (entry.isSidechain === true) this.sidechains.add(session)
 
     if (entry.type === 'assistant') {
       const content = asRecord(entry.message)?.content
@@ -269,7 +347,13 @@ export class ClaudeTranscriptParser {
           const id = str(b.id)
           const name = str(b.name)
           if (id && name)
-            this.pending.set(id, { name, input: b.input, session, branch })
+            this.pending.set(id, {
+              name,
+              input: b.input,
+              session,
+              branch,
+              cwd,
+            })
         }
       const text = assistantText(entry)
       if (text && uuid)
@@ -305,7 +389,8 @@ export class ClaudeTranscriptParser {
             tool_response: clipToolResponse(response),
           },
           at,
-          branch ?? call.branch
+          branch ?? call.branch,
+          cwd ?? call.cwd
         )
       }
       if (results.length > 0) return
@@ -319,13 +404,43 @@ export class ClaudeTranscriptParser {
 
   finish(): AttributedRhEvent[] {
     for (const session of [...this.lastText.keys()]) this.flushStop(session)
-    return this.out
+    if (this.attribution === 'branch')
+      return this.out.map(r => ({
+        event: r.event,
+        task: r.branchTask,
+        via: r.branchTask ? 'branch' : null,
+      }))
+    // A subagent session's task: the one task its writes name by path.
+    const writeTasks = new Map<string, Set<string>>()
+    for (const r of this.out) {
+      if (!r.writeTask || !this.sidechains.has(r.event.sessionId)) continue
+      const set = writeTasks.get(r.event.sessionId) ?? new Set<string>()
+      set.add(r.writeTask)
+      writeTasks.set(r.event.sessionId, set)
+    }
+    return this.out.map(r => {
+      if (r.branchTask)
+        return { event: r.event, task: r.branchTask, via: 'branch' as const }
+      if (r.pathTask)
+        return { event: r.event, task: r.pathTask, via: 'path' as const }
+      const tasks = writeTasks.get(r.event.sessionId)
+      if (tasks?.size === 1)
+        return {
+          event: r.event,
+          task: [...tasks][0]!,
+          via: 'subagent' as const,
+        }
+      return { event: r.event, task: null, via: null }
+    })
   }
 }
 
 /** Parse a whole transcript's entries (tests; small inputs). */
-export function parseClaudeTranscript(entries: unknown[]): AttributedRhEvent[] {
-  const p = new ClaudeTranscriptParser()
+export function parseClaudeTranscript(
+  entries: unknown[],
+  attribution: RhAttribution = 'branch+path'
+): AttributedRhEvent[] {
+  const p = new ClaudeTranscriptParser(attribution)
   for (const e of entries) p.push(e)
   return p.finish()
 }
