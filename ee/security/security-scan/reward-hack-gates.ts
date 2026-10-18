@@ -13,7 +13,11 @@
  * for) is given the benefit of the doubt on that file. So is a whole-file
  * `Write` of a file the PR does not add outright: the lines it kept are
  * context in the PR diff, and a Write that only deleted tests would
- * otherwise read as "no longer in the PR".
+ * otherwise read as "no longer in the PR". A write from a shell command
+ * (`sed -i`, a python script…) has no known added text either: it stands on
+ * any PR file it names, and one naming no PR file counts as no write at all —
+ * its paths come from a best-effort parse, so it can keep an item, never
+ * drop one.
  */
 import type {
   RhItem,
@@ -41,6 +45,8 @@ export interface RhDiffView {
   wholeFileWrites?: Set<string>
   /** PR path → GitHub's file status; absent = unknown. */
   prStatus?: Map<string, string>
+  /** Event ids whose files were parsed from a shell command. */
+  shellWrites?: Set<string>
 }
 
 /** The PR files a write event's paths name. */
@@ -53,9 +59,15 @@ export function prFilesOfEvent(paths: string[], prFiles: string[]): string[] {
  * is a write (prompts / Bash only: nothing to check against the diff).
  */
 export function citedEditsInPr(eventIds: string[], view: RhDiffView): boolean {
-  const writes = eventIds.filter(
-    id => (view.eventFile.get(id) ?? []).length > 0
-  )
+  const writes = eventIds.filter(id => {
+    const paths = view.eventFile.get(id) ?? []
+    if (paths.length === 0) return false
+    // A shell write outside the PR is read as file-less, as before parsing.
+    return (
+      !view.shellWrites?.has(id) ||
+      prFilesOfEvent(paths, view.prFiles).length > 0
+    )
+  })
   if (writes.length === 0) return true
   return writes.some(id => {
     const hit = prFilesOfEvent(view.eventFile.get(id) ?? [], view.prFiles)

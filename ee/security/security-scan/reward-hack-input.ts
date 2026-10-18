@@ -108,16 +108,22 @@ function toolNameOf(ev: RhEvent): string {
 
 /**
  * Every file a write event touched: the `file_path` / `notebook_path` of a
- * Write/Edit/MultiEdit/NotebookEdit, or each file an `apply_patch` adds,
- * updates (its rename target too) or deletes, in patch order. [] for any
- * other event.
+ * Write/Edit/MultiEdit/NotebookEdit, each file an `apply_patch` adds,
+ * updates (its rename target too) or deletes, in patch order, or the files a
+ * Bash command clearly writes (`rhBashWrittenPaths`). [] for any other event.
  */
 export function rhEventFilePaths(ev: RhEvent): string[] {
   if (ev.type !== 'POST_TOOL_USE' || isPrunedPayload(ev.payload)) return []
   const tool = toolNameOf(ev)
-  if (!EDIT_TOOLS.has(tool)) return []
   const input = asRecord(asRecord(ev.payload)?.tool_input)
   if (!input) return []
+  if (SHELL_TOOLS.has(tool)) {
+    // A file edited from a script (sed -i, a python heredoc…) is a write too.
+    return typeof input.command === 'string'
+      ? rhBashWrittenPaths(input.command)
+      : []
+  }
+  if (!EDIT_TOOLS.has(tool)) return []
   if (tool === APPLY_PATCH_TOOL) {
     const text = applyPatchText(input)
     if (text === null) return []
@@ -134,6 +140,455 @@ export function rhEventFilePaths(ev: RhEvent): string[] {
 /** The (first) file a write event touched, else null — for labels. */
 export function rhEventFilePath(ev: RhEvent): string | null {
   return rhEventFilePaths(ev)[0] ?? null
+}
+
+// ─── files a shell command writes (best effort, precision over recall) ──────
+
+/** Shell tools whose `tool_input.command` is a command line. */
+const SHELL_TOOLS = new Set(['Bash'])
+
+type ShWord = { v: string; unsafe: boolean }
+type ShRedir = {
+  op: '>' | '>>' | '<' | '<<' | '<<<' | 'dup'
+  fd: number | null
+  target: ShWord | null
+  body?: string
+}
+type ShTok =
+  | { t: 'w'; w: ShWord }
+  | { t: 'op'; v: string }
+  | { t: 'r'; r: ShRedir }
+
+interface ShCommand {
+  argv: ShWord[]
+  redirs: ShRedir[]
+  /** The list operator that ends this command ('' at the end). */
+  sep: string
+}
+
+const UNQUOTED_UNSAFE = new Set(['*', '?', '[', ']', '{', '}', '$', '~'])
+
+/**
+ * A small POSIX-shell lexer: words (quotes removed), list operators and
+ * redirections, with heredoc bodies attached to their `<<` redirection.
+ * Null on anything it does not model (subshells, command substitution
+ * outside quotes, unterminated quotes) — the caller then reports nothing.
+ */
+function lexShell(s: string): ShTok[] | null {
+  const out: ShTok[] = []
+  const pending: { redir: ShRedir; delim: string; strip: boolean }[] = []
+  let cur: string | null = null
+  let quoted = false
+  let unsafe = false
+  let i = 0
+
+  const flush = () => {
+    if (cur === null) return
+    const w: ShWord = { v: cur, unsafe }
+    const last = out[out.length - 1]
+    if (last?.t === 'r' && last.r.target === null) {
+      last.r.target = w
+      if (last.r.op === '<<') {
+        const strip = (last.r as ShRedir & { strip?: boolean }).strip === true
+        pending.push({ redir: last.r, delim: w.v, strip })
+      }
+    } else out.push({ t: 'w', w })
+    cur = null
+    quoted = false
+    unsafe = false
+  }
+  const add = (text: string) => {
+    cur = (cur ?? '') + text
+  }
+
+  while (i < s.length) {
+    const c = s[i]!
+    if (c === ' ' || c === '\t') {
+      flush()
+      i++
+    } else if (c === '\\') {
+      if (s[i + 1] === '\n') i += 2
+      else {
+        add(s[i + 1] ?? '')
+        i += 2
+      }
+    } else if (c === "'") {
+      const end = s.indexOf("'", i + 1)
+      if (end < 0) return null
+      add(s.slice(i + 1, end))
+      quoted = true
+      i = end + 1
+    } else if (c === '"') {
+      let j = i + 1
+      let text = ''
+      while (j < s.length && s[j] !== '"') {
+        if (
+          s[j] === '\\' &&
+          j + 1 < s.length &&
+          '"\\$`\n'.includes(s[j + 1]!)
+        ) {
+          if (s[j + 1] !== '\n') text += s[j + 1]
+          j += 2
+          continue
+        }
+        if (s[j] === '$' || s[j] === '`') unsafe = true
+        text += s[j]
+        j++
+      }
+      if (j >= s.length) return null
+      add(text)
+      quoted = true
+      i = j + 1
+    } else if (c === '\n') {
+      flush()
+      out.push({ t: 'op', v: '\n' })
+      i++
+      // Heredoc bodies start on the line after their `<<`.
+      for (const h of pending.splice(0)) {
+        const lines: string[] = []
+        let found = false
+        while (i <= s.length) {
+          const nl = s.indexOf('\n', i)
+          const line = s.slice(i, nl < 0 ? s.length : nl)
+          i = nl < 0 ? s.length + 1 : nl + 1
+          if ((h.strip ? line.replace(/^\t+/, '') : line) === h.delim) {
+            found = true
+            break
+          }
+          lines.push(line)
+          if (nl < 0) break
+        }
+        if (!found) return null
+        h.redir.body = lines.join('\n')
+      }
+      if (i > s.length) i = s.length
+    } else if (c === '#' && cur === null) {
+      while (i < s.length && s[i] !== '\n') i++
+    } else if (c === ';' || c === '|' || (c === '&' && s[i + 1] !== '>')) {
+      flush()
+      const two = s.slice(i, i + 2)
+      const op = two === '&&' || two === '||' || two === ';;' ? two : c
+      out.push({ t: 'op', v: op })
+      i += op.length
+    } else if (c === '>' || c === '<' || c === '&') {
+      let fd: number | null = null
+      if (cur !== null && !quoted && /^\d+$/.test(cur)) {
+        fd = Number(cur)
+        cur = null
+      } else flush()
+      let op: ShRedir['op']
+      let strip = false
+      if (s.startsWith('&>>', i)) {
+        op = 'dup'
+        i += 3
+      } else if (s.startsWith('&>', i)) {
+        op = 'dup'
+        i += 2
+      } else if (s.startsWith('>&', i) || s.startsWith('<&', i)) {
+        op = 'dup'
+        i += 2
+      } else if (s.startsWith('>>', i)) {
+        op = '>>'
+        i += 2
+      } else if (s.startsWith('>|', i)) {
+        op = '>'
+        i += 2
+      } else if (s.startsWith('<<<', i)) {
+        op = '<<<'
+        i += 3
+      } else if (s.startsWith('<<-', i)) {
+        op = '<<'
+        strip = true
+        i += 3
+      } else if (s.startsWith('<<', i)) {
+        op = '<<'
+        i += 2
+      } else if (s.startsWith('<>', i)) {
+        op = 'dup'
+        i += 2
+      } else {
+        op = c === '>' ? '>' : '<'
+        i += 1
+      }
+      const r: ShRedir & { strip?: boolean } = { op, fd, target: null }
+      if (strip) r.strip = true
+      out.push({ t: 'r', r })
+    } else if (c === '(' || c === ')' || c === '`') {
+      return null
+    } else if (c === '$' && s[i + 1] === '(') {
+      return null
+    } else {
+      if (UNQUOTED_UNSAFE.has(c)) unsafe = true
+      add(c)
+      i++
+    }
+  }
+  flush()
+  if (pending.length > 0) return null
+  return out
+}
+
+function splitCommands(toks: ShTok[]): ShCommand[] | null {
+  const out: ShCommand[] = []
+  let cur: ShCommand = { argv: [], redirs: [], sep: '' }
+  for (const t of toks) {
+    if (t.t === 'op') {
+      cur.sep = t.v
+      if (cur.argv.length > 0 || cur.redirs.length > 0) out.push(cur)
+      cur = { argv: [], redirs: [], sep: '' }
+    } else if (t.t === 'w') cur.argv.push(t.w)
+    else {
+      if (t.r.target === null) return null
+      cur.redirs.push(t.r)
+    }
+  }
+  if (cur.argv.length > 0 || cur.redirs.length > 0) out.push(cur)
+  return out
+}
+
+/** `base` + `p`, with `.` / `..` folded; null when it climbs above its root. */
+function joinShellPath(base: string | null, p: string): string | null {
+  const full = p.startsWith('/') || !base ? p : `${base}/${p}`
+  const abs = full.startsWith('/')
+  const parts: string[] = []
+  for (const seg of full.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') {
+      if (parts.length === 0) return null
+      parts.pop()
+    } else parts.push(seg)
+  }
+  if (parts.length === 0) return null
+  return `${abs ? '/' : ''}${parts.join('/')}`
+}
+
+/** Scratch locations whose writes never belong to a PR. */
+const SHELL_IGNORED_PATH =
+  /^\/(?:private\/)?(?:tmp|dev|var\/folders|var\/tmp)(?:\/|$)|(?:^|\/)(?:scratchpad|\.superpowers)(?:\/|$)/
+
+function usablePath(p: string): boolean {
+  return (
+    p.length > 0 &&
+    p !== '-' &&
+    !p.endsWith('/') &&
+    !/[\n$*?[\]{}`~]/.test(p) &&
+    !p.startsWith('-')
+  )
+}
+
+/** Paths a sed / perl / tee / mv / cp invocation writes; [] when unsure. */
+function argvWrites(cmd: string, args: ShWord[]): ShWord[] {
+  if (cmd === 'sed') {
+    let inPlace = false
+    let scriptGiven = false
+    const positional: ShWord[] = []
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i]!.v
+      if (a === '--') {
+        positional.push(...args.slice(i + 1))
+        break
+      }
+      if (a === '-i') {
+        inPlace = true
+        const next = args[i + 1]?.v
+        // BSD `sed -i '' …` / `sed -i .bak …`: the suffix is its own word.
+        if (next !== undefined && (next === '' || /^\.[\w.-]*$/.test(next))) i++
+      } else if (/^--in-place(=.*)?$/.test(a)) inPlace = true
+      else if (
+        a === '-e' ||
+        a === '--expression' ||
+        a === '-f' ||
+        a === '--file'
+      ) {
+        scriptGiven = true
+        i++
+      } else if (/^--(expression|file)=/.test(a)) scriptGiven = true
+      else if (/^-[A-Za-z]+/.test(a)) {
+        const flags = a.slice(1)
+        if (flags.includes('i')) inPlace = true
+        else if (/[ef]$/.test(flags)) {
+          scriptGiven = true
+          i++
+        }
+      } else if (a.startsWith('-')) continue
+      else positional.push(args[i]!)
+    }
+    if (!inPlace) return []
+    return scriptGiven ? positional : positional.slice(1)
+  }
+  if (cmd === 'perl') {
+    let inPlace = false
+    let code = false
+    const positional: ShWord[] = []
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i]!.v
+      if (code || !a.startsWith('-') || a === '-') {
+        if (!code) return [] // a script file: not modelled
+        positional.push(args[i]!)
+        continue
+      }
+      for (let k = 1; k < a.length; k++) {
+        const f = a[k]!
+        // -M / -m / -I take the rest of the word as their argument.
+        if (f === 'M' || f === 'm' || f === 'I') break
+        if (f === 'i') {
+          inPlace = true
+          break
+        }
+        if (f === 'e' || f === 'E') {
+          code = true
+          if (k === a.length - 1) i++
+          break
+        }
+      }
+    }
+    return inPlace && code ? positional : []
+  }
+  if (cmd === 'tee') return args.filter(a => !a.v.startsWith('-'))
+  if (cmd === 'mv' || cmd === 'cp') {
+    const positional: ShWord[] = []
+    let opts = true
+    for (const a of args) {
+      if (opts && a.v === '--') opts = false
+      else if (opts && /^(-t|--target-directory)/.test(a.v)) return []
+      else if (opts && a.v.startsWith('-')) continue
+      else positional.push(a)
+    }
+    return positional.length === 2 ? [positional[1]!] : []
+  }
+  return []
+}
+
+const PY_CMD = /^python(\d+(\.\d+)*)?$/
+const STR_ASSIGN =
+  /(?:^|[\s;(,])(?:const\s+|let\s+|var\s+)?([A-Za-z_]\w*)\s*(?<![=!<>])=(?!=)\s*(?:(?:pathlib\.)?Path\(\s*)?(['"])([^'"\n]+)\2/g
+
+/**
+ * Literal paths a python / node script opens for writing: `open(<p>, 'w'|'a'
+ * |'x'|'+')`, `Path(<p>).write_text|write_bytes`, `fs.writeFileSync(<p>`
+ * and friends, where <p> is a string literal or a variable assigned one
+ * string literal. A script that changes directory reports nothing.
+ */
+function scriptWrites(code: string): string[] {
+  if (/\bchdir\s*\(/.test(code)) return []
+  const vars = new Map<string, string | null>()
+  for (const m of code.matchAll(STR_ASSIGN)) {
+    const [, name, , value] = m
+    const prev = vars.get(name!)
+    vars.set(name!, prev === undefined || prev === value ? value! : null)
+  }
+  const ref = (literal: string | undefined, name: string | undefined) =>
+    literal ?? (name !== undefined ? (vars.get(name) ?? null) : null)
+  const out: string[] = []
+  const push = (p: string | null) => {
+    if (p && !out.includes(p)) out.push(p)
+  }
+  const ARG = `(?:(['"])([^'"\\n]+)\\1|([A-Za-z_$][\\w$]*))`
+  const OPEN = new RegExp(
+    `\\bopen\\(\\s*${ARG}\\s*,\\s*(?:mode\\s*=\\s*)?(['"])([rwaxbt+]+)\\4`,
+    'g'
+  )
+  for (const m of code.matchAll(OPEN))
+    if (/[wax+]/.test(m[5]!)) push(ref(m[2], m[3]))
+  const PATH_LIT = new RegExp(
+    `\\bPath\\(\\s*(['"])([^'"\\n]+)\\1\\s*\\)\\.(?:write_text|write_bytes)\\(`,
+    'g'
+  )
+  for (const m of code.matchAll(PATH_LIT)) push(m[2]!)
+  for (const m of code.matchAll(
+    /\b([A-Za-z_]\w*)\.(?:write_text|write_bytes)\(/g
+  ))
+    push(ref(undefined, m[1]))
+  const NODE = new RegExp(
+    `\\b(?:writeFileSync|appendFileSync|writeFile|appendFile|createWriteStream)\\(\\s*${ARG}\\s*[,)]`,
+    'g'
+  )
+  for (const m of code.matchAll(NODE)) push(ref(m[2], m[3]))
+  return out
+}
+
+/** The script a python / node invocation runs inline (`-c` / `-e` / stdin). */
+function inlineScript(cmd: ShCommand): string | null {
+  const name = cmd.argv[0]!.v.split('/').pop() ?? ''
+  const isPy = PY_CMD.test(name)
+  if (!isPy && name !== 'node') return null
+  const flags = isPy ? ['-c'] : ['-e', '--eval']
+  let stdin = true
+  for (let i = 1; i < cmd.argv.length; i++) {
+    const a = cmd.argv[i]!.v
+    if (flags.includes(a)) return cmd.argv[i + 1]?.v ?? null
+    if (a === '-') break
+    if (a.startsWith('-')) continue
+    stdin = false // a script file
+    break
+  }
+  if (!stdin) return null
+  const r = cmd.redirs.find(x => x.op === '<<' || x.op === '<<<')
+  if (!r) return null
+  return r.op === '<<' ? (r.body ?? null) : (r.target?.v ?? null)
+}
+
+/**
+ * The files a shell command line clearly writes, resolved against a leading
+ * `cd <dir> &&|;` when there is one: `sed -i`, `perl -pi -e`, `>` / `>>`
+ * (stdout only), `tee`, the destination of a two-operand `mv` / `cp`, and
+ * python / node inline scripts that open a literal path for writing. Writes
+ * under /tmp, /dev, scratchpad or `.superpowers/` are left out. Anything it
+ * does not model — subshells, `$(…)`, a later `cd`, variables or globs in a
+ * path — yields nothing for that path or the whole line: precision over
+ * recall, a missed write only means the event stays file-less as before.
+ */
+export function rhBashWrittenPaths(command: string): string[] {
+  const toks = lexShell(command)
+  if (!toks) return []
+  const cmds = splitCommands(toks)
+  if (!cmds || cmds.length === 0) return []
+  let base: string | null = null
+  let start = 0
+  const first = cmds[0]!
+  if (first.argv[0]?.v === 'cd') {
+    if (
+      first.argv.length !== 2 ||
+      first.redirs.length > 0 ||
+      !['&&', ';', '\n'].includes(first.sep) ||
+      first.argv[1]!.unsafe ||
+      first.argv[1]!.v === '-'
+    )
+      return []
+    base = first.argv[1]!.v
+    start = 1
+  }
+  const raw: ShWord[] = []
+  const scriptPaths: string[] = []
+  for (const cmd of cmds.slice(start)) {
+    const argv = [...cmd.argv]
+    while (argv.length > 0 && /^[A-Za-z_]\w*=/.test(argv[0]!.v)) argv.shift()
+    const name = argv[0]?.v
+    if (name === 'cd' || name === 'pushd' || name === 'popd') return []
+    for (const r of cmd.redirs)
+      if ((r.op === '>' || r.op === '>>') && (r.fd === null || r.fd === 1))
+        raw.push(r.target!)
+    if (!name) continue
+    raw.push(...argvWrites(name, argv.slice(1)))
+    const script = inlineScript({ ...cmd, argv })
+    if (script !== null) scriptPaths.push(...scriptWrites(script))
+  }
+  const out: string[] = []
+  for (const p of [
+    ...raw.filter(w => !w.unsafe).map(w => w.v),
+    ...scriptPaths,
+  ]) {
+    if (!usablePath(p)) continue
+    const full = joinShellPath(base, p)
+    if (!full || SHELL_IGNORED_PATH.test(full) || out.includes(full)) continue
+    out.push(full)
+  }
+  return out
+}
+
+/** A shell event whose command the parser read as writing files. */
+export function rhEventIsShellWrite(ev: RhEvent): boolean {
+  return SHELL_TOOLS.has(toolNameOf(ev)) && rhEventFilePaths(ev).length > 0
 }
 
 /** A line worth matching against the diff: not just a brace or a keyword. */

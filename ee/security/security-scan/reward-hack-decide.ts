@@ -23,6 +23,7 @@ import {
   prFileStatuses,
   rhEventAddedLines,
   rhEventFilePaths,
+  rhEventIsShellWrite,
   rhEventIsWholeFileWrite,
   type RhPrFile,
   type RhSession,
@@ -93,6 +94,7 @@ export function buildRhDiffView(
   const eventFile = new Map<string, string[]>()
   const eventAddedLines = new Map<string, string[] | null>()
   const wholeFileWrites = new Set<string>()
+  const shellWrites = new Set<string>()
   for (const s of sessions)
     for (const e of s.events) {
       const paths = rhEventFilePaths(e)
@@ -100,6 +102,7 @@ export function buildRhDiffView(
       eventFile.set(e.id, paths)
       eventAddedLines.set(e.id, rhEventAddedLines(e))
       if (rhEventIsWholeFileWrite(e)) wholeFileWrites.add(e.id)
+      if (rhEventIsShellWrite(e)) shellWrites.add(e.id)
     }
   return {
     eventFile,
@@ -108,6 +111,7 @@ export function buildRhDiffView(
     prAdded: prAddedLines(prFileList),
     wholeFileWrites,
     prStatus: prFileStatuses(prFileList),
+    shellWrites,
   }
 }
 

@@ -281,6 +281,32 @@ describe('rewardHackEvidenceService.getForViewer', () => {
     expect(step.detail).toContain('if (input === 42) return 7')
   })
 
+  it('a Bash step that writes a file names the file and keeps its command', async () => {
+    viewer('MEMBER', 'm-own')
+    const command =
+      "cd /repo && sed -i 's/toBe(200)/toBeDefined()/' src/login.test.ts"
+    events[1] = {
+      ...events[1]!,
+      toolName: 'Bash',
+      payload: { tool_name: 'Bash', tool_input: { command } },
+    }
+    const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-own')
+    const step = view!.steps.find(s => s.eventId === 'ev-edit')!
+    expect(step.label).toBe(`Bash /repo/src/login.test.ts: ${command}`)
+  })
+
+  it('a Bash step that writes nothing keeps the plain command label', async () => {
+    viewer('MEMBER', 'm-own')
+    events[1] = {
+      ...events[1]!,
+      toolName: 'Bash',
+      payload: { tool_name: 'Bash', tool_input: { command: 'npm test' } },
+    }
+    const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-own')
+    const step = view!.steps.find(s => s.eventId === 'ev-edit')!
+    expect(step.label).toBe('Bash: npm test')
+  })
+
   it('a workspace OWNER who is not the session member sees the evidence too', async () => {
     viewer('OWNER', 'm-owner')
     const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-o')

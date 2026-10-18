@@ -25,6 +25,7 @@ import { isPrunedPayload } from '@/lib/hook-event/retention'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import {
   rhEventFilePaths,
+  rhEventIsShellWrite,
   type RhEvent,
 } from '@/ee/security/security-scan/reward-hack-input'
 import {
@@ -158,11 +159,16 @@ function toStep(ev: RhEvent): RhEvidenceStep {
   // A Codex apply_patch may touch several files: the first, plus a count.
   const paths = rhEventFilePaths(ev)
   const command = str(input.command)
-  const label = paths.length
-    ? `${tool} ${paths[0]}${paths.length > 1 ? ` (+${paths.length - 1} more)` : ''}`
-    : command
-      ? `${tool}: ${command.split('\n')[0] ?? ''}`
-      : tool
+  const files = paths.length
+    ? `${paths[0]}${paths.length > 1 ? ` (+${paths.length - 1} more)` : ''}`
+    : ''
+  // A shell write keeps its command: the file alone hides how it was written.
+  const label =
+    files && !rhEventIsShellWrite(ev)
+      ? `${tool} ${files}`
+      : command
+        ? `${tool}${files ? ` ${files}` : ''}: ${command.split('\n')[0] ?? ''}`
+        : tool
   return {
     eventId: ev.id,
     sessionId: ev.sessionId,
