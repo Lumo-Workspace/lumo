@@ -185,9 +185,12 @@ export const operationCostService = {
         since,
         ...(scope.until ? { until: scope.until } : {}),
       })
-      scopeLabel = scope.since
-        ? `since ${scope.since.toISOString()}`
-        : `last ${DEFAULT_WINDOW_DAYS}d`
+      // An until without a since is the DEFAULT_WINDOW_DAYS ending there,
+      // so the label names the start it resolved to, not "last 30d".
+      scopeLabel =
+        scope.since || scope.until
+          ? `since ${since.toISOString()}`
+          : `last ${DEFAULT_WINDOW_DAYS}d`
       if (scope.until) scopeLabel += ` until ${scope.until.toISOString()}`
     }
 

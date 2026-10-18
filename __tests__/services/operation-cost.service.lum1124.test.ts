@@ -71,6 +71,17 @@ describe('getOperationCost scope label (LUM-1124)', () => {
     )
   })
 
+  it('LUM-1233 3e: an until alone titles the 30 days ending there', async () => {
+    const until = new Date('2026-10-31T00:00:00.000Z')
+    const res = await operationCostService.getOperationCost('w1', {
+      kind: 'workspace',
+      until,
+    })
+    expect(res!.scope.label).toBe(
+      'since 2026-10-01T00:00:00.000Z until 2026-10-31T00:00:00.000Z'
+    )
+  })
+
   it('keeps "last 30d" when no --since is given', async () => {
     const res = await operationCostService.getOperationCost('w1', {
       kind: 'workspace',
