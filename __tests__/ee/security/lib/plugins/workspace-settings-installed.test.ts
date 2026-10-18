@@ -19,6 +19,8 @@ const SECURITY_COLUMNS = [
   'securityScanEnabled',
   'securityAiReviewEnabled',
   'securityHuntEnabled',
+  // LUM-1234: the reward-hack layer switch.
+  'securityRewardHackEnabled',
   // LUM-1130: the request-changes workflow.
   'securityRequestChangesEnabled',
   // LUM-1142: the PR's author may resolve / approve by command.
@@ -117,6 +119,7 @@ describe('installed (the security plugin)', () => {
         'securityScanEnabled',
         'securityAiReviewEnabled',
         'securityHuntEnabled',
+        'securityRewardHackEnabled',
         'securityRequestChangesEnabled',
         'securityAllowAuthorApproval',
         'securityLearningsScope',

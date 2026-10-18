@@ -456,6 +456,8 @@ model Workspace {
   securityScanEnabled     Boolean           @default(true)
   securityAiReviewEnabled Boolean           @default(true)
   securityHuntEnabled     Boolean           @default(true)
+  // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
+  securityRewardHackEnabled Boolean         @default(true)
   // LUM-1130: the PR reviewer's request-changes workflow.
   // Off by default: on, Lumo's review is
   // "Changes requested" while a Lumo thread or a DONE-blocking finding is
@@ -492,6 +494,7 @@ model Workspace {
   usageResyncAudits   UsageResyncAudit[]
   auditEvents         AuditEvent[]
   subprocessorNotices SubprocessorNoticeDelivery[]
+  llmSpend            WorkspaceLlmSpend[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -1513,6 +1516,8 @@ enum PrSecurityFindingKind {
   // LUM-988: a non-security finding from the AI review (logic bug, error
   // handling, doc mismatch, weak test…). Always LLM_JUDGE, so never blocking.
   CORRECTNESS
+  // LUM-1234: a reward-hack a session left in the PR (LLM_JUDGE, advisory only).
+  REWARD_HACK
 }
 
 enum PrSecurityFindingSeverity {
@@ -1831,6 +1836,8 @@ model PrSecurityScan {
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
   huntAudit         Json?
+  // LUM-1234: reward-hack layer state (cost caps, truncation, session coverage).
+  rewardHackState   Json?
   // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
   // started for this row; null = no managed run (BYO, disabled, or start()
   // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
@@ -4448,4 +4455,18 @@ model AuthRateLimit {
 
   @@index([lastRequest])
   @@map("auth_rate_limits")
+}
+
+// LUM-1234: per-workspace monthly LLM spend per feature (month = YYYY-MM, UTC).
+model WorkspaceLlmSpend {
+  id          String    @id @default(cuid())
+  workspaceId String
+  feature     String
+  month       String
+  usdMicros   BigInt    @default(0)
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, feature, month])
+  @@map("workspace_llm_spend")
 }

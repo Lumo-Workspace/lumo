@@ -39,6 +39,8 @@ export type FindingKind =
   | 'DEPENDENCY'
   // LUM-988: AI-review correctness finding (never blocking).
   | 'CORRECTNESS'
+  // LUM-1234: reward-hack layer finding (LLM_JUDGE, advisory only).
+  | 'REWARD_HACK'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
