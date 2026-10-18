@@ -382,6 +382,35 @@ describe('LUM-988 code-review findings in lumo task status', () => {
     )
   })
 
+  it('LUM-1234: tags reward-hack/<KIND> rows [AGENT], never [SECURITY], and counts them apart', () => {
+    const out = formatTaskStatus(
+      payload({
+        nextActions: [
+          SECURITY_ACTION,
+          {
+            ...SECURITY_ACTION,
+            findingId: 'f3',
+            provenance: 'LLM_JUDGE' as const,
+            severity: 'MEDIUM' as const,
+            blocking: false,
+            ruleId: 'reward-hack/TEST_TAMPERING',
+            statement:
+              'reward-hack/TEST_TAMPERING at src/a.test.ts — Agent behavior: Weakened or bypassed tests in src/a.test.ts',
+            filePath: 'src/a.test.ts',
+            line: null,
+          },
+        ],
+      })
+    )
+    expect(out).toContain(
+      '\nNext actions (1 security finding · 1 agent-behavior finding)\n'
+    )
+    expect(out).toContain(
+      '  • [AGENT] [MEDIUM] Agent behavior: Weakened or bypassed tests in src/a.test.ts'
+    )
+    expect(out).not.toContain('[SECURITY] [MEDIUM] Agent behavior')
+  })
+
   it('keeps the old heading when there is no bug', () => {
     const out = formatTaskStatus(payload({ nextActions: [SECURITY_ACTION] }))
     expect(out).toContain('\nNext actions (1 security finding)\n')

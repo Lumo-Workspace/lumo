@@ -23,6 +23,7 @@ import {
   QUEUE_EXIT_LABELS,
   QUEUE_EXIT_REASONS,
   isCodeReviewFinding,
+  isRewardHackFinding,
   secretDowngradeNote,
   type QueueExitReason,
 } from '../../../shared/src/security-scan'
@@ -309,7 +310,12 @@ function findingStanding(f: PrScanFinding): string {
 function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
   const where = f.line == null ? f.filePath : `${f.filePath}:${f.line}`
   const note = sanitizeField(secretDowngradeNote(f.secretDowngrade))
-  const bug = isCodeReviewFinding(f.ruleId) ? '[BUG] ' : ''
+  // LUM-1234: an agent-behavior finding is `[AGENT]`, never a security one.
+  const bug = isRewardHackFinding(f.ruleId)
+    ? '[AGENT] '
+    : isCodeReviewFinding(f.ruleId)
+      ? '[BUG] '
+      : ''
   const fields: Field[] = [
     {
       label: 'Rule',

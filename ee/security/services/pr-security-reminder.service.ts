@@ -160,6 +160,15 @@ function unconfirmedReason(
   return null
 }
 
+/**
+ * LUM-1234 — agent-behavior (REWARD_HACK) findings are advisory notes for
+ * the humans reviewing the PR: the agent reminders leave them out (they are
+ * neither security findings nor the agent's to rule on).
+ */
+function notAgentBehavior(f: { kind: string }): boolean {
+  return f.kind !== 'REWARD_HACK'
+}
+
 export const prSecurityReminderService = {
   async loadOpenFindingsForTask(
     taskId: string
@@ -314,7 +323,7 @@ export const prSecurityReminderService = {
   ): Promise<string> {
     const state = await this.loadOpenFindingsForTask(taskId)
     return renderSessionStartSecuritySection({
-      findings: state.findings,
+      findings: state.findings.filter(notAgentBehavior),
       unconfirmedPrs: state.unconfirmedPrs,
       identifier,
     })
@@ -348,7 +357,9 @@ export const prSecurityReminderService = {
       .map(ls => ({
         prNumber: ls.prNumber,
         headSha: ls.headSha,
-        findings: state.findings.filter(f => f.scanId === ls.scanId),
+        findings: state.findings.filter(
+          f => f.scanId === ls.scanId && notAgentBehavior(f)
+        ),
       }))
       .filter(s => s.findings.length > 0)
     const rendered =

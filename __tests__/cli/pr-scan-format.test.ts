@@ -827,6 +827,33 @@ describe('LUM-988 code-review findings in lumo pr scan', () => {
   })
 })
 
+describe('LUM-1234 agent-behavior findings in lumo pr scan', () => {
+  it('leads a reward-hack/<KIND> finding with [AGENT]', () => {
+    const agent = finding({
+      id: 'f3',
+      kind: 'REWARD_HACK',
+      ruleId: 'reward-hack/SPECIAL_CASING',
+      provenance: 'LLM_JUDGE',
+      severity: 'MEDIUM',
+      title: 'Agent behavior: Special-cased the checked inputs in src/a.ts',
+      blocking: false,
+    })
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            findings: [agent],
+            counts: { ...scan().counts, findings: 1, open: 1, blocking: 0 },
+          }),
+        ],
+      })
+    )
+    expect(out).toContain(
+      '    • [AGENT] [MEDIUM] Agent behavior: Special-cased the checked inputs in src/a.ts'
+    )
+  })
+})
+
 describe('LUM-988 verifier verdict in lumo pr scan', () => {
   it('a rejected row reads "rejected by verifier" with its reason', () => {
     const out = formatPrScan(

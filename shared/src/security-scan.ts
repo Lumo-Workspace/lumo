@@ -870,15 +870,31 @@ export function isCodeReviewFinding(ruleId: string): boolean {
 }
 
 /**
- * `3 security findings`, `2 bugs`, or `1 security finding · 2 bugs` — the
- * count phrase for a set of findings, split by `isCodeReviewFinding`.
+ * LUM-1234 — the reward-hack layer's ("Agent behavior") advisory findings
+ * carry `reward-hack/<KIND>` rule ids: about how the agent sessions behind a
+ * PR worked, not about the code's security — never tagged or counted as a
+ * security finding.
+ */
+export const REWARD_HACK_RULE_PREFIX = 'reward-hack/'
+
+export function isRewardHackFinding(ruleId: string): boolean {
+  return ruleId.startsWith(REWARD_HACK_RULE_PREFIX)
+}
+
+/**
+ * `3 security findings`, `2 bugs`, `1 agent-behavior finding`, or a mix like
+ * `1 security finding · 2 bugs` — the count phrase for a set of findings,
+ * split by `isCodeReviewFinding` / `isRewardHackFinding`.
  */
 export function findingCountPhrase(ruleIds: readonly string[]): string {
   const bugs = ruleIds.filter(isCodeReviewFinding).length
-  const security = ruleIds.length - bugs
+  const agent = ruleIds.filter(isRewardHackFinding).length
+  const security = ruleIds.length - bugs - agent
   const parts: string[] = []
-  if (security > 0 || bugs === 0)
+  if (security > 0 || (bugs === 0 && agent === 0))
     parts.push(`${security} security finding${security === 1 ? '' : 's'}`)
   if (bugs > 0) parts.push(`${bugs} bug${bugs === 1 ? '' : 's'}`)
+  if (agent > 0)
+    parts.push(`${agent} agent-behavior finding${agent === 1 ? '' : 's'}`)
   return parts.join(' · ')
 }
