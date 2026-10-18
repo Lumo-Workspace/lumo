@@ -212,8 +212,8 @@ describe('run(): a PR too large to scan', () => {
         external: 'SKIPPED',
         supplyChain: 'SKIPPED',
         judge: 'SKIPPED',
-        // LUM-1234: not offered by the platform (LUMO_REWARD_HACK unset) — off.
-        rewardHack: 'NOT_CONFIGURED',
+        // LUM-1234 (R10): not offered by the platform (LUMO_REWARD_HACK
+        // unset) — no rewardHack key at all.
         hunt: 'SKIPPED',
       },
       partialCauses: ['PR_TOO_LARGE'],

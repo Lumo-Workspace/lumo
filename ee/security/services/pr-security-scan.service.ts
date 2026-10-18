@@ -1042,8 +1042,8 @@ async function finishTooLarge(
   )
   const stages: ScanStages = {}
   for (const key of SCAN_STAGE_KEYS) stages[key] = 'SKIPPED'
-  // LUM-1234: a layer the platform does not offer is off, not skipped.
-  if (!isRewardHackEnabled()) stages.rewardHack = 'NOT_CONFIGURED'
+  // LUM-1234 (R10): a layer the platform does not offer has no key at all.
+  if (!isRewardHackEnabled()) delete stages.rewardHack
   await prSecurityScanRepository.finalize(scanId, {
     status: 'FAILED',
     judgeStatus: null,
@@ -1062,15 +1062,27 @@ async function finishTooLarge(
  * never throws; a failed import is stamped FAILED so the layer never sits
  * PENDING for a run that does not exist.
  */
-async function startRewardHackLayer(scanId: string): Promise<void> {
+async function startRewardHackLayer(
+  scanId: string,
+  runToken: Date | undefined
+): Promise<void> {
   try {
     const { runRewardHackLayer } = await import('./reward-hack-layer.service')
-    await runRewardHackLayer(scanId)
+    await runRewardHackLayer(scanId, {}, runToken ? { runToken } : {})
   } catch (error) {
     logger.error(
       `[pr-security-scan] reward-hack layer not started scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
     )
-    await prSecurityScanRepository.mergeStages(scanId, { rewardHack: 'FAILED' })
+    if (runToken)
+      await prSecurityScanRepository.persistRewardHackResult(scanId, runToken, {
+        findings: [],
+        stage: 'FAILED',
+        partialCauses: [],
+      })
+    else
+      await prSecurityScanRepository.mergeStages(scanId, {
+        rewardHack: 'FAILED',
+      })
   }
 }
 
@@ -1224,19 +1236,20 @@ export const prSecurityScanService = {
       // LUM-1137: every push, until N reviewed commits, under an hourly cap.
       // LUM-1152: `@<app> ignore` in the description skips the automatic AI
       // layers before the budget is touched; the deterministic layers run.
-      const automaticAi =
-        (layers.aiReview || layers.hunt) && input.reviewMode === undefined
+      // LUM-1234 (R12): the reward-hack layer is an automatic AI layer too.
+      const aiLayers = layers.aiReview || layers.hunt || layers.rewardHack
+      const automaticAi = aiLayers && input.reviewMode === undefined
       const ignored = automaticAi && (await isPrReviewIgnored(pr))
       const admission =
         automaticAi && !ignored
           ? await autoReviewAdmissionService.admit(pr, headSha)
           : null
       const aiAllowed =
-        (layers.aiReview || layers.hunt) &&
+        aiLayers &&
         (input.reviewMode !== undefined || admission?.allowed === true)
       reservedHead = aiAllowed && input.reviewMode === undefined
       const reviewAllowed = layers.aiReview && aiAllowed
-      const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
+      const reviewPaused = aiLayers && !aiAllowed
       if (reviewPaused)
         partialCauses.push(
           ignored
@@ -2050,8 +2063,13 @@ export const prSecurityScanService = {
       // the platform switch off (LUMO_REWARD_HACK) there is no layer at all,
       // as for the hunt: a NOT_CONFIGURED key would read every scan as
       // unfinished while the layer is not offered.
+      // R12: held by the same pause / ignore / hourly cap as the AI review.
       if (layers.rewardHack)
-        stages.rewardHack = pr.taskId ? 'PENDING' : 'SKIPPED'
+        stages.rewardHack = !aiAllowed
+          ? 'PAUSED'
+          : pr.taskId
+            ? 'PENDING'
+            : 'SKIPPED'
       else if (layers.rewardHackTurnedOff) stages.rewardHack = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
       // run (an industry-standard file cap): recorded, with the numbers the
@@ -2225,7 +2243,7 @@ export const prSecurityScanService = {
       // LUM-1234: the row is settled — the reward-hack layer runs in the
       // background and syncs the PR summary itself when its verdict lands.
       if (stages.rewardHack === 'PENDING')
-        waitUntil(startRewardHackLayer(scanId))
+        waitUntil(startRewardHackLayer(scanId, persisted?.startedAt))
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.

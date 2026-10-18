@@ -50,6 +50,14 @@ export { HUNT_MAX_ATTEMPTS }
 /** Rows one tick handles; a retry costs a run, a failure a GitHub sync. */
 export const HUNT_SWEEP_BATCH_LIMIT = 25
 
+/**
+ * LUM-1234 — the reward-hack runner lives inside stage A's worker
+ * (`waitUntil`, 300 s at most; its own calls top out at a 120 s judge plus
+ * 60 s per refute). Fifteen minutes after the scan started, a PENDING
+ * layer cannot still be running.
+ */
+export const REWARD_HACK_PENDING_DEAD_MS = 15 * 60 * 1000
+
 const DEAD_MINUTES = Math.round(HUNT_PENDING_DEAD_MS / 60_000)
 export const HUNT_STALE_REASONS = {
   afterRetry: `hunt did not report within ${DEAD_MINUTES} min, again after one retry`,
@@ -417,6 +425,46 @@ export const securityHuntOpsService = {
       `[security-hunt-ops] re-queued faulted hunt scan=${job.scanId} attempt=${next} run=${runId}: ${input.reason.slice(0, 200)}`
     )
     return { requeued: true, attempt: next }
+  },
+
+  /**
+   * LUM-1234 — the same cron's reward-hack half: a layer still PENDING past
+   * `REWARD_HACK_PENDING_DEAD_MS` lost its runner (killed with the worker).
+   * Stamped FAILED (never retried: the next push re-runs it) by the run-token
+   * CAS — a verdict that lands first wins — and the PR summary re-synced.
+   * Never throws past one row.
+   */
+  async sweepStaleRewardHacks(
+    opts: { now?: Date; limit?: number } = {}
+  ): Promise<{ failed: number }> {
+    const now = opts.now ?? new Date()
+    const before = new Date(now.getTime() - REWARD_HACK_PENDING_DEAD_MS)
+    const rows = await prSecurityScanRepository.findStalePendingRewardHacks(
+      before,
+      opts.limit ?? HUNT_SWEEP_BATCH_LIMIT
+    )
+    let failed = 0
+    for (const row of rows) {
+      try {
+        const stamped = await prSecurityScanRepository.persistRewardHackResult(
+          row.id,
+          row.startedAt,
+          { findings: [], stage: 'FAILED', partialCauses: [] }
+        )
+        if (!stamped) continue
+        failed += 1
+        await securityPrReviewService.sync(row.id)
+      } catch (error) {
+        logger.warn(
+          `[security-hunt-ops] reward-hack sweep failed scan=${row.id}: ${describe(error)}`
+        )
+      }
+    }
+    if (rows.length > 0)
+      logger.info(
+        `[security-hunt-ops] swept ${rows.length} stale reward-hack layer(s) failed=${failed}`
+      )
+    return { failed }
   },
 
   /**

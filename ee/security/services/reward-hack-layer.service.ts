@@ -11,6 +11,13 @@
  * judge, the evidence gates, a refute call per item → findings, spend, state
  * → stage → the PR summary.
  *
+ * The reuse cache is keyed on the session watermark only (sessionId → last
+ * in-window event): a human commit on its own does not re-judge.
+ *
+ * Every write is ONE compare-and-set on the run token (the scan's
+ * `startedAt` when stage A started this runner) while the layer is PENDING,
+ * so a runner outlived by a restart or by the stale sweep writes nothing.
+ *
  * Never throws: any failure is stamped FAILED, and the PR summary is synced
  * whatever the outcome. Model text never reaches a row unredacted, and the
  * evidence column holds event ids only (never transcript text).
@@ -48,7 +55,6 @@ import type {
   RhItem,
   RhJudgeOutput,
 } from '@/ee/security/llm/reward-hack-judge-client'
-import type { ScanStageState } from '@/ee/security/security-scan/types'
 import type { PartialCause } from '@/shared/src/security-scan'
 
 export type { RewardHackState }
@@ -164,36 +170,61 @@ function uniqueByFingerprint(rows: NewFindingInput[]): NewFindingInput[] {
 }
 
 interface StageOutcome {
-  state: ScanStageState
+  state: 'RAN' | 'PARTIAL' | 'SKIPPED' | 'FAILED' | 'DISABLED'
   causes: PartialCause[]
+  findings?: NewFindingInput[]
+  verdictState?: RewardHackState
 }
 
-async function settle(scanId: string, outcome: StageOutcome): Promise<void> {
-  await prSecurityScanRepository.mergeStages(
-    scanId,
-    { rewardHack: outcome.state },
-    outcome.causes.length > 0 ? { partialCauses: outcome.causes } : {}
+/** Which run this is: the token every write is compared against. */
+interface RunContext {
+  scanId: string
+  runToken: Date | null
+}
+
+async function settle(ctx: RunContext, outcome: StageOutcome): Promise<void> {
+  if (!ctx.runToken) return
+  const landed = await prSecurityScanRepository.persistRewardHackResult(
+    ctx.scanId,
+    ctx.runToken,
+    {
+      findings: outcome.findings ?? [],
+      stage: outcome.state,
+      partialCauses: outcome.causes,
+      ...(outcome.verdictState ? { state: outcome.verdictState } : {}),
+    }
   )
+  if (!landed)
+    logger.info(
+      `[reward-hack] stale run, write dropped scan=${ctx.scanId} stage=${outcome.state}`
+    )
 }
 
-async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
+async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
+  const scanId = ctx.scanId
   const scan = await prSecurityScanRepository.findForRewardHack(scanId)
   if (!scan) {
     logger.warn(`[reward-hack] scan not found scan=${scanId}`)
     return
   }
+  ctx.runToken = ctx.runToken ?? scan.startedAt
+  if (ctx.runToken.getTime() !== scan.startedAt.getTime()) {
+    // Restarted since this runner was started: the newer run owns the layer.
+    logger.info(`[reward-hack] scan restarted, run dropped scan=${scanId}`)
+    return
+  }
   const pr = await pullRequestRepository.findById(scan.pullRequestId)
-  if (!pr) return settle(scanId, { state: 'SKIPPED', causes: [] })
+  if (!pr) return settle(ctx, { state: 'SKIPPED', causes: [] })
   const layers = await loadSecurityLayers(scan.workspaceId)
   if (!layers.rewardHack)
     // Switched off while the scan ran: the customer's choice is told as
     // such; a platform switch turned off mid-run just stops the layer.
-    return settle(scanId, {
+    return settle(ctx, {
       state: layers.rewardHackTurnedOff ? 'DISABLED' : 'SKIPPED',
       causes: [],
     })
   const taskId = pr.taskId
-  if (!taskId) return settle(scanId, { state: 'SKIPPED', causes: [] })
+  if (!taskId) return settle(ctx, { state: 'SKIPPED', causes: [] })
   const workspaceId = scan.workspaceId
 
   // Never "nothing found" on a file list we could not read: FAILED.
@@ -223,12 +254,12 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
   })
   const pruned =
     selected.excludedPruned.length > 0 || selected.partiallyPruned.length > 0
-  const prunedCauses: PartialCause[] = pruned ? ['reward_hack_pruned'] : []
+  const prunedCauses: PartialCause[] = pruned ? ['REWARD_HACK_PRUNED'] : []
   if (selected.included.length === 0)
     // No session behind this PR is SKIPPED — unless pruning may have taken
     // it: an empty transcript is never read as "nothing found".
     return settle(
-      scanId,
+      ctx,
       pruned
         ? { state: 'PARTIAL', causes: prunedCauses }
         : { state: 'SKIPPED', causes: [] }
@@ -242,7 +273,8 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
   // Nothing new since the previous verdict: reuse it, no model call.
   const previous = await prSecurityScanRepository.findPreviousScanForPr(
     pr.id,
-    scanId
+    scanId,
+    scan.startedAt
   )
   const previousState = parseRewardHackState(previous?.rewardHackState)
   if (
@@ -269,20 +301,20 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
         })
       )
     const rows = inheritDispositions(uniqueByFingerprint(copied), prior)
-    await prSecurityScanRepository.appendFindings(scanId, rows)
-    await prSecurityScanRepository.setRewardHackState(scanId, {
-      watermark,
-      findingFingerprints: rows.map(r => r.fingerprint),
-      costUsd: 0,
-      truncated: previousState.truncated,
-    })
     const causes: PartialCause[] = [
-      ...(previousState.truncated ? (['reward_hack_input_cap'] as const) : []),
+      ...(previousState.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
       ...prunedCauses,
     ]
-    return settle(scanId, {
+    return settle(ctx, {
       state: causes.length > 0 ? 'PARTIAL' : 'RAN',
       causes,
+      findings: rows,
+      verdictState: {
+        watermark,
+        findingFingerprints: rows.map(r => r.fingerprint),
+        costUsd: 0,
+        truncated: previousState.truncated,
+      },
     })
   }
 
@@ -294,9 +326,9 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
     now
   )
   if (spent >= rewardHackMonthlyCapUsd())
-    return settle(scanId, {
+    return settle(ctx, {
       state: 'PARTIAL',
-      causes: ['reward_hack_monthly_cap', ...prunedCauses],
+      causes: ['REWARD_HACK_MONTHLY_CAP', ...prunedCauses],
     })
 
   const requirement = await rewardHackInputRepository.loadRequirement(
@@ -313,9 +345,9 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
   })
   if (built.overCap)
     // Even the markers do not fit: nothing is sent to the model.
-    return settle(scanId, {
+    return settle(ctx, {
       state: 'PARTIAL',
-      causes: ['reward_hack_input_cap', ...prunedCauses],
+      causes: ['REWARD_HACK_INPUT_CAP', ...prunedCauses],
     })
 
   let costUsd = 0
@@ -336,12 +368,13 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
     }
   } finally {
     // Spent is spent, even when a later call failed.
-    await workspaceLlmSpendRepository.addSpendUsd(
-      workspaceId,
-      'reward_hack',
-      costUsd,
-      now
-    )
+    if (costUsd > 0)
+      await workspaceLlmSpendRepository.addSpendUsd(
+        workspaceId,
+        'reward_hack',
+        costUsd,
+        now
+      )
   }
 
   const eventSession = sessionOfEvent(selected.included)
@@ -359,20 +392,20 @@ async function runLayer(scanId: string, deps: RhDeps): Promise<void> {
     ),
     prior
   )
-  await prSecurityScanRepository.appendFindings(scanId, rows)
-  await prSecurityScanRepository.setRewardHackState(scanId, {
-    watermark,
-    findingFingerprints: rows.map(r => r.fingerprint),
-    costUsd,
-    truncated: built.truncated,
-  })
   const causes: PartialCause[] = [
-    ...(built.truncated ? (['reward_hack_input_cap'] as const) : []),
+    ...(built.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
     ...prunedCauses,
   ]
-  return settle(scanId, {
+  return settle(ctx, {
     state: causes.length > 0 ? 'PARTIAL' : 'RAN',
     causes,
+    findings: rows,
+    verdictState: {
+      watermark,
+      findingFingerprints: rows.map(r => r.fingerprint),
+      costUsd,
+      truncated: built.truncated,
+    },
   })
 }
 
@@ -389,19 +422,23 @@ function sessionOfEvent(sessions: RhSession[]): Map<string, string> {
  */
 export async function runRewardHackLayer(
   scanId: string,
-  deps: Partial<RhDeps> = {}
+  deps: Partial<RhDeps> = {},
+  opts: {
+    /** The scan's `startedAt` when stage A started this run (its token). */
+    runToken?: Date
+  } = {}
 ): Promise<void> {
   const d: RhDeps = { ...defaultDeps, ...deps }
+  const ctx: RunContext = { scanId, runToken: opts.runToken ?? null }
   try {
-    await runLayer(scanId, d)
+    await runLayer(ctx, d)
   } catch (error) {
     logger.error(
       `[reward-hack] layer failed scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
     )
     try {
-      await prSecurityScanRepository.mergeStages(scanId, {
-        rewardHack: 'FAILED',
-      })
+      // No token (the scan row could not even be read): left to the sweep.
+      await settle(ctx, { state: 'FAILED', causes: [] })
     } catch (stampError) {
       logger.error(
         `[reward-hack] FAILED not stamped scan=${scanId}: ${stampError instanceof Error ? stampError.message : String(stampError)}`

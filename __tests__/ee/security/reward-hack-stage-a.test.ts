@@ -9,6 +9,22 @@
 jest.mock('@/ee/security/services/reward-hack-layer.service', () => ({
   runRewardHackLayer: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@/ee/security/services/auto-review-admission.service', () =>
+  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
+)
+jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
+  prReviewControlRepository: {
+    reserve: jest.fn().mockResolvedValue(true),
+    release: jest.fn().mockResolvedValue(undefined),
+    baseline: jest.fn().mockResolvedValue(null),
+    priorFindings: jest.fn().mockResolvedValue([]),
+    findingsOnScan: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue({
+      reviewPaused: false,
+      reviewHeads: [],
+    }),
+  },
+}))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
@@ -118,6 +134,7 @@ import * as judge from '@/ee/security/llm/security-judge-client'
 import { scanCoverageState } from '@/shared/src/security-scan'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { runRewardHackLayer } from '@/ee/security/services/reward-hack-layer.service'
+import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 
 const repo = prSecurityScanRepository as jest.Mocked<
@@ -223,11 +240,20 @@ const drainBackground = () =>
   Promise.all(waitUntilMock.mock.calls.map(c => c[0]))
 
 describe('LUM-1234 reward-hack layer in stage A', () => {
-  it('on, with a task: PENDING in the persisted stages, and the runner starts after the persist', async () => {
+  afterEach(() => {
+    ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValue(true)
+  })
+
+  it('on, with a task: PENDING in the persisted stages, and the runner starts after the persist with its run token', async () => {
+    const token = new Date('2026-10-18T01:02:03Z')
+    repo.persistResult.mockResolvedValue({
+      managedLayerLanded: false,
+      startedAt: token,
+    })
     await runStageA()
     expect(persisted().stages.rewardHack).toBe('PENDING')
     await drainBackground()
-    expect(runner).toHaveBeenCalledWith('s1')
+    expect(runner).toHaveBeenCalledWith('s1', {}, { runToken: token })
     // Started after stage A's own write, never before it.
     expect(repo.persistResult.mock.invocationCallOrder[0]!).toBeLessThan(
       runner.mock.invocationCallOrder[0]!
@@ -240,6 +266,31 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
     expect(persisted().stages.rewardHack).toBe('SKIPPED')
     await drainBackground()
     expect(runner).not.toHaveBeenCalled()
+  })
+
+  it('automatic review paused (R12): PAUSED, no runner, no model call', async () => {
+    ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValue(false)
+    await runStageA()
+    expect(persisted().stages.rewardHack).toBe('PAUSED')
+    expect(persisted().partialCauses).toContain('AI_REVIEW_PAUSED')
+    await drainBackground()
+    expect(runner).not.toHaveBeenCalled()
+    expect(judgeSecurity).not.toHaveBeenCalled()
+  })
+
+  it('only the reward-hack layer on, review paused: still PAUSED (it counts as an automatic AI layer)', async () => {
+    switches({ securityAiReviewEnabled: false, securityHuntEnabled: false })
+    ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValue(false)
+    await runStageA()
+    expect(persisted().stages.rewardHack).toBe('PAUSED')
+    await drainBackground()
+    expect(runner).not.toHaveBeenCalled()
+  })
+
+  it('only the reward-hack layer on, not paused: PENDING', async () => {
+    switches({ securityAiReviewEnabled: false, securityHuntEnabled: false })
+    await runStageA()
+    expect(persisted().stages.rewardHack).toBe('PENDING')
   })
 
   it('turned off in workspace settings: DISABLED, no runner', async () => {
@@ -290,12 +341,12 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
     expect(runner).not.toHaveBeenCalled()
   })
 
-  it('a PR too large to scan: the layer is off when the platform does not offer it, else skipped', async () => {
+  it('a PR too large to scan: no layer when the platform does not offer it (R10), else skipped', async () => {
     ;(gh.fetchPrChangedFiles as jest.Mock).mockResolvedValue(5000)
     delete process.env.LUMO_REWARD_HACK
     await runStageA()
-    expect(repo.finalize.mock.calls[0]![1].stages.rewardHack).toBe(
-      'NOT_CONFIGURED'
+    expect(repo.finalize.mock.calls[0]![1].stages).not.toHaveProperty(
+      'rewardHack'
     )
     process.env.LUMO_REWARD_HACK = 'on'
     await runStageA()
@@ -303,19 +354,3 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
     expect(runner).not.toHaveBeenCalled()
   })
 })
-jest.mock('@/ee/security/services/auto-review-admission.service', () =>
-  require('@/test-utils/ee/auto-review-admission-mock').delegatingAdmission()
-)
-jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
-  prReviewControlRepository: {
-    reserve: jest.fn().mockResolvedValue(true),
-    release: jest.fn().mockResolvedValue(undefined),
-    baseline: jest.fn().mockResolvedValue(null),
-    priorFindings: jest.fn().mockResolvedValue([]),
-    findingsOnScan: jest.fn().mockResolvedValue([]),
-    get: jest.fn().mockResolvedValue({
-      reviewPaused: false,
-      reviewHeads: [],
-    }),
-  },
-}))

@@ -55,6 +55,17 @@ jest.mock('@/ee/security/llm/reward-hack-judge-client', () => ({
 jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
+// The stale sweep's module also drives hunt runs and VMs: never touched here.
+jest.mock('@/ee/security/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
+jest.mock('@/ee/security/integrations/vercel-sandbox', () => ({
+  stopRepoSandboxesByTag: jest.fn(),
+}))
+jest.mock('@/ee/security/services/security-hunt-start', () => ({
+  startSecurityHunt: jest.fn(),
+  cancelHuntRun: jest.fn(),
+}))
 
 import { prisma } from '@/lib/db/prisma'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -68,6 +79,10 @@ import {
   rewardHackFingerprint,
   runRewardHackLayer,
 } from '@/ee/security/services/reward-hack-layer.service'
+import {
+  REWARD_HACK_PENDING_DEAD_MS,
+  securityHuntOpsService,
+} from '@/ee/security/services/security-hunt-ops.service'
 import { isBlockingFinding } from '@/ee/security/services/pr-security-scan-gate'
 import {
   parseRewardHackState,
@@ -279,14 +294,14 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(judge).not.toHaveBeenCalled()
   })
 
-  it('a session whose in-window events were pruned is PARTIAL (reward_hack_pruned), never "nothing found"', async () => {
+  it('a session whose in-window events were pruned is PARTIAL (REWARD_HACK_PRUNED), never "nothing found"', async () => {
     db.hookEvent.findMany.mockResolvedValue([
       { ...edit('e2', 'src/auth.test.ts'), payload: PRUNED },
     ])
     await runRewardHackLayer('scan2')
     expect(lastStage()).toEqual({
       state: 'PARTIAL',
-      causes: ['reward_hack_pruned'],
+      causes: ['REWARD_HACK_PRUNED'],
     })
     expect(judge).not.toHaveBeenCalled()
   })
@@ -373,21 +388,21 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(judge).toHaveBeenCalledTimes(1)
   })
 
-  it('the monthly ceiling reached: PARTIAL (reward_hack_monthly_cap), no model call, no spend', async () => {
+  it('the monthly ceiling reached: PARTIAL (REWARD_HACK_MONTHLY_CAP), no model call, no spend', async () => {
     db.workspaceLlmSpend.findUnique.mockResolvedValue({
       usdMicros: BigInt(25_000_000),
     })
     await runRewardHackLayer('scan2')
     expect(lastStage()).toEqual({
       state: 'PARTIAL',
-      causes: ['reward_hack_monthly_cap'],
+      causes: ['REWARD_HACK_MONTHLY_CAP'],
     })
     expect(judge).not.toHaveBeenCalled()
     expect(db.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
     expect(stateWrites()).toHaveLength(0)
   })
 
-  it('an input that cannot fit the cap at all is PARTIAL (reward_hack_input_cap) with no model call', async () => {
+  it('an input that cannot fit the cap at all is PARTIAL (REWARD_HACK_INPUT_CAP) with no model call', async () => {
     const events: Ev[] = [edit('e2', 'src/auth.test.ts')]
     for (let i = 0; i < 9000; i++)
       events.push(
@@ -402,11 +417,11 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(judge).not.toHaveBeenCalled()
     expect(lastStage()).toEqual({
       state: 'PARTIAL',
-      causes: ['reward_hack_input_cap'],
+      causes: ['REWARD_HACK_INPUT_CAP'],
     })
   })
 
-  it('a cut (but fitting) input is judged and the layer is PARTIAL (reward_hack_input_cap)', async () => {
+  it('a cut (but fitting) input is judged and the layer is PARTIAL (REWARD_HACK_INPUT_CAP)', async () => {
     const events: Ev[] = []
     for (let i = 0; i < 400; i++) {
       const e = edit(
@@ -429,7 +444,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
     )
     expect(lastStage()).toEqual({
       state: 'PARTIAL',
-      causes: ['reward_hack_input_cap'],
+      causes: ['REWARD_HACK_INPUT_CAP'],
     })
     expect(stateWrites()[0]).toMatchObject({ truncated: true })
   })
@@ -465,8 +480,10 @@ describe('LUM-1234 reward-hack layer runner', () => {
     // Rows land with the FINDINGS status flip.
     expect(db.prSecurityScan.update).toHaveBeenCalledWith({
       where: { id: 'scan2' },
-      data: { status: 'FINDINGS' },
+      data: expect.objectContaining({ status: 'FINDINGS' }),
     })
+    // One write: rows, state and stage land together.
+    expect(db.prSecurityScan.update).toHaveBeenCalledTimes(1)
     expect(db.workspaceLlmSpend.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
@@ -594,6 +611,56 @@ describe('LUM-1234 reward-hack layer runner', () => {
     )
   })
 
+  it('a restart that moved the run token: the stale runner writes nothing and makes no call', async () => {
+    await runRewardHackLayer(
+      'scan2',
+      {},
+      { runToken: new Date('2026-10-10T11:00:00Z') }
+    )
+    expect(judge).not.toHaveBeenCalled()
+    expect(db.prSecurityScan.update).not.toHaveBeenCalled()
+    expect(db.prSecurityFinding.createMany).not.toHaveBeenCalled()
+  })
+
+  it('restarted (or swept) while the model ran: the late result is dropped by the compare-and-set', async () => {
+    let reads = 0
+    db.prSecurityScan.findUnique.mockImplementation(async () => {
+      reads += 1
+      // The runner's first read sees its run; the write-time read sees the
+      // restarted row (new startedAt, no rewardHack stage yet).
+      return reads === 1
+        ? SCAN
+        : {
+            ...SCAN,
+            startedAt: new Date('2026-10-10T12:30:00Z'),
+            stages: {},
+          }
+    })
+    await runRewardHackLayer('scan2', {}, { runToken: SCAN_STARTED })
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(db.prSecurityScan.update).not.toHaveBeenCalled()
+    expect(db.prSecurityFinding.createMany).not.toHaveBeenCalled()
+  })
+
+  it('a layer no longer PENDING (swept FAILED) is not overwritten', async () => {
+    db.prSecurityScan.findUnique.mockResolvedValue({
+      ...SCAN,
+      stages: { rewardHack: 'FAILED' },
+    })
+    await runRewardHackLayer('scan2', {}, { runToken: SCAN_STARTED })
+    expect(db.prSecurityScan.update).not.toHaveBeenCalled()
+  })
+
+  it('a free judge call books no spend', async () => {
+    judge.mockResolvedValue({
+      output: { suspicion: 0, items: [] },
+      costUsd: null,
+    })
+    await runRewardHackLayer('scan2')
+    expect(db.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
+    expect(lastStage().state).toBe('RAN')
+  })
+
   it('never throws, even when stamping FAILED fails too', async () => {
     db.prSecurityScan.findUnique.mockRejectedValue(new Error('db down'))
     await expect(runRewardHackLayer('scan2')).resolves.toBeUndefined()
@@ -628,5 +695,43 @@ describe('LUM-1234 reward-hack state', () => {
     previousScan = { id: 'scan1', rewardHackState: { watermark: 'x' } }
     await runRewardHackLayer('scan2')
     expect(judge).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('LUM-1234 stale reward-hack sweep', () => {
+  it('stamps a reward-hack layer PENDING past 15 minutes FAILED by its run token and re-syncs', async () => {
+    expect(REWARD_HACK_PENDING_DEAD_MS).toBe(15 * 60 * 1000)
+    const now = new Date('2026-10-10T13:00:00Z')
+    db.prSecurityScan.findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'scan2', startedAt: SCAN_STARTED }])
+    const counts = await securityHuntOpsService.sweepStaleRewardHacks({ now })
+    expect(db.prSecurityScan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          stages: { path: ['rewardHack'], equals: 'PENDING' },
+          startedAt: { lt: new Date('2026-10-10T12:45:00Z') },
+        },
+      })
+    )
+    expect(counts).toEqual({ failed: 1 })
+    expect(lastStage().state).toBe('FAILED')
+    expect(sync).toHaveBeenCalledWith('scan2')
+  })
+
+  it('a verdict that landed first wins: nothing stamped, no sync', async () => {
+    db.prSecurityScan.findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'scan2', startedAt: SCAN_STARTED }])
+    db.prSecurityScan.findUnique.mockResolvedValue({
+      ...SCAN,
+      stages: { rewardHack: 'RAN' },
+    })
+    const counts = await securityHuntOpsService.sweepStaleRewardHacks({
+      now: new Date('2026-10-10T13:00:00Z'),
+    })
+    expect(counts).toEqual({ failed: 0 })
+    expect(db.prSecurityScan.update).not.toHaveBeenCalled()
+    expect(sync).not.toHaveBeenCalled()
   })
 })
