@@ -288,11 +288,13 @@ test('a same-text reclassification is the COMPILER changing its mind, not a pers
   // Still recorded: a classifier that quietly stops treating a Forbidden line
   // as deterministic does leave the project less protected. But advisory, and
   // attributed to the compiler.
+  // LUM-1236 follow-up: the previous checker is now KEPT (its text is still
+  // in the file), and the advisory says so.
   const createSpy = jest
     .spyOn(boundaryCrossingRepository, 'create')
     .mockResolvedValue(undefined as never)
 
-  const ruleText = 'Never delete files in prisma/migrations/'
+  const ruleText = 'Never run terraform destroy against the shared account'
   const { createHash } = await import('crypto')
   const expectedRuleId = createHash('sha256')
     .update(ruleText)
@@ -305,7 +307,7 @@ test('a same-text reclassification is the COMPILER changing its mind, not a pers
       text: ruleText,
       kind: 'action',
       tier: 'deterministic',
-      mappedCategory: 'MIGRATION_FILE_DELETED',
+      mappedCategory: 'INFRA_TERMINATION',
       severity: 'HIGH',
       blocking: true,
     },
@@ -319,20 +321,28 @@ test('a same-text reclassification is the COMPILER changing its mind, not a pers
         text: ruleText,
         kind: 'action',
         tier: 'semantic',
-        assertion: 'do not delete migration files',
+        assertion: 'do not destroy the shared account',
         severity: 'HIGH',
         blocking: false,
       },
     ],
   })
 
-  await policyCompilerService.ensureCompiled({
+  const policy = await policyCompilerService.ensureCompiled({
     projectId: 'p4',
     workspaceId: 'w1',
     fullName: 'o/r',
     taskId: 't2',
   })
 
+  expect(policy!.rules).toEqual([
+    expect.objectContaining({
+      id: expectedRuleId,
+      tier: 'deterministic',
+      blocking: true,
+      mappedCategory: 'INFRA_TERMINATION',
+    }),
+  ])
   expect(createSpy).toHaveBeenCalledTimes(1)
   const arg = createSpy.mock.calls[0]?.[0] as {
     detail: string
@@ -344,8 +354,51 @@ test('a same-text reclassification is the COMPILER changing its mind, not a pers
   // Does not block anyone's DONE, and does not read as a human action.
   expect(arg.advisory).toBe(true)
   expect(arg.severity).toBe('MEDIUM')
-  expect(arg.detail).toContain('UNCHANGED')
+  expect(arg.detail).toContain('previous checker was kept')
   expect(arg.detail).not.toMatch(/removed from/)
+})
+
+test("a previous rule today's safety nets downgrade is not kept, and reads as UNCHANGED (MEDIUM)", async () => {
+  // LUM-770: an obligation carrying a cmd-substr is downgraded on purpose —
+  // carrying it over must not undo that, and the weakening it causes is the
+  // compiler's, not a person's.
+  const createSpy = jest
+    .spyOn(boundaryCrossingRepository, 'create')
+    .mockResolvedValue(undefined as never)
+  const ruleText = 'Before opening a PR: tests + npx tsc --noEmit pass'
+  seedPolicy('p4b', 'old-hash', [
+    {
+      id: 'obl',
+      text: ruleText,
+      kind: 'action',
+      tier: 'deterministic',
+      mappedCategory: 'HOOK_BYPASS',
+      predicate: { type: 'cmd-substr', value: 'npx tsc --noEmit' },
+      severity: 'MEDIUM',
+      blocking: true,
+    },
+  ])
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    `## PR Checklist\n\n${ruleText}`
+  )
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [] })
+
+  await policyCompilerService.ensureCompiled({
+    projectId: 'p4b',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+    taskId: 't2',
+  })
+
+  expect(createSpy).toHaveBeenCalledTimes(1)
+  expect(createSpy.mock.calls[0]?.[0]).toEqual(
+    expect.objectContaining({
+      category: 'POLICY_WEAKENING',
+      advisory: true,
+      severity: 'MEDIUM',
+      detail: expect.stringContaining('UNCHANGED'),
+    })
+  )
 })
 
 test('a rule the compiler simply stopped emitting is not a removal while its text is still in the file', async () => {
@@ -1176,6 +1229,100 @@ describe("LUM-780: a policy change re-judges the project's POLICY_WEAKENING rows
         category: 'POLICY_WEAKENING',
         policyRuleRef: expect.any(String),
         policyRuleText: 'Never push to main',
+      })
+    )
+  })
+})
+
+// ── LUM-1236 follow-up: the lum1236 recompile of the prod migration rules ────
+
+describe('LUM-1236 follow-up: recompile of the production migration rules', () => {
+  const FX = JSON.parse(
+    jest
+      .requireActual<typeof import('fs')>('fs')
+      .readFileSync(
+        `${__dirname}/../../fixtures/lum1236-prod-migration-rule-recompile.json`,
+        'utf8'
+      )
+  ) as {
+    source: string
+    previousRules: import('@/ee/security/services/policy/types').PolicyRule[]
+    lum1236Raw: import('@/ee/security/services/policy/types').RawPolicyRule[]
+  }
+  const [PREV] = FX.previousRules
+  const [, RAW_DEV] = FX.lum1236Raw
+  const compile = async (projectId: string, source: string, raw: unknown[]) => {
+    seedPolicy(projectId, 'before-lum1236', [PREV!])
+    ;(contents.readRepoFile as jest.Mock).mockImplementation(
+      async ({ path }: { path: string }) =>
+        path === 'CLAUDE.md' ? source : null
+    )
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: raw })
+    return policyCompilerService.ensureCompiled({
+      projectId,
+      workspaceId: 'w1',
+      fullName: 'o/r',
+      taskId: 't-mig',
+    })
+  }
+
+  it('the reworded rules keep a checker; the old rule merges into it — no crossing at all', async () => {
+    const createSpy = jest
+      .spyOn(boundaryCrossingRepository, 'create')
+      .mockResolvedValue(undefined as never)
+    const policy = await compile('pm1', FX.source, FX.lum1236Raw)
+    const migration = policy!.rules.filter(
+      r => r.predicate?.type === 'migration-command'
+    )
+    expect(migration.map(r => r.id).sort()).toEqual([
+      '724a56aa8d15e1c1',
+      'd0a822cd596f9363',
+    ])
+    expect(migration.find(r => r.id === '724a56aa8d15e1c1')!.aliases).toEqual([
+      { id: PREV!.id, text: PREV!.text },
+    ])
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('the model drops the rule entirely → previous checker kept + one MEDIUM advisory', async () => {
+    const createSpy = jest
+      .spyOn(boundaryCrossingRepository, 'create')
+      .mockResolvedValue(undefined as never)
+    const policy = await compile('pm2', FX.source, [RAW_DEV])
+    expect(policy!.rules.find(r => r.id === PREV!.id)).toMatchObject({
+      tier: 'deterministic',
+      blocking: true,
+      predicate: { type: 'migration-command' },
+    })
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(createSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        category: 'POLICY_WEAKENING',
+        severity: 'MEDIUM',
+        advisory: true,
+        policyRuleRef: PREV!.id,
+        detail: expect.stringContaining('previous checker was kept'),
+      })
+    )
+  })
+
+  it('the Production line really deleted → not kept, HIGH and blocking', async () => {
+    const createSpy = jest
+      .spyOn(boundaryCrossingRepository, 'create')
+      .mockResolvedValue(undefined as never)
+    const source = FX.source
+      .split('\n')
+      .filter(l => !l.startsWith('- **Production**'))
+      .join('\n')
+    const policy = await compile('pm3', source, [RAW_DEV])
+    expect(policy!.rules.find(r => r.id === PREV!.id)).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(createSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        category: 'POLICY_WEAKENING',
+        severity: 'HIGH',
+        advisory: false,
+        policyRuleRef: PREV!.id,
       })
     )
   })

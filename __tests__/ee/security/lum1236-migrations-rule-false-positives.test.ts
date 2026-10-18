@@ -256,6 +256,9 @@ describe('LUM-1236 compile shape (deterministic, no model call)', () => {
   })
 
   it('a bare-verb cmd-substr on an unrelated rule is dropped, a specific one kept', () => {
+    // LUM-1236 follow-up: a migration-command rule's specific cmd-substr is
+    // widened to the derived `migration-command` check (same command).
+    const specificCmd = 'docker compose down --volumes'
     const [bare, specific] = compileRuleSet([
       {
         text: 'Never use mv on shared files',
@@ -266,10 +269,10 @@ describe('LUM-1236 compile shape (deterministic, no model call)', () => {
         blocking: false,
       },
       {
-        text: 'Never run prisma migrate reset',
+        text: `Never run ${specificCmd}`,
         kind: 'action',
         tier: 'deterministic',
-        predicate: { type: 'cmd-substr', value: 'prisma migrate reset' },
+        predicate: { type: 'cmd-substr', value: specificCmd },
         severity: 'HIGH',
         blocking: false,
       },
@@ -278,7 +281,21 @@ describe('LUM-1236 compile shape (deterministic, no model call)', () => {
     expect(bare!.tier).toBe('semantic')
     expect(specific!.predicate).toEqual({
       type: 'cmd-substr',
-      value: 'prisma migrate reset',
+      value: specificCmd,
+    })
+    const [migration] = compileRuleSet([
+      {
+        text: 'Never run prisma migrate reset',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'prisma migrate reset' },
+        severity: 'HIGH',
+        blocking: false,
+      },
+    ])
+    expect(migration!.predicate).toEqual({
+      type: 'migration-command',
+      value: 'migrate-reset',
     })
   })
 

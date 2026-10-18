@@ -173,6 +173,7 @@ const LITERAL_PREDICATES = new Set([
   'path-glob',
   'push-target',
   'path-delete',
+  'migration-command',
 ])
 
 /** Shortest subject worth matching — below this, prose hits are noise. */
@@ -193,6 +194,23 @@ function subjectsFor(predicate: { type: string; value: string }): string[] {
     return predicate.value
       .split(',')
       .flatMap(v => subjectsFor({ type: 'path-glob', value: v }))
+  // LUM-1236 follow-up: a `migration-command` value lists operations — each
+  // is spelled as the command a memory would name. `migrate dev` limited to
+  // production contributes nothing: "you can run migrate dev" is the
+  // sanctioned dev workflow, not a conflict.
+  if (predicate.type === 'migration-command')
+    return predicate.value.split(',').flatMap(op => {
+      const o = op.trim()
+      return o === 'migrate-dev'
+        ? ['migrate dev']
+        : o === 'migrate-reset'
+          ? ['migrate reset']
+          : o === 'db-push'
+            ? ['db push']
+            : o === 'migrations-table-write'
+              ? ['_prisma_migrations']
+              : []
+    })
   const literal = predicate.value
     .replace(/\*+/g, '')
     .replace(/\s+/g, ' ')

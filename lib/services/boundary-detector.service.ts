@@ -54,6 +54,7 @@ import { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
 import { sensitivePathGlobsFromRules } from '@/lib/boundary-crossing/policy-rule-paths'
 import { forbiddenRuleSourceService } from '@/lib/services/forbidden-rule-source.service'
 import { uploadStaysLocal } from '@/lib/boundary-crossing/url-hosts'
+import { matchDestructiveDb } from '@/lib/boundary-crossing/destructive-db'
 import {
   MIGRATIONS_PATH,
   protectedPathDeletions,
@@ -247,28 +248,6 @@ const WORKTREE_PATH_SEGMENT = /(?:^|\/)\.worktrees\//
 function matchMigrationDelete(cmd: string): boolean {
   return protectedPathDeletions(cmd, [MIGRATIONS_PATH]).some(
     d => !WORKTREE_PATH_SEGMENT.test(d.matched)
-  )
-}
-
-/** Tool-specific irreversibles — fire on any executing segment. */
-const DB_TOOL_RESET =
-  /prisma\s+migrate\s+reset|\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/
-/** Generic SQL drop/truncate phrases. */
-const DB_DDL_PHRASE = /\bdrop\s+(?:database|table)\b|\btruncate\s+table\b/i
-
-/**
- * Irreversible / data-destroying DB commands. LUM-751: segment-scoped and
- * print/search-aware — only EXECUTING segments (see
- * lib/boundary-crossing/command-shape) are tested, so a `grep` / `echo` /
- * `git log --grep` naming DDL, the same grep inside a `bash -c '…'` wrapper, or
- * a PR body / commit message never trips it, while `psql -c "…"`,
- * `mysql -e "…"` and `prisma migrate reset` still do. (Re-instates the LUM-426
- * print-or-search exclusion that the prose gate had absorbed, deterministic
- * this time — no LLM round-trip for the obvious shapes.)
- */
-function matchDestructiveDb(cmd: string): boolean {
-  return executingSegments(cmd).some(
-    seg => DB_TOOL_RESET.test(seg) || DB_DDL_PHRASE.test(seg)
   )
 }
 

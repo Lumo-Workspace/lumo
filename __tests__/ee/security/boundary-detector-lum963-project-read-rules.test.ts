@@ -285,6 +285,6 @@ describe('policy compiler', () => {
   })
 
   it('the compiler version is bumped so every project recompiles once', () => {
-    expect(COMPILER_VERSION).toBe('lum1236')
+    expect(COMPILER_VERSION).toBe('lum1236b')
   })
 })

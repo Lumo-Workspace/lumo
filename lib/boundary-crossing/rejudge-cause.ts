@@ -118,6 +118,97 @@ export function ruleTextPresentIn(source: string, ruleText: string): boolean {
   return normalizeForPresence(source).includes(needle)
 }
 
+/** Words too common to say anything about which rule a line states. */
+const PRESENCE_STOPWORDS = new Set([
+  'a',
+  'an',
+  'the',
+  'to',
+  'of',
+  'in',
+  'on',
+  'at',
+  'or',
+  'and',
+  'for',
+  'with',
+  'by',
+  'as',
+  'be',
+  'is',
+  'are',
+  'it',
+  'its',
+  'this',
+  'that',
+  'any',
+  'e',
+  'g',
+])
+
+/** The content words of a text, unique, in order: lower-cased word tokens
+ *  (identifiers like `_prisma_migrations` stay whole; a CJK character is a
+ *  word of its own), stopwords dropped. */
+export function presenceWords(text: string): string[] {
+  const out: string[] = []
+  for (const m of normalizeForPresence(text).matchAll(
+    /[a-z0-9_]+|[\u3400-\u9fff]/gu
+  )) {
+    const w = m[0]
+    if (PRESENCE_STOPWORDS.has(w) || out.includes(w)) continue
+    out.push(w)
+  }
+  return out
+}
+
+/** Below this many content words a paraphrase match is too easy to hit by
+ *  accident — such a rule must be present verbatim. */
+const PARAPHRASE_MIN_WORDS = 5
+/** Share of the rule's content words one source line must carry. */
+const PARAPHRASE_MIN_SHARE = 0.85
+
+/**
+ * LUM-1236 follow-up — "is this COMPILER-EXTRACTED rule still in the source",
+ * tolerant of the classifier rewording it. The rule text a POLICY_WEAKENING
+ * judges is the model's extraction, and a recompile can reorder or rephrase
+ * it: "Never `migrate dev`, `db push`, `migrate reset`, or direct edits to
+ * `_prisma_migrations` in production" is no substring of CLAUDE.md, whose
+ * line reads "**Production**: … (b) use **only** `prisma migrate deploy` —
+ * never `migrate dev`, … `_prisma_migrations`, (c) …". The verbatim check read
+ * that untouched line as deleted by a person (X953/X954, HIGH, blocking).
+ *
+ * Present when the verbatim check passes, or when ONE source line (with the
+ * markdown heading it sits under, which often carries the qualifier) holds at
+ * least 85% of the rule's content words and every identifier-like word (one
+ * with `_` or a digit). Local on purpose: words scattered across the file are
+ * no evidence — the same commands appear in the Dev line, so deleting the
+ * Production line still reads as removed. Rules of fewer than five content
+ * words must match verbatim. Only for the compiler's rule texts; the core
+ * Forbidden source compares literal lines and keeps `ruleTextPresentIn`.
+ */
+export function compiledRuleTextPresentIn(
+  source: string,
+  ruleText: string
+): boolean {
+  if (ruleTextPresentIn(source, ruleText)) return true
+  const words = presenceWords(ruleText.replace(/\s*\[[^\]]*\]\s*$/u, ''))
+  if (words.length < PARAPHRASE_MIN_WORDS) return false
+  const identifiers = words.filter(w => /[_0-9]/.test(w))
+  let heading = ''
+  for (const line of source.split('\n')) {
+    if (/^\s*#{1,6}\s/.test(line)) {
+      heading = line
+      continue
+    }
+    if (line.trim() === '') continue
+    const have = new Set(presenceWords(`${heading}\n${line}`))
+    if (!identifiers.every(w => have.has(w))) continue
+    const hits = words.filter(w => have.has(w)).length
+    if (hits / words.length >= PARAPHRASE_MIN_SHARE) return true
+  }
+  return false
+}
+
 /** The rule text an emitted POLICY_WEAKENING quoted in its detail, for rows
  *  written before `policyRuleText` was stamped (LUM-780). Only a complete
  *  quote counts — a `clip`-truncated detail loses its closing quote and must
@@ -169,7 +260,11 @@ export function rejudgePolicyWeakening(
       criterionVersion,
     }
   }
-  const present = ruleTextPresentIn(source, text)
+  // LUM-1236 follow-up: a compiler row judges the model's extraction, which
+  // a recompile may reword; a core Forbidden row is a literal line.
+  const present = row.policyRuleRef?.startsWith(FORBIDDEN_RULE_REF_PREFIX)
+    ? ruleTextPresentIn(source, text)
+    : compiledRuleTextPresentIn(source, text)
   if (!present) {
     return {
       outcome: 'STILL_HOLDS',
