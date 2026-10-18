@@ -273,6 +273,9 @@ function inlineEligible(
   policy: SecurityPolicy,
   profile: ReviewProfile = DEFAULT_REVIEW_PROFILE
 ): boolean {
+  // LUM-1234: agent-behavior findings have no diff line and never get an
+  // inline comment — the summary's Agent behavior section carries them.
+  if (f.kind === 'REWARD_HACK') return false
   return inlineEligibleUnder(profile, f, policy)
 }
 
@@ -700,6 +703,31 @@ export interface SummaryInput {
    * when it parses and its Mermaid validates; absent = none.
    */
   sequenceDiagram?: unknown
+  /**
+   * LUM-1234 — open REWARD_HACK findings (advisory, never blocking). Only the
+   * already-redacted `title` is taken: `evidence` (event ids) never reaches
+   * a PR body.
+   */
+  rewardHack?: Array<Pick<ReviewFindingRow, 'title'>>
+}
+
+/**
+ * LUM-1234 — the "Agent behavior" section: one line per finding plus a link
+ * to the task record where the evidence lives. Titles only (P8): no
+ * evidence, no session text. No findings = no section.
+ */
+export function rewardHackSection(
+  findings: Array<Pick<ReviewFindingRow, 'title'>>,
+  recordUrl: string
+): string[] {
+  if (findings.length === 0) return []
+  const link = recordUrl ? ` ([evidence](${recordUrl}))` : ''
+  return [
+    '**Agent behavior** — the agent sessions behind this PR may have gamed a check instead of doing the task:',
+    findings
+      .map(f => `- ${neutralizeSummaryText(f.title, 200)}${link}`)
+      .join('\n'),
+  ]
 }
 
 /** LUM-1147 — how many held findings the summary lists by name. */
@@ -1038,6 +1066,10 @@ export function buildSummary(input: SummaryInput): string {
   const blocks: string[] = [
     '### 🛡️ Lumo security scan',
     verdictLine(input, coverage, owned),
+    ...rewardHackSection(
+      input.rewardHack ?? [],
+      input.taskUrl ? `${input.taskUrl}/record` : ''
+    ),
     ...summaryBlocks(input),
   ]
   const attention = attentionLine(input.attentionFiles)
@@ -1983,6 +2015,7 @@ export const securityPrReviewService = {
       const unanchored = open.filter(
         f =>
           f.line === null &&
+          f.kind !== 'REWARD_HACK' &&
           inlineEligibleUnder(profile, { ...f, line: 0 }, policy) &&
           !issueGroups.mergedInto.has(f.fingerprint)
       )
@@ -2109,6 +2142,7 @@ export const securityPrReviewService = {
         verifierRejected,
         error: scan.error,
         taskUrl: taskUrlOf(pr),
+        rewardHack: open.filter(f => f.kind === 'REWARD_HACK'),
         commandHandle: prCommandHandle(),
         approveCommand: requestChanges,
         repoConfig: parseRepoConfigNotice(scan.repoConfig),
