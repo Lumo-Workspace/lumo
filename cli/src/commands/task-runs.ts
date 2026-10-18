@@ -19,6 +19,7 @@ import {
   renderUntrustedFence,
 } from '../../../shared/src/untrusted-fence'
 import { neutralizeWrapperEscapes } from '../../../shared/src/untrusted-content'
+import type { OutputSink } from '../lib/output-sink'
 
 /**
  * LUM-1188 — `lumo task runs`: the task dossier's "Agent runs" section in the
@@ -428,7 +429,8 @@ export function formatRunReport(
 
 export async function taskRuns(
   identifierArg: string | undefined,
-  opts: { full?: boolean; json?: boolean } = {}
+  opts: { full?: boolean; json?: boolean } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
@@ -450,10 +452,8 @@ export async function taskRuns(
   if (!r.ok || !r.data) return 1
 
   if (opts.json) {
-    emitJson(withVersion(r.data))
+    emitJson(withVersion(r.data), out)
     return
   }
-  process.stdout.write(
-    formatRunReport(identifier, r.data, { full: opts.full === true })
-  )
+  out.write(formatRunReport(identifier, r.data, { full: opts.full === true }))
 }

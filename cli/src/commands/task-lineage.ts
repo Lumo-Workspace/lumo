@@ -23,6 +23,7 @@ import {
   emitJson,
   stripInternalFields,
 } from '../lib/json-output'
+import type { OutputSink } from '../lib/output-sink'
 
 type Outcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
 type Disclosure = 'FULL' | 'INDEX'
@@ -110,11 +111,12 @@ export interface UsageSignalHealth {
 
 export async function taskLineage(
   identifier: string | undefined,
-  opts?: { signal?: boolean; json?: boolean }
+  opts?: { signal?: boolean | undefined; json?: boolean | undefined },
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <identifier>. Usage: lumo task lineage <LUM-42>'
+      'Error: missing <identifier>. Usage: lumo task show <LUM-42> --lineage'
     )
     return EXIT_USAGE
   }
@@ -165,11 +167,12 @@ export async function taskLineage(
         'lineage',
         stripInternalFields(data),
         stripInternalFields(related)
-      )
+      ),
+      out
     )
     return
   }
-  process.stdout.write(
+  out.write(
     formatLineageMarkdown(data, {
       width: terminalWidth(),
       color: colorEnabled(),
@@ -196,7 +199,7 @@ export async function taskLineage(
       return
     }
     const signalJson = (await signalRes.json()) as UsageSignalHealth
-    process.stdout.write('\n' + formatSignalHealth(signalJson) + '\n')
+    out.write('\n' + formatSignalHealth(signalJson) + '\n')
   }
 }
 

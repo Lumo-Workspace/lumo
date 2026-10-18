@@ -149,7 +149,7 @@ describe('success lines share one shape', () => {
 describe('hints share one prefix and backticked commands', () => {
   it('session attach background pointer', () => {
     expect(formatBackgroundHint('LUM-42')).toBe(
-      'Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)'
+      'Hint: run `lumo task show LUM-42 --full` for background (team memory, test cases, sources, prior sessions)'
     )
   })
 

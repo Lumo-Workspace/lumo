@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1091 — the three long reports (`task status`, `task wrapup`,
- * `pr scan`) share one layout: plain section headings, labelled rows instead
+ * LUM-1091 — the long reports (`task status` with its DONE-readiness section
+ * — formerly `task wrapup`, LUM-1233 — and `pr scan`) share one layout: plain section headings, labelled rows instead
  * of `·`-joined lines, at most three levels of indent, prose wrapped at the
  * report width, every shell command on a line of its own. `--json` is left
  * byte-for-byte as it was, and colour only appears on a TTY.
@@ -21,7 +21,11 @@ import {
   taskStatus,
   type TaskStatusResponse,
 } from '@/cli/src/commands/task-status'
-import { formatWrapup, type WrapupInput } from '@/cli/src/commands/task-wrapup'
+import {
+  assessReadiness,
+  formatDoneReadiness,
+  type ReadinessInput,
+} from '@/cli/src/lib/done-readiness'
 import {
   formatPrScan,
   prScan,
@@ -210,7 +214,7 @@ const CROSSINGS = {
 const URL_ =
   'https://api.test/workspace/lumo/my-tasks/LUM-9001#boundary-crossings'
 
-function wrapupInput(over: Partial<WrapupInput> = {}): WrapupInput {
+function readinessInput(over: Partial<ReadinessInput> = {}): ReadinessInput {
   return {
     identifier: 'LUM-9001',
     status: { ok: true, value: STATUS },
@@ -244,9 +248,20 @@ function wrapupInput(over: Partial<WrapupInput> = {}): WrapupInput {
         },
       ],
     },
-    dispositionUrl: URL_,
     ...over,
   }
+}
+
+/** `task status` as the command prints it, READY section included. */
+function statusWithReadiness(input: ReadinessInput): string {
+  const status = (input.status as { ok: true; value: TaskStatusResponse }).value
+  const r = assessReadiness(input)
+  return formatTaskStatus(status, {
+    openCrossings: input.crossings,
+    dispositionUrl: URL_,
+    readinessLines:
+      r.level === 'READY' ? formatDoneReadiness(input, r) : undefined,
+  })
 }
 
 function finding(over: Partial<PrScanFinding> = {}): PrScanFinding {
@@ -404,11 +419,11 @@ const ALL_REPORTS: Array<[string, string]> = [
       dispositionUrl: URL_,
     }),
   ],
-  ['task wrapup (blocked)', formatWrapup(wrapupInput())],
+  ['task status (blocked)', statusWithReadiness(readinessInput())],
   [
-    'task wrapup (ready)',
-    formatWrapup(
-      wrapupInput({
+    'task status (ready)',
+    statusWithReadiness(
+      readinessInput({
         status: {
           ok: true,
           value: {
@@ -520,41 +535,26 @@ describe('LUM-1091 long-report layout', () => {
     )
   })
 
-  it('task wrapup: every command sits on a line of its own', () => {
+  it('task status (blocked): every command on its own line, no DONE readiness section', () => {
     const out = ALL_REPORTS[1]![1]
     const commandLines = out.split('\n').filter(l => /\blumo \w/.test(l))
     for (const l of commandLines) expect(l.trimStart()).toMatch(/^lumo /)
     expect(out).not.toContain(' → lumo')
-    expect(out).not.toContain('  |  ')
+    expect(out).not.toContain('DONE readiness')
+  })
+
+  it('task status READY: DONE readiness with the one command alone on its line', () => {
+    const out = ALL_REPORTS[2]![1]
+    expect(out).toContain('\nDONE readiness\n')
+    // LUM-1106: every linked PR merged → the one-step command, no --confirm
     expect(out).toContain(
-      [
-        '  • [TEST CASE] TC4 login redirect — implementation defect, with evidence (blocks DONE until the',
-        '    user rules on it)',
-        '    Blocks DONE until the user rules on that run — one of:',
-        '      lumo task testcase disposition LUM-9001/TC4 --known-defect',
-        '      lumo task testcase disposition LUM-9001/TC4 --not-a-defect',
-      ].join('\n')
-    )
-    expect(out).toContain(
-      [
-        '  The user rules all 2 false-positive:',
-        '    lumo crossing disposition LUM-X12 LUM-X13 --false-positive --task LUM-9001',
-        '  The user rules all 2 confirmed:',
-        '    lumo crossing disposition LUM-X12 LUM-X13 --confirmed --task LUM-9001',
-      ].join('\n')
+      '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:\n    lumo task update LUM-9001 --status done\n'
     )
     // the envelope's keep line: the removal command moves to its own line
     expect(out).toMatch(
       /remove it later\n {4}from elsewhere:\n {6}git -C \/repo worktree remove \/repo\/\.worktrees\/LUM-9001-x\n/
     )
-  })
-
-  it('task wrapup READY: the DONE command is alone on its line, under the instruction', () => {
-    const out = ALL_REPORTS[2]![1]
-    // LUM-1106: every linked PR merged → the one-step command, no --confirm
-    expect(out).toContain(
-      '  All PRs merged, nothing blocks DONE — run it as-is (status only), no approval step:\n    lumo task update LUM-9001 --status done\n'
-    )
+    expect(out).not.toContain('task wrapup')
   })
 
   it('pr scan: header and scan facts are labelled rows; review commands on their own lines', () => {
@@ -641,7 +641,7 @@ describe('LUM-1091 --json is untouched by the new layout', () => {
     }) as unknown as typeof fetch
   }
 
-  it('task status --json is the server payload plus openCrossings, byte for byte', async () => {
+  it('task status --json is the server payload plus openCrossings (byte for byte) and readiness', async () => {
     route()
     await taskStatus('LUM-9001', { json: true, full: true })
     const read = await fetchOpenCrossings(
@@ -651,9 +651,19 @@ describe('LUM-1091 --json is untouched by the new layout', () => {
     )
     expect(read.status).toBe('ok')
     const openCrossings = read.status === 'ok' ? read.crossings : null
-    expect(out.join('')).toBe(
-      JSON.stringify({ ...STATUS, openCrossings }, null, 2) + '\n'
+    // LUM-1233: `readiness` is the one additive key, last.
+    const { readiness, ...rest } = JSON.parse(out.join('')) as Record<
+      string,
+      unknown
+    >
+    expect(JSON.stringify(rest, null, 2)).toBe(
+      JSON.stringify({ ...STATUS, openCrossings }, null, 2)
     )
+    expect(readiness).toEqual({
+      level: expect.any(String),
+      reasons: expect.any(Array),
+      nextCommand: null,
+    })
   })
 
   it('pr scan --json is the server payload, byte for byte', async () => {

@@ -1,6 +1,4 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
-import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { fmtCalendarDay, fmtInstant, formatDuration } from '../lib/format'
@@ -14,9 +12,9 @@ import {
   renderSessionRecapFollowUps,
 } from '../../../shared/src/untrusted-fence'
 import { neutralizeWrapperEscapes } from '../../../shared/src/untrusted-content'
-import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { errAuth, errHttp } from '../lib/errors'
 
-interface TaskContextResponse {
+export interface TaskContextResponse {
   task: {
     id?: string
     identifier: string
@@ -67,7 +65,7 @@ interface TaskContextResponse {
   }>
 }
 
-/** LUM-844: `full` restores the full memory bodies and the judged-used
+/** LUM-844: `full` (`task show --memory`, LUM-1233) restores the full memory bodies and the judged-used
  *  footer; `currentSessionId` hides the calling session from the prior-session
  *  list (it is always "just now · (no summary)" — noise, not history). */
 export interface TaskContextFormatOptions {
@@ -75,63 +73,60 @@ export interface TaskContextFormatOptions {
   currentSessionId?: string | undefined
 }
 
-export async function taskContext(
-  identifier: string | undefined,
-  options?: { hints?: boolean; full?: boolean }
-): Promise<number | void> {
-  if (!identifier) {
-    console.error(
-      'Error: missing <identifier>. Usage: lumo task context <LUM-42>'
-    )
-    return EXIT_USAGE
-  }
-
-  const creds = readCredentials()
-  if (!creds) {
-    console.error(errNotLoggedIn())
-    return 1
-  }
-
-  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+/**
+ * LUM-1233: read the task context (the payload `task show --full` renders;
+ * formerly `lumo task context`). Errors are printed here; the result is the
+ * payload or the exit code to return.
+ */
+export async function fetchTaskContext(
+  apiUrl: string,
+  token: string,
+  identifier: string,
+  workspaceSlug: string | undefined
+): Promise<
+  { ok: true; data: TaskContextResponse } | { ok: false; code: number }
+> {
   const url = `${trimTrailingSlash(apiUrl)}/api/tasks/context/${encodeURIComponent(identifier)}`
-
   let res: Response
   try {
-    res = await fetch(url, {
-      headers: { Authorization: `Bearer ${creds.token}` },
-    })
+    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
+    return { ok: false, code: 1 }
   }
-
   if (res.status === 401) {
     console.error(errAuth())
-    return 1
+    return { ok: false, code: 1 }
   }
   if (res.status === 404) {
     console.error(
-      `Error: task ${identifier} not found in workspace ${creds.workspaceSlug}`
+      `Error: task ${identifier} not found in workspace ${workspaceSlug}`
     )
-    return 1
+    return { ok: false, code: 1 }
   }
   if (!res.ok) {
     console.error(errHttp('context fetch', res.status))
-    return 1
+    return { ok: false, code: 1 }
   }
+  return { ok: true, data: (await res.json()) as TaskContextResponse }
+}
 
-  const data = (await res.json()) as TaskContextResponse
-  const now = new Date()
-  process.stdout.write(
-    formatTaskContextMarkdown(data, now, {
-      full: options?.full,
+/** Print the context markdown and its server-computed `Next:` block. */
+export async function printTaskContext(
+  data: TaskContextResponse,
+  opts: { memory?: boolean | undefined },
+  out: { write(s: string): unknown } = process.stdout
+): Promise<void> {
+  out.write(
+    formatTaskContextMarkdown(data, new Date(), {
+      full: opts.memory,
       currentSessionId: await resolveSessionId({ write: false }),
     })
   )
   // Emitted outside the rendered markdown so the output budget can never drop
   // it — the closing "so do this now" line is the cheapest section here.
-  emitNextSteps(data.nextSteps ?? [], options ?? {})
+  emitNextSteps(data.nextSteps ?? [], {})
 }
 
 /**
@@ -293,7 +288,7 @@ export function formatTaskContextMarkdown(
     lines.push(
       opts.full
         ? sanitizeField(data.lineageSection.trimEnd())
-        : `_Memory usefulness (judged-used track record): lumo task context ${data.task.identifier} --full_`
+        : `_Memory usefulness (judged-used track record): lumo task show ${data.task.identifier} --full --memory_`
     )
     lines.push('')
   }
@@ -306,7 +301,7 @@ export function formatTaskContextMarkdown(
   return capRenderedOutput(lines.join('\n'), {
     fetchHint:
       `pull the dropped sections individually: lumo task status ${id} · ` +
-      `lumo task comments list ${id} --full · lumo task lineage ${id} · ` +
+      `lumo task show ${id} --comments --full · lumo task show ${id} --lineage · ` +
       `lumo doc show <doc>`,
     unitNoun: 'lines',
   }).text

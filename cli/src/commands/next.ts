@@ -253,7 +253,7 @@ export function formatNextOutput(
   lines.push(
     formatNextSteps([
       {
-        command: `lumo session attach ${first.identifier} && lumo task context ${first.identifier}`,
+        command: `lumo session attach ${first.identifier} && lumo task show ${first.identifier} --full`,
         why: 'start on the top-ranked task',
       },
     ])

@@ -21,6 +21,7 @@ import * as fs from 'fs'
 
 export type ErrorCode =
   | 'USAGE'
+  | 'COMMAND_REMOVED'
   | 'NOT_FOUND'
   | 'AUTH'
   | 'FORBIDDEN'
@@ -98,6 +99,9 @@ export function notFoundHint(errorLine: string): string | null {
 
 /** The machine code of a failure, from its exit code and message. */
 export function classifyError(exitCode: number, message: string): ErrorCode {
+  // LUM-1233 (RN-3): a tombstoned command — a usage error with its own code.
+  if (exitCode === 2 && /^lumo .+ was removed\. Use: lumo /.test(message))
+    return 'COMMAND_REMOVED'
   if (exitCode === 2) return 'USAGE'
   if (/API key invalid or revoked|not logged in|HTTP 401/i.test(message))
     return 'AUTH'

@@ -16,8 +16,12 @@ import {
 } from '@/lib/context/injection-metrics'
 import type { Prisma } from '@prisma/client'
 import { waitUntil } from '@/lib/runtime/wait-until'
+import { cliCommandNamesFromHeaders } from '@/lib/cli/command-names'
 
 export async function POST(request: Request) {
+  // LUM-1233: the hook runs in the caller's CLI, so its version picks the
+  // command names the injected sections may point at.
+  const commands = cliCommandNamesFromHeaders(request.headers)
   return handleHookRequest(request, 'SESSION_START', {
     afterRecord: async ctx => {
       if (!ctx.sessionId) return
@@ -65,7 +69,8 @@ export async function POST(request: Request) {
           // server-side so it injects in full.
           taskContextService.buildProgressSectionForTask(
             binding.taskId,
-            sessionId
+            sessionId,
+            commands
           ),
           taskContextService.buildLayer2ReviewSectionForTask(
             binding.taskId,
@@ -75,7 +80,8 @@ export async function POST(request: Request) {
           // break session-start context injection (LUM-172).
           taskDependencyService.buildBlockerWarningSectionForTask(
             binding.taskId,
-            binding.taskIdentifier
+            binding.taskIdentifier,
+            commands
           ),
         ])
         testCaseSection = sections.testCaseSection

@@ -1,10 +1,11 @@
 /**
  * @jest-environment node
  *
- * LUM-841: `lumo task wrapup [task]` — the whole wrap-up in one read.
- * Sections come out in wrap-up order; crossings are rendered ready to relay;
- * the command only ever GETs and never supplies a step flag or receipt; any
- * failed read keeps the readiness verdict from reading as ready.
+ * LUM-841 → LUM-1233: DONE readiness. `lumo task wrapup` was removed; its
+ * readiness verdict and DONE section now end `lumo task status` when the task
+ * is READY. The read only ever GETs and never supplies a step flag or
+ * receipt; any failed read keeps the verdict from reading as ready (and the
+ * section away).
  */
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
@@ -25,11 +26,12 @@ jest.mock('@/cli/src/lib/worktree-cleanup', () => {
 
 import {
   assessReadiness,
-  formatWrapup,
-  taskWrapup,
-  type WrapupInput,
-} from '@/cli/src/commands/task-wrapup'
-import type { TaskStatusResponse } from '@/cli/src/commands/task-status'
+  type ReadinessInput,
+} from '@/cli/src/lib/done-readiness'
+import {
+  taskStatus,
+  type TaskStatusResponse,
+} from '@/cli/src/commands/task-status'
 import type { OpenCrossing } from '@/cli/src/lib/open-crossings'
 
 /** The approval flag itself — not the `--confirmed` ruling value. */
@@ -95,7 +97,7 @@ function crossing(over: Partial<OpenCrossing> = {}): OpenCrossing {
   }
 }
 
-function input(over: Partial<WrapupInput> = {}): WrapupInput {
+function input(over: Partial<ReadinessInput> = {}): ReadinessInput {
   return {
     identifier: 'LUM-9001',
     status: { ok: true, value: statusData() },
@@ -127,149 +129,11 @@ function input(over: Partial<WrapupInput> = {}): WrapupInput {
         },
       ],
     },
-    dispositionUrl:
-      'https://api.lumo.test/workspace/lumo/my-tasks/LUM-9001#boundary-crossings',
     ...over,
   }
 }
 
-describe('lumo task wrapup (LUM-841)', () => {
-  test('wrapup renders every section in wrap-up order', () => {
-    const out = formatWrapup(
-      input({
-        status: {
-          ok: true,
-          value: statusData({
-            nextActions: [
-              {
-                kind: 'TEST_CASE_VERDICT',
-                signal: 'UNPROVEN_PASS',
-                number: 3,
-                title: 'manual smoke',
-                ceilingReason: 'no-evidence',
-                advisory: true,
-              },
-            ],
-          }),
-        },
-        crossings: {
-          status: 'ok',
-          crossings: [crossing()],
-          gateEnabled: true,
-        },
-      })
-    )
-    const order = [
-      '[1/4] Test cases',
-      '[2/4] Security scans',
-      '[3/4] Boundary crossings',
-      '[4/4] DONE',
-    ].map(h => out.indexOf(h))
-    expect(order.every(i => i >= 0)).toBe(true)
-    expect([...order].sort((a, b) => a - b)).toEqual(order)
-
-    // LUM-942: no contract / verification section any more
-    expect(out).not.toMatch(/criteri|lumo verify|Contract/i)
-    // test-case signal
-    expect(out).toContain('TC3 manual smoke')
-    // PR scan state
-    expect(out).toContain('PR #77 · scan CLEAN')
-    // crossings
-    expect(out).toContain('  • cx-1 [MEDIUM] TEST_FILE_DELETED (blocks DONE)')
-    // DONE readiness + envelope preview: PR merge state and worktree cleanup
-    expect(out).toContain('Readiness: BLOCKED')
-    expect(out).toContain('#77  MERGED ')
-    expect(out).toContain('Will remove worktree /repo/.worktrees/LUM-9001-x')
-  })
-
-  test('wrapup renders crossings ready to relay', () => {
-    const out = formatWrapup(
-      input({
-        crossings: {
-          status: 'ok',
-          gateEnabled: true,
-          crossings: [
-            crossing(),
-            crossing({
-              id: 'cx-2',
-              severity: 'LOW',
-              category: 'PROJECT_RULE_VIOLATION',
-              detail: 'console.log in a script',
-              advisory: true,
-              blocking: false,
-              occurrenceCount: 1,
-              reversible: true,
-              explanations: [],
-            }),
-          ],
-        },
-      })
-    )
-    expect(out).toContain('2 undispositioned: 1 blocking DONE, 1 advisory')
-    // everything the user needs to rule on the blocking row
-    expect(out).toMatch(/^ {4}Detail: +deleted __tests__\/old\.test\.ts$/m)
-    expect(out).toMatch(/^ {4}Seen: +×2 while open$/m)
-    expect(out).toContain('irreversible category')
-    expect(out).toMatch(
-      /^ {4}Explanations: +1 — agent self-report, unverified$/m
-    )
-    expect(out).toContain('    - the helper it covered was removed')
-    // the advisory row says so, and is covered by the batch commands
-    expect(out).toContain(
-      '  • cx-2 [LOW] PROJECT_RULE_VIOLATION (advisory — does not block DONE)'
-    )
-    expect(out).toContain(
-      '  Web panel:\n    https://api.lumo.test/workspace/lumo'
-    )
-  })
-
-  test('wrapup offers one batch disposition command per ruling for several crossings (LUM-845)', () => {
-    const out = formatWrapup(
-      input({
-        crossings: {
-          status: 'ok',
-          gateEnabled: true,
-          crossings: [
-            crossing(),
-            crossing({ id: 'cx-2', explanations: [] }),
-            crossing({ id: 'cx-3', advisory: true, blocking: false }),
-          ],
-        },
-      })
-    )
-    expect(out).toContain(
-      'lumo crossing disposition cx-1 cx-2 cx-3 --false-positive --task LUM-9001'
-    )
-    expect(out).toContain(
-      'lumo crossing disposition cx-1 cx-2 cx-3 --confirmed --task LUM-9001'
-    )
-    // no per-crossing ruling commands alongside the batch ones
-    expect(out).not.toContain('lumo crossing disposition cx-1 --')
-    expect(out).not.toContain('lumo crossing disposition cx-2 --')
-    expect(out.match(/lumo crossing disposition /g)).toHaveLength(2)
-    expect(out).toContain('leave out any id they want to keep OPEN')
-  })
-
-  test('wrapup keeps the per-crossing command when there is a single crossing', () => {
-    const out = formatWrapup(
-      input({
-        crossings: {
-          status: 'ok',
-          gateEnabled: true,
-          crossings: [crossing()],
-        },
-      })
-    )
-    // LUM-1091: each ruling command on a line of its own
-    expect(out).toContain(
-      [
-        '    The user rules — one of:',
-        '      lumo crossing disposition cx-1 --false-positive --task LUM-9001',
-        '      lumo crossing disposition cx-1 --confirmed --task LUM-9001',
-      ].join('\n')
-    )
-  })
-
+describe('DONE readiness (formerly lumo task wrapup)', () => {
   describe('network', () => {
     let fetchMock: jest.Mock
     let stdout: string[]
@@ -336,9 +200,9 @@ describe('lumo task wrapup (LUM-841)', () => {
       global.fetch = fetchMock as unknown as typeof fetch
     }
 
-    test('wrapup is read-only and never self-approves', async () => {
+    test('task status shows DONE readiness only when READY, and never self-approves', async () => {
       route()
-      const code = await taskWrapup('LUM-9001')
+      const code = await taskStatus('LUM-9001')
       expect(code).toBeUndefined()
       // every request is a plain GET — no receipt, no PATCH
       expect(fetchMock).toHaveBeenCalled()
@@ -350,8 +214,8 @@ describe('lumo task wrapup (LUM-841)', () => {
       const out = stdout.join('')
       expect(out).not.toContain('--confirm-read')
       expect(out).not.toContain('--receipt')
-      // blocked by the crossing → no approval command at all
-      expect(out).toContain('Readiness: BLOCKED')
+      // blocked by the crossing → no readiness section, no approval command
+      expect(out).not.toContain('DONE readiness')
       expect(out).not.toMatch(CONFIRM_FLAG)
 
       // LUM-1106: once nothing is left and every linked PR is merged, DONE
@@ -363,8 +227,9 @@ describe('lumo task wrapup (LUM-841)', () => {
           crossings: [],
         }),
       })
-      await taskWrapup('LUM-9001')
+      await taskStatus('LUM-9001')
       const ready = stdout.join('')
+      expect(ready).toContain('\nDONE readiness\n')
       expect(ready).toContain('Readiness: READY — one step')
       expect(ready).not.toMatch(CONFIRM_FLAG)
       // LUM-1091: the command alone on its line, right under the instruction
@@ -389,7 +254,7 @@ describe('lumo task wrapup (LUM-841)', () => {
           },
         }),
       })
-      await taskWrapup('LUM-9001')
+      await taskStatus('LUM-9001')
       const noPr = stdout.join('')
       expect(noPr).toContain('Readiness: READY — relay the DONE envelope')
       const confirms = noPr.split('\n').filter(l => CONFIRM_FLAG.test(l))
@@ -401,9 +266,25 @@ describe('lumo task wrapup (LUM-841)', () => {
       )
     })
 
-    test('wrapup fails closed when a read fails', async () => {
+    test('--json carries the readiness verdict and the next command', async () => {
+      route({
+        '/boundary-crossings': jsonResponse(200, {
+          gateEnabled: true,
+          crossings: [],
+        }),
+      })
+      await taskStatus('LUM-9001', { json: true })
+      const body = JSON.parse(stdout.join('')) as {
+        readiness: { level: string; nextCommand: string | null }
+      }
+      expect(body.readiness.level).toBe('READY')
+      expect(body.readiness.nextCommand).toBe(
+        'lumo task update LUM-9001 --status done'
+      )
+    })
+
+    test('a failed read keeps the readiness section away (fail closed)', async () => {
       const cases: Array<[string, Record<string, unknown>]> = [
-        ['status', { '/status': jsonResponse(500, {}) }],
         ['crossings', { '/boundary-crossings': new Error('socket hang up') }],
         ['task', { '/by-identifier/': jsonResponse(503, {}) }],
       ]
@@ -421,23 +302,17 @@ describe('lumo task wrapup (LUM-841)', () => {
                 }),
               }),
         })
-        await taskWrapup('LUM-9001')
+        await taskStatus('LUM-9001')
         const out = stdout.join('')
-        expect(out).toContain('Readiness: CANNOT CONFIRM')
+        expect(out).not.toContain('DONE readiness')
         expect(out).not.toContain('Readiness: READY')
         expect(out).not.toMatch(CONFIRM_FLAG)
-        if (name === 'status')
-          expect(out).toContain('the task status could not be read')
-        if (name === 'crossings')
-          expect(out).toContain('Boundary-crossing check failed')
-        if (name === 'task')
-          expect(out).toContain('Could not read the task and its linked PRs')
       }
     })
 
     test('an unknown task is an error, not a report', async () => {
       route({ '/status': jsonResponse(404, {}) })
-      const code = await taskWrapup('LUM-404')
+      const code = await taskStatus('LUM-404')
       expect(code).toBe(1)
       expect(stdout.join('')).toBe('')
     })

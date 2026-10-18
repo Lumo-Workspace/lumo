@@ -11,6 +11,7 @@ import {
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { successLine } from '../lib/feedback'
 import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+import type { OutputSink } from '../lib/output-sink'
 
 interface ResolveResponse {
   id: string
@@ -267,10 +268,11 @@ async function resolveTaskAndEdge(
 /** `lumo task deps list <LUM-N>` */
 export async function taskDepsList(
   identifier: string | undefined,
-  opts: { json?: boolean } = {}
+  opts: { json?: boolean } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier) {
-    console.error('Error: usage: lumo task deps list <LUM-42>')
+    console.error('Error: usage: lumo task show <LUM-42> --deps')
     return EXIT_USAGE
   }
   const ctx = getCtx()
@@ -286,13 +288,14 @@ export async function taskDepsList(
         stripInternalFields(edges),
         {},
         { task: task.identifier }
-      )
+      ),
+      out
     )
     return
   }
   // Whole-block sanitization (session-attach style): edge titles, reasons and
   // sample paths are server-controlled free text.
-  console.log(sanitizeField(formatDepsList(task.identifier, edges)))
+  out.write(sanitizeField(formatDepsList(task.identifier, edges)) + '\n')
 }
 
 /** `lumo task deps add <LUM-N> --blocked-by <LUM-M>` */

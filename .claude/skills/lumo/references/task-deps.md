@@ -2,14 +2,14 @@
 
 Hard dependency edges between tasks — manual declarations plus auto-detected candidates a human confirms or dismisses. For core task CRUD, see [tasks.md](tasks.md).
 
-## `lumo task deps list <LUM-N>` — show all dependency edges
+## `lumo task show <LUM-N> --deps` — show all dependency edges
 
-`--json` prints `{ version, dependencies, total, nextCursor, task }` (each edge with its full id).
+Reading the edges is an aspect of `task show` (LUM-1233; `task deps list` was removed). `--json` puts `{ version, dependencies, total, nextCursor, task }` (each edge with its full id) under the envelope's `deps` key.
 
 Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED (pending confirmation)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
 
 ```bash
-lumo task deps list LUM-42
+lumo task show LUM-42 --deps
 ```
 
 Example output:
@@ -109,8 +109,8 @@ lumo task deps rm LUM-42 a1b2c3d4 --confirm  # after the user approved
 
 ## When to suggest `task deps` commands
 
-- **After `session attach` output shows a blocker warning or candidate-count hint** → `lumo task deps list <LUM-N>`, then `confirm` / `dismiss` each SUGGESTED candidate.
+- **After `session attach` output shows a blocker warning or candidate-count hint** → `lumo task show <LUM-N> --deps`, then `confirm` / `dismiss` each SUGGESTED candidate.
 - **User says "X needs to wait for Y" / "LUM-42 is blocked by LUM-9"** → `lumo task deps add LUM-42 --blocked-by LUM-9`.
 - **Agent sees a `## ⚠ Dependency alerts` block (form A — live blockers) at session-start** → evaluate whether to wait for the blocker to merge; clean stale/wrong edges with `deps rm` / `deps dismiss`.
-- **Agent sees only a standalone hint `Detected N candidate dependencies awaiting confirmation…` (form B)** → no immediate blocker, but run `deps list` to review and confirm/dismiss. See [sessions.md](sessions.md) for the full alert format.
+- **Agent sees only a standalone hint `Detected N candidate dependencies awaiting confirmation…` (form B)** → no immediate blocker, but run `task show --deps` to review and confirm/dismiss. See [sessions.md](sessions.md) for the full alert format.
 - **User reports a false positive** → `lumo task deps dismiss <LUM-N> <edge>`.

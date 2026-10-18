@@ -26,6 +26,7 @@ import {
 } from '../lib/pagination'
 import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 import { guardJsonBlock } from '../lib/json-guard'
+import type { OutputSink } from '../lib/output-sink'
 
 interface ResolveResponse {
   id: string
@@ -50,9 +51,6 @@ export interface CommentThreadOptions {
   identifier?: string | undefined
   /** Override the token ceiling (tests). */
   maxTokens?: number | undefined
-  /** The `lumo <…>` sub-command the fetch-more pointer advertises. Defaults to
-   *  the task thread. */
-  fetchCommand?: string | undefined
   /** Actor id → member / agent name (LUM-1232 G2). When given, an author is
    *  printed by name, or `-` when the directory cannot name it — never as a
    *  raw actor id. */
@@ -127,7 +125,6 @@ export function formatCommentThread(
   const blocks = comments.map(c => renderCommentBlock(c, '', opts.actorNames))
   if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
-  const fetchCommand = opts.fetchCommand ?? 'task comments list'
   const capped = truncateUnitsToBudget({
     units: blocks,
     // The fence (tags, preamble, up to two notices) is printed on top of the
@@ -137,7 +134,7 @@ export function formatCommentThread(
       (opts.maxTokens ?? OUTPUT_TOKEN_BUDGET) - FENCE_RESERVE_TOKENS
     ),
     unitNoun: 'comments',
-    fetchHint: `read the whole thread with: lumo ${fetchCommand} ${id} --full`,
+    fetchHint: `read the whole thread with: lumo task show ${id} --comments --full`,
     separator: COMMENT_SEPARATOR,
   })
   if (!capped.truncated) return fenceCommentThread(capped.text)
@@ -156,7 +153,7 @@ const FENCE_RESERVE_TOKENS = 250
 
 /**
  * LUM-998: a comment body is any workspace member's text — the same surface
- * `task context` already fences as linked context. The thread prints inside
+ * `task show --full` already fences as linked context. The thread prints inside
  * one `<untrusted-linked-context>` block, wrapper tags defanged and
  * directive-shaped content flagged at the head; nothing is dropped.
  */
@@ -246,7 +243,7 @@ export function formatCommentPage(
   const footer = pageFooter(
     { ...p, shown: p.items.length },
     buildCommand(
-      `task comments list ${shellQuote(sanitizeField(identifier))}`,
+      `task show ${shellQuote(sanitizeField(identifier))} --comments`,
       [
         ['--full', opts.full],
         ['--limit', opts.limit],
@@ -266,10 +263,11 @@ export function formatCommentPage(
 
 export async function taskCommentList(
   identifier: string | undefined,
-  opts: TaskCommentListOptions = {}
+  opts: TaskCommentListOptions = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier) {
-    console.error('Error: usage: lumo task comments list <LUM-42>')
+    console.error('Error: usage: lumo task show <LUM-42> --comments')
     return EXIT_USAGE
   }
   const paging = commentPageArgs(opts)
@@ -344,22 +342,25 @@ export async function taskCommentList(
 
   const { comments } = (await res.json()) as { comments: CommentNode[] }
   if (opts.json) {
-    emitJson(commentListJson(comments ?? [], paging.page, resolved.identifier))
+    emitJson(
+      commentListJson(comments ?? [], paging.page, resolved.identifier),
+      out
+    )
     return
   }
   if (!comments || comments.length === 0) {
-    console.log(emptyState('comments'))
+    out.write(emptyState('comments') + '\n')
     return
   }
   // LUM-1232 G2: authors by name from the member directory, not actor ids.
   const actorNames = await fetchActorNames(base, creds.token)
-  console.log(
+  out.write(
     formatCommentPage(
       comments,
       paging.page,
       resolved.identifier,
       opts,
       actorNames
-    )
+    ) + '\n'
   )
 }

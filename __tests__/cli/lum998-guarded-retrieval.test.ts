@@ -224,7 +224,7 @@ describe('LUM-998 — comment thread (`task comments list`)', () => {
     expectSealed(out, 'untrusted-linked-context')
     const close = out.indexOf('</untrusted-linked-context>')
     expect(out.indexOf('… +')).toBeGreaterThan(close)
-    expect(out.trimEnd()).toMatch(/lumo task comments list LUM-1 --full$/)
+    expect(out.trimEnd()).toMatch(/lumo task show LUM-1 --comments --full$/)
   })
 })
 
@@ -241,7 +241,7 @@ describe('LUM-998 — edge cases from review', () => {
     )
     expect(out).not.toContain('untrusted-linked-context')
     expect(out).toMatch(/^… \+\d+ more comments not shown/)
-    expect(out).toContain('lumo task comments list LUM-1 --full')
+    expect(out).toContain('lumo task show LUM-1 --comments --full')
   })
 
   it('a Slack message with a missing text prints the author only', () => {

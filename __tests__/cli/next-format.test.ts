@@ -58,7 +58,7 @@ describe('formatNextOutput', () => {
     // line, command indented beneath it. Same advice, same command string.
     expect(out).toContain('Next:')
     expect(out).toContain(
-      'lumo session attach LUM-42 && lumo task context LUM-42'
+      'lumo session attach LUM-42 && lumo task show LUM-42 --full'
     )
     expect(out).toContain(
       'Hint: any other task in the list works the same way.'

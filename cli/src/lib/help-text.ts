@@ -17,12 +17,13 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo task search "oauth redirect"',
     'lumo task search --status todo --priority high',
   ],
-  'task show': ['lumo task show LUM-42'],
-  'task status': ['lumo task status LUM-42', 'lumo task status LUM-42 --full'],
-  'task context': [
-    'lumo task context LUM-42',
-    'lumo task context LUM-42 --full',
+  'task show': [
+    'lumo task show LUM-42',
+    'lumo task show LUM-42 --full',
+    'lumo task show LUM-42 --comments --history',
+    'lumo task show --scans --all',
   ],
+  'task status': ['lumo task status LUM-42', 'lumo task status LUM-42 --full'],
   'task create': [
     'lumo task create "Fix the login redirect" --priority high',
     'lumo task create "Spike: cache layer" --template agent-brief',
@@ -33,20 +34,9 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo task update LUM-42 --priority urgent --add-tag security',
   ],
   'task comment': ['lumo task comment LUM-42 "Pushed the fix in #123"'],
-  'task comments list': [
-    'lumo task comments list LUM-42',
-    'lumo task comments list LUM-42 --full',
-  ],
-  'task history': [
-    'lumo task history LUM-42',
-    'lumo task history LUM-42 --limit 20',
-  ],
   'task decide': [
     'lumo task decide LUM-42 "Keep the v1 API; add v2 beside it"',
   ],
-  'task runs': ['lumo task runs LUM-42', 'lumo task runs LUM-42 --full'],
-  'task scans': ['lumo task scans LUM-42', 'lumo task scans LUM-42 --all'],
-  'task deps list': ['lumo task deps list LUM-42'],
   'task deps add': ['lumo task deps add LUM-42 --blocked-by LUM-9'],
   'task pr show': ['lumo task pr show LUM-42 123'],
   'task testcase add': [

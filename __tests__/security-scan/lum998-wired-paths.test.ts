@@ -106,6 +106,7 @@ import {
   SESSION_RECAP_REPORT_LINE,
 } from '@/shared/src/untrusted-fence'
 import { wrapUntrustedTaskDescription } from '@/lib/memory/render'
+import { CURRENT_CLI_COMMANDS } from '@/lib/cli/command-names'
 import {
   guardPromptLine,
   guardPromptLineText,
@@ -281,6 +282,44 @@ describe('session start — "Progress so far" block', () => {
     )
     expect(out.split(`</${SESSION_RECAP_FENCE}>`)).toHaveLength(2)
     expect(out.endsWith(`</${SESSION_RECAP_FENCE}>`)).toBe(true)
+  })
+})
+
+describe('session start — "Progress so far" overflow pointer (LUM-1233)', () => {
+  const sixOpen = () =>
+    listForTask.mockResolvedValue([
+      {
+        id: 'sess_prev',
+        inferred: false,
+        summaryType: 'implementation',
+        summary: {
+          goal: 'Explored',
+          unresolved: ['a', 'b', 'c', 'd', 'e', 'f'],
+        },
+        lastActivityAt: new Date('2026-10-01T01:00:00Z'),
+      },
+    ])
+
+  it('names `task context` for an older CLI (the default)', async () => {
+    sixOpen()
+    const out = await taskContextService.buildProgressSectionForTask(
+      't1',
+      'sess_now'
+    )
+    expect(out).toContain('- +1 more — `lumo task context` for the full list')
+  })
+
+  it('names `task show --full` for a CLI that has it', async () => {
+    sixOpen()
+    const out = await taskContextService.buildProgressSectionForTask(
+      't1',
+      'sess_now',
+      CURRENT_CLI_COMMANDS
+    )
+    expect(out).toContain(
+      '- +1 more — `lumo task show --full` for the full list'
+    )
+    expect(out).not.toContain('task context')
   })
 })
 

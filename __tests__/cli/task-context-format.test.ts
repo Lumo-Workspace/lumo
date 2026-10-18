@@ -388,7 +388,7 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
       LINEAGE_NOW
     )
     expect(out).not.toContain('judged-used in 3 of 4 tasks')
-    expect(out).toContain('lumo task context LUM-1 --full')
+    expect(out).toContain('lumo task show LUM-1 --full --memory')
   })
 
   it('omits the lineage block when lineageSection is absent/empty', () => {

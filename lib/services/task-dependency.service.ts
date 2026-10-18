@@ -2,6 +2,10 @@ import { taskDependencyRepository } from '@/lib/repositories/task-dependency.rep
 import { logger } from '@/lib/logger'
 import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
 
 /**
  * LUM-172 task dependency CRUD + cycle prevention + alert rendering.
@@ -20,7 +24,9 @@ export interface DependencyEdgeView {
   other: { identifier: string; title: string; status: string }
 }
 
-type EdgeWithTasks = Awaited<ReturnType<typeof taskDependencyRepository.findEdgesForTask>>[number]
+type EdgeWithTasks = Awaited<
+  ReturnType<typeof taskDependencyRepository.findEdgesForTask>
+>[number]
 
 function toView(edge: EdgeWithTasks, taskId: string): DependencyEdgeView {
   const blockedSide = edge.blockedTaskId === taskId
@@ -54,9 +60,10 @@ function toView(edge: EdgeWithTasks, taskId: string): DependencyEdgeView {
 async function assertNoCycle(
   workspaceId: string,
   blockedTaskId: string,
-  blockingTaskId: string,
+  blockingTaskId: string
 ): Promise<void> {
-  const edges = await taskDependencyRepository.findConfirmedBlocksEdges(workspaceId)
+  const edges =
+    await taskDependencyRepository.findConfirmedBlocksEdges(workspaceId)
   // Build adjacency: blockedTaskId → [blockingTaskIds] (i.e., "depends on")
   const dependsOn = new Map<string, string[]>()
   for (const e of edges) {
@@ -70,7 +77,9 @@ async function assertNoCycle(
   while (stack.length > 0) {
     const cur = stack.pop() as string
     if (cur === blockedTaskId) {
-      throw Object.assign(new Error('Dependency would create a cycle'), { status: 409 })
+      throw Object.assign(new Error('Dependency would create a cycle'), {
+        status: 409,
+      })
     }
     if (seen.has(cur)) continue
     seen.add(cur)
@@ -95,13 +104,20 @@ export const taskDependencyService = {
     const kind = input.kind ?? 'BLOCKS'
 
     if (blockedTaskId === blockingTaskId) {
-      throw Object.assign(new Error('A task cannot depend on itself'), { status: 400 })
+      throw Object.assign(new Error('A task cannot depend on itself'), {
+        status: 400,
+      })
     }
 
-    const existing = await taskDependencyRepository.findByPair(blockedTaskId, blockingTaskId)
+    const existing = await taskDependencyRepository.findByPair(
+      blockedTaskId,
+      blockingTaskId
+    )
 
     if (existing?.status === 'CONFIRMED') {
-      throw Object.assign(new Error('Dependency already exists'), { status: 409 })
+      throw Object.assign(new Error('Dependency already exists'), {
+        status: 409,
+      })
     }
 
     if (kind === 'BLOCKS') {
@@ -130,16 +146,22 @@ export const taskDependencyService = {
   /** One-click confirm of a candidate edge; reverse flips the direction (the detector's direction is only a heuristic). */
   async confirm(input: { edgeId: string; reverse?: boolean | undefined }) {
     const edge = await taskDependencyRepository.findById(input.edgeId)
-    if (!edge) throw Object.assign(new Error('Dependency not found'), { status: 404 })
+    if (!edge)
+      throw Object.assign(new Error('Dependency not found'), { status: 404 })
 
     const [blockedTaskId, blockingTaskId] = input.reverse
       ? [edge.blockingTaskId, edge.blockedTaskId]
       : [edge.blockedTaskId, edge.blockingTaskId]
 
     if (input.reverse) {
-      const reverseExisting = await taskDependencyRepository.findByPair(blockedTaskId, blockingTaskId)
+      const reverseExisting = await taskDependencyRepository.findByPair(
+        blockedTaskId,
+        blockingTaskId
+      )
       if (reverseExisting) {
-        throw Object.assign(new Error('Reverse edge already exists'), { status: 409 })
+        throw Object.assign(new Error('Reverse edge already exists'), {
+          status: 409,
+        })
       }
     }
 
@@ -155,7 +177,9 @@ export const taskDependencyService = {
       })
     } catch (err) {
       if (input.reverse && isPrismaUniqueViolation(err)) {
-        throw Object.assign(new Error('Reverse edge already exists'), { status: 409 })
+        throw Object.assign(new Error('Reverse edge already exists'), {
+          status: 409,
+        })
       }
       throw err
     }
@@ -164,13 +188,18 @@ export const taskDependencyService = {
   /** Dismiss a candidate: keep the row instead of deleting, so the detector cannot re-suggest it next round. */
   async dismiss(edgeId: string) {
     const edge = await taskDependencyRepository.findById(edgeId)
-    if (!edge) throw Object.assign(new Error('Dependency not found'), { status: 404 })
-    return taskDependencyRepository.update(edgeId, { status: 'DISMISSED', confirmedAt: null })
+    if (!edge)
+      throw Object.assign(new Error('Dependency not found'), { status: 404 })
+    return taskDependencyRepository.update(edgeId, {
+      status: 'DISMISSED',
+      confirmedAt: null,
+    })
   },
 
   async remove(edgeId: string) {
     const edge = await taskDependencyRepository.findById(edgeId)
-    if (!edge) throw Object.assign(new Error('Dependency not found'), { status: 404 })
+    if (!edge)
+      throw Object.assign(new Error('Dependency not found'), { status: 404 })
     await taskDependencyRepository.delete(edgeId)
   },
 
@@ -181,6 +210,7 @@ export const taskDependencyService = {
   async buildBlockerWarningSectionForTask(
     taskId: string,
     taskIdentifier: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<string> {
     try {
       const [blockers, suggestedCount] = await Promise.all([
@@ -198,27 +228,34 @@ export const taskDependencyService = {
           const t = b.blockingTask
           const ident = `${t.team.identifier}-${t.number}`
           const pr = t.pullRequests[0]
-          const prNote = pr ? `, PR #${pr.number}${pr.isDraft ? ' (draft)' : ''} not merged` : ''
+          const prNote = pr
+            ? `, PR #${pr.number}${pr.isDraft ? ' (draft)' : ''} not merged`
+            : ''
           // LUM-346 convention: workspace-authored free text (task title) gets the
           // control-char strip at the render source, covering every consumer
           // (session-start hook injection has no client-side sanitize pass).
-          parts.push(`- This task is blocked by ${ident} "${sanitizeField(t.title)}" (status ${t.status}${prNote}).`)
+          parts.push(
+            `- This task is blocked by ${ident} "${sanitizeField(t.title)}" (status ${t.status}${prNote}).`
+          )
         }
         parts.push(
           '',
-          'Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.',
+          'Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.'
         )
       }
 
       if (suggestedCount > 0) {
         parts.push(
-          `Detected ${suggestedCount} candidate dependencies awaiting confirmation: run \`lumo task deps list ${taskIdentifier}\`.`,
+          `Detected ${suggestedCount} candidate dependencies awaiting confirmation: run \`${commands.taskDeps(taskIdentifier)}\`.`
         )
       }
 
       return parts.join('\n')
     } catch (err) {
-      logger.error('buildBlockerWarningSectionForTask failed; omitting blocker warning', err)
+      logger.error(
+        'buildBlockerWarningSectionForTask failed; omitting blocker warning',
+        err
+      )
       return ''
     }
   },

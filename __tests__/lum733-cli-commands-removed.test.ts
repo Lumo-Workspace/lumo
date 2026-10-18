@@ -4,8 +4,8 @@
  * outcome-record path (`lumo outcome record`). LUM-942 then removed task
  * acceptance criteria: `lumo verify`, `lumo task criteria set/list/confirm`,
  * `lumo criteria audit` and `lumo outcome rate`; LUM-1141 removed
- * `milestone criteria …`. The kept neighbours — `outcome show`,
- * `crossing explain` — stay. The
+ * `milestone criteria …`. The kept neighbour `crossing explain` stays
+ * (`outcome show` became `task show --outcome` in LUM-1233). The
  * grammar and the skill docs agree with the registered program.
  */
 import fs from 'fs'
@@ -26,7 +26,7 @@ describe('LUM-733 CLI surface reduction', () => {
     expect(index).not.toMatch(/commands\/(verdict|fidelity)'/)
     // LUM-845: the id became optional so `--file` can carry batch notes.
     expect(index).toMatch(/\.command\('explain \[id\]'\)/)
-    expect(index).toMatch(/\.command\('show <task>'\)/)
+    expect(index).toMatch(/\.command\('show \[task\]'\)/)
     expect(index).not.toMatch(/\.command\('rate'\)/)
     expect(index).not.toMatch(/\.command\('verify \[task\]'\)/)
     // `criteria audit` is gone; the top-level `audit` group (LUM-907) is a

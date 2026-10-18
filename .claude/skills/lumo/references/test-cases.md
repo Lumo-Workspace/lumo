@@ -291,18 +291,18 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 
 CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE**。
 
-| 位置                               | 门槛              | 长相                                                                 |
-| ---------------------------------- | ----------------- | -------------------------------------------------------------------- |
-| `session attach` / `task context`  | 零用例（不看 PR） | `## Test cases` 小节                                                 |
-| `Next:` 块                         | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后                       |
-| `lumo task status` 的 next actions | 有 PR + 零用例    | `• [TEST CASE] … (advisory) — run:` + 下一行单独的命令               |
-| `lumo task status` 的 next actions | 用例有判决信号    | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)` |
+| 位置                                  | 门槛              | 长相                                                                 |
+| ------------------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `session attach` / `task show --full` | 零用例（不看 PR） | `## Test cases` 小节                                                 |
+| `Next:` 块                            | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后                       |
+| `lumo task status` 的 next actions    | 有 PR + 零用例    | `• [TEST CASE] … (advisory) — run:` + 下一行单独的命令               |
+| `lumo task status` 的 next actions    | 用例有判决信号    | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)` |
 
 几条语义：
 
 - **开工那处不卡 PR 是故意的**：开工时通常还没有 PR，卡了这条提醒就永远不出现。
 - **`Next:` 块里的这条排在最末**，让位给越界等真拦交付的提示。`NEXT_STEPS_MAX=3` 的上限没变，被挤掉就不显示。
-- **同一屏不重复**：`session attach` / `task context` 已经渲染了 `## Test cases` 小节，它们的 `Next:` 块就不再重复这条。
+- **同一屏不重复**：`session attach` / `task show --full` 已经渲染了 `## Test cases` 小节，它们的 `Next:` 块就不再重复这条。
 - **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，DONE 闸门读都不读它。
 - 任务一旦有任意一条用例（或已 DONE），四处全部静默。
 
@@ -322,7 +322,7 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 4. **`--env production` / `preview` 不自动探 commit**。本地检出 ≠ 线上跑的代码；要记就显式 `--commit`。
 5. **`update` 的 `--step` 是整段替换**，不是追加。
 6. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
-7. **用例跑绿不代表任务可以 DONE。** DONE 是用户的裁定（`--status done` 的 exit-4 信封；仅当关联 PR 全部已合并且无阻挡项时一步执行，LUM-1106），闸门见 `lumo task status` / `lumo task wrapup`。
+7. **用例跑绿不代表任务可以 DONE。** DONE 是用户的裁定（`--status done` 的 exit-4 信封；仅当关联 PR 全部已合并且无阻挡项时一步执行，LUM-1106），闸门见 `lumo task status`（READY 时附 DONE 就绪段）。
 8. **`--cause unknown` 是合法答案。** FAIL 必须归因，但「没判断出来」本身就是一种诚实的归因；不要为了填满字段瞎选一个 `defect`（它还会因缺证据被 400 挡回来）。
 9. **`UNPROVEN` 不是 FAIL。** 它说的是「这次没能确认」，不是「测出问题了」。看到它别去修一个没坏的东西——去补上验得了的那次执行。
 10. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。

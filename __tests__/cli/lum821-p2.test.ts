@@ -193,7 +193,7 @@ describe('task history', () => {
     // LUM-1093: the hidden-entries note is now the paging footer.
     expect(out).toContain('Showing 2-2 of 2.')
     expect(out).toContain(
-      'Next page: lumo task history LUM-9 --limit 1 --cursor 1'
+      'Next page: lumo task show LUM-9 --history --limit 1 --cursor 1'
     )
   })
 

@@ -765,7 +765,7 @@
       "file": "components/landing/home/lumo-terminal.tsx",
       "type": "replace",
       "pattern": "^// What working with Lumo actually looks like[\\s\\S]*?^// because the agent does not get to close its own task\\.\\n",
-      "replacement": "// What working with Lumo actually looks like inside a coding agent: you point it\n// at a task with one command, it runs prechecks, then drives the lumo CLI as\n// tool calls (attach + context → test-case runs → wrapup) and reports back —\n// the real agent transcript shape, kept model-/tool-neutral (\"coding agent\").\n// Commands are the genuine ones: `lumo task testcase run <task>/TC<n> --result\n// <r> --env <e> [--evidence-file …]` and `lumo task wrapup <task>` match\n// cli/src/commands/ (wrapup output abridged). The run ends IN_REVIEW with a\n// boundary crossing still open, because the agent does not get to close its\n// own task.\n",
+      "replacement": "// What working with Lumo actually looks like inside a coding agent: you point it\n// at a task with one command, it runs prechecks, then drives the lumo CLI as\n// tool calls (attach + context → test-case runs → status) and reports back —\n// the real agent transcript shape, kept model-/tool-neutral (\"coding agent\").\n// Commands are the genuine ones: `lumo task testcase run <task>/TC<n> --result\n// <r> --env <e> [--evidence-file …]` and `lumo task status <task>` match\n// cli/src/commands/ (status output abridged). The run ends IN_REVIEW with a\n// boundary crossing still open, because the agent does not get to close its\n// own task.\n",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the header comment that names `lumo pr scan`"
     },
     {
@@ -778,9 +778,9 @@
     {
       "file": "components/landing/home/lumo-terminal.tsx",
       "type": "replace",
-      "pattern": "      '\\[2/4\\] Security scans      PR #482 · 8 open, 2 blocking',\\n      '\\[3/4\\] Boundary crossings  none open',",
-      "replacement": "      '[3/4] Boundary crossings  1 undispositioned: 1 blocking DONE',",
-      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the wrapup's scan line; the open item is the run's boundary crossing"
+      "pattern": "      'Security scans      PR #482 · 8 open, 2 blocking',\\n      'Boundary crossings  none open',",
+      "replacement": "      'Boundary crossings  1 undispositioned: 1 blocking DONE',",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the status scan line; the open item is the run's boundary crossing"
     },
     {
       "file": "components/landing/home/lumo-terminal.tsx",

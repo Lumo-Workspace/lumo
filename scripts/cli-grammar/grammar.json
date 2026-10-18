@@ -2578,29 +2578,6 @@
       "isInvokable": true,
       "description": "Recommend the next task(s) to work on, ranked by priority, active sprint and due date (top 3 by default). --claimable keeps only claimable, unblocked, in-budget tasks."
     },
-    "outcome": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Read the post-hoc outcome well"
-    },
-    "outcome show": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, outcome, task } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Read a task's post-hoc outcome well: the falsifier verdict (REJECTED or INCONCLUSIVE, never a pass) and its rejection signals. INCONCLUSIVE means no rejection on record."
-    },
     "pr": {
       "arguments": [],
       "flags": {},
@@ -3683,7 +3660,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task context`), a unique id prefix or the full id."
+      "description": "Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id."
     },
     "task artifact update": {
       "arguments": [
@@ -3747,7 +3724,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Reply to a top-level comment: its #id from `task comments list` (unique prefix of 6+ chars)"
+          "description": "Reply to a top-level comment: its #id from `task show --comments` (unique prefix of 6+ chars)"
         }
       },
       "hasSubcommands": false,
@@ -3759,7 +3736,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Read and manage the task comment thread"
+      "description": "Manage the task comment thread (read it with `lumo task show --comments`)"
     },
     "task comments edit": {
       "arguments": [
@@ -3770,49 +3747,7 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Replace the text of one of your own comments. <comment> is its #id from `task comments list` (unique prefix of 6+ chars)."
-    },
-    "task comments list": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--cursor": {
-          "long": "--cursor",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Continue from a previous page (from the footer)"
-        },
-        "--full": {
-          "long": "--full",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print every comment, bypassing the output-token cap"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, comments, total, nextCursor, task } as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Top-level threads per page (1-500, default 50)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)"
+      "description": "Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars)."
     },
     "task comments rm": {
       "arguments": [
@@ -3832,24 +3767,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment."
-    },
-    "task context": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--full": {
-          "long": "--full",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print full memory bodies and the judged-used track-record footer instead of the one-line index"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <ref>)."
     },
     "task create": {
       "arguments": [{ "name": "title", "required": true, "variadic": false }],
@@ -3988,7 +3905,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Task dependency edges — detected candidates + confirmed blockers"
+      "description": "Manage task dependency edges (read them with `lumo task show --deps`)"
     },
     "task deps add": {
       "arguments": [
@@ -4036,24 +3953,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Dismiss a candidate (never re-suggested)"
-    },
-    "task deps list": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, dependencies, total, nextCursor, task } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List dependency edges (both directions)"
     },
     "task deps rm": {
       "arguments": [
@@ -4116,7 +4015,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
+      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
     },
     "task figma list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
@@ -4150,66 +4049,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing"
-    },
-    "task history": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--cursor": {
-          "long": "--cursor",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Continue with earlier entries (from the footer)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the raw activity entries of this page as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Entries per page, newest page first (1-500, default 50)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first."
-    },
-    "task lineage": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, lineage } (plus signal with --signal) as JSON"
-        },
-        "--signal": {
-          "long": "--signal",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Append usage-signal health section (fetches /api/lineage/signal)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
     },
     "task list": {
       "arguments": [],
@@ -4459,64 +4298,6 @@
       "isInvokable": true,
       "description": "Show the synced PR record (diff/review comments when available)"
     },
-    "task runs": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--full": {
-          "long": "--full",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Add attribution signals, subagents, per-model token breakdown and injected memories"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the raw run report as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show a task's agent runs as on the web Record page (session, summary, turns, tool calls, tokens, attribution) plus sessions and delivery progress. Defaults to the bound task."
-    },
-    "task scans": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--all": {
-          "long": "--all",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Every pushed head's scan per PR, newest first, instead of the latest only"
-        },
-        "--full": {
-          "long": "--full",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Append the per-task hunt detail under each scan (as `lumo pr scan --full`)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the versioned machine-readable payload ({ task, totals, pullRequests[] } — each entry is the `pr scan --json` payload)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Security scans of a task across all its linked PRs: the `lumo pr scan` view, once per PR. Read-only; rule on a finding with `lumo finding disposition`."
-    },
     "task search": {
       "arguments": [{ "name": "query", "required": false, "variadic": false }],
       "flags": {
@@ -4638,22 +4419,124 @@
       "description": "Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page."
     },
     "task show": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --scans: every pushed head's scan, not the latest only"
+        },
+        "--comments": {
+          "long": "--comments",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the comment thread (50 top-level threads per page)"
+        },
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With exactly one of --comments / --history: continue from the footer"
+        },
+        "--deps": {
+          "long": "--deps",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the dependency edges (both directions)"
+        },
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Alone: the whole task context for starting work (prior sessions, memory index, linked sources, test cases). With an aspect flag: that aspect in long form"
+        },
+        "--history": {
+          "long": "--history",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the field-change history, oldest first"
+        },
         "--json": {
           "long": "--json",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Print { version, task } as JSON"
+          "description": "Print { version, task } plus one key per aspect (context, comments, history, …) as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With exactly one of --comments / --history: entries per page (1-500, default 50)"
+        },
+        "--lineage": {
+          "long": "--lineage",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the causal trail: context fragments, their outcomes and run cost"
+        },
+        "--memory": {
+          "long": "--memory",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task context with every memory body and the judged-used track record"
+        },
+        "--outcome": {
+          "long": "--outcome",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the post-hoc outcome well (REJECTED or INCONCLUSIVE)"
+        },
+        "--runs": {
+          "long": "--runs",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the agent runs (session, summary, turns, tool calls, tokens, attribution)"
+        },
+        "--scans": {
+          "long": "--scans",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Add the security scans of the task's linked PRs"
+        },
+        "--signal": {
+          "long": "--signal",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --lineage: append the usage-signal health section"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a single task: title, status, priority, assignee, project, URL, description."
+      "description": "Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task."
     },
     "task slack": {
       "arguments": [],
@@ -4679,7 +4562,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
+      "description": "Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
     },
     "task status": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
@@ -4703,7 +4586,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Task self-check: next actions, security-scan coverage and open boundary crossings. Read-only; defaults to the bound task. --full adds cost, rework trail, trend and test-case runs."
+      "description": "Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task."
     },
     "task statuses": {
       "arguments": [],
@@ -5381,14 +5264,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the fetched web link body as plain text (<ref>: the 8-char short ref `task context` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
-    },
-    "task wrapup": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Whole wrap-up in one read: test-case signals, security scans, open boundary crossings and DONE readiness with the DONE envelope preview. Read-only; defaults to the bound task."
+      "description": "Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
     },
     "uninstall": {
       "arguments": [],
