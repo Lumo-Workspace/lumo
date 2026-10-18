@@ -34,7 +34,7 @@
 import type { BoundaryCrossingSeverity } from '@prisma/client'
 import type { PolicyRule } from '@/lib/policy/types'
 import { findRuleByRef } from '@/lib/policy/rule-ref'
-import { ruleTextPresentIn } from './rejudge-cause'
+import { compiledRuleTextPresentIn } from './rejudge-cause'
 
 /** The deterministic+blocking rules of `prev` that `next` removed or
  *  downgraded. */
@@ -70,8 +70,12 @@ export function policyWeakeningVerdict(
   source: string
 ): PolicyWeakeningVerdict {
   // LUM-780: one shared predicate with the re-judge (tolerates a trailing
-  // classifier gloss on the rule side; the source is never loosened).
-  const stillInSource = ruleTextPresentIn(source, rule.text)
+  // classifier gloss on the rule side). LUM-1236 follow-up: and a classifier
+  // REWORDING — the rule text here is the model's extraction, and the lum1236
+  // recompile's paraphrase of an untouched line was recorded as a person
+  // deleting it (X953/X954). Judged per source line, so a really deleted line
+  // still reads as removed.
+  const stillInSource = compiledRuleTextPresentIn(source, rule.text)
   const detail = stillInSource
     ? `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit: "${rule.text}"`
     : `A deterministic Forbidden rule was removed from CLAUDE.md: "${rule.text}"`

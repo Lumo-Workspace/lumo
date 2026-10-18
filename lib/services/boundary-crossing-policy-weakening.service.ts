@@ -183,3 +183,59 @@ export async function recordForbiddenRuleWeakening(input: {
   }
   return written
 }
+
+/**
+ * LUM-1236 follow-up — the compiler kept a previous deterministic+blocking
+ * rule its new output dropped or downgraded (the rule's text is still in the
+ * source; ee/security/services/policy/retain-rules). Protection did not
+ * weaken, but the classifier disagreed with itself, and that must not be
+ * silent: one MEDIUM, ADVISORY POLICY_WEAKENING row per kept rule, attributed
+ * to the compiler. Skipped when an OPEN advisory row of the project already
+ * names the rule (a classifier that keeps flip-flopping is one row until a
+ * human looks). Returns the rows written.
+ */
+export async function recordRetainedRules(input: {
+  retained: readonly { id: string; text: string }[]
+  taskId: string
+}): Promise<number> {
+  if (input.retained.length === 0) return 0
+  let projectId: string | null = null
+  try {
+    projectId = await projectIdOfTask(input.taskId)
+  } catch {
+    projectId = null
+  }
+  const cache: OpenRuleTexts = new Map()
+  let written = 0
+  for (const rule of input.retained) {
+    if (projectId) {
+      try {
+        const open = await openRuleTexts({
+          projectId,
+          advisory: true,
+          cache,
+        })
+        if (open.some(o => o.ref === rule.id)) continue
+      } catch (error) {
+        logger.warn(
+          `[policy-weakening] dedupe read failed for project ${projectId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      }
+    }
+    await boundaryCrossingRepository.create({
+      taskId: input.taskId,
+      category: 'POLICY_WEAKENING',
+      severity: 'MEDIUM',
+      advisory: true,
+      detail: `The policy compiler's new output dropped or downgraded this deterministic rule although its text is still in CLAUDE.md/AGENTS.md; the previous checker was kept: "${rule.text}"`,
+      target: `weakening:${rule.id}`,
+      reversible: isReversible('POLICY_WEAKENING'),
+      policyRuleRef: rule.id,
+      policyRuleText: rule.text,
+    })
+    written++
+  }
+  return written
+}

@@ -47,6 +47,11 @@ import {
 import { matchActionRule } from '@/ee/security/boundary-crossing/action-rule-match'
 import { matchPushTarget } from '@/ee/security/boundary-crossing/push-target-match'
 import {
+  migrationOpsIn,
+  parseMigrationCommandValue,
+} from '@/ee/security/boundary-crossing/migration-command-match'
+import { isDestructiveDbSegment } from '@/lib/boundary-crossing/destructive-db'
+import {
   matchPathDelete,
   parsePathDeleteValue,
   pathsCoveredByMigrationBuiltin,
@@ -215,6 +220,31 @@ export function isCoveredByBuiltinDetector(rule: PolicyRule): boolean {
 }
 
 /**
+ * LUM-1236 follow-up: does this `migration-command` rule report an operation
+ * of `command` no earlier rule reported? Segments the built-in
+ * DESTRUCTIVE_DB_COMMAND reports are skipped for a rule mapped to it. Records
+ * what it reports in `reported` (`migrate-dev@production` and `migrate-dev`
+ * are the same operation).
+ */
+function newMigrationOps(
+  rule: PolicyRule,
+  value: string,
+  command: string,
+  reported: Set<string>
+): boolean {
+  const ops = migrationOpsIn(
+    parseMigrationCommandValue(value),
+    command,
+    rule.mappedCategory === 'DESTRUCTIVE_DB_COMMAND'
+      ? { skipSegment: isDestructiveDbSegment }
+      : {}
+  ).map(op => op.replace(/@production$/, ''))
+  const fresh = ops.filter(op => !reported.has(op))
+  for (const op of fresh) reported.add(op)
+  return fresh.length > 0
+}
+
+/**
  * Test a set of compiled PolicyRules against a hook event's command and return
  * any crossings (LUM-590). Only deterministic action rules with a cmd-substr /
  * push-target predicate are handled here — path-glob action predicates are
@@ -232,6 +262,12 @@ export function detectProjectActionCrossings(
   const command = event.command
   if (!command) return []
   const out: DetectedCrossing[] = []
+  // LUM-1236 follow-up: migration operations already reported for this
+  // command. A rules file states the migration ban several times (a Dev line,
+  // a Production line, a Forbidden bullet) and the compiler keeps them as
+  // separate rules; one `UPDATE _prisma_migrations` is one crossing — the
+  // first rule (source order) that names the operation reports it.
+  const reportedOps = new Set<string>()
   for (const r of rules) {
     if (r.kind !== 'action' || r.tier !== 'deterministic' || !r.predicate)
       continue
@@ -245,6 +281,9 @@ export function detectProjectActionCrossings(
     // main` is not a push to main).
     // LUM-1236: a "never delete files in <path>" rule compiles to
     // `path-delete` and is judged on the operands of the delete itself.
+    // LUM-1236 follow-up: a migration-command rule skips the segments the
+    // built-in DESTRUCTIVE_DB_COMMAND already reports (`migrate reset`, a
+    // forced `db push`, DROP / TRUNCATE) — one action, one crossing.
     if (isCoveredByBuiltinDetector(r)) continue
     const hit =
       p.type === 'cmd-substr'
@@ -253,7 +292,9 @@ export function detectProjectActionCrossings(
           ? matchPushTarget(p.value, command)
           : p.type === 'path-delete'
             ? matchPathDelete(p.value, command)
-            : false
+            : p.type === 'migration-command'
+              ? newMigrationOps(r, p.value, command, reportedOps)
+              : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
