@@ -33,7 +33,7 @@ interface FigmaContextResponse {
 }
 
 /**
- * `lumo task figma context <LUM-N> <ref>`
+ * `lumo task figma show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline Figma card. Reads the cached design
  * metadata (file/frame name, url, thumbnail, last sync) from
@@ -47,7 +47,7 @@ export async function taskFigmaContext(
   opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !linkId) {
-    console.error('Error: usage: lumo task figma context <LUM-42> <ref>')
+    console.error('Error: usage: lumo task figma show <LUM-42> <ref>')
     return EXIT_USAGE
   }
 
@@ -94,7 +94,7 @@ export async function taskFigmaContext(
     return 1
   }
   if (!res.ok) {
-    console.error(errHttp('figma context', res.status))
+    console.error(errHttp('figma show', res.status))
     return 1
   }
 

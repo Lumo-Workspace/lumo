@@ -214,7 +214,7 @@ export const updateTaskSchema = z
 const removedParentRef = z
   .never({
     error:
-      'Subtasks were removed (LUM-959): --parent is no longer supported. Group related tasks with a milestone, or order them with `lumo task deps add`.',
+      'Subtasks were removed (LUM-959): --parent is no longer supported. Group related tasks with a milestone, or order them with `lumo task dep add` (CLI 1.125 and older: `lumo task deps add`).',
   })
   .optional()
 

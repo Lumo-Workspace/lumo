@@ -46,6 +46,13 @@ export const MEMORY_SCOPE_MIN_CLI_VERSION = '1.125.5'
  */
 export const CONFIRM_ONLY_MIN_CLI_VERSION = '1.125.5'
 
+/**
+ * LUM-1233 batch 3j: first CLI release with the Q9 renames (`task figma
+ * show`, `task dep remove`, `task comment add`, …). Raise it if a release
+ * ships between batches. `LUMO_RENAMES_MIN_CLI_VERSION` overrides it.
+ */
+export const RENAMES_MIN_CLI_VERSION = '1.125.5'
+
 export interface CliCommandNames {
   /** True when the caller's CLI has the batch-1 read entry points. */
   readonly current: boolean
@@ -57,6 +64,12 @@ export interface CliCommandNames {
   readonly confirmOnly: boolean
   /** The flag that approves replacing an existing doc source (`doc rebuild-source`). */
   readonly rebuildSourceApproval: string
+  /** True when the caller's CLI has the 3j renames. */
+  readonly renames: boolean
+  /** Read one Figma link's design context. */
+  taskFigmaShow(identifier: string, ref: string): string
+  /** How to drop a stale dependency edge (inline Markdown). */
+  readonly taskDepCleanup: string
   /** Read the whole task context of the session-bound task (no ref). */
   readonly taskContextBound: string
   /** Read the whole task context. */
@@ -79,7 +92,8 @@ function commandNames(
   readEntry: boolean,
   testCaseHandle: boolean,
   memoryScope: boolean,
-  confirmOnly: boolean
+  confirmOnly: boolean,
+  renames: boolean
 ): CliCommandNames {
   return {
     current: readEntry,
@@ -87,6 +101,14 @@ function commandNames(
     memoryScope,
     confirmOnly,
     rebuildSourceApproval: confirmOnly ? '--confirm' : '--force',
+    renames,
+    taskFigmaShow: (id, ref) =>
+      renames
+        ? `lumo task figma show ${id} ${ref}`
+        : `lumo task figma context ${id} ${ref}`,
+    taskDepCleanup: renames
+      ? '`lumo task dep remove/dismiss`'
+      : '`lumo task deps rm/dismiss`',
     memoryBrowse: memoryScope
       ? '`lumo memory list --scope project` / `lumo memory list`'
       : '`lumo project memory list` / `lumo task memory list`',
@@ -117,10 +139,12 @@ export const LEGACY_CLI_COMMANDS: CliCommandNames = commandNames(
   false,
   false,
   false,
+  false,
   false
 )
 
 export const CURRENT_CLI_COMMANDS: CliCommandNames = commandNames(
+  true,
   true,
   true,
   true,
@@ -182,6 +206,13 @@ export function resolveConfirmOnlyMinVersion(
   )
 }
 
+/** The renames floor in force: a valid env override, else the constant. */
+export function resolveRenamesMinVersion(
+  env: Record<string, string | undefined> = process.env
+): string {
+  return floorFrom(env.LUMO_RENAMES_MIN_CLI_VERSION, RENAMES_MIN_CLI_VERSION)
+}
+
 /** The command names for a CLI reporting `version` (null / malformed = legacy). */
 export function cliCommandNamesForVersion(
   version: string | null | undefined,
@@ -197,10 +228,17 @@ export function cliCommandNamesForVersion(
   const testCaseHandle = at(resolveTestCaseHandleMinVersion(env))
   const memoryScope = at(resolveMemoryScopeMinVersion(env))
   const confirmOnly = at(resolveConfirmOnlyMinVersion(env))
-  const all = [readEntry, testCaseHandle, memoryScope, confirmOnly]
+  const renames = at(resolveRenamesMinVersion(env))
+  const all = [readEntry, testCaseHandle, memoryScope, confirmOnly, renames]
   if (all.every(Boolean)) return CURRENT_CLI_COMMANDS
   if (!all.some(Boolean)) return LEGACY_CLI_COMMANDS
-  return commandNames(readEntry, testCaseHandle, memoryScope, confirmOnly)
+  return commandNames(
+    readEntry,
+    testCaseHandle,
+    memoryScope,
+    confirmOnly,
+    renames
+  )
 }
 
 /** The command names for the CLI that sent `headers`. */

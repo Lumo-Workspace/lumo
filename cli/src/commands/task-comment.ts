@@ -20,7 +20,7 @@ interface CommentResponse {
 }
 
 /**
- * `lumo task comment <LUM-N> <body>`
+ * `lumo task comment add <body> [--task <LUM-N>]` (LUM-1233 3j; was `task comment <LUM-N> <body>`)
  *
  * Two HTTP calls: resolve LUM-N → task DB id, then POST the comment to
  * `/api/tasks/:id/comments`. The comments endpoint accepts both Clerk and
@@ -37,13 +37,13 @@ export async function taskComment(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <identifier>. Usage: lumo task comment <LUM-42> "comment body"'
+      'Error: missing <identifier>. Usage: lumo task comment add "comment body" --task <LUM-42>'
     )
     return EXIT_USAGE
   }
   if (!body || body.trim().length === 0) {
     console.error(
-      'Error: missing <body>. Usage: lumo task comment <LUM-42> "comment body"'
+      'Error: missing <body>. Usage: lumo task comment add "comment body" --task <LUM-42>'
     )
     return EXIT_USAGE
   }

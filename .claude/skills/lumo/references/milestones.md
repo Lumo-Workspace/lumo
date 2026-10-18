@@ -25,7 +25,7 @@ lumo project update mobile-app --owner alice@example.com
 
 Prints table rows: `<STATE>  <HEALTH>  <target-date or ->  <slug>  <name>`, sorted by target date asc (nulls last) then created asc. `STATE` is `ACTIVE`, `COMPLETED` or `ARCHIVED` (the same upper-case words `milestone show` prints on its `State:` line). On a terminal (stdout is a TTY) a header row is printed first and the name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order.
 
-**Milestone refs (LUM-1230):** every `<identifier>` / `<ref>` that names a milestone (`show`, `update`, `delete`, `archive`, `unarchive`, `add`, `remove`, `triage`, `summary`, `changelog`, `reorder`, `move`, `testcase … <milestone>`, `task create|update|list --milestone`) takes the milestone's **slug** — the `SLUG` column here and the segment of the web URL (`/projects/<project>/milestones/<slug>`) — or its name (case-insensitive), or its id (old scripts). An exact slug wins over a name; a name shared by several milestones, or a slug present in two projects, is **rejected** with every candidate listed by slug (`beta ("Beta"), beta-2 ("Beta")`) — nothing is picked silently. Without `--project`, a workspace with several projects is searched whole; pass `--project <ref>` when the same slug exists in two projects. `SLUG` prints `-` from an older server that sends none.
+**Milestone refs (LUM-1230):** every `<identifier>` / `<ref>` that names a milestone (`show`, `update`, `delete`, `archive`, `unarchive`, `add`, `remove`, `triage`, `reorder`, `move`, `testcase … <milestone>`, `task create|update|list --milestone`) takes the milestone's **slug** — the `SLUG` column here and the segment of the web URL (`/projects/<project>/milestones/<slug>`) — or its name (case-insensitive), or its id (old scripts). An exact slug wins over a name; a name shared by several milestones, or a slug present in two projects, is **rejected** with every candidate listed by slug (`beta ("Beta"), beta-2 ("Beta")`) — nothing is picked silently. Without `--project`, a workspace with several projects is searched whole; pass `--project <ref>` when the same slug exists in two projects. `SLUG` prints `-` from an older server that sends none.
 
 By default, only **non-archived** milestones are listed. Use `--archived` to show **only** archived milestones, or `--all` to show **both** archived and non-archived. Archived rows show `ARCHIVED` in the `STATE` column.
 
@@ -275,28 +275,27 @@ Agent-Native Milestones: 1 marked claimable, 1 skipped
 
 **When to suggest `milestone triage`**: the user (typically in a steward/governance session) wants to declare which of a milestone's tasks are safe for an agent to autonomously pick up ("mark these claimable", "open these up for agents", "triage the milestone for auto-dispatch"). For a single task, `task update --claimable` is equally fine.
 
-### `lumo milestone summary <identifier> [--retry]` — fetch AI-generated milestone retro
+### `lumo milestone show <identifier> --summary` — the AI-generated milestone retro
 
-Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**). When no summary exists yet the command prints `(no summary generated yet)`.
+An aspect of `milestone show` (LUM-1233 3j; formerly `milestone summary`): the detail view, then a **Summary** section with the AI-generated retrospective (mirrors `sprint show --summary`); `--json` adds `summary` (`{ stats, tldr, report }`, `null` when none) to the envelope. A failed read is one `Could not read (…)` line, never a failed show. Regenerate with `lumo milestone update <identifier> --refresh-summary` (formerly `summary --retry`). `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**). When no summary exists yet the section reads `(no summary generated yet)`.
 
-A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the test-case close gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
+A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the test-case close gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. `milestone update --refresh-summary` queues regeneration (e.g. after a failed generation; it can be combined with field flags) — regeneration is async, so read it again with `--summary` once it is done.
 
-| Flag              | Type    | Notes                                                                                                  |
-| ----------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `--project <ref>` | string  | Project name or slug. Narrows the milestone lookup; needed only when the slug exists in two projects.  |
-| `--retry`         | boolean | Queue a regeneration (async, server returns 202) before fetching. Only valid on a COMPLETED milestone. |
+| Flag              | Type   | Notes                                                                                                 |
+| ----------------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| `--project <ref>` | string | Project name or slug. Narrows the milestone lookup; needed only when the slug exists in two projects. |
 
 ```bash
-lumo milestone summary "Q3 Launch"
-lumo milestone summary "Q3 Launch" --retry
-lumo milestone summary 11111111-2222-3333-4444-555555555555
+lumo milestone show "Q3 Launch" --summary
+lumo milestone update "Q3 Launch" --refresh-summary   # only on a COMPLETED milestone
+lumo milestone show 11111111-2222-3333-4444-555555555555 --summary --changelog
 ```
 
 When to suggest: user asks "summarize the milestone", "milestone retro", "give me a summary of the Q3 milestone".
 
-### `lumo milestone changelog <identifier> [--project <ref>] [--json]` — structured changelog (LUM-649)
+### `lumo milestone show <identifier> --changelog [--project <ref>] [--json]` — structured changelog (LUM-649)
 
-Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no completion gate**: it runs on a milestone in any state, so an active milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**).
+An aspect of `milestone show` (LUM-1233 3j; formerly `milestone changelog`): the detail view, then a **Changelog** section; with `--json` the payload is the `changelog` key of the show envelope. Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no completion gate**: it runs on a milestone in any state, so an active milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts the milestone slug, name or id (see **Milestone refs**).
 
 Honest-reporting contract (why this is more than a task list):
 
@@ -312,12 +311,12 @@ Honest-reporting contract (why this is more than a task list):
 | `--json`          | boolean | Emit the raw structured changelog payload instead of the human markdown.                              |
 
 ```bash
-lumo milestone changelog "Agent-Native Milestones"
-lumo milestone changelog "Agent-Native Milestones" --json
-lumo milestone changelog 11111111-2222-3333-4444-555555555555
+lumo milestone show "Agent-Native Milestones" --changelog
+lumo milestone show "Agent-Native Milestones" --changelog --json
+lumo milestone show 11111111-2222-3333-4444-555555555555 --changelog
 ```
 
-When to suggest: user asks for a "changelog", "release notes", "what shipped in this milestone", or wants a structured delivery list they can paste into a release note. For the AI narrative retro use `milestone summary`; for the honest delivery-count/cost rollup see `milestone show`.
+When to suggest: user asks for a "changelog", "release notes", "what shipped in this milestone", or wants a structured delivery list they can paste into a release note. For the AI narrative retro use `milestone show --summary`; for the honest delivery-count/cost rollup see `milestone show`.
 
 ### `lumo milestone reorder <ref...> [--project <ref>]` — set the full milestone order
 

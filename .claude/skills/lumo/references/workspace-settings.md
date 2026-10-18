@@ -1,8 +1,8 @@
 # Workspace settings
 
-### `lumo workspace security-scan` — PR security-scan switches (LUM-1002)
+### `lumo workspace security-scan show` / `update` — PR security-scan switches (LUM-1002)
 
-Shows or changes the workspace's PR security-scan switches — the same layer switches as Settings → Workspace → **PR security scanning** in the web app:
+`show` reads and `update` changes (LUM-1233 3j: the old flag-only `lumo workspace security-scan [--<setting> …]` prints `was removed. Use: … show|update …` and exits 2; `update` with no setting exits 2) the workspace's PR security-scan switches — the same layer switches as Settings → Workspace → **PR security scanning** in the web app:
 
 - **Security scan** (master) — off = no layer runs on new pushes and no scan comment is posted.
 - **AI review** — LLM security review, change summary, false-positive suggestions, semantic rules, claim checks and AI triage of boundary crossings.
@@ -16,17 +16,17 @@ Shows or changes the workspace's PR security-scan switches — the same layer sw
 The platform env is the ceiling: a workspace can only turn a layer off, never on past it (the `Platform` column; `-` = no platform switch). `Runs` is what actually runs. Any member may read; changing is **OWNER only** — anyone else gets `Error: only workspace owners can change security-scan settings` (exit 1) before any confirmation envelope. Changes from either surface write the same `workspace.security_settings_updated` audit event: source `CLI` for this command (any API-key request), `WEB` for the settings card.
 
 ```bash
-lumo workspace security-scan
-lumo workspace security-scan --disable-all
-lumo workspace security-scan --enable-all
-lumo workspace security-scan --hunt off --ai-review on
-lumo workspace security-scan --reward-hack off --confirm      # after the user approved the envelope
-lumo workspace security-scan --request-changes on --confirm   # after the user approved the envelope
-lumo workspace security-scan --allow-author-approval off --confirm  # after the user approved the envelope
-lumo workspace security-scan --learnings-scope local           # local | global | auto
-lumo workspace security-scan --learnings-scope global --confirm  # after the user approved the envelope
-lumo workspace security-scan --auto-pause-after 0              # review every push, never pause (default 5)
-lumo workspace security-scan --json
+lumo workspace security-scan show
+lumo workspace security-scan update --disable-all
+lumo workspace security-scan update --enable-all
+lumo workspace security-scan update --hunt off --ai-review on
+lumo workspace security-scan update --reward-hack off --confirm      # after the user approved the envelope
+lumo workspace security-scan update --request-changes on --confirm   # after the user approved the envelope
+lumo workspace security-scan update --allow-author-approval off --confirm  # after the user approved the envelope
+lumo workspace security-scan update --learnings-scope local           # local | global | auto
+lumo workspace security-scan update --learnings-scope global --confirm  # after the user approved the envelope
+lumo workspace security-scan update --auto-pause-after 0              # review every push, never pause (default 5)
+lumo workspace security-scan show --json
 ```
 
 ```
@@ -57,11 +57,11 @@ Flags:
 Lumo reviews every PR of each repository the workspace confirmed, including PRs **without a Lumo task**. Per repository (Settings → Workspace → **Automatic review by repository**): `Review` (default on) — whether task-less PRs are reviewed automatically; `Drafts` (default off) — whether drafts are reviewed before they are marked ready. Task-linked PRs are always scanned (Done checks their findings).
 
 ```bash
-lumo workspace security-scan --repos                                  # list every connected repository
-lumo workspace security-scan --repo acme/app                          # one repository
-lumo workspace security-scan --repo acme/app --review off             # exit 4 envelope until --confirm
-lumo workspace security-scan --repo acme/app --drafts on              # turning on needs no confirmation
-lumo workspace security-scan --repos --json                           # { version, repositories: [{ repo, autoReview, reviewDrafts }], canEdit }
+lumo workspace security-scan show --repos                                  # list every connected repository
+lumo workspace security-scan show --repo acme/app                          # one repository
+lumo workspace security-scan update --repo acme/app --review off             # exit 4 envelope until --confirm
+lumo workspace security-scan update --repo acme/app --drafts on              # turning on needs no confirmation
+lumo workspace security-scan show --repos --json                           # { version, repositories: [{ repo, autoReview, reviewDrafts }], canEdit }
 ```
 
 ```
@@ -79,13 +79,13 @@ acme/web    off     off
 Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
 
 ```bash
-lumo workspace security-scan --repo acme/app --ignore-title WIP --ignore-title "do not review"
-lumo workspace security-scan --repo acme/app --ignore-users 'dependabot[bot]'
-lumo workspace security-scan --repo acme/app --labels review-me --labels '!wip'
-lumo workspace security-scan --repo acme/app --review off --description-keyword '@lumo review' --confirm
-lumo workspace security-scan --repo acme/app --base-branches 'release/.*'     # default branch always included; '.*' = all
-lumo workspace security-scan --repo acme/app --path-filter '!docs/**'         # what the AI review / hunt read
-lumo workspace security-scan --repo acme/app --labels ""                       # clear a list
+lumo workspace security-scan update --repo acme/app --ignore-title WIP --ignore-title "do not review"
+lumo workspace security-scan update --repo acme/app --ignore-users 'dependabot[bot]'
+lumo workspace security-scan update --repo acme/app --labels review-me --labels '!wip'
+lumo workspace security-scan update --repo acme/app --review off --description-keyword '@lumo review' --confirm
+lumo workspace security-scan update --repo acme/app --base-branches 'release/.*'     # default branch always included; '.*' = all
+lumo workspace security-scan update --repo acme/app --path-filter '!docs/**'         # what the AI review / hunt read
+lumo workspace security-scan update --repo acme/app --labels ""                       # clear a list
 ```
 
 - `--base-branches <regex>`: full-match regexes on the base branch; the repository's default branch is always reviewed. An **empty list** depends on the repository (`emptyBaseBranchesMeans` in `--json`, shown as `base branches:` under `--repo X`): repositories connected before LUM-1143 keep `all_branches` (every base is reviewed); a repository connected later gets `default_branch_only` (only PRs into the default branch). To review only the default branch on an older repository, list it (`--base-branches main`); to review every base on a newer one, `--base-branches '.*'`.
@@ -103,9 +103,9 @@ lumo workspace security-scan --repo acme/app --labels ""                       #
 Per repository, rules every reviewed PR is held to, reported in the PR's security summary (failures in a table, passes folded). Built-ins: **title** (concise, describes the change, plus optional `--title-requirements`) and **description** (filled in; follows the repository's PR template when it has one). Each is `off`, `warning` (default — reported, never blocks) or `error` (a failure keeps Lumo at "Changes requested" while the request-changes workflow is on, and `@uselumo approve` is refused, until the check passes on a later push or title/description edit, or the PR overrides the checks). An **inconclusive** check never blocks (a failed model call never lifts a failure already recorded for the same head). Up to 5 **custom checks** (name ≤ 50 chars, plain-language instructions ≤ 1000) are set in the web card (**Pre-merge checks**) or `.lumo.yaml` (`reviews.pre_merge_checks.custom_checks`), not by flag. The checks run with the AI review (one model call per reviewed head; not on a paused head).
 
 ```bash
-lumo workspace security-scan --repo acme/app --title-check error --title-requirements 'start with feat:, fix: or chore:'
-lumo workspace security-scan --repo acme/app --description-check off --confirm
-lumo workspace security-scan --repo acme/app --override-reviewers-only on
+lumo workspace security-scan update --repo acme/app --title-check error --title-requirements 'start with feat:, fix: or chore:'
+lumo workspace security-scan update --repo acme/app --description-check off --confirm
+lumo workspace security-scan update --repo acme/app --override-reviewers-only on
 ```
 
 - Override, per PR: a top-level PR comment `@uselumo ignore pre-merge checks` (write access) — recorded (who, when, head), shown as Ignored in the summary; it covers **every later push** to the PR (the recorded head is for the audit trail, it does not scope the override); it **never** clears a finding that blocks DONE. `--override-reviewers-only on` (`override_requested_reviewers_only` in `.lumo.yaml`): only the PR's reviewers may — requested by name (not via a team), or who already submitted a review — never the author. Off: the author may unless author approval is off.
@@ -117,9 +117,9 @@ lumo workspace security-scan --repo acme/app --override-reviewers-only on
 A built-in check (**Issue assessment**, default `warning`): each requirement of the PR's linked Lumo task (its `## Goal` and each `## Done when` item; a description with neither counts as one) and of each same-repository issue its description closes or links (`closes #12`, `fixes owner/repo#12`, an issue URL; at most 3) is judged **Addressed / Not addressed / Unclear** in the same model call. Any Not addressed ⇒ the check fails (in its mode); otherwise any Unclear ⇒ inconclusive (never blocks); no linked task and no linked issue ⇒ **not applicable** (never failed, no model call for it). The summary lists every requirement; unmet ones are also flagged in one review comment (COMMENT, posted once per distinct unmet set). It only reads the task — never changes its status.
 
 ```bash
-lumo workspace security-scan --repo acme/app --issue-assessment error
-lumo workspace security-scan --repo acme/app --issue-assessment off --confirm
-lumo workspace security-scan --repo acme/app --task-details-on-public-repos on --confirm
+lumo workspace security-scan update --repo acme/app --issue-assessment error
+lumo workspace security-scan update --repo acme/app --issue-assessment off --confirm
+lumo workspace security-scan update --repo acme/app --task-details-on-public-repos on --confirm
 ```
 
 - Privacy: on a **public** repository (or one whose visibility Lumo cannot read) the PR shows only which task item (e.g. `LUM-12 · Done when 2`) and its outcome — never the task's text or Lumo's explanation of it. `--task-details-on-public-repos on` (OWNER; exits 4 until `--confirm`) quotes them there too; it is a Lumo setting only, never read from `.lumo.yaml`. Issue text is always shown (same repository). Private repositories always show the details.
@@ -130,10 +130,10 @@ lumo workspace security-scan --repo acme/app --task-details-on-public-repos on -
 Per repository, for every AI review of its PRs (task-linked too). OWNER only, no confirmation, audited like the filters. The web card has the same fields under **Review style**.
 
 ```bash
-lumo workspace security-scan --repo acme/app --profile quiet                 # fewer inline comments
-lumo workspace security-scan --repo acme/app --tone "Be concise and friendly"
-lumo workspace security-scan --repo acme/app --path-instruction 'scripts/**=Flag any console.log' --path-instruction '*.sql=Check every query has a LIMIT'
-lumo workspace security-scan --repo acme/app --path-instruction ""          # clear the list
+lumo workspace security-scan update --repo acme/app --profile quiet                 # fewer inline comments
+lumo workspace security-scan update --repo acme/app --tone "Be concise and friendly"
+lumo workspace security-scan update --repo acme/app --path-instruction 'scripts/**=Flag any console.log' --path-instruction '*.sql=Check every query has a LIMIT'
+lumo workspace security-scan update --repo acme/app --path-instruction ""          # clear the list
 ```
 
 - `--profile <quiet|chill|assertive>` changes **posting only** (detection, severities, counts and what blocks Done are identical): `chill` (default) = HIGH + MEDIUM findings get inline comments, LOW is one summary line; `quiet` = only HIGH findings inline, MEDIUM ones are listed in a folded block of the summary; `assertive` = LOW findings inline too. In **every** profile HIGH findings and Done-blocking findings are commented inline. A finding a path instruction asked for (the AI review names the instruction; Lumo keeps the claim only when that instruction was sent for the finding's file) is commented inline under `chill` and `assertive` whatever its severity, and listed in the summary under `quiet`. The summary footer names a non-default profile.
@@ -145,8 +145,8 @@ lumo workspace security-scan --repo acme/app --path-instruction ""          # cl
 #### High-level PR summary (LUM-1151)
 
 ```bash
-lumo workspace security-scan --repo acme/app --summary comment   # keep it out of the PR description
-lumo workspace security-scan --repo acme/app --summary off
+lumo workspace security-scan update --repo acme/app --summary comment   # keep it out of the PR description
+lumo workspace security-scan update --repo acme/app --summary off
 ```
 
 - `--summary <description|comment|off>` (OWNER, no confirmation, audited; web card: **Review style → High-level summary**): where the AI review's summary of each PR goes. `description` (default) writes it into the PR **description** inside a Lumo section (`<!-- lumo:summary:start -->` … `<!-- lumo:summary:end -->`): at a line holding only `@uselumo summary` if the author put one there, else appended; every later review rewrites that section only — the author's own text is never changed, and the description is read right before each edit so concurrent edits are kept. The summary comment then points to the description (if the edit fails, the comment shows the summary as before). `comment` = only in Lumo's summary comment, description never edited. `off` = nowhere (an existing section is left as it is).
@@ -158,7 +158,7 @@ lumo workspace security-scan --repo acme/app --summary off
 #### Sequence diagram of the call flow (LUM-1155)
 
 ```bash
-lumo workspace security-scan --repo acme/app --sequence-diagrams off
+lumo workspace security-scan update --repo acme/app --sequence-diagrams off
 ```
 
 - `--sequence-diagrams <on|off>` (OWNER, no confirmation, audited; web card: **Review style → Sequence diagram of the call flow**; default on): when a PR changes a call flow, the folded **Walkthrough** of Lumo's summary comment gets a Mermaid sequence diagram of its main flow (≤8 participants, ≤16 calls). No extra pass: the AI review's own call draws it (an incremental review: the whole-PR summary call, only when the whole diff fits its 40k budget). Trivial PRs never get one — fewer than 2 changed source files or fewer than 20 changed lines in them (tests, docs, migrations, config don't count). The model only names participants and calls; Lumo writes the Mermaid itself and validates it before posting (a diagram that fails is left out).
@@ -167,7 +167,7 @@ lumo workspace security-scan --repo acme/app --sequence-diagrams off
 
 PR-review learnings (LUM-1157) are read with `lumo memory list --learnings [--repo owner/name]` — see [memory.md](memory.md#pr-review-learnings--lumo-memory-list---learnings).
 
-### When to suggest `workspace security-scan`
+### When to suggest `workspace security-scan show` / `update`
 
 - "Turn off / pause code scanning", "stop the AI review on our PRs", "why didn't the hunt run" — and the user is a workspace owner (reading is open to anyone).
 - "Don't review PRs in repo X", "review drafts too", "why was my PR without a task (not) reviewed" → `--repos` / `--repo`.

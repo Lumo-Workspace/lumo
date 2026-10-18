@@ -31,7 +31,7 @@ export function formatFigmaList(
       link.thumbnailFetchedAt === null ||
       now - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
     return [
-      // LUM-1230: the 8-char short ref `figma context` / `figma rm` take.
+      // LUM-1230: the 8-char short ref `figma show` / `figma remove` take.
       shortRef(link.id),
       sanitizeField(link.fileName),
       sanitizeField(link.frameName ?? '(file-level)'),

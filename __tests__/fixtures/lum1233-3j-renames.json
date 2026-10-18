@@ -1,0 +1,30 @@
+{
+  "_comment": "LUM-1233 batch 3j (Q9): every whitelist entry the pure renames touched, old path -> new path(s). [] = merged into an existing server-only command as an aspect flag (milestone/sprint show --summary, milestone show --changelog, milestone/sprint update --refresh-summary).",
+  "renames": {
+    "task comment": ["task comment add"],
+    "task comments edit": ["task comment update"],
+    "task comments rm": ["task comment delete"],
+    "task deps add": ["task dep add"],
+    "task deps confirm": ["task dep confirm"],
+    "task deps dismiss": ["task dep dismiss"],
+    "task deps rm": ["task dep remove"],
+    "task artifact rm": ["task artifact delete"],
+    "task template edit": ["task template update"],
+    "task template rm": ["task template delete"],
+    "task figma rm": ["task figma remove"],
+    "task figma context": ["task figma show"],
+    "project overview": ["project show"],
+    "workspace security-scan": [
+      "workspace security-scan show",
+      "workspace security-scan update"
+    ],
+    "milestone summary": [],
+    "milestone changelog": [],
+    "sprint summary": []
+  },
+  "absorbedBy": {
+    "milestone summary": ["milestone show", "milestone update"],
+    "milestone changelog": ["milestone show"],
+    "sprint summary": ["sprint show", "sprint update"]
+  }
+}

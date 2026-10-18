@@ -28,9 +28,9 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
 | `audit list` (OWNER only)                                            | [audit.md](references/audit.md)                           |
-| `workspace security-scan` (OWNER)                                    | [workspace-settings.md](references/workspace-settings.md) |
-| `status` (priority, inbox, drafts, next), `project overview`         | [overview.md](references/overview.md)                     |
-| `task deps *` (dependency edges)                                     | [task-deps.md](references/task-deps.md)                   |
+| `workspace security-scan show/update` (update: OWNER)                | [workspace-settings.md](references/workspace-settings.md) |
+| `status` (priority, inbox, drafts, next), `project show`             | [overview.md](references/overview.md)                     |
+| `task dep *` (dependency edges)                                      | [task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase *`, `milestone testcase *` (one command set)          | [test-cases.md](references/test-cases.md)                 |
 | `task status`, `crossing *` — self-check, DONE gate, readiness       | [task-status.md](references/task-status.md)               |
@@ -61,7 +61,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
 - `lumo task show [task] [--json]` — **the one way to read a task**; aspect flags add sections and combine: `--full` (alone: the task context — memory headlines, sources, PR review todos, prior sessions), `--memory` (context with memory bodies), `--comments`, `--history`, `--scans [--all]`, `--runs`, `--outcome`, `--lineage [--signal]`, `--deps`; with an aspect, `--full` = that aspect's long form
-- `lumo task slack show <id> <ref>` · `lumo task web show <id> <ref>` · `lumo task figma context <id> <ref>` (`<ref>` = 8-char short ref from the `task show --full` card) — stored Slack thread / web link body / Figma metadata
+- `lumo task slack show <id> <ref>` · `lumo task web show <id> <ref>` · `lumo task figma show <id> <ref>` (`<ref>` = 8-char short ref from the `task show --full` card) — stored Slack thread / web link body / Figma metadata
 - `lumo task pr show <id> <number>` — synced PR metadata
 
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
@@ -79,8 +79,8 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task delete <id>` — move to trash (restorable 30 days); exits 4 without `--confirm`
 - `lumo status --next [--limit N] [--claimable] [--json]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
-- `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or reply
-- `lumo task comments edit <id> <comment> <body>` / `comments rm <id> <comment>` — edit / delete your own comment (`rm` exits 4 without `--confirm`)
+- `lumo task comment add <body> [--task <id>] [--reply-to <comment>]` — leave a comment or reply (`--task` defaults to the bound task)
+- `lumo task comment update <comment> <body>` / `task comment delete <comment>` (both `[--task <id>]`) — edit / delete your own comment (`delete` exits 4 without `--confirm`)
 
 ### Members, tags & audit — see [members.md](references/members.md), [tags.md](references/tags.md), [audit.md](references/audit.md)
 
@@ -90,14 +90,14 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
-- `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--reward-hack`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
-- `lumo status [--inbox|--drafts|--next] [--json]` — me across the workspace: team priority line, inbox, my drafts, next tasks (read-only; not a task ref — that is `task status`) · `lumo project overview [project]` — project health + latest summary
+- `lumo workspace security-scan show` / `update` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--reward-hack`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
+- `lumo status [--inbox|--drafts|--next] [--json]` — me across the workspace: team priority line, inbox, my drafts, next tasks (read-only; not a task ref — that is `task status`) · `lumo project show [project]` — project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 
-- `lumo task deps add <id> --blocked-by <LUM-N>` — manual hard dependency (CONFIRMED); read edges with `lumo task show <id> --deps`
-- `lumo task deps confirm <id> <edge> [--reverse]` / `deps dismiss <id> <edge>` — accept / dismiss a detected candidate
-- `lumo task deps rm <id> <edge> --confirm` — delete an edge (exit 4 envelope without `--confirm`)
+- `lumo task dep add <id> --blocked-by <LUM-N>` — manual hard dependency (CONFIRMED); read edges with `lumo task show <id> --deps`
+- `lumo task dep confirm <id> <edge> [--reverse]` / `task dep dismiss <id> <edge>` — accept / dismiss a detected candidate
+- `lumo task dep remove <id> <edge> --confirm` — delete an edge (exit 4 envelope without `--confirm`)
 - `<edge>` = short edge-id prefix (≥6 chars) or the other task's identifier; ambiguous/unknown selectors list candidates and exit 1
 
 ### Test cases — see [test-cases.md](references/test-cases.md)
@@ -132,7 +132,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo milestone archive/unarchive` · `milestone reorder/move` — soft-archive / restore · manual ordering
 - `lumo milestone add/remove <ref> <task...>` — batch bind/unbind tasks
 - `lumo milestone triage <ref> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo status --next --claimable`)
-- `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <ref> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
+- `lumo milestone show <ref> --summary` — + AI retro · `--changelog [--json]` — + changelog from DONE tasks + merged PRs (no LLM); regenerate the retro with `milestone update <ref> --refresh-summary`
 - `lumo milestone testcase …` — the close contract: the same command set as `task testcase` ([test-cases.md](references/test-cases.md))
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** → [doc-editing.md](references/doc-editing.md)
@@ -149,7 +149,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 - `lumo sprint list/create/show/update/delete` — sprint CRUD (`show` includes Progress / Blockers / Burnup / Team performance)
 - `lumo sprint start/close` — status transitions (no `--status` flag)
-- `lumo sprint add/remove <id> <task>` — bind/unbind a task · `lumo sprint summary [--retry]` — AI retro
+- `lumo sprint add/remove <id> <task>` — bind/unbind a task · `lumo sprint show <id> --summary` — + AI retro (`sprint update <id> --refresh-summary` regenerates)
 
 ### Memory — see [memory.md](references/memory.md)
 
@@ -193,13 +193,13 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 ## Commands & flags that do NOT exist (common mistakes)
 
 - No `lumo verify`, `lumo task criteria …`, `lumo criteria audit` or `lumo outcome rate` (removed in LUM-942) — and no `lumo verdict`, `lumo fidelity`, `lumo outcome record` (LUM-733). Evidence is `lumo task testcase`; milestone close contracts are `lumo milestone testcase` (no `lumo milestone criteria` — removed in LUM-1141)
-- No subtasks / `--parent` (removed in LUM-959) — group with a milestone, order with `task deps add`, fold small follow-ups into the original task
+- No subtasks / `--parent` (removed in LUM-959) — group with a milestone, order with `task dep add`, fold small follow-ups into the original task
 - No `lumo session start` (it's `session attach`) and no `lumo session detach` — the binding is a lifetime lock; start a new agent session for a different task
 - No steward role switch or un-steward — `session attach --steward` is the same lifetime lock; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
+- No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan show/update`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
-- No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews); `inbox list` / `draft list` / `next` → `status --inbox` / `--drafts` / `--next` (`--count` → `--limit`), `priority <text>` → `priority create <text>` (no prompt); `init` / `skill update --user|--project` → `--scope user|project`, `setup` → `init`, `task list -p` → `--project`, `--yes` → `--confirm` (every command), `doc rebuild-source --force` → `--confirm`
+- No `--body` on `lumo task comment add` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews); `inbox list` / `draft list` / `next` → `status --inbox` / `--drafts` / `--next` (`--count` → `--limit`), `priority <text>` → `priority create <text>` (no prompt); `init` / `skill update --user|--project` → `--scope user|project`, `setup` → `init`, `task list -p` → `--project`, `--yes` → `--confirm` (every command), `doc rebuild-source --force` → `--confirm`; 3j renames: `task comment <task> <body>` → `task comment add <body> --task <task>`, `task comments edit/rm` → `task comment update/delete`, `task deps *` → `task dep *` (`rm` → `remove`), `task artifact rm` / `task template rm` → `delete`, `task template edit` → `update`, `task figma rm/context` → `remove/show`, `project overview` → `project show`, `milestone summary` / `changelog` / `sprint summary` → `show --summary` / `--changelog` (`--retry` → `update --refresh-summary`), `workspace security-scan [--setting …]` → `security-scan show` / `update`
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` anywhere (removed in LUM-1233) — gated mutations exit 4 with a `confirmation_required` envelope; approval is `--confirm` only
 
@@ -222,6 +222,6 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - **Attach before coding.** Unattached work is attributed by inference and counts toward gates and cost; explicit attach is highest-priority.
 - **Evidence before "done".** Never claim done from reading code — run the checks and record a test-case run. While a PR is open, the task is IN_REVIEW, not DONE.
 - **DONE is the user's call** — `--status done` exits 4 for their approval unless its one-step condition holds; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
-- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc/memory delete`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source, `finding disposition`) run without `--confirm` prints a `confirmation_required` envelope and does nothing. Show every line of its `changes` to the user, wait for explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed". **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned crossing, a blocking security finding, a proven test-case defect): relay its `blockers` and `remediation`; nothing on `task update` clears it — no retry, no flag. The terminal path is the user's ruling — `crossing disposition` / `finding disposition` / `task testcase disposition`. Details: [confirmation.md](references/confirmation.md)
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc/memory delete`, `task dep remove`, `task artifact delete`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source, `finding disposition`) run without `--confirm` prints a `confirmation_required` envelope and does nothing. Show every line of its `changes` to the user, wait for explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed". **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned crossing, a blocking security finding, a proven test-case defect): relay its `blockers` and `remediation`; nothing on `task update` clears it — no retry, no flag. The terminal path is the user's ruling — `crossing disposition` / `finding disposition` / `task testcase disposition`. Details: [confirmation.md](references/confirmation.md)
 - **Exit codes:** 0 ok · 1 failed (not found, auth, server, network) · **2 usage error** (unknown flag, missing/extra argument, invalid flag value — fix the command; nothing ran) · 4 confirm · 5 blocked. Errors are `Error:` + `Hint:` (+ `Usage:` for 2) on stderr; with `--json`, one `{"error":{code,message,hint,exitCode}}` object on stderr. Lumo's 4 is not gh's 4 — see [confirmation.md](references/confirmation.md#exit-codes).
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

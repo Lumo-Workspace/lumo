@@ -63,7 +63,7 @@ Trigger conditions (OR — either or both may appear):
 - This task is blocked by LUM-9 "Fix auth token expiry" (status IN_PROGRESS).
 - This task is blocked by LUM-15 "Upgrade Postgres driver" (status IN_REVIEW, PR #42 not merged).
 
-Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.
+Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task dep remove/dismiss`.
 Detected 3 candidate dependencies awaiting confirmation: run `lumo task show LUM-42 --deps`.
 ```
 
@@ -81,8 +81,8 @@ Detected 3 candidate dependencies awaiting confirmation: run `lumo task show LUM
 Watch for EITHER the `## ⚠ Dependency alerts` header (form A) OR the standalone hint line (form B).
 
 - `lumo task show <LUM-N> --deps` — inspect the full edge list (run for any candidate hint, form A or B; confirm real SUGGESTED edges, dismiss false positives — unreviewed edges mean repeated hints every session).
-- `lumo task deps rm <LUM-N> <edge> --confirm` — drop a manually-added, now-obsolete edge (exit 4 + envelope without `--confirm`).
-- `lumo task deps dismiss <LUM-N> <edge>` — dismiss a false positive from detection.
+- `lumo task dep remove <LUM-N> <edge> --confirm` — drop a manually-added, now-obsolete edge (exit 4 + envelope without `--confirm`).
+- `lumo task dep dismiss <LUM-N> <edge>` — dismiss a false positive from detection.
 - Form A live blockers: evaluate whether to wait — overlapping work (same files, same API surface) risks rework; read the blocker's status and open-PR note before deciding.
 - Do **not** blindly start work on a task whose live blocker is still IN_PROGRESS or IN_REVIEW unless the user explicitly decides to proceed in parallel.
 
@@ -176,7 +176,7 @@ lumo session attach --steward cmxyz123...                 # by milestone id
 - **Multiple stewards per milestone are allowed** (acceptance is multi-round by nature); sessions don't conflict.
 - **Prior-milestone learnings injected at attach (LUM-647):** the attach prints a `## Prior-milestone learnings (this project)` section — the **MILESTONE-scope** memories distilled from this project's earlier milestone-close retros (a cross-milestone learning unit), wrapped in the `<untrusted-team-memory>` boundary. Empty when the project has no prior distilled learnings; the current milestone's own rows are excluded. A resumed steward session re-gets it via the session-start hook. These memories are written automatically when a milestone closes and its retro is generated — there is no manual command to author them.
 
-**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `milestone testcase add/run`, `task deps confirm/dismiss`, `milestone add/remove`, and **all read operations**.
+**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `milestone testcase add/run`, `task dep confirm/dismiss`, `milestone add/remove`, and **all read operations**.
 
 **Blocked (implementation — first layer, API gate):**
 

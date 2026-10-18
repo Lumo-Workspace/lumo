@@ -923,7 +923,7 @@ export const taskContextService = {
     const figmaManifestBlock = manifestBlock(
       '## Figma Designs',
       ranked.figma,
-      link => figmaManifest(link, taskIdentifier)
+      link => figmaManifest(link, taskIdentifier, commands)
     )
     const webManifestBlock = manifestBlock(
       '## Web Links',
@@ -1257,7 +1257,11 @@ export const taskContextService = {
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
     const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
-    const figmaSection = renderFigmaSection(figmaLinks, resolved.identifier)
+    const figmaSection = renderFigmaSection(
+      figmaLinks,
+      resolved.identifier,
+      commands
+    )
     if (figmaLinks.length > 0) {
       scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
     }

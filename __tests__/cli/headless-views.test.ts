@@ -385,13 +385,13 @@ describe('resolveProject', () => {
 
 describe('lumo workspace overview is gone (LUM-1228)', () => {
   const root = process.cwd()
-  it('is not in the command grammar; project overview still is', () => {
+  it('is not in the command grammar; project show (was project overview) is', () => {
     const grammar = readFileSync(
       join(root, 'scripts/cli-grammar/grammar.json'),
       'utf8'
     )
     expect(grammar).not.toContain('"workspace overview"')
-    expect(grammar).toContain('"project overview"')
+    expect(grammar).toContain('"project show"')
   })
   it('is not registered, documented or allow-listed', () => {
     const read = (f: string) => readFileSync(join(root, f), 'utf8')

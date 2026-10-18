@@ -474,7 +474,7 @@ export function requirementLine(a: RequirementAssessment): string {
 }
 
 export const WITHHELD_NOTE =
-  'Requirements from the linked Lumo task are not quoted on a public repository: open the task in Lumo for the details (a workspace owner can allow them with `lumo workspace security-scan --repo <owner/name> --task-details-on-public-repos on`).'
+  'Requirements from the linked Lumo task are not quoted on a public repository: open the task in Lumo for the details (a workspace owner can allow them with `lumo workspace security-scan update --repo <owner/name> --task-details-on-public-repos on`; CLI 1.125 and older: without `update`).'
 
 /**
  * PURE — the per-requirement block of the PR summary, under the checks

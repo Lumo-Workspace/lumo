@@ -10,7 +10,7 @@ import { sanitizeField } from '../lib/sanitize'
 
 /**
  * LUM-1133 — per-repository automatic review of PRs without a Lumo task
- * (`lumo workspace security-scan --repos | --repo <owner/name> …`).
+ * (`lumo workspace security-scan show --repos | show --repo <owner/name>`, `update --repo <owner/name> …`).
  */
 
 export interface RepoReviewOptions extends ConfirmFlags {
@@ -568,7 +568,10 @@ export async function workspaceRepoReview(
     }
     const changes = describeRepoReviewTurnOffs(current.data, update)
     if (changes.length > 0 && !isConfirmed(opts)) {
-      return emitConfirmation({ command: 'workspace security-scan', changes })
+      return emitConfirmation({
+        command: 'workspace security-scan update',
+        changes,
+      })
     }
     const r = await apiCall<RepoReviewSettingsView>(
       ctx,

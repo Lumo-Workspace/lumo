@@ -33,11 +33,14 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo task update LUM-42 --status done',
     'lumo task update LUM-42 --priority urgent --add-tag security',
   ],
-  'task comment': ['lumo task comment LUM-42 "Pushed the fix in #123"'],
+  'task comment add': [
+    'lumo task comment add "Pushed the fix in #123" --task LUM-42',
+  ],
+  'task comment update': ['lumo task comment update a1b2c3 "Fixed in #124"'],
   'task decide': [
     'lumo task decide LUM-42 "Keep the v1 API; add v2 beside it"',
   ],
-  'task deps add': ['lumo task deps add LUM-42 --blocked-by LUM-9'],
+  'task dep add': ['lumo task dep add LUM-42 --blocked-by LUM-9'],
   'task pr show': ['lumo task pr show LUM-42 123'],
   'task testcase add': [
     'lumo task testcase add LUM-42 --title "Footer disclosure" --step "open: the dashboard" --expected "The footer shows the disclosure."',
@@ -95,9 +98,12 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo pr review 123 --pause',
   ],
   'milestone list': ['lumo milestone list', 'lumo milestone list --all'],
-  'milestone show': ['lumo milestone show q3-launch'],
+  'milestone show': [
+    'lumo milestone show q3-launch',
+    'lumo milestone show q3-launch --summary --changelog',
+  ],
   'sprint list': ['lumo sprint list', 'lumo sprint list --status active'],
-  'sprint show': ['lumo sprint show 13'],
+  'sprint show': ['lumo sprint show 13', 'lumo sprint show 13 --summary'],
   'doc list': ['lumo doc list', 'lumo doc list --scope workspace'],
   'doc show': [
     'lumo doc show runbook-12',
@@ -122,7 +128,14 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   ],
   'usage resync': ['lumo usage resync --dry-run', 'lumo usage resync'],
   'audit list': ['lumo audit list', 'lumo audit list --actor me --since 7d'],
-  'project overview': ['lumo project overview lumo'],
+  'project show': ['lumo project show lumo', 'lumo project show lumo --report'],
+  'workspace security-scan show': [
+    'lumo workspace security-scan show',
+    'lumo workspace security-scan show --repo acme/web',
+  ],
+  'workspace security-scan update': [
+    'lumo workspace security-scan update --hunt off --confirm',
+  ],
   whoami: ['lumo whoami', 'lumo whoami --full'],
 }
 
@@ -134,10 +147,10 @@ export const EXIT_CODE_COMMANDS: Readonly<Record<string, readonly (4 | 5)[]>> =
   {
     'task update': [4, 5],
     'task delete': [4],
-    'task deps rm': [4],
-    'task artifact rm': [4],
-    'task comments rm': [4],
-    'task template rm': [4],
+    'task dep remove': [4],
+    'task artifact delete': [4],
+    'task comment delete': [4],
+    'task template delete': [4],
     'task testcase delete': [4],
     'milestone testcase delete': [4],
     'task testcase disposition': [4],
@@ -153,7 +166,7 @@ export const EXIT_CODE_COMMANDS: Readonly<Record<string, readonly (4 | 5)[]>> =
     'worktree add': [4],
     'worktree rm': [4],
     'worktree prune': [4],
-    'workspace security-scan': [4],
+    'workspace security-scan update': [4],
     uninstall: [4],
   }
 

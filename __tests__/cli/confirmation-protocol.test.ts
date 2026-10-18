@@ -274,34 +274,38 @@ const rebuildRoutes =
 // ---------------------------------------------------------------------------
 
 describe('confirmation envelope', () => {
-  it('task deps rm: exit 4, describes the edge, no DELETE', async () => {
-    process.argv = ['node', 'lumo', 'task', 'deps', 'rm', 'LUM-42', 'a1b2c3']
+  it('task dep remove: exit 4, describes the edge, no DELETE', async () => {
+    process.argv = ['node', 'lumo', 'task', 'dep', 'remove', 'LUM-42', 'a1b2c3']
     route(depsRoutes)
     const code = await taskDepsRm('LUM-42', 'a1b2c3', {})
     expect(code).toBe(4)
     const env = envelope()
-    expect(env.command).toBe('task deps rm')
+    expect(env.command).toBe('task dep remove')
     expect(env.changes[0]).toContain('[a1b2c3d4]')
     expect(env.changes[0]).toContain('LUM-42')
     expect(env.changes[0]).toContain('blocked by LUM-9')
     expect(env.changes[0]).toContain('CONFIRMED')
-    expect(env.confirmCommand).toBe('lumo task deps rm LUM-42 a1b2c3 --confirm')
+    expect(env.confirmCommand).toBe(
+      'lumo task dep remove LUM-42 a1b2c3 --confirm'
+    )
     expect(mutations()).toHaveLength(0)
     expect(stderr).toEqual([])
   })
 
-  it('task artifact rm: exit 4, names the artifact, no DELETE', async () => {
-    process.argv = ['node', 'lumo', 'task', 'artifact', 'rm', 'LUM-9', 'a1']
+  it('task artifact delete: exit 4, names the artifact, no DELETE', async () => {
+    process.argv = ['node', 'lumo', 'task', 'artifact', 'delete', 'LUM-9', 'a1']
     route(artifactRoutes)
     const code = await taskArtifactRm('LUM-9', 'a1', {})
     expect(code).toBe(4)
     const env = envelope()
-    expect(env.command).toBe('task artifact rm')
+    expect(env.command).toBe('task artifact delete')
     expect(env.changes[0]).toContain('a1')
     expect(env.changes[0]).toContain('"API spec"')
     expect(env.changes[0]).toContain('SPEC')
     expect(env.changes.join('\n')).toMatch(/irreversible/i)
-    expect(env.confirmCommand).toBe('lumo task artifact rm LUM-9 a1 --confirm')
+    expect(env.confirmCommand).toBe(
+      'lumo task artifact delete LUM-9 a1 --confirm'
+    )
     expect(mutations()).toHaveLength(0)
   })
 

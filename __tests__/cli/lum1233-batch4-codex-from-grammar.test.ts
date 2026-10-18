@@ -51,10 +51,27 @@ const DEVIATIONS = {
   serverOnlyAdded: ['priority create', 'priority list'],
 }
 
+/**
+ * LUM-1233 3j renamed some commands after batch 4 (names only — the class
+ * of each stays, pinned in lum1233-3j-renames.test.ts); apply those renames
+ * to the hand-kept lists before comparing.
+ */
+const renames = (
+  JSON.parse(read('__tests__/fixtures/lum1233-3j-renames.json')) as {
+    renames: Record<string, string[]>
+  }
+).renames
+const renamePath = (p: string): string[] => renames[p] ?? [p]
+const renameKeys = (m: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(m).flatMap(([k, v]) => renamePath(k).map(n => [n, v]))
+  )
+const handServerOnly = hand.serverOnly.flatMap(renamePath)
+
 describe('generated lists vs the last hand-kept ones', () => {
-  it('server-only: identical except the listed deviations', () => {
+  it('server-only: identical (after the 3j renames) except the listed deviations', () => {
     const now = new Set(CODEX_SERVER_ONLY_COMMANDS)
-    const before = new Set(hand.serverOnly)
+    const before = new Set(handServerOnly)
     expect([...before].filter(p => !now.has(p)).sort()).toEqual(
       DEVIATIONS.serverOnlyRemoved
     )
@@ -63,20 +80,22 @@ describe('generated lists vs the last hand-kept ones', () => {
     )
   })
 
-  it('file-reading and sandboxed: entry for entry identical', () => {
-    expect(CODEX_FILE_READING_COMMANDS).toEqual(hand.fileReading)
-    expect(CODEX_SANDBOXED_COMMANDS).toEqual(hand.sandboxed)
+  it('file-reading and sandboxed: entry for entry identical (after the 3j renames)', () => {
+    expect(CODEX_FILE_READING_COMMANDS).toEqual(renameKeys(hand.fileReading))
+    expect(CODEX_SANDBOXED_COMMANDS).toEqual(renameKeys(hand.sandboxed))
   })
 
-  it('the rules file is the hand-kept one, except the priority rule', () => {
+  it('the rules file is the hand-kept one, except the priority rule and the 3j names', () => {
     // The fixture is exactly what the hand-kept lists produced…
     expect(buildCodexRules(hand.serverOnly, hand.sandboxed)).toBe(handRules)
-    // …and applying the one deviation to those lists gives today's file.
+    // …and applying the deviation and the renames to those lists gives today's file.
     const adjusted = [
-      ...hand.serverOnly.filter(p => !DEVIATIONS.serverOnlyRemoved.includes(p)),
+      ...handServerOnly.filter(p => !DEVIATIONS.serverOnlyRemoved.includes(p)),
       ...DEVIATIONS.serverOnlyAdded,
     ]
-    expect(LUMO_CODEX_RULES).toBe(buildCodexRules(adjusted, hand.sandboxed))
+    expect(LUMO_CODEX_RULES).toBe(
+      buildCodexRules(adjusted, renameKeys(hand.sandboxed))
+    )
     expect(LUMO_CODEX_RULES).toContain(
       'pattern = ["lumo", "priority", ["create", "list"]]'
     )

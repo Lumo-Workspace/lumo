@@ -190,7 +190,7 @@ function briefingLines(
   return lines
 }
 
-/** `lumo project overview` — the project page's health and stats as text. */
+/** `lumo project show` — the project page's health and stats as text. */
 export function formatProjectOverview(
   projectName: string,
   stats: OverviewStats,

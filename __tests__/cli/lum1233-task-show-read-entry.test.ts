@@ -210,9 +210,10 @@ describe('removed read commands are tombstones, not aliases', () => {
     for (const argv of [
       ['task', 'show', 'LUM-7'],
       ['task', 'status'],
-      ['task', 'deps', 'add', 'LUM-7', '--blocked-by', 'LUM-1'],
-      ['task', 'comments', 'edit', 'LUM-7', 'c1', 'x'],
-      ['task', 'comment', 'LUM-7', 'hello'],
+      // LUM-1233 3j renamed these; the live names are not tombstones.
+      ['task', 'dep', 'add', 'LUM-7', '--blocked-by', 'LUM-1'],
+      ['task', 'comment', 'update', 'c1', 'x', '--task', 'LUM-7'],
+      ['task', 'comment', 'add', 'hello', '--task', 'LUM-7'],
     ])
       expect(findRemovedCommand(argv)).toBeNull()
   })

@@ -55,13 +55,13 @@ Context injection is split into tiers: `lumo task show <LUM-N> --full` emits a *
 
 Run the matching command below when the card isn't enough. Pass the same `LUM-N` plus the ref the card shows for that source — the 8-char short ref (LUM-1230; a unique id prefix of 6+ chars or the full id also work, an ambiguous one errors with the candidates):
 
-| source         | retrieval command                    | ref from card |
-| -------------- | ------------------------------------ | ------------- |
-| Slack thread   | `lumo task slack show <id> <ref>`    | short ref     |
-| Web link body  | `lumo task web show <id> <ref>`      | short ref     |
-| Figma metadata | `lumo task figma context <id> <ref>` | short ref     |
-| Comment thread | `lumo task show <id> --comments`     | —             |
-| PR detail      | `lumo task pr show <id> <number>`    | `number`      |
+| source         | retrieval command                 | ref from card |
+| -------------- | --------------------------------- | ------------- |
+| Slack thread   | `lumo task slack show <id> <ref>` | short ref     |
+| Web link body  | `lumo task web show <id> <ref>`   | short ref     |
+| Figma metadata | `lumo task figma show <id> <ref>` | short ref     |
+| Comment thread | `lumo task show <id> --comments`  | —             |
+| PR detail      | `lumo task pr show <id> <number>` | `number`      |
 
 All five are **read-only** (no live Slack/GitHub/Figma calls except the web body fetch). Web/Figma/PR are v1 metadata-degraded: they print a `note:` saying live content needs an external integration.
 
@@ -89,14 +89,14 @@ Fetches the page body on demand behind the SSRF guard (cached after first read),
 lumo task web show LUM-42 pskvl3sh
 ```
 
-### `lumo task figma context <identifier> <ref>` — Figma link metadata
+### `lumo task figma show <identifier> <ref>` — Figma link metadata
 
 `--json` prints `{ version, figmaLink, designContextAvailable, note }`.
 
 **v1 metadata fallback.** Prints cached design metadata as `file:` / `frame:` / `url:` / `synced:` lines (plus `syncError:` if the last sync failed). Live design context (layers, variables, code connect) requires the Figma MCP server, so the command ends with a `note:` saying so.
 
 ```bash
-lumo task figma context LUM-42 pskvl3sh
+lumo task figma show LUM-42 pskvl3sh
 ```
 
 ### `lumo task show <identifier> --comments` — comment thread
@@ -113,7 +113,7 @@ lumo task show LUM-42 --comments          # capped to the output budget
 lumo task show LUM-42 --comments --full   # every comment, no cap
 ```
 
-**Distinct from `task comment`** — `task show --comments` _reads_ the whole thread; `task comment <identifier> <body>` _writes_ a single new comment (see Task Management). Don't confuse the two. The `#<short id>` is the handle for `task comment --reply-to` and `task comments edit/rm` (LUM-821, see Task Management).
+**Distinct from `task comment`** — `task show --comments` _reads_ the whole thread; `task comment add <body> [--task <LUM-N>]` _writes_ a single new comment (see Task Management). Don't confuse the two. The `#<short id>` is the handle for `task comment --reply-to` and `task comment update/rm` (LUM-821, see Task Management).
 
 ### `lumo task pr show <identifier> <number>` — synced PR metadata
 

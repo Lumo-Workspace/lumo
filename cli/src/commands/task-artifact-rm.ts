@@ -47,13 +47,13 @@ export async function taskArtifactRm(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact rm <LUM-42> <artifact> --confirm'
+      'Error: missing <task>. Usage: lumo task artifact delete <LUM-42> <artifact> --confirm'
     )
     return EXIT_USAGE
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact>. Usage: lumo task artifact rm <LUM-42> <artifact> --confirm'
+      'Error: missing <artifact>. Usage: lumo task artifact delete <LUM-42> <artifact> --confirm'
     )
     return EXIT_USAGE
   }
@@ -94,7 +94,7 @@ export async function taskArtifactRm(
     }
     const { artifact } = (await showRes.json()) as { artifact: ArtifactSummary }
     return emitConfirmation({
-      command: 'task artifact rm',
+      command: 'task artifact delete',
       changes: describeArtifactRm(identifier, artifact),
     })
   }
@@ -124,7 +124,7 @@ export async function taskArtifactRm(
     console.error(
       serverMsg
         ? `Error: ${sanitizeField(serverMsg)}`
-        : errHttp('artifact rm', res.status)
+        : errHttp('artifact delete', res.status)
     )
     return 1
   }

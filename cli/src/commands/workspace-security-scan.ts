@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { emitJson, withVersion } from '../lib/json-output'
 import { missingPluginMessage } from '../lib/plugin-route'
@@ -364,7 +365,7 @@ const PATH = '/api/workspaces/me/security-scan'
 const NO_PLUGIN = missingPluginMessage('workspace security-scan', 'security')
 
 /**
- * `lumo workspace security-scan` (LUM-1002) — show the PR security-scan
+ * `lumo workspace security-scan show|update` (LUM-1002; split in LUM-1233 3j) — show the PR security-scan
  * switches, or change them (OWNER only). Turning anything off is gated by
  * the confirmation protocol: without `--confirm` it exits 4 with an envelope.
  */
@@ -405,7 +406,10 @@ export async function workspaceSecurityScan(
     }
     const changes = describeGatedChanges(current.data.switches, update)
     if (changes.length > 0 && !isConfirmed(opts)) {
-      return emitConfirmation({ command: 'workspace security-scan', changes })
+      return emitConfirmation({
+        command: 'workspace security-scan update',
+        changes,
+      })
     }
     const r = await apiCall<SecurityScanSettingsView>(
       ctx,
@@ -424,4 +428,27 @@ export async function workspaceSecurityScan(
   }
   if (update) process.stdout.write('Security scan settings saved.\n\n')
   process.stdout.write(formatSecurityScanSettings(result) + '\n')
+}
+
+/** Options of `security-scan update` that are not a setting. */
+const NOT_A_SETTING = new Set(['repo', 'repos', 'json', 'confirm'])
+
+/**
+ * `lumo workspace security-scan update` (LUM-1233 3j; formerly
+ * `workspace security-scan --<setting> …`). At least one setting, or it is a
+ * usage error — reading is `security-scan show`.
+ */
+export async function workspaceSecurityScanUpdate(
+  opts: WorkspaceSecurityScanOptions = {}
+): Promise<number | void> {
+  const settings = Object.entries(opts).filter(
+    ([k, v]) => v !== undefined && !NOT_A_SETTING.has(k)
+  )
+  if (settings.length === 0) {
+    console.error(
+      'Error: nothing to change — pass a setting (e.g. --scan on). Read the settings with `lumo workspace security-scan show`.'
+    )
+    return EXIT_USAGE
+  }
+  return workspaceSecurityScan(opts)
 }

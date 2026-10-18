@@ -1,13 +1,10 @@
 import { NONE, fmtCalendarDay } from '../lib/format'
 import { withVersion } from '../lib/json-output'
-import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
-import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
-import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { httpFailed } from '../lib/errors'
 
 /**
- * LUM-649 — `lumo milestone changelog`. Assembles a milestone's DONE tasks +
+ * LUM-649 — `lumo milestone show --changelog` (formerly `milestone changelog`; LUM-1233 3j). Assembles a milestone's DONE tasks +
  * merged PRs + frozen claimSnapshot into a structured changelog. The server
  * does the (pure, deterministic) assembly; this command renders it as human
  * markdown, or passes the raw structured payload through with `--json`.
@@ -187,58 +184,32 @@ export function renderChangelogOutput(
     : formatMilestoneChangelog(cl)
 }
 
-export async function milestoneChangelog(
-  identifier: string,
-  opts: MilestoneChangelogOptions
-): Promise<number | void> {
-  const creds = readCredentials()
-  if (!creds) {
-    console.error(errNotLoggedIn())
-    return 1
-  }
-  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
-  const base = trimTrailingSlash(apiUrl)
-
-  let resolved: { id: string; name: string }
-  try {
-    resolved = await resolveMilestoneId(
-      base,
-      creds.token,
-      identifier,
-      opts.project
-    )
-  } catch (err) {
-    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
-    return 1
-  }
-
+/**
+ * LUM-1233 3j: the changelog as an aspect of `milestone show --changelog`
+ * (formerly `milestone changelog`). Never rejects; `{ error }` = read failed.
+ */
+export async function readChangelog(
+  base: string,
+  token: string,
+  id: string
+): Promise<MilestoneChangelogPayload | { error: string }> {
   let res: Response
   try {
-    res = await fetch(`${base}/api/milestones/${resolved.id}/changelog`, {
-      headers: { Authorization: `Bearer ${creds.token}` },
+    res = await fetch(`${base}/api/milestones/${id}/changelog`, {
+      headers: { Authorization: `Bearer ${token}` },
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
-  }
-
-  if (res.status === 401) {
-    console.error(errAuth())
-    return 1
+    return { error: err instanceof Error ? err.message : String(err) }
   }
   if (!res.ok) {
-    let errMsg = httpFailed('milestone changelog', res.status)
+    let msg = httpFailed('milestone changelog', res.status)
     try {
-      const errBody = (await res.json()) as { error?: string }
-      if (errBody.error) errMsg = errBody.error
+      const b = (await res.json()) as { error?: string }
+      if (b.error) msg = b.error
     } catch {
-      // ignore
+      // not JSON
     }
-    console.error(`Error: ${sanitizeField(errMsg)}`)
-    return 1
+    return { error: msg }
   }
-
-  const cl = (await res.json()) as MilestoneChangelogPayload
-  process.stdout.write(renderChangelogOutput(cl, { json: !!opts.json }) + '\n')
+  return (await res.json()) as MilestoneChangelogPayload
 }

@@ -60,6 +60,7 @@ import { taskDelete } from './commands/task-delete'
 import { projectCreate, projectUpdate } from './commands/project-manage'
 import { taskShow, type TaskShowOptions } from './commands/task-show'
 import { findRemovedCommand, removedCommandLines } from './lib/removed-commands'
+import { taskOrBound } from './lib/task-or-bound'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
@@ -111,31 +112,38 @@ import {
 } from './commands/pr-scan'
 import {
   workspaceSecurityScan,
+  workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
-import { milestoneShow } from './commands/milestone-show'
-import { milestoneUpdate } from './commands/milestone-update'
+import {
+  milestoneShow,
+  type ShowMilestoneOptions,
+} from './commands/milestone-show'
+import {
+  milestoneUpdate,
+  type UpdateMilestoneOptions,
+} from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
 import { milestoneArchive } from './commands/milestone-archive'
 import { milestoneUnarchive } from './commands/milestone-unarchive'
 import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
 import { milestoneTriage } from './commands/milestone-triage'
-import { milestoneSummary } from './commands/milestone-summary'
-import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
-import { sprintShow } from './commands/sprint-show'
-import { sprintUpdate } from './commands/sprint-update'
+import { sprintShow, type ShowSprintOptions } from './commands/sprint-show'
+import {
+  sprintUpdate,
+  type UpdateSprintOptions,
+} from './commands/sprint-update'
 import { sprintDelete } from './commands/sprint-delete'
 import { sprintStart } from './commands/sprint-start'
 import { sprintClose } from './commands/sprint-close'
-import { sprintSummary } from './commands/sprint-summary'
 import { sprintAdd } from './commands/sprint-add'
 import { sprintRemove } from './commands/sprint-remove'
 import { docCreate } from './commands/doc-create'
@@ -1100,24 +1108,81 @@ task
     )
   )
 
-task
-  .command('comment <identifier> <body>')
+// LUM-1233 3j (Q9): one `comment` noun — add / update / delete. The task is
+// `--task`, defaulting to the session-bound task (AR-2).
+const taskCommentCmd = task
+  .command('comment')
+  .description(
+    'Write on the task comment thread (read it with `lumo task show --comments`)'
+  )
+taskCommentCmd
+  .command('add <body>')
   .codex(SERVER_ONLY)
   .description(
     'Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.'
   )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
   .option(
     '--reply-to <comment>',
     'Reply to a top-level comment: its #id from `task show --comments` (unique prefix of 6+ chars)'
   )
   .action(
-    wrap((identifier, body, opts) =>
-      taskComment(
-        identifier as string,
-        body as string,
-        opts as { replyTo?: string }
+    wrap(async (body, opts) => {
+      const o = opts as { task?: string; replyTo?: string }
+      const task = await taskOrBound(
+        o.task,
+        'lumo task comment add "<body>" --task <LUM-N>'
       )
-    )
+      if (typeof task === 'number') return task
+      return taskComment(
+        task,
+        body as string,
+        o.replyTo !== undefined ? { replyTo: o.replyTo } : {}
+      )
+    })
+  )
+taskCommentCmd
+  .command('update <comment> <body>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).'
+  )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
+  .action(
+    wrap(async (comment, body, opts) => {
+      const task = await taskOrBound(
+        (opts as { task?: string }).task,
+        'lumo task comment update <comment> "<body>" --task <LUM-N>'
+      )
+      if (typeof task === 'number') return task
+      return taskCommentEdit(task, comment as string, body as string)
+    })
+  )
+taskCommentCmd
+  .command('delete <comment>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
+  )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
+  .option(
+    '--confirm',
+    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
+  )
+  .action(
+    wrap(async (comment, opts) => {
+      const o = opts as { task?: string; confirm?: boolean }
+      const task = await taskOrBound(
+        o.task,
+        'lumo task comment delete <comment> --task <LUM-N>'
+      )
+      if (typeof task === 'number') return task
+      return taskCommentRm(
+        task,
+        comment as string,
+        o.confirm !== undefined ? { confirm: o.confirm } : {}
+      )
+    })
   )
 
 task
@@ -1208,7 +1273,7 @@ taskTemplate
   )
 
 taskTemplate
-  .command('edit <key>')
+  .command('update <key>')
   .codex(readsLocalFile('--file'))
   .description(
     'Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited.'
@@ -1229,7 +1294,7 @@ taskTemplate
   )
 
 taskTemplate
-  .command('rm <key>')
+  .command('delete <key>')
   .codex(SERVER_ONLY)
   .description(
     'Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.'
@@ -1285,7 +1350,7 @@ taskFigma
   )
 
 taskFigma
-  .command('rm <task> <link>')
+  .command('remove <task> <link>')
   .codex(SERVER_ONLY)
   .description(
     'Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing'
@@ -1344,7 +1409,7 @@ taskWeb
 
 // taskFigma already exists above → attach the context leaf to it.
 taskFigma
-  .command('context <identifier> <ref>')
+  .command('show <identifier> <ref>')
   .codex(SERVER_ONLY)
   .description(
     'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
@@ -1359,59 +1424,31 @@ taskFigma
     )
   )
 
-// Plural `comments` parent: `task comment <id> <body>` already exists for
-// adding a comment, and commander disallows a duplicate name.
-const taskComments = task
-  .command('comments')
-  .description(
-    'Manage the task comment thread (read it with `lumo task show --comments`)'
-  )
-taskComments
-  .command('edit <identifier> <comment> <body>')
-  .codex(SERVER_ONLY)
-  .description(
-    'Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).'
-  )
-  .action(
-    wrap((id, comment, body) =>
-      taskCommentEdit(id as string, comment as string, body as string)
-    )
-  )
-taskComments
-  .command('rm <identifier> <comment>')
-  .codex(SERVER_ONLY)
-  .description(
-    'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
-  )
-  .action(
-    wrap((id, comment, opts) =>
-      taskCommentRm(
-        id as string,
-        comment as string,
-        opts as { confirm?: boolean }
-      )
-    )
-  )
-
-const taskDeps = task
-  .command('deps')
+// LUM-1233 3j (Q9): `deps` → `dep` (one noun, singular), `rm` → `remove`.
+const taskDep = task
+  .command('dep')
   .description(
     'Manage task dependency edges (read them with `lumo task show --deps`)'
   )
-taskDeps
-  .command('add <identifier>')
+taskDep
+  .command('add [task]')
   .codex(SERVER_ONLY)
   .requiredOption('--blocked-by <blocker>', 'blocker task (LUM-N)')
-  .description('Declare a manual hard dependency (CONFIRMED)')
-  .action(
-    wrap((id, opts) => taskDepsAdd(id as string, opts as { blockedBy: string }))
+  .description(
+    'Declare a manual hard dependency (CONFIRMED). [task] defaults to the session-bound task.'
   )
-taskDeps
-  .command('confirm <identifier> <edge>')
+  .action(
+    wrap(async (id, opts) => {
+      const task = await taskOrBound(
+        id as string | undefined,
+        'lumo task dep add <LUM-N> --blocked-by <LUM-M>'
+      )
+      if (typeof task === 'number') return task
+      return taskDepsAdd(task, opts as { blockedBy: string })
+    })
+  )
+taskDep
+  .command('confirm <task> <edge>')
   .codex(SERVER_ONLY)
   .option('--reverse', 'flip direction when confirming')
   .description('Confirm a detected candidate edge')
@@ -1424,13 +1461,13 @@ taskDeps
       )
     )
   )
-taskDeps
-  .command('dismiss <identifier> <edge>')
+taskDep
+  .command('dismiss <task> <edge>')
   .codex(SERVER_ONLY)
   .description('Dismiss a candidate (never re-suggested)')
   .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
-taskDeps
-  .command('rm <identifier> <edge>')
+taskDep
+  .command('remove <task> <edge>')
   .codex(SERVER_ONLY)
   .description(
     'Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.'
@@ -1552,7 +1589,7 @@ taskArtifact
   )
 
 taskArtifact
-  .command('rm <task> <artifact>')
+  .command('delete <task> <artifact>')
   .codex(SERVER_ONLY)
   .description(
     'Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
@@ -1898,11 +1935,34 @@ const workspaceCmd = program
   .command('workspace')
   .description('Workspace settings from the terminal')
 
-workspaceCmd
+// LUM-1233 3j (Q9, RW-1): reading and changing the settings are two verbs.
+const securityScanCmd = workspaceCmd
   .command('security-scan')
+  .description(
+    'PR security-scan and AI review settings, workspace-wide or per repository (--repo)'
+  )
+securityScanCmd
+  .command('show')
   .codex(SERVER_ONLY)
   .description(
-    'Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm.'
+    'Show the PR security-scan and AI review settings, workspace-wide, for every connected repository (--repos) or one (--repo). Any member may read.'
+  )
+  .option(
+    '--repos',
+    'List each connected repository with its automatic review settings'
+  )
+  .option('--repo <owner/name>', 'One connected repository: show its settings')
+  .option('--json', 'Emit { switches, platform, effective } as JSON')
+  .action(
+    wrap(options =>
+      workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
+    )
+  )
+securityScanCmd
+  .command('update')
+  .codex(SERVER_ONLY)
+  .description(
+    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1932,14 +1992,6 @@ workspaceCmd
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')
-  .option(
-    '--repos',
-    'List each connected repository with its automatic review settings'
-  )
-  .option(
-    '--repo <owner/name>',
-    'One connected repository: show it, or change it with --review / --drafts'
-  )
   .option(
     '--review <on|off>',
     'With --repo: review every PR without a task automatically'
@@ -2022,11 +2074,15 @@ workspaceCmd
     '--sequence-diagrams <on|off>',
     "With --repo: a Mermaid sequence diagram of each PR's main call flow in the walkthrough of Lumo's summary comment (default on; trivial PRs never get one). `@uselumo diagram` on a PR draws it again"
   )
+  .option(
+    '--repo <owner/name>',
+    'One connected repository: change it with the --repo settings above'
+  )
   .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')
   .action(
     wrap(options =>
-      workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
+      workspaceSecurityScanUpdate(options as WorkspaceSecurityScanOptions)
     )
   )
 
@@ -2070,7 +2126,7 @@ projectCmd
   .action(wrap(opts => projectList(opts as { json?: boolean })))
 
 projectCmd
-  .command('overview [project]')
+  .command('show [project]')
   .codex(SERVER_ONLY)
   .description(
     "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
@@ -2345,10 +2401,21 @@ milestoneCmd
   .description(
     'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--json', 'Print { version, milestone, tasks } as JSON')
+  .option(
+    '--summary',
+    'Also print the AI-generated summary (was `milestone summary`)'
+  )
+  .option(
+    '--changelog',
+    'Also print the changelog: DONE tasks, merged PRs and frozen claims with provenance, and a baseline vs prior milestones (was `milestone changelog`)'
+  )
+  .option(
+    '--json',
+    'Print { version, milestone, tasks } as JSON (+ summary / changelog with those flags)'
+  )
   .action(
     wrap((identifier, options) =>
-      milestoneShow(identifier as string, options as Record<string, string>)
+      milestoneShow(identifier as string, options as ShowMilestoneOptions)
     )
   )
 
@@ -2366,9 +2433,13 @@ milestoneCmd
     '--token-budget <tokens>',
     'Advisory token budget, positive integer (empty string to clear). Overview shows burn vs budget; over-budget raises a risk-queue alert — never a hard gate.'
   )
+  .option(
+    '--refresh-summary',
+    'Queue regeneration of the AI summary (was `milestone summary --retry`); read it with `milestone show --summary`'
+  )
   .action(
     wrap((identifier, options) =>
-      milestoneUpdate(identifier as string, options as Record<string, string>)
+      milestoneUpdate(identifier as string, options as UpdateMilestoneOptions)
     )
   )
 
@@ -2470,38 +2541,6 @@ milestoneCmd
   )
 
 milestoneCmd
-  .command('summary <identifier>')
-  .codex(SERVER_ONLY)
-  .description(
-    'Show the AI-generated summary of a milestone (slug, name or id), or "(no summary generated yet)". --retry queues regeneration before fetching.'
-  )
-  .option('--retry', 'Trigger summary regeneration before fetching')
-  .action(
-    wrap((identifier, options) =>
-      milestoneSummary(
-        identifier as string,
-        options as { project?: string; retry?: boolean }
-      )
-    )
-  )
-
-milestoneCmd
-  .command('changelog <identifier>')
-  .codex(SERVER_ONLY)
-  .description(
-    "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones."
-  )
-  .option('--json', 'Emit the raw structured changelog payload')
-  .action(
-    wrap((identifier, options) =>
-      milestoneChangelog(
-        identifier as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneCmd
   .command('reorder <refs...>')
   .codex(SERVER_ONLY)
   .description(
@@ -2565,15 +2604,16 @@ sprintCmd
   )
   .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
   .option(
+    '--summary',
+    'Also print the AI-generated summary (was `sprint summary`)'
+  )
+  .option(
     '--json',
-    'Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON'
+    'Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON (+ summary with --summary)'
   )
   .action(
     wrap((identifier, options) =>
-      sprintShow(
-        identifier as string,
-        options as { team?: string; json?: boolean }
-      )
+      sprintShow(identifier as string, options as ShowSprintOptions)
     )
   )
 
@@ -2602,9 +2642,13 @@ sprintCmd
   .option('-n, --name <text>', 'New sprint name')
   .option('--start <date>', 'New start date (YYYY-MM-DD)')
   .option('--end <date>', 'New end date (YYYY-MM-DD)')
+  .option(
+    '--refresh-summary',
+    'Queue regeneration of the AI summary (was `sprint summary --retry`); read it with `sprint show --summary`'
+  )
   .action(
     wrap((identifier, options) =>
-      sprintUpdate(identifier as string, options as Record<string, string>)
+      sprintUpdate(identifier as string, options as UpdateSprintOptions)
     )
   )
 
@@ -2652,23 +2696,6 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
-    )
-  )
-
-sprintCmd
-  .command('summary <identifier>')
-  .codex(SERVER_ONLY)
-  .description(
-    'Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
-  )
-  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
-  .option('--retry', 'Trigger summary regeneration before fetching')
-  .action(
-    wrap((identifier, options) =>
-      sprintSummary(
-        identifier as string,
-        options as { team?: string; retry?: boolean }
-      )
     )
   )
 

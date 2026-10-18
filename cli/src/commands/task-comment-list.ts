@@ -95,7 +95,7 @@ function renderCommentBlock(
           : id
   )
   // `#<short id>` is the handle `task comment --reply-to` and
-  // `task comments edit/rm` take (LUM-821).
+  // `task comment update/delete` take (LUM-821).
   lines.push(
     `${indent}#${shortCommentId(c.id)} · ${author} · ${fmtTimestamp(c.createdAt)}`
   )

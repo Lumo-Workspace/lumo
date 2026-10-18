@@ -5,6 +5,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { queueSummaryRefresh } from '../lib/summary-aspect'
 
 export interface UpdateMilestoneOptions {
   project?: string
@@ -14,6 +15,8 @@ export interface UpdateMilestoneOptions {
   target?: string
   /** LUM-644 advisory token budget: a positive integer, '' to clear. */
   tokenBudget?: string
+  /** LUM-1233 3j: queue AI summary regeneration (was `milestone summary --retry`). */
+  refreshSummary?: boolean
 }
 
 interface UpdatePayload {
@@ -124,9 +127,9 @@ export async function milestoneUpdate(
   }
 
   const { payload, flagsGiven } = buildMilestoneUpdatePayload(opts)
-  if (flagsGiven.length === 0) {
+  if (flagsGiven.length === 0 && !opts.refreshSummary) {
     console.error(
-      'Error: provide at least one field to update (--name, --description, --start, --target, --token-budget)'
+      'Error: provide at least one field to update (--name, --description, --start, --target, --token-budget) or --refresh-summary'
     )
     return EXIT_USAGE
   }
@@ -151,6 +154,23 @@ export async function milestoneUpdate(
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
     return 1
+  }
+
+  if (opts.refreshSummary) {
+    const failed = await queueSummaryRefresh(
+      base,
+      creds.token,
+      'milestones',
+      milestoneId
+    )
+    if (failed) {
+      console.error(`Error: ${failed}`)
+      return 1
+    }
+    process.stdout.write(
+      `Queued summary regeneration for milestone ${sanitizeField(identifier)} — read it with \`lumo milestone show ${sanitizeField(identifier)} --summary\` once it is done.\n`
+    )
+    if (flagsGiven.length === 0) return
   }
 
   // Fetch current values so we can render a delta summary. Wrap network in

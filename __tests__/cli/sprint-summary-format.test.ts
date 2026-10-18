@@ -1,33 +1,24 @@
 /**
  * @jest-environment node
+ *
+ * LUM-1233 3j: the sprint summary is the `--summary` aspect of `sprint show`
+ * (formerly `sprint summary`); its section body.
  */
-import { formatSprintSummary } from '@/cli/src/commands/sprint-summary'
+import { formatSummaryAspect } from '@/cli/src/lib/summary-aspect'
 
-describe('formatSprintSummary', () => {
-  it('renders sprint header and full summary when all fields present', () => {
-    const out = formatSprintSummary({
-      number: 4,
-      name: 'Sprint 4',
-      stats: { done: 8, total: 10, velocity: 42 },
-      tldr: 'Solid sprint, shipped auth and billing.',
-      report: '## Highlights\n- Shipped OAuth\n- Fixed billing bug',
-    })
-    expect(out).toContain('Sprint: #4 Sprint 4')
-    expect(out).toContain('Done:   8 / 10')
-    expect(out).toContain('Solid sprint, shipped auth and billing.')
-    expect(out).toContain('## Highlights')
-    expect(out).toContain('- Shipped OAuth')
+describe('formatSummaryAspect (sprint)', () => {
+  it('renders the counts, TL;DR and report', () => {
+    const out = formatSummaryAspect({
+      stats: { done: 4, total: 6, velocity: 4 },
+      tldr: 'Good sprint.',
+      report: '## Delivered\n- Billing',
+    }).join('\n')
+    expect(out).toContain('Done:  4 / 6')
+    expect(out).toContain('Good sprint.')
+    expect(out).toContain('- Billing')
   })
 
-  it('renders "(no summary generated yet)" when stats, tldr, and report are all null', () => {
-    const out = formatSprintSummary({
-      number: 2,
-      name: 'Sprint 2',
-      stats: null,
-      tldr: null,
-      report: null,
-    })
-    expect(out).toContain('Sprint: #2 Sprint 2')
-    expect(out).toContain('(no summary generated yet)')
+  it('renders "(no summary generated yet)" when none exists', () => {
+    expect(formatSummaryAspect(null)).toEqual(['(no summary generated yet)'])
   })
 })

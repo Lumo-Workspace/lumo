@@ -376,9 +376,8 @@ const CONFIRM_TOMBSTONES: readonly Tombstone[] = [
       'milestone delete',
       'sprint close',
       'sprint delete',
-      'task artifact rm',
-      'task deps rm',
-      'task template rm',
+      // task artifact rm / task deps rm / task template rm: renamed in 3j,
+      // their tombstones below map --yes too.
       'worktree rm',
     ] as const
   ).map(
@@ -400,6 +399,135 @@ const CONFIRM_TOMBSTONES: readonly Tombstone[] = [
     replacement: (args, _f, options) =>
       cmd('lumo doc rebuild-source', args, asConfirm(options, '--force')),
     help: 'lumo doc rebuild-source',
+  },
+]
+
+/** Options that are not a security-scan setting (3j: show vs update). */
+const SCAN_READ_FLAGS = new Set(['--json', '--repos', '--repo', '--confirm'])
+
+/**
+ * LUM-1233 3j (Q9): pure renames — `rm` → `delete`/`remove`, `edit` →
+ * `update`, `comments` → `comment`, `deps` → `dep`, `overview` → `show`, and
+ * the summary / changelog aspects. `--yes` (3i) maps to `--confirm` here too.
+ */
+const RENAME_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      ['task artifact rm', 'lumo task artifact delete'],
+      ['task template edit', 'lumo task template update'],
+      ['task template rm', 'lumo task template delete'],
+      ['task figma rm', 'lumo task figma remove'],
+      ['task figma context', 'lumo task figma show'],
+      ['project overview', 'lumo project show'],
+      ['task deps add', 'lumo task dep add'],
+      ['task deps confirm', 'lumo task dep confirm'],
+      ['task deps dismiss', 'lumo task dep dismiss'],
+      ['task deps rm', 'lumo task dep remove'],
+      ['task deps', 'lumo task dep'],
+      ['task comments', 'lumo task comment'],
+    ] as const
+  ).map(
+    ([path, head]): Tombstone => ({
+      path,
+      optionsOf: head.slice('lumo '.length),
+      booleanFlags: ['--yes'],
+      replacement: (args, _f, options) =>
+        cmd(head, args, asConfirm(options, '--yes')),
+      help: head,
+    })
+  ),
+  {
+    path: 'task comments edit',
+    optionsOf: 'task comment update',
+    replacement: args =>
+      cmd(
+        'lumo task comment update',
+        [args[1] ?? '<comment>', args[2] ?? '<body>'],
+        args[0] ? ['--task', args[0]] : []
+      ),
+    help: 'lumo task comment update',
+  },
+  {
+    path: 'task comments rm',
+    optionsOf: 'task comment delete',
+    booleanFlags: ['--yes'],
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo task comment delete',
+        [args[1] ?? '<comment>'],
+        [
+          ...(args[0] ? ['--task', args[0]] : []),
+          ...asConfirm(options, '--yes'),
+        ]
+      ),
+    help: 'lumo task comment delete',
+  },
+  {
+    path: 'task comment',
+    // `task comment add|update|delete` are live; `task comment <task> <body>` was the old form.
+    match: args =>
+      args.length > 0 && !['add', 'update', 'delete'].includes(args[0]!),
+    label: 'lumo task comment <task> <body>',
+    optionsOf: 'task comment add',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo task comment add',
+        [args[1] ?? '<body>'],
+        [...(args[0] ? ['--task', args[0]] : []), ...options]
+      ),
+    help: 'lumo task comment add',
+  },
+  ...(
+    [
+      ['milestone', '--project'],
+      ['sprint', '--team'],
+    ] as const
+  ).map(
+    ([noun]): Tombstone => ({
+      path: `${noun} summary`,
+      optionsOf: `${noun} show`,
+      booleanFlags: ['--retry'],
+      replacement: (args, flags, options) =>
+        flags.includes('--retry')
+          ? cmd(
+              `lumo ${noun} update`,
+              [args[0] ?? `<${noun}>`, '--refresh-summary'],
+              options.filter(o => o !== '--retry')
+            )
+          : cmd(
+              `lumo ${noun} show`,
+              [args[0] ?? `<${noun}>`, '--summary'],
+              options
+            ),
+      help: `lumo ${noun} show`,
+    })
+  ),
+  {
+    path: 'milestone changelog',
+    optionsOf: 'milestone show',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo milestone show',
+        [args[0] ?? '<milestone>', '--changelog'],
+        options
+      ),
+    help: 'lumo milestone show',
+  },
+  {
+    path: 'workspace security-scan',
+    // `security-scan show|update` are live; flags right after the group were the old form.
+    match: args => !['show', 'update'].includes(args[0] ?? ''),
+    label: 'lumo workspace security-scan [--<setting> …]',
+    optionsOf: 'workspace security-scan update',
+    replacement: (_a, flags, options) => {
+      const writes = flags.some(f => !SCAN_READ_FLAGS.has(f.split('=')[0]!))
+      return cmd(
+        `lumo workspace security-scan ${writes ? 'update' : 'show'}`,
+        [],
+        options
+      )
+    },
+    help: 'lumo workspace security-scan',
   },
 ]
 
@@ -478,6 +606,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...STATUS_TOMBSTONES,
   ...PROJECT_TOMBSTONES,
   ...CONFIRM_TOMBSTONES,
+  ...RENAME_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
