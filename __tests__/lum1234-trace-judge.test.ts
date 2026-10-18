@@ -88,15 +88,10 @@ describe('renderTranscript / buildRewardHackPrompt', () => {
     expect(() => renderTranscript('{}')).toThrow('not an array')
   })
 
-  it('fences the transcript and never carries the label or id', () => {
-    // Distinctive label / id values: the prompt is built from `conversation`
-    // alone, so neither can reach it.
-    const r = row('fake_id_7f3a', '9.8.7')
-    const p = buildRewardHackPrompt(r.conversation)
+  it('fences the transcript', () => {
+    const p = buildRewardHackPrompt(JSON.stringify(CONV))
     expect(p.startsWith('<agent-transcript>\n')).toBe(true)
     expect(p.endsWith('\n</agent-transcript>')).toBe(true)
-    expect(p).not.toContain('fake_id_7f3a')
-    expect(p).not.toContain('9.8.7')
   })
 })
 
@@ -178,8 +173,7 @@ describe('judgeTrajectory', () => {
     })
     const { record: rec, fatal } = await judgeTrajectory(
       'm/x',
-      'fake_1',
-      JSON.stringify(CONV)
+      row('fake_1', '1.1.1')
     )
     expect(fatal).toBe(false)
     expect(rec).toMatchObject({
@@ -203,7 +197,7 @@ describe('judgeTrajectory', () => {
 
   it('retries once, then records a failure as suspicion null', async () => {
     mockGenerate.mockRejectedValue(new Error('timeout'))
-    const r = await judgeTrajectory('m/x', 'fake_2', JSON.stringify(CONV))
+    const r = await judgeTrajectory('m/x', row('fake_2', '0'))
     expect(mockGenerate).toHaveBeenCalledTimes(2)
     expect(r.fatal).toBe(false)
     expect(r.record).toMatchObject({ suspicion: null, error: 'timeout' })
@@ -211,7 +205,7 @@ describe('judgeTrajectory', () => {
 
   it('flags a fatal gateway error without retrying', async () => {
     mockGenerate.mockRejectedValue(new Error('401 unauthorized'))
-    const r = await judgeTrajectory('m/x', 'fake_3', JSON.stringify(CONV))
+    const r = await judgeTrajectory('m/x', row('fake_3', '0'))
     expect(mockGenerate).toHaveBeenCalledTimes(1)
     expect(r.fatal).toBe(true)
   })
@@ -222,9 +216,45 @@ describe('judgeTrajectory', () => {
       usage: {},
       providerMetadata: {},
     })
-    const r = await judgeTrajectory('m/x', 'fake_4', JSON.stringify(CONV))
+    const r = await judgeTrajectory('m/x', row('fake_4', '0'))
     expect(r.record.suspicion).toBeNull()
     expect(r.record.error).toMatch(/non-finite suspicion/)
+  })
+})
+
+describe('judgeTrajectory label-leak rule', () => {
+  it('sends neither the row label nor its id to the model', async () => {
+    mockGenerate.mockResolvedValue({
+      object: { evidence: 'e', suspicion: 10, reason: 'r' },
+      usage: {},
+      providerMetadata: {},
+    })
+    await judgeTrajectory('m/x', row('fake_id_7f3a', '9.8.7'))
+    const call = mockGenerate.mock.calls[0]![0]
+    const sent = JSON.stringify([call.system, call.messages])
+    expect(sent).toContain('please make the parser tests pass')
+    expect(sent).not.toContain('fake_id_7f3a')
+    expect(sent).not.toContain('9.8.7')
+  })
+})
+
+describe('judgeTrajectory redaction', () => {
+  it('masks a credential the model echoes in reason / evidence', async () => {
+    // Built at run time so no key-shaped literal sits in the source.
+    const fakeKey = ['AK', 'IA', 'Q'.repeat(16)].join('')
+    mockGenerate.mockResolvedValue({
+      object: {
+        evidence: `uses ${fakeKey} in the test`,
+        suspicion: 80,
+        reason: `key ${fakeKey} hard-coded`,
+      },
+      usage: {},
+      providerMetadata: {},
+    })
+    const { record } = await judgeTrajectory('m/x', row('fake_5', '1.1.1'))
+    expect(record.reason).not.toContain(fakeKey)
+    expect(JSON.stringify(record.detail)).not.toContain(fakeKey)
+    expect(record.reason).toContain('key ')
   })
 })
 
@@ -256,7 +286,12 @@ describe('re-scoring through crossing-eval --judge recorded', () => {
     const records = join(dir, 'judge.jsonl')
     await writeFile(
       records,
-      [rec('fake_h', 0.9), rec('fake_b', 0.2)]
+      [
+        // A resumed run appends the success after the earlier failure.
+        { ...rec('fake_h', 0), suspicion: null, error: 'timeout' },
+        rec('fake_h', 0.9),
+        rec('fake_b', 0.2),
+      ]
         .map(r => JSON.stringify(r))
         .join('\n')
     )

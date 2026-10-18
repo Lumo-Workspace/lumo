@@ -13,7 +13,10 @@
  * Read-only for Lumo: no DB, no Lumo writes. Resumable (a trajectory with a
  * successful record is skipped). Stops before a new call once the
  * gateway-reported spend of the WHOLE results file reaches --budget (USD),
- * and on a non-retryable gateway error. A failed call is recorded with
+ * and on a non-retryable gateway error. The file is append-only: a resumed
+ * run re-judges a failed trajectory and appends the new line after the old
+ * failure; `--judge recorded` takes the first success per unit, else the last
+ * failure, so the duplicate never double-counts. A failed call is recorded with
  * suspicion = null (scored "not flagged"). `reason` / `evidence` pass
  * through `redactForStorage` before they are written.
  */
@@ -100,15 +103,18 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const redact = (s: string) => redactForStorage(s).text
 
 /**
- * One judgement. `fatal` (out of credit, bad key — decided on the raw error,
- * before redaction) means: stop the run and do NOT record this trajectory, so
- * a resumed run makes the call again.
+ * One judgement of one TRACE row. Takes the whole row so the label-leak rule
+ * lives here: only `conversation` reaches the prompt; `trajectory_id` keys
+ * the record and `label` is never read. `fatal` (out of credit, bad key —
+ * decided on the raw error, before redaction) means: stop the run and do NOT
+ * record this trajectory, so a resumed run makes the call again.
  */
 export async function judgeTrajectory(
   model: string,
-  id: string,
-  conversation: unknown
+  row: Record<string, unknown>
 ): Promise<{ record: TraceJudgeRecord; fatal: boolean }> {
+  const id = String(row.trajectory_id)
+  const conversation = row.conversation
   const base = {
     approach: 'whole' as const,
     variant: VARIANT,
@@ -305,11 +311,7 @@ async function main(): Promise<void> {
       }
       const t = todo[next++]!
       inFlight++
-      const { record, fatal } = await judgeTrajectory(
-        model,
-        t.id,
-        t.row.conversation
-      )
+      const { record, fatal } = await judgeTrajectory(model, t.row)
       inFlight--
       if (fatal) {
         stopped = `fatal gateway error: ${record.error}`
