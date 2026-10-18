@@ -287,6 +287,18 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
     expect(runner).not.toHaveBeenCalled()
   })
 
+  it('only the reward-hack layer on, PR without a task: SKIPPED, and no review slot is spent', async () => {
+    switches({ securityAiReviewEnabled: false, securityHuntEnabled: false })
+    prRepo.findById.mockResolvedValue({ ...PR, taskId: null } as never)
+    ;(prReviewControlRepository.reserve as jest.Mock).mockResolvedValue(false)
+    await runStageA()
+    expect(persisted().stages.rewardHack).toBe('SKIPPED')
+    expect(prReviewControlRepository.reserve).not.toHaveBeenCalled()
+    expect(persisted().partialCauses ?? []).not.toContain('AI_REVIEW_PAUSED')
+    await drainBackground()
+    expect(runner).not.toHaveBeenCalled()
+  })
+
   it('only the reward-hack layer on, not paused: PENDING', async () => {
     switches({ securityAiReviewEnabled: false, securityHuntEnabled: false })
     await runStageA()

@@ -43,11 +43,11 @@ export type SecurityScanSettingsUpdate =
   | { all: boolean }
 
 /**
- * `all: false` = disable all, `all: true` = enable all (the three layer
- * switches, reward-hack included — `all` never touches the request-changes workflow, LUM-1130,
- * author approval, LUM-1142,
- * the learnings scope, LUM-1134, or the review pause-after, LUM-1137);
- * else as given.
+ * `all: false` = disable all, `all: true` = enable all — the four layer
+ * switches (scan, AI review, hunt, reward-hack). `all` never touches the
+ * request-changes workflow (LUM-1130), author approval (LUM-1142), the
+ * learnings scope (LUM-1134) or the review pause-after (LUM-1137). Else as
+ * given.
  */
 export function switchesForUpdate(update: SecurityScanSettingsUpdate): {
   [K in keyof WorkspaceSecuritySwitches]?:

@@ -1240,8 +1240,11 @@ export const prSecurityScanService = {
       // LUM-1137: every push, until N reviewed commits, under an hourly cap.
       // LUM-1152: `@<app> ignore` in the description skips the automatic AI
       // layers before the budget is touched; the deterministic layers run.
-      // LUM-1234 (R12): the reward-hack layer is an automatic AI layer too.
-      const aiLayers = layers.aiReview || layers.hunt || layers.rewardHack
+      // LUM-1234 (R12): the reward-hack layer is an automatic AI layer too —
+      // but only for a PR with a task (no task = no sessions = SKIPPED), so a
+      // task-less PR in a reward-hack-only workspace spends no review slot.
+      const aiLayers =
+        layers.aiReview || layers.hunt || (layers.rewardHack && !!pr.taskId)
       const automaticAi = aiLayers && input.reviewMode === undefined
       const ignored = automaticAi && (await isPrReviewIgnored(pr))
       const admission =
@@ -2069,11 +2072,11 @@ export const prSecurityScanService = {
       // unfinished while the layer is not offered.
       // R12: held by the same pause / ignore / hourly cap as the AI review.
       if (layers.rewardHack)
-        stages.rewardHack = !aiAllowed
-          ? 'PAUSED'
-          : pr.taskId
-            ? 'PENDING'
-            : 'SKIPPED'
+        stages.rewardHack = !pr.taskId
+          ? 'SKIPPED'
+          : !aiAllowed
+            ? 'PAUSED'
+            : 'PENDING'
       else if (layers.rewardHackTurnedOff) stages.rewardHack = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
       // run (an industry-standard file cap): recorded, with the numbers the
