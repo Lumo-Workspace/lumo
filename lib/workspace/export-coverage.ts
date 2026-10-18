@@ -71,6 +71,10 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   // LUM-932: operational audit of a token-usage correction (revert data for
   // Session usage columns), derived from telemetry — not workspace content.
   UsageResyncAudit: TELEMETRY,
+  // LUM-1234: Lumo's own per-workspace monthly LLM spend ledger for cost caps;
+  // operational metadata (feature, month, cost), no customer content.
+  WorkspaceLlmSpend:
+    "internal LLM cost ledger for Lumo's own spend caps — operational metadata, no customer content",
   Worktree: TELEMETRY,
   MemoryStaleAnchorReport: TELEMETRY,
   LineageEdge: TELEMETRY,

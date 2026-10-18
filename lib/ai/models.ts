@@ -117,6 +117,9 @@ export const MODEL_PROVIDER_PINS: Readonly<Record<string, readonly string[]>> =
     // LUM-1084 — same reason: the hunt sends customer code, and Haiku's other
     // gateway hosts (bedrock, claudeaws, vertexAnthropic) are not announced.
     [HUNT_MODEL]: ['anthropic'],
+    // LUM-1234 — the reward-hack judge reads agent session transcripts; same
+    // reason: keep it on Anthropic's own API, not the unannounced cloud hosts.
+    [REWARD_HACK_MODEL]: ['anthropic'],
   }
 
 /**

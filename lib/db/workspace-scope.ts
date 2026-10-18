@@ -87,6 +87,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'WorkspaceExport',
   'WorkspaceInvite',
   'WorkspaceMember',
+  'WorkspaceLlmSpend',
   'WorkspaceSummary',
   'Worktree',
 ] as const
