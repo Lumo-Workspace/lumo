@@ -161,6 +161,20 @@ export function presenceWords(text: string): string[] {
   return out
 }
 
+/** Words that carry a rule's polarity — must all be on the matching line. */
+const POLARITY_WORDS = new Set([
+  'never',
+  'not',
+  'no',
+  'don',
+  'only',
+  'must',
+  'forbidden',
+  'prohibited',
+  'without',
+  'unless',
+])
+
 /** Below this many content words a paraphrase match is too easy to hit by
  *  accident — such a rule must be present verbatim. */
 const PARAPHRASE_MIN_WORDS = 5
@@ -194,6 +208,9 @@ export function compiledRuleTextPresentIn(
   const words = presenceWords(ruleText.replace(/\s*\[[^\]]*\]\s*$/u, ''))
   if (words.length < PARAPHRASE_MIN_WORDS) return false
   const identifiers = words.filter(w => /[_0-9]/.test(w))
+  // Polarity words are never tolerated away: "never X" edited to "you may X"
+  // is a person weakening the rule, however many other words survive.
+  const polarity = words.filter(w => POLARITY_WORDS.has(w))
   let heading = ''
   for (const line of source.split('\n')) {
     if (/^\s*#{1,6}\s/.test(line)) {
@@ -203,6 +220,7 @@ export function compiledRuleTextPresentIn(
     if (line.trim() === '') continue
     const have = new Set(presenceWords(`${heading}\n${line}`))
     if (!identifiers.every(w => have.has(w))) continue
+    if (!polarity.every(w => have.has(w))) continue
     const hits = words.filter(w => have.has(w)).length
     if (hits / words.length >= PARAPHRASE_MIN_SHARE) return true
   }

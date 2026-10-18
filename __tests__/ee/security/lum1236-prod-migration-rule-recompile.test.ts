@@ -238,6 +238,15 @@ describe('1. migration rules keep a deterministic checker', () => {
       'migrate-dev',
     ])
     expect(prohibitedClauses('Use X. Never run Y; ok Z')).toEqual([' run Y'])
+    // A negation that obliges is no ban.
+    expect(
+      forbiddenMigrationOps(
+        "Don't forget to run `prisma migrate dev` after editing the schema"
+      )
+    ).toEqual([])
+    expect(
+      forbiddenMigrationOps('Never skip `prisma migrate dev` locally')
+    ).toEqual([])
     // Seen in a local recompile: the model elides with "...".
     expect(
       forbiddenMigrationOps(
@@ -360,6 +369,18 @@ describe('1. migration rules keep a deterministic checker', () => {
     expect(
       findPolicyConflicts('You can run prisma migrate dev locally.', COMPILED)
     ).toEqual([])
+    expect(
+      findPolicyConflicts(
+        'You can query _prisma_migrations to see what was applied.',
+        COMPILED
+      )
+    ).toEqual([])
+    expect(
+      findPolicyConflicts(
+        'It is fine to UPDATE _prisma_migrations by hand.',
+        COMPILED
+      ).length
+    ).toBeGreaterThan(0)
   })
 })
 
@@ -478,6 +499,18 @@ describe('3. the weakening judge tolerates the classifier rewording a rule', () 
         withoutBullet('Dev')
       )
     ).toMatchObject({ severity: 'HIGH', advisory: false })
+  })
+
+  it('a polarity edit is never tolerated away', () => {
+    const edited = SOURCE.replace(
+      'never `migrate dev`, `db push`',
+      'you may run `migrate dev`, `db push`'
+    )
+    expect(edited).not.toBe(SOURCE)
+    expect(compiledRuleTextPresentIn(edited, PREV_PROD.text)).toBe(false)
+    expect(policyWeakeningVerdict(PREV_PROD, edited)).toMatchObject({
+      severity: 'HIGH',
+    })
   })
 
   it('a short rule must match verbatim', () => {

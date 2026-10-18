@@ -208,7 +208,11 @@ function subjectsFor(predicate: { type: string; value: string }): string[] {
           : o === 'db-push'
             ? ['db push']
             : o === 'migrations-table-write'
-              ? ['_prisma_migrations']
+              ? [
+                  'update _prisma_migrations',
+                  'delete from _prisma_migrations',
+                  'insert into _prisma_migrations',
+                ]
               : []
     })
   const literal = predicate.value

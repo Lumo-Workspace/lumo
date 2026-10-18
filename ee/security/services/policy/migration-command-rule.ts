@@ -29,6 +29,10 @@ import type { RawPolicyRule } from './types'
 const PROHIBITION =
   /\b(?:never|do\s+not|don'?t|must\s+not|may\s+not|not|forbidden|prohibited)\b|禁止|严禁|不要|不得|不能|不准|不可|勿|别/gi
 
+/** A negation that obliges: "don't forget to", "never skip", "not only". */
+const OBLIGING_NEGATION =
+  /^\s*(?:forget|skip|miss|omit|neglect|hesitate|fail|only|just)\b|^\s*(?:忘|漏|跳过)/i
+
 /** Clause / sentence boundaries — a prohibition reaches to the next one. An
  *  ellipsis is elision, not an end: the model writes "never `migrate dev`
  *  ... or direct edits to `_prisma_migrations`". */
@@ -50,6 +54,8 @@ export function prohibitedClauses(text: string): string[] {
   const out: string[] = []
   for (const m of t.matchAll(PROHIBITION)) {
     const rest = t.slice((m.index ?? 0) + m[0].length)
+    // "don't forget to run …" / "never skip …" oblige, they do not forbid.
+    if (OBLIGING_NEGATION.test(rest)) continue
     const end = rest.search(CLAUSE_END)
     out.push(end === -1 ? rest : rest.slice(0, end))
   }
