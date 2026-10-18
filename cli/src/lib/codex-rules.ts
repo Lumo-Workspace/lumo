@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { hint } from './feedback'
+import { CODEX_CLASSES } from './codex-classes.generated'
 
 /**
  * LUM-1054: Codex's default `workspace-write` sandbox has no network, so every
@@ -21,10 +22,9 @@ import { hint } from './feedback'
  * `~/.codex/rules/` always, a project's `<repo>/.codex/rules/` only once that
  * project is trusted.
  *
- * Every leaf of the commander tree must be classified in exactly one of the
- * two lists below (__tests__/cli/codex-sandbox-network.test.ts walks
- * scripts/cli-grammar/grammar.json), so a new command forces a
- * conscious ALLOW/DENY decision.
+ * Every leaf of the commander tree carries a Codex class (its own `.codex()`
+ * or its group's); emit-grammar refuses to run without one, so a new command
+ * forces a conscious ALLOW/DENY decision (LUM-1233 batch 4).
  *
  * The file is wholly Lumo's: the first line marks it, init rewrites it only
  * when the content differs, and uninstall deletes it.
@@ -34,131 +34,38 @@ export const CODEX_RULES_MARKER =
   '# Managed by `lumo init` (LUM-1054). Remove with `lumo uninstall`.'
 
 /**
- * Server-only commands (grammar.json paths): run outside Codex's sandbox
- * without prompting. None of them takes a flag or argument that reads a local
- * file (those are in {@link CODEX_FILE_READING_COMMANDS}). A path covers everything after it (`priority` also
- * covers `priority list`), so never list a path that has a sandboxed command
- * below it.
+ * LUM-1233 batch 4 (CX-1): the three lists below are derived from the
+ * `.codex()` class declared on each command (cli/src/lib/command-class.ts),
+ * which emit-grammar writes into grammar.json and codex-classes.generated.ts.
+ * A class on a group covers every command below it. Nothing here is kept by
+ * hand any more, and a removed command (a tombstone) is never registered, so
+ * it can never be allowed.
  */
-export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
-  'audit list',
-  'crossing list',
-  'doc delete',
-  'doc import',
-  'doc list',
-  'doc move',
-  'doc rebuild-source',
-  'doc show',
-  'doc sync',
-  'member list',
-  'memory fold',
-  'memory add',
-  'memory delete',
-  'memory list',
-  'memory show',
-  'memory update',
-  'milestone add',
-  'milestone archive',
-  'milestone changelog',
-  'milestone create',
-  'milestone delete',
-  'milestone list',
-  'milestone move',
-  'milestone remove',
-  'milestone reorder',
-  'milestone show',
-  'milestone summary',
-  'milestone testcase add',
-  'milestone testcase delete',
-  'milestone testcase list',
-  'milestone testcase show',
-  'milestone testcase update',
-  'milestone triage',
-  'milestone unarchive',
-  'milestone update',
-  'pr review',
-  'pr show',
-  'priority',
-  'project create',
-  'project list',
-  'project overview',
-  'project update',
-  'session status',
-  'sprint add',
-  'sprint close',
-  'sprint create',
-  'sprint delete',
-  'sprint list',
-  'sprint remove',
-  'sprint show',
-  'sprint start',
-  'sprint summary',
-  'sprint update',
-  // me across the workspace: priority, inbox, drafts, next (read-only)
-  'status',
-  'tag create',
-  'tag list',
-  'task artifact list',
-  'task artifact rm',
-  'task artifact show',
-  'task artifact update',
-  'task comment',
-  'task comments edit',
-  'task comments rm',
-  'task create',
-  'task decide',
-  'task delete',
-  'task deps add',
-  'task deps confirm',
-  'task deps dismiss',
-  'task deps rm',
-  'task figma add',
-  'task figma context',
-  'task figma list',
-  'task figma refresh',
-  'task figma rm',
-  'task list',
-  'task pr show',
-  'task search',
-  'task show',
-  'task slack show',
-  // assesses local worktrees read-only for DONE readiness (never removes them)
-  'task status',
-  'task statuses',
-  'task template list',
-  'task template rm',
-  'task template show',
-  'task testcase add',
-  'task testcase delete',
-  'task testcase list',
-  'task testcase show',
-  'task testcase update',
-  'task web show',
-  'usage show',
-  'workspace security-scan',
-]
+const classified = Object.entries(CODEX_CLASSES)
 
 /**
- * Server-only commands that can read an arbitrary local file and send it to
- * the Lumo API (the flag that does it). A prefix rule cannot exclude a flag,
- * so the whole command stays sandboxed: Codex asks first, and no prompt-
- * injected `lumo doc create --file ~/.ssh/id_rsa` runs unseen.
+ * Server-only commands (grammar.json paths): run outside Codex's sandbox
+ * without prompting. None of them takes a flag or argument that reads a local
+ * file (those are in {@link CODEX_FILE_READING_COMMANDS}). A path covers
+ * everything after it, so a group is server-only only when all of it is.
  */
-export const CODEX_FILE_READING_COMMANDS: Readonly<Record<string, string>> = {
-  'crossing explain': '--file <json>',
-  'doc append': '--file',
-  'doc create': '--file',
-  'doc diff': '--file',
-  'doc patch': '--file',
-  'doc update': '--file',
-  'milestone testcase run': '--evidence-file, --step-evidence <step>=<file>',
-  'task artifact add': '--file',
-  'task template create': '--file',
-  'task template edit': '--file',
-  'task testcase run': '--evidence-file, --step-evidence <step>=<file>',
-  'usage resync':
-    'reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)',
-}
+export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = classified
+  .filter(([, c]) => c.serverOnly)
+  .map(([path]) => path)
+  .sort()
+
+/**
+ * Commands that can read an arbitrary local file and send it to the Lumo API
+ * (the flag that does it). A prefix rule cannot exclude a flag, so the whole
+ * command stays sandboxed: Codex asks first, and no prompt-injected
+ * `lumo doc create --file ~/.ssh/id_rsa` runs unseen.
+ */
+export const CODEX_FILE_READING_COMMANDS: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    classified.flatMap(([path, c]) =>
+      !c.serverOnly && c.localFiles === 'reads' ? [[path, c.detail]] : []
+    )
+  )
 
 /** The reason recorded for every {@link CODEX_FILE_READING_COMMANDS} entry. */
 export const FILE_READING_REASON =
@@ -168,44 +75,21 @@ export const FILE_READING_REASON =
  * Commands that stay inside Codex's sandbox (Codex asks before running them
  * outside it), with the reason. A path covers everything below it.
  */
-export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
-  ...Object.fromEntries(
-    Object.entries(CODEX_FILE_READING_COMMANDS).map(([cmd, flag]) => [
-      cmd,
-      `${FILE_READING_REASON} (${flag})`,
-    ])
-  ),
-  'auth login': 'writes ~/.lumo credentials and opens a browser',
-  'auth logout': 'deletes ~/.lumo credentials',
-  'crossing disposition':
-    'a human-only ruling: keep Codex asking the user first',
-  doctor: 'local-only diagnosis, no Lumo API call (runs fine sandboxed)',
-  'finding disposition':
-    'a human-only ruling: keep Codex asking the user first',
-  hook: 'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself',
-  init: 'writes skill, hook and rules files',
-  'skill status':
-    'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
-  'skill update': 'writes skill files',
-  'memory push': 'deletes local memory files after pushing',
-  'milestone testcase disposition':
-    'a human-only ruling: keep Codex asking the user first',
-  'milestone testcase download':
-    'writes local files (saves evidence into <dir>) — Codex asks first',
-  'memory sync': 'writes the local memory directory',
-  'session attach':
-    'can create a git worktree (--worktree / autoWorktree) and sync local memory',
-  'task testcase disposition':
-    'a human-only ruling: keep Codex asking the user first',
-  'task testcase download':
-    'writes local files (saves evidence into <dir>) — Codex asks first',
-  'task update': 'a confirmed DONE removes local git worktrees',
-  uninstall: 'deletes skill, hook and rules files',
-  update: 'runs npm install -g',
-  whoami:
-    'local-only (reads credentials, no Lumo API call; runs fine sandboxed)',
-  worktree: 'creates/removes git worktrees and branches (list: local git only)',
-}
+export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    classified.flatMap(([path, c]) =>
+      c.serverOnly
+        ? []
+        : [
+            [
+              path,
+              c.localFiles === 'reads'
+                ? `${FILE_READING_REASON} (${c.detail})`
+                : c.detail,
+            ],
+          ]
+    )
+  )
 
 const RULE_INDENT = '    '
 

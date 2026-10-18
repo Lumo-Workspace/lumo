@@ -2,7 +2,14 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { Command, Option } from 'commander'
+import { Option } from 'commander'
+import {
+  LumoCommand,
+  SERVER_ONLY,
+  readsLocalFile,
+  sandboxed,
+  writesLocal,
+} from './lib/command-class'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
@@ -342,7 +349,7 @@ function wrap(fn: CommandFn) {
   }
 }
 
-const program = new Command()
+const program = new LumoCommand()
   .name('lumo')
   .description('Lumo CLI — manage tasks and sessions from the terminal')
   .version(pkg.version)
@@ -404,16 +411,23 @@ const auth = program.command('auth').description('Manage Lumo authentication')
 
 auth
   .command('login')
+  .codex(writesLocal('writes ~/.lumo credentials and opens a browser'))
   .description('Log in to Lumo by pasting an API key')
   .action(wrap(authLogin))
 
 auth
   .command('logout')
+  .codex(writesLocal('deletes ~/.lumo credentials'))
   .description('Log out and remove local credentials')
   .action(wrap(authLogout))
 
 program
   .command('whoami')
+  .codex(
+    sandboxed(
+      'local-only (reads credentials, no Lumo API call; runs fine sandboxed)'
+    )
+  )
   .description(
     'Show the logged-in identity from local credentials (one line; no network call)'
   )
@@ -425,6 +439,7 @@ program
 
 program
   .command('update')
+  .codex(writesLocal('runs npm install -g'))
   .description(
     `Check npm for a newer ${pkg.name} and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that.`
   )
@@ -434,6 +449,7 @@ program
 function registerInit(): void {
   program
     .command('init')
+    .codex(writesLocal('writes skill, hook and rules files'))
     .description(
       'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
     )
@@ -480,6 +496,11 @@ const skill = program
 
 skill
   .command('status')
+  .codex(
+    sandboxed(
+      'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)'
+    )
+  )
   .description(
     'Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.'
   )
@@ -491,6 +512,7 @@ skill
 
 skill
   .command('update')
+  .codex(writesLocal('writes skill files'))
   .description(
     'Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.'
   )
@@ -525,6 +547,9 @@ skill
 
 program
   .command('doctor')
+  .codex(
+    sandboxed('local-only diagnosis, no Lumo API call (runs fine sandboxed)')
+  )
   .description(
     'Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.'
   )
@@ -533,6 +558,7 @@ program
 
 program
   .command('uninstall')
+  .codex(writesLocal('deletes skill, hook and rules files'))
   .description(
     'Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.'
   )
@@ -578,6 +604,7 @@ const crossing = program
 
 crossing
   .command('list [task]')
+  .codex(SERVER_ONLY)
   .description(
     "Read-only: a task's boundary crossings in full, as the web Record panel shows them. Open rows only by default; --all adds the dispositioned history. Defaults to the session-bound task."
   )
@@ -594,6 +621,7 @@ crossing
 
 crossing
   .command('explain [id]')
+  .codex(readsLocalFile('--file <json>'))
   .description(
     'Append an agent self-explanation to boundary crossings for the human reviewer. Append-only: it never clears a crossing or unblocks Done. --file takes a JSON array of {"id","note"}.'
   )
@@ -617,6 +645,7 @@ crossing
 
 crossing
   .command('disposition <ids...>')
+  .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
   .description(
     'Rule on one or more boundary crossings through a three-step handshake (show, confirm read, confirm ruling); each step exits 4 with an envelope to relay. Never supply a step flag yourself.'
   )
@@ -660,6 +689,7 @@ const finding = program
 
 finding
   .command('disposition <ids...>')
+  .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
   .description(
     "Record the user's ruling on one or more PR security findings, which clears a DONE blocker. Without --confirm it prints one confirmation envelope (exit 4) and writes nothing."
   )
@@ -685,6 +715,7 @@ finding
 
 program
   .command('status')
+  .codex(SERVER_ONLY)
   .description(
     'Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.'
   )
@@ -714,6 +745,7 @@ const priorityCmd = program
 
 priorityCmd
   .command('create <text>')
+  .codex(SERVER_ONLY)
   .description(
     'Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it.'
   )
@@ -721,6 +753,7 @@ priorityCmd
 
 priorityCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'Print the team priority append history, newest-first (the current declaration is marked with *).'
   )
@@ -732,6 +765,7 @@ const pr = program
   .description('Inspect pull requests by number — linked to a task or not')
 
 pr.command('show <number>')
+  .codex(SERVER_ONLY)
   .description(
     "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
   )
@@ -758,6 +792,7 @@ pr.command('show <number>')
   )
 
 pr.command('review <number>')
+  .codex(SERVER_ONLY)
   .description(
     'Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push.'
   )
@@ -787,6 +822,11 @@ const session = program
 
 session
   .command('attach <identifier>')
+  .codex(
+    writesLocal(
+      'can create a git worktree (--worktree / autoWorktree) and sync local memory'
+    )
+  )
   .description(
     'Attach this Claude Code or Codex session to a task, or with --steward to a milestone as a governance session. The binding is a lifetime lock: start a new session to switch.'
   )
@@ -813,6 +853,7 @@ session
 
 session
   .command('status')
+  .codex(SERVER_ONLY)
   .description(
     'Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
@@ -825,6 +866,7 @@ const usage = program
 
 usage
   .command('show')
+  .codex(SERVER_ONLY)
   .description(
     'Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days.'
   )
@@ -859,6 +901,11 @@ usage
 
 usage
   .command('resync')
+  .codex(
+    readsLocalFile(
+      'reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)'
+    )
+  )
   .description(
     'Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content.'
   )
@@ -876,6 +923,7 @@ const task = program
 
 task
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
   )
@@ -904,6 +952,7 @@ task
 
 task
   .command('search [query]')
+  .codex(SERVER_ONLY)
   .description(
     'Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page.'
   )
@@ -949,6 +998,7 @@ task
 
 task
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it.'
   )
@@ -964,6 +1014,7 @@ task
 
 task
   .command('statuses')
+  .codex(SERVER_ONLY)
   .description(
     'Show the task status set, allowed transitions and priorities, as served by the API.'
   )
@@ -972,6 +1023,7 @@ task
 
 task
   .command('show [task]')
+  .codex(SERVER_ONLY)
   .description(
     'Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task.'
   )
@@ -1027,6 +1079,7 @@ task
 
 task
   .command('status [task]')
+  .codex(SERVER_ONLY)
   .description(
     'Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task.'
   )
@@ -1049,6 +1102,7 @@ task
 
 task
   .command('comment <identifier> <body>')
+  .codex(SERVER_ONLY)
   .description(
     'Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.'
   )
@@ -1068,6 +1122,7 @@ task
 
 task
   .command('create <title>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.'
   )
@@ -1112,6 +1167,7 @@ const taskTemplate = task
 
 taskTemplate
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.'
   )
@@ -1120,6 +1176,7 @@ taskTemplate
 
 taskTemplate
   .command('show <key>')
+  .codex(SERVER_ONLY)
   .description(
     "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`."
   )
@@ -1132,6 +1189,7 @@ taskTemplate
 
 taskTemplate
   .command('create <key>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Create a workspace template from a local Markdown file (OWNER only). <key> is a lowercase slug; built-in keys are reserved.'
   )
@@ -1151,6 +1209,7 @@ taskTemplate
 
 taskTemplate
   .command('edit <key>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited.'
   )
@@ -1171,6 +1230,7 @@ taskTemplate
 
 taskTemplate
   .command('rm <key>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.'
   )
@@ -1186,6 +1246,7 @@ taskTemplate
 
 task
   .command('decide <identifier> <text>')
+  .codex(SERVER_ONLY)
   .description(
     "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
   )
@@ -1199,6 +1260,7 @@ const taskFigma = task
 
 taskFigma
   .command('add <task> <url>')
+  .codex(SERVER_ONLY)
   .description(
     'Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.'
   )
@@ -1210,6 +1272,7 @@ taskFigma
 
 taskFigma
   .command('list <task>')
+  .codex(SERVER_ONLY)
   .description('List Figma links attached to a task')
   .option('--json', 'Print { version, figmaLinks, total, nextCursor } as JSON')
   .action(
@@ -1223,6 +1286,7 @@ taskFigma
 
 taskFigma
   .command('rm <task> <link>')
+  .codex(SERVER_ONLY)
   .description(
     'Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing'
   )
@@ -1237,6 +1301,7 @@ taskFigma
 
 taskFigma
   .command('refresh <task>')
+  .codex(SERVER_ONLY)
   .description(
     'Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.'
   )
@@ -1252,6 +1317,7 @@ taskFigma
 const taskSlack = task.command('slack').description('Inspect Slack context')
 taskSlack
   .command('show <identifier> <ref>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
@@ -1265,6 +1331,7 @@ taskSlack
 const taskWeb = task.command('web').description('Inspect web link content')
 taskWeb
   .command('show <identifier> <ref>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
@@ -1278,6 +1345,7 @@ taskWeb
 // taskFigma already exists above → attach the context leaf to it.
 taskFigma
   .command('context <identifier> <ref>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
@@ -1300,6 +1368,7 @@ const taskComments = task
   )
 taskComments
   .command('edit <identifier> <comment> <body>')
+  .codex(SERVER_ONLY)
   .description(
     'Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).'
   )
@@ -1310,6 +1379,7 @@ taskComments
   )
 taskComments
   .command('rm <identifier> <comment>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
   )
@@ -1334,6 +1404,7 @@ const taskDeps = task
   )
 taskDeps
   .command('add <identifier>')
+  .codex(SERVER_ONLY)
   .requiredOption('--blocked-by <blocker>', 'blocker task (LUM-N)')
   .description('Declare a manual hard dependency (CONFIRMED)')
   .action(
@@ -1341,6 +1412,7 @@ taskDeps
   )
 taskDeps
   .command('confirm <identifier> <edge>')
+  .codex(SERVER_ONLY)
   .option('--reverse', 'flip direction when confirming')
   .description('Confirm a detected candidate edge')
   .action(
@@ -1354,10 +1426,12 @@ taskDeps
   )
 taskDeps
   .command('dismiss <identifier> <edge>')
+  .codex(SERVER_ONLY)
   .description('Dismiss a candidate (never re-suggested)')
   .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
 taskDeps
   .command('rm <identifier> <edge>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.'
   )
@@ -1374,6 +1448,7 @@ taskDeps
 const taskPr = task.command('pr').description('Inspect linked PRs')
 taskPr
   .command('show <identifier> <number>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the synced PR record (diff/review comments when available)'
   )
@@ -1395,6 +1470,7 @@ const taskArtifact = task
 
 taskArtifact
   .command('add <task>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content.'
   )
@@ -1423,6 +1499,7 @@ taskArtifact
 
 taskArtifact
   .command('update <task> <artifact>')
+  .codex(SERVER_ONLY)
   .description(
     'Update an artifact’s kind / title / source (not content). Provide at least one flag. <artifact>: the 8-char short ref in `artifact list` column 1, a unique id prefix or the full id.'
   )
@@ -1448,6 +1525,7 @@ taskArtifact
 
 taskArtifact
   .command('list <task>')
+  .codex(SERVER_ONLY)
   .description('List artifacts attached to a task, in order')
   .option('--json', 'Print { version, artifacts, total, nextCursor } as JSON')
   .action(
@@ -1458,6 +1536,7 @@ taskArtifact
 
 taskArtifact
   .command('show <task> <artifact>')
+  .codex(SERVER_ONLY)
   .description(
     'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id.'
   )
@@ -1474,6 +1553,7 @@ taskArtifact
 
 taskArtifact
   .command('rm <task> <artifact>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
   )
@@ -1497,7 +1577,7 @@ taskArtifact
  * they cannot drift. Each per-case verb takes the handle `<parent>/TC<n>`.
  */
 function registerTestCaseCommands(
-  group: Command,
+  group: LumoCommand,
   kind: TestCaseParentKind
 ): void {
   const parent = kind === 'task' ? '[task]' : '<milestone>'
@@ -1508,6 +1588,7 @@ function registerTestCaseCommands(
 
   group
     .command(`add ${parent}`)
+    .codex(SERVER_ONLY)
     .description(
       `Add a test case. --step / --verify are repeatable and keep the order they appear in.${parentNote}`
     )
@@ -1545,6 +1626,7 @@ function registerTestCaseCommands(
 
   group
     .command(`list ${parent}`)
+    .codex(SERVER_ONLY)
     .description(
       `List test cases with each one's latest run (result, environment, commit).${parentNote}`
     )
@@ -1564,6 +1646,7 @@ function registerTestCaseCommands(
 
   group
     .command(`show ${handle}`)
+    .codex(SERVER_ONLY)
     .description(
       `Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: ${example}`
     )
@@ -1580,6 +1663,11 @@ function registerTestCaseCommands(
 
   group
     .command(`download ${handle} <dir>`)
+    .codex(
+      writesLocal(
+        'writes local files (saves evidence into <dir>) — Codex asks first'
+      )
+    )
     .description(
       `Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: ${example}`
     )
@@ -1596,6 +1684,7 @@ function registerTestCaseCommands(
 
   group
     .command(`update ${handle}`)
+    .codex(SERVER_ONLY)
     .description(
       'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
     )
@@ -1626,6 +1715,7 @@ function registerTestCaseCommands(
 
   group
     .command(`delete ${handle}`)
+    .codex(SERVER_ONLY)
     .description(
       'Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
     )
@@ -1645,6 +1735,7 @@ function registerTestCaseCommands(
 
   group
     .command(`run ${handle}`)
+    .codex(readsLocalFile('--evidence-file, --step-evidence <step>=<file>'))
     .description(
       'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
     )
@@ -1719,6 +1810,7 @@ function registerTestCaseCommands(
 
   group
     .command(`disposition ${handle}`)
+    .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
     .description(
       "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
     )
@@ -1764,6 +1856,7 @@ const memberCmd = program
 
 memberCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List workspace members (name, email, role) and agent actors — the refs `--assignee` accepts.'
   )
@@ -1776,6 +1869,7 @@ const auditCmd = program
 
 auditCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List the workspace audit log, newest first: who did what, when, from where (OWNER only).'
   )
@@ -1806,6 +1900,7 @@ const workspaceCmd = program
 
 workspaceCmd
   .command('security-scan')
+  .codex(SERVER_ONLY)
   .description(
     'Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm.'
   )
@@ -1941,6 +2036,7 @@ const tagCmd = program
 
 tagCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List workspace tags with their color and how many tasks / docs carry each.'
   )
@@ -1949,6 +2045,7 @@ tagCmd
 
 tagCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`.'
   )
@@ -1965,6 +2062,7 @@ const projectCmd = program
 
 projectCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
@@ -1973,6 +2071,7 @@ projectCmd
 
 projectCmd
   .command('overview [project]')
+  .codex(SERVER_ONLY)
   .description(
     "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
   )
@@ -1989,6 +2088,7 @@ projectCmd
 
 projectCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description('Create a project in the workspace (≤200 chars).')
   .option('-d, --description <text>', 'Project description')
   .action(
@@ -1999,6 +2099,7 @@ projectCmd
 
 projectCmd
   .command('update <project>')
+  .codex(SERVER_ONLY)
   .description(
     'Update a project (name or slug): --name, --description ("" clears), --owner (me | email | name; "" clears).'
   )
@@ -2022,6 +2123,7 @@ const memoryCmd = program
 
 memoryCmd
   .command('add')
+  .codex(SERVER_ONLY)
   .description(
     'Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project.'
   )
@@ -2056,6 +2158,7 @@ memoryCmd
 
 memoryCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings.'
   )
@@ -2088,6 +2191,7 @@ memoryCmd
 
 memoryCmd
   .command('show <memory>')
+  .codex(SERVER_ONLY)
   .description(
     "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
   )
@@ -2100,6 +2204,7 @@ memoryCmd
 
 memoryCmd
   .command('update <memory>')
+  .codex(SERVER_ONLY)
   .description(
     'Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks.'
   )
@@ -2115,6 +2220,7 @@ memoryCmd
 
 memoryCmd
   .command('delete <memory>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.'
   )
@@ -2130,6 +2236,7 @@ memoryCmd
 
 memoryCmd
   .command('sync')
+  .codex(writesLocal('writes the local memory directory'))
   .description(
     'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project.'
   )
@@ -2162,6 +2269,7 @@ memoryCmd
 
 memoryCmd
   .command('push')
+  .codex(writesLocal('deletes local memory files after pushing'))
   .description(
     'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success.'
   )
@@ -2178,6 +2286,7 @@ memoryCmd
 
 memoryCmd
   .command('fold [project-ref]')
+  .codex(SERVER_ONLY)
   .description(
     'Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run.'
   )
@@ -2197,6 +2306,7 @@ const milestoneCmd = program
 
 milestoneCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
@@ -2216,6 +2326,7 @@ milestoneCmd
 
 milestoneCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a milestone. --project required when workspace has >1 project.'
   )
@@ -2230,6 +2341,7 @@ milestoneCmd
 
 milestoneCmd
   .command('show <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
@@ -2242,6 +2354,7 @@ milestoneCmd
 
 milestoneCmd
   .command('update <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Update a milestone: at least one of --name, --description, --start, --target, --token-budget ("" clears a nullable field). Completion is derived from its tasks.'
   )
@@ -2261,6 +2374,7 @@ milestoneCmd
 
 milestoneCmd
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
@@ -2279,6 +2393,7 @@ milestoneCmd
 
 milestoneCmd
   .command('archive <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.'
   )
@@ -2290,6 +2405,7 @@ milestoneCmd
 
 milestoneCmd
   .command('unarchive <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
@@ -2301,6 +2417,7 @@ milestoneCmd
 
 milestoneCmd
   .command('add <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
     'Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back.'
   )
@@ -2316,6 +2433,7 @@ milestoneCmd
 
 milestoneCmd
   .command('remove <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
     'Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned.'
   )
@@ -2331,6 +2449,7 @@ milestoneCmd
 
 milestoneCmd
   .command('triage <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
     'Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them.'
   )
@@ -2352,6 +2471,7 @@ milestoneCmd
 
 milestoneCmd
   .command('summary <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the AI-generated summary of a milestone (slug, name or id), or "(no summary generated yet)". --retry queues regeneration before fetching.'
   )
@@ -2367,6 +2487,7 @@ milestoneCmd
 
 milestoneCmd
   .command('changelog <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones."
   )
@@ -2382,6 +2503,7 @@ milestoneCmd
 
 milestoneCmd
   .command('reorder <refs...>')
+  .codex(SERVER_ONLY)
   .description(
     "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
   )
@@ -2393,6 +2515,7 @@ milestoneCmd
 
 milestoneCmd
   .command('move <ref>')
+  .codex(SERVER_ONLY)
   .description(
     'Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project.'
   )
@@ -2421,6 +2544,7 @@ const sprintCmd = program
 
 sprintCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List sprints for a team. --team required when workspace has >1 team. Sorted newest first.'
   )
@@ -2435,6 +2559,7 @@ sprintCmd
 
 sprintCmd
   .command('show <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.'
   )
@@ -2454,6 +2579,7 @@ sprintCmd
 
 sprintCmd
   .command('create')
+  .codex(SERVER_ONLY)
   .description(
     'Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.'
   )
@@ -2468,6 +2594,7 @@ sprintCmd
 
 sprintCmd
   .command('update <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.'
   )
@@ -2483,6 +2610,7 @@ sprintCmd
 
 sprintCmd
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints.'
   )
@@ -2499,6 +2627,7 @@ sprintCmd
 
 sprintCmd
   .command('start <identifier>')
+  .codex(SERVER_ONLY)
   .description('Transition a DRAFT sprint to ACTIVE.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2509,6 +2638,7 @@ sprintCmd
 
 sprintCmd
   .command('close <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Close an ACTIVE sprint. Unfinished tasks need --move-all (to the next sprint) or --backlog-all (to the backlog); either without --confirm exits 4 with an envelope.'
   )
@@ -2527,6 +2657,7 @@ sprintCmd
 
 sprintCmd
   .command('summary <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
   )
@@ -2543,6 +2674,7 @@ sprintCmd
 
 sprintCmd
   .command('add <identifier> <task>')
+  .codex(SERVER_ONLY)
   .description('Add a task to a sprint. <task> accepts LUM-N or UUID.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2557,6 +2689,7 @@ sprintCmd
 
 sprintCmd
   .command('remove <identifier> <task>')
+  .codex(SERVER_ONLY)
   .description('Remove a task from a sprint. <task> accepts LUM-N or UUID.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2573,6 +2706,7 @@ const doc = program.command('doc').description('Manage Lumo documents')
 
 doc
   .command('create [title]')
+  .codex(readsLocalFile('--file'))
   .description(
     'Create a document. Body from --content, --file or piped stdin (pick one); --scope defaults to personal. --task LUM-N binds it to a task, --parent files it under another doc.'
   )
@@ -2594,6 +2728,7 @@ doc
 
 doc
   .command('import')
+  .codex(SERVER_ONLY)
   .description(
     'Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)'
   )
@@ -2612,11 +2747,13 @@ doc
 
 doc
   .command('sync <doc>')
+  .codex(SERVER_ONLY)
   .description('Re-sync a Google-imported doc (overwrites the Lumo body)')
   .action(wrap(ref => docSync(ref as string)))
 
 doc
   .command('update <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Update a document (<doc> = slug, case-insensitive title or id). Body from --content, --file or piped stdin; 422 if it drops tables/rows/headings unless --allow-shrink.'
   )
@@ -2697,6 +2834,7 @@ doc
 
 doc
   .command('show <doc>')
+  .codex(SERVER_ONLY)
   .description(
     "Show a document's header and body (doc = slug, title or id). --raw prints the byte-identical markdown source (the edit base); --section <heading> prints one section of it."
   )
@@ -2732,6 +2870,7 @@ doc
 
 doc
   .command('patch <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Replace one heading-addressed section of the markdown source, leaving the rest untouched. 409 on a concurrent edit; 422 if the section loses tables/rows/headings unless --allow-shrink.'
   )
@@ -2757,6 +2896,7 @@ doc
 
 doc
   .command('append <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits.'
   )
@@ -2778,6 +2918,7 @@ doc
 
 doc
   .command('diff <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source.'
   )
@@ -2790,6 +2931,7 @@ doc
 
 doc
   .command('rebuild-source <doc>')
+  .codex(SERVER_ONLY)
   .description(
     'Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm.'
   )
@@ -2820,6 +2962,7 @@ doc
 
 doc
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List documents visible to the current user, 50 per page (--limit / --cursor)'
   )
@@ -2839,6 +2982,7 @@ doc
 
 doc
   .command('move <doc>')
+  .codex(SERVER_ONLY)
   .description(
     'Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only.'
   )
@@ -2852,6 +2996,7 @@ doc
 
 doc
   .command('delete <doc>')
+  .codex(SERVER_ONLY)
   .description(
     'Move a document and everything nested under it to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with a confirmation envelope.'
   )
@@ -2867,6 +3012,7 @@ doc
 
 task
   .command('update <identifier>')
+  .codex(writesLocal('a confirmed DONE removes local git worktrees'))
   .description(
     'Update a task: at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint or a tag flag. "" clears description, assignee, milestone or sprint.'
   )
@@ -2942,6 +3088,11 @@ task
 
 const worktree = program
   .command('worktree')
+  .codex(
+    writesLocal(
+      'creates/removes git worktrees and branches (list: local git only)'
+    )
+  )
   .description(
     'Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout.'
   )
@@ -3040,6 +3191,11 @@ worktree
 //      scope, so a broken hook never fails at import time either.
 const hook = program
   .command('hook')
+  .codex(
+    writesLocal(
+      'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself'
+    )
+  )
   .description(
     'Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)'
   )

@@ -590,6 +590,13 @@ Renames and aspect moves, no behaviour change; shipped per [Q9](#q9-do-pure-rena
 
 No command changes its name. `cli/src/lib/codex-rules.ts` stops keeping its own lists and is generated from per-command metadata in `grammar.json` (CX-1). Release note: none, as long as the generated `.rules` file is identical for unchanged commands.
 
+As built:
+
+- Each command declares `.codex(SERVER_ONLY | readsLocalFile(flag) | writesLocal(what) | sandboxed(why))` in `cli/src/index.ts`. That records two facts: whether the command is server-only, and whether it reads or writes local files (`cli/src/lib/command-class.ts`). A class on a group (`hook`, `worktree`) covers everything below it.
+- `emit-grammar` writes the classes into `grammar.json` and `cli/src/lib/codex-classes.generated.ts`. It refuses to emit when a leaf has no class, or when a class is declared twice on one path.
+- `codex-rules.ts` derives its three lists from those classes. A tombstone is never registered, so it can never be allowed.
+- The generated rules equal the last hand-kept ones with one deliberate exception, pinned in a test. `priority` was allowed as a whole group, which also allowed the removed `priority <text>`; now only `priority create` and `priority list` are allowed. So the rules file changes in that one rule.
+
 ### Not affected
 
 Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/list/search/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
