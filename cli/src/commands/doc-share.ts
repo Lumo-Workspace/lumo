@@ -29,7 +29,7 @@ export async function docShare(
 ): Promise<number | void> {
   if (!docRef || !memberRef) {
     console.error(
-      'Error: usage: lumo doc share <doc> <member> [--role viewer|editor|manager]'
+      'Error: usage: lumo doc update <doc> --add-member <member> [--role viewer|editor|manager]'
     )
     return EXIT_USAGE
   }

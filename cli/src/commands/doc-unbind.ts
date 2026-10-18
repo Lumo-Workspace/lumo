@@ -11,7 +11,7 @@ export async function docUnbind(
   task: string | undefined
 ): Promise<number | void> {
   if (!docRef || !task) {
-    console.error('Error: usage: lumo doc unbind <doc> <task>')
+    console.error('Error: usage: lumo doc update <doc> --remove-task <task>')
     return EXIT_USAGE
   }
   const creds = readCredentials()

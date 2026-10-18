@@ -24,7 +24,7 @@ export async function docBind(
   task: string | undefined
 ): Promise<number | void> {
   if (!docRef || !task) {
-    console.error('Error: usage: lumo doc bind <doc> <task>')
+    console.error('Error: usage: lumo doc update <doc> --add-task <task>')
     return EXIT_USAGE
   }
   const creds = readCredentials()

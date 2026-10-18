@@ -86,8 +86,19 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   'sprint list': ['lumo sprint list', 'lumo sprint list --status active'],
   'sprint show': ['lumo sprint show 13'],
   'doc list': ['lumo doc list', 'lumo doc list --scope workspace'],
-  'doc show': ['lumo doc show runbook-12', 'lumo doc show runbook-12 --raw'],
-  'doc update': ['lumo doc update runbook-12 --file docs/runbook.md'],
+  'doc show': [
+    'lumo doc show runbook-12',
+    'lumo doc show runbook-12 --raw',
+    'lumo doc show runbook-12 --members',
+  ],
+  'doc update': [
+    'lumo doc update runbook-12 --file docs/runbook.md',
+    'lumo doc update runbook-12 --add-member alice@example.com --role editor',
+    'lumo doc update runbook-12 --add-task LUM-42',
+  ],
+  'doc import': [
+    'lumo doc import --gdoc https://docs.google.com/document/d/abc/edit --task LUM-42',
+  ],
   'memory show': ['lumo memory show kp5brom5'],
   'worktree add': ['lumo worktree add LUM-42 fix-login'],
   'worktree list': ['lumo worktree list'],
