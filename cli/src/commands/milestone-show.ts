@@ -25,6 +25,16 @@ import {
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
 import {
+  formatSummaryAspect,
+  readSummary,
+  type SummaryRead,
+} from '../lib/summary-aspect'
+import {
+  formatMilestoneChangelog,
+  readChangelog,
+  type MilestoneChangelogPayload,
+} from './milestone-changelog'
+import {
   milestoneMetricsLines,
   type MilestoneMetricsData,
 } from '../lib/milestone-metrics'
@@ -39,6 +49,10 @@ import {
 export interface ShowMilestoneOptions {
   project?: string
   json?: boolean
+  /** LUM-1233 3j (AF-1): the AI summary (was `milestone summary`). */
+  summary?: boolean
+  /** LUM-1233 3j (AF-1): the changelog (was `milestone changelog`). */
+  changelog?: boolean
 }
 
 export interface MilestoneShowData extends MilestoneMetricsData {
@@ -327,6 +341,15 @@ export async function milestoneShow(
     return 1
   }
 
+  // LUM-1233 3j: the aspects read in parallel with the main reads; a failed
+  // aspect is a `Could not read (…)` line / `{ error }`, never the whole show.
+  const aspects = Promise.all([
+    opts.summary
+      ? readSummary(base, creds.token, 'milestones', milestoneId)
+      : undefined,
+    opts.changelog ? readChangelog(base, creds.token, milestoneId) : undefined,
+  ])
+
   // Fetch the milestone (with taskCounts) and the task list in parallel.
   let milestoneRes: Response
   let tasksRes: Response
@@ -382,10 +405,13 @@ export async function milestoneShow(
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
+  const [summary, changelog] = await aspects
   if (opts.json) {
     emitJson(
       detailEnvelope('milestone', stripInternalFields(milestone), {
         tasks: stripInternalFields(tasks),
+        ...(summary !== undefined ? { summary } : {}),
+        ...(changelog !== undefined ? { changelog } : {}),
       })
     )
     return
@@ -434,6 +460,30 @@ export async function milestoneShow(
         color: colorEnabled(),
         tty: Boolean(process.stdout.isTTY),
       }
-    ) + '\n'
+    ) +
+      formatAspects(summary, changelog, { color: colorEnabled() }) +
+      '\n'
   )
+}
+
+/** The `--summary` / `--changelog` sections after the detail view. Pure. */
+export function formatAspects(
+  summary: SummaryRead | undefined,
+  changelog: MilestoneChangelogPayload | { error: string } | undefined,
+  opts: { color?: boolean } = {}
+): string {
+  const lines: string[] = []
+  if (summary !== undefined)
+    lines.push(
+      ...sectionHeading('Summary', opts),
+      ...formatSummaryAspect(summary)
+    )
+  if (changelog !== undefined)
+    lines.push(
+      ...sectionHeading('Changelog', opts),
+      'error' in changelog && typeof changelog.error === 'string'
+        ? `Could not read (${sanitizeField(changelog.error)})`
+        : formatMilestoneChangelog(changelog as MilestoneChangelogPayload)
+    )
+  return lines.length ? '\n' + lines.join('\n') : ''
 }

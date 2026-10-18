@@ -154,17 +154,13 @@ See [confirmation.md](confirmation.md) for the envelope shape and the relay rule
 
 When to suggest: user says "close the sprint", "end sprint 3", "wrap up the sprint". If they haven't decided what to do with unfinished tasks, ask before adding `--move-all` or `--backlog-all`.
 
-### `lumo sprint summary <identifier> [--retry]` — fetch AI-generated sprint retro
+### `lumo sprint show <identifier> --summary` — the AI-generated sprint retro
 
-Prints the AI-generated retrospective summary for the sprint. A 404 response means no summary has been generated yet ("no summary yet").
-
-| Flag      | Type    | Notes                                             |
-| --------- | ------- | ------------------------------------------------- |
-| `--retry` | boolean | Queue a regeneration (async, server returns 202). |
+An aspect of `sprint show` (LUM-1233 3j; formerly `sprint summary`): the detail view, then a **Summary** section with the AI-generated retrospective; `--json` adds `summary` (`null` when none generated yet). `lumo sprint update <identifier> --refresh-summary` (formerly `summary --retry`) queues a regeneration (async, server returns 202).
 
 ```bash
-lumo sprint summary 3
-lumo sprint summary 3 --retry
+lumo sprint show 3 --summary
+lumo sprint update 3 --refresh-summary
 ```
 
 When to suggest: user asks "summarize the sprint", "sprint retro", "give me a summary of sprint 3".

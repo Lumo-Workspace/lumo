@@ -18,7 +18,7 @@ interface SummariesResponse {
 }
 
 /**
- * `lumo project overview [project]` (LUM-1192) — the project page's health
+ * `lumo project show [project]` (formerly `project overview`) (LUM-1192) — the project page's health
  * row (stalled, high stakes, stale PRs, overdue), its stats and the latest
  * stored summary. Read-only: never triggers a summary generation.
  */

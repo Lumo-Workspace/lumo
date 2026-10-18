@@ -240,7 +240,7 @@ export const taskDependencyService = {
         }
         parts.push(
           '',
-          'Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.'
+          `Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with ${commands.taskDepCleanup}.`
         )
       }
 

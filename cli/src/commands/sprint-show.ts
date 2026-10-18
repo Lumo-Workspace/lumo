@@ -18,6 +18,7 @@ import {
   type Field,
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
+import { formatSummaryAspect, readSummary } from '../lib/summary-aspect'
 import {
   isSprintBurnupData,
   isSprintTeamPerformanceData,
@@ -38,6 +39,8 @@ import {
 export interface ShowSprintOptions {
   team?: string
   json?: boolean
+  /** LUM-1233 3j (AF-1): the AI summary (was `sprint summary`). */
+  summary?: boolean
 }
 
 export interface SprintShowData {
@@ -184,6 +187,9 @@ export async function sprintShow(
   // ones. They are fail-soft — fetchSecondary never rejects, a failed or
   // malformed one renders `Could not read (…)` in its section — so one going
   // wrong cannot fail the whole show (and an early return below just drops them).
+  const summaryRead = opts.summary
+    ? readSummary(base, creds.token, 'sprints', sprintId)
+    : Promise.resolve(undefined)
   const secondary = Promise.all([
     fetchSecondary(
       `${base}/api/sprints/${sprintId}/burnup`,
@@ -236,6 +242,7 @@ export async function sprintShow(
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
   const [burnup, teamPerformance] = await secondary
+  const summary = await summaryRead
   if (opts.json) {
     // A failed secondary read is `{ error }` here, as the text view's
     // `Could not read (…)` line.
@@ -249,6 +256,7 @@ export async function sprintShow(
           tasks,
           burnup,
           teamPerformance,
+          ...(summary !== undefined ? { summary } : {}),
         })
       )
     )
@@ -267,7 +275,15 @@ export async function sprintShow(
         tty: Boolean(process.stdout.isTTY),
       },
       { burnup, teamPerformance }
-    ) + '\n'
+    ) +
+      (summary !== undefined
+        ? '\n' +
+          [
+            ...sectionHeading('Summary', { color: colorEnabled() }),
+            ...formatSummaryAspect(summary),
+          ].join('\n')
+        : '') +
+      '\n'
   )
 }
 

@@ -4,7 +4,7 @@
 import { formatTaskListTable } from '@/cli/src/lib/format'
 import { formatSprintUpdateSummary } from '@/cli/src/commands/sprint-update'
 import { formatMilestoneUpdateSummary } from '@/cli/src/commands/milestone-update'
-import { formatSprintSummary } from '@/cli/src/commands/sprint-summary'
+import { formatSummaryAspect } from '@/cli/src/lib/summary-aspect'
 import { formatMemoryList } from '@/cli/src/lib/memory-content'
 import { formatProjectList } from '@/cli/src/commands/project-list'
 import { formatShareListRows } from '@/cli/src/commands/doc-share-list'
@@ -50,14 +50,12 @@ describe('format helpers strip control chars', () => {
     expect(out).not.toMatch(/\x1b/)
   })
 
-  it('formatSprintSummary strips ESC from name, tldr, and report', () => {
-    const out = formatSprintSummary({
-      number: 3,
-      name: 'sp\x1brint',
+  it('formatSummaryAspect strips ESC from tldr and report', () => {
+    const out = formatSummaryAspect({
       stats: { done: 1, total: 2 },
       tldr: 'tl\x1bdr',
       report: 're\x1bport',
-    })
+    }).join('\n')
     expect(out).not.toMatch(/\x1b/)
   })
 

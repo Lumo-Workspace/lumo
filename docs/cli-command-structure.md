@@ -586,6 +586,16 @@ Renames and aspect moves, no behaviour change; shipped per [Q9](#q9-do-pure-rena
 | `workspace security-scan --<setting> …`     | `workspace security-scan update --<setting> …`                                             | Changed: changing a setting is `workspace security-scan update`                |
 | `task statuses`                             | unchanged — exception to CS-1 (`task status` is frozen and taken; it lists the status set) | —                                                                              |
 
+As built:
+
+- Every old name is a tombstone (exit 2; it names the new form, keeps the caller's arguments and maps `--yes` to `--confirm`). None appears in `--help` or `grammar.json`.
+- `task comment` and `workspace security-scan` are plain groups now. Their tombstones fire only for the old shapes: `task comment <task> <body>`, and flags right after `security-scan` (a setting flag → `update`, otherwise → `show`).
+- `task comment add|update|delete` and `task dep add` take the task from `--task` / `[task]`, defaulting to the session-bound task.
+- `milestone show --summary --changelog` and `sprint show --summary` are aspects: sections after the detail view, and keys of the `--json` envelope. A failed aspect read is one `Could not read (…)` line. `milestone|sprint update --refresh-summary` can be combined with field flags or used on its own.
+- `workspace security-scan update` with no setting exits 2.
+- Each new command keeps the old command's Codex class, so the generated whitelist changes in names only (pinned by a test).
+- Server text naming a renamed command follows `X-Lumo-Cli-Version`: the figma hint in task context and the stale-dependency hint (`RENAMES_MIN_CLI_VERSION` 1.125.5, env override). Texts with no version (the `--parent` 400, GitHub PR replies) give the new form with the 1.125-and-older form in parentheses.
+
 ### Batch 4 — Codex rules from the grammar
 
 No command changes its name. `cli/src/lib/codex-rules.ts` stops keeping its own lists and is generated from per-command metadata in `grammar.json` (CX-1). Release note: none, as long as the generated `.rules` file is identical for unchanged commands.

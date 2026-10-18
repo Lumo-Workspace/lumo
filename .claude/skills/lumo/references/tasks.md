@@ -90,8 +90,8 @@ lumo task template show agent-brief > brief.md     # start from the built-in
 lumo task template create team-brief --name "Team brief" --file brief.md
 # Created task template team-brief "Team brief" (845 chars)
 # Next: lumo task create <title> --template team-brief
-lumo task template edit team-brief --file brief.md --name "Team agent brief"
-lumo task template rm team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
+lumo task template update team-brief --file brief.md --name "Team agent brief"
+lumo task template delete team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
 ```
 
 When to suggest: the user wants a reusable description skeleton for their team ("make a bug-report template", "change our brief template") — `show` an existing one to a file, edit it, then `create` / `edit` with `--file`.
@@ -247,7 +247,7 @@ Task LUM-48 has no sprint binding   # noop (already unbound)
 
 ### Out of scope
 
-There are no subtasks — the parent/child hierarchy and `--parent` were removed in LUM-959 (an older CLI that still sends `--parent` gets a 400). Group related tasks with a milestone, express "A before B" with `lumo task deps add`, and fold small follow-ups into the original task rather than spinning off a child.
+There are no subtasks — the parent/child hierarchy and `--parent` were removed in LUM-959 (an older CLI that still sends `--parent` gets a 400). Group related tasks with a milestone, express "A before B" with `lumo task dep add`, and fold small follow-ups into the original task rather than spinning off a child.
 
 Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete`, tasks can be bound/unbound in bulk via `lumo milestone add / remove <identifier> <task...>`, and milestones can be manually reordered via `lumo milestone reorder <ref...>` / `lumo milestone move <ref> --before|--after <ref>` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
 
@@ -434,12 +434,12 @@ Moves the task to the trash. It is restorable for **30 days** from the web app's
 lumo task delete LUM-42
 ```
 
-### `lumo task comment <identifier> <body>` — leave a comment
+### `lumo task comment add <body> [--task <LUM-N>]` — leave a comment
 
-Two-step under the hood (resolve LUM-N → POST comment). Body is plain text; quote it to embed spaces or newlines.
+`--task` defaults to the task this session is bound to (AR-2); with neither it exits 2 naming both. (LUM-1233 3j: the old `task comment <LUM-N> <body>` prints `was removed. Use: lumo task comment add <body> --task <LUM-N>` and exits 2.) Two-step under the hood (resolve LUM-N → POST comment). Body is plain text; quote it to embed spaces or newlines.
 
 ```bash
-lumo task comment LUM-42 "Reproduced the redirect bug on staging — Safari only, not Chrome."
+lumo task comment add "Reproduced the redirect bug on staging — Safari only, not Chrome." --task LUM-42
 ```
 
 The CLI does not support @-mention chip syntax. If the user wants to ping someone, they should comment from the web UI.
@@ -449,18 +449,18 @@ The CLI does not support @-mention chip syntax. If the user wants to ping someon
 **Replying (LUM-821).** `lumo task show --comments` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
 
 ```bash
-lumo task comment LUM-42 "Fixed in the latest push" --reply-to cmaaaaaa
+lumo task comment add "Fixed in the latest push" --task LUM-42 --reply-to cmaaaaaa
 ```
 
-### `lumo task comments edit <identifier> <comment> <body>` / `lumo task comments rm <identifier> <comment>`
+### `lumo task comment update <comment> <body> [--task <LUM-N>]` / `lumo task comment delete <comment> [--task <LUM-N>]`
 
-Edit or delete **your own** comment (anyone else's → 403). `<comment>` is the short id from `task show --comments`. `rm` is a soft delete that also hides the replies under a top-level comment; without `--confirm` it exits 4 with an envelope quoting the comment and deletes nothing — relay it and let the user approve.
+Edit or delete **your own** comment (anyone else's → 403). `<comment>` is the short id from `task show --comments`; `--task` defaults to the bound task. `delete` is a soft delete that also hides the replies under a top-level comment; without `--confirm` it exits 4 with an envelope quoting the comment and deletes nothing — relay it and let the user approve.
 
 ```bash
-lumo task comments edit LUM-42 cmaaaaaa "Reproduced on Safari 18 only"
-lumo task comments rm LUM-42 cmaaaaaa
+lumo task comment update cmaaaaaa "Reproduced on Safari 18 only" --task LUM-42
+lumo task comment delete cmaaaaaa --task LUM-42
 ```
 
 ---
 
-**Task dependencies** (`lumo task deps add/list/confirm/dismiss/rm`) now live in [task-deps.md](task-deps.md).
+**Task dependencies** (`lumo task dep add/confirm/dismiss/remove`; read them with `task show --deps`) now live in [task-deps.md](task-deps.md).

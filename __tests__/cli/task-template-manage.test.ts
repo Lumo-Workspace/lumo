@@ -285,7 +285,7 @@ describe('lumo task template create', () => {
       await taskTemplateCreate('bug-report', { name: 'X', file: 'b.md' }, files)
     ).toBe(1)
     expect(err).toContain('already exists')
-    expect(err).toContain('lumo task template edit bug-report')
+    expect(err).toContain('lumo task template update bug-report')
     expect(calls.some(c => c.method === 'POST')).toBe(false)
   })
 
@@ -371,7 +371,7 @@ describe('lumo task template rm', () => {
     expect(await taskTemplateRm('bug-report')).toBe(EXIT_CONFIRMATION_REQUIRED)
     const env = JSON.parse(out)
     expect(env.status).toBe('confirmation_required')
-    expect(env.command).toBe('task template rm')
+    expect(env.command).toBe('task template delete')
     expect(env.changes[0]).toBe(
       'Will delete workspace task template bug-report "Bug report"'
     )

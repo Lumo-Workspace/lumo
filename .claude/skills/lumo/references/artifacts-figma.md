@@ -50,16 +50,16 @@ Prints one artifact's key:value header (ref, kind, title, agent, source, order, 
 lumo task artifact show LUM-42 pskvl3sh
 ```
 
-#### `lumo task artifact rm <task> <artifact> --confirm`
+#### `lumo task artifact delete <task> <artifact> --confirm`
 
 Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact pskvl3sh "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). On success prints `Removed <artifact> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 ```bash
-lumo task artifact rm LUM-42 pskvl3sh            # exit 4 + envelope
-lumo task artifact rm LUM-42 pskvl3sh --confirm  # after the user approved
+lumo task artifact delete LUM-42 pskvl3sh            # exit 4 + envelope
+lumo task artifact delete LUM-42 pskvl3sh --confirm  # after the user approved
 ```
 
-When to suggest: after running a spec/plan workflow in Claude Code, offer to record the product(s) with `task artifact add` (one call per artifact) — always pass `--source` with the framework you used. Use `task artifact list` to see what's already recorded, `task artifact show` to inspect a single artifact's content, `task artifact update` to fix a wrong kind/title/source without re-uploading, and `task artifact rm` to drop one that's wrong or stale.
+When to suggest: after running a spec/plan workflow in Claude Code, offer to record the product(s) with `task artifact add` (one call per artifact) — always pass `--source` with the framework you used. Use `task artifact list` to see what's already recorded, `task artifact show` to inspect a single artifact's content, `task artifact update` to fix a wrong kind/title/source without re-uploading, and `task artifact delete` to drop one that's wrong or stale.
 
 ### Task ↔ Figma Designs
 
@@ -101,13 +101,13 @@ Columns are sized to the widest value. On a terminal (stdout is a TTY) a header 
 
 `⚠ thumbnail stale` appears when `thumbnailFetchedAt > 25 days`.
 
-#### `lumo task figma rm <task> <link>` — remove an attachment
+#### `lumo task figma remove <task> <link>` — remove an attachment
 
 Accepts the original URL, the 8-char short ref from `figma list`, a unique id prefix (6+ chars) or the full id. Idempotent (`Not linked: ...` + exit 0 when nothing matches); an ambiguous ref removes nothing and exits 1 listing the candidates.
 
 ```bash
-lumo task figma rm LUM-42 a1b2c3d4
-lumo task figma rm LUM-42 "https://www.figma.com/design/abc123/Onboarding?node-id=1-234"
+lumo task figma remove LUM-42 a1b2c3d4
+lumo task figma remove LUM-42 "https://www.figma.com/design/abc123/Onboarding?node-id=1-234"
 ```
 
 #### `lumo task figma refresh <task>` — manual refresh

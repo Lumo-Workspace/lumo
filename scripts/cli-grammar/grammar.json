@@ -1849,25 +1849,6 @@
       "description": "Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "milestone changelog": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the raw structured changelog payload"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
     "milestone create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
       "flags": {
@@ -2026,37 +2007,34 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--changelog": {
+          "long": "--changelog",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also print the changelog: DONE tasks, merged PRs and frozen claims with provenance, and a baseline vs prior milestones (was `milestone changelog`)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Print { version, milestone, tasks } as JSON"
+          "description": "Print { version, milestone, tasks } as JSON (+ summary / changelog with those flags)"
+        },
+        "--summary": {
+          "long": "--summary",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also print the AI-generated summary (was `milestone summary`)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
-    "milestone summary": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--retry": {
-          "long": "--retry",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Trigger summary regeneration before fetching"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the AI-generated summary of a milestone (slug, name or id), or \"(no summary generated yet)\". --retry queues regeneration before fetching.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase": {
@@ -2505,6 +2483,14 @@
           "enumCaseInsensitive": false,
           "description": "New name"
         },
+        "--refresh-summary": {
+          "long": "--refresh-summary",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Queue regeneration of the AI summary (was `milestone summary --retry`); read it with `milestone show --summary`"
+        },
         "--start": {
           "long": "--start",
           "short": null,
@@ -2705,7 +2691,7 @@
       "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "project overview": {
+    "project show": {
       "arguments": [
         { "name": "project", "required": false, "variadic": false }
       ],
@@ -3111,7 +3097,15 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON"
+          "description": "Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON (+ summary with --summary)"
+        },
+        "--summary": {
+          "long": "--summary",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also print the AI-generated summary (was `sprint summary`)"
         },
         "--team": {
           "long": "--team",
@@ -3146,33 +3140,6 @@
       "description": "Transition a DRAFT sprint to ACTIVE.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "sprint summary": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--retry": {
-          "long": "--retry",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Trigger summary regeneration before fetching"
-        },
-        "--team": {
-          "long": "--team",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Team name or UUID (when workspace has >1 team)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
     "sprint update": {
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
@@ -3193,6 +3160,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New sprint name"
+        },
+        "--refresh-summary": {
+          "long": "--refresh-summary",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Queue regeneration of the AI summary (was `sprint summary --retry`); read it with `sprint show --summary`"
         },
         "--start": {
           "long": "--start",
@@ -3388,24 +3363,7 @@
         "detail": "--file"
       }
     },
-    "task artifact list": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, artifacts, total, nextCursor } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List artifacts attached to a task, in order",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
-    "task artifact rm": {
+    "task artifact delete": {
       "arguments": [
         { "name": "task", "required": true, "variadic": false },
         { "name": "artifact", "required": true, "variadic": false }
@@ -3423,6 +3381,23 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task artifact list": {
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, artifacts, total, nextCursor } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List artifacts attached to a task, in order",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task artifact show": {
@@ -3497,10 +3472,14 @@
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task comment": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
-        { "name": "body", "required": true, "variadic": false }
-      ],
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Write on the task comment thread (read it with `lumo task show --comments`)"
+    },
+    "task comment add": {
+      "arguments": [{ "name": "body", "required": true, "variadic": false }],
       "flags": {
         "--reply-to": {
           "long": "--reply-to",
@@ -3509,6 +3488,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Reply to a top-level comment: its #id from `task show --comments` (unique prefix of 6+ chars)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (LUM-N); default: the session-bound task"
         }
       },
       "hasSubcommands": false,
@@ -3516,30 +3503,8 @@
       "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task comments": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Manage the task comment thread (read it with `lumo task show --comments`)"
-    },
-    "task comments edit": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
-        { "name": "comment", "required": true, "variadic": false },
-        { "name": "body", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
-    "task comments rm": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
-        { "name": "comment", "required": true, "variadic": false }
-      ],
+    "task comment delete": {
+      "arguments": [{ "name": "comment", "required": true, "variadic": false }],
       "flags": {
         "--confirm": {
           "long": "--confirm",
@@ -3548,11 +3513,39 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing."
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (LUM-N); default: the session-bound task"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task comment update": {
+      "arguments": [
+        { "name": "comment", "required": true, "variadic": false },
+        { "name": "body", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (LUM-N); default: the session-bound task"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task create": {
@@ -3682,17 +3675,15 @@
       "description": "Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task deps": {
+    "task dep": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
       "description": "Manage task dependency edges (read them with `lumo task show --deps`)"
     },
-    "task deps add": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false }
-      ],
+    "task dep add": {
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--blocked-by": {
           "long": "--blocked-by",
@@ -3705,12 +3696,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Declare a manual hard dependency (CONFIRMED)",
+      "description": "Declare a manual hard dependency (CONFIRMED). [task] defaults to the session-bound task.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task deps confirm": {
+    "task dep confirm": {
       "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false },
         { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
@@ -3728,9 +3719,9 @@
       "description": "Confirm a detected candidate edge",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task deps dismiss": {
+    "task dep dismiss": {
       "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false },
         { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {},
@@ -3739,9 +3730,9 @@
       "description": "Dismiss a candidate (never re-suggested)",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task deps rm": {
+    "task dep remove": {
       "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false },
         { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
@@ -3777,26 +3768,6 @@
       "description": "Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task figma context": {
-      "arguments": [
-        { "name": "identifier", "required": true, "variadic": false },
-        { "name": "ref", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, figmaLink, designContextAvailable, note } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
     "task figma list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
@@ -3822,7 +3793,7 @@
       "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "task figma rm": {
+    "task figma remove": {
       "arguments": [
         { "name": "task", "required": true, "variadic": false },
         { "name": "link", "required": true, "variadic": false }
@@ -3831,6 +3802,26 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task figma show": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "ref", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, figmaLink, designContextAvailable, note } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task list": {
@@ -4256,7 +4247,58 @@
         "detail": "--file"
       }
     },
-    "task template edit": {
+    "task template delete": {
+      "arguments": [{ "name": "key", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task template list": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the templates (with their Markdown content) as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task template show": {
+      "arguments": [{ "name": "key", "required": true, "variadic": false }],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit key, name, description, isSystem and content as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "task template update": {
       "arguments": [{ "name": "key", "required": true, "variadic": false }],
       "flags": {
         "--file": {
@@ -4292,57 +4334,6 @@
         "localFiles": "reads",
         "detail": "--file"
       }
-    },
-    "task template list": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the templates (with their Markdown content) as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
-    "task template rm": {
-      "arguments": [{ "name": "key", "required": true, "variadic": false }],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
-    },
-    "task template show": {
-      "arguments": [{ "name": "key", "required": true, "variadic": false }],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit key, name, description, isSystem and content as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`.",
-      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase": {
       "arguments": [],
@@ -5134,6 +5125,46 @@
     },
     "workspace security-scan": {
       "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "PR security-scan and AI review settings, workspace-wide or per repository (--repo)"
+    },
+    "workspace security-scan show": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { switches, platform, effective } as JSON"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One connected repository: show its settings"
+        },
+        "--repos": {
+          "long": "--repos",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List each connected repository with its automatic review settings"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show the PR security-scan and AI review settings, workspace-wide, for every connected repository (--repos) or one (--repo). Any member may read.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "workspace security-scan update": {
+      "arguments": [],
       "flags": {
         "--ai-review": {
           "long": "--ai-review",
@@ -5309,15 +5340,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "One connected repository: show it, or change it with --review / --drafts"
-        },
-        "--repos": {
-          "long": "--repos",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "List each connected repository with its automatic review settings"
+          "description": "One connected repository: change it with the --repo settings above"
         },
         "--request-changes": {
           "long": "--request-changes",
@@ -5402,7 +5425,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm.",
+      "description": "Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "worktree": {

@@ -117,15 +117,15 @@ describe('tombstones', () => {
     [['sprint', 'delete', '3', '--yes'], 'lumo sprint delete 3 --confirm'],
     [
       ['task', 'artifact', 'rm', 'LUM-1', 'a1', '--yes'],
-      'lumo task artifact rm LUM-1 a1 --confirm',
+      'lumo task artifact delete LUM-1 a1 --confirm',
     ],
     [
       ['task', 'deps', 'rm', 'LUM-1', 'e1', '--confirm', '--yes'],
-      'lumo task deps rm LUM-1 e1 --confirm',
+      'lumo task dep remove LUM-1 e1 --confirm',
     ],
     [
       ['task', 'template', 'rm', 'spec', '--yes'],
-      'lumo task template rm spec --confirm',
+      'lumo task template delete spec --confirm',
     ],
     [
       ['worktree', 'rm', 'LUM-1', '--yes', '--force'],

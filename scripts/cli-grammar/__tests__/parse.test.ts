@@ -74,12 +74,12 @@ describe('parseInvocation', () => {
     expect(parseInvocation('lumo task artifact list LUM-5').commandPath).toBe(
       'task artifact list'
     )
-    expect(parseInvocation('lumo task comment LUM-5 "done"').commandPath).toBe(
-      'task comment'
+    expect(parseInvocation('lumo task comment add "done"').commandPath).toBe(
+      'task comment add'
     )
     expect(
-      parseInvocation('lumo task deps add LUM-5 --blocked-by LUM-4').commandPath
-    ).toBe('task deps add')
+      parseInvocation('lumo task dep add LUM-5 --blocked-by LUM-4').commandPath
+    ).toBe('task dep add')
   })
 
   it('marks unmapped paths as unknown and keeps the head tokens', () => {

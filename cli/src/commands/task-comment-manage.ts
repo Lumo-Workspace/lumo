@@ -17,7 +17,7 @@ function excerpt(html: string): string {
   return text.length > EXCERPT_LEN ? `${text.slice(0, EXCERPT_LEN)}…` : text
 }
 
-/** `lumo task comments edit <LUM-N> <comment> <body>` */
+/** `lumo task comment update <comment> <body> [--task <LUM-N>]` */
 export async function taskCommentEdit(
   identifier: string,
   commentRef: string,
@@ -65,7 +65,7 @@ export function describeCommentRm(
   return lines
 }
 
-/** `lumo task comments rm <LUM-N> <comment> [--confirm]` */
+/** `lumo task comment delete <comment> [--task <LUM-N>] [--confirm]` */
 export async function taskCommentRm(
   identifier: string,
   commentRef: string,
@@ -78,7 +78,7 @@ export async function taskCommentRm(
 
   if (!isConfirmed(options)) {
     return emitConfirmation({
-      command: 'task comments rm',
+      command: 'task comment delete',
       changes: describeCommentRm(hit.task.identifier, hit.comment, hit.isReply),
     })
   }

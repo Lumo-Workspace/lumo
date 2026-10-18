@@ -70,6 +70,7 @@ describe('cliCommandNamesForVersion', () => {
       LUMO_TESTCASE_HANDLE_MIN_CLI_VERSION: '1.125.4',
       LUMO_MEMORY_SCOPE_MIN_CLI_VERSION: '1.125.4',
       LUMO_CONFIRM_ONLY_MIN_CLI_VERSION: '1.125.4',
+      LUMO_RENAMES_MIN_CLI_VERSION: '1.125.4',
     }
     expect(resolveReadEntryMinVersion(env)).toBe('1.125.4')
     expect(cliCommandNamesForVersion('1.125.4', env)).toBe(CURRENT_CLI_COMMANDS)

@@ -50,10 +50,10 @@ export const HALLUCINATION_CASES: AstCase[] = [
     note: 'memory is structured fields; --content never existed',
   },
   {
-    raw: 'lumo task comment LUM-345 --body Follow-up PR: https://github.com/Lumo-Workspace/lumo/pull/451 2>&1',
+    raw: 'lumo task comment add --task LUM-345 --body Follow-up PR: https://github.com/Lumo-Workspace/lumo/pull/451 2>&1',
     expect: 'unknown-flag',
     offending: '--body',
-    note: 'body is positional on task comment',
+    note: 'body is positional on task comment add (LUM-1233 3j: was task comment <task> <body>)',
   },
   {
     raw: 'lumo auth status 2>&1',
@@ -109,7 +109,10 @@ export const VALID_CASES: AstCase[] = [
     raw: 'lumo crossing explain cr-abc123 --note "false positive"',
     expect: 'valid',
   },
-  { raw: 'lumo task comment LUM-345 "multi word body here"', expect: 'valid' },
+  {
+    raw: 'lumo task comment add "multi word body here" --task LUM-345',
+    expect: 'valid',
+  },
   {
     raw: 'lumo task list --status done > /tmp/tasks.txt',
     expect: 'valid',
@@ -149,12 +152,12 @@ export const VALID_CASES: AstCase[] = [
     note: 'dynamic command token — statically unjudgeable, never flagged',
   },
   {
-    raw: 'lumo task comment LUM-345 "body mentioning --verbose and --status DONE"',
+    raw: 'lumo task comment add "body mentioning --verbose and --status DONE" --task LUM-345',
     expect: 'valid',
     note: 'quoted free text must not leak fake flags/enums (quoting preserved since LUM-413)',
   },
   {
-    raw: 'lumo task comment LUM-1 unquoted body --chart-* (prose debris)',
+    raw: 'lumo task comment add unquoted body --chart-* (prose debris)',
     expect: 'valid',
     note: 'dirty flag-shaped tokens are extraction noise, skipped not judged',
   },

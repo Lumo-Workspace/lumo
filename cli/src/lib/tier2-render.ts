@@ -1,6 +1,6 @@
 /**
  * LUM-998 — the agent-facing output of the tier-2 retrieval commands
- * (`task slack show`, `task web show`, `task figma context`,
+ * (`task slack show`, `task web show`, `task figma show`,
  * `task pr show`). LUM-997 found each printed member- or externally-authored
  * text with only the control-character strip. Bodies now print inside an
  * `<untrusted-linked-context>` fence (the same tag `task show --full` uses for

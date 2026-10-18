@@ -33,7 +33,7 @@ describe('formatDepsList', () => {
     expect(out).toContain('LUM-9')
     expect(out).toContain('SUGGESTED')
     expect(out).toContain('shared_files')
-    expect(out).toContain('lumo task deps confirm LUM-12 e2bbbbbb')
+    expect(out).toContain('lumo task dep confirm LUM-12 e2bbbbbb')
   })
   it('renders empty state', () => {
     expect(formatDepsList('LUM-12', [])).toBe('No dependencies on LUM-12.')
