@@ -186,7 +186,7 @@ Milestone test cases use the same command set as task test cases (LUM-1233: same
 
 ### `lumo milestone delete <identifier>` — delete a milestone
 
-Gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` the CLI exits **4** with an envelope (`Will delete milestone "Q3 Launch"` · `12 tasks under it keep their data; only milestoneId is cleared`) and deletes nothing — relay it to the user and re-run `confirmCommand` on approval. `--yes` is a legacy alias. Tasks under the milestone keep their data; their `milestoneId` is cleared.
+Gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` the CLI exits **4** with an envelope (`Will delete milestone "Q3 Launch"` · `12 tasks under it keep their data; only milestoneId is cleared`) and deletes nothing — relay it to the user and re-run `confirmCommand` on approval. Tasks under the milestone keep their data; their `milestoneId` is cleared.
 
 ```bash
 lumo milestone delete "Q3 Launch"            # exit 4 + envelope

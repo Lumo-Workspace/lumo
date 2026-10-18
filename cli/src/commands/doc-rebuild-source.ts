@@ -7,13 +7,16 @@ import {
 } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
-import { emitConfirmation, type ConfirmFlags } from '../lib/confirmation'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { docHandle } from '../lib/doc-handle'
 
 export interface DocRebuildSourceOptions extends ConfirmFlags {
   allowShrink?: boolean
-  force?: boolean
   ifRevision?: string
 }
 
@@ -25,9 +28,10 @@ export interface DocRebuildSourceOptions extends ConfirmFlags {
  * re-enabling `doc show --raw` / `diff` / `patch` / `append`. The rebuilt source
  * is structure-guarded server-side: any table/tr/heading shrink is rejected 422
  * (zero silent flattening — LUM-410 口径) unless --allow-shrink is passed. A doc
- * that already has a source is refused 409 unless --force re-derives it —
- * that refusal is surfaced as a confirmation envelope (LUM-755): exit 4 with
- * the server's reason and a confirmCommand carrying `--force --confirm`.
+ * that already has a source is refused 409 — surfaced as a confirmation
+ * envelope (LUM-755): exit 4 with the server's reason; its confirmCommand
+ * adds `--confirm`, which alone approves replacing the source (LUM-1233 3h:
+ * `--force` is reserved for "discard local edits", CF-2).
  */
 export async function docRebuildSource(
   reference: string | undefined,
@@ -35,7 +39,7 @@ export async function docRebuildSource(
 ): Promise<number | void> {
   if (!reference) {
     console.error(
-      'Error: missing <doc>. Usage: lumo doc rebuild-source <doc> [--allow-shrink] [--force] [--if-revision <n>]'
+      'Error: missing <doc>. Usage: lumo doc rebuild-source <doc> [--allow-shrink] [--confirm] [--if-revision <n>]'
     )
     return EXIT_USAGE
   }
@@ -66,7 +70,10 @@ export async function docRebuildSource(
 
   const body: Record<string, unknown> = {}
   if (opts.allowShrink) body.allowShrink = true
-  if (opts.force) body.force = true
+  // The API's `force` re-derives an existing source; the user's approval
+  // (--confirm) is what asks for it.
+  const confirmed = isConfirmed(opts)
+  if (confirmed) body.force = true
   if (ifRevision !== undefined) body.ifRevision = ifRevision
 
   const res = await fetch(
@@ -83,16 +90,15 @@ export async function docRebuildSource(
   if (!res.ok) {
     const text = await res.text()
     const message = extractErrorMessage(text)
-    if (res.status === 409 && !opts.force) {
-      // The --force gate: nothing was written. Hand back the protocol
-      // envelope so the agent shows the user what --force would replace.
+    if (res.status === 409 && !confirmed) {
+      // The replace gate: nothing was written. Hand back the protocol
+      // envelope so the agent shows the user what --confirm would replace.
       return emitConfirmation({
         command: 'doc rebuild-source',
         changes: [
           sanitizeField(message),
           `Will replace the existing (byte-faithful) markdown source of ${docHandle(id)} with a freshly serialized one — inspect it first with \`lumo doc show ${reference} --raw\``,
         ],
-        extraFlags: ['--force'],
       })
     }
     if (res.status === 409) {

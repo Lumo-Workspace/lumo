@@ -66,13 +66,11 @@ export interface ConfirmationInput {
 /** The flags a command may carry to signal user approval. */
 export interface ConfirmFlags {
   confirm?: boolean | undefined
-  /** Legacy alias of --confirm, kept for callers written before LUM-755. */
-  yes?: boolean | undefined
 }
 
-/** `--confirm`, or its legacy `--yes` alias. */
+/** `--confirm` (LUM-1233 3i: the legacy `--yes` alias was removed, CF-1). */
 export function isConfirmed(opts: ConfirmFlags): boolean {
-  return Boolean(opts.confirm || opts.yes)
+  return Boolean(opts.confirm)
 }
 
 /** POSIX-shell quoting: bare when safe, single-quoted otherwise. */

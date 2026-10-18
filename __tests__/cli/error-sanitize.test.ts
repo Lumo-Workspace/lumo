@@ -28,7 +28,7 @@ describe('server-error string sanitization', () => {
       json: async () => ({ error: 'boom\x1b[31m' }),
     })) as unknown as typeof fetch
 
-    const code = await taskArtifactRm('LUM-9', 'a-x', { yes: true })
+    const code = await taskArtifactRm('LUM-9', 'a-x', { confirm: true })
     expect(code).toBe(1)
     expect(err).not.toMatch(/\x1b/)
     expect(err).toContain('boom[31m')

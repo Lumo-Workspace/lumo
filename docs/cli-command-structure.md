@@ -556,6 +556,8 @@ Every row: `--yes` removed, `--confirm` unchanged. Release note per row: `` `<co
 | `task testcase rm --yes`      | `task testcase delete --confirm` (rename: 3a)                                     |
 | `worktree rm --yes`           | `worktree rm --confirm` (name and behaviour frozen; only the alias goes, see §11) |
 
+As built (3h and 3i in one PR, recorded with `task decide`): `doc rebuild-source --force` was the only `--force` that had to change. `--confirm` alone now approves replacing an existing source; the CLI still sends the API's `force` field, so the server is unchanged, and the envelope's `confirmCommand` adds only `--confirm`. `--yes` went from the 8 commands that still had it; the other 3 rows had already gone with their 3a/3b renames. Both are tombstones: `<command> --yes` → the same command with `--confirm`, and `doc rebuild-source --force` → `--confirm`, never doubled.
+
 #### 3j. Names that break VB-1, VB-2, CS-1 or RW-1
 
 Renames and aspect moves, no behaviour change; shipped per [Q9](#q9-do-pure-renames-ship). Optional task refs follow AR-2: never before a required positional.

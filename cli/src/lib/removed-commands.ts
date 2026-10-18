@@ -357,6 +357,52 @@ const PROJECT_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/** The caller's options with `from` as `--confirm`, never twice. */
+export function asConfirm(options: string[], from: string): string[] {
+  const out = options.map(o => (o === from ? '--confirm' : o))
+  return out.filter((o, i) => o !== '--confirm' || out.indexOf(o) === i)
+}
+
+/**
+ * LUM-1233 3h + 3i (CF-1, CF-2): approval is `--confirm` only — the legacy
+ * `--yes` alias went from every command that still had it — and `--force`
+ * means only "discard local edits", so `doc rebuild-source --force` went
+ * (`--confirm` alone approves replacing the source).
+ */
+const CONFIRM_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      'doc delete',
+      'milestone delete',
+      'sprint close',
+      'sprint delete',
+      'task artifact rm',
+      'task deps rm',
+      'task template rm',
+      'worktree rm',
+    ] as const
+  ).map(
+    (path): Tombstone => ({
+      path,
+      match: (_a, flags) => flags.includes('--yes'),
+      label: `lumo ${path} --yes`,
+      booleanFlags: ['--yes'],
+      replacement: (args, _f, options) =>
+        cmd(`lumo ${path}`, args, asConfirm(options, '--yes')),
+      help: `lumo ${path}`,
+    })
+  ),
+  {
+    path: 'doc rebuild-source',
+    match: (_a, flags) => flags.includes('--force'),
+    label: 'lumo doc rebuild-source --force',
+    booleanFlags: ['--force'],
+    replacement: (args, _f, options) =>
+      cmd('lumo doc rebuild-source', args, asConfirm(options, '--force')),
+    help: 'lumo doc rebuild-source',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -431,6 +477,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...USAGE_TOMBSTONES,
   ...STATUS_TOMBSTONES,
   ...PROJECT_TOMBSTONES,
+  ...CONFIRM_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */

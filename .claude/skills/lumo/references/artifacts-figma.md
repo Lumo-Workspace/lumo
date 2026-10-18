@@ -52,7 +52,7 @@ lumo task artifact show LUM-42 pskvl3sh
 
 #### `lumo task artifact rm <task> <artifact> --confirm`
 
-Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact pskvl3sh "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. On success prints `Removed <artifact> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
+Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact pskvl3sh "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). On success prints `Removed <artifact> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 ```bash
 lumo task artifact rm LUM-42 pskvl3sh            # exit 4 + envelope

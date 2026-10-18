@@ -1071,6 +1071,11 @@ export const documentService = {
       allowShrink?: boolean | undefined
       force?: boolean | undefined
       ifRevision?: number | undefined
+      /**
+       * LUM-1233 3h: the CLI flag the 409 names — `--confirm` for a CLI
+       * without `doc rebuild-source --force`, `--force` for older ones.
+       */
+      cliApproval?: string | undefined
     } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
@@ -1102,7 +1107,7 @@ export const documentService = {
         new Error(
           'Document already has a stored markdown source; rebuild is for ' +
             'source-less docs. Pass force to re-derive it from the HTML body ' +
-            '(CLI: --force) — note this replaces a byte-faithful source with a ' +
+            `(CLI: ${options.cliApproval ?? '--force'}) — note this replaces a byte-faithful source with a ` +
             'serializer-derived one.'
         ),
         { status: 409 }
