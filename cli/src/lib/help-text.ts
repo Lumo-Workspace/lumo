@@ -44,6 +44,13 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   ],
   'task testcase list': ['lumo task testcase list LUM-42'],
   'task testcase show': ['lumo task testcase show LUM-42/TC3'],
+  'milestone testcase list': ['lumo milestone testcase list headless-web-cli'],
+  'milestone testcase show': [
+    'lumo milestone testcase show headless-web-cli/TC3',
+  ],
+  'milestone testcase run': [
+    'lumo milestone testcase run headless-web-cli/TC3 --result pass --env production --commit 0d46921 --step s1-2=pass',
+  ],
   'task testcase run': [
     'lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-2=pass',
     'lumo task testcase run LUM-42/TC3 --result fail --env local --cause defect --step s1=pass --step s2=fail',
@@ -99,8 +106,10 @@ export const EXIT_CODE_COMMANDS: Readonly<Record<string, readonly (4 | 5)[]>> =
     'task artifact rm': [4],
     'task comments rm': [4],
     'task template rm': [4],
-    'task testcase rm': [4],
+    'task testcase delete': [4],
+    'milestone testcase delete': [4],
     'task testcase disposition': [4],
+    'milestone testcase disposition': [4],
     'crossing disposition': [4],
     'finding disposition': [4],
     'memory rm': [4],

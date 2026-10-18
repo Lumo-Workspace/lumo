@@ -20,7 +20,7 @@ import {
   taskStatus,
   type TaskStatusResponse,
 } from '@/cli/src/commands/task-status'
-import { taskTestCaseList } from '@/cli/src/commands/task-testcase-list'
+import { testCaseList } from '@/cli/src/commands/testcase'
 import { fetchTaskTestCases } from '@/cli/src/lib/task-test-cases-read'
 
 const ESC = String.fromCharCode(27)
@@ -148,7 +148,7 @@ describe('task status --full — Test cases section (LUM-1186)', () => {
     const out = stdout()
 
     // Same read, same formatter: every list line appears in the section.
-    expect(await taskTestCaseList('LUM-9')).toBeUndefined()
+    expect(await testCaseList('task', 'LUM-9', {})).toBeUndefined()
     const listLines = logSpy.mock.calls
       .map(c => String(c[0]))
       .join('\n')

@@ -25,8 +25,7 @@ jest.mock('../../src/lib/worktree-cleanup', () => ({
 import { taskUpdate } from '../../src/commands/task-update'
 import { crossingDisposition } from '../../src/commands/crossing-disposition'
 import { crossingExplain } from '../../src/commands/crossing-explain'
-import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
-import { taskTestCaseDisposition } from '../../src/commands/task-testcase-disposition'
+import { testCaseDisposition, testCaseRun } from '../../src/commands/testcase'
 
 function json(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
@@ -189,7 +188,7 @@ describe('mutating commands append the status digest', () => {
   })
 
   it('mutating commands append the status digest: testcase run', async () => {
-    const code = await taskTestCaseRun('LUM-5/TC1', {
+    const code = await testCaseRun('task', 'LUM-5/TC1', {
       result: 'pass',
       env: 'preview',
     })
@@ -198,7 +197,7 @@ describe('mutating commands append the status digest', () => {
   })
 
   it('mutating commands append the status digest: testcase disposition', async () => {
-    await taskTestCaseDisposition('LUM-5/TC1', {
+    await testCaseDisposition('task', 'LUM-5/TC1', {
       knownDefect: true,
       confirm: true,
       receipt: 'r2.1.2.3.sig',

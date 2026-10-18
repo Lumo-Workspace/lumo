@@ -32,7 +32,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `inbox`, `draft`, `workspace/project overview`                       | [overview.md](references/overview.md)                     |
 | `task deps *` (dependency edges)                                     | [task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
-| `task testcase *`                                                    | [test-cases.md](references/test-cases.md)                 |
+| `task testcase *`, `milestone testcase *` (one command set)          | [test-cases.md](references/test-cases.md)                 |
 | `task status`, `crossing *` — self-check, DONE gate, readiness       | [task-status.md](references/task-status.md)               |
 | `cost`, `report` — token cost / tokens + DONE per window             | [task-context.md](references/task-context.md)             |
 | `task show --outcome` — post-hoc outcome well                        | [outcome.md](references/outcome.md)                       |
@@ -103,7 +103,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Test cases — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/download/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`download` 用 API key 存证据
+- `lumo task|milestone testcase add/list/show/download/update/delete/run/disposition` — 任务与里程碑共用一套命令，句柄 `<父对象>/TC<n>`（`LUM-42/TC3` / `<milestone-slug>/TC3`）；可反复执行的结构化用例 + append-only 执行记录（`run --env` 必填、`run --step` 逐步必报）；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手；`download` 用 API key 存证据
 
 ### Task status, wrap-up & crossings — see [task-status.md](references/task-status.md)
 
@@ -134,7 +134,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo milestone add/remove <ref> <task...>` — batch bind/unbind tasks
 - `lumo milestone triage <ref> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo next --claimable`)
 - `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <ref> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
-- `lumo milestone testcase add/list/show/download/update/rm/run/disposition <milestone>` — milestone test cases, the close contract
+- `lumo milestone testcase …` — the close contract: the same command set as `task testcase` ([test-cases.md](references/test-cases.md))
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** → [doc-editing.md](references/doc-editing.md)
 
@@ -196,7 +196,7 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No `lumo pr show` / `lumo scan` — it's `lumo pr scan <number>` (settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment` (body is positional); no `--content` on `task/project memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 

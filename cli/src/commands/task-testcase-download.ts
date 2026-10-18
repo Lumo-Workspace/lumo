@@ -1,12 +1,11 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import {
   downloadRunsEvidence,
   type DownloadableRun,
 } from '../lib/test-case-download'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 
 /**
  * LUM-1185: `lumo task testcase download <task/case> <dir>` (and the milestone
@@ -21,29 +20,6 @@ import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
 interface DetailResponse {
   testCase: { number: number; title: string }
   runs: DownloadableRun[]
-}
-
-export async function taskTestCaseDownload(
-  handle: string | undefined,
-  dir: string | undefined
-): Promise<number | void> {
-  const usage = 'lumo task testcase download LUM-42/TC3 ./evidence'
-  if (!handle) {
-    console.error(`Error: missing <task/case>. Usage: ${usage}`)
-    return EXIT_USAGE
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return EXIT_USAGE
-  }
-  if (!dir || !dir.trim()) {
-    console.error(`Error: missing <dir>. Usage: ${usage}`)
-    return EXIT_USAGE
-  }
-  return testCaseDownloadInScope(taskScope(split.task), split.caseRef, dir)
 }
 
 export async function testCaseDownloadInScope(

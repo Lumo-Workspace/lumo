@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
+import { cliCommandNamesFromHeaders } from '@/lib/cli/command-names'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -45,6 +46,8 @@ export async function POST(
       identity,
       sessionId,
       milestoneRef,
+      // LUM-1233: name only the commands the caller's CLI has.
+      commands: cliCommandNamesFromHeaders(request.headers),
     })
     return NextResponse.json(result)
   } catch (error) {

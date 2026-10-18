@@ -13,11 +13,8 @@ jest.mock('@/cli/src/lib/config', () => ({
 }))
 
 import { readCredentials } from '@/cli/src/lib/config'
-import { taskTestCaseShow } from '@/cli/src/commands/task-testcase-show'
-import {
-  formatListRow,
-  taskTestCaseList,
-} from '@/cli/src/commands/task-testcase-list'
+import { testCaseList, testCaseShow } from '@/cli/src/commands/testcase'
+import { formatListRow } from '@/cli/src/commands/task-testcase-list'
 import {
   formatCauseTag,
   formatCeilingShort,
@@ -153,7 +150,7 @@ describe('testcase show — the full verdict', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
 
     const out = printed()
     expect(out).toContain('Only proves on PRODUCTION')
@@ -194,7 +191,7 @@ describe('testcase show — the full verdict', () => {
     }
     respond({ testCase: tc, runs: [served(run)], pullRequests: [] })
 
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
 
     const out = printed()
     expect(out).toContain('FAIL on LOCAL  [cause: defect]')
@@ -219,7 +216,7 @@ describe('testcase show — the full verdict', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
 
     const out = printed()
     expect(out).toContain('    no per-step results were recorded for this run')
@@ -242,7 +239,7 @@ describe('testcase show — the full verdict', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
 
     const out = printed()
     expect(out).toContain('PASS on LOCAL')
@@ -265,7 +262,7 @@ describe('testcase show — the full verdict', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
 
     const out = printed()
     expect(out).toContain('FAIL on LOCAL  by Ada  step 2: click Refund')
@@ -320,7 +317,7 @@ describe('testcase list — capped verdicts and the N/M passing summary', () => 
       summary: summarizeTestCases(cases),
     })
 
-    await taskTestCaseList('LUM-42')
+    await testCaseList('task', 'LUM-42', {})
 
     const lines = printed().split('\n')
     expect(lines[0]).toContain('PASS on LOCAL → UNPROVEN (no evidence)')
@@ -340,7 +337,7 @@ describe('testcase list — capped verdicts and the N/M passing summary', () => 
     respond({
       testCases: [{ ...tc, runs: [baseRun] }],
     })
-    await taskTestCaseList('LUM-42')
+    await testCaseList('task', 'LUM-42', {})
     expect(printed().split('\n')).toHaveLength(1)
   })
 })

@@ -23,13 +23,12 @@ import {
   missingStepRefsLocal,
   formatMissingStepsError,
 } from '../../src/lib/test-case-steps'
-import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
-import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
 import { formatRunOutcome } from '../../src/lib/test-case-verdict'
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { testCaseRun, testCaseShow } from '../../src/commands/testcase'
 
 let logSpy: jest.SpyInstance
 let errorSpy: jest.SpyInstance
@@ -194,7 +193,7 @@ describe('skip (LUM-1211)', () => {
   })
   it('sends the reason and summarises per status', async () => {
     respond({ run: { ...baseRun, result: 'PASS' }, ceiling: null })
-    await taskTestCaseRun('LUM-1/TC1', {
+    await testCaseRun('task', 'LUM-1/TC1', {
       result: 'pass',
       env: 'local',
       step: ['s1=pass', 's2=skip:no DB'],
@@ -214,7 +213,7 @@ describe('skip (LUM-1211)', () => {
         error: 'Missing per-step results: s2. Report each.',
       }),
     }) as never
-    const code = await taskTestCaseRun('LUM-1/TC1', {
+    const code = await testCaseRun('task', 'LUM-1/TC1', {
       result: 'pass',
       env: 'local',
       step: ['s1=pass'],
@@ -242,7 +241,7 @@ describe('testcase run with steps', () => {
   beforeEach(() => respond({ run: baseRun, ceiling: null }))
 
   it('sends stepResults (0-based), actual, and attaches step evidence by index', async () => {
-    await taskTestCaseRun('LUM-1/TC1', {
+    await testCaseRun('task', 'LUM-1/TC1', {
       result: 'fail',
       env: 'local',
       cause: 'unknown',
@@ -293,7 +292,7 @@ describe('testcase run with steps', () => {
   })
 
   it('sends neither field when no step flags are given (old servers stay happy)', async () => {
-    await taskTestCaseRun('LUM-1/TC1', { result: 'pass', env: 'local' })
+    await testCaseRun('task', 'LUM-1/TC1', { result: 'pass', env: 'local' })
     const body = runBody()
     expect(body).not.toHaveProperty('stepResults')
     expect(body).not.toHaveProperty('actual')
@@ -308,7 +307,10 @@ describe('testcase run with steps', () => {
       { result: 'fail', cause: 'unknown', stepEvidence: ['s2=https://x'] },
     ],
   ])('refuses %s before any request', async (_label, opts) => {
-    const code = await taskTestCaseRun('LUM-1/TC1', { env: 'local', ...opts })
+    const code = await testCaseRun('task', 'LUM-1/TC1', {
+      env: 'local',
+      ...opts,
+    })
     expect(code).toBe(2)
     expect(errors()).toMatch(/Error:/)
     expect(global.fetch).not.toHaveBeenCalled()
@@ -353,7 +355,7 @@ describe('testcase show with steps', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-1/TC1')
+    await testCaseShow('task', 'LUM-1/TC1', {})
 
     expect(printed()).toContain('    ✓ step 1: open (1200ms)')
     expect(printed()).toContain('    ✗ verification 1: banner')
@@ -497,7 +499,7 @@ describe('testcase run pre-checks coverage before uploading (LUM-1211)', () => {
 
   it('uploads nothing and exits 1 when steps are missing', async () => {
     respond(showBody)
-    const code = await taskTestCaseRun('LUM-1/TC1', {
+    const code = await testCaseRun('task', 'LUM-1/TC1', {
       result: 'pass',
       env: 'local',
       step: ['s1=pass'],
@@ -523,7 +525,7 @@ describe('testcase run pre-checks coverage before uploading (LUM-1211)', () => {
       run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
       ceiling: { effective: 'PASS' },
     })
-    await taskTestCaseRun('LUM-1/TC1', {
+    await testCaseRun('task', 'LUM-1/TC1', {
       result: 'pass',
       env: 'local',
       step: ['s1-2=pass', 'v1=pass'],
@@ -538,7 +540,7 @@ describe('testcase run pre-checks coverage before uploading (LUM-1211)', () => {
       run: { result: 'PASS', environment: 'LOCAL', failedStepText: null },
       ceiling: { effective: 'PASS' },
     })
-    await taskTestCaseRun('LUM-1/TC1', {
+    await testCaseRun('task', 'LUM-1/TC1', {
       result: 'pass',
       env: 'local',
       step: ['s1=pass'],

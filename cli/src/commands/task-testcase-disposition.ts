@@ -1,9 +1,7 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { printStatusDigest } from '../lib/status-digest'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import { emitConfirmation } from '../lib/confirmation'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
   checkStep,
   describeDefectRead,
@@ -58,30 +56,6 @@ interface IssuedReceipt {
  * 裁的永远是该用例**最新那条** run:闸门只看最新一条,对旧 run 下裁定清不掉任何
  * 东西,服务端会以 409 拒绝。
  */
-export async function taskTestCaseDisposition(
-  handle: string | undefined,
-  options: TestCaseDispositionOptions = {}
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase disposition LUM-42/TC3 --known-defect'
-    )
-    return EXIT_USAGE
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return EXIT_USAGE
-  }
-  return testCaseDispositionInScope(
-    taskScope(split.task),
-    split.caseRef,
-    options
-  )
-}
-
 /**
  * LUM-1135: the same three-step handshake for any scope. On a milestone the
  * ruling clears the close gate instead of a task's DONE.

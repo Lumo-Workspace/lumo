@@ -18,10 +18,12 @@ jest.mock('../../src/lib/status-digest', () => ({
 
 import { readCredentials } from '../../src/lib/config'
 import { formatExecutor } from '../../src/lib/test-case-executor'
-import { taskTestCaseList } from '../../src/commands/task-testcase-list'
-import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
-import { taskTestCaseRun } from '../../src/commands/task-testcase-run'
 import { resolveSessionId } from '../../src/lib/session-id'
+import {
+  testCaseList,
+  testCaseRun,
+  testCaseShow,
+} from '../../src/commands/testcase'
 
 const SESSION = '86dce765-abe3-4254-89c8-7a788200194a'
 
@@ -119,7 +121,7 @@ describe('testcase list', () => {
       ],
     })
 
-    await taskTestCaseList('LUM-1')
+    await testCaseList('task', 'LUM-1', {})
 
     expect(printed()).toContain(
       'PASS on LOCAL 2026-10-06T08:00:00Z by Ada Lovelace via session 86dce765'
@@ -146,7 +148,7 @@ describe('testcase show', () => {
       pullRequests: [],
     })
 
-    await taskTestCaseShow('LUM-1/TC1')
+    await testCaseShow('task', 'LUM-1/TC1', {})
 
     expect(printed()).toContain('2026-10-06T08:00:00Z  PASS on LOCAL  by Bo')
     expect(printed()).toContain(
@@ -173,7 +175,7 @@ describe('testcase run', () => {
   it('sends the Claude Code session as X-Lumo-Session-Id', async () => {
     ;(resolveSessionId as jest.Mock).mockResolvedValue(SESSION)
 
-    await taskTestCaseRun('LUM-1/TC1', { result: 'pass', env: 'local' })
+    await testCaseRun('task', 'LUM-1/TC1', { result: 'pass', env: 'local' })
 
     expect(runHeaders()['X-Lumo-Session-Id']).toBe(SESSION)
   })
@@ -181,7 +183,7 @@ describe('testcase run', () => {
   it('sends no session header outside a Claude Code session', async () => {
     ;(resolveSessionId as jest.Mock).mockResolvedValue(undefined)
 
-    await taskTestCaseRun('LUM-1/TC1', { result: 'pass', env: 'local' })
+    await testCaseRun('task', 'LUM-1/TC1', { result: 'pass', env: 'local' })
 
     expect(runHeaders()).not.toHaveProperty('X-Lumo-Session-Id')
   })

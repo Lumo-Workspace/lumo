@@ -171,7 +171,8 @@ export async function POST(request: Request) {
             const { stewardContextService } =
               await import('@/lib/services/steward-context.service')
             const built = await stewardContextService.buildStewardSections(
-              steward.milestoneId
+              steward.milestoneId,
+              commands
             )
             stewardMemorySection = built.section
 

@@ -244,10 +244,16 @@ export async function resolveMilestoneId(
   token: string,
   identifier: string,
   projectRef: string | undefined
-): Promise<{ id: string; name: string; projectId: string }> {
+): Promise<{
+  id: string
+  name: string
+  projectId: string
+  /** LUM-1233: the URL slug (the milestone test-case handle prefix); null when unknown. */
+  slug: string | null
+}> {
   if (isUuid(identifier)) {
     // Caller will fetch /api/milestones/<id> to learn the projectId & name.
-    return { id: identifier, name: '', projectId: '' }
+    return { id: identifier, name: '', projectId: '', slug: null }
   }
 
   let projectId: string | null = null
@@ -273,5 +279,10 @@ export async function resolveMilestoneId(
     throw new Error(ambiguousMilestoneError(identifier, match.candidates))
   }
   const m = match.milestone
-  return { id: m.id, name: m.name, projectId: projectId ?? m.projectId ?? '' }
+  return {
+    id: m.id,
+    name: m.name,
+    projectId: projectId ?? m.projectId ?? '',
+    slug: m.slug ?? null,
+  }
 }
