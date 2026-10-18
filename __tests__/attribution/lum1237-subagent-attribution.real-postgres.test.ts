@@ -545,6 +545,13 @@ describe('LUM-1237 history recompute (dry-run preview, then write)', () => {
       segmentsChanged: false,
       eventsRetagged: 0,
     })
+    // A recomputed family is no longer listed, so a re-run pages onward.
+    expect(
+      await attributionRepository.listOrchestrationHostRootIds({
+        workspaceId: WS,
+        limit: 10,
+      })
+    ).toEqual([])
     expect(
       await attributionRepository.countOpenCrossingsForEvents([ev.id])
     ).toBe(1)

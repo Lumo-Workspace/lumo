@@ -27,6 +27,11 @@ import {
 // 3: orchestration hosts are attributed by work output only (LUM-1237).
 export const ATTRIBUTION_COMPUTE_VERSION = 3
 
+/** A segment written by an older engine version (LUM-1237 recompute). */
+const STALE_SEGMENT: Prisma.TaskAttributionSegmentWhereInput = {
+  computeVersion: { lt: ATTRIBUTION_COMPUTE_VERSION },
+}
+
 export interface FamilySession {
   id: string
   parentSessionId: string | null
@@ -399,14 +404,12 @@ export const attributionRepository = {
   },
 
   /**
-   * LUM-932 P3: taskId of the open (`toAt: null`) INFERRED segment of the
-   * first session in `sessionIds` (priority order) that has one; within that
-   * session the open segment with the latest `fromAt`. One query.
-   */
-  /**
    * LUM-1237 history recompute: ids of UNBOUND root sessions that host at
-   * least one self-attached subagent (orchestration hosts), oldest first.
-   * Optional workspace / last-activity filters; `limit` caps the batch.
+   * least one self-attached subagent (orchestration hosts) and whose family
+   * still carries a segment computed by an older engine version — so a
+   * re-run with the same `limit` moves on to the next batch instead of
+   * re-listing families already recomputed. Oldest first; optional
+   * workspace / last-activity filters.
    */
   async listOrchestrationHostRootIds(opts: {
     workspaceId?: string
@@ -422,6 +425,14 @@ export const attributionRepository = {
         children: {
           some: { bindingSource: 'ATTACH', taskId: { not: null } },
         },
+        OR: [
+          { attributionSegments: { some: STALE_SEGMENT } },
+          {
+            children: {
+              some: { attributionSegments: { some: STALE_SEGMENT } },
+            },
+          },
+        ],
       },
       select: { id: true },
       orderBy: { startedAt: 'asc' },
@@ -468,6 +479,11 @@ export const attributionRepository = {
     return row !== null
   },
 
+  /**
+   * LUM-932 P3: taskId of the open (`toAt: null`) INFERRED segment of the
+   * first session in `sessionIds` (priority order) that has one; within that
+   * session the open segment with the latest `fromAt`. One query.
+   */
   async findOpenSegmentTask(
     workspaceId: string,
     sessionIds: string[]

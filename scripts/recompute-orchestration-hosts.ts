@@ -14,7 +14,9 @@
  * tokens were already settled onto the child sessions.
  *
  * Families are processed one at a time, oldest first (one family = one
- * root), so two recomputes of a family never race.
+ * root), so two recomputes of a family never race. Only families still
+ * carrying a segment from an older engine version are listed, so re-running
+ * with the same `--limit` after a `--commit` continues with the next batch.
  *
  * Usage:
  *   DATABASE_URL=... npx tsx scripts/recompute-orchestration-hosts.ts
