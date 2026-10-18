@@ -11,7 +11,7 @@ export async function memoryPromote(
 ): Promise<number | void> {
   if (!memoryId) {
     console.error(
-      'Error: missing <memory>. Usage: lumo memory promote <memory>'
+      'Error: missing <memory>. Usage: lumo memory update <memory> --scope project'
     )
     return EXIT_USAGE
   }
@@ -59,7 +59,7 @@ export async function memoryPromote(
     console.error(
       await refLookupError(
         res,
-        `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo task memory list\` / \`lumo project memory list\``
+        `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo memory list\` / \`lumo memory list --scope project\``
       )
     )
     return 1

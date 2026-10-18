@@ -1523,7 +1523,166 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)"
+      "description": "Team memory: add, list, show, update, delete; --scope task|project picks the scope"
+    },
+    "memory add": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "enumCaseInsensitive": true,
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
+        },
+        "--alternatives": {
+          "long": "--alternatives",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: optional alternatives considered"
+        },
+        "--applies": {
+          "long": "--applies",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "convention: where the rule applies"
+        },
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "trap | decision | convention | procedural (case-insensitive)"
+        },
+        "--implications": {
+          "long": "--implications",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: optional implications"
+        },
+        "--outcome": {
+          "long": "--outcome",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap: what goes wrong"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The project (project scope; default: the bound task's project)"
+        },
+        "--rule": {
+          "long": "--rule",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "convention: the rule"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": ["task", "project"],
+          "enumCaseInsensitive": true,
+          "description": "task | project (case-insensitive). Default: task, or project when only --project is given"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "procedural: a step (repeatable)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (task scope; default: the session-bound task)"
+        },
+        "--trigger": {
+          "long": "--trigger",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap/procedural: the situation that triggers it"
+        },
+        "--what": {
+          "long": "--what",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: the decision"
+        },
+        "--why": {
+          "long": "--why",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: rationale"
+        },
+        "--workaround": {
+          "long": "--workaround",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap: optional fix"
+        },
+        "--workflow": {
+          "long": "--workflow",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "procedural: the workflow name"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project."
+    },
+    "memory delete": {
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory fold": {
       "arguments": [
@@ -1543,12 +1702,77 @@
       "isInvokable": true,
       "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
     },
-    "memory promote": {
-      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
-      "flags": {},
+    "memory list": {
+      "arguments": [],
+      "flags": {
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, memories, total, nextCursor } as JSON"
+        },
+        "--learnings": {
+          "long": "--learnings",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Cap output to the first N rows"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The project (project scope; default: the bound task's project)"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --learnings: only this repository's learnings"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": ["task", "project"],
+          "enumCaseInsensitive": true,
+          "description": "task | project (case-insensitive). Default: task, or project when only --project is given"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (task scope; default: the session-bound task)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks."
+      "description": "List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings."
     },
     "memory push": {
       "arguments": [],
@@ -1581,30 +1805,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success."
-    },
-    "memory rm": {
-      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory show": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
@@ -1669,6 +1869,22 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project."
+    },
+    "memory update": {
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
+      "flags": {
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "project (a memory only moves from task to project)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks."
     },
     "milestone": {
       "arguments": [],
@@ -2712,168 +2928,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
-    },
-    "project memory": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "View and record PROJECT-scope memories"
-    },
-    "project memory add": {
-      "arguments": [
-        { "name": "project", "required": false, "variadic": false }
-      ],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "claude-code",
-            "codex",
-            "cursor",
-            "gemini-cli",
-            "github-copilot",
-            "windsurf"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
-        },
-        "--alternatives": {
-          "long": "--alternatives",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision optional alternatives"
-        },
-        "--applies": {
-          "long": "--applies",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: where it applies"
-        },
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "trap | decision | convention | procedural (case-insensitive)"
-        },
-        "--implications": {
-          "long": "--implications",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision optional implications"
-        },
-        "--outcome": {
-          "long": "--outcome",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap outcome"
-        },
-        "--rule": {
-          "long": "--rule",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention rule"
-        },
-        "--step": {
-          "long": "--step",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural step (repeatable)"
-        },
-        "--trigger": {
-          "long": "--trigger",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap/procedural trigger"
-        },
-        "--what": {
-          "long": "--what",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision"
-        },
-        "--why": {
-          "long": "--why",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision rationale"
-        },
-        "--workaround": {
-          "long": "--workaround",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap optional workaround"
-        },
-        "--workflow": {
-          "long": "--workflow",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural workflow"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
-    },
-    "project memory list": {
-      "arguments": [
-        { "name": "project", "required": false, "variadic": false }
-      ],
-      "flags": {
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, memories, total, nextCursor } as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Cap output to the first N rows"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
     },
     "project overview": {
       "arguments": [
@@ -4108,164 +4162,6 @@
       "isInvokable": true,
       "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command)."
     },
-    "task memory": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "View and record memories scoped to a task"
-    },
-    "task memory add": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "claude-code",
-            "codex",
-            "cursor",
-            "gemini-cli",
-            "github-copilot",
-            "windsurf"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
-        },
-        "--alternatives": {
-          "long": "--alternatives",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: optional alternatives considered"
-        },
-        "--applies": {
-          "long": "--applies",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: where the rule applies"
-        },
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "trap | decision | convention | procedural (case-insensitive)"
-        },
-        "--implications": {
-          "long": "--implications",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: optional implications"
-        },
-        "--outcome": {
-          "long": "--outcome",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap: what goes wrong"
-        },
-        "--rule": {
-          "long": "--rule",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: the rule"
-        },
-        "--step": {
-          "long": "--step",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural: a step (repeatable)"
-        },
-        "--trigger": {
-          "long": "--trigger",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap/procedural: the situation that triggers it"
-        },
-        "--what": {
-          "long": "--what",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: the decision"
-        },
-        "--why": {
-          "long": "--why",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: rationale"
-        },
-        "--workaround": {
-          "long": "--workaround",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap: optional fix"
-        },
-        "--workflow": {
-          "long": "--workflow",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural: the workflow name"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record a memory on a task (defaults to the bound session): only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Pick --category then its fields."
-    },
-    "task memory list": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, memories, total, nextCursor } as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Cap output to the first N rows"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a task's memories. <task> defaults to the session-bound task."
-    },
     "task pr": {
       "arguments": [],
       "flags": {},
@@ -5442,30 +5338,6 @@
       "hasSubcommands": true,
       "isInvokable": false,
       "description": "Workspace settings from the terminal"
-    },
-    "workspace learnings": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit { learnings } as JSON"
-        },
-        "--repo": {
-          "long": "--repo",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only this repository's learnings"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first, including unlinked repositories. Delete one with `lumo memory rm <ref>`."
     },
     "workspace security-scan": {
       "arguments": [],

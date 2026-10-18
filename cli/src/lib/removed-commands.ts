@@ -27,6 +27,9 @@ export interface Tombstone {
   replacement(args: string[], flags: string[], options: string[]): string
   /** The command whose `--help` the hint names (default: first 3 words). */
   help?: string
+  /** The live command whose option definitions say which flags take a
+   *  value (default: `path`); used when `path` itself no longer exists. */
+  optionsOf?: string
 }
 
 /** `lumo task show <task> <flags…>` keeping the task ref when one was given. */
@@ -34,6 +37,83 @@ function showWith(...flags: string[]) {
   return (args: string[]) =>
     ['lumo task show', ...args.slice(0, 1), ...flags].join(' ')
 }
+
+/** The caller's option tokens without a retired `--yes` (3b: no alias). */
+const noYes = (options: string[]) => options.filter(o => o !== '--yes')
+
+/** LUM-1233 3b: one `memory` noun, the scope a flag. */
+const MEMORY_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'task memory add',
+    optionsOf: 'memory add',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory add', args[0] ? ['--task', args[0]] : [], options),
+    help: 'lumo memory add',
+  },
+  {
+    path: 'task memory list',
+    optionsOf: 'memory list',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory list', args[0] ? ['--task', args[0]] : [], options),
+    help: 'lumo memory list',
+  },
+  {
+    path: 'task memory',
+    replacement: () => 'lumo memory list',
+    help: 'lumo memory',
+  },
+  {
+    path: 'project memory add',
+    optionsOf: 'memory add',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo memory add --scope project',
+        args[0] ? ['--project', args[0]] : [],
+        options
+      ),
+    help: 'lumo memory add',
+  },
+  {
+    path: 'project memory list',
+    optionsOf: 'memory list',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo memory list --scope project',
+        args[0] ? ['--project', args[0]] : [],
+        options
+      ),
+    help: 'lumo memory list',
+  },
+  {
+    path: 'project memory',
+    replacement: () => 'lumo memory list --scope project',
+    help: 'lumo memory',
+  },
+  {
+    path: 'memory promote',
+    replacement: args =>
+      cmd(
+        'lumo memory update',
+        [args[0] ?? '<memory>', '--scope', 'project'],
+        []
+      ),
+    help: 'lumo memory update',
+  },
+  {
+    path: 'memory rm',
+    optionsOf: 'memory delete',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory delete', [args[0] ?? '<memory>'], noYes(options)),
+    help: 'lumo memory delete',
+  },
+  {
+    path: 'workspace learnings',
+    optionsOf: 'memory list',
+    replacement: (_a, _f, options) =>
+      cmd('lumo memory list --learnings', [], options),
+    help: 'lumo memory list',
+  },
+]
 
 export const TOMBSTONES: readonly Tombstone[] = [
   {
@@ -103,6 +183,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
       ),
     help: 'lumo milestone testcase download',
   },
+  ...MEMORY_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
@@ -160,7 +241,7 @@ export function findRemovedCommand(
       if (tok.startsWith('-')) {
         flags.push(tok)
         options.push(tok)
-        if (!tok.includes('=') && takesValue(hit.path, tok)) {
+        if (!tok.includes('=') && takesValue(hit.optionsOf ?? hit.path, tok)) {
           i++
           if (i < after.length) options.push(after[i]!)
         }

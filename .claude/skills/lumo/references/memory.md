@@ -13,27 +13,30 @@ milestone's steward session start (LUM-647) — see [sessions.md](sessions.md).
 
 ### Commands
 
-```bash
-# List
-lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [-n N]   # ID  SCOPE  CATEGORY  SOURCE  HEADLINE (TAB-separated when piped)
-lumo project memory list [<project>] [--category ...] [-n N]
+One `memory` noun; the scope is a flag (LUM-1233). `--scope task` (the default) records onto / lists a task — `--task <LUM-N>` or the session-bound task; `--scope project` records onto / lists a project — `--project <ref>` or the bound task's project. `--project <ref>` alone also means the project scope. The old `task memory …`, `project memory …`, `memory promote`, `memory rm` and `workspace learnings` print `was removed. Use: …` and exit 2.
 
-# Add (per-category fields; <task>/<project> default to the session-bound task)
-lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."] [--agent <agent>]
-lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."] [--agent <agent>]
-lumo task memory add [LUM-N] --category convention --rule "..." --applies "..." [--agent <agent>]
-lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."] [--agent <agent>]
-lumo project memory add [<project>] --category convention --rule "..." --applies "..." [--agent <agent>]   # same per-category flags as task memory add; records at PROJECT scope
+```bash
+# List (ID  SCOPE  CATEGORY  SOURCE  HEADLINE — TAB-separated when piped)
+lumo memory list [--task LUM-N] [--category trap|decision|convention|procedural] [-n N]
+lumo memory list --scope project [--project <ref>] [--category trap] [-n N]
+lumo memory list --learnings [--repo owner/name]   # the workspace PR-review learnings
+
+# Add (per-category fields; the task / project default to the session-bound task)
+lumo memory add [--task LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."] [--agent <agent>]
+lumo memory add [--task LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."] [--agent <agent>]
+lumo memory add [--task LUM-N] --category convention --rule "..." --applies "..." [--agent <agent>]
+lumo memory add [--task LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."] [--agent <agent>]
+lumo memory add --scope project [--project <ref>] --category convention --rule "..." --applies "..." [--agent <agent>]
 
 # --agent values: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)
 # Aliases: gemini → gemini-cli, copilot → github-copilot (case-insensitive)
 # Omitting --agent records the memory as produced by Claude Code.
 
-# Single-memory ops (<memory> = the 8-char ref in `... memory list` column 1 and
+# Single-memory ops (<memory> = the 8-char ref in `memory list` column 1 and
 # in session-start index lines; a unique id prefix of 6+ chars or the full id also work)
-lumo memory show <memory>          # show one memory's full card
-lumo memory promote <memory>       # TASK → PROJECT
-lumo memory rm <memory> --confirm  # hard delete (without --confirm: exit 4 + envelope)
+lumo memory show <memory>                   # show one memory's full card
+lumo memory update <memory> --scope project # TASK → PROJECT
+lumo memory delete <memory> --confirm       # hard delete (without --confirm: exit 4 + envelope)
 
 # Downsync team memory into the local Claude Code memory store
 # (Claude Code only: in a Codex shell `memory sync` / `memory push` exit 1 unless --dir is given — Codex never reads this store)
@@ -51,31 +54,42 @@ lumo memory push --dry-run         # list what would be pushed without sending
 lumo memory fold --dry-run         # preview the next auto-fold pass; writes nothing
 ```
 
-`--json` on `task memory list` / `project memory list` prints `{ version, memories, total, nextCursor }` (`total` counts the filtered list before `-n` cuts it; these lists have no cursor, so `nextCursor` is always `null` — `total` larger than the rows shown means `-n` cut it: raise `-n` for the rest); `memory show --json` prints `{ version, memory }` (full id, category, raw content).
+`--json` on `memory list` prints `{ version, memories, total, nextCursor }` (`total` counts the filtered list before `-n` cuts it; these lists have no cursor, so `nextCursor` is always `null` — `total` larger than the rows shown means `-n` cut it: raise `-n` for the rest); with `--learnings` it prints `{ learnings }`; `memory show --json` prints `{ version, memory }` (full id, category, raw content).
 
-When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
-`lumo task memory add --category trap --trigger ... --outcome ...` records onto
-the bound task; `lumo project memory add ...` records onto its project.
+Flags that do not fit the scope are usage errors (exit 2): `--task` with `--scope project`, `--project` with `--scope task`, `--repo` without `--learnings`, `--learnings` with `--scope` / `--task` / `--project`; `memory update` takes only `--scope project`.
 
 Real calls (memory fields are structured per category — there is **no**
 `--content` flag):
 
 ```bash
-# Minimal — session bound, identifier omitted
-lumo task memory add --category trap --trigger "npx tsc --noEmit passes locally but CI fails on exactOptionalPropertyTypes" --outcome "PR goes red after merge"
-lumo project memory add --category convention --rule "CLI tag-modify commands print a final 'Tags:' line" --applies "lumo doc/task create and update"
+# Minimal — session bound, task / project omitted
+lumo memory add --category trap --trigger "npx tsc --noEmit passes locally but CI fails on exactOptionalPropertyTypes" --outcome "PR goes red after merge"
+lumo memory add --scope project --category convention --rule "CLI tag-modify commands print a final 'Tags:' line" --applies "lumo doc/task create and update"
 
-# Full form — explicit identifier, all optional fields
-lumo task memory add LUM-42 --category decision --what "Store doc content as Tiptap-serialized HTML" --why "markdown-to-JSON and markdown-to-HTML paths drifted" --alternatives "store Tiptap JSON" --implications "all markdown input goes through markdownToHtml" --agent claude-code
-lumo project memory add lumo --category procedural --workflow "Sync locale files after a copy change" --trigger "any lib/i18n/en.json change" --step "npm run i18n:sync" --step "npm run i18n:check" --agent claude-code
+# Full form — explicit task / project, all optional fields
+lumo memory add --task LUM-42 --category decision --what "Store doc content as Tiptap-serialized HTML" --why "markdown-to-JSON and markdown-to-HTML paths drifted" --alternatives "store Tiptap JSON" --implications "all markdown input goes through markdownToHtml" --agent claude-code
+lumo memory add --scope project --project lumo --category procedural --workflow "Sync locale files after a copy change" --trigger "any lib/i18n/en.json change" --step "npm run i18n:sync" --step "npm run i18n:check" --agent claude-code
 
 # Curate
 lumo memory show kp5brom5
-lumo memory promote kp5brom5
-lumo memory rm kp5brom5 --confirm
+lumo memory update kp5brom5 --scope project
+lumo memory delete kp5brom5 --confirm
 ```
 
-`memory rm` is gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it fetches the card and exits **4** with an envelope (`Will hard-delete memory <ref> [TRAP]` · `Content: <first line>` · no undo) and deletes nothing. Show that to the user first; `--yes` is a legacy alias of `--confirm`.
+`memory delete` is gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it fetches the card and exits **4** with an envelope (`Will hard-delete memory <ref> [TRAP]` · `Content: <first line>` · no undo) and deletes nothing. Show that to the user first.
+
+### PR-review learnings — `lumo memory list --learnings`
+
+(LUM-1157; was `workspace learnings`.) Lists the workspace's PR-review learnings — what reviewers told Lumo in its review threads ("this is intentional because …", LUM-1131) — newest first, ACTIVE only, at most 200. Every reviewed repository of the workspace gets learnings, whether or not it is linked to a Lumo project; a learning of a repository linked to no project belongs to no project's memory (it is scoped to the workspace + repository), so this command is where it is found. Any member may read.
+
+```bash
+lumo memory list --learnings                     # every repository
+lumo memory list --learnings --repo acme/app     # one repository (case-insensitive)
+lumo memory list --learnings --json              # { version, learnings: [{ id, repo, pathGlob, learning, ruleId, authorLogin, repositoryWide, inProject, createdAt }] }
+lumo memory delete <ref>                         # delete one (8-char ref from the list) (exits 4 with an envelope until --confirm)
+```
+
+Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  (no project)]` and then its text, indented. Scope is `repository` once its source PR merged, else `source PR until it merges` (a merge Lumo missed still counts at review time). `--repo` must be `owner/name` (exit 1 otherwise). A project-linked learning can also be edited or deleted in that project's memory.
 
 ### `lumo memory show <memory>` (progressive disclosure)
 
@@ -86,7 +100,7 @@ bullets, …) — never raw JSON.
 
 - **Arg**: `<memory>` (required) — the 8-character short ref you saw in
   `... memory list` column 1, in a session-start index line (`· kp5brom5` /
-  `→ lumo memory show kp5brom5`), in `task show --lineage` or `workspace learnings`.
+  `→ lumo memory show kp5brom5`), in `task show --lineage` or `memory list --learnings`.
   The short ref is the id's last 8 characters (its random part — leading
   characters are a timestamp shared by memories created together). A unique id
   prefix of 6+ characters or the full id (old scripts) also work. Without the
@@ -95,7 +109,7 @@ bullets, …) — never raw JSON.
   no match in your workspace (cross-workspace refs never match), a ref shorter
   than 6 characters, or an **ambiguous** ref — the error lists every candidate
   (full id + category) and nothing is picked; re-run with one of them. Other
-  non-2xx → generic HTTP error; all exit 1. `promote` and `rm` resolve the
+  non-2xx → generic HTTP error; all exit 1. `update` and `delete` resolve the
   same way. `--json`-style raw payloads keep the full id.
 
 **When to suggest**: at session start memories arrive as one-line index entries.
@@ -157,7 +171,7 @@ back the change out.
 The reverse of `sync`: promote memories a dev authored locally up to the team
 store. Each candidate is a JSON file in `<memory-dir>/outbox/` shaped
 `{ "category": "convention", "content": { ... } }` (the same per-category content
-shape as `lumo project memory add`). `push` POSTs each to the **existing**
+shape as `lumo memory add --scope project`). `push` POSTs each to the **existing**
 create-project-memory endpoint, so it runs through the same canonicalize → dedup →
 **reconcile-on-write** pipeline — no parallel upsync path — and a
 successful push removes the file from the outbox.
@@ -166,13 +180,13 @@ successful push removes the file from the outbox.
   locally is rendered markdown that cannot be reversed back to structured content,
   so those (P1 drift candidates) are **reported** by `lumo memory sync`, not
   auto-promoted — re-express the improvement as an outbox entry or via
-  `lumo project memory add`.
+  `lumo memory add --scope project`.
 - **Project**: resolved from the bound session unless `--project <ref>` is given.
 - `--dry-run` lists what would be pushed without sending.
 
 **When to suggest**: when a dev has captured a reusable lesson locally and wants it
 shared with the team — drop a `{category, content}` JSON in the memory `outbox/`
-and run `lumo memory push` (or just use `lumo project memory add` for a one-off).
+and run `lumo memory push` (or just use `lumo memory add --scope project` for a one-off).
 
 ### Automatic sync/push triggers
 
@@ -262,7 +276,7 @@ LUM-783 does for every other source card.
 (what the trap is, what the convention is) instead of an instruction to whoever
 reads it next. Do not try to smuggle the same sentence past the gate.
 
-`lumo memory rm` on a **TRAP** memory that other tasks were already judged to
+`lumo memory delete` on a **TRAP** memory that other tasks were already judged to
 have _used_ records a `USED_TRAP_MEMORY_DELETED` boundary crossing against the
 bound task (it blocks DONE until dispositioned). Correct or retire such a memory
 rather than deleting it; deleting a never-used memory records nothing.
@@ -296,19 +310,19 @@ developer could learn from the source, git log, or docs. When unsure, don't.
 
 ### TASK vs PROJECT (at add time)
 
-Default to **TASK** (`lumo task memory add`). Record directly to **PROJECT**
-(`lumo project memory add`) only when it helps _any_ task in the project: a
+Default to **TASK** (`lumo memory add`). Record directly to **PROJECT**
+(`lumo memory add --scope project`) only when it helps _any_ task in the project: a
 toolchain/environment trap, a team-wide convention, a cross-task decision. When
 unsure → TASK.
 
 ### When to promote (TASK → PROJECT)
 
-`lumo memory promote <ref>` only when the lesson **recurs across 2+ different
+`lumo memory update <ref> --scope project` only when the lesson **recurs across 2+ different
 tasks**, would help a _different_ task, and no equivalent PROJECT memory exists.
 A wrong promotion is costly (every agent sees it forever) — prefer leaving it at TASK.
 
 ### When to reach for this
 
 After a non-trivial debugging session, a pitfall you hit, or establishing a
-convention → consider `lumo task memory add`. When you notice a lesson recurring
-across multiple tasks → consider `lumo memory promote`.
+convention → consider `lumo memory add`. When you notice a lesson recurring
+across multiple tasks → consider `lumo memory update <ref> --scope project`.

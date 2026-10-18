@@ -168,7 +168,7 @@ export async function memoryTaskAdd(
       process.stdout.write(
         `Added ${built.category} memory to ${identifier}${boundSuffix}\n` +
           hint(
-            `only useful for this task? If it generalizes, use ${cmd('lumo project memory add')} or ${cmd('lumo memory promote')} later.`
+            `only useful for this task? If it generalizes, use ${cmd('lumo memory add --scope project')} or ${cmd('lumo memory update <ref> --scope project')} later.`
           ) +
           '\n'
       )

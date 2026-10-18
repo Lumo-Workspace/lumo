@@ -210,12 +210,14 @@ function tag(m: RenderableMemory): string {
  * The agent-facing framing (what to do, how to remove a wrong one) is TRUSTED
  * and sits OUTSIDE the untrusted boundary; the memory bodies themselves are
  * member/LLM-derived and stay inside `wrapUntrustedMemory`. Each item carries
- * its short ref (LUM-1230) so the agent can run `lumo memory rm <ref>` on a bad row.
+ * its short ref (LUM-1230) so the agent can delete a bad row (the command the
+ * caller's CLI has, LUM-1233).
  *
  * Returns "" for an empty list so the caller omits the section entirely.
  */
 export function renderLayer2ReviewSection(
-  memories: RenderableMemory[]
+  memories: RenderableMemory[],
+  commands: CliCommandNames = LEGACY_CLI_COMMANDS
 ): string {
   if (memories.length === 0) return ''
   const items = memories
@@ -227,7 +229,7 @@ export function renderLayer2ReviewSection(
     '',
     `When the previous session ended, the system auto-consolidated/promoted ${memories.length} learnings into **project-scope memory** (block below). ` +
       "Before starting this session's work, quickly sanity-check them against the code and context:",
-    '- If one is clearly wrong or over-generalized, delete it with its annotated ref: `lumo memory rm <ref> --yes`;',
+    `- If one is clearly wrong or over-generalized, delete it with its annotated ref: ${commands.memoryDelete};`,
     '- Otherwise ignore this section and work as usual. It appears only once, in the immediately-following session.',
     '',
     block,
