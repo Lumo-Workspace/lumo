@@ -255,6 +255,21 @@ describe('1. migration rules keep a deterministic checker', () => {
     ).toEqual(['migrate-dev@production', 'migrations-table-write'])
   })
 
+  it.each([
+    ['区别 migrate dev 和 deploy', []],
+    ['特别注意 db push 的用法', []],
+    ['不可能在生产跑 migrate reset', []],
+    ['不可或缺的一步是 prisma migrate dev', []],
+    ['别人会在 CI 里跑 migrate dev', []],
+    ['别用 db push', ['db-push']],
+    ['不得 migrate reset', ['migrate-reset']],
+    ['开发时，别 db push', ['db-push']],
+    ['生产环境严禁 migrate dev', ['migrate-dev@production']],
+    ['不可以直接修改 _prisma_migrations', ['migrations-table-write']],
+  ])('Chinese prohibition markers: %s → %j', (text, ops) => {
+    expect(forbiddenMigrationOps(text)).toEqual(ops)
+  })
+
   it('leaves rules that name no migration command, or carry another predicate kind', () => {
     expect(
       migrationCommandRuleShape({

@@ -25,9 +25,25 @@
 import type { MigrationOp } from '@/ee/security/boundary-crossing/migration-command-match'
 import type { RawPolicyRule } from './types'
 
-/** Clause-opening prohibition wording (the forbidden part follows it). */
-const PROHIBITION =
-  /\b(?:never|do\s+not|don'?t|must\s+not|may\s+not|not|forbidden|prohibited)\b|禁止|严禁|不要|不得|不能|不准|不可|勿|别/gi
+/** Where a CJK clause starts: the text start, whitespace or punctuation. */
+const CJK_CLAUSE_START = `(?<=^|[\\s,.;:!?()"'“”‘’，。；：！？、（）—-])`
+
+/**
+ * Clause-opening prohibition wording (the forbidden part follows it).
+ * English markers are whole words. A Chinese single-character marker is part
+ * of ordinary words (区别, 特别, 不可能, 不可或缺), so only an unambiguous
+ * compound (禁止, 严禁, 不要, 不得, 不准, 不能, 不可以, 切勿, 请勿, 别再, 别用 …)
+ * counts anywhere; a bare 别 / 不可 / 勿 counts only at the start of a clause,
+ * and never as 别人 / 别的 / 不可能 / 不可或缺 / 不可避免 ….
+ */
+const PROHIBITION = new RegExp(
+  [
+    "\\b(?:never|do\\s+not|don'?t|must\\s+not|may\\s+not|not|forbidden|prohibited)\\b",
+    '禁止|严禁|不要|不得|不准|不能|不可以|切勿|请勿|别再|别用|别跑|别执行|别运行|别直接|别去|别把|别碰|别改|别删',
+    `${CJK_CLAUSE_START}(?:别(?![人的处名称])|不可(?![能或避思少缺])|勿)`,
+  ].join('|'),
+  'gi'
+)
 
 /** A negation that obliges: "don't forget to", "never skip", "not only". */
 const OBLIGING_NEGATION =
