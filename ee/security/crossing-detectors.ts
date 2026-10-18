@@ -8,8 +8,8 @@
  *     on the built-in credential stores (LUM-963), and the LUM-466 LLM
  *     confirmation of action-category candidates that matched only as prose;
  *   - `policyRuleDetector`: the project's compiled rules (LUM-590) —
- *     PROJECT_RULE_VIOLATION from action predicates (cmd-substr / push-target,
- *     LUM-751 / LUM-772) and SENSITIVE_PATH_READ from the project's read globs.
+ *     PROJECT_RULE_VIOLATION from action predicates (cmd-substr / push-target
+ *     / path-delete, LUM-751 / LUM-772 / LUM-1236) and SENSITIVE_PATH_READ from the project's read globs.
  *
  * The code moved here verbatim from `lib/services/boundary-detector.service.ts`;
  * the core keeps the pipeline (reading the event, evasion pass, clipping,
@@ -46,6 +46,11 @@ import {
 } from '@/ee/security/boundary-crossing/sensitive-read'
 import { matchActionRule } from '@/ee/security/boundary-crossing/action-rule-match'
 import { matchPushTarget } from '@/ee/security/boundary-crossing/push-target-match'
+import {
+  matchPathDelete,
+  parsePathDeleteValue,
+  pathsCoveredByMigrationBuiltin,
+} from '@/lib/boundary-crossing/path-delete'
 // NOTE: the LLM client (`@/lib/llm/action-confirm-client`) is loaded LAZILY
 // inside its cached wrapper — it pulls in the heavy `ai` / `@ai-sdk/gateway`
 // SDK, and a static import would drag that into every module that loads the
@@ -196,6 +201,20 @@ export async function confirmActionCandidates(
 // --- LUM-590: project action-rule predicates ----------------------------------
 
 /**
+ * LUM-1236: a `path-delete` rule mapped to MIGRATION_FILE_DELETED whose paths
+ * all lie under prisma/migrations is judged by the built-in detector alone —
+ * it reads the same deletes (lib/boundary-crossing/path-delete), so one real
+ * deletion is one crossing and one ruling, not two. Pure.
+ */
+export function isCoveredByBuiltinDetector(rule: PolicyRule): boolean {
+  return (
+    rule.mappedCategory === 'MIGRATION_FILE_DELETED' &&
+    rule.predicate?.type === 'path-delete' &&
+    pathsCoveredByMigrationBuiltin(parsePathDeleteValue(rule.predicate.value))
+  )
+}
+
+/**
  * Test a set of compiled PolicyRules against a hook event's command and return
  * any crossings (LUM-590). Only deterministic action rules with a cmd-substr /
  * push-target predicate are handled here — path-glob action predicates are
@@ -224,12 +243,17 @@ export function detectProjectActionCrossings(
     // LUM-772: a push prohibition compiles to `push-target` and is judged on
     // the push's OWN destination (a feature push next to `gh pr create --base
     // main` is not a push to main).
+    // LUM-1236: a "never delete files in <path>" rule compiles to
+    // `path-delete` and is judged on the operands of the delete itself.
+    if (isCoveredByBuiltinDetector(r)) continue
     const hit =
       p.type === 'cmd-substr'
         ? matchActionRule(p.value, command)
         : p.type === 'push-target'
           ? matchPushTarget(p.value, command)
-          : false
+          : p.type === 'path-delete'
+            ? matchPathDelete(p.value, command)
+            : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
