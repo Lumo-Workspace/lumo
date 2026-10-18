@@ -95,6 +95,18 @@ jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
     )
   },
 }))
+jest.mock(
+  '@/ee/security/components/TaskDetailTimeline/RewardHackEvidence',
+  () => ({
+    RewardHackEvidence: (p: { taskId: string; findingId: string }) => (
+      <div
+        data-testid='reward-hack-evidence-stub'
+        data-task={p.taskId}
+        data-finding={p.findingId}
+      />
+    ),
+  })
+)
 const useSecurityScans = jest.fn()
 jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
   useSecurityScans: (id: string) => useSecurityScans(id),
@@ -992,4 +1004,44 @@ test('a PR with only verifier-rejected findings reads "dismissed by verifier", f
     '2 dismissed by verifier'
   )
   expect(screen.queryByTestId('security-scan-badge')).toBeNull()
+})
+
+test('LUM-1234: a REWARD_HACK row shows the server-read evidence, never the raw event ids', () => {
+  const evidence = JSON.stringify({ eventIds: ['ev1'], sessionIds: ['s1'] })
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({
+                id: 'rh1',
+                kind: 'REWARD_HACK',
+                ruleId: 'reward-hack/test-tampering',
+                severity: 'MEDIUM',
+                provenance: 'LLM_JUDGE',
+                filePath: 'src/a.test.ts',
+                line: null,
+                title: 'Weakened an assertion',
+                detail: 'Weakened an assertion',
+                evidence,
+                blocking: false,
+              }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const stub = screen.getByTestId('reward-hack-evidence-stub')
+  expect(stub).toHaveAttribute('data-task', 't1')
+  expect(stub).toHaveAttribute('data-finding', 'rh1')
+  expect(screen.getByTestId('security-finding-rh1')).not.toHaveTextContent(
+    'ev1'
+  )
 })

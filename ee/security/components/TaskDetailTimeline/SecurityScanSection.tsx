@@ -60,6 +60,7 @@ import {
   type FindingGroupKey,
 } from './security-summary'
 import { buildAgentContext } from './security-agent-context'
+import { RewardHackEvidence } from './RewardHackEvidence'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 
@@ -1341,7 +1342,12 @@ function FindingRow({
               )}
             </div>
           )}
-          {finding.evidence !== '' && (
+          {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
+              evidence is read from the server, with session access checked. */}
+          {finding.kind === 'REWARD_HACK' && (
+            <RewardHackEvidence taskId={taskId} findingId={finding.id} />
+          )}
+          {finding.kind !== 'REWARD_HACK' && finding.evidence !== '' && (
             <pre className='mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 px-2 py-1.5 font-mono text-caption text-foreground/80'>
               {finding.evidence}
             </pre>
