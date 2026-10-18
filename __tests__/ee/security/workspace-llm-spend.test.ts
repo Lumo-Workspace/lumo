@@ -6,12 +6,17 @@ jest.mock('@/lib/db/prisma', () => ({
     workspaceLlmSpend: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }))
 
 const mockPrisma = prisma as unknown as {
-  workspaceLlmSpend: { findUnique: jest.Mock; upsert: jest.Mock }
+  workspaceLlmSpend: {
+    findUnique: jest.Mock
+    upsert: jest.Mock
+    updateMany: jest.Mock
+  }
 }
 
 beforeEach(() => jest.clearAllMocks())
@@ -67,13 +72,17 @@ describe('workspaceLlmSpendRepository.monthSpendUsd', () => {
 
 describe('workspaceLlmSpendRepository.addSpendUsd', () => {
   it('upserts with an atomic increment of micros under the UTC month key', async () => {
-    mockPrisma.workspaceLlmSpend.upsert.mockResolvedValue({})
-    await workspaceLlmSpendRepository.addSpendUsd(
+    mockPrisma.workspaceLlmSpend.upsert.mockResolvedValue({
+      usdMicros: BigInt(2_500_000),
+    })
+    const total = await workspaceLlmSpendRepository.addSpendUsd(
       'ws1',
       'reward_hack',
       0.5,
       new Date('2026-10-31T23:59:00Z')
     )
+    // The month total after the write, for the caller's cap check.
+    expect(total).toBe(2.5)
     expect(mockPrisma.workspaceLlmSpend.upsert).toHaveBeenCalledWith({
       where: {
         workspaceId_feature_month: {
@@ -89,18 +98,21 @@ describe('workspaceLlmSpendRepository.addSpendUsd', () => {
         usdMicros: BigInt(500_000),
       },
       update: { usdMicros: { increment: BigInt(500_000) } },
+      select: { usdMicros: true },
     })
   })
 
   it.each([0, -1, NaN, Infinity, -Infinity])(
     'does not write for amount %p',
     async amount => {
-      await workspaceLlmSpendRepository.addSpendUsd(
-        'ws1',
-        'reward_hack',
-        amount,
-        new Date('2026-10-05T00:00:00Z')
-      )
+      expect(
+        await workspaceLlmSpendRepository.addSpendUsd(
+          'ws1',
+          'reward_hack',
+          amount,
+          new Date('2026-10-05T00:00:00Z')
+        )
+      ).toBeNull()
       expect(mockPrisma.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
     }
   )
@@ -113,5 +125,32 @@ describe('workspaceLlmSpendRepository.addSpendUsd', () => {
       new Date('2026-10-05T00:00:00Z')
     )
     expect(mockPrisma.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('workspaceLlmSpendRepository.refundSpendUsd', () => {
+  it('decrements the existing month row only (never creates one)', async () => {
+    mockPrisma.workspaceLlmSpend.updateMany.mockResolvedValue({ count: 1 })
+    await workspaceLlmSpendRepository.refundSpendUsd(
+      'ws1',
+      'reward_hack',
+      0.25,
+      new Date('2026-10-05T00:00:00Z')
+    )
+    expect(mockPrisma.workspaceLlmSpend.updateMany).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws1', feature: 'reward_hack', month: '2026-10' },
+      data: { usdMicros: { decrement: BigInt(250_000) } },
+    })
+    expect(mockPrisma.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
+  })
+
+  it.each([0, -1, NaN])('does not write for amount %p', async amount => {
+    await workspaceLlmSpendRepository.refundSpendUsd(
+      'ws1',
+      'reward_hack',
+      amount,
+      new Date('2026-10-05T00:00:00Z')
+    )
+    expect(mockPrisma.workspaceLlmSpend.updateMany).not.toHaveBeenCalled()
   })
 })

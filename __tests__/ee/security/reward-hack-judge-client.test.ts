@@ -125,12 +125,16 @@ describe('LUM-1234 reward-hack refute client', () => {
   it('sends the transcript prompt plus the item, and returns verdict and cost', async () => {
     gen.mockResolvedValueOnce({
       object: { refuted: true, reason: 'The user asked for it.' },
+      usage: { inputTokens: 900, outputTokens: 30 },
       providerMetadata: { gateway: { cost: '0.004' } },
     })
     const r = await refuteRewardHackItem({ prompt: 'TRANSCRIPT', item: ITEM })
+    // Usage comes back too: the runner books it when the gateway sends no cost.
     expect(r).toEqual({
       refuted: true,
       reason: 'The user asked for it.',
+      inputTokens: 900,
+      outputTokens: 30,
       costUsd: 0.004,
     })
     const arg = gen.mock.calls[0][0]

@@ -24,7 +24,11 @@ jest.mock('@/lib/db/prisma', () => {
     prSecurityFinding: { findMany: jest.fn(), createMany: jest.fn() },
     pullRequest: { findUnique: jest.fn(), findFirst: jest.fn() },
     workspace: { findUnique: jest.fn() },
-    workspaceLlmSpend: { findUnique: jest.fn(), upsert: jest.fn() },
+    workspaceLlmSpend: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      updateMany: jest.fn(),
+    },
     session: { findMany: jest.fn() },
     hookEvent: { findMany: jest.fn() },
     task: { findFirst: jest.fn() },
@@ -76,9 +80,15 @@ import {
 } from '@/ee/security/llm/reward-hack-judge-client'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import {
+  REWARD_HACK_MAX_REFUTES,
   rewardHackFingerprint,
   runRewardHackLayer,
 } from '@/ee/security/services/reward-hack-layer.service'
+import { estimateRhCallUsd } from '@/ee/security/security-scan/reward-hack-cost'
+import {
+  REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS,
+  REWARD_HACK_SYSTEM_PROMPT,
+} from '@/ee/security/security-scan/reward-hack-prompts'
 import {
   REWARD_HACK_PENDING_DEAD_MS,
   securityHuntOpsService,
@@ -92,7 +102,13 @@ import type { NewFindingInput } from '@/ee/security/repositories/pr-security-sca
 
 type Fn = jest.Mock
 type Model = Record<
-  'findUnique' | 'findFirst' | 'findMany' | 'update' | 'createMany' | 'upsert',
+  | 'findUnique'
+  | 'findFirst'
+  | 'findMany'
+  | 'update'
+  | 'createMany'
+  | 'upsert'
+  | 'updateMany',
   Fn
 >
 type ModelName =
@@ -212,6 +228,8 @@ function writtenRows(): NewFindingInput[] {
   )
 }
 
+/** The workspace's month row in the spend ledger, micro-USD. */
+let ledgerMicros: bigint
 let previousScan: { id: string; rewardHackState: unknown } | null
 let previousRows: unknown[]
 let dispositioned: unknown[]
@@ -234,8 +252,22 @@ beforeEach(() => {
   db.pullRequest.findUnique.mockResolvedValue(PR)
   db.pullRequest.findFirst.mockResolvedValue(null)
   db.workspace.findUnique.mockResolvedValue(ALL_ON)
-  db.workspaceLlmSpend.findUnique.mockResolvedValue(null)
-  db.workspaceLlmSpend.upsert.mockResolvedValue({})
+  ledgerMicros = BigInt(0)
+  db.workspaceLlmSpend.findUnique.mockImplementation(async () =>
+    ledgerMicros > BigInt(0) ? { usdMicros: ledgerMicros } : null
+  )
+  db.workspaceLlmSpend.upsert.mockImplementation(
+    async (a: { update: { usdMicros: { increment: bigint } } }) => {
+      ledgerMicros += a.update.usdMicros.increment
+      return { usdMicros: ledgerMicros }
+    }
+  )
+  db.workspaceLlmSpend.updateMany.mockImplementation(
+    async (a: { data: { usdMicros: { decrement: bigint } } }) => {
+      ledgerMicros -= a.data.usdMicros.decrement
+      return { count: 1 }
+    }
+  )
   db.session.findMany.mockResolvedValue([{ id: 'sess1' }])
   db.hookEvent.findMany.mockResolvedValue([
     promptEv('e1', 'Make the login tests pass'),
@@ -484,15 +516,16 @@ describe('LUM-1234 reward-hack layer runner', () => {
     })
     // One write: rows, state and stage land together.
     expect(db.prSecurityScan.update).toHaveBeenCalledTimes(1)
+    // Estimates charged up front, settled to the reported 0.5 + 0.1.
     expect(db.workspaceLlmSpend.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
           workspaceId: 'w1',
           feature: 'reward_hack',
-          usdMicros: BigInt(600_000),
         }),
       })
     )
+    expect(ledgerMicros).toBe(BigInt(600_000))
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
     expect(stateWrites()[0]).toEqual({
       watermark: { sess1: 'e2' },
@@ -568,15 +601,11 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(writtenRows()).toHaveLength(0)
   })
 
-  it('a refute call throws after the judge: FAILED, but the judge spend is still recorded', async () => {
+  it('a refute call throws after the judge: FAILED, the judge cost and the refute estimate stay booked', async () => {
     refute.mockRejectedValue(new Error('timeout'))
     await runRewardHackLayer('scan2')
     expect(lastStage().state).toBe('FAILED')
-    expect(db.workspaceLlmSpend.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({ usdMicros: BigInt(500_000) }),
-      })
-    )
+    expect(ledgerMicros).toBeGreaterThan(BigInt(500_000))
   })
 
   it('a PR file list that cannot be read is FAILED, not SKIPPED', async () => {
@@ -651,14 +680,135 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(db.prSecurityScan.update).not.toHaveBeenCalled()
   })
 
-  it('a free judge call books no spend', async () => {
+  it('a judge call that reports no cost and no usage keeps its estimate booked (never free)', async () => {
     judge.mockResolvedValue({
       output: { suspicion: 0, items: [] },
       costUsd: null,
     })
     await runRewardHackLayer('scan2')
-    expect(db.workspaceLlmSpend.upsert).not.toHaveBeenCalled()
+    const prompt = judge.mock.calls[0]![0] as string
+    const estimate = estimateRhCallUsd(
+      `${REWARD_HACK_SYSTEM_PROMPT}\n${prompt}`,
+      REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS
+    )
+    expect(ledgerMicros).toBe(BigInt(Math.round(estimate * 1e6)))
     expect(lastStage().state).toBe('RAN')
+  })
+
+  it('no reported cost but token usage: booked at list price', async () => {
+    judge.mockResolvedValue({
+      output: { suspicion: 0, items: [] },
+      costUsd: null,
+      inputTokens: 100_000,
+      outputTokens: 1_000,
+    })
+    await runRewardHackLayer('scan2')
+    // 100k × $3/M + 1k × $15/M
+    expect(ledgerMicros).toBe(BigInt(315_000))
+  })
+
+  it('the judge estimate is charged BEFORE the call, and stays booked when the call dies', async () => {
+    let atCall = BigInt(-1)
+    judge.mockImplementation(async () => {
+      atCall = ledgerMicros
+      throw new Error('function killed')
+    })
+    await runRewardHackLayer('scan2')
+    expect(atCall).toBeGreaterThan(BigInt(0))
+    expect(ledgerMicros).toBe(atCall)
+    expect(lastStage().state).toBe('FAILED')
+  })
+
+  it('another run took the month to the cap before this charge: refunded, no call, PARTIAL (REWARD_HACK_MONTHLY_CAP)', async () => {
+    // The read sees room; the concurrent run's spend lands before ours.
+    db.workspaceLlmSpend.findUnique.mockResolvedValue(null)
+    ledgerMicros = BigInt(25_000_000)
+    await runRewardHackLayer('scan2')
+    expect(judge).not.toHaveBeenCalled()
+    expect(ledgerMicros).toBe(BigInt(25_000_000))
+    expect(lastStage()).toEqual({
+      state: 'PARTIAL',
+      causes: ['REWARD_HACK_MONTHLY_CAP'],
+    })
+    expect(stateWrites()).toHaveLength(0)
+  })
+
+  it('no room left for the refutes: no refute, nothing reported, PARTIAL (REWARD_HACK_MONTHLY_CAP)', async () => {
+    judge.mockImplementation(async () => {
+      // The judge itself pushed the month past the cap.
+      ledgerMicros += BigInt(30_000_000)
+      return {
+        output: {
+          suspicion: 90,
+          items: [{ kind: 'OTHER', summary: 's', eventIds: ['e2'] }],
+        },
+        costUsd: 0.5,
+      }
+    })
+    await runRewardHackLayer('scan2')
+    expect(refute).not.toHaveBeenCalled()
+    expect(writtenRows()).toHaveLength(0)
+    expect(lastStage()).toEqual({
+      state: 'PARTIAL',
+      causes: ['REWARD_HACK_MONTHLY_CAP'],
+    })
+  })
+
+  it('refutes at most REWARD_HACK_MAX_REFUTES items, all in parallel', async () => {
+    expect(REWARD_HACK_MAX_REFUTES).toBe(3)
+    judge.mockResolvedValue({
+      output: {
+        suspicion: 90,
+        items: ['A', 'B', 'C', 'D', 'E'].map(k => ({
+          kind: 'OTHER',
+          summary: k,
+          eventIds: ['e2'],
+        })),
+      },
+      costUsd: 0.5,
+    })
+    const pending: Array<() => void> = []
+    refute.mockImplementation(
+      () =>
+        new Promise(resolve =>
+          pending.push(() =>
+            resolve({ refuted: false, reason: 'no', costUsd: 0.1 })
+          )
+        )
+    )
+    const run = runRewardHackLayer('scan2')
+    for (let i = 0; i < 50 && pending.length < 3; i++)
+      await new Promise(r => setImmediate(r))
+    // All three started before any one finished.
+    expect(pending).toHaveLength(3)
+    pending.forEach(release => release())
+    await run
+    expect(refute).toHaveBeenCalledTimes(3)
+    expect(
+      refute.mock.calls.map(
+        c => (c[0] as { item: { summary: string } }).item.summary
+      )
+    ).toEqual(['A', 'B', 'C'])
+  })
+
+  it('a token-dense input past RH_MAX_INPUT_TOKENS is PARTIAL (REWARD_HACK_INPUT_CAP) with no call, under the char cap', async () => {
+    const events: Ev[] = [edit('e2', 'src/auth.test.ts')]
+    for (let i = 0; i < 50; i++)
+      events.push(
+        promptEv(
+          `p${String(i).padStart(3, '0')}`,
+          '测'.repeat(4000),
+          '2026-10-09T08:00:00Z'
+        )
+      )
+    db.hookEvent.findMany.mockResolvedValue(events)
+    await runRewardHackLayer('scan2')
+    expect(judge).not.toHaveBeenCalled()
+    expect(ledgerMicros).toBe(BigInt(0))
+    expect(lastStage()).toEqual({
+      state: 'PARTIAL',
+      causes: ['REWARD_HACK_INPUT_CAP'],
+    })
   })
 
   it('never throws, even when stamping FAILED fails too', async () => {

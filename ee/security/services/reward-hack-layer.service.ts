@@ -8,8 +8,11 @@
  * Flow: scan + PR + workspace switches → the task's sessions inside this PR's
  * window that edit a file the PR changes → reuse the previous scan's verdict
  * when the sessions have not moved on → the monthly spend ceiling → the
- * judge, the evidence gates, a refute call per item → findings, spend, state
- * → stage → the PR summary.
+ * judge, the evidence gates, a refute call per item (at most
+ * `REWARD_HACK_MAX_REFUTES`, in parallel) → findings, state → stage → the PR
+ * summary. Every call's estimated cost is charged to the monthly ledger
+ * BEFORE it is made and settled to its reported cost after, so the cap holds
+ * even for a run the platform kills mid-call.
  *
  * The reuse cache is keyed on the session watermark only (sessionId → last
  * in-window event): a human commit on its own does not re-judge.
@@ -44,6 +47,19 @@ import {
   type RhSession,
 } from '@/ee/security/security-scan/reward-hack-input'
 import { applyRhGates } from '@/ee/security/security-scan/reward-hack-gates'
+import {
+  RH_MAX_INPUT_TOKENS,
+  estimateRhCallUsd,
+  estimateRhTokens,
+  settledRhCallUsd,
+} from '@/ee/security/security-scan/reward-hack-cost'
+import {
+  REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS,
+  REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
+  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
+  REWARD_HACK_SYSTEM_PROMPT,
+  buildRefutePrompt,
+} from '@/ee/security/security-scan/reward-hack-prompts'
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import { inheritDispositions } from '@/ee/security/security-scan/inherit-dispositions'
 import {
@@ -62,14 +78,25 @@ export type { RewardHackState }
 /** Our cap on one PR's judge input (characters); over it the input is cut. */
 export const REWARD_HACK_MAX_INPUT_CHARS = 400_000
 
+/**
+ * Our cap on refute calls per run (the highest-ranked items in the judge's
+ * order); refutes run in parallel so the run stays inside its time budget.
+ */
+export const REWARD_HACK_MAX_REFUTES = 3
+
+/** What a model call reports back about its own cost. */
+interface RhCallCost {
+  costUsd: number | null
+  inputTokens?: number
+  outputTokens?: number
+}
+
 export interface RhDeps {
-  judge: (
-    prompt: string
-  ) => Promise<{ output: RhJudgeOutput; costUsd: number | null }>
+  judge: (prompt: string) => Promise<{ output: RhJudgeOutput } & RhCallCost>
   refute: (args: {
     prompt: string
     item: RhItem
-  }) => Promise<{ refuted: boolean; costUsd: number | null }>
+  }) => Promise<{ refuted: boolean } & RhCallCost>
   /** The PR's changed file paths at its head. Throws when unreadable. */
   listPrFiles: (pr: {
     workspaceId: string
@@ -320,16 +347,17 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
 
   // Our monthly ceiling, checked before any call: told as not checked.
   const now = deps.now()
+  const cap = rewardHackMonthlyCapUsd()
   const spent = await workspaceLlmSpendRepository.monthSpendUsd(
     workspaceId,
     'reward_hack',
     now
   )
-  if (spent >= rewardHackMonthlyCapUsd())
-    return settle(ctx, {
-      state: 'PARTIAL',
-      causes: ['REWARD_HACK_MONTHLY_CAP', ...prunedCauses],
-    })
+  const capped: StageOutcome = {
+    state: 'PARTIAL',
+    causes: ['REWARD_HACK_MONTHLY_CAP', ...prunedCauses],
+  }
+  if (spent >= cap) return settle(ctx, capped)
 
   const requirement = await rewardHackInputRepository.loadRequirement(
     workspaceId,
@@ -343,39 +371,60 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     })),
     maxChars: REWARD_HACK_MAX_INPUT_CHARS,
   })
-  if (built.overCap)
-    // Even the markers do not fit: nothing is sent to the model.
+  const judgeInput = `${REWARD_HACK_SYSTEM_PROMPT}\n${built.prompt}`
+  if (built.overCap || estimateRhTokens(judgeInput) > RH_MAX_INPUT_TOKENS)
+    // Even the markers do not fit (or the text is token-dense past our
+    // per-call cap): nothing is sent to the model.
     return settle(ctx, {
       state: 'PARTIAL',
       causes: ['REWARD_HACK_INPUT_CAP', ...prunedCauses],
     })
 
-  let costUsd = 0
+  const ledger = new SpendLedger(workspaceId, cap, now)
+  // Charged BEFORE the call: a run killed mid-call (the platform's time
+  // limit) or a call with no reported cost still counts against the cap.
+  const judgeEstimate = estimateRhCallUsd(
+    judgeInput,
+    REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS
+  )
+  if (!(await ledger.reserve(judgeEstimate))) return settle(ctx, capped)
+  const judged = await deps.judge(built.prompt)
+  await ledger.settle(judgeEstimate, judged)
+  const items = applyRhGates({
+    output: judged.output,
+    promptEventIds: built.eventIds,
+    eventFile: built.eventFile,
+    prFiles,
+  }).slice(0, REWARD_HACK_MAX_REFUTES)
+
   const kept: RhItem[] = []
-  try {
-    const judged = await deps.judge(built.prompt)
-    costUsd += judged.costUsd ?? 0
-    const items = applyRhGates({
-      output: judged.output,
-      promptEventIds: built.eventIds,
-      eventFile: built.eventFile,
-      prFiles,
-    })
-    for (const item of items) {
-      const verdict = await deps.refute({ prompt: built.prompt, item })
-      costUsd += verdict.costUsd ?? 0
-      if (!verdict.refuted) kept.push(item)
-    }
-  } finally {
-    // Spent is spent, even when a later call failed.
-    if (costUsd > 0)
-      await workspaceLlmSpendRepository.addSpendUsd(
-        workspaceId,
-        'reward_hack',
-        costUsd,
-        now
+  if (items.length > 0) {
+    const estimates = items.map(item =>
+      estimateRhCallUsd(
+        `${REWARD_HACK_REFUTE_SYSTEM_PROMPT}\n${buildRefutePrompt({ prompt: built.prompt, item })}`,
+        REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
       )
+    )
+    const total = estimates.reduce((a, b) => a + b, 0)
+    // No room left for the refutes: an unrefuted item is never reported.
+    if (!(await ledger.reserve(total))) return settle(ctx, capped)
+    const verdicts = await Promise.allSettled(
+      items.map(item => deps.refute({ prompt: built.prompt, item }))
+    )
+    let failure: unknown = null
+    for (let i = 0; i < items.length; i++) {
+      const v = verdicts[i]!
+      // A failed call keeps its estimate: it may have been billed.
+      if (v.status === 'rejected') {
+        failure = failure ?? v.reason
+        continue
+      }
+      await ledger.settle(estimates[i]!, v.value)
+      if (!v.value.refuted) kept.push(items[i]!)
+    }
+    if (failure !== null) throw failure
   }
+  const costUsd = Math.round(ledger.bookedUsd * 1e6) / 1e6
 
   const eventSession = sessionOfEvent(selected.included)
   const rows = inheritDispositions(
@@ -407,6 +456,73 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       truncated: built.truncated,
     },
   })
+}
+
+/**
+ * One run's charges against the workspace's monthly ledger: estimates are
+ * reserved before a call and settled to its real cost after.
+ */
+class SpendLedger {
+  /** What this run has booked so far (estimates of unsettled calls included). */
+  bookedUsd = 0
+
+  constructor(
+    private readonly workspaceId: string,
+    private readonly capUsd: number,
+    private readonly now: Date
+  ) {}
+
+  /**
+   * Charge `usd` up front. False (and nothing charged) when the month was
+   * already at the cap before this charge — a concurrent run got there first.
+   */
+  async reserve(usd: number): Promise<boolean> {
+    const total = await workspaceLlmSpendRepository.addSpendUsd(
+      this.workspaceId,
+      'reward_hack',
+      usd,
+      this.now
+    )
+    if (total !== null && total - usd >= this.capUsd) {
+      await workspaceLlmSpendRepository.refundSpendUsd(
+        this.workspaceId,
+        'reward_hack',
+        usd,
+        this.now
+      )
+      return false
+    }
+    this.bookedUsd += usd
+    return true
+  }
+
+  /** Replace a reserved estimate by the call's settled cost. */
+  async settle(
+    estimateUsd: number,
+    reported: {
+      costUsd: number | null
+      inputTokens?: number
+      outputTokens?: number
+    }
+  ): Promise<void> {
+    const actual = settledRhCallUsd(reported, estimateUsd)
+    const delta = actual - estimateUsd
+    if (delta > 0)
+      await workspaceLlmSpendRepository.addSpendUsd(
+        this.workspaceId,
+        'reward_hack',
+        delta,
+        this.now
+      )
+    else if (delta < 0)
+      await workspaceLlmSpendRepository.refundSpendUsd(
+        this.workspaceId,
+        'reward_hack',
+        -delta,
+        this.now
+      )
+    this.bookedUsd += delta
+  }
 }
 
 function sessionOfEvent(sessions: RhSession[]): Map<string, string> {
