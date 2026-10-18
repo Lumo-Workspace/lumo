@@ -65,6 +65,8 @@ function finding(overrides: Record<string, unknown> = {}) {
     id: 'f1',
     kind: 'REWARD_HACK',
     title: 'Weakened the failing assertion instead of fixing the bug',
+    detail:
+      'Replaced the status assertion with toBeDefined so it always passes.',
     evidence: JSON.stringify({
       eventIds: ['ev-edit', 'ev-prompt', 'ev-stop'],
       sessionIds: ['s1'],
@@ -224,6 +226,9 @@ describe('rewardHackEvidenceService.getForViewer', () => {
       'Weakened the failing assertion instead of fixing the bug'
     )
     expect(view!.requirementExcerpt).toContain('Login must return 200')
+    // The judge's prose follows the session rule: not for this viewer.
+    expect(view!.explanation).toBe('')
+    expect(JSON.stringify(view)).not.toContain('toBeDefined so it always')
     expect(JSON.stringify(view)).not.toContain('Make the login test pass')
     // The event payloads of a session the viewer may not open are never read.
     expect(p.hookEvent!.findMany).not.toHaveBeenCalled()
@@ -233,6 +238,9 @@ describe('rewardHackEvidenceService.getForViewer', () => {
     viewer('MEMBER', 'm-own')
     const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-own')
     expect(view!.restricted).toBe(false)
+    expect(view!.explanation).toBe(
+      'Replaced the status assertion with toBeDefined so it always passes.'
+    )
     expect(view!.prompts).toEqual([
       {
         eventId: 'ev-prompt',

@@ -5,6 +5,8 @@
  */
 
 export interface RewardHackState {
+  /** `REWARD_HACK_VERSION` of the prompt + threshold that gave the verdict. */
+  version: string
   /** sessionId → last in-window event id the verdict saw (`rhWatermark`). */
   watermark: Record<string, string>
   /** Fingerprints of the REWARD_HACK findings this verdict wrote. */
@@ -38,7 +40,10 @@ export function parseRewardHackState(value: unknown): RewardHackState | null {
     return null
   if (typeof v.costUsd !== 'number' || !Number.isFinite(v.costUsd)) return null
   if (typeof v.truncated !== 'boolean') return null
+  // A state written before versions existed is never reused.
+  if (typeof v.version !== 'string') return null
   return {
+    version: v.version,
     watermark: v.watermark,
     findingFingerprints: v.findingFingerprints as string[],
     costUsd: v.costUsd,

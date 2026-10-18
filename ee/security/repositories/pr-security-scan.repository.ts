@@ -1574,6 +1574,7 @@ export const prSecurityScanRepository = {
       partialCauses: PartialCause[]
       /** Omitted = the state column is left alone. */
       state?: {
+        version: string
         watermark: Record<string, string>
         findingFingerprints: string[]
         costUsd: number

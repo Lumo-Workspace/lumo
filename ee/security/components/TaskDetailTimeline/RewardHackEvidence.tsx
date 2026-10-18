@@ -89,6 +89,14 @@ export function RewardHackEvidence({
           {t('securityScan.rewardHack.restricted')}
         </p>
       )}
+      {data.explanation !== '' && (
+        <p
+          data-testid='reward-hack-evidence-explanation'
+          className='whitespace-pre-wrap text-foreground'
+        >
+          {data.explanation}
+        </p>
+      )}
       {data.requirementExcerpt !== '' && (
         <Block
           label={t('securityScan.rewardHack.requirement')}

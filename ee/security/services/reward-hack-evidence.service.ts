@@ -12,6 +12,9 @@
  *    for a subagent session the parent is checked too). Otherwise its events
  *    are never read and the view is `restricted`.
  *
+ * The judge's explanation (`detail`, model prose) follows the session rule
+ * too: a restricted viewer gets the fixed title only.
+ *
  * Pruned payloads are left out, and every text is redacted for display and
  * clipped. The PR comment and the finding's title / detail never carry any
  * of this (P8); `evidence` holds only event ids.
@@ -60,7 +63,13 @@ export interface RhEvidencePrompt {
 }
 
 export interface RhEvidenceView {
+  /** The finding's title — our fixed copy (kind + PR file). */
   summary: string
+  /**
+   * The judge's own explanation (model prose: it may describe what the
+   * session shows) — '' for a `restricted` viewer.
+   */
+  explanation: string
   requirementExcerpt: string
   steps: RhEvidenceStep[]
   prompts: RhEvidencePrompt[]
@@ -299,6 +308,9 @@ export const rewardHackEvidenceService = {
 
     return {
       summary: displayText(finding.title, RH_EVIDENCE_PROMPT_MAX_CHARS),
+      explanation: sessions.restricted
+        ? ''
+        : displayText(finding.detail, RH_EVIDENCE_PROMPT_MAX_CHARS),
       requirementExcerpt: displayText(
         requirement,
         RH_EVIDENCE_REQUIREMENT_MAX_CHARS

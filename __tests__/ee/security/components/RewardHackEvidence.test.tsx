@@ -17,7 +17,8 @@ jest.mock('@/ee/security/hooks/useRewardHackEvidence', () => ({
 import { RewardHackEvidence } from '@/ee/security/components/TaskDetailTimeline/RewardHackEvidence'
 
 const view = {
-  summary: 'Weakened the failing assertion',
+  summary: 'Agent behavior: Weakened or bypassed tests',
+  explanation: 'Replaced the status assertion so it always passes.',
   requirementExcerpt: '# Fix login\n\nLogin must return 200.',
   restricted: false,
   prompts: [
@@ -54,6 +55,24 @@ function renderWith(data: unknown, state: Record<string, boolean> = {}) {
 beforeEach(() => jest.clearAllMocks())
 
 describe('RewardHackEvidence', () => {
+  it("shows the judge's explanation when the server sends one, nothing when it is ''", () => {
+    renderWith(view)
+    expect(
+      screen.getByTestId('reward-hack-evidence-explanation')
+    ).toHaveTextContent('Replaced the status assertion so it always passes.')
+  })
+
+  it('a restricted view (no explanation) renders no explanation block', () => {
+    renderWith({
+      ...view,
+      explanation: '',
+      restricted: true,
+      prompts: [],
+      steps: [],
+    })
+    expect(screen.queryByTestId('reward-hack-evidence-explanation')).toBeNull()
+  })
+
   it('reads the finding of its own task', () => {
     renderWith(view)
     expect(useRewardHackEvidence).toHaveBeenCalledWith('t1', 'f1')

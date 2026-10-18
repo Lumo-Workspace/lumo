@@ -518,7 +518,11 @@ function toFindingView(
     filePath: f.filePath,
     line: f.line,
     title: f.title,
-    detail: f.detail,
+    // LUM-1234: a REWARD_HACK row's detail is the judge's prose, which may
+    // describe what the agent sessions show — every reader of this view (the
+    // panel, the CLI, agents) gets the fixed title only; the evidence view
+    // serves the prose to viewers who may open those sessions.
+    detail: f.kind === 'REWARD_HACK' ? '' : f.detail,
     evidence: f.evidence,
     fingerprint: f.fingerprint,
     externalRef: f.externalRef,

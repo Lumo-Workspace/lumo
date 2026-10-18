@@ -1294,9 +1294,13 @@ function FindingRow({
       </div>
       {open ? (
         <>
-          <p className='mt-1 text-caption text-foreground/80'>
-            {finding.detail}
-          </p>
+          {/* LUM-1234: a REWARD_HACK row's detail is model prose, served
+              only by its evidence view (session access checked). */}
+          {finding.detail !== '' && (
+            <p className='mt-1 text-caption text-foreground/80'>
+              {finding.detail}
+            </p>
+          )}
           {suggestedOpen && finding.suggestedReason && (
             <p
               data-testid='finding-suggested-reason'

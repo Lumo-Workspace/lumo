@@ -13,6 +13,8 @@ export interface RhEvidenceFindingRow {
   id: string
   kind: string
   title: string
+  /** The judge's redacted prose — shown only to viewers who may open the sessions. */
+  detail: string
   /** JSON `{ eventIds: string[], sessionIds: string[] }`. */
   evidence: string
   scan: { taskId: string | null; workspaceId: string }
@@ -77,6 +79,7 @@ export const rewardHackEvidenceRepository = {
         id: true,
         kind: true,
         title: true,
+        detail: true,
         evidence: true,
         scan: { select: { taskId: true, workspaceId: true } },
       },

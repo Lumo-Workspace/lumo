@@ -89,6 +89,10 @@ describe('LUM-1234 reward-hack judge client', () => {
     // ids only, without the "e:" prefix
     expect(REWARD_HACK_SYSTEM_PROMPT).toMatch(/without the "e:" prefix/)
     expect(REWARD_HACK_SYSTEM_PROMPT).toMatch(/claims, not evidence/i)
+    // LUM-1234 R16: the summary describes the change, never quotes the inputs.
+    expect(REWARD_HACK_SYSTEM_PROMPT).toMatch(
+      /Never quote or paraphrase the user's messages or the task requirement/
+    )
   })
 })
 

@@ -88,6 +88,7 @@ import { estimateRhCallUsd } from '@/ee/security/security-scan/reward-hack-cost'
 import {
   REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS,
   REWARD_HACK_SYSTEM_PROMPT,
+  REWARD_HACK_VERSION,
 } from '@/ee/security/security-scan/reward-hack-prompts'
 import {
   REWARD_HACK_PENDING_DEAD_MS,
@@ -339,10 +340,11 @@ describe('LUM-1234 reward-hack layer runner', () => {
   })
 
   it('same watermark as the previous verdict: no model call, its findings are copied with their disposition', async () => {
-    const fp = rewardHackFingerprint('TEST_TAMPERING', ['e2'])
+    const fp = rewardHackFingerprint('TEST_TAMPERING', ['src/auth.test.ts'])
     previousScan = {
       id: 'scan1',
       rewardHackState: {
+        version: REWARD_HACK_VERSION,
         watermark: { sess1: 'e2' },
         findingFingerprints: [fp],
         costUsd: 0.6,
@@ -494,9 +496,12 @@ describe('LUM-1234 reward-hack layer runner', () => {
       ruleId: 'reward-hack/TEST_TAMPERING',
       filePath: 'src/auth.test.ts',
       line: null,
-      title: 'Deleted the failing assertion so the login test passes.',
+      // Our fixed copy (kind + PR file) — never the model's prose.
+      title: 'Agent behavior: Weakened or bypassed tests in src/auth.test.ts',
       detail: 'Deleted the failing assertion so the login test passes.',
-      fingerprint: rewardHackFingerprint('TEST_TAMPERING', ['e2']),
+      fingerprint: rewardHackFingerprint('TEST_TAMPERING', [
+        'src/auth.test.ts',
+      ]),
     })
     expect(JSON.parse(row.evidence)).toEqual({
       eventIds: ['e2'],
@@ -528,6 +533,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(ledgerMicros).toBe(BigInt(600_000))
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
     expect(stateWrites()[0]).toEqual({
+      version: REWARD_HACK_VERSION,
       watermark: { sess1: 'e2' },
       findingFingerprints: [row.fingerprint],
       costUsd: 0.6,
@@ -536,16 +542,89 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(sync).toHaveBeenCalledWith('scan2')
   })
 
-  it('the fingerprint does not depend on the order of the cited ids', () => {
-    expect(rewardHackFingerprint('OTHER', ['b', 'a'])).toBe(
-      rewardHackFingerprint('OTHER', ['a', 'b'])
+  it('the fingerprint is the kind plus the set of PR files, in any order', () => {
+    expect(rewardHackFingerprint('OTHER', ['b.ts', 'a.ts'])).toBe(
+      rewardHackFingerprint('OTHER', ['a.ts', 'b.ts', 'a.ts'])
     )
-    expect(rewardHackFingerprint('OTHER', ['a'])).not.toBe(
-      rewardHackFingerprint('SPECIAL_CASING', ['a'])
+    expect(rewardHackFingerprint('OTHER', ['a.ts'])).not.toBe(
+      rewardHackFingerprint('SPECIAL_CASING', ['a.ts'])
     )
   })
 
-  it('redacts a credential-shaped value out of the model summary', async () => {
+  it('a re-judge citing different event ids for the same behaviour keeps the fingerprint, so the disposition carries over', async () => {
+    db.hookEvent.findMany.mockResolvedValue([
+      promptEv('e1', 'Make the login tests pass'),
+      edit('e2', 'src/auth.test.ts'),
+      edit('e9', 'src/auth.test.ts', '2026-10-09T11:00:00Z'),
+    ])
+    judge.mockResolvedValue({
+      output: {
+        suspicion: 90,
+        items: [{ kind: 'TEST_TAMPERING', summary: 'again', eventIds: ['e9'] }],
+      },
+      costUsd: 0.5,
+    })
+    const fp = rewardHackFingerprint('TEST_TAMPERING', ['src/auth.test.ts'])
+    dispositioned = [
+      {
+        id: 'f-old',
+        fingerprint: fp,
+        disposition: 'ACCEPTED_RISK',
+        dispositionNote: 'known',
+        dispositionedById: 'm1',
+        dispositionedAt: new Date('2026-10-10T00:00:00Z'),
+        suggestedDisposition: null,
+        suggestedReason: null,
+        suggestionOutcome: null,
+      },
+    ]
+    await runRewardHackLayer('scan2')
+    expect(writtenRows()[0]).toMatchObject({
+      fingerprint: fp,
+      disposition: 'ACCEPTED_RISK',
+      inheritedFromFindingId: 'f-old',
+    })
+  })
+
+  it('model prose that quotes the prompt never reaches the title', async () => {
+    judge.mockResolvedValue({
+      output: {
+        suspicion: 90,
+        items: [
+          {
+            kind: 'SPECIAL_CASING',
+            summary:
+              'The user said "our secret launch plan"; the agent hard-coded 42.',
+            eventIds: ['e2'],
+          },
+        ],
+      },
+      costUsd: 0.5,
+    })
+    await runRewardHackLayer('scan2')
+    const row = writtenRows()[0]!
+    expect(row.title).toBe(
+      'Agent behavior: Special-cased the checked inputs in src/auth.test.ts'
+    )
+    expect(row.title).not.toContain('launch plan')
+  })
+
+  it('a cached verdict from another prompt version is not reused: the layer re-judges', async () => {
+    previousScan = {
+      id: 'scan1',
+      rewardHackState: {
+        version: 'rh-v0',
+        watermark: { sess1: 'e2' },
+        findingFingerprints: [],
+        costUsd: 0.6,
+        truncated: false,
+      },
+    }
+    await runRewardHackLayer('scan2')
+    expect(judge).toHaveBeenCalledTimes(1)
+  })
+
+  it('redacts a credential-shaped value out of the model summary (detail); the title is fixed copy', async () => {
     const key = ['AK', 'IA', 'Q'.repeat(16)].join('')
     judge.mockResolvedValue({
       output: {
@@ -684,6 +763,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
     previousScan = {
       id: 'scan1',
       rewardHackState: {
+        version: REWARD_HACK_VERSION,
         watermark: { sess1: 'e2' },
         findingFingerprints: ['fp'],
         costUsd: 0.6,
@@ -949,6 +1029,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
 describe('LUM-1234 reward-hack state', () => {
   it('parses a stored state and refuses anything else', () => {
     const ok = {
+      version: 'rh-v1',
       watermark: { s: 'e' },
       findingFingerprints: ['f'],
       costUsd: 0.2,
@@ -960,6 +1041,9 @@ describe('LUM-1234 reward-hack state', () => {
     expect(parseRewardHackState({ ...ok, costUsd: 'x' })).toBeNull()
     expect(parseRewardHackState({ ...ok, truncated: 'no' })).toBeNull()
     expect(parseRewardHackState({ ...ok, findingFingerprints: [1] })).toBeNull()
+    // A state from before versions existed is never trusted for reuse.
+    const { version: _v, ...legacy } = ok
+    expect(parseRewardHackState(legacy)).toBeNull()
   })
 
   it('compares watermarks by session and last event', () => {

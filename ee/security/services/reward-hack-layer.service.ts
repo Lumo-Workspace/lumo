@@ -14,8 +14,9 @@
  * BEFORE it is made and settled to its reported cost after, so the cap holds
  * even for a run the platform kills mid-call.
  *
- * The reuse cache is keyed on the session watermark only (sessionId → last
- * in-window event): a human commit on its own does not re-judge.
+ * The reuse cache is keyed on the session watermark (sessionId → last
+ * in-window event) and the prompt version: a human commit on its own does
+ * not re-judge, but every reused row is re-checked against the current diff.
  *
  * Every write is ONE compare-and-set on the run token (the scan's
  * `startedAt` when stage A started this runner) while the layer is PENDING,
@@ -67,9 +68,11 @@ import {
   REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
   REWARD_HACK_REFUTE_SYSTEM_PROMPT,
   REWARD_HACK_SYSTEM_PROMPT,
+  REWARD_HACK_VERSION,
   buildRefutePrompt,
 } from '@/ee/security/security-scan/reward-hack-prompts'
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
+import { rewardHackTitle } from '@/ee/security/security-scan/reward-hack-labels'
 import { inheritDispositions } from '@/ee/security/security-scan/inherit-dispositions'
 import {
   parseRewardHackState,
@@ -141,13 +144,14 @@ const defaultDeps: RhDeps = {
   now: () => new Date(),
 }
 
-/** sha256 over the kind and the sorted cited event ids. */
-export function rewardHackFingerprint(
-  kind: string,
-  eventIds: string[]
-): string {
+/**
+ * sha256 over the kind and the sorted PR files the cited writes touch — not
+ * the cited event ids, which change with every re-judge: the same behaviour
+ * in the same files keeps its fingerprint, so a disposition carries over.
+ */
+export function rewardHackFingerprint(kind: string, prFiles: string[]): string {
   return createHash('sha256')
-    .update(['reward-hack', kind, ...[...eventIds].sort()].join('\n'))
+    .update(['reward-hack', kind, ...[...new Set(prFiles)].sort()].join('\n'))
     .digest('hex')
 }
 
@@ -163,17 +167,16 @@ export function rewardHackFindingRow(args: {
   prFiles: string[]
 }): NewFindingInput {
   const { item } = args
-  let filePath = ''
+  // Every PR file the cited writes touch, in citation order; the first one
+  // anchors the row.
+  const matched: string[] = []
   for (const id of item.eventIds) {
     const paths = args.eventFile.get(id) ?? []
-    const prFile = args.prFiles.find(f =>
-      paths.some(p => pathMatchesPrFile(p, f))
-    )
-    if (prFile) {
-      filePath = prFile
-      break
-    }
+    for (const f of args.prFiles)
+      if (!matched.includes(f) && paths.some(p => pathMatchesPrFile(p, f)))
+        matched.push(f)
   }
+  const filePath = matched[0] ?? ''
   const sessionIds = [
     ...new Set(
       item.eventIds
@@ -181,7 +184,6 @@ export function rewardHackFindingRow(args: {
         .filter((s): s is string => !!s)
     ),
   ]
-  const prose = redactFindingProse(item.summary)
   return {
     scanId: args.scanId,
     kind: 'REWARD_HACK',
@@ -190,10 +192,13 @@ export function rewardHackFindingRow(args: {
     provenance: 'LLM_JUDGE',
     filePath,
     line: null,
-    title: prose,
-    detail: prose,
+    // Our fixed copy: reaches the PR comment, the CLI and every member.
+    title: rewardHackTitle(item.kind, filePath),
+    // The model's prose: the web evidence view only, for viewers who may
+    // open the cited sessions.
+    detail: redactFindingProse(item.summary),
     evidence: JSON.stringify({ eventIds: item.eventIds, sessionIds }),
-    fingerprint: rewardHackFingerprint(item.kind, item.eventIds),
+    fingerprint: rewardHackFingerprint(item.kind, matched),
     externalRef: null,
     disposition: null,
   }
@@ -320,9 +325,11 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     scan.startedAt
   )
   const previousState = parseRewardHackState(previous?.rewardHackState)
+  // A verdict from another prompt / threshold version is never reused.
   if (
     previous &&
     previousState &&
+    previousState.version === REWARD_HACK_VERSION &&
     sameWatermark(previousState.watermark, watermark)
   ) {
     const copied = (
@@ -349,6 +356,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       causes,
       findings: rows,
       verdictState: {
+        version: REWARD_HACK_VERSION,
         watermark,
         findingFingerprints: rows.map(r => r.fingerprint),
         costUsd: 0,
@@ -470,6 +478,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     causes,
     findings: rows,
     verdictState: {
+      version: REWARD_HACK_VERSION,
       watermark,
       findingFingerprints: rows.map(r => r.fingerprint),
       costUsd,
