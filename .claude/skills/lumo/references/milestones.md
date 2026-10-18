@@ -180,41 +180,9 @@ lumo milestone update "Q3 Launch" --token-budget 50000000
 lumo milestone update "Q3 Launch" --token-budget ""
 ```
 
-### `lumo milestone testcase add|list|show|download|update|rm|run|disposition <milestone>` - the milestone close contract (LUM-1135)
+### `lumo milestone testcase …` — the milestone close contract (LUM-1135)
 
-`list --json` prints `{ version, testCases, total, nextCursor, summary }`; `show --json` prints `{ version, testCase, runs, pullRequests }`.
-
-Milestone test cases are cross-task, end-to-end cases and the milestone close contract. Every command mirrors `lumo task testcase` (same flags, same output shape); the differences:
-
-- The first positional is the **milestone** (name, or id), then the case ref (`TC3`) where one applies. Pass `--project <ref>` when the milestone name is ambiguous. Printed handles read `<milestone name>/TC3`.
-- `run` has **no `--pr`** (a milestone spans many PRs; the commit is recorded instead) and prints no task status digest.
-- `disposition <milestone> TC3 --known-defect | --not-a-defect` is the same three-step handshake as `task testcase disposition`, but the two rulings differ here: KNOWN_DEFECT lets the milestone close, NOT_A_DEFECT keeps the case holding the milestone until it passes on a re-run. Only a proven defect can be dispositioned. Never add `--confirm-read` / `--confirm` yourself.
-
-| Latest run of the case                                         | Gate state | Reason        |
-| -------------------------------------------------------------- | ---------- | ------------- |
-| none                                                           | held       | NOT_RUN       |
-| PASS (including UNPROVEN)                                      | open       |               |
-| FAIL, proven implementation defect, dispositioned KNOWN_DEFECT | open       |               |
-| FAIL, proven implementation defect, not yet ruled on           | held       | PROVEN_DEFECT |
-| any other FAIL (including one ruled NOT_A_DEFECT)              | held       | FAILING       |
-| BLOCKED                                                        | held       | BLOCKED       |
-
-```bash
-lumo milestone testcase add "Review v2" --title "PR review round-trip" --step "open a PR in a connected repo" --step "wait for the review" --verify "the review comment is on the PR" --expected "one review comment per finding" --requires-env production
-lumo milestone testcase run "Review v2" TC1 --result pass --env production --step s1-2=pass --step v1=pass --evidence https://github.com/o/r/pull/1#issuecomment-1
-lumo milestone testcase list "Review v2"
-lumo milestone testcase show "Review v2" TC1
-lumo milestone testcase download "Review v2" TC1 ./evidence
-lumo milestone testcase update "Review v2" TC1 --expected "one review comment per finding, on the right line"
-lumo milestone testcase rm "Review v2" TC1
-lumo milestone testcase disposition "Review v2" TC1 --known-defect --note "shipping with the line-offset bug"
-```
-
-### When to suggest `milestone testcase`
-
-- A steward session planning a milestone ("what does done mean for this milestone") -> `testcase add` for each cross-task end-to-end scenario.
-- After the last task of a milestone lands -> run each case with `testcase run`, in the environment the case requires.
-- `milestone show` says `Close gate: held` -> `testcase list` to see which case holds it and why.
+Milestone test cases use the same command set as task test cases (LUM-1233: same verbs, flags and output, one handle `<milestone-slug>/TC<n>`). The single description, including the close-gate table and the milestone-specific differences, is [test-cases.md](test-cases.md#里程碑用例milestone-testcase).
 
 ### `lumo milestone delete <identifier>` — delete a milestone
 

@@ -237,8 +237,11 @@ describe('removed read commands are tombstones, not aliases', () => {
         'utf8'
       )
     ) as { commands: Record<string, unknown> }
+    // A removed path is absent; a removed argument *shape* (3a) keeps its
+    // live command, and only the old shape is tombstoned.
     for (const t of TOMBSTONES)
-      expect(grammar.commands).not.toHaveProperty(t.path)
+      if (t.match) expect(grammar.commands).toHaveProperty([t.path])
+      else expect(grammar.commands).not.toHaveProperty([t.path])
     expect(grammar.commands).toHaveProperty(['task show'])
   })
 })

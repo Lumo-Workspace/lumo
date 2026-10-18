@@ -9,12 +9,24 @@
  * `--help` and `grammar.json`. Drop an entry two minor releases after its
  * removal.
  */
+import { shellQuote } from './confirmation'
 
 export interface Tombstone {
   /** The removed command path, e.g. `task context`. */
   path: string
-  /** The replacement command for the given positionals and flags. */
-  replacement(args: string[], flags: string[]): string
+  /**
+   * LUM-1233 3a: a removed argument *shape* of a live command (the old
+   * `milestone testcase show <milestone> <case>`): the tombstone applies only
+   * when this returns true for the positionals. Absent = the path itself was
+   * removed.
+   */
+  match?(args: string[]): boolean
+  /** What the error says was removed (default: `lumo <path>`). */
+  label?: string
+  /** The replacement for the given positionals, flags and raw option tokens. */
+  replacement(args: string[], flags: string[], options: string[]): string
+  /** The command whose `--help` the hint names (default: first 3 words). */
+  help?: string
 }
 
 /** `lumo task show <task> <flags…>` keeping the task ref when one was given. */
@@ -44,21 +56,87 @@ export const TOMBSTONES: readonly Tombstone[] = [
   { path: 'task deps list', replacement: showWith('--deps') },
   { path: 'outcome show', replacement: showWith('--outcome') },
   { path: 'outcome', replacement: showWith('--outcome') },
+  // LUM-1233 3a: `rm` → `delete`, and one `<parent>/TC<n>` handle.
+  {
+    path: 'task testcase rm',
+    replacement: (args, _flags, options) =>
+      cmd('lumo task testcase delete', [args[0] ?? '<task>/TC<n>'], options),
+    help: 'lumo task testcase delete',
+  },
+  {
+    path: 'milestone testcase rm',
+    replacement: (args, _flags, options) =>
+      cmd(
+        'lumo milestone testcase delete',
+        [
+          args.length >= 2
+            ? milestoneHandle(args)
+            : (args[0] ?? '<milestone>/TC<n>'),
+        ],
+        options
+      ),
+    help: 'lumo milestone testcase delete',
+  },
+  ...(['show', 'update', 'run', 'disposition'] as const).map(
+    (verb): Tombstone => ({
+      path: `milestone testcase ${verb}`,
+      match: args => args.length === 2,
+      label: `lumo milestone testcase ${verb} <milestone> <case>`,
+      replacement: (args, _flags, options) =>
+        cmd(
+          `lumo milestone testcase ${verb}`,
+          [milestoneHandle(args)],
+          options
+        ),
+      help: `lumo milestone testcase ${verb}`,
+    })
+  ),
+  {
+    path: 'milestone testcase download',
+    match: args => args.length === 3,
+    label: 'lumo milestone testcase download <milestone> <case> <dir>',
+    replacement: (args, _flags, options) =>
+      cmd(
+        'lumo milestone testcase download',
+        [milestoneHandle(args), args[2]!],
+        options
+      ),
+    help: 'lumo milestone testcase download',
+  },
 ]
 
-/** Options that take a value (their value is not a positional). */
+/** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
+function milestoneHandle(args: string[]): string {
+  const n = (args[1] ?? '').replace(/^TC/i, '')
+  return `${args[0]}/TC${n}`
+}
+
+/** A command line: head, positionals, then the caller's option tokens. */
+function cmd(head: string, args: string[], options: string[]): string {
+  return [head, ...args.map(shellQuote), ...options.map(shellQuote)].join(' ')
+}
+
+/** Options that take a value when no command definition says otherwise. */
 const VALUE_OPTIONS = new Set(['--limit', '-n', '--cursor', '--project'])
+
+/** Whether `flag` takes a value on the command at `path` (from Commander). */
+export type TakesValue = (path: string, flag: string) => boolean
 
 export interface RemovedHit {
   path: string
+  label: string
   replacement: string
+  help: string
 }
 
 /**
  * The tombstone `argv` (without `node lumo`) names, or null. Leading global
  * options (`--json`, `--no-hints`) are skipped; the longest matching path wins.
  */
-export function findRemovedCommand(argv: string[]): RemovedHit | null {
+export function findRemovedCommand(
+  argv: string[],
+  takesValue: TakesValue = (_path, flag) => VALUE_OPTIONS.has(flag)
+): RemovedHit | null {
   let start = 0
   while (start < argv.length && argv[start]!.startsWith('-')) start++
   const rest = argv.slice(start)
@@ -67,30 +145,43 @@ export function findRemovedCommand(argv: string[]): RemovedHit | null {
     if (tok.startsWith('-')) break
     words.push(tok)
   }
-  const matches = TOMBSTONES.filter(t => {
+  const candidates = TOMBSTONES.filter(t => {
     const parts = t.path.split(' ')
     return parts.every((p, i) => words[i] === p)
   }).sort((a, b) => b.path.length - a.path.length)
-  const hit = matches[0]
-  if (!hit) return null
-  const depth = hit.path.split(' ').length
-  const args: string[] = []
-  const flags: string[] = []
-  const after = rest.slice(depth)
-  for (let i = 0; i < after.length; i++) {
-    const tok = after[i]!
-    if (tok.startsWith('-')) {
-      flags.push(tok)
-      if (VALUE_OPTIONS.has(tok)) i++
-    } else args.push(tok)
+  for (const hit of candidates) {
+    const depth = hit.path.split(' ').length
+    const args: string[] = []
+    const flags: string[] = []
+    const options: string[] = []
+    const after = rest.slice(depth)
+    for (let i = 0; i < after.length; i++) {
+      const tok = after[i]!
+      if (tok.startsWith('-')) {
+        flags.push(tok)
+        options.push(tok)
+        if (!tok.includes('=') && takesValue(hit.path, tok)) {
+          i++
+          if (i < after.length) options.push(after[i]!)
+        }
+      } else args.push(tok)
+    }
+    if (hit.match && !hit.match(args)) continue
+    const replacement = hit.replacement(args, flags, options)
+    return {
+      path: hit.path,
+      label: hit.label ?? `lumo ${hit.path}`,
+      replacement,
+      help: hit.help ?? replacement.split(' ').slice(0, 3).join(' '),
+    }
   }
-  return { path: hit.path, replacement: hit.replacement(args, flags) }
+  return null
 }
 
 /** The stderr lines for a removed command. */
 export function removedCommandLines(hit: RemovedHit): string[] {
   return [
-    `Error: lumo ${hit.path} was removed. Use: ${hit.replacement}`,
-    `Hint: see \`${hit.replacement.split(' ').slice(0, 3).join(' ')} --help\`.`,
+    `Error: ${hit.label} was removed. Use: ${hit.replacement}`,
+    `Hint: see \`${hit.help} --help\`.`,
   ]
 }

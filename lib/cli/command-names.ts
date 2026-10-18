@@ -22,9 +22,19 @@ import { CLI_VERSION_HEADER, parseCliVersion } from '@/lib/api/cli-version'
  */
 export const READ_ENTRY_MIN_CLI_VERSION = '1.125.5'
 
+/**
+ * LUM-1233 batch 3a: first CLI release whose milestone test cases take the
+ * single `<milestone-slug>/TC<n>` handle (and `testcase delete`). Same release
+ * as batch 1 unless one ships in between — then raise this one.
+ * `LUMO_TESTCASE_HANDLE_MIN_CLI_VERSION` overrides it per deployment.
+ */
+export const TESTCASE_HANDLE_MIN_CLI_VERSION = '1.125.5'
+
 export interface CliCommandNames {
   /** True when the caller's CLI has the batch-1 read entry points. */
   readonly current: boolean
+  /** True when the caller's CLI takes the batch-3a test-case handle. */
+  readonly testCaseHandle: boolean
   /** Read the whole task context of the session-bound task (no ref). */
   readonly taskContextBound: string
   /** Read the whole task context. */
@@ -35,25 +45,40 @@ export interface CliCommandNames {
   taskComments(identifier: string): string
   /** Read the dependency edges. */
   taskDeps(identifier: string): string
+  /** Run a milestone test case (`slug` null = a `<milestone>` placeholder). */
+  milestoneTestCaseRun(slug: string | null): string
 }
 
-export const LEGACY_CLI_COMMANDS: CliCommandNames = {
-  current: false,
-  taskContextBound: 'lumo task context',
-  taskContext: id => `lumo task context ${id}`,
-  taskContextFull: id => `lumo task context ${id} --full`,
-  taskComments: id => `lumo task comments list ${id}`,
-  taskDeps: id => `lumo task deps list ${id}`,
+function commandNames(
+  readEntry: boolean,
+  testCaseHandle: boolean
+): CliCommandNames {
+  return {
+    current: readEntry,
+    testCaseHandle,
+    taskContextBound: readEntry ? 'lumo task show --full' : 'lumo task context',
+    taskContext: id =>
+      readEntry ? `lumo task show ${id} --full` : `lumo task context ${id}`,
+    taskContextFull: id =>
+      readEntry
+        ? `lumo task show ${id} --full --memory`
+        : `lumo task context ${id} --full`,
+    taskComments: id =>
+      readEntry
+        ? `lumo task show ${id} --comments`
+        : `lumo task comments list ${id}`,
+    taskDeps: id =>
+      readEntry ? `lumo task show ${id} --deps` : `lumo task deps list ${id}`,
+    milestoneTestCaseRun: slug =>
+      testCaseHandle
+        ? `lumo milestone testcase run ${slug ?? '<milestone>'}/TC<n> --result … --env …`
+        : 'lumo milestone testcase run <milestone> TC<n> --result … --env …',
+  }
 }
 
-export const CURRENT_CLI_COMMANDS: CliCommandNames = {
-  current: true,
-  taskContextBound: 'lumo task show --full',
-  taskContext: id => `lumo task show ${id} --full`,
-  taskContextFull: id => `lumo task show ${id} --full --memory`,
-  taskComments: id => `lumo task show ${id} --comments`,
-  taskDeps: id => `lumo task show ${id} --deps`,
-}
+export const LEGACY_CLI_COMMANDS: CliCommandNames = commandNames(false, false)
+
+export const CURRENT_CLI_COMMANDS: CliCommandNames = commandNames(true, true)
 
 function atLeast(
   a: [number, number, number],
@@ -65,13 +90,29 @@ function atLeast(
   return true
 }
 
-/** The floor in force: a valid env override, else the constant. */
+function floorFrom(value: string | undefined, fallback: string): string {
+  const override = value?.trim()
+  return override && parseCliVersion(override) ? override : fallback
+}
+
+/** The read-entry floor in force: a valid env override, else the constant. */
 export function resolveReadEntryMinVersion(
   env: Record<string, string | undefined> = process.env
 ): string {
-  const override = env.LUMO_READ_ENTRY_MIN_CLI_VERSION?.trim()
-  if (override && parseCliVersion(override)) return override
-  return READ_ENTRY_MIN_CLI_VERSION
+  return floorFrom(
+    env.LUMO_READ_ENTRY_MIN_CLI_VERSION,
+    READ_ENTRY_MIN_CLI_VERSION
+  )
+}
+
+/** The test-case-handle floor in force: a valid env override, else the constant. */
+export function resolveTestCaseHandleMinVersion(
+  env: Record<string, string | undefined> = process.env
+): string {
+  return floorFrom(
+    env.LUMO_TESTCASE_HANDLE_MIN_CLI_VERSION,
+    TESTCASE_HANDLE_MIN_CLI_VERSION
+  )
 }
 
 /** The command names for a CLI reporting `version` (null / malformed = legacy). */
@@ -80,9 +121,16 @@ export function cliCommandNamesForVersion(
   env: Record<string, string | undefined> = process.env
 ): CliCommandNames {
   const sent = parseCliVersion(version)
-  const floor = parseCliVersion(resolveReadEntryMinVersion(env))
-  if (!sent || !floor) return LEGACY_CLI_COMMANDS
-  return atLeast(sent, floor) ? CURRENT_CLI_COMMANDS : LEGACY_CLI_COMMANDS
+  if (!sent) return LEGACY_CLI_COMMANDS
+  const at = (floor: string) => {
+    const f = parseCliVersion(floor)
+    return f ? atLeast(sent, f) : false
+  }
+  const readEntry = at(resolveReadEntryMinVersion(env))
+  const testCaseHandle = at(resolveTestCaseHandleMinVersion(env))
+  if (readEntry && testCaseHandle) return CURRENT_CLI_COMMANDS
+  if (!readEntry && !testCaseHandle) return LEGACY_CLI_COMMANDS
+  return commandNames(readEntry, testCaseHandle)
 }
 
 /** The command names for the CLI that sent `headers`. */

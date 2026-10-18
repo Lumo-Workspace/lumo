@@ -57,10 +57,7 @@ import { docShow } from '@/cli/src/commands/doc-show'
 import { memoryShow } from '@/cli/src/commands/memory-show'
 import { milestoneList } from '@/cli/src/commands/milestone-list'
 import { milestoneShow } from '@/cli/src/commands/milestone-show'
-import {
-  milestoneTestCaseList,
-  milestoneTestCaseShow,
-} from '@/cli/src/commands/milestone-testcase'
+import { testCaseList, testCaseShow } from '@/cli/src/commands/testcase'
 import { nextCommand } from '@/cli/src/commands/next'
 import { outcomeShow } from '@/cli/src/commands/outcome'
 import { priorityList } from '@/cli/src/commands/priority'
@@ -80,8 +77,6 @@ import { memoryTaskList } from '@/cli/src/commands/memory-task-list'
 import { taskPrShow } from '@/cli/src/commands/task-pr-show'
 import { taskShow } from '@/cli/src/commands/task-show'
 import { taskSlackShow } from '@/cli/src/commands/task-slack-show'
-import { taskTestCaseList } from '@/cli/src/commands/task-testcase-list'
-import { taskTestCaseShow } from '@/cli/src/commands/task-testcase-show'
 import { taskWebShow } from '@/cli/src/commands/task-web-show'
 import { worktreeList } from '@/cli/src/commands/worktree-list'
 import { EXIT_USAGE } from '@/cli/src/lib/exit-codes'
@@ -286,10 +281,10 @@ describe('milestones and sprints', () => {
         pullRequests: [],
       },
     })
-    await milestoneTestCaseList('beta', { json: true })
+    await testCaseList('milestone', 'beta', { json: true })
     expect(expectList('testCases', 1).summary).toEqual({ total: 1 })
     out = ''
-    await milestoneTestCaseShow('beta', 'TC1', { json: true })
+    await testCaseShow('milestone', 'beta/TC1', { json: true })
     const b = body()
     expect(b.testCase).toMatchObject({ number: 1 })
     expect(b.runs).toEqual([])
@@ -599,10 +594,10 @@ describe('task detail commands', () => {
         pullRequests: [],
       },
     })
-    await taskTestCaseList('LUM-1', { json: true })
+    await testCaseList('task', 'LUM-1', { json: true })
     expect(expectList('testCases', 1).summary).toBeNull()
     out = ''
-    await taskTestCaseShow('LUM-1/TC2', { json: true })
+    await testCaseShow('task', 'LUM-1/TC2', { json: true })
     expect(body().testCase).toMatchObject({ number: 2 })
   })
 })

@@ -2023,7 +2023,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -2068,12 +2068,37 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a milestone test case. --step / --verify are repeatable and keep the order they appear in."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+    },
+    "milestone testcase delete": {
+      "arguments": [
+        { "name": "milestone/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
     },
     "milestone testcase disposition": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--confirm": {
@@ -2122,7 +2147,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--receipt": {
           "long": "--receipt",
@@ -2135,12 +2160,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
     },
     "milestone testcase download": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false },
+        { "name": "milestone/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
       "flags": {
@@ -2150,12 +2174,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3"
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: headless-web-cli/TC3"
     },
     "milestone testcase list": {
       "arguments": [
@@ -2176,52 +2200,16 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List a milestone's test cases with each one's latest run (result, environment, commit)"
-    },
-    "milestone testcase rm": {
-      "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "List test cases with each one's latest run (result, environment, commit)."
     },
     "milestone testcase run": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--actual": {
@@ -2296,13 +2284,21 @@
           "enumCaseInsensitive": false,
           "description": "Free-text note about this run"
         },
+        "--pr": {
+          "long": "--pr",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
+        },
         "--project": {
           "long": "--project",
           "short": null,
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--result": {
           "long": "--result",
@@ -2343,8 +2339,7 @@
     },
     "milestone testcase show": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--json": {
@@ -2361,17 +2356,16 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: headless-web-cli/TC3"
     },
     "milestone testcase update": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--expected": {
@@ -2388,7 +2382,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -4731,7 +4725,7 @@
       "description": "Structured test cases on a task (setup / steps / verification / expected) and their run records"
     },
     "task testcase add": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--expected": {
           "long": "--expected",
@@ -4740,6 +4734,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -4784,7 +4786,33 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in. Defaults to the session-bound task."
+    },
+    "task testcase delete": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
     },
     "task testcase disposition": {
       "arguments": [
@@ -4831,6 +4859,14 @@
           "enumCaseInsensitive": false,
           "description": "Why this ruling"
         },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        },
         "--receipt": {
           "long": "--receipt",
           "short": null,
@@ -4842,20 +4878,29 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
     },
     "task testcase download": {
       "arguments": [
         { "name": "task/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3"
     },
     "task testcase list": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--json": {
           "long": "--json",
@@ -4864,37 +4909,19 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a task's test cases with each one's latest run (result, environment, commit)"
-    },
-    "task testcase rm": {
-      "arguments": [
-        { "name": "task/case", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
         },
-        "--yes": {
-          "long": "--yes",
+        "--project": {
+          "long": "--project",
           "short": null,
-          "value": "none",
+          "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "List test cases with each one's latest run (result, environment, commit). Defaults to the session-bound task."
     },
     "task testcase run": {
       "arguments": [
@@ -4979,7 +5006,15 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The PR whose change this run exercised (must be linked to this task)"
+          "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--result": {
           "long": "--result",
@@ -5030,6 +5065,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCase, runs, pullRequests } as JSON"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
@@ -5048,6 +5091,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--requires-env": {
           "long": "--requires-env",

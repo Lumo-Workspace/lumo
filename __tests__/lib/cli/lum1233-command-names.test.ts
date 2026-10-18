@@ -65,7 +65,10 @@ describe('cliCommandNamesForVersion', () => {
   })
 
   it('honours a valid env override and ignores a malformed one', () => {
-    const env = { LUMO_READ_ENTRY_MIN_CLI_VERSION: '1.125.4' }
+    const env = {
+      LUMO_READ_ENTRY_MIN_CLI_VERSION: '1.125.4',
+      LUMO_TESTCASE_HANDLE_MIN_CLI_VERSION: '1.125.4',
+    }
     expect(resolveReadEntryMinVersion(env)).toBe('1.125.4')
     expect(cliCommandNamesForVersion('1.125.4', env)).toBe(CURRENT_CLI_COMMANDS)
     expect(

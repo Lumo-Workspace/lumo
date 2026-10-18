@@ -77,14 +77,17 @@ import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
 import { taskArtifactUpdate } from './commands/task-artifact-update'
-import { taskTestCaseAdd } from './commands/task-testcase-add'
-import { taskTestCaseList } from './commands/task-testcase-list'
-import { taskTestCaseShow } from './commands/task-testcase-show'
-import { taskTestCaseDownload } from './commands/task-testcase-download'
-import { taskTestCaseUpdate } from './commands/task-testcase-update'
-import { taskTestCaseRm } from './commands/task-testcase-rm'
-import { taskTestCaseRun } from './commands/task-testcase-run'
-import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import {
+  testCaseAdd,
+  testCaseDelete,
+  testCaseDisposition,
+  testCaseDownload,
+  testCaseList,
+  testCaseRun,
+  testCaseShow,
+  testCaseUpdate,
+  type TestCaseParentKind,
+} from './commands/testcase'
 import {
   findingDisposition,
   type FindingDispositionOptions,
@@ -124,16 +127,6 @@ import { milestoneSummary } from './commands/milestone-summary'
 import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
-import {
-  milestoneTestCaseAdd,
-  milestoneTestCaseList,
-  milestoneTestCaseShow,
-  milestoneTestCaseDownload,
-  milestoneTestCaseUpdate,
-  milestoneTestCaseRm,
-  milestoneTestCaseRun,
-  milestoneTestCaseDisposition,
-} from './commands/milestone-testcase'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -1576,240 +1569,284 @@ taskArtifact
     )
   )
 
+/**
+ * LUM-1233 batch 3a: one definition for `task testcase …` and
+ * `milestone testcase …` — the same verbs, flags and help text on both, so
+ * they cannot drift. Each per-case verb takes the handle `<parent>/TC<n>`.
+ */
+function registerTestCaseCommands(
+  group: Command,
+  kind: TestCaseParentKind
+): void {
+  const parent = kind === 'task' ? '[task]' : '<milestone>'
+  const handle = `<${kind}/case>`
+  const example = kind === 'task' ? 'LUM-42/TC3' : 'headless-web-cli/TC3'
+  const projectHelp =
+    kind === 'task'
+      ? 'Project name or slug (task refs are unique in the workspace, so a task case ignores it)'
+      : 'Project name or slug (narrows the milestone lookup when two projects share a slug or name)'
+  const parentNote =
+    kind === 'task' ? ' Defaults to the session-bound task.' : ''
+
+  group
+    .command(`add ${parent}`)
+    .description(
+      `Add a test case. --step / --verify are repeatable and keep the order they appear in.${parentNote}`
+    )
+    .requiredOption('--title <title>', 'Test case title')
+    .option(
+      '--setup <text>',
+      'Preconditions, e.g. "The user is on the Dashboard."'
+    )
+    .option(
+      '--step <text>',
+      'One execution step (repeatable, ordered). At least one is required.',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'One verification step (repeatable, ordered). May be omitted entirely.',
+      collect,
+      [] as string[]
+    )
+    .requiredOption('--expected <text>', 'Expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((ref: unknown, options: unknown) =>
+        testCaseAdd(
+          kind,
+          ref as string | undefined,
+          options as Record<string, never>
+        )
+      )
+    )
+
+  group
+    .command(`list ${parent}`)
+    .description(
+      `List test cases with each one's latest run (result, environment, commit).${parentNote}`
+    )
+    .option('--project <ref>', projectHelp)
+    .option(
+      '--json',
+      'Print { version, testCases, total, nextCursor, summary } as JSON'
+    )
+    .action(
+      wrap((ref: unknown, opts: unknown) =>
+        testCaseList(
+          kind,
+          ref as string | undefined,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`show ${handle}`)
+    .description(
+      `Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: ${example}`
+    )
+    .option('--project <ref>', projectHelp)
+    .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
+    .action(
+      wrap((h: unknown, opts: unknown) =>
+        testCaseShow(
+          kind,
+          h as string,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`download ${handle} <dir>`)
+    .description(
+      `Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: ${example}`
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, dir: unknown, opts: unknown) =>
+        testCaseDownload(
+          kind,
+          h as string,
+          dir as string,
+          opts as { project?: string }
+        )
+      )
+    )
+
+  group
+    .command(`update ${handle}`)
+    .description(
+      'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
+    )
+    .option('--title <title>', 'New title')
+    .option('--setup <text>', 'New preconditions')
+    .option(
+      '--step <text>',
+      'Replacement step (repeatable, ordered) - replaces the whole steps list',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'Replacement verification step (repeatable, ordered) - replaces the whole list',
+      collect,
+      [] as string[]
+    )
+    .option('--expected <text>', 'New expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseUpdate(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`delete ${handle}`)
+    .description(
+      'Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
+    )
+    .option(
+      '--confirm',
+      'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDelete(
+          kind,
+          h as string,
+          options as { project?: string; confirm?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`run ${handle}`)
+    .description(
+      'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
+    )
+    .requiredOption(
+      '--result <result>',
+      'pass | fail | blocked (case-insensitive)'
+    )
+    .requiredOption(
+      '--env <environment>',
+      'local | preview | production (case-insensitive; no default - say where this ran)'
+    )
+    .option(
+      '--pr <number>',
+      'The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)'
+    )
+    .option(
+      '--commit <sha>',
+      'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
+    )
+    .option(
+      '--failed-step <n>',
+      '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
+    )
+    .option(
+      '--failed-verify <n>',
+      '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+    )
+    .option(
+      '--cause <cause>',
+      'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
+    )
+    .option(
+      '--unproven <n>',
+      '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
+      collect,
+      [] as string[]
+    )
+    .option('--note <text>', 'Free-text note about this run')
+    .option(
+      '--evidence <url>',
+      'Evidence link (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--evidence-file <path>',
+      'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step <spec>',
+      'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step-evidence <spec>',
+      'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--actual <text>',
+      'What actually happened at the failing step (FAIL only), shown next to the expected result'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseRun(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`disposition ${handle}`)
+    .description(
+      "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
+    )
+    .option(
+      '--known-defect',
+      'We accept this defect and ship anyway (does NOT claim it is fixed)'
+    )
+    .option(
+      '--not-a-defect',
+      'The failure was mis-attributed to the implementation'
+    )
+    .option('--note <text>', 'Why this ruling')
+    .option(
+      '--receipt <token>',
+      'The read receipt from the previous step of the handshake'
+    )
+    .option(
+      '--confirm-read',
+      "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+    )
+    .option(
+      '--confirm',
+      "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDisposition(kind, h as string, options as Record<string, never>)
+      )
+    )
+}
+
 const taskTestCase = task
   .command('testcase')
   .description(
     'Structured test cases on a task (setup / steps / verification / expected) and their run records'
   )
 
-taskTestCase
-  .command('add <task>')
-  .description(
-    'Add a test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((taskId: unknown, options: unknown) =>
-      taskTestCaseAdd(taskId as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('list <task>')
-  .description(
-    "List a task's test cases with each one's latest run (result, environment, commit)"
-  )
-  .option(
-    '--json',
-    'Print { version, testCases, total, nextCursor, summary } as JSON'
-  )
-  .action(
-    wrap((taskId: unknown, opts: unknown) =>
-      taskTestCaseList(taskId as string, opts as { json?: boolean })
-    )
-  )
-
-taskTestCase
-  .command('show <task/case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3'
-  )
-  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
-  .action(
-    wrap((handle: unknown, opts: unknown) =>
-      taskTestCaseShow(handle as string, opts as { json?: boolean })
-    )
-  )
-
-taskTestCase
-  .command('download <task/case> <dir>')
-  .description(
-    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3'
-  )
-  .action(
-    wrap((handle: unknown, dir: unknown) =>
-      taskTestCaseDownload(handle as string, dir as string)
-    )
-  )
-
-taskTestCase
-  .command('update <task/case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseUpdate(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('rm <task/case>')
-  .description(
-    'Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRm(
-        handle as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-taskTestCase
-  .command('run <task/case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--pr <number>',
-    'The PR whose change this run exercised (must be linked to this task)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRun(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('disposition <task/case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseDisposition(
-        handle as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(taskTestCase, 'task')
 
 const memberCmd = program
   .command('member')
@@ -2524,284 +2561,7 @@ const milestoneTestCase = milestoneCmd
     "Milestone test cases: cross-task end-to-end cases. The close gate opens only when every case's latest run passed (or a proven defect was dispositioned known)."
   )
 
-milestoneTestCase
-  .command('add <milestone>')
-  .description(
-    'Add a milestone test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseAdd(ms as string, options as Record<string, never>)
-    )
-  )
-
-milestoneTestCase
-  .command('list <milestone>')
-  .description(
-    "List a milestone's test cases with each one's latest run (result, environment, commit)"
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .option(
-    '--json',
-    'Print { version, testCases, total, nextCursor, summary } as JSON'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseList(
-        ms as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('show <milestone> <case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseShow(
-        ms as string,
-        caseRef as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('download <milestone> <case> <dir>')
-  .description(
-    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, dir: unknown, options: unknown) =>
-      milestoneTestCaseDownload(
-        ms as string,
-        caseRef as string,
-        dir as string,
-        options as { project?: string }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('update <milestone> <case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseUpdate(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('rm <milestone> <case>')
-  .description(
-    'Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRm(
-        ms as string,
-        caseRef as string,
-        options as { project?: string; confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('run <milestone> <case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRun(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('disposition <milestone> <case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseDisposition(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(milestoneTestCase, 'milestone')
 
 const sprintCmd = program
   .command('sprint')
@@ -3602,12 +3362,36 @@ attachHelpSections(
   program as unknown as Parameters<typeof attachHelpSections>[0]
 )
 
+/**
+ * LUM-1233 3a: whether `flag` takes a value on the registered command at
+ * `path` — so a tombstone counts positionals the way Commander would (the
+ * value of `--result pass` is not a second argument).
+ */
+function optionTakesValue(path: string, flag: string): boolean {
+  let node = program as unknown as {
+    commands: readonly { name(): string }[]
+    options: readonly {
+      long?: string
+      short?: string
+      required: boolean
+      optional: boolean
+    }[]
+  }
+  for (const word of path.split(' ')) {
+    const next = node.commands.find(c => c.name() === word)
+    if (!next) break
+    node = next as unknown as typeof node
+  }
+  const opt = node.options.find(o => o.long === flag || o.short === flag)
+  return opt ? opt.required || opt.optional : false
+}
+
 // LUM-1233 (RN-3): a removed command never runs — it fails with exit 2 and
 // names its replacement. Checked before Commander, so tombstones never show in
 // --help or grammar.json.
 const removedCommand =
   !isUpdateCheckWorker && !isIntrospect
-    ? findRemovedCommand(process.argv.slice(2))
+    ? findRemovedCommand(process.argv.slice(2), optionTakesValue)
     : null
 if (removedCommand) {
   for (const line of removedCommandLines(removedCommand)) console.error(line)

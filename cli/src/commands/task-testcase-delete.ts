@@ -1,15 +1,13 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext, apiCall } from '../lib/test-case-api'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
   emitConfirmation,
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
 
-export type TestCaseRmOptions = ConfirmFlags
+export type TestCaseDeleteOptions = ConfirmFlags
 
 interface ShowResponse {
   testCase: { number: number; title: string }
@@ -17,7 +15,7 @@ interface ShowResponse {
 }
 
 /** The changes[] block for the confirmation envelope. */
-export function describeTestCaseRm(
+export function describeTestCaseDelete(
   handle: string,
   testCase: { number: number; title: string },
   runCount: number
@@ -28,34 +26,14 @@ export function describeTestCaseRm(
     runCount > 0
       ? `Its ${runCount} run record(s) stay readable — the case is soft-deleted, not erased`
       : 'The case has no run records yet',
-    'The case disappears from the task list; recording new runs against it is no longer possible',
+    'The case disappears from the test-case list; recording new runs against it is no longer possible',
   ]
 }
 
-export async function taskTestCaseRm(
-  handle: string | undefined,
-  options: TestCaseRmOptions
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase rm LUM-42/TC3 --confirm'
-    )
-    return EXIT_USAGE
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return EXIT_USAGE
-  }
-  return testCaseRmInScope(taskScope(split.task), split.caseRef, options)
-}
-
-export async function testCaseRmInScope(
+export async function testCaseDeleteInScope(
   scope: TestCaseScope,
   caseRef: string,
-  options: TestCaseRmOptions
+  options: TestCaseDeleteOptions
 ): Promise<number | void> {
   const handle = `${scope.label}/${caseRef}`
   const ctx = apiContext()
@@ -69,8 +47,8 @@ export async function testCaseRmInScope(
     const look = await apiCall<ShowResponse>(ctx, path, {}, 'test case lookup')
     if (!look.ok || !look.data) return 1
     return emitConfirmation({
-      command: `${scope.kind} testcase rm`,
-      changes: describeTestCaseRm(
+      command: `${scope.kind} testcase delete`,
+      changes: describeTestCaseDelete(
         handle,
         look.data.testCase,
         look.data.runs.length
@@ -82,9 +60,9 @@ export async function testCaseRmInScope(
     ctx,
     path,
     { method: 'DELETE' },
-    'test case remove'
+    'test case delete'
   )
   if (!r.ok) return 1
 
-  console.log(`Removed ${handle} (soft delete — its run history is preserved)`)
+  console.log(`Deleted ${handle} (soft delete — its run history is preserved)`)
 }

@@ -56,6 +56,8 @@ interface BindSessionToMilestoneInput {
   sessionId: string
   /** Milestone reference: exact id, or a case-insensitive name/slug match. */
   milestoneRef: string
+  /** LUM-1233: the commands the caller's CLI has (legacy names by default). */
+  commands?: CliCommandNames
 }
 
 export type BindSessionToMilestoneResult = {
@@ -340,6 +342,7 @@ export const sessionService = {
     identity,
     sessionId,
     milestoneRef,
+    commands,
   }: BindSessionToMilestoneInput): Promise<BindSessionToMilestoneResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -425,7 +428,8 @@ export const sessionService = {
       const { stewardContextService } =
         await import('@/lib/services/steward-context.service')
       const built = await stewardContextService.buildStewardSections(
-        milestone.id
+        milestone.id,
+        commands
       )
       stewardMemorySection = built.section
       // LUM-648: birth one cross-milestone learning edge per prior-milestone

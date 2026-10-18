@@ -4,13 +4,15 @@
 
 test case 回答「这条剧本跑下来什么结果、**在哪个环境**、**跑的哪版代码**」——这是任务交付证据的落点（LUM-942 起任务级验收标准 / `lumo verify` 已移除）。用例全绿 **不等于** 任务可以 DONE；`lumo task status` 只把它的判决信号列为 advisory（见下方）。
 
-Milestone-level (cross-task) cases use the same flags under `lumo milestone testcase` — see milestones.md.
+**两套父对象，一套命令（LUM-1233）。** `lumo task testcase …` 和 `lumo milestone testcase …` 的动词、flag、输出完全一致，共用一套实现；本文件是两者唯一的说明，下文示例用任务写法，换成 `milestone` 即可。里程碑特有的差异见文末 [里程碑用例](#里程碑用例milestone-testcase)。
 
-句柄是 `<task>/TC<n>`，例如 `LUM-42/TC3`。编号是任务内 1-based 顺序号。
+句柄统一是 `<父对象>/TC<n>`：任务用例 `LUM-42/TC3`，里程碑用例用里程碑 slug，例如 `headless-web-cli/TC3`（`milestone list` 第一列就是 slug）。编号是父对象内 1-based 顺序号。`add` / `list` 只带父对象：任务可省略（用 session 绑定的任务），里程碑必须写。
+
+已移除（打印 `was removed. Use: …`、exit 2、不执行）：`testcase rm` → `testcase delete`；里程碑的旧两参写法 `milestone testcase show <milestone> <case>`（`run` / `update` / `disposition` / `download` 同理）→ `milestone testcase show <milestone>/TC<n>`。
 
 ---
 
-## `lumo task testcase add <task>` — 新建用例
+## `lumo task|milestone testcase add [<task>] | <milestone>` — 新建用例
 
 | Flag                | 说明                                             |
 | ------------------- | ------------------------------------------------ |
@@ -30,7 +32,7 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 
 上限（超出即 400）：步骤 1–30 条、复验 0–30 条、每条 ≤ 500 字符、标题 ≤ 200、setup/expected ≤ 2000。
 
-## `lumo task testcase list <task>` — 列表
+## `lumo task|milestone testcase list [<task>] | <milestone>` — 列表
 
 `--json` prints `{ version, testCases, total, nextCursor, summary }` (each case with its runs).
 
@@ -53,7 +55,7 @@ TC2	退款落到原卡	2 steps / 1 verify · Only proves on PRODUCTION	PASS on L
 
 **执行人**（LUM-1008）：`by <成员名>`；run 来自 agent session 时再附 `via session <短 id>`。CLI 跑的 run 记下的成员是 token 主人，所以「人手动」还是「agent 代跑」看有没有 `via session`（`testcase run` 在 Claude Code 里跑时自动带上当前 session；1.96.0 之前的 CLI 不带，那些 run 没有 `via session`）。`runner not recorded` = 这条 run 没记执行人（不是「没人」）；旧服务端不发这个字段时什么都不打。`show` 的每条 run 行同样带它。
 
-## `lumo task testcase show <task/case>` — 详情 + 执行历史
+## `lumo task|milestone testcase show <parent>/TC<n>` — 详情 + 执行历史
 
 `--json` prints `{ version, testCase, runs, pullRequests }`.
 
@@ -118,13 +120,13 @@ run 行下面是**完整逐步报告**（LUM-1011 / LUM-1185，与 web `TestCase
 
 形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务 **Record** 页的「测试用例」区段里出缩略图（LUM-1011 起 Tests tab 并入 Record；旧的 `/tests` 链接自动落到这里）。
 
-## `lumo task testcase download <task/case> <dir>` — 用 API key 把证据存到本地（LUM-1185）
+## `lumo task|milestone testcase download <parent>/TC<n> <dir>` — 用 API key 把证据存到本地（LUM-1185）
 
 `/api/files/…` 下的证据要认证（匿名 401），浏览器外打不开 `show` 里的 url。`download` 用当前 CLI 的 API key 把这条用例**全部 run** 的 Lumo 托管证据下载到 `<dir>/<YYYY-MM-DD>-<result>-<run id 末 8 位>/`（目录不存在就建），每个文件一行 `saved <本地路径>`：
 
 ```bash
 lumo task testcase download LUM-42/TC3 ./evidence
-lumo milestone testcase download "Review v2" TC1 ./evidence
+lumo milestone testcase download headless-web-cli/TC1 ./evidence
 ```
 
 ```
@@ -142,7 +144,7 @@ Downloading evidence to ./evidence:
 - 只有 `download` 会写本地文件：Codex 里它留在沙箱内（会先问），`show` 仍是只连服务端、直接放行。
 - 什么时候用：要把截图 / 日志拿到本地看、附进别处，或核对证据内容（`show` 只给 url）。
 
-## `lumo task testcase update <task/case>` — 改用例
+## `lumo task|milestone testcase update <parent>/TC<n>` — 改用例
 
 Flag 与 `add` 相同，至少给一个。
 
@@ -152,17 +154,18 @@ lumo task testcase update LUM-42/TC3 --title "Dashboard 页脚 FDIC 披露（改
 
 ⚠ **`--step` / `--verify` 是整段替换，不是追加。** 想加一步，得把完整的新列表重新给一遍。
 
-## `lumo task testcase rm <task/case>` — 删用例
+## `lumo task|milestone testcase delete <parent>/TC<n>` — 删用例
 
 **软删**：卡片从列表消失，历史 run 仍可查。走确认信封协议——不带 `--confirm` 时退出 4 并打印信封。
 
 ```bash
-lumo task testcase rm LUM-42/TC3
+lumo task testcase delete LUM-42/TC3
+lumo milestone testcase delete headless-web-cli/TC1
 ```
 
 ⚠ **agent 不得自己补 `--confirm`**：那个 flag 的含义是「用户已确认」。把信封里的 `changes` 原样给用户看，他批准后再原样跑 `confirmCommand`。
 
-## `lumo task testcase run <task/case>` — 记一次执行
+## `lumo task|milestone testcase run <parent>/TC<n>` — 记一次执行
 
 | Flag                     | 说明                                                                                                                                                                                               |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -353,7 +356,7 @@ LUM-801 原本立「用例从不拦 DONE」，理由是进闸会逆向激励「�
 能拦闸的信号**只能来自 agent 自报的归因 + 证据**，永远不能来自 LLM 判定
 （LUM-740：LLM_JUDGE 的发现不拦 DONE，API schema 拒绝 + reader 忽略）。
 
-## `lumo task testcase disposition`（LUM-812）
+## `lumo task|milestone testcase disposition`（LUM-812）
 
 对一条「证明了坏」的 run 落人类裁定，清掉它对 DONE 的拦截。
 
@@ -391,3 +394,36 @@ lumo task testcase disposition LUM-42/TC3 --known-defect --note "tracked in LUM-
   409 且什么都不写。重跑不带步骤 flag 拿新信封。
 - **只有带证据的 `--cause defect` 能被裁定。** 其余结果从来就没拦过 DONE，没有可清的
   东西 → 409。
+
+## 里程碑用例（milestone testcase）
+
+Milestone test cases are cross-task, end-to-end cases and the milestone close contract (LUM-1135). Everything above applies; the differences are only about the parent:
+
+- The parent is the **milestone**, named by its slug in the handle (`headless-web-cli/TC3`; name or id also resolve). Pass `--project <ref>` when two projects share the slug or name (a task case accepts `--project` and ignores it). Printed handles use the slug, so they can be pasted back.
+- `run` refuses `--pr` with exit 2 (a milestone spans many PRs; the commit is recorded instead) and prints no task status digest.
+- `disposition` is the same three-step handshake, but the two rulings differ: KNOWN_DEFECT lets the milestone close, NOT_A_DEFECT keeps the case holding the milestone until it passes on a re-run. Only a proven defect can be dispositioned. Never add `--confirm-read` / `--confirm` yourself.
+
+| Latest run of the case                                         | Gate state | Reason        |
+| -------------------------------------------------------------- | ---------- | ------------- |
+| none                                                           | held       | NOT_RUN       |
+| PASS (including UNPROVEN)                                      | open       |               |
+| FAIL, proven implementation defect, dispositioned KNOWN_DEFECT | open       |               |
+| FAIL, proven implementation defect, not yet ruled on           | held       | PROVEN_DEFECT |
+| any other FAIL (including one ruled NOT_A_DEFECT)              | held       | FAILING       |
+| BLOCKED                                                        | held       | BLOCKED       |
+
+```bash
+lumo milestone testcase add headless-web-cli --title "PR review round-trip" --step "open a PR in a connected repo" --step "wait for the review" --verify "the review comment is on the PR" --expected "one review comment per finding" --requires-env production
+lumo milestone testcase run headless-web-cli/TC1 --result pass --env production --commit 0d46921 --step s1-2=pass --step v1=pass --evidence https://github.com/o/r/pull/1#issuecomment-1
+lumo milestone testcase list headless-web-cli
+lumo milestone testcase show headless-web-cli/TC1
+lumo milestone testcase download headless-web-cli/TC1 ./evidence
+lumo milestone testcase update headless-web-cli/TC1 --expected "one review comment per finding, on the right line"
+lumo milestone testcase disposition headless-web-cli/TC1 --known-defect --note "shipping with the line-offset bug"
+```
+
+### When to suggest `milestone testcase`
+
+- A steward session planning a milestone ("what does done mean for this milestone") -> `testcase add` for each cross-task end-to-end scenario.
+- After the last task of a milestone lands -> run each case with `testcase run`, in the environment the case requires.
+- `milestone show` says `Close gate: held` -> `testcase list` to see which case holds it and why.

@@ -128,6 +128,7 @@ describe('resolveMilestoneId', () => {
       id: 'm-1',
       name: 'Q3 Launch',
       projectId: 'p-1',
+      slug: null,
     })
   })
 
@@ -186,6 +187,7 @@ describe('resolveMilestoneId', () => {
       id: 'cm123abc',
       name: 'Q3 Launch',
       projectId: 'p-1',
+      slug: null,
     })
   })
 })
@@ -214,6 +216,8 @@ describe('resolveMilestoneId — slug (LUM-1230)', () => {
       id: HEADLESS.id,
       name: HEADLESS.name,
       projectId: 'p-1',
+      // LUM-1233 3a: the slug rides along (the milestone test-case handle).
+      slug: 'headless-web-cli',
     })
   })
 
@@ -256,6 +260,8 @@ describe('resolveMilestoneId — slug (LUM-1230)', () => {
       id: HEADLESS.id,
       name: HEADLESS.name,
       projectId: 'p-1',
+      // LUM-1233 3a: the slug rides along (the milestone test-case handle).
+      slug: 'headless-web-cli',
     })
   })
 
