@@ -99,7 +99,12 @@ import {
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
-import { prScan, type PrScanOptions } from './commands/pr-scan'
+import {
+  prReview,
+  prShow,
+  type PrReviewOptions,
+  type PrShowOptions,
+} from './commands/pr-scan'
 import {
   workspaceSecurityScan,
   type WorkspaceSecurityScanOptions,
@@ -778,22 +783,9 @@ const pr = program
   .command('pr')
   .description('Inspect pull requests by number — linked to a task or not')
 
-pr.command('scan <number>')
-  .option(
-    '--review <mode>',
-    'Request incremental or full AI review without counting toward the automatic budget'
-  )
-  .option('--pause', 'Pause automatic AI reviews for this PR')
-  .option(
-    '--resume',
-    'Resume automatic AI review of every push and reset the reviewed-commit count'
-  )
-  .option(
-    '--limit <commits>',
-    'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
-  )
+pr.command('show <number>')
   .description(
-    'Read PR scans and control automatic AI reviews: --review incremental|full requests one, --pause / --resume control review of every push. Rule with `lumo finding disposition`.'
+    "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
   )
   .option(
     '--repo <owner/repo>',
@@ -813,7 +805,31 @@ pr.command('scan <number>')
   )
   .action(
     wrap((number, options) =>
-      prScan(number as string, options as PrScanOptions)
+      prShow(number as string, options as PrShowOptions)
+    )
+  )
+
+pr.command('review <number>')
+  .description(
+    'Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push.'
+  )
+  .option('--full', 'A full review instead of an incremental one')
+  .option('--pause', 'Pause automatic AI reviews for this PR')
+  .option(
+    '--resume',
+    'Resume automatic AI review of every push and reset the reviewed-commit count'
+  )
+  .option(
+    '--limit <commits>',
+    'With --pause / --resume: this PR pauses after N reviewed commits (1..100, over the workspace setting)'
+  )
+  .option(
+    '--repo <owner/repo>',
+    'Narrow to one repo when the same PR number exists in several (the error lists the candidates)'
+  )
+  .action(
+    wrap((number, options) =>
+      prReview(number as string, options as PrReviewOptions)
     )
   )
 
@@ -1872,7 +1888,7 @@ workspaceCmd
   )
   .option(
     '--auto-pause-after <n>',
-    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)'
+    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')

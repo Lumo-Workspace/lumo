@@ -488,7 +488,7 @@ type ScanSummary = NonNullable<
 /**
  * LUM-735 — one block per linked PR's latest scan: a `PR #945 · scan CLEAN`
  * line, then one labelled row per layer (LUM-1091) — the layer grammar lives
- * in `cli/src/lib/scan-format.ts`, shared with `lumo pr scan` (LUM-788) so
+ * in `cli/src/lib/scan-format.ts`, shared with `lumo pr show` (LUM-788) so
  * the two surfaces cannot drift. LUM-756 (P8): `error` has two writers —
  * only the prefixed, scrubbed scanner reason may be printed, and only when
  * the layer FAILED.

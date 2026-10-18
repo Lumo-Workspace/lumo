@@ -2795,7 +2795,55 @@
       "isInvokable": false,
       "description": "Inspect pull requests by number — linked to a task or not"
     },
-    "pr scan": {
+    "pr review": {
+      "arguments": [{ "name": "number", "required": true, "variadic": false }],
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "A full review instead of an incremental one"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --pause / --resume: this PR pauses after N reviewed commits (1..100, over the workspace setting)"
+        },
+        "--pause": {
+          "long": "--pause",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Pause automatic AI reviews for this PR"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Narrow to one repo when the same PR number exists in several (the error lists the candidates)"
+        },
+        "--resume": {
+          "long": "--resume",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push."
+    },
+    "pr show": {
       "arguments": [{ "name": "number", "required": true, "variadic": false }],
       "flags": {
         "--all": {
@@ -2822,22 +2870,6 @@
           "enumCaseInsensitive": false,
           "description": "Emit the versioned machine-readable payload ({ pullRequest, scans[].stages / findings[] / hunt.tasks[] })"
         },
-        "--limit": {
-          "long": "--limit",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume"
-        },
-        "--pause": {
-          "long": "--pause",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Pause automatic AI reviews for this PR"
-        },
         "--repo": {
           "long": "--repo",
           "short": null,
@@ -2845,27 +2877,11 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Narrow to one repo when the same PR number exists in several (the error lists the candidates)"
-        },
-        "--resume": {
-          "long": "--resume",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
-        },
-        "--review": {
-          "long": "--review",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Request incremental or full AI review without counting toward the automatic budget"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read PR scans and control automatic AI reviews: --review incremental|full requests one, --pause / --resume control review of every push. Rule with `lumo finding disposition`."
+      "description": "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
@@ -5364,7 +5380,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)"
+          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)"
         },
         "--base-branches": {
           "long": "--base-branches",

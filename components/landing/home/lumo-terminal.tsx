@@ -11,7 +11,7 @@ import styles from './home.module.css'
 // tool calls (attach + context → test-case runs → PR scan → status) and reports
 // back — the real agent transcript shape, kept model-/tool-neutral ("coding
 // agent"). Commands are the genuine ones: `lumo task testcase run <task>/TC<n>
-// --result <r> --env <e> [--evidence-file …]`, `lumo pr scan <number>` and
+// --result <r> --env <e> [--evidence-file …]`, `lumo pr show <number>` and
 // `lumo task status <task>` all match cli/src/commands/. The run ends IN_REVIEW with findings still open,
 // because the agent does not get to close its own task.
 const QUERY = '/lumo LUM-204'
@@ -69,7 +69,7 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
-    cmd: 'lumo pr scan 482',
+    cmd: 'lumo pr show 482',
     out: [
       'Scanning PR #482 — 5 layers',
       'Secrets 1 · Code scan 2 · Dependencies 3 · AI review 1 · Exploit paths 1',

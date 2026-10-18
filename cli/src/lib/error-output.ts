@@ -244,7 +244,7 @@ function emitLine(st: FilterState, line: string): void {
  * Finish the error output for `exitCode`: add the missing Hint (usage →
  * `--help`, not found → the listing command) and, under `--json`, print the
  * single JSON object for a failure or flush the held lines for a success.
- * `usage` is the failing command's usage line (`lumo pr scan [options] <number>`).
+ * `usage` is the failing command's usage line (`lumo pr show [options] <number>`).
  */
 export function finalizeErrorOutput(
   exitCode: number,

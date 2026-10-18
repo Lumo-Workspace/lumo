@@ -126,7 +126,7 @@ export function withoutHead(
   }
 }
 
-/** What the scan panel, `lumo pr scan` and the CLI read about the budget.
+/** What the scan panel, `lumo pr show` and the CLI read about the budget.
  *  `rounds` keeps its LUM-1056 name; it now counts reviewed commits. */
 export interface ReviewBudgetView {
   paused: boolean

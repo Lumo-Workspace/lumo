@@ -10,7 +10,7 @@ import {
 
 /**
  * LUM-1091 — the layout grammar of the CLI's long reports (`task status`
- * with its DONE-readiness section, `pr scan`), built on the LUM-1086 primitives in `ui.ts`:
+ * with its DONE-readiness section, `pr show`), built on the LUM-1086 primitives in `ui.ts`:
  *
  * - a section starts with a blank line and a plain heading (bold on a TTY);
  * - facts are `Label:  value` rows with the labels padded to one width — a

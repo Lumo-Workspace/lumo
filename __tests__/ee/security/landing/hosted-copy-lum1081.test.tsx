@@ -72,7 +72,7 @@ beforeAll(() => {
 describe('hosted copy is unchanged by the snapshot scrub LUM-1081', () => {
   it('the landing page still shows the PR scan demo and rows', () => {
     const { container: term } = render(<LumoTerminal />)
-    expect(term).toHaveTextContent('lumo pr scan 482')
+    expect(term).toHaveTextContent('lumo pr show 482')
     expect(term).toHaveTextContent('8 scan findings left for you')
 
     const { container: how } = render(<HowItWorks />)

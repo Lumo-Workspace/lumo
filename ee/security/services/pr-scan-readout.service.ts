@@ -1,5 +1,5 @@
 /**
- * LUM-788 — the by-PR security-scan read-out behind `lumo pr scan <number>`.
+ * LUM-788 — the by-PR security-scan read-out behind `lumo pr show <number>`.
  *
  * Until now a SaaS user could only see a scan through `lumo task status`
  * (one summary line per linked PR) — nothing per PR, nothing for a PR whose
@@ -137,7 +137,7 @@ export interface FindingReadoutView {
   suggestedReason: string | null
 }
 
-/** The scan-level hunt facts `lumo pr scan --full` prints, read off `huntAudit`. */
+/** The scan-level hunt facts `lumo pr show --full` prints, read off `huntAudit`. */
 export interface HuntReadoutView {
   /** LUM-762 per-task coverage; null when the audit holds nothing usable. */
   coverage: HuntCoverage | null
@@ -251,7 +251,7 @@ export interface PullRequestScanReadout {
 /**
  * LUM-1189 — `GET /api/tasks/[id]/security-scans` for a bearer caller (or
  * `?view=readout`): every PR linked to the task, each the same read-out
- * `lumo pr scan` prints, plus totals off each PR's latest scan.
+ * `lumo pr show` prints, plus totals off each PR's latest scan.
  */
 export interface TaskScanReadout {
   version: 1
@@ -626,7 +626,7 @@ async function loadReadoutContext(
 }
 
 /**
- * One PR's read-out — the exact payload `lumo pr scan` renders. Shared by
+ * One PR's read-out — the exact payload `lumo pr show` renders. Shared by
  * the by-number read (LUM-788) and the by-task read (LUM-1189) so the two
  * can never disagree on a finding's standing or on what text is cleaned.
  */

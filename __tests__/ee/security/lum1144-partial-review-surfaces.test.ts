@@ -237,7 +237,7 @@ describe('CLI', () => {
     const lines = formatSizeCapLines(caps)
     expect(lines).toHaveLength(1)
     expect(lines[0]).toContain('covered 8 of 10 reviewable files')
-    expect(lines[0]).toContain('--review full')
+    expect(lines[0]).toContain('lumo pr review <number> --full')
     expect(lines[0]).not.toContain('\u001b')
     expect(
       scanLayerNotes({

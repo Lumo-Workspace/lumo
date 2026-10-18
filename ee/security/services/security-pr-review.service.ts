@@ -1057,30 +1057,33 @@ export function buildSummary(input: SummaryInput): string {
 
   const notices: string[] = []
   if (Object.values(input.stages).includes('PAUSED')) {
-    const command =
+    // LUM-1233 3d: a GitHub comment has no CLI version to gate on — name
+    // `pr review` and, in parentheses, the 1.125-and-older spelling.
+    const target =
       input.prNumber && input.repo
-        ? `lumo pr scan ${input.prNumber} --repo ${sanitizeField(input.repo)} --review incremental`
-        : 'lumo pr scan <number> --repo <owner/repo> --review incremental'
+        ? `${input.prNumber} --repo ${sanitizeField(input.repo)}`
+        : '<number> --repo <owner/repo>'
+    const command = `\`lumo pr review ${target}\` (Lumo CLI 1.125 and older: \`lumo pr scan ${target} --review incremental\`)`
     const h = input.commandHandle
     // LUM-1152: the description opted this PR out of automatic review.
     if (isReviewIgnored(input.partialCauses))
       notices.push(
         h
-          ? `- Automatic AI review is skipped: this PR's description contains \`${h} ignore\`. Secret, scanner and dependency checks are not affected. Remove it from the description to have the next push reviewed, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
-          : `- Automatic AI review is skipped: this PR's description asks Lumo to ignore it. Secret, scanner and dependency checks are not affected. Remove that line from the description to have the next push reviewed, or request a review now with \`${command}\`.`
+          ? `- Automatic AI review is skipped: this PR's description contains \`${h} ignore\`. Secret, scanner and dependency checks are not affected. Remove it from the description to have the next push reviewed, or comment \`${h} review\` for a review now (CLI: ${command}).`
+          : `- Automatic AI review is skipped: this PR's description asks Lumo to ignore it. Secret, scanner and dependency checks are not affected. Remove that line from the description to have the next push reviewed, or request a review now with ${command}.`
       )
     // LUM-1137: over the hourly cap — the next push is reviewed anyway.
     else if (isReviewRateLimited(input.partialCauses))
       notices.push(
         h
-          ? `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or comment \`${h} review\` for a review now (CLI: \`${command}\`).`
-          : `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or request a review now with \`${command}\`.`
+          ? `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or comment \`${h} review\` for a review now (CLI: ${command}).`
+          : `- Automatic AI review is rate-limited: this PR's author reached the hourly limit of automatic reviews. This commit has not been fully reviewed. The next push after the limit resets is reviewed automatically, or request a review now with ${command}.`
       )
     else
       notices.push(
         h
-          ? `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Comment \`${h} review\` for an incremental review or \`${h} full review\`, and \`${h} resume\` to review every push again (CLI: \`${command}\`).`
-          : `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Request an incremental review with \`${command}\`, or use \`--review full\`. Use \`--resume\` to review every push again.`
+          ? `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Comment \`${h} review\` for an incremental review or \`${h} full review\`, and \`${h} resume\` to review every push again (CLI: ${command}).`
+          : `- Automatic AI checks are paused on this PR (paused by a reviewer, or after its limit of reviewed commits). This commit has not been fully reviewed. Request an incremental review with ${command}, or add \`--full\` for a full one. Add \`--resume\` to review every push again.`
       )
   }
   // With findings open, the owned note still has to be said once.

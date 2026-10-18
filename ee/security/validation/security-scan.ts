@@ -42,7 +42,7 @@ export type BulkDispositionSecurityFindingsInput = z.infer<
 >
 
 /**
- * Query for GET /api/pull-requests/[number]/scans (LUM-788, `lumo pr scan`).
+ * Query for GET /api/pull-requests/[number]/scans (LUM-788, `lumo pr show`).
  * `number` is the path segment; `repo` narrows a number that exists in
  * several repos; `all` reads every head's scan instead of the latest.
  */
