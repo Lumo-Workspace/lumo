@@ -1,3 +1,5 @@
+import { parseChildSessionId } from '@/lib/session/child-session-id'
+
 /**
  * Agent ACTIVE time derivation.
  *
@@ -25,10 +27,21 @@
  *
  * An in-flight turn (a prompt with no STOP yet) is NOT counted until it
  * STOPs — a minor understatement for a live run, which steps up at each STOP.
+ *
+ * LUM-1237 — subagents. A subagent's events land on its own child session
+ * (`<parentSessionId>:<agentId>`), which has no prompts or STOPs: its turns
+ * run `SUBAGENT_START` → `SUBAGENT_STOP` (a SendMessage resume fires another
+ * pair on the same child). A background subagent keeps working while its
+ * parent sits idle between turns, so its time is its own, not a slice of the
+ * parent's turns. Time is then unioned per RUN (a root session and its
+ * subagents) and task, so a foreground subagent inside a parent turn is not
+ * counted twice.
  */
 
 const PROMPT = 'USER_PROMPT_SUBMIT'
-const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE'])
+const STOP_TYPES: ReadonlySet<string> = new Set(['STOP', 'STOP_FAILURE'])
+const SUBAGENT_START = 'SUBAGENT_START'
+const SUBAGENT_STOP_TYPES: ReadonlySet<string> = new Set(['SUBAGENT_STOP'])
 
 /** Events that mark the START of a gap where the agent is waiting on a human. */
 const HUMAN_WAIT_MARKERS = new Set([
@@ -55,75 +68,143 @@ export interface TaskTurnEvent extends SessionTurnEvent {
   sessionId: string | null
 }
 
+export interface ActiveTimeOptions {
+  /** The stream is a subagent child session's: turns are SUBAGENT_START →
+   *  SUBAGENT_STOP instead of USER_PROMPT_SUBMIT → STOP. */
+  subagent?: boolean
+}
+
+/** A counted span, epoch ms `[start, end)`. */
+export type ActiveInterval = [number, number]
+
 const NO_SESSION = '__none__'
 
 function ms(at: Date | string): number {
   return new Date(at).getTime()
 }
 
+/** True for a subagent's child session id (`<parent>:<agentId>`). */
+export function isSubagentSessionId(sessionId: string): boolean {
+  return parseChildSessionId(sessionId) !== null
+}
+
+/** The run a session belongs to: its root session id (itself for a root). */
+export function runKeyOf(sessionId: string): string {
+  return parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
+}
+
 /**
- * Active milliseconds for ONE session's hook events, already ordered by time
+ * The counted spans of ONE session's hook events, already ordered by time
  * ascending.
  *
  * Algorithm:
- *  - Scan for turns bounded by USER_PROMPT_SUBMIT → STOP/STOP_FAILURE.
- *  - Within each turn, walk consecutive event pairs and sum the gap, EXCLUDING
- *    the gap when (a) the starting event is a human-wait marker, or (b) the
- *    gap exceeds IDLE_THRESHOLD_MS.
+ *  - Scan for turns bounded by USER_PROMPT_SUBMIT → STOP/STOP_FAILURE
+ *    (a subagent stream: SUBAGENT_START → SUBAGENT_STOP).
+ *  - Within each turn, walk consecutive event pairs and keep the gap, EXCLUDING
+ *    it when (a) the starting event is a human-wait marker, or (b) the gap
+ *    exceeds IDLE_THRESHOLD_MS.
  *  - Between-turn gaps are never counted (the turn-boundary walk handles this).
- *  - A trailing open turn (prompt with no STOP) is intentionally not counted.
- *  - The first prompt of a turn anchors it; extra prompts before the STOP are
+ *  - A trailing open turn (no closing event yet) is intentionally not counted.
+ *  - The first opener of a turn anchors it; extra openers before the close are
  *    treated like any other in-turn event.
  */
-export function activeDurationMs(events: SessionTurnEvent[]): number {
-  // Find turn boundaries: indices of [USER_PROMPT_SUBMIT, STOP/STOP_FAILURE] pairs.
-  // We iterate only events within each turn boundary.
-  let activeMs = 0
+export function activeIntervals(
+  events: SessionTurnEvent[],
+  options: ActiveTimeOptions = {}
+): ActiveInterval[] {
+  const opener = options.subagent ? SUBAGENT_START : PROMPT
+  const closers = options.subagent ? SUBAGENT_STOP_TYPES : STOP_TYPES
+  const out: ActiveInterval[] = []
   let turnStart: number | null = null // index into events[]
 
   for (let i = 0; i < events.length; i++) {
     const ev: SessionTurnEvent | undefined = events[i]
     if (ev === undefined) continue
-    if (ev.type === PROMPT) {
-      // Anchor to the FIRST prompt; ignore extra queued prompts mid-turn.
+    if (ev.type === opener) {
+      // Anchor to the FIRST opener; ignore extra queued openers mid-turn.
       if (turnStart === null) turnStart = i
-    } else if (STOP_TYPES.has(ev.type)) {
+    } else if (closers.has(ev.type)) {
       if (turnStart !== null) {
-        // Walk all consecutive pairs within this turn and sum non-wait gaps.
-        const turnEvents = events.slice(turnStart, i + 1)
-        for (let j = 0; j < turnEvents.length - 1; j++) {
-          const gapStart: SessionTurnEvent | undefined = turnEvents[j]
-          const gapEnd: SessionTurnEvent | undefined = turnEvents[j + 1]
+        // Walk all consecutive pairs within this turn and keep non-wait gaps.
+        for (let j = turnStart; j < i; j++) {
+          const gapStart: SessionTurnEvent | undefined = events[j]
+          const gapEnd: SessionTurnEvent | undefined = events[j + 1]
           if (gapStart === undefined || gapEnd === undefined) continue
-          const gapMs = Math.max(
-            0,
-            ms(gapEnd.createdAt) - ms(gapStart.createdAt)
-          )
+          const from = ms(gapStart.createdAt)
+          const to = ms(gapEnd.createdAt)
+          if (to <= from) continue
           // Exclude human-wait gaps: started by a marker.
-          if (HUMAN_WAIT_MARKERS.has(gapStart.type)) {
-            continue
-          }
+          if (HUMAN_WAIT_MARKERS.has(gapStart.type)) continue
           // Idle backstop: exclude gaps exceeding the threshold, EXCEPT for the
-          // gap immediately after USER_PROMPT_SUBMIT — that is the model's initial
+          // gap right after the turn opener — that is the model's initial
           // thinking/response time and may legitimately be long without a stall.
-          if (gapStart.type !== PROMPT && gapMs > IDLE_THRESHOLD_MS) {
+          if (gapStart.type !== opener && to - from > IDLE_THRESHOLD_MS) {
             continue
           }
-          activeMs += gapMs
+          out.push([from, to])
         }
         turnStart = null
       }
     }
   }
-  // A trailing open turn (prompt with no STOP) is intentionally not counted.
-  return activeMs
+  // A trailing open turn is intentionally not counted.
+  return out
+}
+
+/** Total length of possibly-overlapping spans, each instant counted once. */
+export function unionMs(intervals: ActiveInterval[]): number {
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  let total = 0
+  let curStart: number | null = null
+  let curEnd = 0
+  for (const [from, to] of sorted) {
+    if (curStart === null || from > curEnd) {
+      if (curStart !== null) total += curEnd - curStart
+      curStart = from
+      curEnd = to
+    } else if (to > curEnd) {
+      curEnd = to
+    }
+  }
+  if (curStart !== null) total += curEnd - curStart
+  return total
+}
+
+/**
+ * Active milliseconds for ONE session's hook events, already ordered by time
+ * ascending — the sum of {@link activeIntervals} (which never overlap within
+ * one session).
+ */
+export function activeDurationMs(
+  events: SessionTurnEvent[],
+  options: ActiveTimeOptions = {}
+): number {
+  let total = 0
+  for (const [from, to] of activeIntervals(events, options)) total += to - from
+  return total
+}
+
+const byTime = (a: SessionTurnEvent, b: SessionTurnEvent) =>
+  ms(a.createdAt) - ms(b.createdAt)
+
+/** Counted spans of one session's (unordered) events; a child session id
+ *  reads its turns as a subagent's. */
+function sessionIntervals(
+  sessionId: string,
+  list: SessionTurnEvent[]
+): ActiveInterval[] {
+  return activeIntervals([...list].sort(byTime), {
+    subagent: isSubagentSessionId(sessionId),
+  })
 }
 
 /**
  * Active milliseconds per session for a flat, possibly-unordered event stream
  * spanning multiple sessions. Groups by `sessionId` and sorts each group by
  * time so a STOP in one session can never close a prompt in another. Keyed by
- * sessionId → active ms (a session with no completed turn maps to 0).
+ * sessionId → active ms (a session with no completed turn maps to 0). A
+ * subagent child session is timed by its own SUBAGENT_START → SUBAGENT_STOP
+ * turns (LUM-1237).
  */
 export function activeDurationMsBySession(
   events: TaskTurnEvent[]
@@ -137,8 +218,7 @@ export function activeDurationMsBySession(
   }
   const out = new Map<string, number>()
   for (const [sessionId, list] of bySession) {
-    const ordered = [...list].sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
-    out.set(sessionId, activeDurationMs(ordered))
+    out.set(sessionId, unionMs(sessionIntervals(sessionId, list)))
   }
   return out
 }
@@ -148,6 +228,32 @@ export interface AttributedTurnEvent extends TaskTurnEvent {
   /** The event's attributed task (`HookEvent.taskId`, falling back to its
    * session's explicit task). `undefined` = not supplied by the caller. */
   taskId?: string | null
+}
+
+const noFallback = (): string | null => null
+
+/** Events grouped by (session, task), first-seen order. */
+function groupBySessionTask(
+  events: AttributedTurnEvent[],
+  fallbackTask: (sessionId: string) => string | null
+): Array<{
+  sessionId: string
+  taskId: string | null
+  list: SessionTurnEvent[]
+}> {
+  const groups = new Map<
+    string,
+    { sessionId: string; taskId: string | null; list: SessionTurnEvent[] }
+  >()
+  for (const ev of events) {
+    const sessionId = ev.sessionId ?? NO_SESSION
+    const taskId = ev.taskId !== undefined ? ev.taskId : fallbackTask(sessionId)
+    const key = `${sessionId}\u0000${taskId ?? ''}`
+    const group = groups.get(key)
+    if (group) group.list.push(ev)
+    else groups.set(key, { sessionId, taskId, list: [ev] })
+  }
+  return [...groups.values()]
 }
 
 /**
@@ -166,33 +272,75 @@ export function activeDurationMsBySessionTask(
   events: AttributedTurnEvent[],
   fallbackTask: (sessionId: string) => string | null
 ): Array<{ sessionId: string; taskId: string | null; ms: number }> {
-  const groups = new Map<
+  return groupBySessionTask(events, fallbackTask).map(
+    ({ sessionId, taskId, list }) => ({
+      sessionId,
+      taskId,
+      ms: unionMs(sessionIntervals(sessionId, list)),
+    })
+  )
+}
+
+/**
+ * LUM-1237: active milliseconds per (run, task). A run is a root session plus
+ * its subagent child sessions; each session is timed by its own turns (a
+ * background subagent works while its parent is idle between turns), then the
+ * run's spans on one task are UNIONED, so a foreground subagent running inside
+ * a parent turn on the same task is counted once. Different tasks of one run
+ * are timed separately. Groups are returned in first-seen order.
+ */
+export function activeDurationMsByRunTask(
+  events: AttributedTurnEvent[],
+  fallbackTask: (sessionId: string) => string | null = noFallback
+): Array<{ runKey: string; taskId: string | null; ms: number }> {
+  const runs = new Map<
     string,
-    { sessionId: string; taskId: string | null; list: SessionTurnEvent[] }
+    { runKey: string; taskId: string | null; spans: ActiveInterval[] }
   >()
-  for (const ev of events) {
-    const sessionId = ev.sessionId ?? NO_SESSION
-    const taskId = ev.taskId !== undefined ? ev.taskId : fallbackTask(sessionId)
-    const key = `${sessionId}\u0000${taskId ?? ''}`
-    const group = groups.get(key)
-    if (group) group.list.push(ev)
-    else groups.set(key, { sessionId, taskId, list: [ev] })
+  for (const { sessionId, taskId, list } of groupBySessionTask(
+    events,
+    fallbackTask
+  )) {
+    const runKey = runKeyOf(sessionId)
+    const key = `${runKey}\u0000${taskId ?? ''}`
+    const run = runs.get(key) ?? { runKey, taskId, spans: [] }
+    run.spans.push(...sessionIntervals(sessionId, list))
+    runs.set(key, run)
   }
-  return [...groups.values()].map(({ sessionId, taskId, list }) => ({
-    sessionId,
+  return [...runs.values()].map(({ runKey, taskId, spans }) => ({
+    runKey,
     taskId,
-    ms: activeDurationMs(
-      [...list].sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
-    ),
+    ms: unionMs(spans),
   }))
 }
 
 /**
- * Whole seconds of active time for a flat, possibly-unordered event stream
- * spanning multiple sessions.
+ * LUM-1237: active milliseconds per run (root session id) — the Σ over the
+ * run's tasks of {@link activeDurationMsByRunTask}, so a run total and its
+ * per-task split always reconcile.
  */
-export function sumActiveDurationSec(events: TaskTurnEvent[]): number {
+export function activeDurationMsByRun(
+  events: AttributedTurnEvent[],
+  fallbackTask: (sessionId: string) => string | null = noFallback
+): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const g of activeDurationMsByRunTask(events, fallbackTask)) {
+    out.set(g.runKey, (out.get(g.runKey) ?? 0) + g.ms)
+  }
+  return out
+}
+
+/**
+ * Whole seconds of active time for a flat, possibly-unordered event stream
+ * spanning multiple sessions — per run and task (LUM-1237), converted to whole
+ * seconds a single time.
+ */
+export function sumActiveDurationSec(
+  events: AttributedTurnEvent[],
+  fallbackTask: (sessionId: string) => string | null = noFallback
+): number {
   let totalMs = 0
-  for (const v of activeDurationMsBySession(events).values()) totalMs += v
+  for (const v of activeDurationMsByRun(events, fallbackTask).values())
+    totalMs += v
   return Math.round(totalMs / 1000)
 }

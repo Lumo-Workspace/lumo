@@ -16,7 +16,11 @@ import {
   type ModelUsage,
 } from '@/lib/services/model-cost'
 import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
-import { activeDurationMs } from '@/lib/agent-run/active-time'
+import {
+  activeDurationMs,
+  activeDurationMsByRun,
+  type TaskTurnEvent,
+} from '@/lib/agent-run/active-time'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import type { HookEventType, MemoryCategory } from '@prisma/client'
 import { TaskArtifactAgent } from '@prisma/client'
@@ -192,12 +196,12 @@ export const agentRunTimelineService = {
   async getTimeline(taskId: string): Promise<AgentRunTimelineResult> {
     const [sessions, childSessions, events, memories, segmentRows] =
       await Promise.all([
-      sessionRepository.listForTask(taskId, 50),
-      sessionRepository.listChildrenForTask(taskId),
-      hookEventRepository.findByTaskId(taskId),
-      memoryRepository.findByTaskIdWithSession(taskId),
-      attributionRepository.listTaskSegments(taskId),
-    ])
+        sessionRepository.listForTask(taskId, 50),
+        sessionRepository.listChildrenForTask(taskId),
+        hookEventRepository.findByTaskId(taskId),
+        memoryRepository.findByTaskIdWithSession(taskId),
+        attributionRepository.listTaskSegments(taskId),
+      ])
 
     // LUM-932 (spec §8): subagent child sessions fold into their parent's
     // run. A child that attached its own task under an unbound parent still
@@ -265,9 +269,11 @@ export const agentRunTimelineService = {
 
     // Bucket events + memories by run (top-level session id).
     const eventsBySession = new Map<string | null, AgentRunHookEvent[]>()
-    // A run's own events (not its subagents') — active time is turn-based on
-    // the top-level session's prompts/STOPs.
-    const ownEventsBySession = new Map<string, AgentRunHookEvent[]>()
+    // LUM-1237: a run's task-attributed events with their session id — active
+    // time unions the root's prompt→STOP turns with each subagent's
+    // SUBAGENT_START→SUBAGENT_STOP turns (a background subagent works while
+    // its parent is idle between turns).
+    const turnEventsByRun = new Map<string, TaskTurnEvent[]>()
     for (const ev of events) {
       const key = runKey(ev.sessionId ?? null)
       const list = eventsBySession.get(key) ?? []
@@ -290,10 +296,14 @@ export const agentRunTimelineService = {
         createdAt: ev.createdAt.toISOString(),
       })
       eventsBySession.set(key, list)
-      if (key && ev.sessionId === key) {
-        const own = ownEventsBySession.get(key) ?? []
-        own.push(list[list.length - 1]!)
-        ownEventsBySession.set(key, own)
+      if (key) {
+        const turns = turnEventsByRun.get(key) ?? []
+        turns.push({
+          sessionId: ev.sessionId ?? null,
+          type: ev.type,
+          createdAt: ev.createdAt,
+        })
+        turnEventsByRun.set(key, turns)
       }
     }
 
@@ -367,10 +377,12 @@ export const agentRunTimelineService = {
         runNumber: i + 1,
         startedAt: s.startedAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
-        // Active time: Σ per-turn (STOP − prompt), excluding inter-turn idle —
-        // a span (lastActivityAt − startedAt) would count a resumed session's
+        // Active time: the union of the run's turns on this task (root
+        // prompt→STOP, subagent START→STOP), excluding inter-turn idle — a
+        // span (lastActivityAt − startedAt) would count a resumed session's
         // idle gap. See lib/agent-run/active-time.
-        durationMs: activeDurationMs(ownEventsBySession.get(s.id) ?? []),
+        durationMs:
+          activeDurationMsByRun(turnEventsByRun.get(s.id) ?? []).get(s.id) ?? 0,
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,

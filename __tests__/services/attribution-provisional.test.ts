@@ -11,6 +11,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
     findPreToolUseTask: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
+    hasSelfAttachedChild: jest.fn(),
   },
 }))
 
@@ -22,7 +23,8 @@ const repo = attributionRepository as unknown as Record<
   | 'findOpenSegmentTask'
   | 'findPreToolUseTask'
   | 'resolveIdentifiers'
-  | 'taskIdsForBranches',
+  | 'taskIdsForBranches'
+  | 'hasSelfAttachedChild',
   jest.Mock
 >
 
@@ -35,6 +37,7 @@ beforeEach(() => {
   repo.findPreToolUseTask.mockResolvedValue(null)
   repo.resolveIdentifiers.mockResolvedValue(new Map())
   repo.taskIdsForBranches.mockResolvedValue(new Map())
+  repo.hasSelfAttachedChild.mockResolvedValue(false)
 })
 
 const run = (
@@ -209,5 +212,53 @@ describe('provisionalTaskFor', () => {
         type: 'USER_PROMPT_SUBMIT',
       })
     ).resolves.toBe('task_open')
+  })
+
+  describe('LUM-1237 orchestration host root', () => {
+    beforeEach(() => {
+      repo.hasSelfAttachedChild.mockResolvedValue(true)
+      repo.resolveIdentifiers.mockImplementation(
+        async (_ws: string, ids: string[]) =>
+          new Map(ids.map(id => [id, `task_${id}`]))
+      )
+    })
+
+    it('a task-naming lumo read or prompt of a host root tags no task', async () => {
+      await expect(
+        run([{ kind: 'LUMO_CMD', identifier: 'LUM-7' }], null)
+      ).resolves.toBeNull()
+      await expect(
+        run([{ kind: 'PROMPT', identifier: 'LUM-7' }], null, {
+          type: 'USER_PROMPT_SUBMIT',
+        })
+      ).resolves.toBeNull()
+      expect(repo.hasSelfAttachedChild).toHaveBeenCalledWith('ws_1', ROOT)
+    })
+
+    it('work output of a host root still tags its task', async () => {
+      await expect(
+        run(
+          [
+            { kind: 'LUMO_CMD', identifier: 'LUM-7' },
+            { kind: 'COMMIT', identifier: 'LUM-8' },
+          ],
+          null
+        )
+      ).resolves.toBe('task_LUM-8')
+    })
+
+    it('a subagent event never asks whether its parent is a host', async () => {
+      await expect(
+        run([{ kind: 'LUMO_CMD', identifier: 'LUM-7' }], ROOT)
+      ).resolves.toBe('task_LUM-7')
+      expect(repo.hasSelfAttachedChild).not.toHaveBeenCalled()
+    })
+
+    it('an event naming no task skips the host lookup', async () => {
+      await expect(
+        run([{ kind: 'COMMIT', identifier: 'LUM-8' }], null)
+      ).resolves.toBe('task_LUM-8')
+      expect(repo.hasSelfAttachedChild).not.toHaveBeenCalled()
+    })
   })
 })
