@@ -1889,6 +1889,10 @@ workspaceCmd
   .option('--ai-review <on|off>', 'AI review (LLM security review and triage)')
   .option('--hunt <on|off>', 'Exploit-path hunt in the sandbox')
   .option(
+    '--reward-hack <on|off>',
+    'Agent behavior check: whether the agent sessions behind a PR gamed tests or checks (advisory)'
+  )
+  .option(
     '--request-changes <on|off>',
     'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
   )

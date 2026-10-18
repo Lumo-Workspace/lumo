@@ -453,3 +453,76 @@ describe('LUM-1137 --auto-pause-after', () => {
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Automatic review/)
   })
 })
+
+describe('LUM-1234 --reward-hack (Agent behavior)', () => {
+  const WITH_RH: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRewardHackEnabled: true },
+    platform: { ...ALL_ON.platform, rewardHack: true },
+    effective: { ...ALL_ON.effective, rewardHack: true },
+  }
+
+  it('maps the flag and refuses it with --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ rewardHack: 'off' })).toEqual({
+      securityRewardHackEnabled: false,
+    })
+    expect(() => buildSecurityScanUpdate({ rewardHack: 'maybe' })).toThrow(
+      /--reward-hack takes on or off/
+    )
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, rewardHack: 'on' })
+    ).toThrow(/--reward-hack/)
+  })
+
+  it('turning it off is gated — alone and through --disable-all', () => {
+    expect(
+      describeTurnOffs(WITH_RH.switches, { securityRewardHackEnabled: false })
+    ).toContain('Will turn OFF: Agent behavior (reward-hack check)')
+    expect(describeTurnOffs(WITH_RH.switches, { all: false })).toContain(
+      'Will turn OFF: Agent behavior (reward-hack check)'
+    )
+    expect(
+      describeTurnOffs(WITH_RH.switches, { securityRewardHackEnabled: true })
+    ).toEqual([])
+  })
+
+  it('--reward-hack off without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: WITH_RH }])
+    const code = await workspaceSecurityScan({ rewardHack: 'off' })
+    expect(code).toBe(4)
+    expect(calls.some(c => c.init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('--reward-hack off --confirm PATCHes the switch', async () => {
+    serve([
+      { body: WITH_RH },
+      {
+        body: {
+          ...WITH_RH,
+          switches: { ...WITH_RH.switches, securityRewardHackEnabled: false },
+          effective: { ...WITH_RH.effective, rewardHack: false },
+        },
+      },
+    ])
+    await workspaceSecurityScan({ rewardHack: 'off', confirm: true })
+    const patch = calls.find(c => c.init?.method === 'PATCH')!
+    expect(JSON.parse(String(patch.init!.body))).toEqual({
+      securityRewardHackEnabled: false,
+    })
+    expect(out).toMatch(/Agent behavior\s+off\s+on\s+no/)
+  })
+
+  it('shows its row with the platform ceiling; an older server shows none', () => {
+    expect(formatSecurityScanSettings(WITH_RH)).toMatch(
+      /Agent behavior\s+on\s+on\s+yes/
+    )
+    expect(
+      formatSecurityScanSettings({
+        ...WITH_RH,
+        platform: { ...WITH_RH.platform, rewardHack: false },
+        effective: { ...WITH_RH.effective, rewardHack: false },
+      })
+    ).toMatch(/Agent behavior\s+on\s+off\s+no/)
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Agent behavior/)
+  })
+})

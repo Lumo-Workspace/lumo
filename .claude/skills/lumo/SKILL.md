@@ -90,7 +90,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
-- `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
+- `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--reward-hack`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
 - `lumo workspace learnings [--repo] [--json]` — PR-review learnings with memory refs; delete with `lumo memory rm <ref>`
 - `lumo inbox list` · `draft list` · `project overview [project]` — read-only inbox, your drafts, project health + latest summary
 
