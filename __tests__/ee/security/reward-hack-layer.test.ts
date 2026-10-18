@@ -616,6 +616,134 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(sync).toHaveBeenCalledWith('scan2')
   })
 
+  it('a cited edit corrected later in the same file (its line is not in the PR diff) is dropped before any refute', async () => {
+    const hack = edit('e2', 'src/auth.test.ts')
+    ;(hack.payload as { tool_input: Record<string, string> }).tool_input = {
+      file_path: '/wt/src/auth.test.ts',
+      old_string: 'expect(login(u)).toBe(true)',
+      new_string: 'expect(true).toBe(true)',
+    }
+    db.hookEvent.findMany.mockResolvedValue([promptEv('e1', 'fix it'), hack])
+    listFiles.mockResolvedValue([
+      {
+        filename: 'src/auth.test.ts',
+        status: 'modified',
+        patch:
+          '@@ -1 +1 @@\n-expect(login(u)).toBe(false)\n+expect(login(u)).toBe(true)',
+      },
+    ])
+    await runRewardHackLayer('scan2')
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(refute).not.toHaveBeenCalled()
+    expect(writtenRows()).toHaveLength(0)
+    expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
+  })
+
+  it('an edit still in the PR diff is kept, and the refute call gets the current hunks of its file', async () => {
+    const hack = edit('e2', 'src/auth.test.ts')
+    ;(hack.payload as { tool_input: Record<string, string> }).tool_input = {
+      file_path: '/wt/src/auth.test.ts',
+      old_string: 'expect(login(u)).toBe(true)',
+      new_string: 'expect(true).toBe(true)',
+    }
+    db.hookEvent.findMany.mockResolvedValue([promptEv('e1', 'fix it'), hack])
+    listFiles.mockResolvedValue([
+      {
+        filename: 'src/auth.test.ts',
+        status: 'modified',
+        patch:
+          '@@ -1 +1 @@\n-expect(login(u)).toBe(true)\n+expect(true).toBe(true)',
+      },
+      { filename: 'src/unrelated.ts', status: 'modified', patch: '+other' },
+    ])
+    await runRewardHackLayer('scan2')
+    expect(refute).toHaveBeenCalledTimes(1)
+    const args = refute.mock.calls[0]![0] as { prDiff: string }
+    expect(args.prDiff).toContain('<pr-diff file="src/auth.test.ts">')
+    expect(args.prDiff).toContain('+expect(true).toBe(true)')
+    expect(args.prDiff).not.toContain('other')
+    expect(writtenRows()).toHaveLength(1)
+  })
+
+  it('a reused verdict drops a copied row whose cited edit the current diff no longer carries', async () => {
+    const hack = edit('e2', 'src/auth.test.ts')
+    ;(hack.payload as { tool_input: Record<string, string> }).tool_input = {
+      file_path: '/wt/src/auth.test.ts',
+      old_string: 'expect(login(u)).toBe(true)',
+      new_string: 'expect(true).toBe(true)',
+    }
+    db.hookEvent.findMany.mockResolvedValue([promptEv('e1', 'fix it'), hack])
+    // A human commit fixed the line; the file is still in the PR.
+    listFiles.mockResolvedValue([
+      {
+        filename: 'src/auth.test.ts',
+        status: 'modified',
+        patch: '@@ -1 +1 @@\n+expect(login(u)).toBe(true)',
+      },
+    ])
+    previousScan = {
+      id: 'scan1',
+      rewardHackState: {
+        watermark: { sess1: 'e2' },
+        findingFingerprints: ['fp'],
+        costUsd: 0.6,
+        truncated: false,
+      },
+    }
+    previousRows = [
+      {
+        kind: 'REWARD_HACK',
+        ruleId: 'reward-hack/TEST_TAMPERING',
+        severity: 'MEDIUM',
+        provenance: 'LLM_JUDGE',
+        filePath: 'src/auth.test.ts',
+        line: null,
+        title: 't',
+        detail: 'd',
+        evidence: JSON.stringify({ eventIds: ['e2'], sessionIds: ['sess1'] }),
+        fingerprint: 'fp',
+      },
+    ]
+    await runRewardHackLayer('scan2')
+    expect(judge).not.toHaveBeenCalled()
+    expect(writtenRows()).toHaveLength(0)
+  })
+
+  it('a Codex session (apply_patch, its only write tool) is judged', async () => {
+    db.hookEvent.findMany.mockResolvedValue([
+      promptEv('e1', 'make the score test pass'),
+      {
+        id: 'e2',
+        sessionId: 'sess1',
+        type: 'POST_TOOL_USE',
+        toolName: 'apply_patch',
+        payload: {
+          tool_name: 'apply_patch',
+          tool_input: {
+            command:
+              '*** Begin Patch\n*** Update File: /wt/src/score.ts\n@@\n+  if (input === 42) return 7\n*** End Patch',
+          },
+          tool_response: 'Success.',
+        },
+        createdAt: at('2026-10-09T10:00:00Z'),
+      },
+    ])
+    listFiles.mockResolvedValue([
+      {
+        filename: 'src/score.ts',
+        status: 'modified',
+        patch: '@@ -1 +1,2 @@\n+  if (input === 42) return 7',
+      },
+    ])
+    await runRewardHackLayer('scan2')
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(judge.mock.calls[0]![0] as string).toContain(
+      '[tool call: apply_patch]'
+    )
+    const row = writtenRows()[0]!
+    expect(row.filePath).toBe('src/score.ts')
+  })
+
   it('the workspace turned the layer off mid-scan: DISABLED, no model call', async () => {
     db.workspace.findUnique.mockResolvedValue({
       ...ALL_ON,

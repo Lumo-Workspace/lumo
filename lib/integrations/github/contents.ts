@@ -352,6 +352,11 @@ export interface PrFileEntry {
   filename: string
   /** added | removed | modified | renamed | copied | changed | unchanged */
   status: string
+  /**
+   * The file's unified-diff hunks, when GitHub sends them (it leaves them
+   * out for binary and very large files).
+   */
+  patch?: string
 }
 
 const PR_FILES_PER_PAGE = 100
@@ -402,7 +407,11 @@ export async function fetchPrFiles(opts: {
           `GitHub pulls/files entry missing filename/status for ${opts.fullName}#${opts.prNumber}`
         )
       }
-      out.push({ filename: f.filename, status: f.status })
+      out.push({
+        filename: f.filename,
+        status: f.status,
+        ...(typeof f.patch === 'string' ? { patch: f.patch } : {}),
+      })
     }
     if (body.length < PR_FILES_PER_PAGE) return out
   }

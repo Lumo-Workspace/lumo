@@ -21,7 +21,7 @@ import { canViewSessionDetail } from '@/lib/services/session-detail.service'
 import { isPrunedPayload } from '@/lib/hook-event/retention'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import {
-  rhEventFilePath,
+  rhEventFilePaths,
   type RhEvent,
 } from '@/ee/security/security-scan/reward-hack-input'
 import {
@@ -146,10 +146,11 @@ function toStep(ev: RhEvent): RhEvidenceStep {
   }
   const tool = ev.toolName ?? str(payload?.tool_name) ?? 'Tool'
   const input = asRecord(payload?.tool_input) ?? {}
-  const path = rhEventFilePath(ev)
+  // A Codex apply_patch may touch several files: the first, plus a count.
+  const paths = rhEventFilePaths(ev)
   const command = str(input.command)
-  const label = path
-    ? `${tool} ${path}`
+  const label = paths.length
+    ? `${tool} ${paths[0]}${paths.length > 1 ? ` (+${paths.length - 1} more)` : ''}`
     : command
       ? `${tool}: ${command.split('\n')[0] ?? ''}`
       : tool

@@ -125,6 +125,8 @@ export async function judgeRewardHack(prompt: string): Promise<{
 export async function refuteRewardHackItem(args: {
   prompt: string
   item: RhItem
+  /** The fenced current PR hunks of the item's files ('' / absent = none). */
+  prDiff?: string
 }): Promise<{
   refuted: boolean
   reason: string

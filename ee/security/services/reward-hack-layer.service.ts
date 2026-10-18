@@ -40,13 +40,22 @@ import { rewardHackMonthlyCapUsd } from './security-reward-hack.config'
 // No LLM/gateway import inside — safe to import statically.
 import { securityPrReviewService } from './security-pr-review.service'
 import {
+  buildRhPrDiffBlock,
   buildRhUserPrompt,
   pathMatchesPrFile,
+  prAddedLines,
+  rhEventAddedLines,
+  rhEventFilePaths,
   rhWatermark,
   selectSessionsForPr,
+  type RhPrFile,
   type RhSession,
 } from '@/ee/security/security-scan/reward-hack-input'
-import { applyRhGates } from '@/ee/security/security-scan/reward-hack-gates'
+import {
+  applyRhGates,
+  citedEditsInPr,
+  type RhDiffView,
+} from '@/ee/security/security-scan/reward-hack-gates'
 import {
   RH_MAX_INPUT_TOKENS,
   estimateRhCallUsd,
@@ -96,13 +105,15 @@ export interface RhDeps {
   refute: (args: {
     prompt: string
     item: RhItem
+    /** The fenced current PR hunks of the item's files ('' = none). */
+    prDiff: string
   }) => Promise<{ refuted: boolean } & RhCallCost>
-  /** The PR's changed file paths at its head. Throws when unreadable. */
+  /** The PR's changed files (path + hunks) at its head. Throws when unreadable. */
   listPrFiles: (pr: {
     workspaceId: string
     repo: string
     number: number
-  }) => Promise<string[]>
+  }) => Promise<RhPrFile[]>
   now: () => Date
 }
 
@@ -125,7 +136,7 @@ const defaultDeps: RhDeps = {
       fullName: pr.repo,
       prNumber: pr.number,
     })
-    return files.map(f => f.filename)
+    return files.map(f => ({ filename: f.filename, patch: f.patch ?? null }))
   },
   now: () => new Date(),
 }
@@ -147,16 +158,17 @@ export function rewardHackFingerprint(
 export function rewardHackFindingRow(args: {
   scanId: string
   item: RhItem
-  eventFile: Map<string, string | null>
+  eventFile: Map<string, string[]>
   eventSession: Map<string, string>
   prFiles: string[]
 }): NewFindingInput {
   const { item } = args
   let filePath = ''
   for (const id of item.eventIds) {
-    const abs = args.eventFile.get(id)
-    if (!abs) continue
-    const prFile = args.prFiles.find(f => pathMatchesPrFile(abs, f))
+    const paths = args.eventFile.get(id) ?? []
+    const prFile = args.prFiles.find(f =>
+      paths.some(p => pathMatchesPrFile(p, f))
+    )
     if (prFile) {
       filePath = prFile
       break
@@ -255,11 +267,12 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
   const workspaceId = scan.workspaceId
 
   // Never "nothing found" on a file list we could not read: FAILED.
-  const prFiles = await deps.listPrFiles({
+  const prFileList = await deps.listPrFiles({
     workspaceId,
     repo: pr.repo,
     number: pr.number,
   })
+  const prFiles = prFileList.map(f => f.filename)
 
   const sessions = await rewardHackInputRepository.loadTaskSessions(
     workspaceId,
@@ -293,6 +306,9 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     )
 
   const watermark = rhWatermark(selected.included)
+  // What the final diff says about every write the sessions made: a cited
+  // edit the PR no longer carries (corrected later) is not reported.
+  const diffView = buildDiffView(selected.included, prFileList)
   const prior = await prSecurityScanRepository.findDispositionedByPullRequest(
     pr.id
   )
@@ -312,13 +328,9 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     const copied = (
       await prSecurityScanRepository.findRewardHackFindings(previous.id)
     )
-      // A cited edit no longer in the PR (a later human commit) is dropped,
-      // as the gates would drop it.
-      .filter(
-        f =>
-          f.filePath === '' ||
-          prFiles.some(p => pathMatchesPrFile(f.filePath, p))
-      )
+      // A cited edit no longer in the PR (a later commit corrected it) is
+      // dropped, as the gates would drop it — judged on the current diff.
+      .filter(f => citedEditsInPr(evidenceEventIds(f.evidence), diffView))
       .map(
         (f): NewFindingInput => ({
           ...f,
@@ -391,17 +403,25 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
   const judged = await deps.judge(built.prompt)
   await ledger.settle(judgeEstimate, judged)
   const items = applyRhGates({
+    ...diffView,
     output: judged.output,
     promptEventIds: built.eventIds,
-    eventFile: built.eventFile,
-    prFiles,
   }).slice(0, REWARD_HACK_MAX_REFUTES)
 
   const kept: RhItem[] = []
   if (items.length > 0) {
-    const estimates = items.map(item =>
+    // The refute call reads the cited files' CURRENT hunks: what will merge.
+    const refuteArgs = items.map(item => ({
+      prompt: built.prompt,
+      item,
+      prDiff: buildRhPrDiffBlock(
+        prFileList,
+        item.eventIds.flatMap(id => diffView.eventFile.get(id) ?? [])
+      ),
+    }))
+    const estimates = refuteArgs.map(a =>
       estimateRhCallUsd(
-        `${REWARD_HACK_REFUTE_SYSTEM_PROMPT}\n${buildRefutePrompt({ prompt: built.prompt, item })}`,
+        `${REWARD_HACK_REFUTE_SYSTEM_PROMPT}\n${buildRefutePrompt(a)}`,
         REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
       )
     )
@@ -409,7 +429,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     // No room left for the refutes: an unrefuted item is never reported.
     if (!(await ledger.reserve(total))) return settle(ctx, capped)
     const verdicts = await Promise.allSettled(
-      items.map(item => deps.refute({ prompt: built.prompt, item }))
+      refuteArgs.map(a => deps.refute(a))
     )
     let failure: unknown = null
     for (let i = 0; i < items.length; i++) {
@@ -433,7 +453,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
         rewardHackFindingRow({
           scanId,
           item,
-          eventFile: built.eventFile,
+          eventFile: diffView.eventFile,
           eventSession,
           prFiles,
         })
@@ -522,6 +542,40 @@ class SpendLedger {
         this.now
       )
     this.bookedUsd += delta
+  }
+}
+
+/** The writes of every included event, and the PR's added lines. */
+function buildDiffView(
+  sessions: RhSession[],
+  prFileList: RhPrFile[]
+): RhDiffView {
+  const eventFile = new Map<string, string[]>()
+  const eventAddedLines = new Map<string, string[] | null>()
+  for (const s of sessions)
+    for (const e of s.events) {
+      const paths = rhEventFilePaths(e)
+      if (paths.length === 0) continue
+      eventFile.set(e.id, paths)
+      eventAddedLines.set(e.id, rhEventAddedLines(e))
+    }
+  return {
+    eventFile,
+    eventAddedLines,
+    prFiles: prFileList.map(f => f.filename),
+    prAdded: prAddedLines(prFileList),
+  }
+}
+
+/** The event ids a stored finding cites ([] when the column is malformed). */
+function evidenceEventIds(evidence: string): string[] {
+  try {
+    const ids = (JSON.parse(evidence) as { eventIds?: unknown }).eventIds
+    return Array.isArray(ids)
+      ? ids.filter((x): x is string => typeof x === 'string')
+      : []
+  } catch {
+    return []
   }
 }
 

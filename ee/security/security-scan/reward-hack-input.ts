@@ -23,6 +23,11 @@
 import { sanitizeField } from '@/shared/src/sanitize'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import { isPrunedPayload } from '@/lib/hook-event/retention'
+import {
+  APPLY_PATCH_TOOL,
+  applyPatchText,
+  parseApplyPatch,
+} from '@/shared/src/apply-patch'
 
 export interface RhEvent {
   id: string
@@ -60,8 +65,24 @@ export const RH_DEFAULT_CAPS: RhCaps = {
  */
 export const RH_REQUIREMENT_MAX_CHARS = 20_000
 
-/** Tools whose `tool_input` names the file they wrote. */
-const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
+/**
+ * Tools that write files: `tool_input` names the file — or, for Codex's only
+ * write tool `apply_patch` (LUM-1051), the patch headers name every file.
+ */
+const EDIT_TOOLS = new Set([
+  'Write',
+  'Edit',
+  'MultiEdit',
+  'NotebookEdit',
+  APPLY_PATCH_TOOL,
+])
+
+/** A PR file as the runner reads it: its path and its diff hunks, if sent. */
+export interface RhPrFile {
+  filename: string
+  /** Unified-diff hunks; null when GitHub did not send them. */
+  patch: string | null
+}
 
 // ─── payload readers (mirroring session-summary/compact-events) ─────────────
 
@@ -80,14 +101,105 @@ function toolNameOf(ev: RhEvent): string {
   return ev.toolName ?? getStr(ev.payload, 'tool_name') ?? 'Unknown'
 }
 
-/** The file a Write/Edit/MultiEdit/NotebookEdit event wrote, else null. */
-export function rhEventFilePath(ev: RhEvent): string | null {
-  if (ev.type !== 'POST_TOOL_USE' || isPrunedPayload(ev.payload)) return null
-  if (!EDIT_TOOLS.has(toolNameOf(ev))) return null
+/**
+ * Every file a write event touched: the `file_path` / `notebook_path` of a
+ * Write/Edit/MultiEdit/NotebookEdit, or each file an `apply_patch` adds,
+ * updates (its rename target too) or deletes, in patch order. [] for any
+ * other event.
+ */
+export function rhEventFilePaths(ev: RhEvent): string[] {
+  if (ev.type !== 'POST_TOOL_USE' || isPrunedPayload(ev.payload)) return []
+  const tool = toolNameOf(ev)
+  if (!EDIT_TOOLS.has(tool)) return []
   const input = asRecord(asRecord(ev.payload)?.tool_input)
-  if (!input) return null
+  if (!input) return []
+  if (tool === APPLY_PATCH_TOOL) {
+    const text = applyPatchText(input)
+    if (text === null) return []
+    const out: string[] = []
+    for (const f of parseApplyPatch(text).files) {
+      for (const p of [f.path, f.moveTo]) if (p && !out.includes(p)) out.push(p)
+    }
+    return out
+  }
   const path = input.file_path ?? input.notebook_path
-  return typeof path === 'string' && path.length > 0 ? path : null
+  return typeof path === 'string' && path.length > 0 ? [path] : []
+}
+
+/** The (first) file a write event touched, else null — for labels. */
+export function rhEventFilePath(ev: RhEvent): string | null {
+  return rhEventFilePaths(ev)[0] ?? null
+}
+
+/** A line worth matching against the diff: not just a brace or a keyword. */
+function nonTrivialLines(text: string): string[] {
+  const out: string[] = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (line.length >= 6 && /[A-Za-z0-9]/.test(line) && !out.includes(line))
+      out.push(line)
+  }
+  return out
+}
+
+function linesAddedBy(oldText: unknown, newText: unknown): string[] {
+  if (typeof newText !== 'string') return []
+  const before = new Set(
+    typeof oldText === 'string' ? oldText.split('\n').map(l => l.trim()) : []
+  )
+  return nonTrivialLines(newText).filter(l => !before.has(l))
+}
+
+/**
+ * The non-trivial lines a write event ADDED (an Edit's `new_string` lines
+ * that were not in its `old_string`, a Write's content, an apply_patch's `+`
+ * lines), trimmed. Null when there is nothing to check against the PR diff:
+ * not a write, a notebook, or a write that only removed or reshuffled lines.
+ */
+export function rhEventAddedLines(ev: RhEvent): string[] | null {
+  if (rhEventFilePaths(ev).length === 0) return null
+  const tool = toolNameOf(ev)
+  const input = asRecord(asRecord(ev.payload)?.tool_input) ?? {}
+  let lines: string[] = []
+  if (tool === APPLY_PATCH_TOOL) {
+    lines = nonTrivialLines(
+      parseApplyPatch(applyPatchText(input) ?? '').addedText
+    )
+  } else if (tool === 'Write') {
+    lines =
+      typeof input.content === 'string' ? nonTrivialLines(input.content) : []
+  } else if (tool === 'Edit') {
+    lines = linesAddedBy(input.old_string, input.new_string)
+  } else if (tool === 'MultiEdit' && Array.isArray(input.edits)) {
+    for (const e of input.edits) {
+      const r = asRecord(e)
+      for (const l of linesAddedBy(r?.old_string, r?.new_string))
+        if (!lines.includes(l)) lines.push(l)
+    }
+  }
+  return lines.length > 0 ? lines : null
+}
+
+/**
+ * The trimmed `+` lines of each PR file's diff, keyed by PR path; null for a
+ * file GitHub sent no hunks for (nothing can be told about it).
+ */
+export function prAddedLines(
+  files: RhPrFile[]
+): Map<string, Set<string> | null> {
+  const out = new Map<string, Set<string> | null>()
+  for (const f of files) {
+    if (f.patch === null) {
+      out.set(f.filename, null)
+      continue
+    }
+    const set = new Set<string>()
+    for (const line of f.patch.split('\n'))
+      if (line.startsWith('+') && !line.startsWith('+++'))
+        set.add(line.slice(1).trim())
+    out.set(f.filename, set)
+  }
+  return out
 }
 
 // ─── session selection ──────────────────────────────────────────────────────
@@ -147,10 +259,9 @@ export function selectSessionsForPr(args: {
     const lostSome = liveWindowed.length < windowed.length
     // Both conditions are judged on live IN-WINDOW events only: an edit made
     // before the previous merge belongs to that PR, not this one.
-    const touchesPr = liveWindowed.some(e => {
-      const p = rhEventFilePath(e)
-      return p !== null && prFiles.some(f => pathMatchesPrFile(p, f))
-    })
+    const touchesPr = liveWindowed.some(e =>
+      rhEventFilePaths(e).some(p => prFiles.some(f => pathMatchesPrFile(p, f)))
+    )
     if (touchesPr) {
       included.push({ id: session.id, events: liveWindowed })
       if (lostSome) partiallyPruned.push(session.id)
@@ -170,7 +281,7 @@ const FORGED_MARKER = /\[\s*e\s*:/gi
 const GAP = '[\\s\\u200B-\\u200F\\u2060\\uFEFF]*'
 const spaced = (word: string) => word.split('').join(GAP)
 const OUR_FENCE = new RegExp(
-  `[<\\uFF1C]${GAP}\\/?${GAP}(?:${spaced('agent')}${GAP}[-_]${GAP}${spaced('session')}|${spaced('task')}${GAP}[-_]${GAP}${spaced('requirement')})[^<>\\uFF1C\\uFF1E]*[>\\uFF1E]`,
+  `[<\\uFF1C]${GAP}\\/?${GAP}(?:${spaced('agent')}${GAP}[-_]${GAP}${spaced('session')}|${spaced('task')}${GAP}[-_]${GAP}${spaced('requirement')}|${spaced('pr')}${GAP}[-_]${GAP}${spaced('diff')})[^<>\\uFF1C\\uFF1E]*[>\\uFF1E]`,
   'gi'
 )
 
@@ -246,7 +357,7 @@ interface RhBlock {
   eventId: string
   createdAt: Date
   kind: RhBlockKind
-  filePath: string | null
+  filePaths: string[]
   /** Header line carrying the marker. */
   head: string
   /** prompt / stop text, or a tool call's input. */
@@ -261,7 +372,7 @@ function toBlock(ev: RhEvent, caps: RhCaps): RhBlock | null {
   const base = {
     eventId: ev.id,
     createdAt: ev.createdAt,
-    filePath: null,
+    filePaths: [] as string[],
     result: '',
   }
   const clean = (s: string) => defang(sanitizeField(s))
@@ -289,7 +400,7 @@ function toBlock(ev: RhEvent, caps: RhCaps): RhBlock | null {
     return {
       ...base,
       kind: 'tool',
-      filePath: rhEventFilePath(ev),
+      filePaths: rhEventFilePaths(ev),
       head: `${marker} [tool call: ${clean(toolNameOf(ev))}]`,
       body: clean(renderToolInput(input, caps.toolInput)),
       result: response
@@ -336,7 +447,7 @@ function fence(tag: string, attrs: string, raw: string): string {
 }
 
 function attrValue(v: string): string {
-  return sanitizeField(v).replace(/[^A-Za-z0-9:._-]/g, '_')
+  return sanitizeField(v).replace(/[^A-Za-z0-9:._/-]/g, '_')
 }
 
 /** Mutable cut state over the blocks of every session. */
@@ -360,8 +471,8 @@ export function buildRhUserPrompt(args: {
   truncated: boolean
   /** Ids whose `[e:<id>]` marker is in the final prompt. */
   eventIds: Set<string>
-  /** For every id in `eventIds`: the file it wrote (Write/Edit/…), else null. */
-  eventFile: Map<string, string | null>
+  /** For every id in `eventIds`: the files it wrote (Write/Edit/apply_patch…), else []. */
+  eventFile: Map<string, string[]>
   /**
    * The prompt is still over `maxChars` after every cut (the markers and
    * fences alone do not fit). The caller must not send it to the model.
@@ -463,16 +574,47 @@ export function buildRhUserPrompt(args: {
   const overCap = built.prompt.length > args.maxChars
 
   const eventIds = new Set<string>()
-  const eventFile = new Map<string, string | null>()
+  const eventFile = new Map<string, string[]>()
   for (const part of built.sessionParts) {
     for (const b of part.kept) {
       // Present only if the marker survived guarding verbatim.
       if (!part.text.includes(`[e:${b.eventId}]`)) continue
       eventIds.add(b.eventId)
-      eventFile.set(b.eventId, b.filePath)
+      eventFile.set(b.eventId, b.filePaths)
     }
   }
   return { prompt: built.prompt, truncated, eventIds, eventFile, overCap }
+}
+
+// ─── the PR diff for the refute call ───────────────────────────────────────
+
+/** Our caps on the diff the refute call sees (per file, and in total). */
+export const RH_PR_DIFF_FILE_MAX_CHARS = 8_000
+export const RH_PR_DIFF_MAX_CHARS = 24_000
+
+/**
+ * The current PR hunks of the files `paths` name, each fenced as untrusted
+ * text — what will merge, so the refute call can tell an edit that is still
+ * there from one later corrected. '' when no such file has hunks.
+ */
+export function buildRhPrDiffBlock(
+  prFiles: RhPrFile[],
+  paths: string[]
+): string {
+  const parts: string[] = []
+  let left = RH_PR_DIFF_MAX_CHARS
+  for (const f of prFiles) {
+    if (left <= 0) break
+    if (f.patch === null) continue
+    if (!paths.some(p => pathMatchesPrFile(p, f.filename))) continue
+    const body = cut(
+      defang(sanitizeField(f.patch)),
+      Math.min(RH_PR_DIFF_FILE_MAX_CHARS, left)
+    )
+    left -= body.length
+    parts.push(fence('pr-diff', `file="${attrValue(f.filename)}"`, body))
+  }
+  return parts.join('\n\n')
 }
 
 // ─── watermark ──────────────────────────────────────────────────────────────

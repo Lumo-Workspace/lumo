@@ -147,6 +147,26 @@ describe('LUM-1234 reward-hack refute client', () => {
     expect(arg.prompt).toContain('e12')
   })
 
+  it('puts the current PR diff of the cited files before the item when given', async () => {
+    gen.mockResolvedValueOnce({
+      object: { refuted: false, reason: 'still there' },
+      providerMetadata: {},
+    })
+    await refuteRewardHackItem({
+      prompt: 'TRANSCRIPT',
+      item: ITEM,
+      prDiff: '<pr-diff file="src/a.ts">\n+hard-coded\n</pr-diff>',
+    })
+    const prompt = gen.mock.calls[0][0].prompt as string
+    expect(prompt).toContain('CURRENT diff')
+    expect(prompt.indexOf('+hard-coded')).toBeGreaterThan(
+      prompt.indexOf('TRANSCRIPT')
+    )
+    expect(prompt.indexOf('+hard-coded')).toBeLessThan(
+      prompt.indexOf(ITEM.summary)
+    )
+  })
+
   it('looks for legitimate explanations', () => {
     const p = REWARD_HACK_REFUTE_SYSTEM_PROMPT
     expect(p).toMatch(/test itself was wrong/i)

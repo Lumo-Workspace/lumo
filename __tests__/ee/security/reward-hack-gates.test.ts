@@ -1,5 +1,6 @@
 import {
   applyRhGates,
+  citedEditsInPr,
   REWARD_HACK_THRESHOLD,
 } from '@/ee/security/security-scan/reward-hack-gates'
 import type {
@@ -17,10 +18,10 @@ const out = (items: RhItem[], suspicion = 90): RhJudgeOutput => ({
 
 const base = {
   promptEventIds: new Set(['a', 'b', 'c']),
-  eventFile: new Map<string, string | null>([
-    ['a', '/wt/src/in.ts'],
-    ['b', '/wt/src/gone.ts'],
-    ['c', null],
+  eventFile: new Map<string, string[]>([
+    ['a', ['/wt/src/in.ts']],
+    ['b', ['/wt/src/gone.ts']],
+    ['c', []],
   ]),
   prFiles: ['src/in.ts'],
 }
@@ -83,7 +84,7 @@ describe('applyRhGates', () => {
   })
 
   it('does not match a substring path as a PR file', () => {
-    const eventFile = new Map<string, string | null>([['a', '/wt/mysrc/in.ts']])
+    const eventFile = new Map<string, string[]>([['a', ['/wt/mysrc/in.ts']]])
     expect(
       applyRhGates({
         ...base,
@@ -101,5 +102,83 @@ describe('applyRhGates', () => {
     })
     expect(result).toEqual([good])
     expect(result[0]).toBe(good)
+  })
+
+  it('a write touching several files (apply_patch) survives when any of them is in the PR', () => {
+    const items = [item(['p'])]
+    expect(
+      applyRhGates({
+        ...base,
+        promptEventIds: new Set(['p']),
+        eventFile: new Map([['p', ['/wt/src/gone.ts', '/wt/src/in.ts']]]),
+        output: out(items),
+      })
+    ).toEqual(items)
+  })
+})
+
+describe('citedEditsInPr — judged on the final diff, not the file name', () => {
+  const view = (added: string[] | null, prLines: string[] | null) => ({
+    eventFile: new Map([['a', ['/wt/src/in.ts']]]),
+    eventAddedLines: new Map([['a', added]]),
+    prFiles: ['src/in.ts'],
+    prAdded: new Map([
+      ['src/in.ts', prLines === null ? null : new Set(prLines)],
+    ]),
+  })
+
+  it('drops an edit whose added lines are no longer in the PR (corrected later in the same file)', () => {
+    expect(
+      citedEditsInPr(
+        ['a'],
+        view(['if (input === 42) return 7'], ['return compute(input)'])
+      )
+    ).toBe(false)
+    expect(
+      applyRhGates({
+        ...view(['if (input === 42) return 7'], ['return compute(input)']),
+        promptEventIds: new Set(['a']),
+        output: out([item(['a'])]),
+      })
+    ).toEqual([])
+  })
+
+  it('keeps an edit whose added line is still among the PR added lines', () => {
+    expect(
+      citedEditsInPr(
+        ['a'],
+        view(['if (input === 42) return 7'], ['if (input === 42) return 7'])
+      )
+    ).toBe(true)
+  })
+
+  it('gives the benefit of the doubt when either side cannot be read', () => {
+    // A removal-only edit has no added lines.
+    expect(citedEditsInPr(['a'], view(null, ['anything else']))).toBe(true)
+    // GitHub sent no hunks for the file.
+    expect(
+      citedEditsInPr(['a'], view(['if (input === 42) return 7'], null))
+    ).toBe(true)
+  })
+
+  it('no cited write at all: nothing to check', () => {
+    expect(citedEditsInPr(['x'], view(['line one here'], []))).toBe(true)
+  })
+
+  it('one surviving write of several is enough', () => {
+    const v = {
+      eventFile: new Map([
+        ['a', ['/wt/src/in.ts']],
+        ['b', ['/wt/src/in.ts']],
+      ]),
+      eventAddedLines: new Map<string, string[] | null>([
+        ['a', ['gone line here']],
+        ['b', ['kept line here']],
+      ]),
+      prFiles: ['src/in.ts'],
+      prAdded: new Map([['src/in.ts', new Set(['kept line here'])]]),
+    }
+    expect(citedEditsInPr(['a', 'b'], v)).toBe(true)
+    expect(citedEditsInPr(['a'], v)).toBe(false)
   })
 })

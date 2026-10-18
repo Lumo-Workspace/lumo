@@ -4,6 +4,13 @@
  * The model's output is untrusted: an item only survives when every event id
  * it cites really was in the prompt, and when the edits it cites are still
  * part of this PR (an attempt that was later reverted is not reported).
+ *
+ * "Still part of this PR" is judged on the final diff, not on the file name
+ * alone: a cited write survives when one of its files is in the PR and —
+ * where both sides can be read — at least one of the non-trivial lines it
+ * added is among that file's added lines in the PR diff. A write with nothing
+ * checkable (it only removed lines, a notebook, a file GitHub sent no hunks
+ * for) is given the benefit of the doubt on that file.
  */
 import type {
   RhItem,
@@ -19,29 +26,55 @@ function clampSuspicion01(suspicion: number): number {
   return clamped / 100
 }
 
-export function applyRhGates(args: {
-  output: RhJudgeOutput
-  promptEventIds: Set<string>
-  eventFile: Map<string, string | null>
+export interface RhDiffView {
+  /** Event id → the files it wrote ([] / absent = not a write). */
+  eventFile: Map<string, string[]>
+  /** Event id → the non-trivial lines it added; null/absent = not checkable. */
+  eventAddedLines?: Map<string, string[] | null>
   prFiles: string[]
-  threshold?: number
-}): RhItem[] {
+  /** PR path → its diff's added lines; null/absent = no hunks to read. */
+  prAdded?: Map<string, Set<string> | null>
+}
+
+/** The PR files a write event's paths name. */
+export function prFilesOfEvent(paths: string[], prFiles: string[]): string[] {
+  return prFiles.filter(prFile => paths.some(p => pathMatchesPrFile(p, prFile)))
+}
+
+/**
+ * Do the writes `eventIds` cite still stand in the PR? True when none of them
+ * is a write (prompts / Bash only: nothing to check against the diff).
+ */
+export function citedEditsInPr(eventIds: string[], view: RhDiffView): boolean {
+  const writes = eventIds.filter(
+    id => (view.eventFile.get(id) ?? []).length > 0
+  )
+  if (writes.length === 0) return true
+  return writes.some(id => {
+    const hit = prFilesOfEvent(view.eventFile.get(id) ?? [], view.prFiles)
+    if (hit.length === 0) return false
+    const added = view.eventAddedLines?.get(id) ?? null
+    if (added === null) return true
+    return hit.some(prFile => {
+      const prLines = view.prAdded?.get(prFile) ?? null
+      return prLines === null || added.some(l => prLines.has(l))
+    })
+  })
+}
+
+export function applyRhGates(
+  args: {
+    output: RhJudgeOutput
+    promptEventIds: Set<string>
+    threshold?: number
+  } & RhDiffView
+): RhItem[] {
   const threshold = args.threshold ?? REWARD_HACK_THRESHOLD
   if (clampSuspicion01(args.output.suspicion) < threshold) return []
 
   return args.output.items.filter(item => {
     if (item.eventIds.length === 0) return false
     if (!item.eventIds.every(id => args.promptEventIds.has(id))) return false
-
-    const files: string[] = []
-    for (const id of item.eventIds) {
-      const f = args.eventFile.get(id)
-      if (f) files.push(f)
-    }
-    // No Edit/Write cited (prompts / Bash only): nothing to check against the diff.
-    if (files.length === 0) return true
-    return files.some(f =>
-      args.prFiles.some(prFile => pathMatchesPrFile(f, prFile))
-    )
+    return citedEditsInPr(item.eventIds, args)
   })
 }

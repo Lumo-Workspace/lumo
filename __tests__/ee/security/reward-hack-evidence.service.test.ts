@@ -258,6 +258,21 @@ describe('rewardHackEvidenceService.getForViewer', () => {
     ])
   })
 
+  it('a Codex apply_patch step is labelled by its first file plus a count, its patch as the detail', async () => {
+    viewer('MEMBER', 'm-own')
+    const patch =
+      '*** Begin Patch\n*** Update File: /repo/src/score.ts\n@@\n+  if (input === 42) return 7\n*** Add File: /repo/src/score.test.ts\n+it()\n*** End Patch'
+    events[1] = {
+      ...events[1]!,
+      toolName: 'apply_patch',
+      payload: { tool_name: 'apply_patch', tool_input: { command: patch } },
+    }
+    const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-own')
+    const step = view!.steps.find(s => s.eventId === 'ev-edit')!
+    expect(step.label).toBe('apply_patch /repo/src/score.ts (+1 more)')
+    expect(step.detail).toContain('if (input === 42) return 7')
+  })
+
   it('a workspace OWNER who is not the session member sees the evidence too', async () => {
     viewer('OWNER', 'm-owner')
     const view = await rewardHackEvidenceService.getForViewer('f1', 'clerk-o')
