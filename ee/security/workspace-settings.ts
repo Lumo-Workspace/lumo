@@ -62,7 +62,10 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     column === 'securityPolicy' && value === null ? Prisma.DbNull : value,
   // LUM-866: which scan layers the platform allows at all — the settings
   // page shows a layer the env turned off as off and not toggleable.
-  meFields: () => ({ securityPlatform: platformSecurityCeiling() }),
+  // LUM-1234: per workspace — the reward-hack layer rolls out by allowlist.
+  meFields: ({ workspaceId }) => ({
+    securityPlatform: platformSecurityCeiling(process.env, workspaceId),
+  }),
   // LUM-901: the claim faithfulness judge sends the merged PR diff to a
   // model, so it is part of the workspace's AI review.
   async aiReviewEnabled(workspaceId) {

@@ -48,6 +48,24 @@ describe('installed (the security plugin)', () => {
     const row = Object.fromEntries(WORKSPACE_COLUMNS.map(c => [c, `v-${c}`]))
     expect(settings.serializeWorkspaceSettings(row)).toEqual(row)
     expect(Object.keys(settings.pluginMeFields())).toEqual(['securityPlatform'])
+  })
+
+  it("LUM-1234: the platform ceiling it serves is the viewing workspace's", () => {
+    const saved = { ...process.env }
+    process.env.LUMO_REWARD_HACK = 'on'
+    process.env.LUMO_REWARD_HACK_WORKSPACES = 'ws-listed'
+    try {
+      const platform = (id: string) =>
+        (
+          settings.pluginMeFields([], id).securityPlatform as {
+            rewardHack: boolean
+          }
+        ).rewardHack
+      expect(platform('ws-listed')).toBe(true)
+      expect(platform('ws-other')).toBe(false)
+    } finally {
+      process.env = saved
+    }
     expect(
       settings.unownedWorkspaceColumns({ securityScanEnabled: false })
     ).toEqual([])

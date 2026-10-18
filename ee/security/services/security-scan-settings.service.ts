@@ -100,8 +100,12 @@ export const securityScanSettingsService = {
     const switches = { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES, ...stored }
     return {
       switches,
-      platform: platformSecurityCeiling(),
-      effective: resolveSecurityLayers(switches),
+      platform: platformSecurityCeiling(process.env, caller.workspaceId),
+      effective: resolveSecurityLayers(
+        switches,
+        process.env,
+        caller.workspaceId
+      ),
       canEdit: role === 'OWNER',
     }
   },

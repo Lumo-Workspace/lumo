@@ -90,11 +90,14 @@ export function serializeWorkspaceSettings(
  * the response, never replace part of it.
  */
 export function pluginMeFields(
-  coreFields: readonly string[] = []
+  coreFields: readonly string[] = [],
+  workspaceId: string | null = null
 ): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
   for (const c of getPluginRegistry().workspaceSettings) {
-    for (const [key, value] of Object.entries(c.meFields?.() ?? {})) {
+    for (const [key, value] of Object.entries(
+      c.meFields?.({ workspaceId }) ?? {}
+    )) {
       if (!coreFields.includes(key) && key !== '__proto__') fields[key] = value
     }
   }

@@ -110,7 +110,7 @@ import {
   type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
 import { isManagedScanEnabled } from './security-managed-scan.config'
-import { isRewardHackEnabled } from './security-reward-hack.config'
+import { isRewardHackEnabledForWorkspace } from './security-reward-hack.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
@@ -1039,7 +1039,8 @@ async function changedFilesBestEffort(pr: {
  */
 async function finishTooLarge(
   scanId: string,
-  tooLarge: PrTooLargeInput
+  tooLarge: PrTooLargeInput,
+  workspaceId: string
 ): Promise<RunScanResult> {
   logger.info(
     `[pr-security-scan] PR too large to scan scan=${scanId} reason=${tooLarge.reason} files=${tooLarge.changedFiles ?? '?'}`
@@ -1047,7 +1048,7 @@ async function finishTooLarge(
   const stages: ScanStages = {}
   for (const key of SCAN_STAGE_KEYS) stages[key] = 'SKIPPED'
   // LUM-1234 (R10): a layer the platform does not offer has no key at all.
-  if (!isRewardHackEnabled()) delete stages.rewardHack
+  if (!isRewardHackEnabledForWorkspace(workspaceId)) delete stages.rewardHack
   await prSecurityScanRepository.finalize(scanId, {
     status: 'FAILED',
     judgeStatus: null,
@@ -1204,11 +1205,15 @@ export const prSecurityScanService = {
       // refusal (406) as the backstop. Never our FAILED "didn't finish".
       const changedFiles = await changedFilesBestEffort(pr)
       if (changedFiles !== null && changedFiles > GITHUB_DIFF_MAX_FILES)
-        return await finishTooLarge(scanId, {
-          reason: 'FILE_LIMIT',
-          changedFiles,
-          capFiles: GITHUB_DIFF_MAX_FILES,
-        })
+        return await finishTooLarge(
+          scanId,
+          {
+            reason: 'FILE_LIMIT',
+            changedFiles,
+            capFiles: GITHUB_DIFF_MAX_FILES,
+          },
+          pr.workspaceId
+        )
       let diff: string
       try {
         diff = await fetchPrDiff({
@@ -1218,11 +1223,15 @@ export const prSecurityScanService = {
         })
       } catch (error) {
         if (!isPrDiffTooLargeError(error)) throw error
-        return await finishTooLarge(scanId, {
-          reason: 'DIFF_REFUSED',
-          changedFiles,
-          capFiles: GITHUB_DIFF_MAX_FILES,
-        })
+        return await finishTooLarge(
+          scanId,
+          {
+            reason: 'DIFF_REFUSED',
+            changedFiles,
+            capFiles: GITHUB_DIFF_MAX_FILES,
+          },
+          pr.workspaceId
+        )
       }
       const files = addedLinesWithNumbers(diff)
       // The PR diff endpoint follows a moving ref. Refuse a push that raced

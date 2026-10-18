@@ -198,3 +198,54 @@ describe('LUM-1234 reward-hack layer switches', () => {
     ).toBe(true)
   })
 })
+
+describe('LUM-1234 LUMO_REWARD_HACK_WORKSPACES rollout allowlist', () => {
+  const ON = { ...SANDBOX, LUMO_REWARD_HACK: 'on' }
+  const LISTED = { ...ON, LUMO_REWARD_HACK_WORKSPACES: 'ws-a,ws-b' }
+
+  it('a listed workspace gets the layer', () => {
+    expect(
+      resolveSecurityLayers({ ...ALL_ON }, LISTED, 'ws-a').rewardHack
+    ).toBe(true)
+    expect(platformSecurityCeiling(LISTED, 'ws-b').rewardHack).toBe(true)
+  })
+
+  it('a workspace not listed sees it as not offered, never as turned off by it', () => {
+    const got = resolveSecurityLayers({ ...ALL_ON }, LISTED, 'ws-c')
+    expect(got.rewardHack).toBe(false)
+    expect(got.rewardHackTurnedOff).toBe(false)
+    const off = resolveSecurityLayers(
+      { ...ALL_ON, securityRewardHackEnabled: false },
+      LISTED,
+      'ws-c'
+    )
+    expect(off.rewardHackTurnedOff).toBe(false)
+    expect(platformSecurityCeiling(LISTED, 'ws-c').rewardHack).toBe(false)
+    // The other layers' ceiling is not affected.
+    expect(platformSecurityCeiling(LISTED, 'ws-c')).toMatchObject({
+      managedScan: true,
+      hunt: true,
+    })
+  })
+
+  it('a set allowlist with no workspace to check reads as off', () => {
+    expect(platformSecurityCeiling(LISTED).rewardHack).toBe(false)
+  })
+
+  it('an empty or whitespace allowlist means every workspace', () => {
+    for (const raw of ['', '  ', ' , ']) {
+      const env = { ...ON, LUMO_REWARD_HACK_WORKSPACES: raw }
+      expect(resolveSecurityLayers({ ...ALL_ON }, env, 'ws-z').rewardHack).toBe(
+        true
+      )
+    }
+  })
+
+  it('the platform switch off is off for a listed workspace too', () => {
+    const env = { ...SANDBOX, LUMO_REWARD_HACK_WORKSPACES: 'ws-a' }
+    expect(resolveSecurityLayers({ ...ALL_ON }, env, 'ws-a').rewardHack).toBe(
+      false
+    )
+    expect(platformSecurityCeiling(env, 'ws-a').rewardHack).toBe(false)
+  })
+})

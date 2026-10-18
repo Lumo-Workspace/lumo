@@ -369,8 +369,9 @@ export interface WorkspaceSettingsContributor {
    * column. The audit diff still sees the validated value.
    */
   toColumnWrite?(column: string, value: unknown): unknown
-  /** Extra top-level fields of `GET /api/workspaces/me`. */
-  meFields?(): Record<string, unknown>
+  /** Extra top-level fields of `GET /api/workspaces/me`, for the caller's
+   *  workspace (null when not known). */
+  meFields?(ctx: { workspaceId: string | null }): Record<string, unknown>
   /**
    * Whether the workspace lets AI review send its code to a model (the claim
    * faithfulness judge asks). Every contributor must agree; with none the

@@ -12,7 +12,7 @@
  */
 import { isManagedScanEnabled } from '@/ee/security/services/security-managed-scan.config'
 import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
-import { isRewardHackEnabled } from '@/ee/security/services/security-reward-hack.config'
+import { isRewardHackEnabledForWorkspace } from '@/ee/security/services/security-reward-hack.config'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import {
   DEFAULT_LEARNINGS_SCOPE,
@@ -85,7 +85,10 @@ export interface EffectiveSecurityLayers {
 export interface PlatformSecurityCeiling {
   managedScan: boolean
   hunt: boolean
-  /** LUM-1234: `LUMO_REWARD_HACK=on`. */
+  /**
+   * LUM-1234: `LUMO_REWARD_HACK=on`, and the workspace is on
+   * `LUMO_REWARD_HACK_WORKSPACES` when that allowlist is set.
+   */
   rewardHack: boolean
   /**
    * LUM-1025 — Vercel Sandbox is configured on this deployment. When false the
@@ -98,13 +101,20 @@ export interface PlatformSecurityCeiling {
 
 type Env = Record<string, string | undefined>
 
+/**
+ * `workspaceId`: the workspace the ceiling is for — the reward-hack layer's
+ * rollout allowlist is per workspace (without one, a set allowlist reads as
+ * off). A workspace not on it sees the layer as not offered, never as
+ * turned off by it.
+ */
 export function platformSecurityCeiling(
-  env: Env = process.env
+  env: Env = process.env,
+  workspaceId?: string | null
 ): PlatformSecurityCeiling {
   return {
     managedScan: isManagedScanEnabled(env),
     hunt: isHuntEnabled(env),
-    rewardHack: isRewardHackEnabled(env),
+    rewardHack: isRewardHackEnabledForWorkspace(workspaceId, env),
     sandbox: isIntegrationConfigured('vercelSandbox', env),
   }
 }
@@ -115,10 +125,11 @@ export function platformSecurityCeiling(
  */
 export function resolveSecurityLayers(
   stored: Partial<WorkspaceSecuritySwitches> | null | undefined,
-  env: Env = process.env
+  env: Env = process.env,
+  workspaceId?: string | null
 ): EffectiveSecurityLayers {
   const ws = { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES, ...(stored ?? {}) }
-  const ceiling = platformSecurityCeiling(env)
+  const ceiling = platformSecurityCeiling(env, workspaceId)
   const scan = ws.securityScanEnabled
   return {
     scan,
