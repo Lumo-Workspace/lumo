@@ -187,16 +187,29 @@ function subagent(agentId: string, task: string, start: number, stop: number) {
   })
 }
 
-const dispatch = (at: number, agentId: string, task: string) => {
+/** The parent's background `Agent` calls (fixed literals: what CC sends). */
+const AGENT_CALL_LUM1 = {
+  description: 'Implement LUM-1',
+  prompt: 'You own LUM-1. First run `lumo session attach LUM-1`.',
+  subagent_type: 'general-purpose',
+  run_in_background: true,
+}
+const AGENT_CALL_LUM2 = {
+  description: 'Implement LUM-2',
+  prompt: 'You own LUM-2. First run `lumo session attach LUM-2`.',
+  subagent_type: 'general-purpose',
+  run_in_background: true,
+}
+
+const dispatch = (
+  at: number,
+  agentId: string,
+  toolInput: typeof AGENT_CALL_LUM1
+) => {
   const tool = {
     tool_name: 'Agent',
     tool_use_id: `toolu_${++toolSeq}`,
-    tool_input: {
-      description: `Implement ${task}`,
-      prompt: `You own ${task}. First run \`lumo session attach ${task}\`.`,
-      subagent_type: 'general-purpose',
-      run_in_background: true,
-    },
+    tool_input: toolInput,
   }
   parentEv(at, 'PRE_TOOL_USE', tool)
   parentEv(at + 1, 'POST_TOOL_USE', {
@@ -227,8 +240,8 @@ function scenario() {
     },
     'cr_early'
   )
-  dispatch(2, A1, 'LUM-1')
-  dispatch(4, A2, 'LUM-2')
+  dispatch(2, A1, AGENT_CALL_LUM1)
+  dispatch(4, A2, AGENT_CALL_LUM2)
   parentEv(8, 'STOP', { _lumo_usage: usage(PARENT_OWN / 2) })
   subagent(A1, 'LUM-1', A1_RUN.start, A1_RUN.stop)
   subagent(A2, 'LUM-2', A2_RUN.start, A2_RUN.stop)
