@@ -17,9 +17,9 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
-import { nextCommand } from './commands/next'
+import { status, type StatusOptions } from './commands/status'
 import { usageShow, type UsageShowOptions } from './commands/usage'
-import { priority, priorityList } from './commands/priority'
+import { priorityCreate, priorityList } from './commands/priority'
 import {
   crossingExplain,
   type CrossingExplainOptions,
@@ -46,8 +46,6 @@ import {
 } from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
-import { inboxList } from './commands/inbox-list'
-import { draftList } from './commands/draft-list'
 import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
@@ -352,6 +350,9 @@ const program = new Command()
   // point at --help instead of dead-ending on "unknown option". Subcommands
   // created via .command() inherit these settings.
   .showSuggestionAfterError(true)
+  // LUM-1233 3g: every command's --help lists the global flags (--project,
+  // --no-hints) under "Global Options"; subcommands inherit the setting.
+  .configureHelp({ showGlobalOptions: true })
   // LUM-1232 batch E: a parse error prints `Error: …`, then `Usage:` and a
   // `Hint:` pointing at --help (added by finalizeErrorOutput), and exits 2.
   // Subcommands inherit both settings.
@@ -378,12 +379,23 @@ const program = new Command()
   // LUM-686: global mute for the trailing next-step block. `LUMO_NO_HINTS=1`
   // does the same for a whole shell.
   .option('--no-hints', 'suppress the trailing next-step suggestions')
+  // LUM-1233 3g (GF-1): one global --project. Commands that resolve names in
+  // a project (tasks, docs, milestones, memory, test cases, usage) read it as
+  // their own `project` option; the rest accept and ignore it.
+  .option(
+    '--project <ref>',
+    "The project to resolve names in (name or slug); defaults to the bound task's project where a command needs one"
+  )
 
 // Commander does not merge program-level options into a subcommand's own
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
 program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+  // The global --project lands in the action's own options, so every command
+  // keeps reading `opts.project` exactly as when it declared the flag.
+  const project = thisCommand.opts().project as string | undefined
+  if (project !== undefined) actionCommand.setOptionValue('project', project)
   versionTracker?.setCommand(commandPathOf(actionCommand))
   currentCommand = actionCommand as unknown as CommandLike
 })
@@ -419,21 +431,15 @@ program
   .option('--auto <on|off>', 'Turn background auto-update on or off')
   .action(wrap(options => update(options as { auto?: string })))
 
-function registerInit(name: string, hidden: boolean): void {
+function registerInit(): void {
   program
-    .command(name, hidden ? { hidden: true } : undefined)
+    .command('init')
     .description(
-      hidden
-        ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : 'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
+      'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
     )
     .option(
-      '--user',
-      'Install into ~/.claude and ~/.agents + ~/.codex (applies across all projects for this user)'
-    )
-    .option(
-      '--project',
-      'Install into ./.claude and ./.agents + ./.codex (applies to the current project only)'
+      '--scope <scope>',
+      'user | project (case-insensitive) — user: ~/.claude, ~/.agents + ~/.codex, for every project of this user; project: ./.claude, ./.agents + ./.codex, this repo only'
     )
     .option(
       '--force',
@@ -453,8 +459,7 @@ function registerInit(name: string, hidden: boolean): void {
       wrap(options =>
         init(
           options as {
-            user?: boolean
-            project?: boolean
+            scope?: string
             force?: boolean
             agent?: string
             upgrade?: boolean
@@ -465,9 +470,7 @@ function registerInit(name: string, hidden: boolean): void {
     )
 }
 
-registerInit('init', false)
-// `setup` is the pre-LUM-1052 name; hidden alias running the same action.
-registerInit('setup', true)
+registerInit()
 
 const skill = program
   .command('skill')
@@ -491,10 +494,9 @@ skill
   .description(
     'Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.'
   )
-  .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
   .option(
-    '--project',
-    "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+    '--scope <scope>',
+    "user | project (case-insensitive) — user: only ~/.claude, ~/.agents copies; project: only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
   )
   .option(
     '--agent <token>',
@@ -512,8 +514,7 @@ skill
     wrap(options =>
       skillUpdate(
         options as {
-          user?: boolean
-          project?: boolean
+          scope?: string
           agent?: string
           dryRun?: boolean
           force?: boolean
@@ -683,30 +684,40 @@ finding
   )
 
 program
-  .command('next')
+  .command('status')
   .description(
-    'Recommend the next task(s) to work on, ranked by priority, active sprint and due date (top 3 by default). --claimable keeps only claimable, unblocked, in-budget tasks.'
+    'Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.'
   )
-  .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
+  .option(
+    '--inbox',
+    'My notifications: pending responses first, then the rest; • marks unread'
+  )
+  .option('--drafts', 'My unsent task / project drafts from the web composer')
+  .option(
+    '--next',
+    'The next tasks to work on, ranked by priority, active sprint and due date'
+  )
   .option(
     '--claimable',
-    'Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)'
+    'Next: only agent-claimable tasks that are unblocked and within milestone budget'
   )
-  .option('--json', 'Print { version, tasks, total, nextCursor } as JSON')
-  .action(
-    wrap(options =>
-      nextCommand(
-        options as { count?: string; claimable?: boolean; json?: boolean }
-      )
-    )
+  .option('-n, --limit <N>', 'Next: number of tasks to recommend (default 3)')
+  .option(
+    '--json',
+    "Print the sections as JSON (one section flag: that section's own envelope)"
   )
+  .action(wrap(options => status(options as StatusOptions)))
 
 const priorityCmd = program
-  .command('priority [text]')
+  .command('priority')
+  .description('The team priority: an append-only list of declarations')
+
+priorityCmd
+  .command('create <text>')
   .description(
-    'Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it.'
+    'Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it.'
   )
-  .action(wrap((text: unknown) => priority(text as string | undefined)))
+  .action(wrap((text: unknown) => priorityCreate(text as string)))
 
 priorityCmd
   .command('list')
@@ -840,10 +851,6 @@ usage
     'With --tasks: only this member (me, an email, or a display name)'
   )
   .option(
-    '--project <name>',
-    'With --tasks: only tasks (and their sessions) in this project'
-  )
-  .option(
     '--limit <N>',
     'With --tasks: max completed tasks listed (default 50, max 500)'
   )
@@ -876,7 +883,6 @@ task
     '-s, --status <value>',
     'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
   )
-  .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
   .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
   .option(
     '--cursor <cursor>',
@@ -920,7 +926,6 @@ task
     collect,
     []
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('-m, --milestone <ref>', 'Milestone slug, name or id')
   .option('--sprint <ref>', 'Sprint number or UUID')
   .option('--team <ref>', 'Team to resolve --sprint against')
@@ -1072,7 +1077,6 @@ task
     'Priority: low | medium | high | urgent (case-insensitive; default: low)'
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
-  .option('--project <ref>', 'Project name or slug')
   .option(
     '--milestone <ref>',
     'Milestone slug (as in the web URL) or name (case-insensitive)'
@@ -1509,10 +1513,6 @@ function registerTestCaseCommands(
   const parent = kind === 'task' ? '[task]' : '<milestone>'
   const handle = `<${kind}/case>`
   const example = kind === 'task' ? 'LUM-42/TC3' : 'headless-web-cli/TC3'
-  const projectHelp =
-    kind === 'task'
-      ? 'Project name or slug (task refs are unique in the workspace, so a task case ignores it)'
-      : 'Project name or slug (narrows the milestone lookup when two projects share a slug or name)'
   const parentNote =
     kind === 'task' ? ' Defaults to the session-bound task.' : ''
 
@@ -1543,7 +1543,6 @@ function registerTestCaseCommands(
       '--requires-env <environment>',
       'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((ref: unknown, options: unknown) =>
         testCaseAdd(
@@ -1559,7 +1558,6 @@ function registerTestCaseCommands(
     .description(
       `List test cases with each one's latest run (result, environment, commit).${parentNote}`
     )
-    .option('--project <ref>', projectHelp)
     .option(
       '--json',
       'Print { version, testCases, total, nextCursor, summary } as JSON'
@@ -1579,7 +1577,6 @@ function registerTestCaseCommands(
     .description(
       `Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: ${example}`
     )
-    .option('--project <ref>', projectHelp)
     .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
     .action(
       wrap((h: unknown, opts: unknown) =>
@@ -1596,7 +1593,6 @@ function registerTestCaseCommands(
     .description(
       `Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: ${example}`
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((h: unknown, dir: unknown, opts: unknown) =>
         testCaseDownload(
@@ -1632,7 +1628,6 @@ function registerTestCaseCommands(
       '--requires-env <environment>',
       'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((h: unknown, options: unknown) =>
         testCaseUpdate(kind, h as string, options as Record<string, never>)
@@ -1648,7 +1643,6 @@ function registerTestCaseCommands(
       '--confirm',
       'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((h: unknown, options: unknown) =>
         testCaseDelete(
@@ -1727,7 +1721,6 @@ function registerTestCaseCommands(
       '--actual <text>',
       'What actually happened at the failing step (FAIL only), shown next to the expected result'
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((h: unknown, options: unknown) =>
         testCaseRun(kind, h as string, options as Record<string, never>)
@@ -1760,7 +1753,6 @@ function registerTestCaseCommands(
       '--confirm',
       "Step 3 — THE USER's approval of the ruling. Never add this yourself."
     )
-    .option('--project <ref>', projectHelp)
     .action(
       wrap((h: unknown, options: unknown) =>
         testCaseDisposition(kind, h as string, options as Record<string, never>)
@@ -1787,26 +1779,6 @@ memberCmd
   )
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
-
-program
-  .command('inbox')
-  .description('Your Lumo inbox (notifications) from the terminal')
-  .command('list')
-  .description(
-    'List your notifications as the web inbox shows them: pending responses first, then the rest, newest first; • marks unread. Read-only.'
-  )
-  .option('--json', 'Emit { notifications, unreadCount } as JSON')
-  .action(wrap(options => inboxList(options as { json?: boolean })))
-
-program
-  .command('draft')
-  .description('Your unsent task / project drafts')
-  .command('list')
-  .description(
-    'List your own task / project drafts saved by the web composer, newest first. Read-only.'
-  )
-  .option('--json', 'Emit { drafts } as JSON')
-  .action(wrap(options => draftList(options as { json?: boolean })))
 
 const auditCmd = program
   .command('audit')
@@ -2071,10 +2043,6 @@ memoryCmd
     '--task <LUM-N>',
     'The task (task scope; default: the session-bound task)'
   )
-  .option(
-    '--project <ref>',
-    "The project (project scope; default: the bound task's project)"
-  )
   .requiredOption(
     '--category <cat>',
     'trap | decision | convention | procedural (case-insensitive)'
@@ -2108,10 +2076,6 @@ memoryCmd
   .option(
     '--task <LUM-N>',
     'The task (task scope; default: the session-bound task)'
-  )
-  .option(
-    '--project <ref>',
-    "The project (project scope; default: the bound task's project)"
   )
   .option(
     '--category <cat>',
@@ -2180,10 +2144,6 @@ memoryCmd
     'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project.'
   )
   .option(
-    '--project <ref>',
-    'Project to sync (name/slug/id); default = bound session'
-  )
-  .option(
     '--dir <path>',
     'Target memory dir (default: ~/.claude/projects/<cwd>/memory)'
   )
@@ -2214,10 +2174,6 @@ memoryCmd
   .command('push')
   .description(
     'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success.'
-  )
-  .option(
-    '--project <ref>',
-    'Project to push to (name/slug/id); default = bound session'
   )
   .option(
     '--dir <path>',
@@ -2254,7 +2210,6 @@ milestoneCmd
   .description(
     'List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('--archived', 'Show only archived milestones')
   .option('--all', 'Show both archived and non-archived milestones')
   .option(
@@ -2274,7 +2229,6 @@ milestoneCmd
   .description(
     'Create a milestone. --project required when workspace has >1 project.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('-d, --description <text>', 'Milestone description')
   .option('--start <date>', 'Start date (YYYY-MM-DD)')
   .option('--target <date>', 'Target date (YYYY-MM-DD)')
@@ -2289,10 +2243,6 @@ milestoneCmd
   .description(
     'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
   .option('--json', 'Print { version, milestone, tasks } as JSON')
   .action(
     wrap((identifier, options) =>
@@ -2304,10 +2254,6 @@ milestoneCmd
   .command('update <identifier>')
   .description(
     'Update a milestone: at least one of --name, --description, --start, --target, --token-budget ("" clears a nullable field). Completion is derived from its tasks.'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
   )
   .option('-n, --name <text>', 'New name')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -2329,10 +2275,6 @@ milestoneCmd
     'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
   .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
-  .option(
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
@@ -2351,10 +2293,6 @@ milestoneCmd
   .description(
     'Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.'
   )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
   .action(
     wrap((identifier, options) =>
       milestoneArchive(identifier as string, options as { project?: string })
@@ -2366,10 +2304,6 @@ milestoneCmd
   .description(
     'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
   .action(
     wrap((identifier, options) =>
       milestoneUnarchive(identifier as string, options as { project?: string })
@@ -2380,10 +2314,6 @@ milestoneCmd
   .command('add <identifier> <tasks...>')
   .description(
     'Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back.'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
   )
   .action(
     wrap((identifier, tasks, options) =>
@@ -2400,10 +2330,6 @@ milestoneCmd
   .description(
     'Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned.'
   )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
   .action(
     wrap((identifier, tasks, options) =>
       milestoneRemove(
@@ -2418,10 +2344,6 @@ milestoneCmd
   .command('triage <identifier> <tasks...>')
   .description(
     'Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them.'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
   )
   .option('--claimable', 'Mark the listed tasks agent-claimable')
   .option('--not-claimable', 'Mark the listed tasks NOT agent-claimable')
@@ -2444,10 +2366,6 @@ milestoneCmd
   .description(
     'Show the AI-generated summary of a milestone (slug, name or id), or "(no summary generated yet)". --retry queues regeneration before fetching.'
   )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
-  )
   .option('--retry', 'Trigger summary regeneration before fetching')
   .action(
     wrap((identifier, options) =>
@@ -2462,10 +2380,6 @@ milestoneCmd
   .command('changelog <identifier>')
   .description(
     "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones."
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)'
   )
   .option('--json', 'Emit the raw structured changelog payload')
   .action(
@@ -2482,7 +2396,6 @@ milestoneCmd
   .description(
     "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
   )
-  .option('--project <ref>', 'Project name or slug')
   .action(
     wrap((refs, options) =>
       milestoneReorder(refs as string[], options as { project?: string })
@@ -2494,7 +2407,6 @@ milestoneCmd
   .description(
     'Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('--before <ref>', 'Place <ref> immediately before this milestone')
   .option('--after <ref>', 'Place <ref> immediately after this milestone')
   .action(
@@ -2683,7 +2595,6 @@ doc
     '--scope <scope>',
     'personal | workspace (case-insensitive; default: personal)'
   )
-  .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
   .option('--parent <doc>', 'File under this parent doc (slug, title or id)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
@@ -2726,7 +2637,6 @@ doc
   .option('--content <text>', 'Replace content (inline)')
   .option('--file <path>', 'Replace content from file')
   .option('--scope <scope>', 'personal | workspace (case-insensitive)')
-  .option('--project <ref>', 'Project name/slug; pass "" to clear')
   .option(
     '--tag <name>',
     'Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
@@ -2935,7 +2845,6 @@ doc
     '--scope <scope>',
     'personal | workspace | all (case-insensitive; default: all)'
   )
-  .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
   .option('--limit <n>', 'Docs per page (1-500, default 50)')
   .option(
@@ -3320,7 +3229,13 @@ function optionTakesValue(path: string, flag: string): boolean {
     if (!next) break
     node = next as unknown as typeof node
   }
-  const opt = node.options.find(o => o.long === flag || o.short === flag)
+  // LUM-1233 3g: a command's own options first, then the global ones
+  // (`--project <ref>` is defined once on the program).
+  const opt =
+    node.options.find(o => o.long === flag || o.short === flag) ??
+    (program as unknown as typeof node).options.find(
+      o => o.long === flag || o.short === flag
+    )
   return opt ? opt.required || opt.optional : false
 }
 

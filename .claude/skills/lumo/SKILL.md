@@ -24,19 +24,19 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `init`, `doctor`, `skill`, `auth`, `whoami`, `update`                | [onboarding.md](references/onboarding.md)                 |
 | `task show` and its aspects, `slack/web/figma`, comments, PRs        | [task-context.md](references/task-context.md)             |
 | `pr show`, `pr review`, `task show --scans`, `finding disposition`   | [pr-scan.md](references/pr-scan.md)                       |
-| `task create/update/list/search/show/…`, `next`, templates           | [tasks.md](references/tasks.md)                           |
+| `task create/update/list/search/show/…`, `status --next`, templates  | [tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
 | `audit list` (OWNER only)                                            | [audit.md](references/audit.md)                           |
 | `workspace security-scan` (OWNER)                                    | [workspace-settings.md](references/workspace-settings.md) |
-| `inbox`, `draft`, `workspace/project overview`                       | [overview.md](references/overview.md)                     |
+| `status` (priority, inbox, drafts, next), `project overview`         | [overview.md](references/overview.md)                     |
 | `task deps *` (dependency edges)                                     | [task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase *`, `milestone testcase *` (one command set)          | [test-cases.md](references/test-cases.md)                 |
 | `task status`, `crossing *` — self-check, DONE gate, readiness       | [task-status.md](references/task-status.md)               |
 | `usage show` — token cost / tokens + DONE per window                 | [task-context.md](references/task-context.md)             |
 | `task show --outcome` — post-hoc outcome well                        | [outcome.md](references/outcome.md)                       |
-| `priority`, `priority list` — team priority (append-only)            | [priority.md](references/priority.md)                     |
+| `priority create`, `priority list` — team priority (append-only)     | [priority.md](references/priority.md)                     |
 | `project *`, `milestone *`                                           | [milestones.md](references/milestones.md)                 |
 | `doc` CRUD / move / bind / share / import                            | [docs.md](references/docs.md)                             |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source`   | [doc-editing.md](references/doc-editing.md)               |
@@ -50,9 +50,9 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo init [--user|--project] [--force] [--agent <token>] [--dry-run]` — skill + hooks for Claude Code + Codex (re-run to refresh)
+- `lumo init [--scope user|project] [--force] [--agent <token>] [--dry-run]` — skill + hooks for Claude Code + Codex (re-run to refresh)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook) + fix commands
-- `lumo skill status [--json]` · `lumo skill update [--user|--project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks)
+- `lumo skill status [--json]` · `lumo skill update [--scope user|project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove skills, hook entries, git hook block (exit 4 envelope first)
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
 - `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
@@ -78,7 +78,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; ANDed, ranked, typo-tolerant unless `--exact`)
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task delete <id>` — move to trash (restorable 30 days); exits 4 without `--confirm`
-- `lumo next [--count N] [--claimable] [--json]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
+- `lumo status --next [--limit N] [--claimable] [--json]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
 - `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or reply
 - `lumo task comments edit <id> <comment> <body>` / `comments rm <id> <comment>` — edit / delete your own comment (`rm` exits 4 without `--confirm`)
 
@@ -91,7 +91,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
 - `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--reward-hack`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
-- `lumo inbox list` · `draft list` · `project overview [project]` — read-only inbox, your drafts, project health + latest summary
+- `lumo status [--inbox|--drafts|--next] [--json]` — me across the workspace: team priority line, inbox, my drafts, next tasks (read-only; not a task ref — that is `task status`) · `lumo project overview [project]` — project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 
@@ -118,7 +118,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Priority — see [priority.md](references/priority.md)
 
-- `lumo priority [text]` — declare the team's current priority (1-3 sentences); **append-only**, never overwritten · `lumo priority list` — history, newest first
+- `lumo priority create <text>` — declare the team's current priority (1-3 sentences; no prompt); **append-only**, never overwritten · `lumo priority list` — history, newest first (the current one also heads `lumo status`)
 
 ### Artifacts & Figma — see [artifacts-figma.md](references/artifacts-figma.md)
 
@@ -131,7 +131,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes Metrics + Sprint coverage); a milestone `<ref>` is its slug (the web URL segment, `list` SLUG column), name or id
 - `lumo milestone archive/unarchive` · `milestone reorder/move` — soft-archive / restore · manual ordering
 - `lumo milestone add/remove <ref> <task...>` — batch bind/unbind tasks
-- `lumo milestone triage <ref> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo next --claimable`)
+- `lumo milestone triage <ref> <task...> --claimable|--not-claimable` — steward batch claimable triage (feeds `lumo status --next --claimable`)
 - `lumo milestone summary [--retry]` — AI retro · `lumo milestone changelog <ref> [--json]` — changelog from DONE tasks + merged PRs (no LLM)
 - `lumo milestone testcase …` — the close contract: the same command set as `task testcase` ([test-cases.md](references/test-cases.md))
 
@@ -182,9 +182,13 @@ Every list prints its ref (`LUM-42`, `TC3`, a slug, `#13`) in column 1. Piped (h
 
 Every read-only command takes `--json`: one object on stdout, never a bare array, always with `version` (bumped only on a breaking change). Lists add `total` (`null` = unknown) and `nextCursor` (`null` = last page). Fields are only ever added; a field is removed only after a deprecation notice and a `version` bump. `task list --json --fields ref,title,status` selects fields. Errors stay on stderr (above).
 
+## Global flags
+
+`--project <ref>` (a project name or slug) and `--no-hints` are global: every command accepts them, before or after the command words (`lumo task list --project app`). Commands that resolve names in a project (tasks, docs, milestones, memory, test cases, `usage show --tasks`) use `--project`; the rest ignore it. There is no `-p` short form.
+
 ## Next-step hints
 
-`task create/update`, `session attach`, `task show --full` and `next` end with a server-computed `Next:` block (≤3 suggestions, after the result line); `--no-hints` / `LUMO_NO_HINTS=1` silence it (and `next` / `task show --runs` trailing `Hint:` lines; the paging footer is data and always prints) — see [tasks.md](references/tasks.md#next-step-hints).
+`task create/update`, `session attach`, `task show --full` and `status --next` end with a server-computed `Next:` block (≤3 suggestions, after the result line); `--no-hints` / `LUMO_NO_HINTS=1` silence it (and `status --next` / `task show --runs` trailing `Hint:` lines; the paging footer is data and always prints) — see [tasks.md](references/tasks.md#next-step-hints).
 
 ## Commands & flags that do NOT exist (common mistakes)
 
@@ -195,7 +199,7 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews)
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews); `inbox list` / `draft list` / `next` → `status --inbox` / `--drafts` / `--next` (`--count` → `--limit`), `priority <text>` → `priority create <text>` (no prompt); `init` / `skill update --user|--project` → `--scope user|project`, `setup` → `init`, `task list -p` → `--project`
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 

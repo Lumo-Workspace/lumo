@@ -32,6 +32,12 @@ export interface Tombstone {
   optionsOf?: string
   /** Flags of the removed command that took a value (beyond `optionsOf`). */
   valueFlags?: readonly string[]
+  /**
+   * Flags of the removed shape that took NO value, even though a live
+   * (global) flag of the same name does — 3g: `init --project` was a boolean,
+   * the global `--project <ref>` would swallow the next word.
+   */
+  booleanFlags?: readonly string[]
 }
 
 /** `lumo task show <task> <flags…>` keeping the task ref when one was given. */
@@ -248,6 +254,109 @@ const USAGE_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/** `next`'s options under `status --next` (`--count` became `--limit`). */
+export function nextOptions(options: string[]): string[] {
+  return options.map(o =>
+    o === '--count'
+      ? '--limit'
+      : o.startsWith('--count=')
+        ? `--limit=${o.slice(8)}`
+        : o
+  )
+}
+
+/**
+ * LUM-1233 3f (Q1, Q2): one `status` summary for "me across the workspace";
+ * `priority` becomes `priority create|list` with no interactive prompt.
+ */
+const STATUS_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      ['inbox list', '--inbox'],
+      ['inbox', '--inbox'],
+      ['draft list', '--drafts'],
+      ['draft', '--drafts'],
+    ] as const
+  ).map(
+    ([path, flag]): Tombstone => ({
+      path,
+      optionsOf: 'status',
+      replacement: (_a, _f, options) => cmd(`lumo status ${flag}`, [], options),
+      help: 'lumo status',
+    })
+  ),
+  {
+    path: 'next',
+    optionsOf: 'status',
+    valueFlags: ['--count', '-n'],
+    replacement: (_a, _f, options) =>
+      cmd('lumo status --next', [], nextOptions(options)),
+    help: 'lumo status',
+  },
+  {
+    path: 'priority',
+    // `priority create|list` are live; any other word was the old text form.
+    match: args => args.length > 0 && !['create', 'list'].includes(args[0]!),
+    label: 'lumo priority <text>',
+    replacement: args => cmd('lumo priority create', [args.join(' ')], []),
+    help: 'lumo priority create',
+  },
+]
+
+/** `init` / `skill update` options with the old scope booleans as `--scope`. */
+export function scopeOptions(options: string[]): string[] {
+  return options.flatMap(o =>
+    o === '--project'
+      ? ['--scope', 'project']
+      : o === '--user'
+        ? ['--scope', 'user']
+        : [o]
+  )
+}
+
+/**
+ * LUM-1233 3g (Q6, GF-1, GF-2): `--project <ref>` is one global flag, so the
+ * scope booleans of `init` / `skill update` became `--scope user|project`;
+ * the hidden `setup` alias and `task list -p` went.
+ */
+const PROJECT_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'setup',
+    optionsOf: 'init',
+    booleanFlags: ['--project', '--user'],
+    replacement: (_a, _f, options) =>
+      cmd('lumo init', [], scopeOptions(options)),
+    help: 'lumo init',
+  },
+  ...(['init', 'skill update'] as const).map(
+    (path): Tombstone => ({
+      path,
+      match: (_a, flags) =>
+        flags.some(f => f === '--project' || f === '--user'),
+      label: `lumo ${path} --project / --user`,
+      // The old booleans took no value: never let the global --project
+      // swallow the next token here.
+      booleanFlags: ['--project', '--user'],
+      replacement: (args, _f, options) =>
+        cmd(`lumo ${path}`, args, scopeOptions(options)),
+      help: `lumo ${path}`,
+    })
+  ),
+  {
+    path: 'task list',
+    match: (_a, flags) => flags.includes('-p'),
+    label: 'lumo task list -p',
+    valueFlags: ['-p'],
+    replacement: (_a, _f, options) =>
+      cmd(
+        'lumo task list',
+        [],
+        options.map(o => (o === '-p' ? '--project' : o))
+      ),
+    help: 'lumo task list',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -320,6 +429,8 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...DOC_TOMBSTONES,
   ...PR_TOMBSTONES,
   ...USAGE_TOMBSTONES,
+  ...STATUS_TOMBSTONES,
+  ...PROJECT_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
@@ -355,7 +466,11 @@ export function findRemovedCommand(
   takesValue: TakesValue = (_path, flag) => VALUE_OPTIONS.has(flag)
 ): RemovedHit | null {
   let start = 0
-  while (start < argv.length && argv[start]!.startsWith('-')) start++
+  // Leading global options, with their values (`lumo --project app task …`).
+  while (start < argv.length && argv[start]!.startsWith('-')) {
+    const flag = argv[start++]!
+    if (!flag.includes('=') && takesValue('', flag)) start++
+  }
   const rest = argv.slice(start)
   const words: string[] = []
   for (const tok of rest) {
@@ -379,6 +494,7 @@ export function findRemovedCommand(
         options.push(tok)
         if (
           !tok.includes('=') &&
+          !hit.booleanFlags?.includes(tok) &&
           (hit.valueFlags?.includes(tok) ||
             takesValue(hit.optionsOf ?? hit.path, tok))
         ) {

@@ -55,9 +55,9 @@ export async function GET(req: Request) {
         ...(paging.page ? { total: 0, nextCursor: null } : {}),
       })
     }
-    // LUM-646: `lumo next --claimable` asks for the extra F2 budget signal so
+    // LUM-646: `lumo status --next --claimable` asks for the extra F2 budget signal so
     // the autonomy gate can drop over-budget tasks. Only computed on request —
-    // the default `lumo next` payload stays lean.
+    // the default `lumo status --next` payload stays lean.
     const wantBudget = searchParams.get('claimable') === '1'
 
     let tasks: Awaited<ReturnType<typeof taskRepository.findAssignedTasks>>
@@ -94,7 +94,7 @@ export async function GET(req: Request) {
     const taskOrders = await viewRepository.findTaskOrders(myView.id)
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
-    // LUM-645: per-task dependency-topology counts for `lumo next` ranking.
+    // LUM-645: per-task dependency-topology counts for `lumo status --next` ranking.
     // blockedByOpenCount — confirmed BLOCKS edges whose blocker is unfinished;
     // unblocksOpenCount — open tasks this one directly releases when done.
     const depEdges =

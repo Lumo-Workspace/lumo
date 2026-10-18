@@ -257,29 +257,29 @@ describe('projectDriftNote', () => {
     expect(projectDriftNote([], CLI)).toBeNull()
   })
 
-  it('skill only: `lumo skill update --project` and the PR step', () => {
+  it('skill only: `lumo skill update --scope project` and the PR step', () => {
     expect(
       projectDriftNote([item('skill', '.agents/skills/lumo', '1.102.0')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0 — run `lumo skill update --project`, then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0 — run `lumo skill update --scope project`, then commit the changes in a PR'
     )
   })
 
-  it('hooks / rules only: re-run `lumo init --project` for their agent, with its dry run', () => {
+  it('hooks / rules only: re-run `lumo init --scope project` for their agent, with its dry run', () => {
     expect(
       projectDriftNote([item('codex-rules', '.codex/rules/lumo.rules')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
     )
     expect(
       projectDriftNote(
         [item('claude-settings', '.claude/settings.json', null, 'cursor')],
         CLI
       )
-    ).toContain('run `lumo init --project --agent cursor` (preview with')
+    ).toContain('run `lumo init --scope project --agent cursor` (preview with')
   })
 
-  it('hooks of two agents: plain `lumo init --project`', () => {
+  it('hooks of two agents: plain `lumo init --scope project`', () => {
     const note = projectDriftNote(
       [
         item('claude-settings', '.claude/settings.json'),
@@ -288,7 +288,7 @@ describe('projectDriftNote', () => {
       CLI
     )
     expect(note).toContain(
-      'run `lumo init --project` (preview with `--dry-run`)'
+      'run `lumo init --scope project` (preview with `--dry-run`)'
     )
     expect(note).not.toContain('--upgrade')
   })
@@ -304,7 +304,7 @@ describe('projectDriftNote', () => {
         { restart: true }
       )
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --project` and `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --scope project` and `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
     )
   })
 })
@@ -325,7 +325,7 @@ describe('retiredHooksNote', () => {
         retired('claude-code', ['WorktreeCreate', 'WorktreeRemove']),
       ])
     ).toBe(
-      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate, WorktreeRemove) that break Claude Code worktrees — run `lumo init --project --agent claude-code` (preview with `--dry-run`) to remove them'
+      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate, WorktreeRemove) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
     )
   })
 

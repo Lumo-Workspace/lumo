@@ -44,11 +44,6 @@ export const HALLUCINATION_CASES: AstCase[] = [
     note: 'LUM-1233 3b: `project memory` was removed — it is `memory list --scope project`',
   },
   {
-    raw: 'lumo sprint list --project lumo 2>&1',
-    expect: 'unknown-flag',
-    offending: '--project',
-  },
-  {
     raw: 'lumo memory add --scope project --category procedural --content $BODY 2>&1',
     expect: 'unknown-flag',
     offending: '--content',
@@ -82,6 +77,11 @@ export const HALLUCINATION_CASES: AstCase[] = [
 ]
 
 export const VALID_CASES: AstCase[] = [
+  {
+    raw: 'lumo sprint list --project lumo 2>&1',
+    expect: 'valid',
+    note: 'LUM-1233 3g: --project is global — every command accepts it (sprint list ignores it)',
+  },
   { raw: 'lumo task update LUM-100 --status in_progress', expect: 'valid' },
   {
     raw: 'lumo task artifact add LUM-122 --kind spec --title Context-injection tiering spec --file docs/specs/design.md --source Superpowers --agent claude-code 2>&1',

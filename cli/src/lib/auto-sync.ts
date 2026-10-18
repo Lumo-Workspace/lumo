@@ -192,7 +192,7 @@ function recentlyAttempted(
 /**
  * First run of a new CLI version: bring user-scope, untracked, unmodified
  * installs up to date. Never throws; never touches project-scope or
- * git-tracked paths (those need an explicit `lumo init --project`).
+ * git-tracked paths (those need an explicit `lumo init --scope project`).
  */
 export function maybeAutoSync(
   currentVersion: string | null = readCliVersion(),

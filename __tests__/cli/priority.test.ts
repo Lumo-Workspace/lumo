@@ -11,7 +11,7 @@ jest.mock('@/cli/src/lib/line-prompt', () => ({
 }))
 
 import {
-  priority,
+  priorityCreate,
   priorityList,
   formatPriorityHistory,
 } from '@/cli/src/commands/priority'
@@ -58,7 +58,7 @@ const view = (id: string, statement: string, effectiveFrom: string) => ({
   createdAt: effectiveFrom,
 })
 
-describe('lumo priority <text>', () => {
+describe('lumo priority create <text>', () => {
   it('POSTs the given text and confirms', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(201, {
@@ -66,7 +66,7 @@ describe('lumo priority <text>', () => {
       })
     )
 
-    await priority('ship the MVP')
+    await priorityCreate('ship the MVP')
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]!
@@ -81,40 +81,21 @@ describe('lumo priority <text>', () => {
     expect(mockPrompt).not.toHaveBeenCalled()
   })
 
-  it('prompts interactively when no text is given', async () => {
-    mockPrompt.mockResolvedValueOnce('focus on the converter')
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(201, {
-        priority: view(
-          'p1',
-          'focus on the converter',
-          '2026-01-01T12:00:00.000Z'
-        ),
-      })
-    )
-
-    await priority(undefined)
-
-    expect(mockPrompt).toHaveBeenCalledTimes(1)
-    const [, init] = fetchMock.mock.calls[0]!
-    expect(JSON.parse(init.body as string)).toEqual({
-      statement: 'focus on the converter',
-    })
-  })
-
-  it('errors and records nothing when the interactive prompt is empty', async () => {
-    mockPrompt.mockResolvedValueOnce('   ')
-    const code = await priority(undefined)
-    expect(code).toBe(1)
+  it('LUM-1233 3f: blank text exits 2 with no prompt and records nothing', async () => {
+    for (const blank of ['', '   ']) {
+      const code = await priorityCreate(blank)
+      expect(code).toBe(2)
+    }
+    expect(mockPrompt).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(stderr.join('\n')).toMatch(/no priority provided/i)
+    expect(stderr.join('\n')).toMatch(/priority text is empty/i)
   })
 
   it('surfaces a server error message', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(404, { error: 'No default team found for this workspace' })
     )
-    const code = await priority('x')
+    const code = await priorityCreate('x')
     expect(code).toBe(1)
     expect(stderr.join('\n')).toMatch(/No default team found/)
   })

@@ -1,6 +1,6 @@
 import { fmtDay } from './format'
 /**
- * Pure ranking logic for `lumo next`. Given the caller's open tasks plus the
+ * Pure ranking logic for `lumo status --next`. Given the caller's open tasks plus the
  * set of ACTIVE sprint ids, produce a recommendation order and a per-task list
  * of human-readable reason factors.
  *
@@ -30,7 +30,7 @@ export interface NextTask {
   /**
    * LUM-646 agent-claimable marker. A new server always sends a boolean
    * (default false); an older server omits it entirely — the absence of the
-   * field across all tasks is how `lumo next --claimable` detects an
+   * field across all tasks is how `lumo status --next --claimable` detects an
    * unsupported server and degrades gracefully.
    */
   claimable?: boolean

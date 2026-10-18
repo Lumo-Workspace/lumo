@@ -492,6 +492,8 @@ As built: `--tasks` selects the per-member window summary with the completed tas
 | `priority [text]` (writes; prompts without text) | `priority create <text>`                                  | `priority <text>` removed → use `priority create <text>` |
 | `priority list`                                  | `priority list` (the current line also shows in `status`) | —                                                        |
 
+As built: bare `lumo status` prints the priority line, then Inbox, Drafts and Next. One section flag prints exactly the old command's output and `--json` envelope (no heading). Two section flags, or none, print headed sections, and `--json` nests them as `{ version, priority?, inbox, drafts, next }`. `--claimable` / `--limit` exit 2 unless Next is printed. A section whose request fails reports its error on stderr; the others still print and the exit code is 1. `priority create` with blank text exits 2; bare `lumo priority` prints the group's help.
+
 #### 3g. Global `--project`
 
 Spelling stays `--project <ref>` where it is a project name, so most rows need no release note.
@@ -526,6 +528,8 @@ Spelling stays `--project <ref>` where it is a project name, so most rows need n
 | `milestone update --project`           | global `--project`                                                                          | —                                                                 |
 | `report --project`                     | global `--project` (command itself: 3e)                                                     | —                                                                 |
 | `milestone testcase * --project`       | global `--project` (case argument: 3a)                                                      | —                                                                 |
+
+As built: `--project <ref>` is defined once on the program, so it works before or after the command words, and each command's `--help` lists it under Global Options. Its value lands in the command's own `project` option, so the commands above behave exactly as before; the others accept it and ignore it. This also covers `task testcase * --project`, `usage show --project` (still `--tasks` only) and `memory add|list --project`, which the table does not list. `grammar.json` records the program flags as `globalFlags`, and the validator accepts them on every command. Tombstones: `setup` → `init`, and `init` / `skill update` with `--user` or `--project` → `--scope user|project`. The old booleans never take a value, so the tombstone runs before the global `--project` could swallow the next word. `task list -p <x>` → `--project <x>`.
 
 #### 3h. `--force` has one meaning
 

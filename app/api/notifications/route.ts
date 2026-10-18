@@ -8,7 +8,7 @@ import { notificationService } from '@/lib/services/notification.service'
  * GET /api/notifications — return notifications for the current user.
  * Enriched with actor info (Clerk), task info, and comment preview.
  *
- * LUM-1192: browser session or API key (`lumo inbox list`). Scoped to the
+ * LUM-1192: browser session or API key (`lumo status --inbox`). Scoped to the
  * credential's workspace — a Bearer key's own workspace, or the session's
  * active one — and to the caller's own Actor in it.
  */

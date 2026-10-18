@@ -18,13 +18,12 @@ jest.mock('@/cli/src/lib/config', () => ({
 import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   formatInbox,
-  inboxList,
   isPendingAction,
   notificationSentence,
   type InboxNotification,
 } from '@/cli/src/commands/inbox-list'
+import { status } from '@/cli/src/commands/status'
 import {
-  draftList,
   draftTitle,
   formatDraftList,
   type DraftRow,
@@ -318,10 +317,10 @@ describe('overview formatting', () => {
 })
 
 describe('commands (GET only, Bearer)', () => {
-  it('inbox list → GET /api/notifications; --json is the payload in the envelope', async () => {
+  it('status --inbox → GET /api/notifications; --json is the payload in the envelope', async () => {
     const payload = { notifications: [base], unreadCount: 1 }
     serve({ '/api/notifications': payload })
-    await inboxList({ json: true })
+    await status({ inbox: true, json: true })
     expect(JSON.parse(out)).toEqual({
       version: 1,
       ...payload,
@@ -334,9 +333,9 @@ describe('commands (GET only, Bearer)', () => {
       (calls[0]!.init?.headers as Record<string, string>).Authorization
     ).toBe('Bearer tok')
   })
-  it('draft list → GET /api/drafts (no workspaceUrl: the key decides)', async () => {
+  it('status --drafts → GET /api/drafts (no workspaceUrl: the key decides)', async () => {
     serve({ '/api/drafts': { drafts: [] } })
-    await draftList()
+    await status({ drafts: true })
     expect(calls.map(c => c.url)).toEqual(['https://api.lumo.test/api/drafts'])
     expect(out).toBe('No drafts.\n')
   })

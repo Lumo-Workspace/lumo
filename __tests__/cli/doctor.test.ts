@@ -141,7 +141,7 @@ describe('skill rows and grouping', () => {
     expect(rowFor(r, old)).toMatchObject({
       group: 'machine',
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --user --agent codex',
+      suggestion: 'lumo init --scope user --agent codex',
     })
   })
 
@@ -308,7 +308,7 @@ describe('claude settings hooks', () => {
     const r = collectDoctor(f.deps)
     expect(rowFor(r, p)).toMatchObject({
       state: 'incomplete',
-      suggestion: 'lumo init --project',
+      suggestion: 'lumo init --scope project',
     })
     const w = warn(r, 'retired-hook-events')
     expect(w).toHaveLength(1)
@@ -358,7 +358,7 @@ describe('git hook', () => {
     )
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --project',
+      suggestion: 'lumo init --scope project',
     })
   })
 
@@ -503,7 +503,7 @@ describe('doctor command', () => {
     expect(stdout).toContain('This machine')
     expect(stdout).toContain(up)
     expect(stdout).toContain('behind CLI 2.0.0')
-    expect(stdout).toContain('    lumo init --user --agent claude-code')
+    expect(stdout).toContain('    lumo init --scope user --agent claude-code')
     expect(stdout).not.toContain('-> lumo init')
     expect(stdout).not.toContain('--upgrade')
     expect(stdout).toContain('lumo-not-on-path')
@@ -618,7 +618,7 @@ describe('fix round 1', () => {
     ])
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       group: 'other-repos',
-      suggestion: 'lumo init --project',
+      suggestion: 'lumo init --scope project',
       detail: 'run the command in that repo',
     })
   })
@@ -726,7 +726,7 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     )
     const r = collectDoctor(f.deps)
     const row = rowFor(r, p)!
-    expect(row.suggestion).toBe('lumo init --user --agent codex')
+    expect(row.suggestion).toBe('lumo init --scope user --agent codex')
     expect(row.detail).toContain('missing 1 hook event(s)')
     expect(
       warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))

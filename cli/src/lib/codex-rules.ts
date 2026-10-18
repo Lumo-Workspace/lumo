@@ -50,8 +50,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'doc rebuild-source',
   'doc show',
   'doc sync',
-  'draft list',
-  'inbox list',
   'member list',
   'memory fold',
   'memory add',
@@ -78,7 +76,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'milestone triage',
   'milestone unarchive',
   'milestone update',
-  'next',
   'pr review',
   'pr show',
   'priority',
@@ -97,6 +94,8 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'sprint start',
   'sprint summary',
   'sprint update',
+  // me across the workspace: priority, inbox, drafts, next (read-only)
+  'status',
   'tag create',
   'tag list',
   'task artifact list',
@@ -185,7 +184,6 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
     'a human-only ruling: keep Codex asking the user first',
   hook: 'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself',
   init: 'writes skill, hook and rules files',
-  setup: 'alias of init: writes skill, hook and rules files',
   'skill status':
     'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
   'skill update': 'writes skill files',

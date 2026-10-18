@@ -44,10 +44,11 @@ import {
   type SpawnSyncFn,
 } from '../lib/auto-update'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
+import { parseInstallScope } from '../lib/install-scope'
 
 type InitOptions = {
-  user?: boolean
-  project?: boolean
+  /** LUM-1233 3g (Q6): `user | project` (was the booleans --user / --project). */
+  scope?: string
   force?: boolean
   agent?: string
   upgrade?: boolean
@@ -84,7 +85,7 @@ type Scope = 'user' | 'project'
 
 /** LUM-1118: `lumo init --upgrade` is gone; re-running init refreshes an install. */
 export const UPGRADE_REMOVED =
-  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
+  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--scope user|project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
@@ -139,9 +140,12 @@ export async function init(
     process.stderr.write(`Error: ${UPGRADE_REMOVED}\n`)
     return EXIT_USAGE
   }
-  if (options.user && options.project) {
+  if (
+    options.scope !== undefined &&
+    parseInstallScope(options.scope) === null
+  ) {
     process.stderr.write(
-      'Error: --user and --project are mutually exclusive.\n'
+      `Error: invalid --scope "${options.scope}". Valid values: user, project.\n`
     )
     return EXIT_USAGE
   }
@@ -345,12 +349,12 @@ async function resolveScope(
   options: InitOptions,
   tokens: readonly string[]
 ): Promise<Scope | null> {
-  if (options.user) return 'user'
-  if (options.project) return 'project'
+  const given = parseInstallScope(options.scope)
+  if (given) return given
 
   if (!process.stdin.isTTY) {
     process.stdout.write(
-      'No --user/--project flag given and stdin is not a TTY. Defaulting to --project.\n'
+      'No --scope given and stdin is not a TTY. Defaulting to --scope project.\n'
     )
     return 'project'
   }

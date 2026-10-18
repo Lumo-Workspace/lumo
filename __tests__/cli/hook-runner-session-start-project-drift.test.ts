@@ -125,7 +125,7 @@ async function statusLine(agent: string, sid: string): Promise<string> {
 }
 
 const RULES_NOTE =
-  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
 
 describe('committed Lumo install behind the CLI', () => {
   it('Claude Code: one reminder with the fix command, once per session', async () => {
@@ -148,7 +148,7 @@ describe('committed Lumo install behind the CLI', () => {
     skill(repo, '.agents', '1.69.0')
     commit()
     expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --project\`, then commit the changes in a PR, then restart the session`
+      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --scope project\`, then commit the changes in a PR, then restart the session`
     )
     // later SessionStarts of the session fall back to the plain skill hint
     expect(await statusLine('codex', 's1')).toBe(
@@ -184,7 +184,7 @@ describe('committed Lumo install behind the CLI', () => {
       })
     )
     const note =
-      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --project --agent claude-code` (preview with `--dry-run`) to remove them'
+      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
     expect(await statusLine('claude-code', 's1')).toBe(
       `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )

@@ -20,7 +20,7 @@ import { skillCopyStatus } from './skill-copies'
  * hooks, `.codex/hooks.json` and `.codex/rules/lumo.rules`. Auto-sync never
  * touches these (they are shared with the team through git), so the
  * SessionStart status line names them once per session with the fix command.
- * The decisions are the ones `lumo skill update` / `lumo init --project`
+ * The decisions are the ones `lumo skill update` / `lumo init --scope project`
  * act on. Purely local and read-only; every entry point swallows its failures.
  *
  * LUM-1235 — one exception to "committed only": an uncommitted
@@ -162,8 +162,8 @@ export function projectInstallDrift(opts: {
 
 /**
  * One status-line segment naming what is behind and how to fix it: skill
- * copies → `lumo skill update --project` (never touches hooks, so Codex keeps
- * its trust); hooks / rules → re-run `lumo init --project` (narrowed with
+ * copies → `lumo skill update --scope project` (never touches hooks, so Codex keeps
+ * its trust); hooks / rules → re-run `lumo init --scope project` (narrowed with
  * `--agent` when they all belong to one agent), previewed with `--dry-run`.
  * Either way the result is uncommitted: open a PR. `restart` adds the
  * restart step when the session's own skill copy is among them.
@@ -180,11 +180,11 @@ export function projectDriftNote(
     .join(', ')
   const cmds: string[] = []
   if (items.some(i => i.kind === 'skill'))
-    cmds.push('`lumo skill update --project`')
+    cmds.push('`lumo skill update --scope project`')
   const hooks = items.filter(i => i.kind !== 'skill')
   if (hooks.length > 0) {
     const agents = [...new Set(hooks.map(i => i.agent))]
-    const init = `lumo init --project${agents.length === 1 ? ` --agent ${agents[0]}` : ''}`
+    const init = `lumo init --scope project${agents.length === 1 ? ` --agent ${agents[0]}` : ''}`
     cmds.push(`\`${init}\` (preview with \`--dry-run\`)`)
   }
   const then = opts.restart ? ', then restart the session' : ''
@@ -193,7 +193,7 @@ export function projectDriftNote(
 
 /**
  * LUM-1235 — the segment for an uncommitted settings file still holding
- * retired Lumo hooks: the file, the events and `lumo init --project`, which
+ * retired Lumo hooks: the file, the events and `lumo init --scope project`, which
  * strips them. Nothing to commit, so no PR step. Null when there is none.
  */
 export function retiredHooksNote(
@@ -202,7 +202,7 @@ export function retiredHooksNote(
   const item = items.find(i => i.kind === 'claude-settings-retired')
   if (!item) return null
   const events = (item.retiredEvents ?? []).join(', ')
-  return `uncommitted ${item.relPath} still has retired Lumo hooks (${events}) that break Claude Code worktrees — run \`lumo init --project --agent ${item.agent}\` (preview with \`--dry-run\`) to remove them`
+  return `uncommitted ${item.relPath} still has retired Lumo hooks (${events}) that break Claude Code worktrees — run \`lumo init --scope project --agent ${item.agent}\` (preview with \`--dry-run\`) to remove them`
 }
 
 const NOTED_FILE = 'session-project-install-notes.json'

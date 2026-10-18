@@ -181,7 +181,7 @@ export type GitHookInstallPlan =
     }
 
 /**
- * What `lumo init --project` does to the repo's prepare-commit-msg: create
+ * What `lumo init --scope project` does to the repo's prepare-commit-msg: create
  * it, append the Lumo block to a foreign hook, replace a stale block, or
  * nothing. A configured `core.hooksPath` is never written.
  */

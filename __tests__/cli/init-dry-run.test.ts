@@ -153,8 +153,8 @@ const STALE_BLOCK =
  */
 async function driftedInstall() {
   const e = env('v1 body', '1.0.0')
-  expect(await init({ user: true }, e.deps)).toBe(0)
-  expect(await init({ project: true }, e.deps)).toBe(0)
+  expect(await init({ scope: 'user' }, e.deps)).toBe(0)
+  expect(await init({ scope: 'project' }, e.deps)).toBe(0)
 
   writeFileSync(join(e.bundled, 'SKILL.md'), 'v2 body\n')
   writeFileSync(join(e.bundled, 'references', 'new.md'), 'brand new ref\n')
@@ -202,7 +202,7 @@ describe('lumo init --dry-run', () => {
   it('writes nothing — no install file, marker, registry record or lock (contents and mtimes unchanged)', async () => {
     const d = await driftedInstall()
     const registryBefore = readRegistry()
-    for (const opts of [{ user: true }, { project: true }]) {
+    for (const opts of [{ scope: 'user' }, { scope: 'project' }]) {
       const before = snapshot(d.roots)
       expect(await init({ ...opts, dryRun: true }, d.deps)).toBe(0)
       expect(snapshot(d.roots)).toEqual(before)
@@ -217,7 +217,7 @@ describe('lumo init --dry-run', () => {
     const e = env('v1 body', '1.0.0')
     const roots = [e.home, e.project, process.env.LUMO_CONFIG_DIR as string]
     const before = snapshot(roots)
-    expect(await init({ project: true, dryRun: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', dryRun: true }, e.deps)).toBe(0)
     expect(snapshot(roots)).toEqual(before)
     expect(existsSync(reg())).toBe(false)
     expect(stdout).toContain(
@@ -238,12 +238,12 @@ describe('lumo init --dry-run', () => {
     expect(stdout).toMatch(
       /would install \S+prepare-commit-msg — prepare-commit-msg hook: new hook with the Lumo block/
     )
-    expect(stdout).toContain('Run `lumo init --project` to apply')
+    expect(stdout).toContain('Run `lumo init --scope project` to apply')
   })
 
   it('prints path, action and a unified diff for every install type', async () => {
     const d = await driftedInstall()
-    expect(await init({ user: true, dryRun: true }, d.deps)).toBe(0)
+    expect(await init({ scope: 'user', dryRun: true }, d.deps)).toBe(0)
     // skill dir: 1107 file list + per-file unified diff
     expect(stdout).toContain(
       'would update ~/.claude/skills/lumo — skill: 1.0.0 → 2.0.0: 2 files changed'
@@ -273,32 +273,34 @@ describe('lumo init --dry-run', () => {
     expect(stdout).toContain('    -# an older Lumo rule')
     expect(stdout).toContain('    +prefix_rule(')
     expect(stdout).toMatch(/\d+ of \d+ would change/)
-    expect(stdout).toContain('Run `lumo init --user` to apply')
+    expect(stdout).toContain('Run `lumo init --scope user` to apply')
 
     // git hook (project scope): only the Lumo block
     stdout = ''
-    expect(await init({ project: true, dryRun: true }, d.deps)).toBe(0)
+    expect(await init({ scope: 'project', dryRun: true }, d.deps)).toBe(0)
     expect(stdout).toContain(
       `would update ${d.hook} — prepare-commit-msg hook: Lumo block replaced`
     )
     expect(stdout).toContain('    -old lumo line')
     expect(stdout).not.toContain('private-foreign-step')
-    expect(stdout).toContain('Run `lumo init --project` to apply')
+    expect(stdout).toContain('Run `lumo init --scope project` to apply')
   })
 
   it('narrows to --agent and names it in the apply command', async () => {
     const d = await driftedInstall()
     expect(
-      await init({ user: true, agent: 'codex', dryRun: true }, d.deps)
+      await init({ scope: 'user', agent: 'codex', dryRun: true }, d.deps)
     ).toBe(0)
     expect(stdout).toContain('~/.agents/skills/lumo')
     expect(stdout).not.toContain('~/.claude/')
-    expect(stdout).toContain('Run `lumo init --user --agent codex` to apply')
+    expect(stdout).toContain(
+      'Run `lumo init --scope user --agent codex` to apply'
+    )
   })
 
   it('never prints settings.json content that is not Lumo’s — it is folded to counts', async () => {
     const d = await driftedInstall()
-    await init({ user: true, dryRun: true }, d.deps)
+    await init({ scope: 'user', dryRun: true }, d.deps)
     for (const secret of [
       'private-user-hook',
       'another-private-hook',
@@ -323,7 +325,7 @@ describe('lumo init --dry-run', () => {
 
   it('marks only Codex hooks.json changes as needing Trust again, naming the events', async () => {
     const d = await driftedInstall()
-    await init({ user: true, dryRun: true }, d.deps)
+    await init({ scope: 'user', dryRun: true }, d.deps)
     const items = planInit({
       scope: 'user',
       tokens: ['claude-code', 'codex'],
@@ -344,9 +346,9 @@ describe('lumo init --dry-run', () => {
 
   it('does not mark re-trust when Codex hooks are already complete', async () => {
     const e = env('v1 body', '1.0.0')
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     stdout = ''
-    await init({ user: true, agent: 'codex', dryRun: true }, e.deps)
+    await init({ scope: 'user', agent: 'codex', dryRun: true }, e.deps)
     expect(stdout).toContain('· ~/.codex/hooks.json — Codex hooks: up to date')
     expect(stdout).not.toContain('trust')
   })
@@ -365,7 +367,7 @@ describe('lumo init --dry-run', () => {
         force: false,
       })
       const before = snapshot(d.roots)
-      expect(await init({ [scope]: true }, d.deps)).toBe(0)
+      expect(await init({ scope }, d.deps)).toBe(0)
       const changed = changedFiles(before, snapshot(d.roots)).filter(
         f => f !== reg()
       )
@@ -391,9 +393,9 @@ describe('lumo init --dry-run', () => {
 
   it('says "nothing to change" when every file is up to date', async () => {
     const e = env('v1 body', '1.0.0')
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     stdout = ''
-    expect(await init({ project: true, dryRun: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', dryRun: true }, e.deps)).toBe(0)
     expect(stdout).toContain('Nothing to change — all')
     expect(stdout).toContain('up to date or left as is.')
     expect(stdout).not.toContain('would update')
@@ -402,7 +404,7 @@ describe('lumo init --dry-run', () => {
 
   it('reports skipped copies (modified, newer, foreign rule) without diffs and counts them as no change', async () => {
     const e = env('v2 body', '2.0.0')
-    await init({ user: true }, e.deps)
+    await init({ scope: 'user' }, e.deps)
     const modified = join(e.home, '.claude', 'skills', 'lumo')
     writeSkill(modified, 'hand edited')
     const newer = join(e.home, '.agents', 'skills', 'lumo')
@@ -420,7 +422,7 @@ describe('lumo init --dry-run', () => {
     writeFileSync(rules, '# the user’s own rules\n')
     stdout = ''
     const before = snapshot([e.home, process.env.LUMO_CONFIG_DIR as string])
-    expect(await init({ user: true, dryRun: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user', dryRun: true }, e.deps)).toBe(0)
     expect(snapshot([e.home, process.env.LUMO_CONFIG_DIR as string])).toEqual(
       before
     )
@@ -438,16 +440,16 @@ describe('lumo init --dry-run', () => {
 
     // --force previews the overwrite of the modified copy and the foreign rule
     stdout = ''
-    expect(await init({ user: true, force: true, dryRun: true }, e.deps)).toBe(
-      0
-    )
+    expect(
+      await init({ scope: 'user', force: true, dryRun: true }, e.deps)
+    ).toBe(0)
     expect(stdout).toContain(
       'would update ~/.claude/skills/lumo — skill: modified → 2.0.0'
     )
     expect(stdout).toContain(
       'would update ~/.codex/rules/lumo.rules — Codex rule: not written by Lumo — replaced (--force)'
     )
-    expect(stdout).toContain('Run `lumo init --user --force` to apply')
+    expect(stdout).toContain('Run `lumo init --scope user --force` to apply')
   })
 
   it('previews adopting a legacy copy as a marker-only write and does not write the marker', async () => {
@@ -457,7 +459,7 @@ describe('lumo init --dry-run', () => {
     ;(skillVersionHashes as Record<string, string>)[hashSkillDir(skill)] =
       '1.0.0'
     expect(
-      await init({ user: true, agent: 'claude-code', dryRun: true }, e.deps)
+      await init({ scope: 'user', agent: 'claude-code', dryRun: true }, e.deps)
     ).toBe(0)
     expect(stdout).toContain(
       'would adopt ~/.claude/skills/lumo — skill: matches the 1.0.0 skill — writes only the .lumo-install.json marker'
@@ -470,7 +472,7 @@ describe('lumo init --dry-run', () => {
     const d = await driftedInstall()
     writeFileSync(d.settings, '{ not json')
     const before = snapshot(d.roots)
-    expect(await init({ user: true, dryRun: true }, d.deps)).toBe(1)
+    expect(await init({ scope: 'user', dryRun: true }, d.deps)).toBe(1)
     expect(snapshot(d.roots)).toEqual(before)
     expect(stdout).toContain(
       `✗ cannot plan ~/.claude/settings.json — Claude settings hooks: Cannot parse existing ${d.settings}`
@@ -481,7 +483,7 @@ describe('lumo init --dry-run', () => {
 
   it('notes a git-tracked target', async () => {
     const e = env('v1 body', '1.0.0')
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     execFileSync('git', ['add', '.'], { cwd: e.project })
     execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
       cwd: e.project,
@@ -489,7 +491,7 @@ describe('lumo init --dry-run', () => {
     writeFileSync(join(e.bundled, 'SKILL.md'), 'v2 body')
     stdout = ''
     await init(
-      { project: true, agent: 'claude-code', dryRun: true },
+      { scope: 'project', agent: 'claude-code', dryRun: true },
       { ...e.deps, cliVersion: '2.0.0' }
     )
     expect(stdout).toContain(
@@ -503,7 +505,10 @@ describe('lumo init --dry-run', () => {
       cwd: e.project,
     })
     expect(
-      await init({ project: true, agent: 'claude-code', dryRun: true }, e.deps)
+      await init(
+        { scope: 'project', agent: 'claude-code', dryRun: true },
+        e.deps
+      )
     ).toBe(0)
     expect(stdout).toContain(
       '⚠ skip .husky — prepare-commit-msg hook: core.hooksPath is set'
@@ -515,7 +520,7 @@ describe('lumo init --upgrade is removed', () => {
   it.each([
     [{ upgrade: true }],
     [{ upgrade: true, dryRun: true }],
-    [{ upgrade: true, project: true }],
+    [{ upgrade: true, scope: 'project' }],
   ])(
     '%o exits 2 (usage) with the migration message and writes nothing',
     async opts => {
@@ -524,7 +529,7 @@ describe('lumo init --upgrade is removed', () => {
       const before = snapshot(roots)
       expect(await init(opts, e.deps)).toBe(2)
       expect(stderr).toBe(
-        'Error: `lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.\n'
+        'Error: `lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--scope user|project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.\n'
       )
       expect(stdout).toBe('')
       expect(snapshot(roots)).toEqual(before)
@@ -653,7 +658,7 @@ describe('renderInitPlan', () => {
         cliVersion: '3.0.0',
         home: '/h',
         scope: 'project',
-        applyCommand: 'lumo init --project',
+        applyCommand: 'lumo init --scope project',
       }
     )
     expect(text.split('\n')[0]).toBe(

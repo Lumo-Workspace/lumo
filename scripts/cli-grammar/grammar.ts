@@ -58,6 +58,11 @@ export interface GrammarCommand {
 export interface CliGrammar {
   /** cli/package.json version the snapshot was generated from. */
   cliVersion: string
+  /**
+   * LUM-1233 3g (GF-1): flags defined once on the program and accepted by
+   * every command (`--project <ref>`, `--no-hints`). Absent on older snapshots.
+   */
+  globalFlags?: Record<string, GrammarFlag>
   /** Command path (tokens joined by space, root `lumo` omitted) → node. */
   commands: Record<string, GrammarCommand>
 }
@@ -216,5 +221,15 @@ export function extractGrammar(
     }
     sorted[key] = { ...node, flags: sortedFlags }
   }
-  return { cliVersion, commands: sorted }
+  // The program's own options are the global flags (minus --version, which is
+  // ROOT_FLAGS, and hidden ones).
+  const globalFlags: Record<string, GrammarFlag> = {}
+  for (const opt of [...root.options].sort((a, b) =>
+    (a.long ?? a.flags).localeCompare(b.long ?? b.flags)
+  )) {
+    if (opt.hidden || opt.long === '--version') continue
+    const flag = toGrammarFlag(opt)
+    globalFlags[flag.long] = flag
+  }
+  return { cliVersion, globalFlags, commands: sorted }
 }
