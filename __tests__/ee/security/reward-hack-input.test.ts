@@ -18,6 +18,7 @@ import {
   rhWatermark,
   selectSessionsForPr,
   type RhEvent,
+  RH_REQUIREMENT_MAX_CHARS,
 } from '@/ee/security/security-scan/reward-hack-input'
 
 const PRUNED = { _lumo_pruned: { at: '2026-10-01T00:00:00Z' } }
@@ -391,6 +392,23 @@ describe('buildRhUserPrompt', () => {
     expect(out.eventFile.get('t2')).toEqual([`${ROOT}/src/a.ts`])
     expect(out.eventFile.get('t1')).toEqual([])
     expect(out.eventFile.get('p1')).toEqual([])
+  })
+
+  it('a requirement over its own cap is cut but never marks the input truncated', () => {
+    const out = buildRhUserPrompt({
+      requirement: 'r'.repeat(RH_REQUIREMENT_MAX_CHARS + 5_000),
+      transcripts: sessions(),
+      maxChars: 400_000,
+    })
+    expect(out.requirementTruncated).toBe(true)
+    expect(out.truncated).toBe(false)
+    expect(out.overCap).toBe(false)
+    const short = buildRhUserPrompt({
+      requirement: 'short',
+      transcripts: sessions(),
+      maxChars: 400_000,
+    })
+    expect(short.requirementTruncated).toBe(false)
   })
 
   it('over the cap: drops earliest tool results first, keeps every prompt and stop', () => {

@@ -21,7 +21,7 @@ describe('rhDecisionLogLine', () => {
     expect(line).toBe(
       '[reward-hack] decide scan=scan_1 window=2026-10-18T13:14:04.000Z..2026-10-18T13:38:46.000Z sessions=3 included=2 events=4 promptChars=230 estTokens=' +
         line.split('estTokens=')[1]!.split(' ')[0] +
-        ' truncated=false outcome=overCap'
+        ' truncated=false requirementTruncated=false outcome=overCap'
     )
     expect(line).not.toContain('SECRET-TRANSCRIPT-TEXT')
     expect(Number(line.split('estTokens=')[1]!.split(' ')[0])).toBeGreaterThan(
@@ -43,5 +43,26 @@ describe('rhDecisionLogLine', () => {
     expect(line).toContain('window=none..2026-10-18T00:00:00.000Z')
     expect(line).toContain('promptChars=0 estTokens=0')
     expect(line).toContain('outcome=no-session')
+  })
+
+  it('adds requirement truncation and the judge counts when known', () => {
+    const line = rhDecisionLogLine({
+      scanId: 's',
+      windowStart: null,
+      windowEnd: new Date('2026-10-18T00:00:00Z'),
+      sessions: 1,
+      included: [{ events: [1] }],
+      prompt: 'x',
+      truncated: false,
+      requirementTruncated: true,
+      outcome: 'judged',
+      suspicion: 72,
+      items: 2,
+      gated: 1,
+      kept: 0,
+    })
+    expect(line).toContain(
+      'truncated=false requirementTruncated=true outcome=judged suspicion=72 items=2 gated=1 kept=0'
+    )
   })
 })

@@ -325,7 +325,16 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       included: selected.included,
       prompt: decision.built.prompt,
       truncated: decision.built.truncated,
+      requirementTruncated: decision.built.requirementTruncated,
       outcome: decision.outcome,
+      ...('judged' in decision
+        ? {
+            suspicion: decision.judged.output.suspicion,
+            items: decision.judged.output.items.length,
+            gated: decision.gated.length,
+          }
+        : {}),
+      ...(decision.outcome === 'judged' ? { kept: decision.kept.length } : {}),
     })
   )
   if (decision.outcome === 'overCap')
