@@ -168,7 +168,12 @@ const PROHIBITION_MARKER =
   /\b(?:never|not|don'?t|do\s+not|forbidden|forbid|prohibited|banned|disallowed|avoid|must\s+not|cannot|can'?t|only)\b|禁止|严禁|不要|不得|不能|不可|不准|勿|别|仅|只有|避免|永不|永远不/i
 
 /** Predicate types whose `value` is a literal phrase a memory could name. */
-const LITERAL_PREDICATES = new Set(['cmd-substr', 'path-glob', 'push-target'])
+const LITERAL_PREDICATES = new Set([
+  'cmd-substr',
+  'path-glob',
+  'push-target',
+  'path-delete',
+])
 
 /** Shortest subject worth matching — below this, prose hits are noise. */
 const SUBJECT_MIN_CHARS = 6
@@ -183,6 +188,11 @@ const SUBJECT_MIN_CHARS = 6
  */
 function subjectsFor(predicate: { type: string; value: string }): string[] {
   if (predicate.type === 'push-target') return ['git push']
+  // LUM-1236: a `path-delete` value lists several paths — each is a subject.
+  if (predicate.type === 'path-delete')
+    return predicate.value
+      .split(',')
+      .flatMap(v => subjectsFor({ type: 'path-glob', value: v }))
   const literal = predicate.value
     .replace(/\*+/g, '')
     .replace(/\s+/g, ' ')

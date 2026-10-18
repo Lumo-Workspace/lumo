@@ -28,6 +28,8 @@ import { recordPolicyWeakening } from '@/lib/services/boundary-crossing-policy-w
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
 import { dedupeRules } from './rule-dedupe'
+import { deletePathRuleShape } from './delete-path-rule'
+import { isUnsafeCmdNeedle } from '@/ee/security/boundary-crossing/action-rule-match'
 import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
 
 /**
@@ -37,7 +39,7 @@ import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
  * of serving a stale rule set until someone edits the doc (LUM-770: the stored
  * policies carried the tsc-obligation-as-prohibition rule).
  */
-export const COMPILER_VERSION = 'lum1114'
+export const COMPILER_VERSION = 'lum1236'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -156,6 +158,11 @@ async function emitWeakening(
  *   naming only built-in-guarded branches → no predicate at all (the built-in,
  *   target-scoped since LUM-464, is the single detector); otherwise → a
  *   `push-target` predicate over the branches the rule names.
+ * - LUM-1236: a "never delete / rename files in <path>" prohibition never
+ *   keeps a path-blind predicate (`cmd-substr: "rm"` flagged `format`,
+ *   `confirm`, every `git rm`): it becomes `path-delete` over the named paths,
+ *   mapped to MIGRATION_FILE_DELETED when they all lie under prisma/migrations
+ *   (./delete-path-rule); any other bare-verb / ≤2-char cmd-substr is dropped;
  * - LUM-1114: a semantic rule without an assertion is judged on its own text —
  *   otherwise nothing ever checks it (./rule-reachability);
  * - LUM-1114: rules that would detect exactly the same thing are merged into
@@ -165,14 +172,12 @@ async function emitWeakening(
 export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
   return dedupeRules(
     rawRules.map(r => {
-      const hasBuiltin =
-        r.mappedCategory != null &&
-        (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
       const obligationWithCmdSubstr =
         r.kind === 'action' &&
         r.predicate?.type === 'cmd-substr' &&
         (r.polarity === 'require' || isObligationText(r.text))
       let predicate = obligationWithCmdSubstr ? undefined : r.predicate
+      let mappedCategory = r.mappedCategory
 
       // LUM-772: push prohibitions are judged on the push destination only.
       const push = obligationWithCmdSubstr ? null : pushRuleShape(r)
@@ -181,6 +186,24 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
           ? undefined
           : { type: 'push-target', value: push.branches.join(',') }
       }
+      // LUM-1236: "never delete files in <path>" is judged on the delete's
+      // operands (`path-delete`); under prisma/migrations the built-in is the
+      // one detector. A bare-verb `cmd-substr` ("rm") never survives: it
+      // matches everyday work and names nothing the rule protects.
+      const del =
+        obligationWithCmdSubstr || push ? null : deletePathRuleShape(r)
+      if (del) {
+        predicate = { type: 'path-delete', value: del.paths.join(',') }
+        if (del.coveredByBuiltin) mappedCategory = 'MIGRATION_FILE_DELETED'
+      } else if (
+        predicate?.type === 'cmd-substr' &&
+        isUnsafeCmdNeedle(predicate.value)
+      ) {
+        predicate = undefined
+      }
+      const hasBuiltin =
+        mappedCategory != null &&
+        (BUILTIN_CATEGORIES as readonly string[]).includes(mappedCategory)
       const hasPredicate = predicate != null
 
       const tier: PolicyRule['tier'] =
@@ -198,10 +221,10 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
         // blocking only when mappedCategory resolves to a known built-in that
         // can block at all (LUM-963: not an advisory-only one).
         blocking:
-          hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(r.mappedCategory as string),
+          hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(mappedCategory as string),
       }
       // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
-      if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
+      if (mappedCategory != null) rule.mappedCategory = mappedCategory
       if (hasPredicate && predicate != null) rule.predicate = predicate
       // LUM-1114: a stored rule re-run here keeps the ids merged into it.
       if (r.aliases != null && r.aliases.length > 0)

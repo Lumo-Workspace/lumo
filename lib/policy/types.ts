@@ -4,12 +4,19 @@
  * `git push` whose own destination is one of them (lib/boundary-crossing/
  * push-target-match). Replaces the target-blind `cmd-substr: "git push"` a
  * "never push to main" rule used to compile to.
+ *
+ * `path-delete` (LUM-1236): compiler-derived too — the value is a
+ * comma-separated list of repository paths and the predicate matches a command
+ * that deletes or moves a file under one of them (lib/boundary-crossing/
+ * path-delete). Replaces the path-blind `cmd-substr: "rm"` a "never delete
+ * files in <path>" rule compiled to.
  */
 export type PredicateType =
   | 'path-glob'
   | 'cmd-substr'
   | 'diff-regex'
   | 'push-target'
+  | 'path-delete'
 
 export interface RulePredicate {
   type: PredicateType
