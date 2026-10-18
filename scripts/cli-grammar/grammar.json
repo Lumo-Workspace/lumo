@@ -1,5 +1,23 @@
 {
   "cliVersion": "1.125.4",
+  "globalFlags": {
+    "--no-hints": {
+      "long": "--no-hints",
+      "short": null,
+      "value": "none",
+      "enum": null,
+      "enumCaseInsensitive": false,
+      "description": "suppress the trailing next-step suggestions"
+    },
+    "--project": {
+      "long": "--project",
+      "short": null,
+      "value": "required",
+      "enum": null,
+      "enumCaseInsensitive": false,
+      "description": "The project to resolve names in (name or slug); defaults to the bound task's project where a command needs one"
+    }
+  },
   "commands": {
     "audit": {
       "arguments": [],
@@ -335,14 +353,6 @@
           "enumCaseInsensitive": false,
           "description": "File under this parent doc (slug, title or id)"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug to file under"
-        },
         "--scope": {
           "long": "--scope",
           "short": null,
@@ -478,14 +488,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Docs per page (1-500, default 50)"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Filter by project name/slug"
         },
         "--scope": {
           "long": "--scope",
@@ -741,14 +743,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Only apply if the doc body is still at this revision (from doc show); mismatch fails with a 409 conflict"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name/slug; pass \"\" to clear"
         },
         "--remove-member": {
           "long": "--remove-member",
@@ -1380,21 +1374,13 @@
           "enumCaseInsensitive": false,
           "description": "Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write"
         },
-        "--project": {
-          "long": "--project",
+        "--scope": {
+          "long": "--scope",
           "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
-        },
-        "--user": {
-          "long": "--user",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Install into ~/.claude and ~/.agents + ~/.codex (applies across all projects for this user)"
+          "value": "required",
+          "enum": ["user", "project"],
+          "enumCaseInsensitive": true,
+          "description": "user | project (case-insensitive) — user: ~/.claude, ~/.agents + ~/.codex, for every project of this user; project: ./.claude, ./.agents + ./.codex, this repo only"
         }
       },
       "hasSubcommands": false,
@@ -1488,14 +1474,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "trap: what goes wrong"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The project (project scope; default: the bound task's project)"
         },
         "--rule": {
           "long": "--rule",
@@ -1643,14 +1621,6 @@
           "enumCaseInsensitive": false,
           "description": "Cap output to the first N rows"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The project (project scope; default: the bound task's project)"
-        },
         "--repo": {
           "long": "--repo",
           "short": null,
@@ -1698,14 +1668,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "List what would be pushed without sending"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project to push to (name/slug/id); default = bound session"
         }
       },
       "hasSubcommands": false,
@@ -1762,14 +1724,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Skip code-anchor staleness detection (the post-sync check that flags memories referencing deleted files/symbols)"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project to sync (name/slug/id); default = bound session"
         }
       },
       "hasSubcommands": false,
@@ -1804,16 +1758,7 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "tasks", "required": true, "variadic": true }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back."
@@ -1822,16 +1767,7 @@
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`."
@@ -1848,14 +1784,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Emit the raw structured changelog payload"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
@@ -1872,14 +1800,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Milestone description"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
         },
         "--start": {
           "long": "--start",
@@ -1914,14 +1834,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         },
         "--yes": {
           "long": "--yes",
@@ -1979,14 +1891,6 @@
           "enumCaseInsensitive": false,
           "description": "Milestones per page (1-500, default 50)"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
-        },
         "--search": {
           "long": "--search",
           "short": null,
@@ -2018,14 +1922,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Place <ref> immediately before this milestone"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
         }
       },
       "hasSubcommands": false,
@@ -2037,32 +1933,14 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "tasks", "required": true, "variadic": true }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned."
     },
     "milestone reorder": {
       "arguments": [{ "name": "refs", "required": true, "variadic": true }],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
@@ -2079,14 +1957,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, milestone, tasks } as JSON"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
@@ -2098,14 +1968,6 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
-        },
         "--retry": {
           "long": "--retry",
           "short": null,
@@ -2138,14 +2000,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Expected result"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -2204,14 +2058,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
@@ -2263,14 +2109,6 @@
           "enumCaseInsensitive": false,
           "description": "Why this ruling"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
-        },
         "--receipt": {
           "long": "--receipt",
           "short": null,
@@ -2289,16 +2127,7 @@
         { "name": "milestone/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: headless-web-cli/TC3"
@@ -2315,14 +2144,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
@@ -2414,14 +2235,6 @@
           "enumCaseInsensitive": false,
           "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
-        },
         "--result": {
           "long": "--result",
           "short": null,
@@ -2471,14 +2284,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCase, runs, pullRequests } as JSON"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
@@ -2497,14 +2302,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New expected result"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -2572,14 +2369,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Mark the listed tasks NOT agent-claimable"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         }
       },
       "hasSubcommands": false,
@@ -2590,16 +2379,7 @@
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id."
@@ -2624,14 +2404,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New name"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (narrows the slug/name lookup; without it a multi-project workspace is searched whole)"
         },
         "--start": {
           "long": "--start",
@@ -2941,54 +2713,6 @@
       "isInvokable": true,
       "description": "Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing."
     },
-    "setup": {
-      "arguments": [],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Default: claude-code and codex."
-        },
-        "--dry-run": {
-          "long": "--dry-run",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print what init would change (per file: path, action, unified diff) and which Codex hooks need Trust, without writing anything"
-        },
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Install into ./.claude and ./.agents + ./.codex (applies to the current project only)"
-        },
-        "--user": {
-          "long": "--user",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Install into ~/.claude and ~/.agents + ~/.codex (applies across all projects for this user)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Alias of `lumo init` (kept for older docs and scripts)."
-    },
     "skill": {
       "arguments": [],
       "flags": {},
@@ -3039,21 +2763,13 @@
           "enumCaseInsensitive": false,
           "description": "Also overwrite locally modified copies (discards those edits); still never downgrades"
         },
-        "--project": {
-          "long": "--project",
+        "--scope": {
+          "long": "--scope",
           "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
-        },
-        "--user": {
-          "long": "--user",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only user-scope copies (~/.claude, ~/.agents)"
+          "value": "required",
+          "enum": ["user", "project"],
+          "enumCaseInsensitive": true,
+          "description": "user | project (case-insensitive) — user: only ~/.claude, ~/.agents copies; project: only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
         }
       },
       "hasSubcommands": false,
@@ -3764,14 +3480,6 @@
           "enumCaseInsensitive": true,
           "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
-        },
         "--rework-of": {
           "long": "--rework-of",
           "short": null,
@@ -4038,14 +3746,6 @@
           "enumCaseInsensitive": false,
           "description": "Filter by milestone slug, name or id (scopes to my tasks under that milestone)"
         },
-        "--project": {
-          "long": "--project",
-          "short": "-p",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Filter by project name (case-insensitive)"
-        },
         "--status": {
           "long": "--status",
           "short": "-s",
@@ -4159,14 +3859,6 @@
           "enum": ["low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
           "description": "Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug"
         },
         "--sprint": {
           "long": "--sprint",
@@ -4528,14 +4220,6 @@
           "enumCaseInsensitive": false,
           "description": "Expected result"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
-        },
         "--requires-env": {
           "long": "--requires-env",
           "short": null,
@@ -4593,14 +4277,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
@@ -4652,14 +4328,6 @@
           "enumCaseInsensitive": false,
           "description": "Why this ruling"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
-        },
         "--receipt": {
           "long": "--receipt",
           "short": null,
@@ -4678,16 +4346,7 @@
         { "name": "task/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
-      "flags": {
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
-        }
-      },
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3"
@@ -4702,14 +4361,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
@@ -4801,14 +4452,6 @@
           "enumCaseInsensitive": false,
           "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
         },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
-        },
         "--result": {
           "long": "--result",
           "short": null,
@@ -4858,14 +4501,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCase, runs, pullRequests } as JSON"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
@@ -4884,14 +4519,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New expected result"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -5239,14 +4866,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "With --tasks: only this member (me, an email, or a display name)"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "With --tasks: only tasks (and their sessions) in this project"
         },
         "--session": {
           "long": "--session",

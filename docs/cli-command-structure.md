@@ -529,6 +529,8 @@ Spelling stays `--project <ref>` where it is a project name, so most rows need n
 | `report --project`                     | global `--project` (command itself: 3e)                                                     | —                                                                 |
 | `milestone testcase * --project`       | global `--project` (case argument: 3a)                                                      | —                                                                 |
 
+As built: `--project <ref>` is defined once on the program, so it works before or after the command words, and each command's `--help` lists it under Global Options. Its value lands in the command's own `project` option, so the commands above behave exactly as before; the others accept it and ignore it. This also covers `task testcase * --project`, `usage show --project` (still `--tasks` only) and `memory add|list --project`, which the table does not list. `grammar.json` records the program flags as `globalFlags`, and the validator accepts them on every command. Tombstones: `setup` → `init`, and `init` / `skill update` with `--user` or `--project` → `--scope user|project`. The old booleans never take a value, so the tombstone runs before the global `--project` could swallow the next word. `task list -p <x>` → `--project <x>`.
+
 #### 3h. `--force` has one meaning
 
 | Current                                                                            | Target                                     | Release note                                                                        |

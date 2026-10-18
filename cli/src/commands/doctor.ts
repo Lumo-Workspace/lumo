@@ -108,7 +108,7 @@ export function refreshCommand(
   scope: 'user' | 'project',
   agent?: string
 ): string {
-  return `lumo init --${scope}${agent ? ` --agent ${agent}` : ''}`
+  return `lumo init --scope ${scope}${agent ? ` --agent ${agent}` : ''}`
 }
 
 /** State for an install older than what the running CLI would write. */
@@ -282,7 +282,7 @@ function settingsRow(
     })
   }
   if (details.length > 0) {
-    row.suggestion = `lumo init --${scope}`
+    row.suggestion = `lumo init --scope ${scope}`
     row.detail = details.join('; ')
   }
   return row
@@ -327,7 +327,7 @@ function gitHookRow(
   }
   if (!upToDate) {
     if (hooksPath)
-      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --project\` prints`
+      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --scope project\` prints`
     else row.suggestion = refreshCommand('project')
   }
   return row

@@ -371,7 +371,7 @@ describe('M4: plain init notes git diff for a tracked settings.json', () => {
     writeFileSync(join(project, '.claude', 'settings.json'), '{}\n')
     commitAll(project)
     await init(
-      { project: true },
+      { scope: 'project' },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
@@ -386,7 +386,7 @@ describe('M4: plain init notes git diff for a tracked settings.json', () => {
 })
 
 describe('M5: Done-when end-to-end on a committed legacy repo', () => {
-  it('auto-sync leaves git clean; re-running init --project upgrades the hit only', async () => {
+  it('auto-sync leaves git clean; re-running init --scope project upgrades the hit only', async () => {
     const repo = tmp()
     gitInit(repo)
     const hit = join(repo, '.claude', 'skills', 'lumo')
@@ -411,7 +411,7 @@ describe('M5: Done-when end-to-end on a committed legacy repo', () => {
 
     expect(
       await init(
-        { project: true },
+        { scope: 'project' },
         {
           cliVersion: '2.0.0',
           homeDir: home,
@@ -471,11 +471,11 @@ describe('M6: only skills/lumo paths are ever synced or removed', () => {
 })
 
 describe('M7: git-hook installs are labelled agent "git"', () => {
-  it('init --project records the git hook with agent git', async () => {
+  it('init --scope project records the git hook with agent git', async () => {
     const project = tmp()
     gitInit(project)
     await init(
-      { project: true },
+      { scope: 'project' },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
@@ -516,7 +516,7 @@ describe('M7: git-hook installs are labelled agent "git"', () => {
     expect(g.staleRecords.map(s => s.path)).toEqual([gone])
   })
 
-  it('re-running init --project re-records a stale git hook as agent git', async () => {
+  it('re-running init --scope project re-records a stale git hook as agent git', async () => {
     const repo = tmp()
     gitInit(repo)
     const hook = join(repo, '.git', 'hooks', 'prepare-commit-msg')
@@ -530,7 +530,7 @@ describe('M7: git-hook installs are labelled agent "git"', () => {
       installs: [rec(hook, { kind: 'git-hook', scope: 'project' })],
     })
     await init(
-      { project: true, agent: 'claude-code' },
+      { scope: 'project', agent: 'claude-code' },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
