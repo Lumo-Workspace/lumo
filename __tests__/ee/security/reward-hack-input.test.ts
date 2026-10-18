@@ -76,6 +76,7 @@ function bash(id: string, at: string, output: string, sessionId = 's1') {
 }
 
 const ROOT = '/Users/dev/repo/.worktrees/LUM-1-foo'
+const ids = (xs: { id: string }[]) => xs.map(x => x.id)
 const END = new Date('2026-10-10T00:00:00Z')
 
 describe('selectSessionsForPr', () => {
@@ -94,7 +95,7 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual(['new'])
+    expect(ids(out.included)).toEqual(['new'])
     expect(out.excludedPruned).toEqual([])
   })
 
@@ -113,7 +114,7 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual(['atEnd'])
+    expect(ids(out.included)).toEqual(['atEnd'])
   })
 
   it('excludes a session whose edits do not touch any PR file', () => {
@@ -127,7 +128,7 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual([])
+    expect(ids(out.included)).toEqual([])
   })
 
   it('matches on a path-segment suffix, never a substring', () => {
@@ -145,7 +146,7 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual(['real'])
+    expect(ids(out.included)).toEqual(['real'])
   })
 
   it('counts Write, MultiEdit and NotebookEdit as edits too', () => {
@@ -176,7 +177,7 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts', 'nb.ipynb'],
     })
-    expect(out.included).toEqual(['w', 'm', 'n'])
+    expect(ids(out.included)).toEqual(['w', 'm', 'n'])
   })
 
   it('puts a fully pruned in-window session into excludedPruned and ignores pruned events', () => {
@@ -188,7 +189,7 @@ describe('selectSessionsForPr', () => {
       ],
     }
     // Live edit is before the window; the in-window event is pruned, so the
-    // session has no live in-window activity and is not included.
+    // session is not included — and its in-window loss must surface.
     const halfPruned = {
       id: 'half',
       events: [
@@ -202,8 +203,8 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual([])
-    expect(out.excludedPruned).toEqual(['pruned'])
+    expect(ids(out.included)).toEqual([])
+    expect(out.excludedPruned).toEqual(['pruned', 'half'])
     expect(out.partiallyPruned).toEqual([])
   })
 
@@ -221,8 +222,47 @@ describe('selectSessionsForPr', () => {
       windowEnd: END,
       prFiles: ['src/a.ts'],
     })
-    expect(out.included).toEqual(['mixed'])
+    expect(ids(out.included)).toEqual(['mixed'])
     expect(out.partiallyPruned).toEqual(['mixed'])
+  })
+
+  it('excludes a session that edited the PR file only before the window and just chats inside it', () => {
+    const s1 = {
+      id: 'long',
+      events: [
+        edit('l1', '2026-10-01T00:00:00Z', `${ROOT}/src/a.ts`, 'long'),
+        prompt('l2', '2026-10-06T00:00:00Z', 'how is it going?', 'long'),
+      ],
+    }
+    const out = selectSessionsForPr({
+      sessions: [s1],
+      windowStart: new Date('2026-10-05T00:00:00Z'),
+      windowEnd: END,
+      prFiles: ['src/a.ts'],
+    })
+    expect(out.included).toEqual([])
+    expect(out.excludedPruned).toEqual([])
+  })
+
+  it('returns only the live in-window events of an included session', () => {
+    const s1 = {
+      id: 'span',
+      events: [
+        edit('before', '2026-10-01T00:00:00Z', `${ROOT}/src/a.ts`, 'span'),
+        edit('inside', '2026-10-06T00:00:00Z', `${ROOT}/src/a.ts`, 'span'),
+        ev({ id: 'pruned', at: '2026-10-07T00:00:00Z', payload: PRUNED }),
+        prompt('after', '2026-10-11T00:00:00Z', 'later work', 'span'),
+      ],
+    }
+    const out = selectSessionsForPr({
+      sessions: [s1],
+      windowStart: new Date('2026-10-05T00:00:00Z'),
+      windowEnd: END,
+      prFiles: ['src/a.ts'],
+    })
+    expect(out.included).toHaveLength(1)
+    expect(ids(out.included[0]!.events)).toEqual(['inside'])
+    expect(out.partiallyPruned).toEqual(['span'])
   })
 
   it('does not flag a fully pruned session outside the window', () => {
@@ -381,6 +421,47 @@ describe('buildRhUserPrompt', () => {
       expect(out.eventIds.has(id)).toBe(false)
     expect(out.eventFile.has('t2')).toBe(false)
     expect(out.prompt).not.toContain('[e:t1]')
+    // Even the markers and fences do not fit 50 characters.
+    expect(out.overCap).toBe(true)
+  })
+
+  it('reports overCap false on the normal path', () => {
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: sessions(),
+      maxChars: 400_000,
+    })
+    expect(out.overCap).toBe(false)
+  })
+
+  it('last resort: shortens the oldest prompt / stop bodies to fit, keeping every marker', () => {
+    const transcripts = [
+      {
+        sessionId: 's1',
+        events: [
+          prompt('p1', '2026-10-06T00:00:00Z', 'q'.repeat(3000), 's1'),
+          bash('t1', '2026-10-06T00:01:00Z', 'y'.repeat(1400), 's1'),
+          stop('st1', '2026-10-06T00:02:00Z', 's'.repeat(2000), 's1'),
+          prompt('p2', '2026-10-06T00:03:00Z', 'latest ask', 's1'),
+          stop('st2', '2026-10-06T00:04:00Z', 'k'.repeat(800), 's1'),
+        ],
+      },
+    ]
+    const maxChars = 2000
+    const out = buildRhUserPrompt({ requirement: 'r', transcripts, maxChars })
+    expect(out.truncated).toBe(true)
+    expect(out.overCap).toBe(false)
+    expect(out.prompt.length).toBeLessThanOrEqual(maxChars)
+    for (const id of ['p1', 'st1', 'p2', 'st2'])
+      expect(out.prompt).toContain(`[e:${id}]`)
+    for (const id of ['p1', 'st1', 'p2', 'st2'])
+      expect(out.eventIds.has(id)).toBe(true)
+    expect(out.eventIds.has('t1')).toBe(false)
+    // Oldest bodies go first; the newest stop survives whole.
+    expect(out.prompt).not.toContain('q'.repeat(3000))
+    expect(out.prompt).toContain('k'.repeat(800))
+    expect(out.prompt).toContain('latest ask')
+    expect(out.prompt).toMatch(/…\[truncated \d+ chars\]/)
   })
 
   it('masks a secret in the task requirement', () => {

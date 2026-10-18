@@ -90,6 +90,11 @@ describe('loadTaskSessions', () => {
     const evArgs = p.hookEvent!.findMany!.mock.calls[0]![0]
     expect(evArgs.where.workspaceId).toBe('ws1')
     expect(evArgs.where.sessionId).toEqual({ in: ['top', 'inf', 'top:agent1'] })
+    // LUM-932 rule: only THIS task's events (event taskId first, else the
+    // session's), so an inferred session's other-task work stays out.
+    expect(evArgs.where.AND).toEqual([
+      { OR: [{ taskId: 't1' }, { taskId: null, session: { taskId: 't1' } }] },
+    ])
     expect(evArgs.where.type.in).toEqual(
       expect.arrayContaining(['USER_PROMPT_SUBMIT', 'POST_TOOL_USE', 'STOP'])
     )
@@ -114,18 +119,19 @@ describe('loadTaskSessions', () => {
 })
 
 describe('previousMergedAt', () => {
-  it('latest merge of another PR of the same task, in the workspace', async () => {
+  it('latest merge of another PR of the same task before this PR started, in the workspace', async () => {
     const d = new Date('2026-10-04T00:00:00Z')
+    const before = new Date('2026-10-05T00:00:00Z')
     p.pullRequest!.findFirst!.mockResolvedValue({ mergedAt: d })
     await expect(
-      rewardHackInputRepository.previousMergedAt('ws1', 't1', 'pr2')
+      rewardHackInputRepository.previousMergedAt('ws1', 't1', 'pr2', before)
     ).resolves.toBe(d)
     expect(p.pullRequest!.findFirst).toHaveBeenCalledWith({
       where: {
         workspaceId: 'ws1',
         taskId: 't1',
         id: { not: 'pr2' },
-        mergedAt: { not: null },
+        mergedAt: { not: null, lt: before },
       },
       orderBy: { mergedAt: 'desc' },
       select: { mergedAt: true },
@@ -135,7 +141,12 @@ describe('previousMergedAt', () => {
   it('null when there is none', async () => {
     p.pullRequest!.findFirst!.mockResolvedValue(null)
     await expect(
-      rewardHackInputRepository.previousMergedAt('ws1', 't1', 'pr2')
+      rewardHackInputRepository.previousMergedAt(
+        'ws1',
+        't1',
+        'pr2',
+        new Date('2026-10-05T00:00:00Z')
+      )
     ).resolves.toBeNull()
   })
 })

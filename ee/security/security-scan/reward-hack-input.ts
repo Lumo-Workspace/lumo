@@ -2,14 +2,16 @@
  * LUM-1234 — assembling the reward-hack judge's input (pure functions).
  *
  *  - `selectSessionsForPr`: which agent sessions of the task belong to THIS
- *    PR — live activity inside `(windowStart, windowEnd]` AND an edit to a
- *    file the PR changes. Pruned payloads count as absent.
+ *    PR — a live edit to a file the PR changes inside `(windowStart,
+ *    windowEnd]`; returns only the in-window events. Pruned payloads count
+ *    as absent, and a loss of in-window events is always reported.
  *  - `renderRhTranscript`: one session's events as text, every event behind
  *    an `[e:<id>]` marker (the judge cites ids without the `e:` prefix).
  *  - `buildRhUserPrompt`: the fenced task requirement plus every fenced
  *    session, cut to `maxChars` (earliest tool results first, then earliest
- *    tool calls; user prompts and stop messages always stay), with the ids and
- *    edited files that actually made it into the prompt.
+ *    tool calls, then the bodies of the earliest prompts / stop messages —
+ *    their markers always stay), with the ids and edited files that made it
+ *    into the prompt, and `overCap` when even that cannot fit.
  *  - `rhWatermark`: sessionId → last event id, to tell whether a re-run sees
  *    new activity.
  *
@@ -119,38 +121,44 @@ export function selectSessionsForPr(args: {
   windowEnd: Date
   prFiles: string[]
 }): {
-  included: string[]
-  /** Sessions with in-window activity whose every event was pruned. */
+  /**
+   * Sessions that belong to this PR, each carrying ONLY its live in-window
+   * events — render these, never the full session, so an earlier PR's
+   * trajectory is not judged against this one.
+   */
+  included: RhSession[]
+  /**
+   * Sessions not included that lost in-window events to pruning: their part
+   * of this PR cannot be judged (fully pruned, or only the in-window part).
+   */
   excludedPruned: string[]
   /** Included sessions that lost at least one in-window event to pruning. */
   partiallyPruned: string[]
 } {
   const { windowStart, windowEnd, prFiles } = args
-  const included: string[] = []
+  const included: RhSession[] = []
   const excludedPruned: string[] = []
   const partiallyPruned: string[] = []
   for (const session of args.sessions) {
     const windowed = session.events.filter(e =>
       inWindow(e.createdAt, windowStart, windowEnd)
     )
-    const live = session.events.filter(e => !isPrunedPayload(e.payload))
-    if (session.events.length > 0 && live.length === 0) {
-      // A session pruned long before this PR's window says nothing about
-      // this PR; only one that was active inside it leaves a gap.
-      if (windowed.length > 0) excludedPruned.push(session.id)
-      continue
-    }
-    const liveInWindow = live.some(e =>
-      inWindow(e.createdAt, windowStart, windowEnd)
-    )
-    const touchesPr = live.some(e => {
+    const liveWindowed = windowed.filter(e => !isPrunedPayload(e.payload))
+    const lostSome = liveWindowed.length < windowed.length
+    // Both conditions are judged on live IN-WINDOW events only: an edit made
+    // before the previous merge belongs to that PR, not this one.
+    const touchesPr = liveWindowed.some(e => {
       const p = rhEventFilePath(e)
       return p !== null && prFiles.some(f => pathMatchesPrFile(p, f))
     })
-    if (!liveInWindow || !touchesPr) continue
-    included.push(session.id)
-    if (windowed.some(e => isPrunedPayload(e.payload)))
-      partiallyPruned.push(session.id)
+    if (touchesPr) {
+      included.push({ id: session.id, events: liveWindowed })
+      if (lostSome) partiallyPruned.push(session.id)
+    } else if (lostSome) {
+      // The pruned in-window events may have been this PR's edits; the loss
+      // must surface, never read as "no session".
+      excludedPruned.push(session.id)
+    }
   }
   return { included, excludedPruned, partiallyPruned }
 }
@@ -298,8 +306,14 @@ function renderBlocks(events: RhEvent[], caps: RhCaps): RhBlock[] {
     .filter((b): b is RhBlock => b !== null)
 }
 
-function blockText(b: RhBlock, dropResult: boolean): string {
-  return [b.head, b.body, dropResult ? '' : b.result]
+function shortenBody(body: string, keep: number | undefined): string {
+  if (keep === undefined || keep >= body.length) return body
+  const note = `…[truncated ${body.length - keep} chars]`
+  return keep > 0 ? `${body.slice(0, keep)}\n${note}` : note
+}
+
+function blockText(b: RhBlock, dropResult: boolean, bodyKeep?: number): string {
+  return [b.head, shortenBody(b.body, bodyKeep), dropResult ? '' : b.result]
     .filter(s => s.length > 0)
     .join('\n')
 }
@@ -329,7 +343,12 @@ function attrValue(v: string): string {
 interface CutState {
   droppedResults: Set<RhBlock>
   droppedBlocks: Set<RhBlock>
+  /** prompt / stop blocks whose body is cut to this many characters. */
+  bodyKeep: Map<RhBlock, number>
 }
+
+/** Room a shortened body's `…[truncated N chars]` note takes. */
+const SHORTEN_NOTE_CHARS = 32
 
 export function buildRhUserPrompt(args: {
   requirement: string
@@ -343,6 +362,11 @@ export function buildRhUserPrompt(args: {
   eventIds: Set<string>
   /** For every id in `eventIds`: the file it wrote (Write/Edit/…), else null. */
   eventFile: Map<string, string | null>
+  /**
+   * The prompt is still over `maxChars` after every cut (the markers and
+   * fences alone do not fit). The caller must not send it to the model.
+   */
+  overCap: boolean
 } {
   const caps = args.caps ?? RH_DEFAULT_CAPS
   let truncated = false
@@ -359,8 +383,9 @@ export function buildRhUserPrompt(args: {
     blocks: renderBlocks(t.events, caps),
   }))
 
-  // Drop order: earliest tool results, then earliest tool calls. Prompts and
-  // stop messages are never candidates.
+  // Cut order: earliest tool results, then earliest tool calls (whole
+  // blocks), then — last resort — the bodies of the earliest prompts / stop
+  // messages, which always keep their marker.
   const tools = sessions
     .flatMap(s => s.blocks)
     .filter(b => b.kind === 'tool')
@@ -379,13 +404,20 @@ export function buildRhUserPrompt(args: {
   const state: CutState = {
     droppedResults: new Set(),
     droppedBlocks: new Set(),
+    bodyKeep: new Map(),
   }
+  const shortenable = sessions
+    .flatMap(s => s.blocks)
+    .filter(b => b.kind !== 'tool' && b.body.length > SHORTEN_NOTE_CHARS)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 
   const assemble = () => {
     const sessionParts = sessions.map(s => {
       const kept = s.blocks.filter(b => !state.droppedBlocks.has(b))
       const text = kept
-        .map(b => blockText(b, state.droppedResults.has(b)))
+        .map(b =>
+          blockText(b, state.droppedResults.has(b), state.bodyKeep.get(b))
+        )
         .join('\n\n')
       return {
         kept,
@@ -399,21 +431,36 @@ export function buildRhUserPrompt(args: {
   }
 
   let next = 0
+  let shortenAt = 0
   let built = assemble()
   // Guarding can change lengths slightly (masked values, notices), so cut by
   // the raw estimate, re-assemble, and repeat until it fits or nothing is left.
-  while (built.prompt.length > args.maxChars && next < units.length) {
+  while (built.prompt.length > args.maxChars) {
     truncated = true
     let excess = built.prompt.length - args.maxChars
+    let progressed = false
     while (excess > 0 && next < units.length) {
       const u = units[next++]!
       if (u.result) state.droppedResults.add(u.block)
       else state.droppedBlocks.add(u.block)
       excess -= u.size
+      progressed = true
     }
+    while (excess > 0 && shortenAt < shortenable.length) {
+      const b = shortenable[shortenAt]!
+      const current = state.bodyKeep.get(b) ?? b.body.length
+      const target = Math.max(0, current - excess - SHORTEN_NOTE_CHARS)
+      if (target < current) {
+        state.bodyKeep.set(b, target)
+        progressed = true
+      }
+      excess -= current - target - SHORTEN_NOTE_CHARS
+      if (target === 0) shortenAt++
+    }
+    if (!progressed) break
     built = assemble()
   }
-  if (built.prompt.length > args.maxChars) truncated = true
+  const overCap = built.prompt.length > args.maxChars
 
   const eventIds = new Set<string>()
   const eventFile = new Map<string, string | null>()
@@ -425,7 +472,7 @@ export function buildRhUserPrompt(args: {
       eventFile.set(b.eventId, b.filePath)
     }
   }
-  return { prompt: built.prompt, truncated, eventIds, eventFile }
+  return { prompt: built.prompt, truncated, eventIds, eventFile, overCap }
 }
 
 // ─── watermark ──────────────────────────────────────────────────────────────

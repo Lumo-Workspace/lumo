@@ -11,6 +11,7 @@ import type { HookEventType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { logger } from '@/lib/logger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { eventsForTask } from '@/lib/repositories/task-attribution-where'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import type {
   RhEvent,
@@ -81,6 +82,10 @@ export const rewardHackInputRepository = {
         workspaceId,
         sessionId: { in: ids },
         type: { in: RH_EVENT_TYPES },
+        // An inferred session spans every task it touched, and an event can
+        // be re-tagged to another task: keep only THIS task's events (the
+        // LUM-932 rule — the event's own taskId first, else its session's).
+        AND: [eventsForTask(taskId)],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
@@ -107,18 +112,24 @@ export const rewardHackInputRepository = {
     return ids.map(id => ({ id, events: bySession.get(id) ?? [] }))
   },
 
-  /** Latest `mergedAt` of the task's OTHER PRs in the workspace; null if none. */
+  /**
+   * Latest `mergedAt` of the task's OTHER PRs in the workspace that merged
+   * strictly before `before` (this PR's start), so a sibling PR merged while
+   * this one was open cannot push the window start past this PR's own work.
+   * Null if none.
+   */
   async previousMergedAt(
     workspaceId: string,
     taskId: string,
-    excludePrId: string
+    excludePrId: string,
+    before: Date
   ): Promise<Date | null> {
     const row = await prisma.pullRequest.findFirst({
       where: {
         workspaceId,
         taskId,
         id: { not: excludePrId },
-        mergedAt: { not: null },
+        mergedAt: { not: null, lt: before },
       },
       orderBy: { mergedAt: 'desc' },
       select: { mergedAt: true },
