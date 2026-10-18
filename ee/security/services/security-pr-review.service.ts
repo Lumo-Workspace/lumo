@@ -77,7 +77,7 @@ import {
   verifierHolding,
 } from '@/ee/security/security-scan/verifier'
 import {
-  SCAN_STAGE_KEYS,
+  SCAN_STAGE_DISPLAY_ORDER,
   SCAN_STAGE_DESCRIPTIONS,
   SCAN_STAGE_LABELS,
   SCAN_UNFINISHED_NOTE,
@@ -165,7 +165,7 @@ export const fingerprintMarker = (fp: string): string =>
 const FINGERPRINT_MARKER_RE = /<!--\s*lumo-security:fp:([^\s>]+?)\s*-->/g
 
 /** Stage order in the summary line; only keys the scan actually carries show. */
-const STAGE_ORDER: readonly ScanStageKey[] = SCAN_STAGE_KEYS
+const STAGE_ORDER: readonly ScanStageKey[] = SCAN_STAGE_DISPLAY_ORDER
 
 // Same ordering as the panel (`pr-security-scan.service`): worst severity
 // first, then the layer we trust most. Copied rather than imported — that

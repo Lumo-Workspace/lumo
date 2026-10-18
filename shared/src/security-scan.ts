@@ -40,9 +40,26 @@ export const SCAN_STAGE_KEYS = [
   'supplyChain',
   'judge',
   'hunt',
+  // LUM-1234: appended, never inserted — stored keys are a persisted contract.
+  'rewardHack',
 ] as const
 
 export type ScanStageKeyName = (typeof SCAN_STAGE_KEYS)[number]
+
+/**
+ * LUM-1234 — the order the layers are shown in, which is not the stored key
+ * order: `rewardHack` was appended to the stored keys but reads best between
+ * AI review and Exploit paths. Every display loop (PR comment, CLI, web)
+ * uses this; persistence and validation keep `SCAN_STAGE_KEYS`.
+ */
+export const SCAN_STAGE_DISPLAY_ORDER: readonly ScanStageKeyName[] = [
+  'secrets',
+  'external',
+  'supplyChain',
+  'judge',
+  'rewardHack',
+  'hunt',
+]
 
 /** The states a layer can be in. `ScanStageState` in `lib/security-scan/types.ts` derives from this. */
 export const SCAN_STAGE_STATES = [
@@ -76,6 +93,7 @@ export const SCAN_STAGE_LABELS: Record<ScanStageKeyName, string> = {
   external: 'Code scan',
   supplyChain: 'Dependencies',
   judge: 'AI review',
+  rewardHack: 'Agent behavior',
   hunt: 'Exploit paths',
 }
 
@@ -97,6 +115,8 @@ export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
   // LUM-988: a general code review, not a security-only pass.
   judge:
     'an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
+  rewardHack:
+    'whether the agent sessions behind this PR gamed tests, metrics or checks instead of doing the task',
   hunt: 'traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
 }
 

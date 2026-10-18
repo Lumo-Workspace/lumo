@@ -44,7 +44,7 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 import {
   JUDGE_PARTIAL_MAX_NAMED,
-  SCAN_STAGE_KEYS,
+  SCAN_STAGE_DISPLAY_ORDER,
   isJudgeOverCapByFiles,
   turnedOffLayers,
 } from '@/shared/src/security-scan'
@@ -423,7 +423,7 @@ function ReviewControls({
  * same list the PR summary and `lumo task status` render from, so a sixth
  * layer can never reach one surface and not another.
  */
-const STAGE_ORDER = SCAN_STAGE_KEYS
+const STAGE_ORDER = SCAN_STAGE_DISPLAY_ORDER
 
 /**
  * The scanners behind each layer, named in its ⓘ card. Product names, not
@@ -435,6 +435,7 @@ const STAGE_TOOLS: Record<(typeof STAGE_ORDER)[number], string | null> = {
   external: 'gitleaks · semgrep · zizmor · trivy',
   supplyChain: 'osv-scanner',
   judge: null,
+  rewardHack: null,
   hunt: null,
 }
 

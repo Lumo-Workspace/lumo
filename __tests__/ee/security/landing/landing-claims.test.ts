@@ -49,7 +49,14 @@ function arrayLiteral(source: string, name: string): string {
  */
 describe('landing scan claims LUM-804 (plugin side)', () => {
   it('copy that counts the scan layers agrees with SCAN_STAGE_LABELS', () => {
-    const labels = Object.values(SCAN_STAGE_LABELS)
+    // LUM-1234: Agent behavior ships behind the platform flag LUMO_REWARD_HACK
+    // (off until the dogfood precision gate passes), so the landing page does
+    // not count it yet. Remove it from this list in the PR that turns the
+    // flag on and updates the copy to six layers.
+    const NOT_YET_CLAIMED = ['Agent behavior']
+    const labels = Object.values(SCAN_STAGE_LABELS).filter(
+      l => !NOT_YET_CLAIMED.includes(l)
+    )
     const COUNT_WORD: Record<number, string> = {
       3: 'three',
       4: 'four',

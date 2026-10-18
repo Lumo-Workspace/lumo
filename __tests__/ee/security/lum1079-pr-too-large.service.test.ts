@@ -212,6 +212,7 @@ describe('run(): a PR too large to scan', () => {
         external: 'SKIPPED',
         supplyChain: 'SKIPPED',
         judge: 'SKIPPED',
+        rewardHack: 'SKIPPED',
         hunt: 'SKIPPED',
       },
       partialCauses: ['PR_TOO_LARGE'],
