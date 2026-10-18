@@ -1146,6 +1146,9 @@ export const prSecurityScanRepository = {
           huntAudit: Prisma.DbNull,
           huntRunId: null,
           huntAttempts: 0,
+          // LUM-1234: the re-run writes its own reward-hack verdict; the old
+          // state would vouch for rows the restart just deleted.
+          rewardHackState: Prisma.DbNull,
         },
       })
       return snapshot ?? true
@@ -1461,6 +1464,123 @@ export const prSecurityScanRepository = {
           ...(extra.error !== undefined ? { error: extra.error } : {}),
         },
       })
+    })
+  },
+
+  /**
+   * LUM-1234 — what the reward-hack layer needs of its scan row: the PR, the
+   * workspace, and the scan start (the session window's end).
+   */
+  async findForRewardHack(scanId: string): Promise<{
+    id: string
+    pullRequestId: string
+    workspaceId: string
+    startedAt: Date
+  } | null> {
+    return prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: {
+        id: true,
+        pullRequestId: true,
+        workspaceId: true,
+        startedAt: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — the most recent earlier scan of the same PR that stored a
+   * reward-hack verdict (non-null `rewardHackState`). "Earlier" is by
+   * `startedAt` against `beforeScanId`'s own; null when there is none.
+   */
+  async findPreviousScanForPr(
+    pullRequestId: string,
+    beforeScanId: string
+  ): Promise<{ id: string; rewardHackState: unknown } | null> {
+    const current = await prisma.prSecurityScan.findUnique({
+      where: { id: beforeScanId },
+      select: { startedAt: true },
+    })
+    if (!current) return null
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: beforeScanId },
+        startedAt: { lt: current.startedAt },
+        rewardHackState: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, rewardHackState: true },
+    })
+  },
+
+  /** LUM-1234 — one scan's REWARD_HACK rows, in the shape a copy needs. */
+  async findRewardHackFindings(
+    scanId: string
+  ): Promise<
+    Array<
+      Pick<
+        NewFindingInput,
+        | 'kind'
+        | 'ruleId'
+        | 'severity'
+        | 'provenance'
+        | 'filePath'
+        | 'line'
+        | 'title'
+        | 'detail'
+        | 'evidence'
+        | 'fingerprint'
+      >
+    >
+  > {
+    return prisma.prSecurityFinding.findMany({
+      where: { scanId, kind: 'REWARD_HACK' },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        kind: true,
+        ruleId: true,
+        severity: true,
+        provenance: true,
+        filePath: true,
+        line: true,
+        title: true,
+        detail: true,
+        evidence: true,
+        fingerprint: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — add a background layer's rows to a scan stage A already
+   * persisted (same lock order as `persistHuntResult`: scan UPDATE first).
+   * `status` flips to FINDINGS only when rows land.
+   */
+  async appendFindings(scanId: string, rows: NewFindingInput[]): Promise<void> {
+    if (rows.length === 0) return
+    await withSerializableRetry(async tx => {
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: { status: 'FINDINGS' },
+      })
+      await tx.prSecurityFinding.createMany({ data: rows })
+    })
+  },
+
+  /** LUM-1234 — the reward-hack verdict's state (overwritten per run). */
+  async setRewardHackState(
+    scanId: string,
+    state: {
+      watermark: Record<string, string>
+      findingFingerprints: string[]
+      costUsd: number
+      truncated: boolean
+    }
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { rewardHackState: state as unknown as Prisma.InputJsonValue },
     })
   },
 

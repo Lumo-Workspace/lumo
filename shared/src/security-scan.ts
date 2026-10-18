@@ -310,6 +310,23 @@ export const PARTIAL_CAUSES = [
    * PR or narrow its scope (`formatPrTooLarge`). Never our "didn't finish".
    */
   'PR_TOO_LARGE',
+  /**
+   * LUM-1234 — the workspace reached this month's spend ceiling for the
+   * reward-hack layer (`LUMO_REWARD_HACK_MONTHLY_CAP_USD`, a budget WE set):
+   * the agent sessions were not judged. Never told as checked.
+   */
+  'reward_hack_monthly_cap',
+  /**
+   * LUM-1234 — the agent sessions were longer than the reward-hack layer's
+   * input cap: the earliest tool output was cut (or, when even that could
+   * not fit, nothing was judged).
+   */
+  'reward_hack_input_cap',
+  /**
+   * LUM-1234 — some of this PR's agent-session events were already pruned
+   * by retention (or deleted), so that part of the work could not be judged.
+   */
+  'reward_hack_pruned',
 ] as const
 
 export type PartialCause = (typeof PARTIAL_CAUSES)[number]
@@ -345,6 +362,9 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
   PR_TOO_LARGE: 'CHANGE_TOO_LARGE',
+  reward_hack_monthly_cap: 'COVERAGE_OWED',
+  reward_hack_input_cap: 'COVERAGE_OWED',
+  reward_hack_pruned: 'COVERAGE_OWED',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {

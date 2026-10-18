@@ -110,6 +110,7 @@ import {
   type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
 import { isManagedScanEnabled } from './security-managed-scan.config'
+import { isRewardHackEnabled } from './security-reward-hack.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
@@ -1041,6 +1042,8 @@ async function finishTooLarge(
   )
   const stages: ScanStages = {}
   for (const key of SCAN_STAGE_KEYS) stages[key] = 'SKIPPED'
+  // LUM-1234: a layer the platform does not offer is off, not skipped.
+  if (!isRewardHackEnabled()) stages.rewardHack = 'NOT_CONFIGURED'
   await prSecurityScanRepository.finalize(scanId, {
     status: 'FAILED',
     judgeStatus: null,
@@ -1051,6 +1054,24 @@ async function finishTooLarge(
   })
   waitUntil(securityPrReviewService.sync(scanId))
   return { deduped: false, scanId, status: 'FAILED', findings: 0 }
+}
+
+/**
+ * LUM-1234 — run the reward-hack layer. Dynamic import: keeps the layer's
+ * model client and session reads out of stage A's static graph. The runner
+ * never throws; a failed import is stamped FAILED so the layer never sits
+ * PENDING for a run that does not exist.
+ */
+async function startRewardHackLayer(scanId: string): Promise<void> {
+  try {
+    const { runRewardHackLayer } = await import('./reward-hack-layer.service')
+    await runRewardHackLayer(scanId)
+  } catch (error) {
+    logger.error(
+      `[pr-security-scan] reward-hack layer not started scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    await prSecurityScanRepository.mergeStages(scanId, { rewardHack: 'FAILED' })
+  }
 }
 
 export const prSecurityScanService = {
@@ -2023,6 +2044,15 @@ export const prSecurityScanService = {
       // off — the layer is shown as off in settings rather than vanishing,
       // so a reader can tell "not checked" from "nothing to check".
       else if (layers.huntTurnedOff) stages.hunt = 'DISABLED'
+      // LUM-1234: the reward-hack layer ("Agent behavior") reads the agent
+      // sessions behind the PR, so a PR with no task has nothing to judge.
+      // It runs after this result is persisted (below), like the hunt. With
+      // the platform switch off (LUMO_REWARD_HACK) there is no layer at all,
+      // as for the hunt: a NOT_CONFIGURED key would read every scan as
+      // unfinished while the layer is not offered.
+      if (layers.rewardHack)
+        stages.rewardHack = pr.taskId ? 'PENDING' : 'SKIPPED'
+      else if (layers.rewardHackTurnedOff) stages.rewardHack = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
       // run (an industry-standard file cap): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
@@ -2192,6 +2222,10 @@ export const prSecurityScanService = {
         })
       }
       if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
+      // LUM-1234: the row is settled — the reward-hack layer runs in the
+      // background and syncs the PR summary itself when its verdict lands.
+      if (stages.rewardHack === 'PENDING')
+        waitUntil(startRewardHackLayer(scanId))
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
@@ -2236,6 +2270,8 @@ export const prSecurityScanService = {
         await prReviewControlRepository.release(pr.id, headSha)
       // LUM-739: a hunt that was never started must not read as "scanning".
       if (stages.hunt === 'PENDING') delete stages.hunt
+      // LUM-1234: nor the reward-hack layer, which starts after the persist.
+      if (stages.rewardHack === 'PENDING') delete stages.rewardHack
       await prSecurityScanRepository.finalize(scanId, {
         status: 'FAILED',
         judgeStatus: null,
