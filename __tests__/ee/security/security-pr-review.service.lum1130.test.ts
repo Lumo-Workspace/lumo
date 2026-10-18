@@ -319,6 +319,24 @@ describe('LUM-1130 mode on', () => {
     expect(submitReview).not.toHaveBeenCalled()
   })
 
+  it('LUM-1234: a scan partial only because our reward-hack cap was reached is still approved', async () => {
+    addressedThreadSetup()
+    listReviews.mockResolvedValue([changesRequested])
+    findById.mockResolvedValue({
+      ...scanRow([]),
+      partial: true,
+      partialCauses: ['REWARD_HACK_MONTHLY_CAP'],
+      stages: {
+        secrets: 'RAN',
+        external: 'RAN',
+        judge: 'RAN',
+        rewardHack: 'PARTIAL',
+      },
+    })
+    await securityPrReviewService.syncReview('s1')
+    expect(events()).toEqual(['APPROVE'])
+  })
+
   it('a blocking finding whose thread was resolved on GitHub still prevents approval', async () => {
     const blocking = finding({
       provenance: 'DETERMINISTIC',

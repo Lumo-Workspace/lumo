@@ -2304,6 +2304,7 @@ export const securityPrReviewService = {
             status: scan.status,
             partial: scan.partial,
             stages: (scan.stages as ScanStages | null) ?? null,
+            partialCauses: scan.partialCauses ?? [],
           },
           openThreads: threads.counts.open + newThreads,
           blocking,

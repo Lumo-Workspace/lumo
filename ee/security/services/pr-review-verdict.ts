@@ -11,7 +11,8 @@
  *     (CLEAN / FINDINGS), is not partial, and no layer is PAUSED, PENDING,
  *     PARTIAL, FAILED or SUPERSEDED (a layer the workspace turned off —
  *     DISABLED — or that does not apply — SKIPPED / NOT_CONFIGURED — is not
- *     enabled, so it does not hold approval back);
+ *     enabled, so it does not hold approval back; the advisory reward-hack
+ *     layer and its REWARD_HACK_* partial causes never do, LUM-1234);
  *   · zero open Lumo threads;
  *   · zero DONE-blocking findings (`isBlockingFinding`) — a blocking finding
  *     whose thread a human resolved on GitHub still blocks (LUM-1128 ruling:
@@ -48,6 +49,11 @@ export interface VerdictScan {
   status: ScanStatus
   partial: boolean
   stages: ScanStages | null
+  /**
+   * LUM-1234 — why the scan is partial. Absent / null (a caller that does not
+   * know) = any partial scan is incomplete, as before.
+   */
+  partialCauses?: readonly string[] | null
 }
 
 export interface VerdictInput {
@@ -83,12 +89,31 @@ const NOT_REVIEWED: ReadonlySet<ScanStageState> = new Set([
   'SUPERSEDED',
 ])
 
+/**
+ * LUM-1234 — advisory layers whose state never holds approval back: the
+ * reward-hack layer ("Agent behavior") only informs the reviewer, and its
+ * PARTIAL / PENDING come from OUR caps (monthly spend, input size) or our
+ * pace — a capped workspace must still get Lumo's approval.
+ */
+const ADVISORY_LAYERS: ReadonlySet<string> = new Set(['rewardHack'])
+const ADVISORY_CAUSE_PREFIX = 'REWARD_HACK_'
+
 /** Did every enabled layer review this head, whole? */
 export function isReviewComplete(scan: VerdictScan): boolean {
   if (scan.status !== 'CLEAN' && scan.status !== 'FINDINGS') return false
-  if (scan.partial) return false
+  if (scan.partial) {
+    // Partial only because of an advisory layer's causes: not held back.
+    const causes = scan.partialCauses ?? []
+    if (
+      causes.length === 0 ||
+      causes.some(c => !c.startsWith(ADVISORY_CAUSE_PREFIX))
+    )
+      return false
+  }
   if (!scan.stages) return false
-  return !Object.values(scan.stages).some(s => s && NOT_REVIEWED.has(s))
+  return !Object.entries(scan.stages).some(
+    ([layer, s]) => !ADVISORY_LAYERS.has(layer) && s && NOT_REVIEWED.has(s)
+  )
 }
 
 export function decideReviewVerdict(input: VerdictInput): Verdict {
