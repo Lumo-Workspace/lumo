@@ -3,8 +3,10 @@
  * version 3) over every UNBOUND root session that hosts a self-attached
  * subagent, so the orchestrating parent stops being inferred onto tasks.
  *
- * What changes per family (all through `attributionService.recomputeFamily`,
- * the same versioned, root-serialized write the STOP / attach triggers use):
+ * What changes per family — written by `recomputeAttributionOnly` (which runs
+ * `attributionService.recomputeFamily`, the same versioned, root-serialized
+ * write the STOP / attach triggers use), then `replayBackfilledEvents` for any
+ * event that moved from no task onto one:
  *   - the root's INFERRED segments (only work-output turns keep one);
  *   - the root's event task tags (`HookEvent.taskId`, mostly → no task);
  *   - UNDISPOSITIONED boundary crossings on those events move with them
@@ -54,12 +56,16 @@ function flag(name: string): string | undefined {
 }
 
 function parseArgs(): Args {
-  const since = flag('since')
+  const sinceRaw = flag('since')
+  const since = sinceRaw ? new Date(sinceRaw) : undefined
+  if (since && Number.isNaN(since.getTime())) {
+    throw new Error(`--since is not a date: ${sinceRaw}`)
+  }
   const limit = Number(flag('limit') ?? 500)
   return {
     commit: process.argv.includes('--commit'),
     ...(flag('workspace') ? { workspaceId: flag('workspace') } : {}),
-    ...(since ? { since: new Date(since) } : {}),
+    ...(since ? { since } : {}),
     ...(flag('session') ? { sessionId: flag('session') } : {}),
     limit: Number.isFinite(limit) && limit > 0 ? limit : 500,
   }
