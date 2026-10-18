@@ -1,9 +1,7 @@
 import { emptyState, fmtTimestamp } from '../lib/format'
-import { emitJson, withVersion } from '../lib/json-output'
 import { sectionHeading, type LayoutOptions } from '../lib/report-layout'
 import { sanitizeField } from '../lib/sanitize'
-import { apiCall, apiContext } from '../lib/test-case-api'
-import { colorEnabled, icons, truncate } from '../lib/ui'
+import { icons, truncate } from '../lib/ui'
 
 /** One row of `GET /api/notifications` (the fields the CLI renders). */
 export interface InboxNotification {
@@ -145,24 +143,4 @@ export function inboxPage(data: InboxResponse): {
 } {
   const n = data.notifications.length
   return { total: n < INBOX_SERVER_CAP ? n : null, nextCursor: null }
-}
-
-/** `lumo inbox list` (LUM-1192) — your notifications, read-only. */
-export async function inboxList(
-  opts: { json?: boolean } = {}
-): Promise<number | void> {
-  const ctx = apiContext()
-  if (!ctx) return 1
-  const r = await apiCall<InboxResponse>(
-    ctx,
-    '/api/notifications',
-    {},
-    'inbox list'
-  )
-  if (!r.ok || !r.data) return 1
-  if (opts.json) {
-    emitJson(withVersion({ ...r.data, ...inboxPage(r.data) }))
-    return
-  }
-  process.stdout.write(formatInbox(r.data, { color: colorEnabled() }) + '\n')
 }

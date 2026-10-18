@@ -262,7 +262,7 @@ export const milestoneService = {
   },
 
   /**
-   * LUM-646: per-milestone F2 budget signal for the `lumo next --claimable`
+   * LUM-646: per-milestone F2 budget signal for the `lumo status --next --claimable`
    * gate. Returns milestoneId → exceeded, where `true` means the milestone's
    * MEASURED burn is over its advisory token budget (LUM-644). `null` = no
    * budget set, or burn unmeasured — fail-open on the unknown, so only a

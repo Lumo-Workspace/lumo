@@ -69,7 +69,15 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   ],
   'session attach': ['lumo session attach LUM-42'],
   'session status': ['lumo session status'],
-  next: ['lumo next', 'lumo next --count 5', 'lumo next --claimable'],
+  status: [
+    'lumo status',
+    'lumo status --next --limit 5',
+    'lumo status --next --claimable',
+    'lumo status --inbox --json',
+  ],
+  'priority create': [
+    'lumo priority create "Ship the billing MVP before the launch."',
+  ],
   'crossing list': [
     'lumo crossing list LUM-42',
     'lumo crossing list LUM-42 --all',
@@ -113,7 +121,6 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo usage show --by member --tasks --since 2026-10-01 --until 2026-10-07',
   ],
   'usage resync': ['lumo usage resync --dry-run', 'lumo usage resync'],
-  'inbox list': ['lumo inbox list'],
   'audit list': ['lumo audit list', 'lumo audit list --actor me --since 7d'],
   'project overview': ['lumo project overview lumo'],
   whoami: ['lumo whoami', 'lumo whoami --full'],

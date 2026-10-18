@@ -70,8 +70,19 @@ describe('doc-example parsing helpers', () => {
     const paths = runnableGrammarPaths(grammar)
     expect(paths).toContain('task list')
     expect(paths).not.toContain('task') // pure routing node
-    expect(paths).toContain('priority') // parent with its own action (LUM-706)
+    // LUM-1233 3f: `priority` is a plain group now (CS-2), so not runnable.
+    expect(paths).not.toContain('priority')
+    expect(paths).toContain('priority create')
     expect(paths).toContain('priority list')
+    expect(
+      runnableGrammarPaths({
+        ...grammar,
+        commands: {
+          ...grammar.commands,
+          priority: { ...grammar.commands.priority!, isInvokable: true },
+        },
+      })
+    ).toContain('priority') // a parent with its own action (LUM-706)
     expect(paths.some(p => p === 'hook' || p.startsWith('hook '))).toBe(false)
   })
 })

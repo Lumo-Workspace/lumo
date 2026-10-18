@@ -58,7 +58,7 @@ import { memoryShow } from '@/cli/src/commands/memory-show'
 import { milestoneList } from '@/cli/src/commands/milestone-list'
 import { milestoneShow } from '@/cli/src/commands/milestone-show'
 import { testCaseList, testCaseShow } from '@/cli/src/commands/testcase'
-import { nextCommand } from '@/cli/src/commands/next'
+import { status } from '@/cli/src/commands/status'
 import { outcomeShow } from '@/cli/src/commands/outcome'
 import { priorityList } from '@/cli/src/commands/priority'
 import { projectList } from '@/cli/src/commands/project-list'
@@ -327,7 +327,7 @@ describe('priorities, next, outcome, session', () => {
     expect(expectList('priorities', 1).current).toMatchObject({ id: 'pr1' })
   })
 
-  it('next --json ranks tasks with ref and reasons, no Next: block', async () => {
+  it('status --next --json ranks tasks with ref and reasons, no Next: block', async () => {
     serve({
       '/api/me/active-sprints': { sprintIds: [] },
       '/api/tasks/me': {
@@ -346,7 +346,7 @@ describe('priorities, next, outcome, session', () => {
         ],
       },
     })
-    await nextCommand({ json: true })
+    await status({ next: true, json: true })
     const b = expectList('tasks', 1)
     const t = (b.tasks as Record<string, unknown>[])[0]!
     expect(Object.keys(t)[0]).toBe('ref')

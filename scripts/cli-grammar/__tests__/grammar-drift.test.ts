@@ -132,8 +132,10 @@ describe('grammar.json drift', () => {
       .sort()
     // The full parent-with-action set as registered in cli/src/index.ts. A new
     // one must be added here deliberately — and documented with a bare example
-    // (doc-examples.test.ts coverage now demands one).
-    expect(invokableParents).toEqual(['priority'])
+    // (doc-examples.test.ts coverage now demands one). LUM-1233 3f: empty —
+    // CS-2 says no group is invokable (`priority` became `priority create`).
+    expect(invokableParents).toEqual([])
+    expect(grammar.commands['priority']!.isInvokable).toBe(false)
     // Routing-only parents stay non-invokable …
     expect(grammar.commands['task']!.isInvokable).toBe(false)
     expect(grammar.commands['task testcase']!.isInvokable).toBe(false)

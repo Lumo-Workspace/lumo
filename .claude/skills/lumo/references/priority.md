@@ -9,20 +9,15 @@ A newer statement supersedes an older one by a later `effectiveFrom`; the
 history is **never mutated or deleted**. There is deliberately no edit/remove
 command — to change the priority, declare a new one.
 
-## `lumo priority [text]`
+## `lumo priority create <text>`
 
-Declare the current team priority.
+Declare the current team priority (LUM-1233 Q2; formerly `lumo priority [text]`):
 
-- **With `text`** — records it directly:
-  ```bash
-  lumo priority "Ship the billing MVP; defer SSO to next quarter."
-  ```
-- **With no argument** — running `lumo priority` on its own prompts
-  interactively for a 1-3 sentence statement (`Priority (1-3 sentences): _`).
-  An empty prompt records nothing and exits non-zero.
+```bash
+lumo priority create "Ship the billing MVP; defer SSO to next quarter."
+```
 
-On success it prints `Recorded priority: <statement>`. A blank statement is
-rejected (the API's Zod layer returns 400).
+On success it prints `Recorded priority: <statement>`. There is no interactive prompt: an empty or blank `<text>` exits 2 and records nothing, and a missing one is a usage error. The old `lumo priority "<text>"` prints `was removed. Use: lumo priority create '<text>'` and exits 2; bare `lumo priority` prints the group's help.
 
 ## `lumo priority list`
 
@@ -44,9 +39,9 @@ Prints `No priorities declared yet.` when the team has none.
 
 ## When to suggest
 
-- The user wants to **set or change the team's focus/priority** in plain words
+- The user wants to **set or change the team's focus/priority** in plain words → `lumo priority create "<text>"`
   ("我们现在的重点是…", "set our team priority to…", "记录一下当前优先级").
-- The user asks **what the team is currently prioritizing** → `lumo priority list`.
+- The user asks **what the team is currently prioritizing** → `lumo priority list` (or the first line of `lumo status`).
 - Do **not** confuse this with task priority (`lumo task update --priority
 low|medium|high|urgent`), which is a per-task enum, not a team declaration.
 

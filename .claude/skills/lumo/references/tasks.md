@@ -49,7 +49,7 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 
 ### Next-step hints
 
-`task create`, `task update`, `session attach`, `task show --full` and `next` end with a short `Next:` block naming what to do now — attach an unbound session, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
+`task create`, `task update`, `session attach`, `task show --full` and `status --next` end with a short `Next:` block naming what to do now — attach an unbound session, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
 
 The rules are computed **server-side** from task status × session binding × open crossings, so the advice tracks the real state machine rather than a hard-coded string. Capped at **3 suggestions**; a rule whose condition is already satisfied never appears. The block goes to **stdout**, after the command's own result line — the result line stays first and unchanged, so reading line 1 still works.
 
@@ -121,7 +121,7 @@ Pure flag-driven update. Provide at least one of:
 | `--milestone <ref>`      | string              | Milestone slug (as in the web URL) or name (case-insensitive) within the task's project; an ambiguous name is rejected with the candidate slugs. `--milestone ""` unbinds.                                                                                            |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
 | `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                         |
-| `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
+| `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo status --next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                              |
 | `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                    |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
 | `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                   |
@@ -260,7 +260,7 @@ LUM-42⇥IN_PROGRESS⇥HIGH⇥web⇥Fix Slack OAuth redirect
 LUM-48⇥TODO⇥MEDIUM⇥backend⇥Investigate slow query
 ```
 
-On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2), an upper-case header row comes first and only the title is cut with `…` to fit the terminal width. `task search` and `next` use the same table (`next`: `ID  STATUS  PRIORITY  WHY  TITLE`, row order is the rank).
+On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2), an upper-case header row comes first and only the title is cut with `…` to fit the terminal width. `task search` and `status --next` use the same table (`status --next`: `ID  STATUS  PRIORITY  WHY  TITLE`, row order is the rank).
 
 | Flag                    | Type    | Notes                                                                                       |
 | ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
@@ -356,9 +356,9 @@ Prints the status set with each status's allowed transitions, the priorities, an
 lumo task statuses
 ```
 
-### `lumo next [--count <N>] [--claimable]` — recommend the next task to work on
+### `lumo status --next [--claimable] [-n, --limit <N>]` — recommend the next task to work on
 
-`--json` prints `{ version, tasks, total, nextCursor, poolSize, claimable }` — the ranked tasks in order, each with `ref` (first) and `reasons` (`excluded` too with `--claimable`); no `Next:` block.
+The Next section of [`lumo status`](overview.md) (LUM-1233 Q1; formerly `lumo next`, whose `--count` is now `--limit`). `--json` prints `{ version, tasks, total, nextCursor, poolSize, claimable }` — the ranked tasks in order, each with `ref` (first) and `reasons` (`excluded` too with `--claimable`); no `Next:` block.
 
 Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
@@ -376,16 +376,16 @@ the order is simply the pre-topology ranking.
 
 | Flag              | Type    | Notes                                                                                                                                                                                                                                                                                                  |
 | ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `-n, --count <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer.                                                                                                                                                                                                                                |
+| `-n, --limit <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer.                                                                                                                                                                                                                                |
 | `--claimable`     | boolean | LUM-646 (F4/自治边界): restrict to the autonomy boundary — recommend **only** tasks that are agent-claimable (steward-triaged) **and** unblocked (no open CONFIRMED blocker, F3) **and** within milestone budget (not measured over the LUM-644 token budget, F2). Off by default (unchanged ranking). |
 
 ```bash
-lumo next
-lumo next --count 1
-lumo next --claimable        # autonomy-scoped: only claimable ∩ unblocked ∩ in-budget
+lumo status --next
+lumo status --next --limit 1
+lumo status --next --claimable   # autonomy-scoped: only claimable ∩ unblocked ∩ in-budget
 ```
 
-**`--claimable` semantics (LUM-646):** the three-part gate is a hard filter, not just a re-ranking (default `next` still soft-deprioritizes blocked tasks per LUM-645). `claimable` is **fail-closed** — a task is not claimable until a steward (`lumo milestone triage`) or `lumo task update --claimable` marks it, so the default field value excludes it. Budget is **fail-open on the unknown** — only a _measured_ overrun excludes; no budget set / unmeasured burn never gates. When the gate empties the list, the output states the honest breakdown (e.g. `No claimable, unblocked, in-budget tasks right now. (excluded: 3 not triaged claimable, 1 blocked by open deps)`). Against a server that predates F4 (no `claimable` field), `--claimable` prints a one-line notice and **degrades to the standard ranking** rather than returning nothing.
+**`--claimable` semantics (LUM-646):** the three-part gate is a hard filter, not just a re-ranking (default `status --next` still soft-deprioritizes blocked tasks per LUM-645). `claimable` is **fail-closed** — a task is not claimable until a steward (`lumo milestone triage`) or `lumo task update --claimable` marks it, so the default field value excludes it. Budget is **fail-open on the unknown** — only a _measured_ overrun excludes; no budget set / unmeasured burn never gates. When the gate empties the list, the output states the honest breakdown (e.g. `No claimable, unblocked, in-budget tasks right now. (excluded: 3 not triaged claimable, 1 blocked by open deps)`). Against a server that predates F4 (no `claimable` field), `--claimable` prints a one-line notice and **degrades to the standard ranking** rather than returning nothing.
 
 Output:
 
@@ -428,7 +428,7 @@ lumo task show LUM-42 --history
 
 ### `lumo task delete <identifier>` — move a task to the trash (LUM-821, LUM-918)
 
-Moves the task to the trash. It is restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes it permanently. While trashed it is hidden from lists, search, `lumo next` and task context; comments, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
+Moves the task to the trash. It is restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes it permanently. While trashed it is hidden from lists, search, `lumo status` and task context; comments, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
 
 ```bash
 lumo task delete LUM-42

@@ -24,7 +24,7 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'doc sync',
   'doc update',
   'hook',
-  'next',
+  'status',
   'project list',
   'milestone add',
   'milestone archive',

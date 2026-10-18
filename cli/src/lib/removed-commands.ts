@@ -248,6 +248,55 @@ const USAGE_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/** `next`'s options under `status --next` (`--count` became `--limit`). */
+export function nextOptions(options: string[]): string[] {
+  return options.map(o =>
+    o === '--count'
+      ? '--limit'
+      : o.startsWith('--count=')
+        ? `--limit=${o.slice(8)}`
+        : o
+  )
+}
+
+/**
+ * LUM-1233 3f (Q1, Q2): one `status` summary for "me across the workspace";
+ * `priority` becomes `priority create|list` with no interactive prompt.
+ */
+const STATUS_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      ['inbox list', '--inbox'],
+      ['inbox', '--inbox'],
+      ['draft list', '--drafts'],
+      ['draft', '--drafts'],
+    ] as const
+  ).map(
+    ([path, flag]): Tombstone => ({
+      path,
+      optionsOf: 'status',
+      replacement: (_a, _f, options) => cmd(`lumo status ${flag}`, [], options),
+      help: 'lumo status',
+    })
+  ),
+  {
+    path: 'next',
+    optionsOf: 'status',
+    valueFlags: ['--count', '-n'],
+    replacement: (_a, _f, options) =>
+      cmd('lumo status --next', [], nextOptions(options)),
+    help: 'lumo status',
+  },
+  {
+    path: 'priority',
+    // `priority create|list` are live; any other word was the old text form.
+    match: args => args.length > 0 && !['create', 'list'].includes(args[0]!),
+    label: 'lumo priority <text>',
+    replacement: args => cmd('lumo priority create', [args.join(' ')], []),
+    help: 'lumo priority create',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -320,6 +369,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...DOC_TOMBSTONES,
   ...PR_TOMBSTONES,
   ...USAGE_TOMBSTONES,
+  ...STATUS_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */

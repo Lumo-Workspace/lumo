@@ -13,7 +13,7 @@ import {
 /**
  * GET /api/drafts — the caller's own drafts in the credential's workspace.
  *
- * LUM-1192: browser session or API key (`lumo draft list`). Drafts are
+ * LUM-1192: browser session or API key (`lumo status --drafts`). Drafts are
  * personal: only rows the caller's Actor created are returned. The optional
  * `workspaceUrl` must name the credential's workspace (a Bearer key's own, or
  * the session's active one), else 404 — it never moves the scope.
