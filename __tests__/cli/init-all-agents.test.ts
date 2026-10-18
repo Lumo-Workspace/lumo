@@ -17,7 +17,7 @@ import {
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { init, initAgentTokens, scopePrompt } from '@/cli/src/commands/init'
+import { init, initAgentTokens, resolveScope } from '@/cli/src/commands/init'
 import { collectDoctor } from '@/cli/src/commands/doctor'
 import { uninstall } from '@/cli/src/commands/uninstall'
 import { readRegistry } from '@/cli/src/lib/install-registry'
@@ -188,13 +188,26 @@ describe('agent selection and the scope prompt', () => {
     expect(initAgentTokens('nope')).toHaveProperty('error')
   })
 
-  it('the interactive prompt names both targets', () => {
-    expect(scopePrompt(['claude-code', 'codex'])).toBe(
-      'Install Lumo for [u]ser (~/.claude, ~/.agents + ~/.codex) or [p]roject (./.claude, ./.agents + ./.codex)? [u/P]: '
+  it('no --scope means project, with one line and no question — on a TTY too (LUM-1233 follow-up)', () => {
+    const write = jest.spyOn(process.stdout, 'write').mockReturnValue(true)
+    const desc = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+    Object.defineProperty(process.stdin, 'isTTY', {
+      value: true,
+      configurable: true,
+    })
+    try {
+      expect(resolveScope({})).toBe('project')
+      expect(resolveScope({ scope: 'user' })).toBe('user')
+    } finally {
+      if (desc) Object.defineProperty(process.stdin, 'isTTY', desc)
+      else delete (process.stdin as { isTTY?: boolean }).isTTY
+    }
+    const out = write.mock.calls.map(c => String(c[0])).join('')
+    write.mockRestore()
+    expect(out).toContain(
+      'No --scope given: installing for this repo (--scope project)'
     )
-    expect(scopePrompt(['codex'])).toBe(
-      'Install Lumo for [u]ser (~/.agents + ~/.codex) or [p]roject (./.agents + ./.codex)? [u/P]: '
-    )
+    expect(out).not.toMatch(/\[u\/P\]/)
   })
 })
 

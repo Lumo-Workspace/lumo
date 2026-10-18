@@ -22,7 +22,7 @@ Wire up the Lumo skill + hooks for [Claude Code](https://claude.com/claude-code)
 npx @lumoai/cli init
 ```
 
-The command interactively asks whether to install for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`) or just the current project (`./.claude/`, `./.agents/`, `./.codex/`), then:
+Without `--scope` it installs for the current project (`./.claude/`, `./.agents/`, `./.codex/`); `--scope user` installs for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`). It never asks. Then it:
 
 1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/` (Claude Code) and `.agents/skills/lumo/` (Codex)
 2. Idempotently merges the Lumo hook handlers into `.claude/settings.json` and `.codex/hooks.json` (existing hooks and permissions are preserved). Codex runs hooks only after you trust them: Codex app Settings → Hooks, or `/hooks` in the Codex CLI
