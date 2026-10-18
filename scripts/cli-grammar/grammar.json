@@ -129,7 +129,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the workspace audit log, newest first: who did what, when, from where (OWNER only)."
+      "description": "List the workspace audit log, newest first: who did what, when, from where (OWNER only).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "auth": {
       "arguments": [],
@@ -143,14 +144,24 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log in to Lumo by pasting an API key"
+      "description": "Log in to Lumo by pasting an API key",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes ~/.lumo credentials and opens a browser"
+      }
     },
     "auth logout": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log out and remove local credentials"
+      "description": "Log out and remove local credentials",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "deletes ~/.lumo credentials"
+      }
     },
     "crossing": {
       "arguments": [],
@@ -221,7 +232,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on one or more boundary crossings through a three-step handshake (show, confirm read, confirm ruling); each step exits 4 with an envelope to relay. Never supply a step flag yourself."
+      "description": "Rule on one or more boundary crossings through a three-step handshake (show, confirm read, confirm ruling); each step exits 4 with an envelope to relay. Never supply a step flag yourself.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "a human-only ruling: keep Codex asking the user first"
+      }
     },
     "crossing explain": {
       "arguments": [{ "name": "id", "required": false, "variadic": false }],
@@ -253,7 +269,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Append an agent self-explanation to boundary crossings for the human reviewer. Append-only: it never clears a crossing or unblocks Done. --file takes a JSON array of {\"id\",\"note\"}."
+      "description": "Append an agent self-explanation to boundary crossings for the human reviewer. Append-only: it never clears a crossing or unblocks Done. --file takes a JSON array of {\"id\",\"note\"}.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file <json>"
+      }
     },
     "crossing list": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
@@ -277,7 +298,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read-only: a task's boundary crossings in full, as the web Record panel shows them. Open rows only by default; --all adds the dispositioned history. Defaults to the session-bound task."
+      "description": "Read-only: a task's boundary crossings in full, as the web Record panel shows them. Open rows only by default; --all adds the dispositioned history. Defaults to the session-bound task.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc": {
       "arguments": [],
@@ -324,7 +346,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits."
+      "description": "Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "doc create": {
       "arguments": [{ "name": "title", "required": false, "variadic": false }],
@@ -388,7 +415,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a document. Body from --content, --file or piped stdin (pick one); --scope defaults to personal. --task LUM-N binds it to a task, --parent files it under another doc."
+      "description": "Create a document. Body from --content, --file or piped stdin (pick one); --scope defaults to personal. --task LUM-N binds it to a task, --parent files it under another doc.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "doc delete": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -404,7 +436,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Move a document and everything nested under it to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with a confirmation envelope."
+      "description": "Move a document and everything nested under it to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with a confirmation envelope.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc diff": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -420,7 +453,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
+      "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "doc import": {
       "arguments": [],
@@ -452,7 +490,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)"
+      "description": "Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc list": {
       "arguments": [],
@@ -508,7 +547,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List documents visible to the current user, 50 per page (--limit / --cursor)"
+      "description": "List documents visible to the current user, 50 per page (--limit / --cursor)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc move": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -532,7 +572,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only."
+      "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc patch": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -580,7 +621,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Replace one heading-addressed section of the markdown source, leaving the rest untouched. 409 on a concurrent edit; 422 if the section loses tables/rows/headings unless --allow-shrink."
+      "description": "Replace one heading-addressed section of the markdown source, leaving the rest untouched. 409 on a concurrent edit; 422 if the section loses tables/rows/headings unless --allow-shrink.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "doc rebuild-source": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -612,7 +658,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm."
+      "description": "Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc show": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -652,14 +699,16 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a document's header and body (doc = slug, title or id). --raw prints the byte-identical markdown source (the edit base); --section <heading> prints one section of it."
+      "description": "Show a document's header and body (doc = slug, title or id). --raw prints the byte-identical markdown source (the edit base); --section <heading> prints one section of it.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc sync": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Re-sync a Google-imported doc (overwrites the Lumo body)"
+      "description": "Re-sync a Google-imported doc (overwrites the Lumo body)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "doc update": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -803,7 +852,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a document (<doc> = slug, case-insensitive title or id). Body from --content, --file or piped stdin; 422 if it drops tables/rows/headings unless --allow-shrink."
+      "description": "Update a document (<doc> = slug, case-insensitive title or id). Body from --content, --file or piped stdin; 422 if it drops tables/rows/headings unless --allow-shrink.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "doctor": {
       "arguments": [],
@@ -819,7 +873,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0."
+      "description": "Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "local-only diagnosis, no Lumo API call (runs fine sandboxed)"
+      }
     },
     "finding": {
       "arguments": [],
@@ -874,14 +933,24 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Record the user's ruling on one or more PR security findings, which clears a DONE blocker. Without --confirm it prints one confirmation envelope (exit 4) and writes nothing."
+      "description": "Record the user's ruling on one or more PR security findings, which clears a DONE blocker. Without --confirm it prints one confirmation envelope (exit 4) and writes nothing.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "a human-only ruling: keep Codex asking the user first"
+      }
     },
     "hook": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)"
+      "description": "Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself"
+      }
     },
     "hook config-change": {
       "arguments": [],
@@ -1369,7 +1438,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent."
+      "description": "Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes skill, hook and rules files"
+      }
     },
     "member": {
       "arguments": [],
@@ -1392,7 +1466,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List workspace members (name, email, role) and agent actors — the refs `--assignee` accepts."
+      "description": "List workspace members (name, email, role) and agent actors — the refs `--assignee` accepts.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory": {
       "arguments": [],
@@ -1534,7 +1609,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project."
+      "description": "Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory delete": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
@@ -1550,7 +1626,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
+      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory fold": {
       "arguments": [
@@ -1568,7 +1645,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
+      "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory list": {
       "arguments": [],
@@ -1632,7 +1710,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings."
+      "description": "List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory push": {
       "arguments": [],
@@ -1656,7 +1735,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success."
+      "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "deletes local memory files after pushing"
+      }
     },
     "memory show": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
@@ -1672,7 +1756,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
+      "description": "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "memory sync": {
       "arguments": [],
@@ -1712,7 +1797,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project."
+      "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes the local memory directory"
+      }
     },
     "memory update": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
@@ -1728,7 +1818,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks."
+      "description": "Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone": {
       "arguments": [],
@@ -1745,7 +1836,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back."
+      "description": "Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone archive": {
       "arguments": [
@@ -1754,7 +1846,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`."
+      "description": "Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone changelog": {
       "arguments": [
@@ -1772,7 +1865,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones."
+      "description": "Assemble a changelog from a milestone's DONE tasks, merged PRs and frozen claim snapshots (no LLM), with provenance per claim and a baseline vs prior milestones.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
@@ -1804,7 +1898,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a milestone. --project required when workspace has >1 project."
+      "description": "Create a milestone. --project required when workspace has >1 project.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone delete": {
       "arguments": [
@@ -1822,7 +1917,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count."
+      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone list": {
       "arguments": [],
@@ -1878,7 +1974,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown."
+      "description": "List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone move": {
       "arguments": [{ "name": "ref", "required": true, "variadic": false }],
@@ -1902,7 +1999,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project."
+      "description": "Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone remove": {
       "arguments": [
@@ -1912,14 +2010,16 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned."
+      "description": "Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone reorder": {
       "arguments": [{ "name": "refs", "required": true, "variadic": true }],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
+      "description": "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone show": {
       "arguments": [
@@ -1937,7 +2037,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id."
+      "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone summary": {
       "arguments": [
@@ -1955,7 +2056,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the AI-generated summary of a milestone (slug, name or id), or \"(no summary generated yet)\". --retry queues regeneration before fetching."
+      "description": "Show the AI-generated summary of a milestone (slug, name or id), or \"(no summary generated yet)\". --retry queues regeneration before fetching.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase": {
       "arguments": [],
@@ -2020,7 +2122,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase delete": {
       "arguments": [
@@ -2038,7 +2141,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase disposition": {
       "arguments": [
@@ -2096,7 +2200,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "a human-only ruling: keep Codex asking the user first"
+      }
     },
     "milestone testcase download": {
       "arguments": [
@@ -2106,7 +2215,12 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: headless-web-cli/TC3"
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: headless-web-cli/TC3",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes local files (saves evidence into <dir>) — Codex asks first"
+      }
     },
     "milestone testcase list": {
       "arguments": [
@@ -2124,7 +2238,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List test cases with each one's latest run (result, environment, commit)."
+      "description": "List test cases with each one's latest run (result, environment, commit).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase run": {
       "arguments": [
@@ -2246,7 +2361,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in."
+      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--evidence-file, --step-evidence <step>=<file>"
+      }
     },
     "milestone testcase show": {
       "arguments": [
@@ -2264,7 +2384,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: headless-web-cli/TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: headless-web-cli/TC3",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone testcase update": {
       "arguments": [
@@ -2322,7 +2443,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field."
+      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone triage": {
       "arguments": [
@@ -2349,7 +2471,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them."
+      "description": "Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone unarchive": {
       "arguments": [
@@ -2358,7 +2481,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id."
+      "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "milestone update": {
       "arguments": [
@@ -2408,7 +2532,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a milestone: at least one of --name, --description, --start, --target, --token-budget (\"\" clears a nullable field). Completion is derived from its tasks."
+      "description": "Update a milestone: at least one of --name, --description, --start, --target, --token-budget (\"\" clears a nullable field). Completion is derived from its tasks.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "pr": {
       "arguments": [],
@@ -2463,7 +2588,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push."
+      "description": "Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "pr show": {
       "arguments": [{ "name": "number", "required": true, "variadic": false }],
@@ -2503,7 +2629,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
+      "description": "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "priority": {
       "arguments": [],
@@ -2517,7 +2644,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it."
+      "description": "Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "priority list": {
       "arguments": [],
@@ -2533,7 +2661,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Print the team priority append history, newest-first (the current declaration is marked with *)."
+      "description": "Print the team priority append history, newest-first (the current declaration is marked with *).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project": {
       "arguments": [],
@@ -2556,7 +2685,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a project in the workspace (≤200 chars)."
+      "description": "Create a project in the workspace (≤200 chars).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project list": {
       "arguments": [],
@@ -2572,7 +2702,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
+      "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project overview": {
       "arguments": [
@@ -2598,7 +2729,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
+      "description": "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project update": {
       "arguments": [{ "name": "project", "required": true, "variadic": false }],
@@ -2630,7 +2762,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears)."
+      "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "session": {
       "arguments": [],
@@ -2671,7 +2804,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach this Claude Code or Codex session to a task, or with --steward to a milestone as a governance session. The binding is a lifetime lock: start a new session to switch."
+      "description": "Attach this Claude Code or Codex session to a task, or with --steward to a milestone as a governance session. The binding is a lifetime lock: start a new session to switch.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "can create a git worktree (--worktree / autoWorktree) and sync local memory"
+      }
     },
     "session status": {
       "arguments": [],
@@ -2687,7 +2825,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing."
+      "description": "Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "skill": {
       "arguments": [],
@@ -2710,7 +2849,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it."
+      "description": "Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)"
+      }
     },
     "skill update": {
       "arguments": [],
@@ -2750,7 +2894,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits."
+      "description": "Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes skill files"
+      }
     },
     "sprint": {
       "arguments": [],
@@ -2776,7 +2925,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a task to a sprint. <task> accepts LUM-N or UUID."
+      "description": "Add a task to a sprint. <task> accepts LUM-N or UUID.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint close": {
       "arguments": [
@@ -2818,7 +2968,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Close an ACTIVE sprint. Unfinished tasks need --move-all (to the next sprint) or --backlog-all (to the backlog); either without --confirm exits 4 with an envelope."
+      "description": "Close an ACTIVE sprint. Unfinished tasks need --move-all (to the next sprint) or --backlog-all (to the backlog); either without --confirm exits 4 with an envelope.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint create": {
       "arguments": [],
@@ -2858,7 +3009,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required."
+      "description": "Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint delete": {
       "arguments": [
@@ -2884,7 +3036,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints."
+      "description": "Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint list": {
       "arguments": [],
@@ -2924,7 +3077,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List sprints for a team. --team required when workspace has >1 team. Sorted newest first."
+      "description": "List sprints for a team. --team required when workspace has >1 team. Sorted newest first.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint remove": {
       "arguments": [
@@ -2943,7 +3097,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove a task from a sprint. <task> accepts LUM-N or UUID."
+      "description": "Remove a task from a sprint. <task> accepts LUM-N or UUID.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint show": {
       "arguments": [
@@ -2969,7 +3124,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID."
+      "description": "Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint start": {
       "arguments": [
@@ -2987,7 +3143,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Transition a DRAFT sprint to ACTIVE."
+      "description": "Transition a DRAFT sprint to ACTIVE.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint summary": {
       "arguments": [
@@ -3013,7 +3170,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
+      "description": "Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint update": {
       "arguments": [
@@ -3055,7 +3213,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared."
+      "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "status": {
       "arguments": [],
@@ -3111,7 +3270,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`."
+      "description": "Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "tag": {
       "arguments": [],
@@ -3134,7 +3294,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`."
+      "description": "Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "tag list": {
       "arguments": [],
@@ -3150,7 +3311,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List workspace tags with their color and how many tasks / docs carry each."
+      "description": "List workspace tags with their color and how many tasks / docs carry each.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task": {
       "arguments": [],
@@ -3219,7 +3381,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content."
+      "description": "Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "task artifact list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
@@ -3235,7 +3402,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List artifacts attached to a task, in order"
+      "description": "List artifacts attached to a task, in order",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task artifact rm": {
       "arguments": [
@@ -3254,7 +3422,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact."
+      "description": "Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task artifact show": {
       "arguments": [
@@ -3273,7 +3442,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id."
+      "description": "Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task artifact update": {
       "arguments": [
@@ -3323,7 +3493,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update an artifact’s kind / title / source (not content). Provide at least one flag. <artifact>: the 8-char short ref in `artifact list` column 1, a unique id prefix or the full id."
+      "description": "Update an artifact’s kind / title / source (not content). Provide at least one flag. <artifact>: the 8-char short ref in `artifact list` column 1, a unique id prefix or the full id.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task comment": {
       "arguments": [
@@ -3342,7 +3513,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines."
+      "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task comments": {
       "arguments": [],
@@ -3360,7 +3532,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars)."
+      "description": "Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task comments rm": {
       "arguments": [
@@ -3379,7 +3552,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment."
+      "description": "Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task create": {
       "arguments": [{ "name": "title", "required": true, "variadic": false }],
@@ -3475,7 +3649,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me."
+      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task decide": {
       "arguments": [
@@ -3485,7 +3660,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
+      "description": "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task delete": {
       "arguments": [
@@ -3503,7 +3679,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it."
+      "description": "Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task deps": {
       "arguments": [],
@@ -3528,7 +3705,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Declare a manual hard dependency (CONFIRMED)"
+      "description": "Declare a manual hard dependency (CONFIRMED)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task deps confirm": {
       "arguments": [
@@ -3547,7 +3725,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Confirm a detected candidate edge"
+      "description": "Confirm a detected candidate edge",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task deps dismiss": {
       "arguments": [
@@ -3557,7 +3736,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Dismiss a candidate (never re-suggested)"
+      "description": "Dismiss a candidate (never re-suggested)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task deps rm": {
       "arguments": [
@@ -3576,7 +3756,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge."
+      "description": "Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task figma": {
       "arguments": [],
@@ -3593,7 +3774,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth."
+      "description": "Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task figma context": {
       "arguments": [
@@ -3612,7 +3794,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
+      "description": "Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task figma list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
@@ -3628,14 +3811,16 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List Figma links attached to a task"
+      "description": "List Figma links attached to a task",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task figma refresh": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated."
+      "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task figma rm": {
       "arguments": [
@@ -3645,7 +3830,8 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing"
+      "description": "Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task list": {
       "arguments": [],
@@ -3701,7 +3887,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command)."
+      "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task pr": {
       "arguments": [],
@@ -3727,7 +3914,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the synced PR record (diff/review comments when available)"
+      "description": "Show the synced PR record (diff/review comments when available)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task search": {
       "arguments": [{ "name": "query", "required": false, "variadic": false }],
@@ -3839,7 +4027,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page."
+      "description": "Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task show": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
@@ -3959,7 +4148,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task."
+      "description": "Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task slack": {
       "arguments": [],
@@ -3985,7 +4175,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
+      "description": "Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task status": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
@@ -4009,7 +4200,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task."
+      "description": "Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task statuses": {
       "arguments": [],
@@ -4025,7 +4217,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the task status set, allowed transitions and priorities, as served by the API."
+      "description": "Show the task status set, allowed transitions and priorities, as served by the API.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task template": {
       "arguments": [],
@@ -4056,7 +4249,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a workspace template from a local Markdown file (OWNER only). <key> is a lowercase slug; built-in keys are reserved."
+      "description": "Create a workspace template from a local Markdown file (OWNER only). <key> is a lowercase slug; built-in keys are reserved.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "task template edit": {
       "arguments": [{ "name": "key", "required": true, "variadic": false }],
@@ -4088,7 +4286,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited."
+      "description": "Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--file"
+      }
     },
     "task template list": {
       "arguments": [],
@@ -4104,7 +4307,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the task templates available to `task create --template <key>`: built-ins plus your workspace ones."
+      "description": "List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task template rm": {
       "arguments": [{ "name": "key", "required": true, "variadic": false }],
@@ -4120,7 +4324,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it."
+      "description": "Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task template show": {
       "arguments": [{ "name": "key", "required": true, "variadic": false }],
@@ -4136,7 +4341,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`."
+      "description": "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase": {
       "arguments": [],
@@ -4199,7 +4405,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in. Defaults to the session-bound task."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in. Defaults to the session-bound task.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase delete": {
       "arguments": [
@@ -4217,7 +4424,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase disposition": {
       "arguments": [
@@ -4275,7 +4483,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "a human-only ruling: keep Codex asking the user first"
+      }
     },
     "task testcase download": {
       "arguments": [
@@ -4285,7 +4498,12 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3"
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes local files (saves evidence into <dir>) — Codex asks first"
+      }
     },
     "task testcase list": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
@@ -4301,7 +4519,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List test cases with each one's latest run (result, environment, commit). Defaults to the session-bound task."
+      "description": "List test cases with each one's latest run (result, environment, commit). Defaults to the session-bound task.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase run": {
       "arguments": [
@@ -4423,7 +4642,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in."
+      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--evidence-file, --step-evidence <step>=<file>"
+      }
     },
     "task testcase show": {
       "arguments": [
@@ -4441,7 +4665,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task testcase update": {
       "arguments": [
@@ -4499,7 +4724,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field."
+      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task update": {
       "arguments": [
@@ -4645,7 +4871,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a task: at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint or a tag flag. \"\" clears description, assignee, milestone or sprint."
+      "description": "Update a task: at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint or a tag flag. \"\" clears description, assignee, milestone or sprint.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "a confirmed DONE removes local git worktrees"
+      }
     },
     "task web": {
       "arguments": [],
@@ -4671,7 +4902,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)"
+      "description": "Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "uninstall": {
       "arguments": [],
@@ -4719,7 +4951,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits."
+      "description": "Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "deletes skill, hook and rules files"
+      }
     },
     "update": {
       "arguments": [],
@@ -4735,7 +4972,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Check npm for a newer @lumoai/cli and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that."
+      "description": "Check npm for a newer @lumoai/cli and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "runs npm install -g"
+      }
     },
     "usage": {
       "arguments": [],
@@ -4766,7 +5008,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content."
+      "description": "Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)"
+      }
     },
     "usage show": {
       "arguments": [],
@@ -4846,7 +5093,8 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days."
+      "description": "Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "whoami": {
       "arguments": [],
@@ -4870,7 +5118,12 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the logged-in identity from local credentials (one line; no network call)"
+      "description": "Show the logged-in identity from local credentials (one line; no network call)",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "none",
+        "detail": "local-only (reads credentials, no Lumo API call; runs fine sandboxed)"
+      }
     },
     "workspace": {
       "arguments": [],
@@ -5149,14 +5402,20 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm."
+      "description": "Show or change the PR security-scan and AI review settings, workspace-wide or per repository (--repo). Any member may read; changing is OWNER only, and turning things off needs --confirm.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "worktree": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout."
+      "description": "Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "creates/removes git worktrees and branches (list: local git only)"
+      }
     },
     "worktree add": {
       "arguments": [
