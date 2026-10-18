@@ -478,6 +478,8 @@ Shape per [Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync).
 | `report [--member --since --until --limit]` | `usage show --by member [--member] [--since --until] [--tasks]`                         | `report` removed → use `usage show --by member --tasks`                                 |
 | `usage resync [--apply]`                    | `usage resync [--dry-run]`                                                              | Changed: `usage resync` applies by default; `--apply` removed, preview with `--dry-run` |
 
+As built: `--tasks` selects the per-member window summary with the completed tasks (the former `report`, default 7 days); without it `usage show` is the per-operation view (default 30 days, `--until` now also bounds it). `--member`, `--project` and `--limit` filter the task summary only, so they need `--tasks`; `--task` / `--session` and a `--by` other than `member` do not go with it. Each mismatch is exit 2, never a silently ignored flag.
+
 #### 3f. One summary for "what is on my plate"
 
 `lumo status` per [Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next); `priority` per [Q2](#q2-where-priority-lives).

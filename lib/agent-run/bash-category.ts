@@ -412,7 +412,7 @@ const PKG_MANAGER = /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(npm|pnpm|yarn|bun)\b/
 const MAX_VERB_LENGTH = 40
 
 /** Keep a label to a safe, short charset — it is shown in the UI and fed back
- *  to agents through `lumo cost` / `lumo task lineage`. */
+ *  to agents through `lumo usage show` / `lumo task show --lineage`. */
 function safeLabel(label: string): string | null {
   const cleaned = label
     .replace(/[^\w.:/@+ -]/g, '')

@@ -20,7 +20,7 @@ export interface Tombstone {
    * when this returns true for the positionals. Absent = the path itself was
    * removed.
    */
-  match?(args: string[]): boolean
+  match?(args: string[], flags: string[]): boolean
   /** What the error says was removed (default: `lumo <path>`). */
   label?: string
   /** The replacement for the given positionals, flags and raw option tokens. */
@@ -165,32 +165,45 @@ const DOC_TOMBSTONES: readonly Tombstone[] = [
  */
 export function prScanReplacement(args: string[], options: string[]): string {
   const n = args[0] ?? '<number>'
-  const out: string[] = []
+  /** `--flag=value` and `--flag value` both become [flag, value]. */
+  const split = (o: string): [string, string | undefined] => {
+    const eq = o.indexOf('=')
+    return o.startsWith('--') && eq > 0
+      ? [o.slice(0, eq), o.slice(eq + 1)]
+      : [o, undefined]
+  }
+  const read: string[] = []
+  const review: string[] = []
   let write = false
   for (let i = 0; i < options.length; i++) {
-    const o = options[i]!
-    if (o === '--review' || o.startsWith('--review=')) {
+    const [flag, inline] = split(options[i]!)
+    const value = (): string | undefined =>
+      inline !== undefined
+        ? inline
+        : i + 1 < options.length
+          ? options[++i]
+          : undefined
+    if (flag === '--review') {
       write = true
-      const mode = o.includes('=') ? o.split('=')[1] : options[++i]
-      if (mode === 'full') out.push('--full')
-    } else if (o === '--pause' || o === '--resume' || o === '--limit') {
+      if (value() === 'full') review.push('--full')
+    } else if (flag === '--pause' || flag === '--resume') {
       write = true
-      out.push(o)
-      if (o === '--limit' && i + 1 < options.length) out.push(options[++i]!)
-    } else out.push(o)
+      review.push(flag)
+    } else if (flag === '--limit') {
+      write = true
+      const v = value()
+      review.push('--limit', ...(v !== undefined ? [v] : []))
+    } else if (flag === '--repo') {
+      const v = value()
+      const pair = ['--repo', ...(v !== undefined ? [v] : [])]
+      read.push(...pair)
+      review.push(...pair)
+    } else read.push(options[i]!)
   }
-  if (!write) return cmd('lumo pr show', [n], out)
-  // A write keeps only the flags `pr review` takes.
-  const keep: string[] = []
-  for (let i = 0; i < out.length; i++) {
-    const o = out[i]!
-    if (['--full', '--pause', '--resume'].includes(o)) keep.push(o)
-    else if (o === '--limit' || o === '--repo') {
-      keep.push(o)
-      if (i + 1 < out.length) keep.push(out[++i]!)
-    }
-  }
-  return cmd('lumo pr review', [n], keep)
+  // A write keeps only the flags `pr review` takes (`--json`, `--all` … go).
+  return write
+    ? cmd('lumo pr review', [n], review)
+    : cmd('lumo pr show', [n], read)
 }
 
 const PR_TOMBSTONES: readonly Tombstone[] = [
@@ -199,6 +212,39 @@ const PR_TOMBSTONES: readonly Tombstone[] = [
     valueFlags: ['--review', '--limit', '--repo'],
     replacement: (args, _f, options) => prScanReplacement(args, options),
     help: 'lumo pr',
+  },
+]
+
+/**
+ * LUM-1233 3e (Q7): one `usage` noun. `cost` and `report` became
+ * `usage show` (`report` = `usage show --tasks`); `usage resync` applies by
+ * default, so the old opt-in `--apply` is gone (`--dry-run` previews).
+ */
+const USAGE_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'cost',
+    optionsOf: 'usage show',
+    replacement: (_a, _f, options) => cmd('lumo usage show', [], options),
+    help: 'lumo usage show',
+  },
+  {
+    path: 'report',
+    optionsOf: 'usage show',
+    replacement: (_a, _f, options) =>
+      cmd('lumo usage show --by member --tasks', [], options),
+    help: 'lumo usage show',
+  },
+  {
+    path: 'usage resync',
+    match: (_args, flags) => flags.some(f => f === '--apply'),
+    label: 'lumo usage resync --apply',
+    replacement: (_a, _f, options) =>
+      cmd(
+        'lumo usage resync',
+        [],
+        options.filter(o => o !== '--apply')
+      ),
+    help: 'lumo usage resync',
   },
 ]
 
@@ -273,6 +319,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...MEMORY_TOMBSTONES,
   ...DOC_TOMBSTONES,
   ...PR_TOMBSTONES,
+  ...USAGE_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
@@ -340,7 +387,7 @@ export function findRemovedCommand(
         }
       } else args.push(tok)
     }
-    if (hit.match && !hit.match(args)) continue
+    if (hit.match && !hit.match(args, flags)) continue
     const replacement = hit.replacement(args, flags, options)
     return {
       path: hit.path,

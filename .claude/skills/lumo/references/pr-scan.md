@@ -9,7 +9,7 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-`pr show` is read-only, no LLM; requesting or pausing a review is `lumo pr review` (LUM-1233: `pr show` was split into the two; `lumo pr show …` prints `was removed. Use: …` and exits 2). It reports dispositions, it never records
+`pr show` is read-only, no LLM; requesting or pausing a review is `lumo pr review` (LUM-1233: the former `pr scan` was split into the two; `lumo pr scan …` prints `was removed. Use: …` and exits 2). It reports dispositions, it never records
 one — the user's ruling goes through [`lumo finding disposition`](#finding-disposition) (or the web panel).
 
 ## Usage
