@@ -135,18 +135,15 @@ import {
   type ImportGdocOptions,
 } from './commands/doc-import-gdoc'
 import { docSync } from './commands/doc-sync'
-import { docUpdate } from './commands/doc-update'
-import { docShow } from './commands/doc-show'
 import { docDiff } from './commands/doc-diff'
 import { docRebuildSource } from './commands/doc-rebuild-source'
 import { docPatch, docAppend } from './commands/doc-section-edit'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
-import { docBind } from './commands/doc-bind'
-import { docUnbind } from './commands/doc-unbind'
-import { docShare } from './commands/doc-share'
-import { docUnshare } from './commands/doc-unshare'
-import { docShareList } from './commands/doc-share-list'
+import {
+  docShowWithMembers,
+  docUpdateWithRelations,
+} from './commands/doc-relations'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
@@ -2130,7 +2127,10 @@ memoryCmd
     '--repo <owner/name>',
     "With --learnings: only this repository's learnings"
   )
-  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
+  .option(
+    '--json',
+    'Print { version, memories, total, nextCursor } as JSON ({ version, learnings } with --learnings)'
+  )
   .action(wrap((opts: unknown) => memoryList(opts as Record<string, never>)))
 
 memoryCmd
@@ -2696,15 +2696,21 @@ doc
   )
 
 doc
-  .command('import-gdoc <url>')
-  .description('Import a Google Doc as a Lumo doc (one-way Google → Lumo)')
+  .command('import')
+  .description(
+    'Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)'
+  )
+  .requiredOption('--gdoc <url>', 'The Google Doc to import (its sharing URL)')
   .option(
     '--scope <scope>',
     'personal | workspace (case-insensitive; default: personal)'
   )
   .option('--task <LUM-N>', 'Bind the imported doc to this task')
   .action(
-    wrap((url, opts) => docImportGdoc(url as string, opts as ImportGdocOptions))
+    wrap(opts => {
+      const { gdoc, ...rest } = opts as ImportGdocOptions & { gdoc: string }
+      return docImportGdoc(gdoc, rest)
+    })
   )
 
 doc
@@ -2756,9 +2762,40 @@ doc
     '--allow-shrink',
     'Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)'
   )
+  .option(
+    '--add-member <member>',
+    'Share with a member: "me", an email or a display name (repeatable; PRIVATE docs become SHARED)',
+    collect,
+    []
+  )
+  .option(
+    '--role <role>',
+    'With --add-member: viewer | editor | manager (case-insensitive; default: viewer)'
+  )
+  .option(
+    '--remove-member <member>',
+    'Stop sharing with a member (repeatable; a member not on the list is a no-op)',
+    collect,
+    []
+  )
+  .option(
+    '--add-task <LUM-N>',
+    'Bind the document to a task (repeatable; idempotent)',
+    collect,
+    []
+  )
+  .option(
+    '--remove-task <LUM-N>',
+    'Unbind the document from a task (repeatable; a binding from @LUM-N in the body fails with 409)',
+    collect,
+    []
+  )
   .action(
     wrap((reference, opts) =>
-      docUpdate(reference as string | undefined, opts as Record<string, string>)
+      docUpdateWithRelations(
+        reference as string | undefined,
+        opts as Record<string, never>
+      )
     )
   )
 
@@ -2779,11 +2816,20 @@ doc
     '--json',
     'Print { version, document } as JSON (not with --raw / --section)'
   )
+  .option(
+    '--members',
+    'Print only the members the document is shared with (NAME  ROLE rows)'
+  )
   .action(
     wrap((reference, opts) =>
-      docShow(
+      docShowWithMembers(
         reference as string | undefined,
-        opts as { raw?: boolean; section?: string; json?: boolean }
+        opts as {
+          raw?: boolean
+          section?: string
+          json?: boolean
+          members?: boolean
+        }
       )
     )
   )
@@ -2932,65 +2978,6 @@ doc
       )
     )
   )
-
-doc
-  .command('bind <doc> <task>')
-  .description(
-    'Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docBind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('unbind <doc> <task>')
-  .description(
-    'Unbind a document from a task. Removes explicit mentions only; a mention derived from @LUM-N in the body fails with 409 and must be removed by editing the doc body.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docUnbind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('share <doc> <member>')
-  .description(
-    'Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts "me", an email, or a display name.'
-  )
-  .option(
-    '--role <role>',
-    'viewer | editor | manager (case-insensitive; default: viewer)'
-  )
-  .action(
-    wrap((docRef, member, opts) =>
-      docShare(
-        docRef as string | undefined,
-        member as string | undefined,
-        opts as { role?: string }
-      )
-    )
-  )
-
-doc
-  .command('unshare <doc> <member>')
-  .description(
-    'Remove a member from a document\'s share list. Idempotent — prints "Not shared with …" if no row exists.'
-  )
-  .action(
-    wrap((docRef, member) =>
-      docUnshare(docRef as string | undefined, member as string | undefined)
-    )
-  )
-
-doc
-  .command('share-list <doc>')
-  .description(
-    'List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>.'
-  )
-  .action(wrap(docRef => docShareList(docRef as string | undefined)))
 
 task
   .command('update <identifier>')

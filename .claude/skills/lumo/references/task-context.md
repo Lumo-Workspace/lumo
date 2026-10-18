@@ -208,7 +208,7 @@ lumo report --project Lumo --limit 100 --json
 
 - `--since <day>` — first day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday`, or `Nd` = the N days ending on `--until` (`7d`, `30d`; without `--until`, the last N days including today — `--since 7d --until 2026-09-01` is 2026-08-26 → 2026-09-01). Default: the 7 days ending on `--until`.
 - `--until <day>` — last day, **inclusive**: `YYYY-MM-DD`, `today`, `yesterday` (default today). Days are the shell's local timezone; the CLI sends local-midnight instants, the server uses the half-open `[since, until+1 day)`. Max window 366 days.
-- `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc share`). Without it the whole workspace is reported.
+- `--member <ref>` — only one person: `me`, an email or a display name (same matching as `doc update --add-member`). Without it the whole workspace is reported.
 - `--project <name>` — only tasks in that project; tokens narrow to session activity attached to those tasks (work not attached to a task drops out).
 - `--limit <N>` — completed tasks listed (default 50, max 500). Totals and per-member counts always cover all of them; the header says `showing X of Y` when truncated.
 - `--json` — versioned payload: `version: 1`, `window {since, until}`, `filter {memberId, projectId}`, `team {tokens, sessions, unmeteredSessions, completedCount, byModel[]}`, `byMember[] {memberId, label, tokens, byModel[], sessions, unmeteredSessions, completedCount}`, `completedTasks {total, items[] {identifier, title, completedAt, memberId, assignee}}`.

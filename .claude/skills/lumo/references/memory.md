@@ -54,7 +54,7 @@ lumo memory push --dry-run         # list what would be pushed without sending
 lumo memory fold --dry-run         # preview the next auto-fold pass; writes nothing
 ```
 
-`--json` on `memory list` prints `{ version, memories, total, nextCursor }` (`total` counts the filtered list before `-n` cuts it; these lists have no cursor, so `nextCursor` is always `null` — `total` larger than the rows shown means `-n` cut it: raise `-n` for the rest); with `--learnings` it prints `{ learnings }`; `memory show --json` prints `{ version, memory }` (full id, category, raw content).
+`--json` on `memory list` prints `{ version, memories, total, nextCursor }` (`total` counts the filtered list before `-n` cuts it; these lists have no cursor, so `nextCursor` is always `null` — `total` larger than the rows shown means `-n` cut it: raise `-n` for the rest); with `--learnings` it prints `{ version, learnings }` (each learning as in [PR-review learnings](#pr-review-learnings--lumo-memory-list---learnings)); `memory show --json` prints `{ version, memory }` (full id, category, raw content).
 
 Flags that do not fit the scope are usage errors (exit 2): `--task` with `--scope project`, `--project` with `--scope task`, `--repo` without `--learnings`, `--learnings` with `--scope` / `--task` / `--project`; `memory update` takes only `--scope project`.
 

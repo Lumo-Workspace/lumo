@@ -115,6 +115,47 @@ const MEMORY_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/** LUM-1233 3c: sharing and task binding are `doc update` fields. */
+const DOC_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      ['doc share', '--add-member'],
+      ['doc unshare', '--remove-member'],
+      ['doc bind', '--add-task'],
+      ['doc unbind', '--remove-task'],
+    ] as const
+  ).map(
+    ([path, flag]): Tombstone => ({
+      path,
+      optionsOf: 'doc update',
+      replacement: (args, _f, options) =>
+        cmd(
+          'lumo doc update',
+          [
+            args[0] ?? '<doc>',
+            flag,
+            args[1] ?? (flag.endsWith('task') ? '<LUM-N>' : '<member>'),
+          ],
+          options
+        ),
+      help: 'lumo doc update',
+    })
+  ),
+  {
+    path: 'doc share-list',
+    replacement: args =>
+      cmd('lumo doc show', [args[0] ?? '<doc>', '--members'], []),
+    help: 'lumo doc show',
+  },
+  {
+    path: 'doc import-gdoc',
+    optionsOf: 'doc import',
+    replacement: (args, _f, options) =>
+      cmd('lumo doc import', ['--gdoc', args[0] ?? '<url>'], options),
+    help: 'lumo doc import',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -184,6 +225,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
     help: 'lumo milestone testcase download',
   },
   ...MEMORY_TOMBSTONES,
+  ...DOC_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */

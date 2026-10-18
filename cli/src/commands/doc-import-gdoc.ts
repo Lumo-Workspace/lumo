@@ -76,7 +76,7 @@ export async function docImportGdoc(
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(errHttp('doc import-gdoc', res.status, text))
+    console.error(errHttp('doc import', res.status, text))
     return 1
   }
 

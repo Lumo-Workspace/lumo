@@ -137,13 +137,13 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** → [doc-editing.md](references/doc-editing.md)
 
-- `lumo doc create/update/show/list/delete` — document CRUD; `doc update` takes `--if-revision <n>` and is structure-guarded
+- `lumo doc create/update/show/list/delete` — document CRUD; `doc update` takes `--if-revision <n>` (structure-guarded), `--add-task/--remove-task` and `--add-member/--remove-member [--role]`; `doc show --members` lists shares
 - `lumo doc show <doc> --raw` / `--section "<heading>"` — byte-identical markdown source (the only legal edit base; never the lossy render)
 - `lumo doc patch <doc> --section "<heading>" …` — replace ONLY that section · `lumo doc append <doc> [--section "<heading>"] …` — pure insertion (safest for logs/ledgers)
 - `lumo doc diff <doc> --file <local.md>` — server source vs a local file (guards stale uploads)
 - `lumo doc rebuild-source <doc>` — regenerate the source from HTML (recovery for "no stored source")
-- `lumo doc move/bind/unbind/share/unshare/share-list` — reparent · task linkage · member sharing
-- `lumo doc import-gdoc` / `lumo doc sync` — Google Doc import & re-sync
+- `lumo doc move` — reparent
+- `lumo doc import --gdoc <url>` / `lumo doc sync` — Google Doc import & re-sync
 
 ### Sprints — see [sprints.md](references/sprints.md)
 
@@ -195,7 +195,7 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No `lumo pr show` / `lumo scan` — it's `lumo pr scan <number>` (settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 
