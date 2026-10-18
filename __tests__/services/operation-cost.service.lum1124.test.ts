@@ -53,6 +53,24 @@ describe('getOperationCost scope label (LUM-1124)', () => {
     expect(res!.scope.label).toBe('since 2026-10-11T13:00:00.000Z')
   })
 
+  it('LUM-1233 3e: bounds the window by until and titles it', async () => {
+    const { hookEventRepository } =
+      await import('@/lib/repositories/hook-event.repository')
+    const since = new Date('2026-10-01T00:00:00.000Z')
+    const until = new Date('2026-10-08T00:00:00.000Z')
+    const res = await operationCostService.getOperationCost('w1', {
+      kind: 'workspace',
+      since,
+      until,
+    })
+    expect(
+      hookEventRepository.findToolAttributionEvents as jest.Mock
+    ).toHaveBeenLastCalledWith({ workspaceId: 'w1', since, until })
+    expect(res!.scope.label).toBe(
+      'since 2026-10-01T00:00:00.000Z until 2026-10-08T00:00:00.000Z'
+    )
+  })
+
   it('keeps "last 30d" when no --since is given', async () => {
     const res = await operationCostService.getOperationCost('w1', {
       kind: 'workspace',

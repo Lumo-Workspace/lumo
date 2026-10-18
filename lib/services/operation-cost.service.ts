@@ -145,7 +145,7 @@ export function withCommandBreakdown(
 export type OperationCostScope =
   | { kind: 'task'; identifier: string }
   | { kind: 'session'; sessionId: string }
-  | { kind: 'workspace'; since?: Date }
+  | { kind: 'workspace'; since?: Date; until?: Date }
 
 export const operationCostService = {
   async getOperationCost(
@@ -176,14 +176,19 @@ export const operationCostService = {
     } else {
       const since =
         scope.since ??
-        new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+        new Date(
+          (scope.until?.getTime() ?? Date.now()) -
+            DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000
+        )
       events = await hookEventRepository.findToolAttributionEvents({
         workspaceId,
         since,
+        ...(scope.until ? { until: scope.until } : {}),
       })
       scopeLabel = scope.since
         ? `since ${scope.since.toISOString()}`
         : `last ${DEFAULT_WINDOW_DAYS}d`
+      if (scope.until) scopeLabel += ` until ${scope.until.toISOString()}`
     }
 
     const { rows, coverage } = attributeOperationCost(
@@ -208,7 +213,7 @@ export const operationCostService = {
     const sessionKey = (r: OperationCostRow) => r.sessionId ?? '(none)'
     const sessionLabel = sessionLabels([...new Set(rows.map(sessionKey))])
 
-    // Same rounding grain as `lumo report` (LUM-1123): whole tokens per
+    // Same rounding grain as `lumo usage show --tasks` (LUM-1123): whole tokens per
     // member × model cell, summed — so the two agree to the token.
     const grand = foldRows(
       rows,

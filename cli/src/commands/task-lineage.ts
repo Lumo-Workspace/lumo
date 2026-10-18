@@ -347,7 +347,7 @@ export function formatLineageMarkdown(
         )
       }
     }
-    lines.push('  (full breakdown: lumo cost --task <id>)')
+    lines.push('  (full breakdown: lumo usage show --task <id>)')
   }
 
   for (const g of data.groups) {

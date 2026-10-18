@@ -73,7 +73,7 @@ acme/web    off     off
 
 #### Auto-review filters and path filters (LUM-1143)
 
-Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr show --review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
+Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
 
 ```bash
 lumo workspace security-scan --repo acme/app --ignore-title WIP --ignore-title "do not review"

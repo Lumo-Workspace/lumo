@@ -18,8 +18,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
-import { cost } from './commands/cost'
-import { report } from './commands/report'
+import { usageShow, type UsageShowOptions } from './commands/usage'
 import { priority, priorityList } from './commands/priority'
 import {
   crossingExplain,
@@ -702,68 +701,6 @@ program
     )
   )
 
-program
-  .command('cost')
-  .description(
-    'Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session'
-  )
-  .option('--task <id>', 'Aggregate a single task (e.g. LUM-42)')
-  .option('--session <id>', 'Aggregate a single Claude Code or Codex session')
-  .option(
-    '--since <date>',
-    'Workspace window lower bound (ISO date); default last 30 days'
-  )
-  .option(
-    '--by <dim>',
-    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
-  )
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      cost(
-        options as {
-          task?: string
-          session?: string
-          since?: string
-          by?: string
-          json?: boolean
-        }
-      )
-    )
-  )
-
-program
-  .command('report')
-  .description(
-    'Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself'
-  )
-  .option(
-    '--since <day>',
-    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
-  )
-  .option(
-    '--until <day>',
-    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
-  )
-  .option('--member <ref>', 'Only this member: me, an email, or a display name')
-  .option('--project <name>', 'Only tasks (and their sessions) in this project')
-  .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      report(
-        options as {
-          since?: string
-          until?: string
-          member?: string
-          project?: string
-          limit?: string
-          json?: boolean
-        }
-      )
-    )
-  )
-
 const priorityCmd = program
   .command('priority [text]')
   .description(
@@ -871,17 +808,59 @@ session
   .option('--json', 'Print { version, session } as JSON')
   .action(wrap(opts => sessionStatus(opts as { json?: boolean })))
 
-const usage = program.command('usage').description('Token usage maintenance')
+const usage = program
+  .command('usage')
+  .description('Token usage: what it cost, who used it, and corrections')
+
+usage
+  .command('show')
+  .description(
+    'Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days.'
+  )
+  .option(
+    '--by <dim>',
+    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
+  )
+  .option('--task <id>', 'Cost of a single task (e.g. LUM-42)')
+  .option('--session <id>', 'Cost of a single Claude Code or Codex session')
+  .option(
+    '--since <day>',
+    'First day, inclusive: YYYY-MM-DD, Nd (the N days ending on --until), today, yesterday, or a timestamp. Default: last 30 days (7 with --tasks)'
+  )
+  .option(
+    '--tasks',
+    'Append the tasks completed in the window (tokens split per member)'
+  )
+  .option(
+    '--until <day>',
+    'Last day, inclusive: YYYY-MM-DD, today, or yesterday (default today)'
+  )
+  .option(
+    '--member <ref>',
+    'With --tasks: only this member (me, an email, or a display name)'
+  )
+  .option(
+    '--project <name>',
+    'With --tasks: only tasks (and their sessions) in this project'
+  )
+  .option(
+    '--limit <N>',
+    'With --tasks: max completed tasks listed (default 50, max 500)'
+  )
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(wrap(options => usageShow(options as UsageShowOptions)))
 
 usage
   .command('resync')
   .description(
-    'Correct historical (inflated) token usage from local transcripts. Dry run by default; --apply writes. Sends token counts only, never transcript content.'
+    'Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content.'
   )
-  .option('--apply', 'Write the corrections (default is a dry run)')
+  .option('--dry-run', 'Show what would be corrected and write nothing')
   .option('--json', 'Print the merged server response as JSON')
   .action(
-    wrap(options => usageResync(options as { apply?: boolean; json?: boolean }))
+    wrap(options =>
+      usageResync(options as { dryRun?: boolean; json?: boolean })
+    )
   )
 
 const task = program

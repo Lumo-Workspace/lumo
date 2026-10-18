@@ -19,7 +19,7 @@ export interface ReportTaskRow {
 }
 
 /**
- * LUM-1100 — reads behind `lumo report`. Every query is scoped to one
+ * LUM-1100 — reads behind `lumo usage show --tasks`. Every query is scoped to one
  * workspace; trashed tasks are excluded explicitly because relation filters
  * (`task: { … }`) bypass the soft-delete extension.
  */

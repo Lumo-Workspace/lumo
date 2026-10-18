@@ -42,7 +42,6 @@ export const CODEX_RULES_MARKER =
  */
 export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'audit list',
-  'cost',
   'crossing list',
   'doc delete',
   'doc import',
@@ -87,7 +86,6 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'project list',
   'project overview',
   'project update',
-  'report',
   'session status',
   'sprint add',
   'sprint close',
@@ -137,6 +135,7 @@ export const CODEX_SERVER_ONLY_COMMANDS: readonly string[] = [
   'task testcase show',
   'task testcase update',
   'task web show',
+  'usage show',
   'workspace security-scan',
 ]
 

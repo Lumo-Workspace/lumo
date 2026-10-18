@@ -34,7 +34,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
 | `task testcase *`, `milestone testcase *` (one command set)          | [test-cases.md](references/test-cases.md)                 |
 | `task status`, `crossing *` — self-check, DONE gate, readiness       | [task-status.md](references/task-status.md)               |
-| `cost`, `report` — token cost / tokens + DONE per window             | [task-context.md](references/task-context.md)             |
+| `usage show` — token cost / tokens + DONE per window                 | [task-context.md](references/task-context.md)             |
 | `task show --outcome` — post-hoc outcome well                        | [outcome.md](references/outcome.md)                       |
 | `priority`, `priority list` — team priority (append-only)            | [priority.md](references/priority.md)                     |
 | `project *`, `milestone *`                                           | [milestones.md](references/milestones.md)                 |
@@ -111,10 +111,10 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`; unattached: `--task <LUM-N>`) — append an agent self-explanation; append-only, **never clears the crossing or unblocks Done** — a review aid, not a self-clear
 - `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — record the **user's** ruling through a **three-step** read-then-rule handshake the server enforces (several ids = one batch); **never supply a step flag (`--confirm-read` / `--confirm`) on your own initiative** — relay each envelope, supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's DONE block; reverting to OPEN, repository suppression and steward crossings stay web-only
 
-### Cost & report — see [task-context.md](references/task-context.md)
+### Usage — see [task-context.md](references/task-context.md#lumo-usage-show)
 
-- `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost (default workspace, last 30 days)
-- `lumo report [--since 7d|<day>] [--until <day>] [--member me|<ref>] [--project <name>] [--json]` — tokens used + tasks completed per window, team + per member; unmetered sessions are counted, never as 0
+- `lumo usage show [--by tool|model|member|session] [--task <id>|--session <id>|--since <day> --until <day>] [--json]` — per-operation token cost (default workspace, last 30 days, by tool)
+- `lumo usage show --by member --tasks [--since 7d|<day>] [--until <day>] [--member me|<ref>] [--project <name>] [--json]` — tokens used + tasks completed per window, team + per member; unmetered sessions are counted, never as 0
 
 ### Priority — see [priority.md](references/priority.md)
 
@@ -164,7 +164,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo session attach <id>` — bind this session to a task; prints blockers/security findings only — run `task show --full` next. **Lifetime lock**: same task = no-op; a _different_ task is refused (409) — start a new agent session. No `--force`, no `session detach`
 - `lumo session attach --steward <milestone>` — STEWARD (governance) session on a milestone: plan & accept only (self-dispatch to in_progress refused; commits/PRs become milestone-scoped crossings, web+human disposition only); same lifetime lock
 - `lumo session status` — current binding
-- `lumo usage resync [--apply]` — correct inflated historical token numbers (dry run first)
+- `lumo usage resync [--dry-run]` — correct inflated historical token numbers (writes when run; preview with `--dry-run` first)
 - End-of-session housekeeping is automatic server-side (no command)
 
 ### Worktrees (local dev tooling) — see [worktree.md](references/worktree.md)
@@ -195,7 +195,7 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`)
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews)
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 

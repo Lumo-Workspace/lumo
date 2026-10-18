@@ -15,7 +15,7 @@ const querySchema = z.object({
 })
 
 /**
- * GET /api/report — LUM-1100 `lumo report`: token usage + tasks completed in
+ * GET /api/report — LUM-1100 `lumo usage show --tasks`: token usage + tasks completed in
  * the half-open window [since, until). Defaults to the last 7 days. Scoped to
  * the caller's workspace; `member` narrows to one WorkspaceMember id.
  */

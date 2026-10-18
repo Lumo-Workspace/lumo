@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1100 — `lumo report`: window resolution, rendering (data + empty
+ * LUM-1100 — `lumo usage show --tasks` (formerly `lumo report`): window resolution, rendering (data + empty
  * state), --json passthrough, --member resolution.
  */
 jest.mock('../../src/lib/config', () => ({

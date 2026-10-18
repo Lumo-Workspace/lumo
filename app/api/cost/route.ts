@@ -13,6 +13,8 @@ export async function GET(request: Request): Promise<Response> {
   const task = url.searchParams.get('task')
   const session = url.searchParams.get('session')
   const sinceRaw = url.searchParams.get('since')
+  // LUM-1233 3e: `usage show --until` — exclusive upper bound (ISO instant).
+  const untilRaw = url.searchParams.get('until')
 
   if (task && session) {
     return NextResponse.json(
@@ -31,7 +33,21 @@ export async function GET(request: Request): Promise<Response> {
     if (since && Number.isNaN(since.getTime())) {
       return NextResponse.json({ error: 'Invalid since date' }, { status: 400 })
     }
-    scope = { kind: 'workspace', ...(since ? { since } : {}) }
+    const until = untilRaw ? new Date(untilRaw) : undefined
+    if (until && Number.isNaN(until.getTime())) {
+      return NextResponse.json({ error: 'Invalid until date' }, { status: 400 })
+    }
+    if (since && until && since >= until) {
+      return NextResponse.json(
+        { error: 'since must be before until' },
+        { status: 400 }
+      )
+    }
+    scope = {
+      kind: 'workspace',
+      ...(since ? { since } : {}),
+      ...(until ? { until } : {}),
+    }
   }
 
   const result = await operationCostService.getOperationCost(

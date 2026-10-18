@@ -817,7 +817,7 @@
   "lineage.operations.col.cacheCreate": "Cipta cache",
   "lineage.operations.col.cacheRead": "Baca cache",
   "lineage.operations.col.total": "Jumlah",
-  "lineage.operations.footnote": "Atribusi bersifat heuristik (alat selari membahagikan satu langkah sama rata); baca cache ialah kos struktur. Pecahan penuh: lumo cost --task {id}",
+  "lineage.operations.footnote": "Atribusi bersifat heuristik (alat selari membahagikan satu langkah sama rata); baca cache ialah kos struktur. Pecahan penuh: lumo usage show --task {id} (CLI 1.125 dan sebelumnya: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Penuh",
   "lineage.fragment.disclosure.indexPulled": "Indeks · diperluas",
   "lineage.fragment.disclosure.indexNotPulled": "Indeks · tidak diperluas",

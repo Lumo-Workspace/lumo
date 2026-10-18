@@ -163,7 +163,7 @@ it('renders the top operations by token cost section', () => {
   expect(md).toContain('Top operations by token cost')
   expect(md).toContain('Bash')
   expect(md).toContain('12,345 tokens')
-  expect(md).toContain('lumo cost --task')
+  expect(md).toContain('lumo usage show --task')
 })
 
 it('formatSignalHealth shows insufficient-data message when merge rates are null', () => {
@@ -258,7 +258,7 @@ it('prints the top commands under a Bash row', () => {
   expect(lines[parent + 1]).toBe('    ↳ grep — 5,000 tokens')
   expect(lines[parent + 2]).toBe('    ↳ sed — 2,500 tokens')
   expect(lines[parent + 3]).toBe('    ↳ cat — 1,000 tokens')
-  // Top 3 only; the full list lives in `lumo cost`.
+  // Top 3 only; the full list lives in `lumo usage show`.
   expect(md).not.toContain('↳ ls')
   expect(lines[parent + 4]).toBe('  Edit — 678 tokens')
 })
