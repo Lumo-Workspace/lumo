@@ -293,7 +293,7 @@ A `delete` or `remove` never takes its target from the binding: `task delete` re
 A gated write without `--confirm` prints the `confirmation_required` envelope on stdout and exits 4; the user approves; the agent runs the envelope's `confirmCommand` verbatim. That protocol is frozen ([§11](#11-frozen-commands-do-not-change)).
 
 - **`--yes` is removed** from the 11 commands that still accept it as an alias of `--confirm` ([mapping 3i](#3i---yes-removed)), including the frozen `worktree rm` (see [§11](#11-frozen-commands-do-not-change) for why that is not a conflict).
-- No interactive y/N prompt anywhere; `priority` without text is the last interactive prompt and goes ([Q2](#q2-where-priority-lives)).
+- No interactive y/N prompt anywhere; `priority` without text went with [Q2](#q2-where-priority-lives), and `init` without `--scope` no longer asks user-or-project on a terminal — it defaults to `--scope project` (follow-up, user ruling 2026-10-19).
 - The three disposition handshakes (`--confirm-read`, `--receipt`, `--confirm`) on `crossing disposition`, `finding disposition` and test-case `disposition` keep their flags exactly.
 
 ### CF-2. `--force` has one meaning: discard local edits on this machine

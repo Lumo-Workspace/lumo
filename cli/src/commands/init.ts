@@ -22,7 +22,6 @@ import {
 } from '../lib/codex-rules'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import { HOOK_SCRIPT_BLOCK } from '../lib/git-hook-template'
-import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
@@ -46,7 +45,7 @@ import {
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import { parseInstallScope } from '../lib/install-scope'
 
-type InitOptions = {
+export type InitOptions = {
   /** LUM-1233 3g (Q6): `user | project` (was the booleans --user / --project). */
   scope?: string
   force?: boolean
@@ -168,8 +167,7 @@ export async function init(
   const cwd = deps.cwd ?? process.cwd()
   const bundled = deps.bundledSkillDir ?? bundledSkillDir()
 
-  const scope = await resolveScope(options, tokens)
-  if (!scope) return 130
+  const scope = resolveScope(options)
 
   const root = scope === 'user' ? homeDir : cwd
   if (options.dryRun) {
@@ -333,37 +331,18 @@ export function skillInstallDir(root: string, agentToken: string): string {
     : path.join(root, '.claude', 'skills', 'lumo')
 }
 
-/** The interactive scope question, naming every directory init will write. */
-export function scopePrompt(tokens: readonly string[]): string {
-  const dirs = (base: string) =>
-    tokens
-      .map(t =>
-        t === 'codex' ? `${base}/.agents + ${base}/.codex` : `${base}/.claude`
-      )
-      .filter((d, i, all) => all.indexOf(d) === i)
-      .join(', ')
-  return `Install Lumo for [u]ser (${dirs('~')}) or [p]roject (${dirs('.')})? [u/P]: `
-}
-
-async function resolveScope(
-  options: InitOptions,
-  tokens: readonly string[]
-): Promise<Scope | null> {
+/**
+ * The scope init installs into: `--scope`, else `project` — never an
+ * interactive question (LUM-1233 follow-up, CF-1: no prompt anywhere), on a
+ * TTY or not. The default is said in one line so it is never a surprise.
+ */
+export function resolveScope(options: InitOptions): Scope {
   const given = parseInstallScope(options.scope)
   if (given) return given
-
-  if (!process.stdin.isTTY) {
-    process.stdout.write(
-      'No --scope given and stdin is not a TTY. Defaulting to --scope project.\n'
-    )
-    return 'project'
-  }
-
-  const answer = (await promptLine(scopePrompt(tokens))).toLowerCase()
-  if (answer === 'u' || answer === 'user') return 'user'
-  if (answer === '' || answer === 'p' || answer === 'project') return 'project'
-  process.stderr.write(`Unrecognized choice "${answer}". Aborting.\n`)
-  return null
+  process.stdout.write(
+    'No --scope given: installing for this repo (--scope project). Pass --scope user to install for every project.\n'
+  )
+  return 'project'
 }
 
 function isInstalledResult(r: SkillInstallResult): boolean {

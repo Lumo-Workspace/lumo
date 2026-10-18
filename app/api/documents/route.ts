@@ -11,6 +11,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const visibility = searchParams.get('visibility')
   const projectId = searchParams.get('projectId')
+  // LUM-1233 follow-up: `lumo doc list --project <ref>` sends the project's
+  // name/slug as projectRef (as `doc create` does); it was ignored here, so
+  // every project's docs came back. Resolved like POST; it wins over
+  // projectId, and an unknown or ambiguous ref is an error, not "all docs".
+  const projectRef = searchParams.get('projectRef')?.trim()
   const parentId = searchParams.get('parentId')
   const search = searchParams.get('search')
   const rootOnly = searchParams.get('rootOnly') === 'true'
@@ -18,6 +23,22 @@ export async function GET(request: NextRequest) {
   const filters: Record<string, unknown> = {}
   if (visibility) filters.visibility = visibility
   if (projectId) filters.projectId = projectId
+  if (projectRef) {
+    try {
+      filters.projectId = await resolveProjectRef(
+        identity.workspaceId,
+        projectRef
+      )
+    } catch (error) {
+      if (error instanceof Error && 'status' in error) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: (error as Error & { status: number }).status }
+        )
+      }
+      throw error
+    }
+  }
   if (parentId) filters.parentId = parentId
   if (search) filters.search = search
   if (rootOnly) filters.rootOnly = true

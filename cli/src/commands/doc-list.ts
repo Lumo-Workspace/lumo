@@ -1,6 +1,10 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import { normalizeScope } from './doc-create'
 import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 import { sanitizeField } from '../lib/sanitize'
@@ -138,7 +142,8 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(errHttp('doc list', res.status, text))
+    // The server's `{ error }` message (e.g. `No project matches "x"`), not raw JSON.
+    console.error(errHttp('doc list', res.status, extractErrorMessage(text)))
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }

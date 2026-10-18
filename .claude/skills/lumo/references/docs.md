@@ -124,14 +124,14 @@ lumo doc update RFC --tag final --add-tag oops
 
 Default behavior: lists every document the current user can see, as table rows: `<slug>  <SCOPE>  <project|->  <title>` (header `REF`; the slug is what `<doc>` takes), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the slug.
 
-| Flag              | Type    | Notes                                                                                  |
-| ----------------- | ------- | -------------------------------------------------------------------------------------- |
-| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                      |
-| `--project <ref>` | string  | Filter by project.                                                                     |
-| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.          |
-| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.  |
-| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).            |
-| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table. |
+| Flag              | Type    | Notes                                                                                        |
+| ----------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                            |
+| `--project <ref>` | string  | Only that project's docs (name or slug; an unknown or ambiguous ref is an error, 404 / 409). |
+| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.                |
+| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.        |
+| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).                  |
+| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table.       |
 
 `--tree` plus filters work together: the CLI fetches with filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result render as top-level rows. With `--tree` the page is cut **after** tree ordering, so each page reads top to bottom and rows keep their real depth. When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
 
