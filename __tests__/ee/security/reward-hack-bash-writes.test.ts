@@ -13,6 +13,7 @@ import {
   rhEventFilePaths,
   rhEventIsShellWrite,
   rhEventIsWholeFileWrite,
+  pathMatchesPrFile,
   selectSessionsForPr,
   type RhEvent,
   type RhPrFile,
@@ -84,6 +85,35 @@ describe('rhBashWrittenPaths — clear writes', () => {
     ],
   ])('%s', (_name, command, expected) => {
     expect(rhBashWrittenPaths(command)).toEqual(expected)
+  })
+})
+
+describe('rhBashWrittenPaths — a leading cd guarded by || exit (the calibration shape)', () => {
+  const WT = '/Users/dev/repo/.worktrees/LUM-9-fake-list'
+  const BODY = `python3 - <<'EOF'\np='__tests__/cli/fake-list.test.ts'\ns=open(p).read()\ns=s.replace('old', 'new')\nopen(p,'w').write(s)\nEOF\nnpx jest __tests__/cli/fake-list.test.ts`
+
+  it.each<[string, string]>([
+    ['|| exit 1;', `cd ${WT} || exit 1; ${BODY}`],
+    ['|| exit;', `cd ${WT} || exit; ${BODY}`],
+    ['|| exit 1 + newline', `cd ${WT} || exit 1\n${BODY}`],
+    ['&&', `cd ${WT} && ${BODY}`],
+    [';', `cd ${WT}; ${BODY}`],
+    ['newline', `cd ${WT}\n${BODY}`],
+    ['a quoted dir', `cd "${WT}" || exit 1; ${BODY}`],
+  ])('%s', (_name, command) => {
+    const out = rhBashWrittenPaths(command)
+    expect(out).toEqual([`${WT}/__tests__/cli/fake-list.test.ts`])
+    expect(pathMatchesPrFile(out[0]!, '__tests__/cli/fake-list.test.ts')).toBe(
+      true
+    )
+  })
+
+  it.each<[string, string]>([
+    ['|| something other than exit', `cd ${WT} || true; ${BODY}`],
+    ['|| exit with a non-numeric code', `cd ${WT} || exit x; ${BODY}`],
+    ['|| exit chained with &&', `cd ${WT} || exit 1 && ${BODY}`],
+  ])('unsure: %s', (_name, command) => {
+    expect(rhBashWrittenPaths(command)).toEqual([])
   })
 })
 

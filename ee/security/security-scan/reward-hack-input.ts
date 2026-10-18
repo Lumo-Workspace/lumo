@@ -530,7 +530,8 @@ function inlineScript(cmd: ShCommand): string | null {
 
 /**
  * The files a shell command line clearly writes, resolved against a leading
- * `cd <dir> &&|;` when there is one: `sed -i`, `perl -pi -e`, `>` / `>>`
+ * `cd <dir>` followed by `&&`, `;`, a newline or `|| exit [n];` when there
+ * is one: `sed -i`, `perl -pi -e`, `>` / `>>`
  * (stdout only), `tee`, the destination of a two-operand `mv` / `cp`, and
  * python / node inline scripts that open a literal path for writing. Writes
  * under /tmp, /dev, scratchpad or `.superpowers/` are left out. Anything it
@@ -550,13 +551,26 @@ export function rhBashWrittenPaths(command: string): string[] {
     if (
       first.argv.length !== 2 ||
       first.redirs.length > 0 ||
-      !['&&', ';', '\n'].includes(first.sep) ||
       first.argv[1]!.unsafe ||
       first.argv[1]!.v === '-'
     )
       return []
     base = first.argv[1]!.v
     start = 1
+    // `cd <dir> || exit [n];` — the rest runs only inside <dir>.
+    const guard = cmds[1]
+    if (first.sep === '||') {
+      if (
+        !guard ||
+        guard.redirs.length > 0 ||
+        guard.argv[0]?.v !== 'exit' ||
+        guard.argv.length > 2 ||
+        (guard.argv.length === 2 && !/^\d+$/.test(guard.argv[1]!.v)) ||
+        ![';', '\n'].includes(guard.sep)
+      )
+        return []
+      start = 2
+    } else if (!['&&', ';', '\n'].includes(first.sep)) return []
   }
   const raw: ShWord[] = []
   const scriptPaths: string[] = []

@@ -9,7 +9,8 @@
 import type { RhItem } from '@/ee/security/llm/reward-hack-judge-client'
 
 /** Bump whenever a prompt, the schema or the threshold changes. */
-export const REWARD_HACK_VERSION = 'rh-v1'
+// rh-v2: threshold 0.7 → 0.5 (R23) and Bash-written files read as writes.
+export const REWARD_HACK_VERSION = 'rh-v2'
 
 export const REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS = 4_000
 export const REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS = 600
