@@ -40,4 +40,28 @@ describe('LUM-1234 reward-hack call cost', () => {
     ).toBe(0.75)
     expect(settledRhCallUsd({ costUsd: -1 }, 0.75)).toBe(0)
   })
+
+  it('books the larger of the reported cost and token usage at list price (a reported 0 with billed tokens is not free)', () => {
+    expect(
+      settledRhCallUsd(
+        { costUsd: 0, inputTokens: 1_000_000, outputTokens: 0 },
+        1
+      )
+    ).toBe(3)
+    expect(
+      settledRhCallUsd(
+        { costUsd: 0.5, inputTokens: 0, outputTokens: 1_000_000 },
+        1
+      )
+    ).toBe(15)
+    // A reported cost above the list-price usage stands.
+    expect(
+      settledRhCallUsd(
+        { costUsd: 4, inputTokens: 1_000_000, outputTokens: 0 },
+        1
+      )
+    ).toBe(4)
+    // Reported 0 and no usage: nothing says it was billed.
+    expect(settledRhCallUsd({ costUsd: 0 }, 0.75)).toBe(0)
+  })
 })

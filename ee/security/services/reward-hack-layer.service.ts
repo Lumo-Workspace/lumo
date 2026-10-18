@@ -45,8 +45,10 @@ import {
   buildRhUserPrompt,
   pathMatchesPrFile,
   prAddedLines,
+  prFileStatuses,
   rhEventAddedLines,
   rhEventFilePaths,
+  rhEventIsWholeFileWrite,
   rhWatermark,
   selectSessionsForPr,
   type RhPrFile,
@@ -139,7 +141,11 @@ const defaultDeps: RhDeps = {
       fullName: pr.repo,
       prNumber: pr.number,
     })
-    return files.map(f => ({ filename: f.filename, patch: f.patch ?? null }))
+    return files.map(f => ({
+      filename: f.filename,
+      patch: f.patch ?? null,
+      status: f.status,
+    }))
   },
   now: () => new Date(),
 }
@@ -349,6 +355,9 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     const rows = inheritDispositions(uniqueByFingerprint(copied), prior)
     const causes: PartialCause[] = [
       ...(previousState.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
+      ...(previousState.refuteCapped
+        ? (['REWARD_HACK_REFUTE_CAP'] as const)
+        : []),
       ...prunedCauses,
     ]
     return settle(ctx, {
@@ -361,6 +370,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
         findingFingerprints: rows.map(r => r.fingerprint),
         costUsd: 0,
         truncated: previousState.truncated,
+        ...(previousState.refuteCapped ? { refuteCapped: true } : {}),
       },
     })
   }
@@ -410,11 +420,14 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
   if (!(await ledger.reserve(judgeEstimate))) return settle(ctx, capped)
   const judged = await deps.judge(built.prompt)
   await ledger.settle(judgeEstimate, judged)
-  const items = applyRhGates({
+  const gated = applyRhGates({
     ...diffView,
     output: judged.output,
     promptEventIds: built.eventIds,
-  }).slice(0, REWARD_HACK_MAX_REFUTES)
+  })
+  const items = gated.slice(0, REWARD_HACK_MAX_REFUTES)
+  // Items past our refute cap are neither checked nor reported: told.
+  const refuteCapped = gated.length > items.length
 
   const kept: RhItem[] = []
   if (items.length > 0) {
@@ -471,6 +484,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
   )
   const causes: PartialCause[] = [
     ...(built.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
+    ...(refuteCapped ? (['REWARD_HACK_REFUTE_CAP'] as const) : []),
     ...prunedCauses,
   ]
   return settle(ctx, {
@@ -483,6 +497,7 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       findingFingerprints: rows.map(r => r.fingerprint),
       costUsd,
       truncated: built.truncated,
+      ...(refuteCapped ? { refuteCapped: true } : {}),
     },
   })
 }
@@ -561,18 +576,22 @@ function buildDiffView(
 ): RhDiffView {
   const eventFile = new Map<string, string[]>()
   const eventAddedLines = new Map<string, string[] | null>()
+  const wholeFileWrites = new Set<string>()
   for (const s of sessions)
     for (const e of s.events) {
       const paths = rhEventFilePaths(e)
       if (paths.length === 0) continue
       eventFile.set(e.id, paths)
       eventAddedLines.set(e.id, rhEventAddedLines(e))
+      if (rhEventIsWholeFileWrite(e)) wholeFileWrites.add(e.id)
     }
   return {
     eventFile,
     eventAddedLines,
     prFiles: prFileList.map(f => f.filename),
     prAdded: prAddedLines(prFileList),
+    wholeFileWrites,
+    prStatus: prFileStatuses(prFileList),
   }
 }
 

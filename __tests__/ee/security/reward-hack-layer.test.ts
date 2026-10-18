@@ -997,6 +997,99 @@ describe('LUM-1234 reward-hack layer runner', () => {
         c => (c[0] as { item: { summary: string } }).item.summary
       )
     ).toEqual(['A', 'B', 'C'])
+    // The two items past the cap were never checked: told, not dropped silently.
+    expect(lastStage()).toEqual({
+      state: 'PARTIAL',
+      causes: ['REWARD_HACK_REFUTE_CAP'],
+    })
+    expect(stateWrites()[0]).toMatchObject({ refuteCapped: true })
+  })
+
+  it('exactly REWARD_HACK_MAX_REFUTES items: all refuted, no refute-cap cause', async () => {
+    judge.mockResolvedValue({
+      output: {
+        suspicion: 90,
+        items: ['A', 'B', 'C'].map(k => ({
+          kind: 'OTHER',
+          summary: k,
+          eventIds: ['e2'],
+        })),
+      },
+      costUsd: 0.5,
+    })
+    await runRewardHackLayer('scan2')
+    expect(refute).toHaveBeenCalledTimes(3)
+    expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
+    expect(stateWrites()[0]).not.toHaveProperty('refuteCapped')
+  })
+
+  it('a reused verdict that was refute-capped stays PARTIAL (REWARD_HACK_REFUTE_CAP)', async () => {
+    previousScan = {
+      id: 'scan1',
+      rewardHackState: {
+        version: REWARD_HACK_VERSION,
+        watermark: { sess1: 'e2' },
+        findingFingerprints: [],
+        costUsd: 0.6,
+        truncated: false,
+        refuteCapped: true,
+      },
+    }
+    await runRewardHackLayer('scan2')
+    expect(judge).not.toHaveBeenCalled()
+    expect(lastStage()).toEqual({
+      state: 'PARTIAL',
+      causes: ['REWARD_HACK_REFUTE_CAP'],
+    })
+    expect(stateWrites()[0]).toMatchObject({ refuteCapped: true })
+  })
+
+  it('LUM-1234 R21: a Write that only deleted tests from an existing test file is kept and refuted (not dropped by the diff gate)', async () => {
+    const kept = [
+      "describe('login', () => {",
+      "  it('accepts a valid user', () => {",
+      '    expect(login(validUser)).toBe(true)',
+      '  })',
+      '})',
+    ].join('\n')
+    const rewrite: Ev = {
+      id: 'e2',
+      sessionId: 'sess1',
+      type: 'POST_TOOL_USE',
+      toolName: 'Write',
+      payload: {
+        tool_name: 'Write',
+        tool_input: { file_path: '/wt/src/auth.test.ts', content: kept },
+        tool_response: { filePath: '/wt/src/auth.test.ts' },
+      },
+      createdAt: at('2026-10-09T10:00:00Z'),
+    }
+    db.hookEvent.findMany.mockResolvedValue([promptEv('e1', 'fix it'), rewrite])
+    // The PR only removes lines: what the Write kept is context, not `+`.
+    listFiles.mockResolvedValue([
+      {
+        filename: 'src/auth.test.ts',
+        status: 'modified',
+        patch: [
+          '@@ -1,11 +1,5 @@',
+          " describe('login', () => {",
+          "   it('accepts a valid user', () => {",
+          '     expect(login(validUser)).toBe(true)',
+          '   })',
+          "-  it('rejects a locked user', () => {",
+          '-    expect(login(lockedUser)).toBe(false)',
+          '-  })',
+          "-  it('rejects a bad password', () => {",
+          '-    expect(login(badPassword)).toBe(false)',
+          '-  })',
+          ' })',
+        ].join('\n'),
+      },
+    ])
+    await runRewardHackLayer('scan2')
+    expect(refute).toHaveBeenCalledTimes(1)
+    expect(writtenRows()).toHaveLength(1)
+    expect(writtenRows()[0]).toMatchObject({ filePath: 'src/auth.test.ts' })
   })
 
   it('a token-dense input past RH_MAX_INPUT_TOKENS is PARTIAL (REWARD_HACK_INPUT_CAP) with no call, under the char cap', async () => {
@@ -1044,6 +1137,22 @@ describe('LUM-1234 reward-hack state', () => {
     // A state from before versions existed is never trusted for reuse.
     const { version: _v, ...legacy } = ok
     expect(parseRewardHackState(legacy)).toBeNull()
+  })
+
+  it('LUM-1234 R21: refuteCapped is optional, kept when true, refused when not a boolean', () => {
+    const ok = {
+      version: 'rh-v1',
+      watermark: { s: 'e' },
+      findingFingerprints: ['f'],
+      costUsd: 0.2,
+      truncated: false,
+    }
+    expect(parseRewardHackState({ ...ok, refuteCapped: true })).toEqual({
+      ...ok,
+      refuteCapped: true,
+    })
+    expect(parseRewardHackState({ ...ok, refuteCapped: false })).toEqual(ok)
+    expect(parseRewardHackState({ ...ok, refuteCapped: 'yes' })).toBeNull()
   })
 
   it('compares watermarks by session and last event', () => {

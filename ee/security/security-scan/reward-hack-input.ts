@@ -82,6 +82,11 @@ export interface RhPrFile {
   filename: string
   /** Unified-diff hunks; null when GitHub did not send them. */
   patch: string | null
+  /**
+   * GitHub's per-file status (added | removed | modified | renamed | …);
+   * absent when the listing did not say.
+   */
+  status?: string
 }
 
 // ─── payload readers (mirroring session-summary/compact-events) ─────────────
@@ -178,6 +183,22 @@ export function rhEventAddedLines(ev: RhEvent): string[] | null {
     }
   }
   return lines.length > 0 ? lines : null
+}
+
+/**
+ * A `Write` sends the whole file, so every line it keeps reads as "added"
+ * even when the agent only removed some: its lines can be matched against
+ * the PR's added lines only where the PR adds the file outright.
+ */
+export function rhEventIsWholeFileWrite(ev: RhEvent): boolean {
+  return rhEventFilePaths(ev).length > 0 && toolNameOf(ev) === 'Write'
+}
+
+/** PR path → GitHub's status for it, for the files the listing gave one. */
+export function prFileStatuses(files: RhPrFile[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const f of files) if (f.status) out.set(f.filename, f.status)
+  return out
 }
 
 /**

@@ -9,10 +9,12 @@ import {
   buildRhPrDiffBlock,
   buildRhUserPrompt,
   prAddedLines,
+  prFileStatuses,
   renderRhTranscript,
   rhEventAddedLines,
   rhEventFilePath,
   rhEventFilePaths,
+  rhEventIsWholeFileWrite,
   rhWatermark,
   selectSessionsForPr,
   type RhEvent,
@@ -751,5 +753,46 @@ describe('prAddedLines / buildRhPrDiffBlock', () => {
     expect(block).not.toContain('unrelated')
     expect(block.match(/<\/pr-diff>/g)).toHaveLength(2)
     expect(buildRhPrDiffBlock(files, [`${ROOT}/nope.ts`])).toBe('')
+  })
+})
+
+describe('rhEventIsWholeFileWrite / prFileStatuses (LUM-1234 R21)', () => {
+  const write = (toolName: string) =>
+    ev({
+      id: 'w',
+      at: '2026-10-05T00:00:00Z',
+      toolName,
+      payload: {
+        tool_name: toolName,
+        tool_input: {
+          file_path: `${ROOT}/src/foo.test.ts`,
+          content: 'x',
+          old_string: 'a',
+          new_string: 'b',
+        },
+      },
+    })
+
+  it('only a Write with a file is a whole-file write', () => {
+    expect(rhEventIsWholeFileWrite(write('Write'))).toBe(true)
+    expect(rhEventIsWholeFileWrite(write('Edit'))).toBe(false)
+    expect(
+      rhEventIsWholeFileWrite(bash('b', '2026-10-05T00:00:00Z', 'ok'))
+    ).toBe(false)
+  })
+
+  it('maps each PR file to the status the listing gave it', () => {
+    expect(
+      prFileStatuses([
+        { filename: 'a.ts', patch: null, status: 'added' },
+        { filename: 'b.ts', patch: '+x', status: 'modified' },
+        { filename: 'c.ts', patch: null },
+      ])
+    ).toEqual(
+      new Map([
+        ['a.ts', 'added'],
+        ['b.ts', 'modified'],
+      ])
+    )
   })
 })

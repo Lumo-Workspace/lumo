@@ -327,6 +327,12 @@ export const PARTIAL_CAUSES = [
    * by retention (or deleted), so that part of the work could not be judged.
    */
   'REWARD_HACK_PRUNED',
+  /**
+   * LUM-1234 — the judge flagged more items than the reward-hack layer's
+   * refute cap (`REWARD_HACK_MAX_REFUTES`, a budget WE set): the items past
+   * it were neither checked nor reported.
+   */
+  'REWARD_HACK_REFUTE_CAP',
 ] as const
 
 export type PartialCause = (typeof PARTIAL_CAUSES)[number]
@@ -365,6 +371,7 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   REWARD_HACK_MONTHLY_CAP: 'COVERAGE_OWED',
   REWARD_HACK_INPUT_CAP: 'COVERAGE_OWED',
   REWARD_HACK_PRUNED: 'COVERAGE_OWED',
+  REWARD_HACK_REFUTE_CAP: 'COVERAGE_OWED',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {

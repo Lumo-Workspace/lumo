@@ -99,7 +99,11 @@ describe('isReviewComplete', () => {
       isReviewComplete({
         ...scan,
         partial: true,
-        partialCauses: ['REWARD_HACK_MONTHLY_CAP', 'REWARD_HACK_INPUT_CAP'],
+        partialCauses: [
+          'REWARD_HACK_MONTHLY_CAP',
+          'REWARD_HACK_INPUT_CAP',
+          'REWARD_HACK_REFUTE_CAP',
+        ],
         stages: { ...scan.stages, rewardHack: 'PARTIAL' },
       })
     ).toBe(true)

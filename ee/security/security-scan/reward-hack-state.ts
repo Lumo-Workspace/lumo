@@ -15,6 +15,11 @@ export interface RewardHackState {
   costUsd: number
   /** The judged input was cut to fit the input cap. */
   truncated: boolean
+  /**
+   * Items past the refute cap were neither refuted nor reported (absent on
+   * a state written before the cap was told: read as false).
+   */
+  refuteCapped?: boolean
 }
 
 function isStringRecord(v: unknown): v is Record<string, string> {
@@ -42,12 +47,15 @@ export function parseRewardHackState(value: unknown): RewardHackState | null {
   if (typeof v.truncated !== 'boolean') return null
   // A state written before versions existed is never reused.
   if (typeof v.version !== 'string') return null
+  if (v.refuteCapped !== undefined && typeof v.refuteCapped !== 'boolean')
+    return null
   return {
     version: v.version,
     watermark: v.watermark,
     findingFingerprints: v.findingFingerprints as string[],
     costUsd: v.costUsd,
     truncated: v.truncated,
+    ...(v.refuteCapped === true ? { refuteCapped: true } : {}),
   }
 }
 

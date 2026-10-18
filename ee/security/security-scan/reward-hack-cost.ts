@@ -50,9 +50,10 @@ export function estimateRhCallUsd(
 }
 
 /**
- * The cost to book for a finished call: the gateway's reported cost; without
- * one, its token usage at list price; without usage either, the estimate
- * that was charged stays (never 0 — an unreported call is not free).
+ * The cost to book for a finished call: the larger of the gateway's reported
+ * cost and its token usage at list price (a reported 0 next to billed tokens
+ * is not taken at its word); with neither, the estimate that was charged
+ * stays (never 0 — an unreported call is not free).
  */
 export function settledRhCallUsd(
   reported: {
@@ -62,10 +63,15 @@ export function settledRhCallUsd(
   },
   estimateUsd: number
 ): number {
-  if (reported.costUsd !== null && Number.isFinite(reported.costUsd))
-    return Math.max(0, reported.costUsd)
   const input = reported.inputTokens ?? 0
   const output = reported.outputTokens ?? 0
-  if (input > 0 || output > 0) return rhTokensCostUsd(input, output)
-  return estimateUsd
+  const usageUsd =
+    input > 0 || output > 0 ? rhTokensCostUsd(input, output) : null
+  const reportedUsd =
+    reported.costUsd !== null && Number.isFinite(reported.costUsd)
+      ? Math.max(0, reported.costUsd)
+      : null
+  if (reportedUsd !== null && usageUsd !== null)
+    return Math.max(reportedUsd, usageUsd)
+  return reportedUsd ?? usageUsd ?? estimateUsd
 }

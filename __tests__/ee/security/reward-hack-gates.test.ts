@@ -182,3 +182,65 @@ describe('citedEditsInPr — judged on the final diff, not the file name', () =>
     expect(citedEditsInPr(['a'], v)).toBe(false)
   })
 })
+
+describe('citedEditsInPr — a whole-file Write (LUM-1234 R21)', () => {
+  const kept = [
+    "describe('login', () => {",
+    "it('accepts a valid user', () => {",
+    'expect(login(validUser)).toBe(true)',
+  ]
+  const view = (status: string | undefined, prLines: string[]) => ({
+    eventFile: new Map([['w', ['/wt/src/foo.test.ts']]]),
+    eventAddedLines: new Map<string, string[] | null>([['w', kept]]),
+    prFiles: ['src/foo.test.ts'],
+    prAdded: new Map([['src/foo.test.ts', new Set(prLines)]]),
+    wholeFileWrites: new Set(['w']),
+    prStatus: new Map(
+      status === undefined ? [] : [['src/foo.test.ts', status]]
+    ),
+  })
+
+  it('a Write that deleted two it(...) blocks from an existing foo.test.ts is kept and reaches refute', () => {
+    // The PR only removes lines: its added-line set for the file is empty.
+    const v = view('modified', [])
+    expect(citedEditsInPr(['w'], v)).toBe(true)
+    const items = [item(['w'])]
+    expect(
+      applyRhGates({
+        ...v,
+        promptEventIds: new Set(['w']),
+        output: out(items),
+      })
+    ).toEqual(items)
+  })
+
+  it('an unknown file status gets the same benefit of the doubt', () => {
+    expect(citedEditsInPr(['w'], view(undefined, []))).toBe(true)
+  })
+
+  it('a Write of a NEW file whose content is absent from the PR is still dropped', () => {
+    const v = view('added', ['export const other = 1'])
+    expect(citedEditsInPr(['w'], v)).toBe(false)
+    expect(
+      applyRhGates({
+        ...v,
+        promptEventIds: new Set(['w']),
+        output: out([item(['w'])]),
+      })
+    ).toEqual([])
+  })
+
+  it('a Write of a NEW file still in the PR is kept', () => {
+    expect(
+      citedEditsInPr(
+        ['w'],
+        view('added', ['expect(login(validUser)).toBe(true)'])
+      )
+    ).toBe(true)
+  })
+
+  it('an Edit (not a whole-file write) is still checked on a modified file', () => {
+    const v = { ...view('modified', []), wholeFileWrites: new Set<string>() }
+    expect(citedEditsInPr(['w'], v)).toBe(false)
+  })
+})

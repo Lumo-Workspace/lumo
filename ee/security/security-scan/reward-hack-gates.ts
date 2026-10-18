@@ -10,7 +10,10 @@
  * where both sides can be read — at least one of the non-trivial lines it
  * added is among that file's added lines in the PR diff. A write with nothing
  * checkable (it only removed lines, a notebook, a file GitHub sent no hunks
- * for) is given the benefit of the doubt on that file.
+ * for) is given the benefit of the doubt on that file. So is a whole-file
+ * `Write` of a file the PR does not add outright: the lines it kept are
+ * context in the PR diff, and a Write that only deleted tests would
+ * otherwise read as "no longer in the PR".
  */
 import type {
   RhItem,
@@ -34,6 +37,10 @@ export interface RhDiffView {
   prFiles: string[]
   /** PR path → its diff's added lines; null/absent = no hunks to read. */
   prAdded?: Map<string, Set<string> | null>
+  /** Event ids that wrote a whole file (`Write`). */
+  wholeFileWrites?: Set<string>
+  /** PR path → GitHub's file status; absent = unknown. */
+  prStatus?: Map<string, string>
 }
 
 /** The PR files a write event's paths name. */
@@ -56,6 +63,12 @@ export function citedEditsInPr(eventIds: string[], view: RhDiffView): boolean {
     const added = view.eventAddedLines?.get(id) ?? null
     if (added === null) return true
     return hit.some(prFile => {
+      // A whole-file Write is checkable only against a file the PR adds.
+      if (
+        view.wholeFileWrites?.has(id) &&
+        view.prStatus?.get(prFile) !== 'added'
+      )
+        return true
       const prLines = view.prAdded?.get(prFile) ?? null
       return prLines === null || added.some(l => prLines.has(l))
     })
