@@ -106,7 +106,7 @@ test('content and policy-compiler tiers repointed to zai/glm-5.2', () => {
   expect(POLICY_COMPILER_MODEL).toBe('zai/glm-5.2')
 
   // The provider-prefixed Anthropic ids in the registry are the PR scan's AI
-  // code review (LUM-988) and the L3 hunt (LUM-1084), both user-approved and
+  // code review (LUM-988), the L3 hunt (LUM-1084) and the reward-hack layer (LUM-1234), all user-approved and
   // both pinned to Anthropic's own API; the ids the registry exports are the
   // single source of truth for every call site.
   const registry = readFileSync(join(LIB_DIR, 'ai/models.ts'), 'utf8')
@@ -117,6 +117,7 @@ test('content and policy-compiler tiers repointed to zai/glm-5.2', () => {
   expect(exported.filter(([, id]) => id.startsWith('anthropic/'))).toEqual([
     ['CODE_REVIEW_MODEL', 'anthropic/claude-sonnet-5.5'],
     ['HUNT_MODEL', 'anthropic/claude-haiku-4.5'],
+    ['REWARD_HACK_MODEL', 'anthropic/claude-sonnet-4.6'],
   ])
 })
 

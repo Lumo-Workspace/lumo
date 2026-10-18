@@ -92,6 +92,33 @@ describe('LUM-1234 reward-hack judge client', () => {
   })
 })
 
+describe('LUM-1234 reward-hack text repair', () => {
+  beforeEach(() => gen.mockReset())
+
+  const repair = async (text: string): Promise<string | null> => {
+    gen.mockResolvedValueOnce(judged())
+    await judgeRewardHack('P')
+    const cb = gen.mock.calls[0][0].experimental_repairText
+    return cb({ text })
+  }
+
+  it('extracts the JSON object from a fenced block', async () => {
+    expect(await repair('```json\n{"items":[],"suspicion":3}\n```')).toBe(
+      '{"items":[],"suspicion":3}'
+    )
+  })
+
+  it('extracts bare JSON surrounded by prose', async () => {
+    expect(await repair('Here you go: {"items":[],"suspicion":3} done')).toBe(
+      '{"items":[],"suspicion":3}'
+    )
+  })
+
+  it('gives up (null) when there is no object', async () => {
+    expect(await repair('no json here')).toBeNull()
+  })
+})
+
 describe('LUM-1234 reward-hack refute client', () => {
   beforeEach(() => gen.mockReset())
 
