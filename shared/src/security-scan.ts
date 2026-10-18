@@ -40,9 +40,26 @@ export const SCAN_STAGE_KEYS = [
   'supplyChain',
   'judge',
   'hunt',
+  // LUM-1234: appended, never inserted — stored keys are a persisted contract.
+  'rewardHack',
 ] as const
 
 export type ScanStageKeyName = (typeof SCAN_STAGE_KEYS)[number]
+
+/**
+ * LUM-1234 — the order the layers are shown in, which is not the stored key
+ * order: `rewardHack` was appended to the stored keys but reads best between
+ * AI review and Exploit paths. Every display loop (PR comment, CLI, web)
+ * uses this; persistence and validation keep `SCAN_STAGE_KEYS`.
+ */
+export const SCAN_STAGE_DISPLAY_ORDER: readonly ScanStageKeyName[] = [
+  'secrets',
+  'external',
+  'supplyChain',
+  'judge',
+  'rewardHack',
+  'hunt',
+]
 
 /** The states a layer can be in. `ScanStageState` in `lib/security-scan/types.ts` derives from this. */
 export const SCAN_STAGE_STATES = [
@@ -76,6 +93,7 @@ export const SCAN_STAGE_LABELS: Record<ScanStageKeyName, string> = {
   external: 'Code scan',
   supplyChain: 'Dependencies',
   judge: 'AI review',
+  rewardHack: 'Agent behavior',
   hunt: 'Exploit paths',
 }
 
@@ -97,6 +115,8 @@ export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
   // LUM-988: a general code review, not a security-only pass.
   judge:
     'an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
+  rewardHack:
+    'whether the agent sessions behind this PR gamed tests, metrics or checks instead of doing the task',
   hunt: 'traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
 }
 
@@ -290,6 +310,29 @@ export const PARTIAL_CAUSES = [
    * PR or narrow its scope (`formatPrTooLarge`). Never our "didn't finish".
    */
   'PR_TOO_LARGE',
+  /**
+   * LUM-1234 — the workspace reached this month's spend ceiling for the
+   * reward-hack layer (`LUMO_REWARD_HACK_MONTHLY_CAP_USD`, a budget WE set):
+   * the agent sessions were not judged. Never told as checked.
+   */
+  'REWARD_HACK_MONTHLY_CAP',
+  /**
+   * LUM-1234 — the agent sessions were longer than the reward-hack layer's
+   * input cap: the earliest tool output was cut (or, when even that could
+   * not fit, nothing was judged).
+   */
+  'REWARD_HACK_INPUT_CAP',
+  /**
+   * LUM-1234 — some of this PR's agent-session events were already pruned
+   * by retention (or deleted), so that part of the work could not be judged.
+   */
+  'REWARD_HACK_PRUNED',
+  /**
+   * LUM-1234 — the judge flagged more items than the reward-hack layer's
+   * refute cap (`REWARD_HACK_MAX_REFUTES`, a budget WE set): the items past
+   * it were neither checked nor reported.
+   */
+  'REWARD_HACK_REFUTE_CAP',
 ] as const
 
 export type PartialCause = (typeof PARTIAL_CAUSES)[number]
@@ -325,6 +368,10 @@ export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
   PR_TOO_LARGE: 'CHANGE_TOO_LARGE',
+  REWARD_HACK_MONTHLY_CAP: 'COVERAGE_OWED',
+  REWARD_HACK_INPUT_CAP: 'COVERAGE_OWED',
+  REWARD_HACK_PRUNED: 'COVERAGE_OWED',
+  REWARD_HACK_REFUTE_CAP: 'COVERAGE_OWED',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {
@@ -830,15 +877,31 @@ export function isCodeReviewFinding(ruleId: string): boolean {
 }
 
 /**
- * `3 security findings`, `2 bugs`, or `1 security finding · 2 bugs` — the
- * count phrase for a set of findings, split by `isCodeReviewFinding`.
+ * LUM-1234 — the reward-hack layer's ("Agent behavior") advisory findings
+ * carry `reward-hack/<KIND>` rule ids: about how the agent sessions behind a
+ * PR worked, not about the code's security — never tagged or counted as a
+ * security finding.
+ */
+export const REWARD_HACK_RULE_PREFIX = 'reward-hack/'
+
+export function isRewardHackFinding(ruleId: string): boolean {
+  return ruleId.startsWith(REWARD_HACK_RULE_PREFIX)
+}
+
+/**
+ * `3 security findings`, `2 bugs`, `1 agent-behavior finding`, or a mix like
+ * `1 security finding · 2 bugs` — the count phrase for a set of findings,
+ * split by `isCodeReviewFinding` / `isRewardHackFinding`.
  */
 export function findingCountPhrase(ruleIds: readonly string[]): string {
   const bugs = ruleIds.filter(isCodeReviewFinding).length
-  const security = ruleIds.length - bugs
+  const agent = ruleIds.filter(isRewardHackFinding).length
+  const security = ruleIds.length - bugs - agent
   const parts: string[] = []
-  if (security > 0 || bugs === 0)
+  if (security > 0 || (bugs === 0 && agent === 0))
     parts.push(`${security} security finding${security === 1 ? '' : 's'}`)
   if (bugs > 0) parts.push(`${bugs} bug${bugs === 1 ? '' : 's'}`)
+  if (agent > 0)
+    parts.push(`${agent} agent-behavior finding${agent === 1 ? '' : 's'}`)
   return parts.join(' · ')
 }

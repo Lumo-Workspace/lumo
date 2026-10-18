@@ -48,6 +48,7 @@ export interface RepoReviewOptions extends ConfirmFlags {
   scan?: string
   aiReview?: string
   hunt?: string
+  rewardHack?: string
   requestChanges?: string
   allowAuthorApproval?: string
   learningsScope?: string
@@ -300,6 +301,7 @@ export function buildRepoReviewUpdate(
     opts.scan !== undefined ||
     opts.aiReview !== undefined ||
     opts.hunt !== undefined ||
+    opts.rewardHack !== undefined ||
     opts.requestChanges !== undefined ||
     opts.allowAuthorApproval !== undefined ||
     opts.learningsScope !== undefined ||
@@ -307,7 +309,7 @@ export function buildRepoReviewUpdate(
     opts.enableAll
   if (switches) {
     throw new Error(
-      '--repo / --repos / --review / --drafts / the filter flags cannot be combined with --scan / --ai-review / --hunt / --request-changes / --allow-author-approval / --learnings-scope / --disable-all / --enable-all'
+      '--repo / --repos / --review / --drafts / the filter flags cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --disable-all / --enable-all'
     )
   }
   const change =

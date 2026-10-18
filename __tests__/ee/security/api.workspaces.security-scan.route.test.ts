@@ -84,3 +84,15 @@ it('PATCH maps the OWNER-only 403', async () => {
   )
   expect((await PATCH(req('PATCH', { all: false }))).status).toBe(403)
 })
+
+it('LUM-1234 PATCH accepts the reward-hack switch alone, not with `all`', async () => {
+  const ok = await PATCH(req('PATCH', { securityRewardHackEnabled: false }))
+  expect(ok.status).toBe(200)
+  expect(m(securityScanSettingsService.update).mock.calls[0][1]).toEqual({
+    securityRewardHackEnabled: false,
+  })
+  const bad = await PATCH(
+    req('PATCH', { all: false, securityRewardHackEnabled: true })
+  )
+  expect(bad.status).toBe(400)
+})

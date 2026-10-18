@@ -159,6 +159,7 @@ const ALL_ON = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRewardHackEnabled: true,
   securityRequestChangesEnabled: false,
   securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,

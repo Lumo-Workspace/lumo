@@ -79,7 +79,9 @@ describe('persistResult reports the managed run landing first', () => {
       stage: 'supplyChain',
     })
     const outcome = await repo.persistResult('s_landed', [], FINAL)
-    expect(outcome).toEqual({ managedLayerLanded: true })
+    expect(outcome).toMatchObject({ managedLayerLanded: true })
+    // LUM-1234: and the run token the reward-hack layer carries.
+    expect(outcome.startedAt).toBeInstanceOf(Date)
     // The run's layers survive stage A's PENDING.
     expect(await repo.findStagesById('s_landed')).toMatchObject({
       external: 'RAN',
@@ -92,7 +94,7 @@ describe('persistResult reports the managed run landing first', () => {
     await seedScan('s_pending')
     expect(await repo.findStatusById('s_pending')).toBe('RUNNING')
     const outcome = await repo.persistResult('s_pending', [], FINAL)
-    expect(outcome).toEqual({ managedLayerLanded: false })
+    expect(outcome).toMatchObject({ managedLayerLanded: false })
   })
 })
 

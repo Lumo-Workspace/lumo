@@ -81,6 +81,54 @@ describe('isReviewComplete', () => {
     )
   })
 
+  it.each(['PENDING', 'PARTIAL', 'FAILED', 'PAUSED'] as const)(
+    'LUM-1234: the advisory reward-hack layer %s never holds approval back',
+    state => {
+      expect(
+        isReviewComplete({
+          ...approvable().scan,
+          stages: { ...approvable().scan.stages, rewardHack: state },
+        })
+      ).toBe(true)
+    }
+  )
+
+  it('LUM-1234: partial only because of our reward-hack caps ⇒ complete; any other cause ⇒ not', () => {
+    const scan = approvable().scan
+    expect(
+      isReviewComplete({
+        ...scan,
+        partial: true,
+        partialCauses: [
+          'REWARD_HACK_MONTHLY_CAP',
+          'REWARD_HACK_INPUT_CAP',
+          'REWARD_HACK_REFUTE_CAP',
+        ],
+        stages: { ...scan.stages, rewardHack: 'PARTIAL' },
+      })
+    ).toBe(true)
+    expect(
+      isReviewComplete({
+        ...scan,
+        partial: true,
+        partialCauses: ['REWARD_HACK_MONTHLY_CAP', 'AI_REVIEW_PAUSED'],
+      })
+    ).toBe(false)
+    // A caller that does not pass causes: partial stays incomplete.
+    expect(isReviewComplete({ ...scan, partial: true })).toBe(false)
+    expect(
+      decideReviewVerdict({
+        ...approvable(),
+        scan: {
+          ...scan,
+          partial: true,
+          partialCauses: ['REWARD_HACK_MONTHLY_CAP'],
+          stages: { ...scan.stages, rewardHack: 'PARTIAL' },
+        },
+      }).kind
+    ).toBe('APPROVE')
+  })
+
   it('no stages recorded ⇒ not complete', () => {
     expect(
       isReviewComplete({ status: 'CLEAN', partial: false, stages: null })

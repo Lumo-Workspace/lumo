@@ -39,6 +39,8 @@ export type FindingKind =
   | 'DEPENDENCY'
   // LUM-988: AI-review correctness finding (never blocking).
   | 'CORRECTNESS'
+  // LUM-1234: reward-hack layer finding (LLM_JUDGE, advisory only).
+  | 'REWARD_HACK'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
@@ -539,6 +541,11 @@ async function withSerializableRetry<T>(
  */
 export interface PersistResultOutcome {
   managedLayerLanded: boolean
+  /**
+   * LUM-1234 — the row's `startedAt` as this write saw it: the run token a
+   * background layer started from this result carries (a restart moves it).
+   */
+  startedAt?: Date
 }
 
 /** LUM-1150 — has the managed run (or a sweep / supersede) settled a layer it owns? */
@@ -1144,6 +1151,9 @@ export const prSecurityScanRepository = {
           huntAudit: Prisma.DbNull,
           huntRunId: null,
           huntAttempts: 0,
+          // LUM-1234: the re-run writes its own reward-hack verdict; the old
+          // state would vouch for rows the restart just deleted.
+          rewardHackState: Prisma.DbNull,
         },
       })
       return snapshot ?? true
@@ -1241,6 +1251,7 @@ export const prSecurityScanRepository = {
           partial: true,
           partialCauses: true,
           error: true,
+          startedAt: true,
         },
       })
       const {
@@ -1325,6 +1336,7 @@ export const prSecurityScanRepository = {
         managedLayerLanded: managedLayerLanded(
           (current?.stages as ScanStages | null) ?? null
         ),
+        ...(current?.startedAt ? { startedAt: current.startedAt } : {}),
       }
     })
   },
@@ -1459,6 +1471,170 @@ export const prSecurityScanRepository = {
           ...(extra.error !== undefined ? { error: extra.error } : {}),
         },
       })
+    })
+  },
+
+  /**
+   * LUM-1234 — what the reward-hack layer needs of its scan row: the PR, the
+   * workspace, and the scan start (the session window's end).
+   */
+  async findForRewardHack(scanId: string): Promise<{
+    id: string
+    pullRequestId: string
+    workspaceId: string
+    startedAt: Date
+  } | null> {
+    return prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: {
+        id: true,
+        pullRequestId: true,
+        workspaceId: true,
+        startedAt: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — the most recent scan of the same PR started before `before`
+   * (the asking scan's own `startedAt`; the table has no creation time) that
+   * stored a reward-hack verdict (non-null `rewardHackState`). Null if none.
+   */
+  async findPreviousScanForPr(
+    pullRequestId: string,
+    beforeScanId: string,
+    before: Date
+  ): Promise<{ id: string; rewardHackState: unknown } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: beforeScanId },
+        startedAt: { lt: before },
+        rewardHackState: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, rewardHackState: true },
+    })
+  },
+
+  /** LUM-1234 — one scan's REWARD_HACK rows, in the shape a copy needs. */
+  async findRewardHackFindings(
+    scanId: string
+  ): Promise<
+    Array<
+      Pick<
+        NewFindingInput,
+        | 'kind'
+        | 'ruleId'
+        | 'severity'
+        | 'provenance'
+        | 'filePath'
+        | 'line'
+        | 'title'
+        | 'detail'
+        | 'evidence'
+        | 'fingerprint'
+      >
+    >
+  > {
+    return prisma.prSecurityFinding.findMany({
+      where: { scanId, kind: 'REWARD_HACK' },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        kind: true,
+        ruleId: true,
+        severity: true,
+        provenance: true,
+        filePath: true,
+        line: true,
+        title: true,
+        detail: true,
+        evidence: true,
+        fingerprint: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — the reward-hack layer's ONE write: its rows, its state and its
+   * stage, in one transaction, compare-and-set on the run token. The write
+   * lands only while the row is the run the layer was started for
+   * (`startedAt === runToken`) and the layer is still PENDING — a restart
+   * moves `startedAt`, a sweep settles the stage, and either way a stale
+   * runner's late write is a no-op (false). Same lock order as
+   * `persistHuntResult`: scan UPDATE first; `status` flips to FINDINGS only
+   * when rows land; `partial` stays monotone.
+   */
+  async persistRewardHackResult(
+    scanId: string,
+    runToken: Date,
+    result: {
+      findings: NewFindingInput[]
+      stage: 'RAN' | 'PARTIAL' | 'SKIPPED' | 'FAILED' | 'DISABLED'
+      partialCauses: PartialCause[]
+      /** Omitted = the state column is left alone. */
+      state?: {
+        version: string
+        watermark: Record<string, string>
+        findingFingerprints: string[]
+        costUsd: number
+        truncated: boolean
+      }
+    }
+  ): Promise<boolean> {
+    return withSerializableRetry(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: {
+          stages: true,
+          partial: true,
+          partialCauses: true,
+          startedAt: true,
+        },
+      })
+      const stages = (current?.stages as ScanStages | null) ?? {}
+      if (
+        !current ||
+        current.startedAt.getTime() !== runToken.getTime() ||
+        stages.rewardHack !== 'PENDING'
+      )
+        return false
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages: { ...stages, rewardHack: result.stage },
+          ...mergePartial(current, result.partialCauses),
+          ...(result.state
+            ? {
+                rewardHackState:
+                  result.state as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(result.findings.length > 0 ? { status: 'FINDINGS' } : {}),
+        },
+      })
+      if (result.findings.length > 0)
+        await tx.prSecurityFinding.createMany({ data: result.findings })
+      return true
+    })
+  },
+
+  /**
+   * LUM-1234 — scans whose reward-hack layer has sat PENDING since before
+   * `before` (by the scan's `startedAt`): its runner died without settling.
+   */
+  async findStalePendingRewardHacks(
+    before: Date,
+    limit: number
+  ): Promise<Array<{ id: string; startedAt: Date }>> {
+    return prisma.prSecurityScan.findMany({
+      where: {
+        stages: { path: ['rewardHack'], equals: 'PENDING' },
+        startedAt: { lt: before },
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: { id: true, startedAt: true },
     })
   },
 

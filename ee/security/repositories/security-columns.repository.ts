@@ -108,6 +108,7 @@ export const securityColumnsRepository = {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: true,
+        securityRewardHackEnabled: true,
         securityRequestChangesEnabled: true,
         securityAllowAuthorApproval: true,
         securityLearningsScope: true,

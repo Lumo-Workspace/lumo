@@ -87,9 +87,9 @@ export const prConfigurationService = {
     const switches = { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES, ...stored }
     // The `…TurnedOff` flags restate the switches; only what runs is shown.
     const layers = Object.fromEntries(
-      Object.entries(resolveSecurityLayers(switches)).filter(
-        ([name]) => !name.endsWith('TurnedOff')
-      )
+      Object.entries(
+        resolveSecurityLayers(switches, process.env, input.workspaceId)
+      ).filter(([name]) => !name.endsWith('TurnedOff'))
     ) as Record<string, boolean>
     return {
       repo,

@@ -74,3 +74,13 @@ export const taskSecurityScansQuerySchema = z.object({
 export type PullRequestScanReadoutQuery = z.infer<
   typeof pullRequestScanReadoutQuerySchema
 >
+
+/**
+ * Path params of GET /api/tasks/[id]/security-findings/[findingId]/
+ * reward-hack-evidence (LUM-1234). Ids only — the finding is looked up and
+ * every access check runs in the service.
+ */
+export const rewardHackEvidenceParamsSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+  findingId: z.string().trim().min(1).max(64),
+})

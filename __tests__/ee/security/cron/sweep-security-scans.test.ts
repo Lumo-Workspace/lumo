@@ -2,6 +2,7 @@
 const sweep = jest.fn()
 const sweepHunts = jest.fn()
 const sweepHolds = jest.fn()
+const sweepRewardHacks = jest.fn().mockResolvedValue({ failed: 0 })
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
@@ -13,6 +14,7 @@ jest.mock('@/ee/security/services/security-managed-scan-ops.service', () => ({
 jest.mock('@/ee/security/services/security-hunt-ops.service', () => ({
   securityHuntOpsService: {
     sweepStaleHunts: (...args: unknown[]) => sweepHunts(...args),
+    sweepStaleRewardHacks: (...args: unknown[]) => sweepRewardHacks(...args),
   },
 }))
 
@@ -67,6 +69,7 @@ describe('GET /api/cron/sweep-security-scans (LUM-745)', () => {
       sandboxesStopped: 1,
       hunt: HUNT,
       verifier: { released: 0 },
+      rewardHack: { failed: 0 },
     })
   })
 
@@ -80,6 +83,7 @@ describe('GET /api/cron/sweep-security-scans (LUM-745)', () => {
     await expect(res.json()).resolves.toEqual({
       hunt: HUNT,
       verifier: { released: 0 },
+      rewardHack: { failed: 0 },
     })
 
     sweep.mockReset()
@@ -94,6 +98,7 @@ describe('GET /api/cron/sweep-security-scans (LUM-745)', () => {
       sandboxesStopped: 0,
       hunt: null,
       verifier: { released: 0 },
+      rewardHack: { failed: 0 },
     })
   })
 
@@ -141,5 +146,40 @@ describe('LUM-988 the sweep cron also releases stale verifier holds', () => {
     expect(bad.status).toBe(500)
     expect(sweep).toHaveBeenCalledTimes(2)
     expect(sweepHunts).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('LUM-1234 the sweep cron also settles stale reward-hack layers', () => {
+  const OLD = process.env.CRON_SECRET
+  beforeAll(() => {
+    process.env.CRON_SECRET = 'secret'
+  })
+  afterAll(() => {
+    process.env.CRON_SECRET = OLD
+  })
+  it('runs the reward-hack sweep alongside and a failure there fails the run without skipping the others', async () => {
+    sweep.mockReset()
+    sweep.mockResolvedValue({ swept: 0, cancelled: 0, sandboxesStopped: 0 })
+    sweepHunts.mockReset()
+    sweepHunts.mockResolvedValue({
+      retried: 0,
+      failed: 0,
+      cancelled: 0,
+      sandboxesStopped: 0,
+    })
+    sweepHolds.mockReset()
+    sweepHolds.mockResolvedValue({ released: 0 })
+    sweepRewardHacks.mockReset()
+    sweepRewardHacks.mockResolvedValue({ failed: 3 })
+    const ok = await GET(reqWith('Bearer secret'))
+    expect(sweepRewardHacks).toHaveBeenCalledWith()
+    expect(ok.status).toBe(200)
+    expect((await ok.json()).rewardHack).toEqual({ failed: 3 })
+
+    sweepRewardHacks.mockRejectedValue(new Error('db down'))
+    const bad = await GET(reqWith('Bearer secret'))
+    expect(bad.status).toBe(500)
+    expect(sweepHunts).toHaveBeenCalledTimes(2)
+    expect((await bad.json()).rewardHack).toBeNull()
   })
 })

@@ -50,11 +50,13 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
+import { isBlockingFinding } from '@/ee/security/services/pr-security-scan-gate'
 import { SCAN_STAGE_DESCRIPTIONS as D } from '@/shared/src/security-scan'
 import {
   securityPrReviewService,
   buildInlineComment,
   buildSummary,
+  rewardHackSection,
   parseFingerprintMarkers,
   provenanceLabel,
   findingKindLabel,
@@ -1067,5 +1069,93 @@ describe('LUM-988 PR summary headline — bugs are not security findings', () =>
     expect(
       buildSummary({ ...base, open: 2, openBugs: 0, blocking: 0 })
     ).toContain('**2 open findings**\n')
+  })
+})
+
+describe('LUM-1234 PR summary — Agent behavior section', () => {
+  const TITLE = 'Test deleted to make the check pass'
+  const EVENT_ID = 'evt-7f3a9c-secret-event-id'
+  const LINK = 'https://www.uselumo.ai/workspace/acme/my-tasks/LUM-735/record'
+  const hack = (over: Partial<ReviewFindingRow> = {}) =>
+    finding({
+      kind: 'REWARD_HACK',
+      ruleId: 'reward-hack:test-tampering',
+      severity: 'MEDIUM',
+      provenance: 'LLM_JUDGE',
+      filePath: '',
+      line: null,
+      title: TITLE,
+      detail: '',
+      fingerprint: 'fp-rh',
+      // evidence is never selected for review; smuggle it onto the object to
+      // prove no builder reads it.
+      ...({ evidence: JSON.stringify({ eventIds: [EVENT_ID] }) } as object),
+      ...over,
+    })
+  const base = {
+    headSha: 'abcdef1234567890',
+    stages: { secrets: 'RAN', judge: 'RAN', rewardHack: 'RAN' },
+    partial: false,
+    externalCounts: {},
+    error: null,
+    taskUrl: 'https://www.uselumo.ai/workspace/acme/my-tasks/LUM-735',
+  } as const
+
+  it('renders nothing without findings', () => {
+    expect(rewardHackSection([], 'https://x/record')).toEqual([])
+  })
+
+  it('puts the section right after the verdict line, titles + record link only', () => {
+    const body = buildSummary({
+      ...base,
+      open: 1,
+      blocking: 0,
+      rewardHack: [hack()],
+    })
+    const lines = body.split('\n')
+    const verdict = lines.findIndex(l => l.startsWith('**1 open finding**'))
+    expect(verdict).toBeGreaterThan(0)
+    expect(lines[verdict]).not.toContain('blocking')
+    expect(lines.slice(verdict + 1, verdict + 5)).toEqual([
+      '',
+      '**Agent behavior** — the agent sessions behind this PR may have gamed a check instead of doing the task:',
+      '',
+      `- ${TITLE} ([evidence](${LINK}))`,
+    ])
+    expect(body).not.toContain(EVENT_ID)
+    expect(body).not.toContain('eventIds')
+  })
+
+  it('an advisory REWARD_HACK finding is never blocking', () => {
+    expect(isBlockingFinding(hack())).toBe(false)
+  })
+
+  it('never gives a REWARD_HACK finding an inline comment, and never lists it as unanchored', async () => {
+    findById.mockResolvedValue(scanRow({ findings: [hack()] }))
+    const res = await securityPrReviewService.sync('s1')
+    expect(res).toMatchObject({ inline: 0, skipped: 0 })
+    expect(createReview).not.toHaveBeenCalled()
+    const summary = createIssue.mock.calls[0][0].body as string
+    expect(summary).toContain('**Agent behavior**')
+    expect(summary).toContain(`- ${TITLE} ([evidence](${LINK}))`)
+    expect(summary).not.toContain(EVENT_ID)
+    expect(allSentBodies()).not.toContain(EVENT_ID)
+    expect(summary).not.toMatch(/no line|unanchored/i)
+    expect(summary).not.toContain('blocking DONE')
+  })
+
+  it('lists Agent behavior between AI review and Exploit paths in "What was checked"', () => {
+    const body = buildSummary({
+      ...base,
+      stages: { secrets: 'RAN', judge: 'RAN', rewardHack: 'RAN', hunt: 'RAN' },
+      open: 0,
+      blocking: 0,
+    })
+    const ai = body.indexOf('**AI review**')
+    const agent = body.indexOf('**Agent behavior**')
+    const exploit = body.indexOf('**Exploit paths**')
+    expect(ai).toBeGreaterThan(-1)
+    expect(agent).toBeGreaterThan(ai)
+    expect(exploit).toBeGreaterThan(agent)
   })
 })

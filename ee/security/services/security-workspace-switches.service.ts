@@ -13,6 +13,8 @@ export async function loadSecurityLayers(
   workspaceId: string
 ): Promise<EffectiveSecurityLayers> {
   return resolveSecurityLayers(
-    await securityColumnsRepository.findSecuritySwitches(workspaceId)
+    await securityColumnsRepository.findSecuritySwitches(workspaceId),
+    process.env,
+    workspaceId
   )
 }

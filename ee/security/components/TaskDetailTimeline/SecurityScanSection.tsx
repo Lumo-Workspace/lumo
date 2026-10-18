@@ -44,7 +44,7 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 import {
   JUDGE_PARTIAL_MAX_NAMED,
-  SCAN_STAGE_KEYS,
+  SCAN_STAGE_DISPLAY_ORDER,
   isJudgeOverCapByFiles,
   turnedOffLayers,
 } from '@/shared/src/security-scan'
@@ -60,6 +60,7 @@ import {
   type FindingGroupKey,
 } from './security-summary'
 import { buildAgentContext } from './security-agent-context'
+import { RewardHackEvidence } from './RewardHackEvidence'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 
@@ -423,7 +424,7 @@ function ReviewControls({
  * same list the PR summary and `lumo task status` render from, so a sixth
  * layer can never reach one surface and not another.
  */
-const STAGE_ORDER = SCAN_STAGE_KEYS
+const STAGE_ORDER = SCAN_STAGE_DISPLAY_ORDER
 
 /**
  * The scanners behind each layer, named in its ⓘ card. Product names, not
@@ -435,6 +436,7 @@ const STAGE_TOOLS: Record<(typeof STAGE_ORDER)[number], string | null> = {
   external: 'gitleaks · semgrep · zizmor · trivy',
   supplyChain: 'osv-scanner',
   judge: null,
+  rewardHack: null,
   hunt: null,
 }
 
@@ -1292,9 +1294,13 @@ function FindingRow({
       </div>
       {open ? (
         <>
-          <p className='mt-1 text-caption text-foreground/80'>
-            {finding.detail}
-          </p>
+          {/* LUM-1234: a REWARD_HACK row's detail is model prose, served
+              only by its evidence view (session access checked). */}
+          {finding.detail !== '' && (
+            <p className='mt-1 text-caption text-foreground/80'>
+              {finding.detail}
+            </p>
+          )}
           {suggestedOpen && finding.suggestedReason && (
             <p
               data-testid='finding-suggested-reason'
@@ -1340,7 +1346,12 @@ function FindingRow({
               )}
             </div>
           )}
-          {finding.evidence !== '' && (
+          {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
+              evidence is read from the server, with session access checked. */}
+          {finding.kind === 'REWARD_HACK' && (
+            <RewardHackEvidence taskId={taskId} findingId={finding.id} />
+          )}
+          {finding.kind !== 'REWARD_HACK' && finding.evidence !== '' && (
             <pre className='mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 px-2 py-1.5 font-mono text-caption text-foreground/80'>
               {finding.evidence}
             </pre>

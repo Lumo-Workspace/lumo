@@ -6,6 +6,7 @@ import {
   externalFailureReason,
   findingCountPhrase,
   isCodeReviewFinding,
+  isRewardHackFinding,
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
 import {
@@ -424,7 +425,12 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
   const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
   // LUM-988: an AI-review correctness finding (`review:<kind>`) is tagged
   // `[BUG]` — same scan, same disposition flow, not a security finding.
-  const tag = isCodeReviewFinding(a.ruleId) ? 'BUG' : 'SECURITY'
+  // LUM-1234: an agent-behavior finding (`reward-hack/<KIND>`) is `[AGENT]`.
+  const tag = isRewardHackFinding(a.ruleId)
+    ? 'AGENT'
+    : isCodeReviewFinding(a.ruleId)
+      ? 'BUG'
+      : 'SECURITY'
   const rule = sanitizeField(a.ruleId)
   return [
     ...bulletLines(`[${tag}] [${a.severity}] ${title || rule}`, 2, opts),
@@ -469,12 +475,12 @@ export function pushSecurityActions(
   for (const a of securityActions) lines.push(...securityActionLines(a, opts))
 }
 
-/** `Next actions (2 security findings)`, or split when bugs are present (LUM-988). */
+/** `Next actions (2 security findings)`, or split when bugs (LUM-988) or agent-behavior findings (LUM-1234) are present. */
 export function securityActionsHeading(
   securityActions: SecurityAction[]
 ): string {
   const ruleIds = securityActions.map(a => a.ruleId)
-  if (!ruleIds.some(isCodeReviewFinding))
+  if (!ruleIds.some(r => isCodeReviewFinding(r) || isRewardHackFinding(r)))
     return `Next actions (${ruleIds.length} security finding${ruleIds.length === 1 ? '' : 's'})`
   return `Next actions (${findingCountPhrase(ruleIds)})`
 }

@@ -9,7 +9,9 @@
 import fs from 'fs'
 import path from 'path'
 
+import { scanLayerRows } from '@/cli/src/lib/scan-format'
 import {
+  SCAN_STAGE_DISPLAY_ORDER,
   SCAN_STAGE_KEYS,
   SCAN_STAGE_STATES,
   scanStageLabel,
@@ -25,7 +27,32 @@ const localeFiles = fs
   .sort()
 
 describe('LUM-763 — stored stage keys vs rendered labels', () => {
-  it('LUM-763: the five stored stage keys are unchanged and every one resolves to a label', () => {
+  it('LUM-1234: rewardHack is appended last to the stored keys, and display order puts it between judge and hunt', () => {
+    expect(SCAN_STAGE_KEYS[SCAN_STAGE_KEYS.length - 1]).toBe('rewardHack')
+    expect([...SCAN_STAGE_DISPLAY_ORDER]).toEqual([
+      'secrets',
+      'external',
+      'supplyChain',
+      'judge',
+      'rewardHack',
+      'hunt',
+    ])
+    expect(new Set(SCAN_STAGE_DISPLAY_ORDER)).toEqual(new Set(SCAN_STAGE_KEYS))
+    expect(scanStageLabel('rewardHack')).toBe('Agent behavior')
+  })
+
+  it('LUM-1234: scanLayerRows renders judge, rewardHack, hunt in display order', () => {
+    const rows = scanLayerRows({
+      stages: { hunt: 'PENDING', rewardHack: 'RAN', judge: 'RAN' },
+      partial: false,
+      externalFindings: 0,
+      externalFailureReason: null,
+    })
+    expect(rows.map(r => r.key)).toEqual(['judge', 'rewardHack', 'hunt'])
+    expect(rows[1]?.label).toBe('Agent behavior')
+  })
+
+  it('LUM-763: the stored stage keys keep their original order and every one resolves to a label', () => {
     // The literal list, not a comparison against the current source — a
     // rename of the persisted key must fail this, whichever direction it
     // happens in.
@@ -35,6 +62,7 @@ describe('LUM-763 — stored stage keys vs rendered labels', () => {
       'supplyChain',
       'judge',
       'hunt',
+      'rewardHack',
     ])
 
     for (const key of SCAN_STAGE_KEYS) {

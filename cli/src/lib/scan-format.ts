@@ -2,7 +2,7 @@ import { fmtCount, fmtPercent } from './format'
 import { sanitizeField } from './sanitize'
 import {
   formatQueueExits,
-  SCAN_STAGE_KEYS,
+  SCAN_STAGE_DISPLAY_ORDER,
   SCAN_UNFINISHED_NOTE,
   SCANNING_OFF_NOTE,
   PR_TOO_LARGE_STATUS,
@@ -127,13 +127,13 @@ export interface ScanLayerRow {
  * The layer segments of `formatScanLayerTail` as rows — same keys, same
  * order, same words — for the reports that print one labelled row per layer
  * (LUM-1091). Stage rows only for keys present, in secrets/external/
- * supplyChain/judge/hunt order; the `(N external findings)` count only
+ * supplyChain/judge/rewardHack/hunt display order; the `(N external findings)` count only
  * decorates Code scan, the dependency count (with its already-on-main share)
  * only Dependencies, and each only when N > 0.
  */
 export function scanLayerRows(s: ScanLayerLineInput): ScanLayerRow[] {
   const rows: ScanLayerRow[] = []
-  for (const key of SCAN_STAGE_KEYS) {
+  for (const key of SCAN_STAGE_DISPLAY_ORDER) {
     const state = s.stages[key]
     if (!state) continue
     // LUM-1137 / LUM-1152: a paused layer of a rate-limited or ignored

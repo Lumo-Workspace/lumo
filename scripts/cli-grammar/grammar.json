@@ -5146,6 +5146,14 @@
           "enumCaseInsensitive": false,
           "description": "With --repo: review every PR without a task automatically"
         },
+        "--reward-hack": {
+          "long": "--reward-hack",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Agent behavior check: whether the agent sessions behind a PR gamed tests or checks (advisory)"
+        },
         "--scan": {
           "long": "--scan",
           "short": null,

@@ -12,6 +12,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   scan?: string
   aiReview?: string
   hunt?: string
+  /** LUM-1234 — the Agent behavior (reward-hack) layer. */
+  rewardHack?: string
   /** LUM-1130 — the request-changes / approve workflow. */
   requestChanges?: string
   /** LUM-1142 — the PR's author may resolve / approve by command. */
@@ -58,6 +60,8 @@ export interface SecurityScanSwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  /** LUM-1234 — absent on a server older than the layer (no row shown). */
+  securityRewardHackEnabled?: boolean
   /** LUM-1130 — absent on a server older than the workflow (reads as off). */
   securityRequestChangesEnabled?: boolean
   /** LUM-1142 — absent on a server older than the setting (reads as on). */
@@ -80,12 +84,14 @@ type OnOffSwitch = Exclude<
 
 export interface SecurityScanSettingsView {
   switches: SecurityScanSwitches
-  platform: { managedScan: boolean; hunt: boolean }
+  /** `rewardHack` (LUM-1234) is absent on a server older than the layer. */
+  platform: { managedScan: boolean; hunt: boolean; rewardHack?: boolean }
   effective: {
     scan: boolean
     managedScan: boolean
     aiReview: boolean
     hunt: boolean
+    rewardHack?: boolean
   }
   /** OWNER may change the switches; absent on a server older than this flag. */
   canEdit?: boolean
@@ -99,6 +105,7 @@ const SWITCH_LABELS: Record<OnOffSwitch, string> = {
   securityScanEnabled: 'Security scan (master)',
   securityAiReviewEnabled: 'AI review',
   securityHuntEnabled: 'Exploit-path hunt',
+  securityRewardHackEnabled: 'Agent behavior (reward-hack check)',
   securityRequestChangesEnabled: 'Request-changes workflow',
   securityAllowAuthorApproval: 'PR authors may resolve / approve by command',
 }
@@ -145,6 +152,11 @@ export function buildSecurityScanUpdate(
     singles.securityAiReviewEnabled = parseOnOff('--ai-review', opts.aiReview)
   if (opts.hunt !== undefined)
     singles.securityHuntEnabled = parseOnOff('--hunt', opts.hunt)
+  if (opts.rewardHack !== undefined)
+    singles.securityRewardHackEnabled = parseOnOff(
+      '--reward-hack',
+      opts.rewardHack
+    )
   if (opts.requestChanges !== undefined)
     singles.securityRequestChangesEnabled = parseOnOff(
       '--request-changes',
@@ -169,7 +181,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after'
       )
     }
     return { all }
@@ -186,6 +198,8 @@ function targetSwitches(
       securityScanEnabled: update.all,
       securityAiReviewEnabled: update.all,
       securityHuntEnabled: update.all,
+      // LUM-1234: the server's `all` sets the reward-hack switch too.
+      securityRewardHackEnabled: update.all,
     }
   }
   return update as Partial<SecurityScanSwitches>
@@ -302,6 +316,14 @@ export function formatSecurityScanSettings(
       s.effective.hunt,
     ],
   ]
+  // LUM-1234: only a server that knows the layer reports its switch.
+  if (s.switches.securityRewardHackEnabled !== undefined)
+    rows.push([
+      'Agent behavior',
+      s.switches.securityRewardHackEnabled,
+      s.platform.rewardHack ?? null,
+      s.effective.rewardHack ?? false,
+    ])
   const w = Math.max(...rows.map(r => r[0].length))
   const lines = [
     `${'Layer'.padEnd(w)}  Setting  Platform  Runs`,
