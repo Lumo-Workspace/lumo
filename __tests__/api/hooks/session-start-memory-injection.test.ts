@@ -164,7 +164,8 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n'
     )
     expect(taskContextService.buildSessionStartSections).toHaveBeenCalledWith(
-      'task-1'
+      'task-1',
+      LEGACY_CLI_COMMANDS
     )
   })
 
@@ -238,7 +239,8 @@ describe('POST /api/hooks/session-start — memory injection', () => {
 
     expect(body.memorySection).toBe('')
     expect(taskContextService.buildSessionStartSections).toHaveBeenCalledWith(
-      'task-1'
+      'task-1',
+      LEGACY_CLI_COMMANDS
     )
   })
 
@@ -292,6 +294,15 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     expect(
       (taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock)
         .mock.calls[0]![2]
+    ).toBe(expected)
+    // LUM-1233 3b: the memory index and the Layer-2 review section too.
+    expect(
+      (taskContextService.buildSessionStartSections as jest.Mock).mock
+        .calls[0]![1]
+    ).toBe(expected)
+    expect(
+      (taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mock
+        .calls[0]![2]
     ).toBe(expected)
   })
 })

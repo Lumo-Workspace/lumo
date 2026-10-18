@@ -62,12 +62,8 @@ import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
-import { memoryTaskList } from './commands/memory-task-list'
-import { memoryTaskAdd } from './commands/memory-task-add'
-import { memoryProjectList } from './commands/memory-project-list'
-import { memoryProjectAdd } from './commands/memory-project-add'
-import { memoryPromote } from './commands/memory-promote'
-import { memoryRm } from './commands/memory-rm'
+import { memoryAdd, memoryList, memoryUpdate } from './commands/memory'
+import { memoryDelete } from './commands/memory-delete'
 import { memoryShow } from './commands/memory-show'
 import { memorySync } from './commands/memory-sync'
 import { memoryPush } from './commands/memory-push'
@@ -108,10 +104,6 @@ import {
   workspaceSecurityScan,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
-import {
-  workspaceLearnings,
-  type WorkspaceLearningsOptions,
-} from './commands/workspace-learnings'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -1408,62 +1400,6 @@ taskPr
     )
   )
 
-const taskMemory = task
-  .command('memory')
-  .description('View and record memories scoped to a task')
-
-taskMemory
-  .command('list [task]')
-  .description(
-    "List a task's memories. <task> defaults to the session-bound task."
-  )
-  .option(
-    '--category <cat>',
-    'Filter by trap|decision|convention|procedural (case-insensitive)'
-  )
-  .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskList(
-        taskArg as string | undefined,
-        opts as Record<string, string>
-      )
-    )
-  )
-
-taskMemory
-  .command('add [task]')
-  .description(
-    'Record a memory on a task (defaults to the bound session): only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Pick --category then its fields.'
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
-  .option('--outcome <text>', 'trap: what goes wrong')
-  .option('--workaround <text>', 'trap: optional fix')
-  .option('--what <text>', 'decision: the decision')
-  .option('--why <text>', 'decision: rationale')
-  .option('--alternatives <text>', 'decision: optional alternatives considered')
-  .option('--implications <text>', 'decision: optional implications')
-  .option('--rule <text>', 'convention: the rule')
-  .option('--applies <text>', 'convention: where the rule applies')
-  .option('--workflow <text>', 'procedural: the workflow name')
-  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
-  .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
-  )
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskAdd(
-        taskArg as string | undefined,
-        opts as Record<string, unknown>
-      )
-    )
-  )
 const taskArtifact = task
   .command('artifact')
   .description(
@@ -2041,17 +1977,6 @@ workspaceCmd
     )
   )
 
-workspaceCmd
-  .command('learnings')
-  .description(
-    "List the workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first, including unlinked repositories. Delete one with `lumo memory rm <ref>`."
-  )
-  .option('--repo <owner/name>', "Only this repository's learnings")
-  .option('--json', 'Emit { learnings } as JSON')
-  .action(
-    wrap(options => workspaceLearnings(options as WorkspaceLearningsOptions))
-  )
-
 const tagCmd = program
   .command('tag')
   .description('Workspace tags (labels) from the terminal')
@@ -2131,62 +2056,82 @@ projectCmd
     )
   )
 
-const projectMemory = projectCmd
+const memoryCmd = program
   .command('memory')
-  .description('View and record PROJECT-scope memories')
-
-projectMemory
-  .command('list [project]')
   .description(
-    "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    'Team memory: add, list, show, update, delete; --scope task|project picks the scope'
+  )
+
+memoryCmd
+  .command('add')
+  .description(
+    'Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
+  )
+  .option(
+    '--project <ref>',
+    "The project (project scope; default: the bound task's project)"
+  )
+  .requiredOption(
+    '--category <cat>',
+    'trap | decision | convention | procedural (case-insensitive)'
+  )
+  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
+  .option('--outcome <text>', 'trap: what goes wrong')
+  .option('--workaround <text>', 'trap: optional fix')
+  .option('--what <text>', 'decision: the decision')
+  .option('--why <text>', 'decision: rationale')
+  .option('--alternatives <text>', 'decision: optional alternatives considered')
+  .option('--implications <text>', 'decision: optional implications')
+  .option('--rule <text>', 'convention: the rule')
+  .option('--applies <text>', 'convention: where the rule applies')
+  .option('--workflow <text>', 'procedural: the workflow name')
+  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
+  .option(
+    '--agent <agent>',
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+  )
+  .action(wrap((opts: unknown) => memoryAdd(opts as Record<string, never>)))
+
+memoryCmd
+  .command('list')
+  .description(
+    'List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
+  )
+  .option(
+    '--project <ref>',
+    "The project (project scope; default: the bound task's project)"
   )
   .option(
     '--category <cat>',
     'Filter by trap|decision|convention|procedural (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
-  .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectList(p as string | undefined, opts as Record<string, string>)
-    )
-  )
-
-projectMemory
-  .command('add [project]')
-  .description(
-    "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural trigger')
-  .option('--outcome <text>', 'trap outcome')
-  .option('--workaround <text>', 'trap optional workaround')
-  .option('--what <text>', 'decision')
-  .option('--why <text>', 'decision rationale')
-  .option('--alternatives <text>', 'decision optional alternatives')
-  .option('--implications <text>', 'decision optional implications')
-  .option('--rule <text>', 'convention rule')
-  .option('--applies <text>', 'convention: where it applies')
-  .option('--workflow <text>', 'procedural workflow')
-  .option('--step <text>', 'procedural step (repeatable)', collect, [])
   .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+    '--learnings',
+    "The workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first"
   )
-  .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)
-    )
+  .option(
+    '--repo <owner/name>',
+    "With --learnings: only this repository's learnings"
   )
-
-const memoryCmd = program
-  .command('memory')
-  .description(
-    'Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)'
-  )
+  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
+  .action(wrap((opts: unknown) => memoryList(opts as Record<string, never>)))
 
 memoryCmd
   .command('show <memory>')
@@ -2201,14 +2146,22 @@ memoryCmd
   )
 
 memoryCmd
-  .command('promote <memory>')
+  .command('update <memory>')
   .description(
-    'Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks.'
+    'Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks.'
   )
-  .action(wrap((id: unknown) => memoryPromote(id as string)))
+  .option(
+    '--scope <scope>',
+    'project (a memory only moves from task to project)'
+  )
+  .action(
+    wrap((id: unknown, opts: unknown) =>
+      memoryUpdate(id as string, opts as { scope?: string })
+    )
+  )
 
 memoryCmd
-  .command('rm <memory>')
+  .command('delete <memory>')
   .description(
     'Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.'
   )
@@ -2216,10 +2169,9 @@ memoryCmd
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id: unknown, opts: unknown) =>
-      memoryRm(id as string, opts as { confirm?: boolean; yes?: boolean })
+      memoryDelete(id as string, opts as { confirm?: boolean })
     )
   )
 

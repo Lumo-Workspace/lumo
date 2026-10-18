@@ -36,7 +36,7 @@ function truncate(s: string): string {
 }
 
 /** The changes[] block for the confirmation envelope. */
-export function describeMemoryRm(memory: {
+export function describeMemoryDelete(memory: {
   id: string
   category: string
   content: unknown
@@ -50,13 +50,13 @@ export function describeMemoryRm(memory: {
   return lines.map(l => sanitizeField(l))
 }
 
-export async function memoryRm(
+export async function memoryDelete(
   memoryId: string | undefined,
   options: RmOptions
 ): Promise<number | void> {
   if (!memoryId) {
     console.error(
-      'Error: missing <memory>. Usage: lumo memory rm <memory> --confirm'
+      'Error: missing <memory>. Usage: lumo memory delete <memory> --confirm'
     )
     return EXIT_USAGE
   }
@@ -78,7 +78,7 @@ export async function memoryRm(
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
   // LUM-1230: the server resolves a short ref / unique prefix and explains a
   // miss or an ambiguous ref; this is the fallback for an older server.
-  const notFound = `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo task memory list\` / \`lumo project memory list\``
+  const notFound = `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo memory list\` / \`lumo memory list --scope project\``
 
   // LUM-755: without --confirm, fetch the card so the envelope shows what
   // would be deleted, then stop — no DELETE is sent.
@@ -108,8 +108,8 @@ export async function memoryRm(
       memory: { id: string; category: string; content: unknown }
     }
     return emitConfirmation({
-      command: 'memory rm',
-      changes: describeMemoryRm(memory),
+      command: 'memory delete',
+      changes: describeMemoryDelete(memory),
     })
   }
 

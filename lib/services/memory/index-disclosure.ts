@@ -1,3 +1,7 @@
+import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
 import { memoryManifestLine, type RenderableMemory } from '@/lib/memory/render'
 
 /**
@@ -12,7 +16,8 @@ import { memoryManifestLine, type RenderableMemory } from '@/lib/memory/render'
  */
 export function buildMemoryIndex(
   ordered: RenderableMemory[],
-  topK: number
+  topK: number,
+  commands: CliCommandNames = LEGACY_CLI_COMMANDS
 ): string {
   if (ordered.length === 0) return ''
   const kept = ordered.slice(0, topK)
@@ -24,7 +29,7 @@ export function buildMemoryIndex(
   ]
   if (rest > 0) {
     lines.push(
-      `- +${rest} more — \`lumo project memory list\` / \`lumo task memory list\` to browse, \`lumo memory show <ref>\` to pull one`
+      `- +${rest} more — ${commands.memoryBrowse} to browse, \`lumo memory show <ref>\` to pull one`
     )
   }
   return lines.join('\n')

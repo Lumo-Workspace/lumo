@@ -28,7 +28,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
 | `audit list` (OWNER only)                                            | [audit.md](references/audit.md)                           |
-| `workspace security-scan/learnings` (OWNER)                          | [workspace-settings.md](references/workspace-settings.md) |
+| `workspace security-scan` (OWNER)                                    | [workspace-settings.md](references/workspace-settings.md) |
 | `inbox`, `draft`, `workspace/project overview`                       | [overview.md](references/overview.md)                     |
 | `task deps *` (dependency edges)                                     | [task-deps.md](references/task-deps.md)                   |
 | `task artifact*`, `task figma*`                                      | [artifacts-figma.md](references/artifacts-figma.md)       |
@@ -41,7 +41,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `doc` CRUD / move / bind / share / import                            | [docs.md](references/docs.md)                             |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source`   | [doc-editing.md](references/doc-editing.md)               |
 | `sprint *`                                                           | [sprints.md](references/sprints.md)                       |
-| `task/project memory`, `memory *`                                    | [memory.md](references/memory.md)                         |
+| `memory *` (task / project scope as a flag)                          | [memory.md](references/memory.md)                         |
 | `session attach/status`, `usage resync`, git-suggest, Layer-2        | [sessions.md](references/sessions.md)                     |
 | `worktree add/rm/list/prune`                                         | [worktree.md](references/worktree.md)                     |
 | `--confirm` / exit code 4 — the envelope every gated mutation speaks | [confirmation.md](references/confirmation.md)             |
@@ -91,7 +91,6 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
 - `lumo workspace security-scan` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
-- `lumo workspace learnings [--repo] [--json]` — PR-review learnings with memory refs; delete with `lumo memory rm <ref>`
 - `lumo inbox list` · `draft list` · `project overview [project]` — read-only inbox, your drafts, project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
@@ -154,9 +153,9 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Memory — see [memory.md](references/memory.md)
 
-- `lumo task memory add/list` · `lumo project memory add/list` — record/curate Memory (TASK vs PROJECT)
+- `lumo memory add|list [--scope task|project] [--task <id>] [--project <ref>]` — record/list Memory (TASK default, PROJECT); `memory list --learnings [--repo]` — PR-review learnings
 - `lumo memory show <ref>` — one memory's full card (`<ref>` = 8-char short ref from listings / index lines; full id still works)
-- `lumo memory promote <ref>` / `lumo memory rm <ref> --confirm` — TASK→PROJECT / delete (exit 4 envelope)
+- `lumo memory update <ref> --scope project` / `lumo memory delete <ref> --confirm` — TASK→PROJECT / delete (exit 4 envelope)
 - `lumo memory sync [--dry-run] [--clean]` / `lumo memory push [--dry-run]` — down/upsync team memory with the local Claude Code store
 - `lumo memory fold [project-ref] --dry-run` — read-only preview of the daily topic-fold pass
 
@@ -195,8 +194,8 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No steward role switch or un-steward — `session attach --steward` is the same lifetime lock; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
 - No `lumo pr show` / `lumo scan` — it's `lumo pr scan <number>` (settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
-- No `--body` on `lumo task comment` (body is positional); no `--content` on `task/project memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`
+- No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 
@@ -219,6 +218,6 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - **Attach before coding.** Unattached work is attributed by inference and counts toward gates and cost; explicit attach is highest-priority.
 - **Evidence before "done".** Never claim done from reading code — run the checks and record a test-case run. While a PR is open, the task is IN_REVIEW, not DONE.
 - **DONE is the user's call** — `--status done` exits 4 for their approval unless its one-step condition holds; blocking crossings, blocking security findings and proven test-case defects refuse it with 409.
-- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source, `finding disposition`) run without `--confirm` prints a `confirmation_required` envelope and does nothing. Show every line of its `changes` to the user, wait for explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed". **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned crossing, a blocking security finding, a proven test-case defect): relay its `blockers` and `remediation`; nothing on `task update` clears it — no retry, no flag. The terminal path is the user's ruling — `crossing disposition` / `finding disposition` / `task testcase disposition`. Details: [confirmation.md](references/confirmation.md)
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done` short of its one-step condition, `sprint/milestone/doc/memory delete`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `uninstall`, `doc rebuild-source` on an existing source, `finding disposition`) run without `--confirm` prints a `confirmation_required` envelope and does nothing. Show every line of its `changes` to the user, wait for explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed". **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: an undispositioned crossing, a blocking security finding, a proven test-case defect): relay its `blockers` and `remediation`; nothing on `task update` clears it — no retry, no flag. The terminal path is the user's ruling — `crossing disposition` / `finding disposition` / `task testcase disposition`. Details: [confirmation.md](references/confirmation.md)
 - **Exit codes:** 0 ok · 1 failed (not found, auth, server, network) · **2 usage error** (unknown flag, missing/extra argument, invalid flag value — fix the command; nothing ran) · 4 confirm · 5 blocked. Errors are `Error:` + `Hint:` (+ `Usage:` for 2) on stderr; with `--json`, one `{"error":{code,message,hint,exitCode}}` object on stderr. Lumo's 4 is not gh's 4 — see [confirmation.md](references/confirmation.md#exit-codes).
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

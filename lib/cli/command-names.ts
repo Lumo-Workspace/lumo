@@ -30,11 +30,21 @@ export const READ_ENTRY_MIN_CLI_VERSION = '1.125.5'
  */
 export const TESTCASE_HANDLE_MIN_CLI_VERSION = '1.125.5'
 
+/**
+ * LUM-1233 batch 3b: first CLI release with `memory add|list --scope`,
+ * `memory update --scope project` and `memory delete` (no `task memory`,
+ * `project memory`, `memory rm`, `memory promote`). Raise it if a release
+ * ships between batches. `LUMO_MEMORY_SCOPE_MIN_CLI_VERSION` overrides it.
+ */
+export const MEMORY_SCOPE_MIN_CLI_VERSION = '1.125.5'
+
 export interface CliCommandNames {
   /** True when the caller's CLI has the batch-1 read entry points. */
   readonly current: boolean
   /** True when the caller's CLI takes the batch-3a test-case handle. */
   readonly testCaseHandle: boolean
+  /** True when the caller's CLI has the batch-3b `memory --scope` commands. */
+  readonly memoryScope: boolean
   /** Read the whole task context of the session-bound task (no ref). */
   readonly taskContextBound: string
   /** Read the whole task context. */
@@ -47,15 +57,27 @@ export interface CliCommandNames {
   taskDeps(identifier: string): string
   /** Run a milestone test case (`slug` null = a `<milestone>` placeholder). */
   milestoneTestCaseRun(slug: string | null): string
+  /** How to browse project and task memories (inline Markdown). */
+  readonly memoryBrowse: string
+  /** How to delete one memory by `<ref>` (inline Markdown). */
+  readonly memoryDelete: string
 }
 
 function commandNames(
   readEntry: boolean,
-  testCaseHandle: boolean
+  testCaseHandle: boolean,
+  memoryScope: boolean
 ): CliCommandNames {
   return {
     current: readEntry,
     testCaseHandle,
+    memoryScope,
+    memoryBrowse: memoryScope
+      ? '`lumo memory list --scope project` / `lumo memory list`'
+      : '`lumo project memory list` / `lumo task memory list`',
+    memoryDelete: memoryScope
+      ? '`lumo memory delete <ref>` (it exits 4: show the user the envelope and run its `--confirm` command once they approve)'
+      : '`lumo memory rm <ref> --yes`',
     taskContextBound: readEntry ? 'lumo task show --full' : 'lumo task context',
     taskContext: id =>
       readEntry ? `lumo task show ${id} --full` : `lumo task context ${id}`,
@@ -76,9 +98,17 @@ function commandNames(
   }
 }
 
-export const LEGACY_CLI_COMMANDS: CliCommandNames = commandNames(false, false)
+export const LEGACY_CLI_COMMANDS: CliCommandNames = commandNames(
+  false,
+  false,
+  false
+)
 
-export const CURRENT_CLI_COMMANDS: CliCommandNames = commandNames(true, true)
+export const CURRENT_CLI_COMMANDS: CliCommandNames = commandNames(
+  true,
+  true,
+  true
+)
 
 function atLeast(
   a: [number, number, number],
@@ -115,6 +145,16 @@ export function resolveTestCaseHandleMinVersion(
   )
 }
 
+/** The memory-scope floor in force: a valid env override, else the constant. */
+export function resolveMemoryScopeMinVersion(
+  env: Record<string, string | undefined> = process.env
+): string {
+  return floorFrom(
+    env.LUMO_MEMORY_SCOPE_MIN_CLI_VERSION,
+    MEMORY_SCOPE_MIN_CLI_VERSION
+  )
+}
+
 /** The command names for a CLI reporting `version` (null / malformed = legacy). */
 export function cliCommandNamesForVersion(
   version: string | null | undefined,
@@ -128,9 +168,10 @@ export function cliCommandNamesForVersion(
   }
   const readEntry = at(resolveReadEntryMinVersion(env))
   const testCaseHandle = at(resolveTestCaseHandleMinVersion(env))
-  if (readEntry && testCaseHandle) return CURRENT_CLI_COMMANDS
-  if (!readEntry && !testCaseHandle) return LEGACY_CLI_COMMANDS
-  return commandNames(readEntry, testCaseHandle)
+  const memoryScope = at(resolveMemoryScopeMinVersion(env))
+  if (readEntry && testCaseHandle && memoryScope) return CURRENT_CLI_COMMANDS
+  if (!readEntry && !testCaseHandle && !memoryScope) return LEGACY_CLI_COMMANDS
+  return commandNames(readEntry, testCaseHandle, memoryScope)
 }
 
 /** The command names for the CLI that sent `headers`. */

@@ -55,10 +55,15 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo task testcase run LUM-42/TC3 --result pass --env local --step s1-2=pass',
     'lumo task testcase run LUM-42/TC3 --result fail --env local --cause defect --step s1=pass --step s2=fail',
   ],
-  'task memory add': [
-    'lumo task memory add LUM-42 --category decision --what "Use the queue" --why "Retries are free"',
+  'memory add': [
+    'lumo memory add --category decision --what "Use the queue" --why "Retries are free"',
+    'lumo memory add --scope project --category convention --rule "CLI tag commands print Tags:" --applies "doc/task create and update"',
   ],
-  'task memory list': ['lumo task memory list LUM-42'],
+  'memory list': [
+    'lumo memory list',
+    'lumo memory list --scope project --category trap',
+    'lumo memory list --learnings --repo owner/name',
+  ],
   'task artifact add': [
     'lumo task artifact add LUM-42 --kind spec --title "Spec" --file docs/spec.md --source Superpowers --agent claude-code',
   ],
@@ -112,7 +117,7 @@ export const EXIT_CODE_COMMANDS: Readonly<Record<string, readonly (4 | 5)[]>> =
     'milestone testcase disposition': [4],
     'crossing disposition': [4],
     'finding disposition': [4],
-    'memory rm': [4],
+    'memory delete': [4],
     'milestone delete': [4],
     'sprint close': [4],
     'sprint delete': [4],

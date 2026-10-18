@@ -7,11 +7,12 @@ import { fmtDay } from '../lib/format'
 import { shortRef } from '../../../shared/src/short-ref'
 
 /**
- * LUM-1157 — `lumo workspace learnings [--repo <owner/name>] [--json]`: the
+ * LUM-1157 — `lumo memory list --learnings [--repo <owner/name>] [--json]`
+ * (was `workspace learnings`, LUM-1233 3b): the
  * workspace's PR-review learnings (what reviewers told Lumo in review
  * threads), with or without a Lumo project. A learning of a repository
  * linked to no project appears in no project's memory, so this is where it
- * is found; `lumo memory rm <id>` deletes one.
+ * is found; `lumo memory delete <id>` deletes one.
  */
 
 export interface WorkspaceLearningsOptions {
@@ -36,7 +37,7 @@ export interface ReviewLearningsView {
 }
 
 const PATH = '/api/workspaces/me/security-scan/learnings'
-const NO_PLUGIN = missingPluginMessage('workspace learnings', 'security')
+const NO_PLUGIN = missingPluginMessage('memory list --learnings', 'security')
 
 /** One block per learning: a header line, then the learning text. */
 export function formatReviewLearnings(
@@ -62,7 +63,7 @@ export function formatReviewLearnings(
   return [
     ...blocks,
     '',
-    'Delete one with `lumo memory rm <ref>` (exits 4 with a confirmation envelope until --confirm).',
+    'Delete one with `lumo memory delete <ref>` (exits 4 with a confirmation envelope until --confirm).',
   ].join('\n')
 }
 

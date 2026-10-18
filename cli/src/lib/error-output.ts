@@ -80,7 +80,7 @@ const NOT_FOUND_HINTS: Array<[RegExp, string]> = [
   [/\bPR #/i, "list the task's pull requests with `lumo task show <LUM-N>`."],
   [/\bdoc(ument)?\b/i, 'list docs with `lumo doc list`.'],
   [/\bproject\b/i, 'list projects with `lumo project list`.'],
-  [/\bmemor(y|ies)\b/i, 'list memories with `lumo memory task list <LUM-N>`.'],
+  [/\bmemor(y|ies)\b/i, 'list memories with `lumo memory list`.'],
   [
     /\btest case\b|\/TC\d+/i,
     'list test cases with `lumo task testcase list <LUM-N>`.',
