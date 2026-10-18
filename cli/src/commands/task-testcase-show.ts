@@ -1,7 +1,5 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
 import { fmtInstant } from '../lib/format'
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
 import { formatDispositionLine } from '../lib/test-case-disposition'
 import { formatExecutor } from '../lib/test-case-executor'
@@ -14,7 +12,7 @@ import {
   stepEvidenceIndices,
 } from '../lib/test-case-report'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
   detailEnvelope,
   emitJson,
@@ -103,26 +101,6 @@ function freshnessNote(run: RunRow, prs: PrRow[]): string {
   return run.commitSha === current
     ? `  ${head}`
     : `  ${head} — PR has since moved to ${current.slice(0, 7)}`
-}
-
-export async function taskTestCaseShow(
-  handle: string | undefined,
-  opts: TestCaseShowOptions = {}
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase show LUM-42/TC3'
-    )
-    return EXIT_USAGE
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return EXIT_USAGE
-  }
-  return testCaseShowInScope(taskScope(split.task), split.caseRef, opts)
 }
 
 export async function testCaseShowInScope(

@@ -68,7 +68,7 @@ Every command is a noun followed by a verb: `lumo task show`, `lumo doc update`,
 
 - **Nouns are singular**: `task`, `comment`, `dep`, `testcase` — never `comments`, `deps`, `learnings`.
 - **At most two noun levels**: `lumo task artifact add` is the deepest shape. A third noun level becomes a flag or its own top-level noun.
-- **One word or kebab-case** for each segment: `security-scan`, `import-gdoc`. No camelCase, no underscores.
+- **One word or kebab-case** for each segment: `security-scan`, `rebuild-source`. No camelCase, no underscores.
 
 `gh` follows the same shape (`gh pr view`, `gh repo clone`, `gh run list`) with one noun level. Lumo allows two because tasks own many things (artifacts, Figma links, comments).
 
@@ -132,25 +132,25 @@ These words never appear as a verb. The right word is in the second column.
 
 Some actions are not any of the eight. They are allowed when they name a real domain action that none of the core verbs describes, and they are listed here; a new one needs a change to this table.
 
-| Verb                                                                       | Where                                                        | Why not a core verb                                                                      |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `status`                                                                   | `task`, `session`, `skill`                                   | a computed state check, not a stored object (`task status`, `session status` are frozen) |
-| `attach`                                                                   | `session`                                                    | frozen                                                                                   |
-| `decide`                                                                   | `task`                                                       | records a ruling in the task's Decisions                                                 |
-| `disposition`                                                              | `crossing`, `finding`, `task testcase`, `milestone testcase` | the human-only ruling handshake                                                          |
-| `explain`                                                                  | `crossing`                                                   | the agent's account of a crossing                                                        |
-| `confirm`, `dismiss`                                                       | `task dep`                                                   | rule on a detected candidate edge                                                        |
-| `download`                                                                 | `task testcase`, `milestone testcase`                        | writes evidence files to a local directory                                               |
-| `review`                                                                   | `pr`                                                         | request or control an AI review (new, batch 3)                                           |
-| `diff`, `patch`, `append`, `move`, `sync`, `import-gdoc`, `rebuild-source` | `doc`                                                        | live-doc editing and import                                                              |
-| `archive`, `unarchive`, `move`, `reorder`, `triage`                        | `milestone`                                                  | ordering and lifecycle                                                                   |
-| `start`, `close`                                                           | `sprint`                                                     | lifecycle                                                                                |
-| `sync`, `push`, `fold`                                                     | `memory`                                                     | local memory store                                                                       |
-| `refresh`                                                                  | `task figma`                                                 | re-fetch from Figma                                                                      |
-| `resync`                                                                   | `usage`                                                      | correct historical usage                                                                 |
-| `prune`                                                                    | `worktree`                                                   | clean up                                                                                 |
-| `login`, `logout`                                                          | `auth`                                                       | authentication                                                                           |
-| hook event names                                                           | `hook`                                                       | frozen; named after the agent's hook events                                              |
+| Verb                                                                  | Where                                                        | Why not a core verb                                                                      |
+| --------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `status`                                                              | `task`, `session`, `skill`                                   | a computed state check, not a stored object (`task status`, `session status` are frozen) |
+| `attach`                                                              | `session`                                                    | frozen                                                                                   |
+| `decide`                                                              | `task`                                                       | records a ruling in the task's Decisions                                                 |
+| `disposition`                                                         | `crossing`, `finding`, `task testcase`, `milestone testcase` | the human-only ruling handshake                                                          |
+| `explain`                                                             | `crossing`                                                   | the agent's account of a crossing                                                        |
+| `confirm`, `dismiss`                                                  | `task dep`                                                   | rule on a detected candidate edge                                                        |
+| `download`                                                            | `task testcase`, `milestone testcase`                        | writes evidence files to a local directory                                               |
+| `review`                                                              | `pr`                                                         | request or control an AI review (new, batch 3)                                           |
+| `diff`, `patch`, `append`, `move`, `sync`, `import`, `rebuild-source` | `doc`                                                        | live-doc editing and import                                                              |
+| `archive`, `unarchive`, `move`, `reorder`, `triage`                   | `milestone`                                                  | ordering and lifecycle                                                                   |
+| `start`, `close`                                                      | `sprint`                                                     | lifecycle                                                                                |
+| `sync`, `push`, `fold`                                                | `memory`                                                     | local memory store                                                                       |
+| `refresh`                                                             | `task figma`                                                 | re-fetch from Figma                                                                      |
+| `resync`                                                              | `usage`                                                      | correct historical usage                                                                 |
+| `prune`                                                               | `worktree`                                                   | clean up                                                                                 |
+| `login`, `logout`                                                     | `auth`                                                       | authentication                                                                           |
+| hook event names                                                      | `hook`                                                       | frozen; named after the agent's hook events                                              |
 
 A domain verb must not mean the same as a core verb (`context` meant `show`; it goes).
 
@@ -455,6 +455,7 @@ Same pattern as the existing `--add-tag` / `--remove-tag`.
 | `doc share-list <doc>`              | `doc show <doc> --members`                        | `doc share-list` removed → use `doc show --members`      |
 | `doc bind <doc> <task>`             | `doc update <doc> --add-task <task>`              | `doc bind` removed → use `doc update --add-task`         |
 | `doc unbind <doc> <task>`           | `doc update <doc> --remove-task <task>`           | `doc unbind` removed → use `doc update --remove-task`    |
+| `doc import-gdoc <url>`             | `doc import --gdoc <url>`                         | `doc import-gdoc` removed → use `doc import --gdoc`      |
 
 #### 3d. `pr show` reads and `pr review` writes
 
@@ -476,6 +477,8 @@ Shape per [Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync).
 | `cost [--by --task --session --since]`      | `usage show [--by tool\|model\|member\|session] [--task] [--session] [--since --until]` | `cost` removed → use `usage show`                                                       |
 | `report [--member --since --until --limit]` | `usage show --by member [--member] [--since --until] [--tasks]`                         | `report` removed → use `usage show --by member --tasks`                                 |
 | `usage resync [--apply]`                    | `usage resync [--dry-run]`                                                              | Changed: `usage resync` applies by default; `--apply` removed, preview with `--dry-run` |
+
+As built: `--tasks` selects the per-member window summary with the completed tasks (the former `report`, default 7 days); without it `usage show` is the per-operation view (default 30 days, `--until` now also bounds it). `--member`, `--project` and `--limit` filter the task summary only, so they need `--tasks`; `--task` / `--session` and a `--by` other than `member` do not go with it. Each mismatch is exit 2, never a silently ignored flag.
 
 #### 3f. One summary for "what is on my plate"
 
@@ -583,7 +586,7 @@ No command changes its name. `cli/src/lib/codex-rules.ts` stops keeping its own 
 
 ### Not affected
 
-Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/import-gdoc/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/list/search/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
+Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/list/search/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
 
 ### Counts
 

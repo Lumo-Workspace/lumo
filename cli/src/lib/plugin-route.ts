@@ -13,7 +13,7 @@ export function isMissingPluginRoute(res: Response): boolean {
   return type.includes('text/html')
 }
 
-/** The degradation line, e.g. for `lumo pr scan` on an OSS server. */
+/** The degradation line, e.g. for `lumo pr show` on an OSS server. */
 export function missingPluginMessage(command: string, plugin: string): string {
   return `Error: \`lumo ${command}\` is not available on this Lumo server — the ${plugin} plugin is not installed there.`
 }

@@ -817,7 +817,7 @@
   "lineage.operations.col.cacheCreate": "Creación de caché",
   "lineage.operations.col.cacheRead": "Lectura de caché",
   "lineage.operations.col.total": "Total",
-  "lineage.operations.footnote": "La atribución es heurística (las herramientas paralelas reparten un paso en partes iguales); la lectura de caché es un costo estructural. Desglose completo: lumo cost --task {id}",
+  "lineage.operations.footnote": "La atribución es heurística (las herramientas paralelas reparten un paso en partes iguales); la lectura de caché es un costo estructural. Desglose completo: lumo usage show --task {id} (CLI 1.125 y anteriores: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Completo",
   "lineage.fragment.disclosure.indexPulled": "Índice · expandido",
   "lineage.fragment.disclosure.indexNotPulled": "Índice · no expandido",

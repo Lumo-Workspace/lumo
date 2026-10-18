@@ -295,7 +295,7 @@ export interface ScanWithFindings {
 }
 
 /**
- * LUM-788 — one finding as the by-PR scan read-out (`lumo pr scan`) loads
+ * LUM-788 — one finding as the by-PR scan read-out (`lumo pr show`) loads
  * it. `evidence` is absent by construction, the same P8 rule as
  * `ReviewFindingRow`: the read-out is printed into an agent's terminal, and
  * a column the query never loads is a column no renderer can leak.
@@ -303,7 +303,7 @@ export interface ScanWithFindings {
 export type ReadoutFindingRow = Omit<FindingRow, 'evidence'>
 
 /**
- * LUM-788 — one scan row with everything `lumo pr scan` prints: the layer
+ * LUM-788 — one scan row with everything `lumo pr show` prints: the layer
  * facts, the findings (without evidence), the raw hunt audit and the token
  * spend. Same columns as `ScanWithFindings` minus the write-path-only ones
  * (`agentNotifiedAt`, `summaryCommentId`, `suggestedAt`, `suggestionTokens`).
@@ -2090,7 +2090,7 @@ export const prSecurityScanRepository = {
   /**
    * LUM-788 — a PR's scans newest-first (one row per pushed head), each with
    * its findings minus `evidence`. `take` = null reads the whole history
-   * (`lumo pr scan --all`); the default read passes 1 for the latest head.
+   * (`lumo pr show --all`); the default read passes 1 for the latest head.
    */
   async listByPullRequest(
     pullRequestId: string,

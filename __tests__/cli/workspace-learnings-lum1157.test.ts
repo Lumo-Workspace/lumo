@@ -82,7 +82,7 @@ describe('formatReviewLearnings', () => {
     )
     expect(text).toContain('  Fixture tokens in test/ are fake by design.')
     expect(text).toContain('mem-2  acme/app  @bob  2026-10-15  repository\n')
-    expect(text).toContain('lumo memory rm <ref>')
+    expect(text).toContain('lumo memory delete <ref>')
   })
   it('says so when there are none', () => {
     expect(formatReviewLearnings({ learnings: [] }, 'acme/x')).toBe(

@@ -68,4 +68,37 @@ describe('GET /api/cost', () => {
     const res = await GET(new Request('http://x/api/cost?task=NOPE-9'))
     expect(res.status).toBe(404)
   })
+
+  it('LUM-1233 3e: passes an until bound for usage show --until', async () => {
+    const { operationCostService } =
+      await import('@/lib/services/operation-cost.service')
+    ;(operationCostService.getOperationCost as jest.Mock).mockResolvedValue({
+      version: 1,
+    })
+    const res = await GET(
+      new Request(
+        'http://x/api/cost?since=2026-10-01T00:00:00.000Z&until=2026-10-08T00:00:00.000Z'
+      )
+    )
+    expect(res.status).toBe(200)
+    expect(
+      operationCostService.getOperationCost as jest.Mock
+    ).toHaveBeenLastCalledWith('w1', {
+      kind: 'workspace',
+      since: new Date('2026-10-01T00:00:00.000Z'),
+      until: new Date('2026-10-08T00:00:00.000Z'),
+    })
+    expect(
+      (await GET(new Request('http://x/api/cost?until=nope'))).status
+    ).toBe(400)
+    expect(
+      (
+        await GET(
+          new Request(
+            'http://x/api/cost?since=2026-10-08T00:00:00.000Z&until=2026-10-01T00:00:00.000Z'
+          )
+        )
+      ).status
+    ).toBe(400)
+  })
 })

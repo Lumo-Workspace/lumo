@@ -19,7 +19,9 @@ export async function docUnshare(
   memberRef: string | undefined
 ): Promise<number | void> {
   if (!docRef || !memberRef) {
-    console.error('Error: usage: lumo doc unshare <doc> <member>')
+    console.error(
+      'Error: usage: lumo doc update <doc> --remove-member <member>'
+    )
     return EXIT_USAGE
   }
 

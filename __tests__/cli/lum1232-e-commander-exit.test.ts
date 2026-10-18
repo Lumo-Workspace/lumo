@@ -48,12 +48,12 @@ jest.setTimeout(60_000)
 
 describe('Commander errors (LUM-1232 E1/E2)', () => {
   it('a missing argument exits 2 with Error / Usage / Hint', async () => {
-    const r = await run(['pr', 'scan'], false)
+    const r = await run(['pr', 'show'], false)
     expect(r.code).toBe(2)
     expect(r.stderr).toBe(
       "Error: missing required argument 'number'\n" +
-        'Usage: lumo pr scan [options] <number>\n' +
-        'Hint: see `lumo pr scan --help` for every flag and argument.\n'
+        'Usage: lumo pr show [options] <number>\n' +
+        'Hint: see `lumo pr show --help` for every flag and argument.\n'
     )
   })
 

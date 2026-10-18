@@ -18,12 +18,8 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { readCredentials } from '@/cli/src/lib/config'
-import {
-  formatRunLines,
-  taskTestCaseShow,
-} from '@/cli/src/commands/task-testcase-show'
-import { milestoneTestCaseDownload } from '@/cli/src/commands/milestone-testcase'
-import { taskTestCaseDownload } from '@/cli/src/commands/task-testcase-download'
+import { formatRunLines } from '@/cli/src/commands/task-testcase-show'
+import { testCaseDownload, testCaseShow } from '@/cli/src/commands/testcase'
 import {
   CODEX_SANDBOXED_COMMANDS,
   CODEX_SERVER_ONLY_COMMANDS,
@@ -259,7 +255,7 @@ describe('show — evidence under its step', () => {
       status: 200,
       json: async () => ({ testCase: tc, runs: [mixed()], pullRequests: [] }),
     }) as never
-    await taskTestCaseShow('LUM-42/TC3')
+    await testCaseShow('task', 'LUM-42/TC3', {})
     expect(printed()).toMatch(
       /step 1: open the invoice\n {8}invoice\.png {2}https:\/\/lumo\.example\/api\/files\/test-evidence\/t1\/c1\/f1/
     )
@@ -686,7 +682,7 @@ describe('testcase download commands', () => {
       .mockResolvedValueOnce(json)
       .mockResolvedValueOnce(bytes('1'))
       .mockResolvedValueOnce({ ok: false, status: 500 }) as never
-    expect(await taskTestCaseDownload('LUM-42/TC3', dir)).toBe(1)
+    expect(await testCaseDownload('task', 'LUM-42/TC3', dir, {})).toBe(1)
     expect(printed()).toContain('LUM-42/TC3  Refund to card')
     expect(printed()).toContain('✗ banner.png: HTTP 500')
     expect(printed()).toContain('(external link, not downloaded)')
@@ -702,9 +698,9 @@ describe('testcase download commands', () => {
       expect(url).toBe(`${BASE}/api/milestones/m1/test-cases/TC3`)
       return json
     }) as never
-    const code = await milestoneTestCaseDownload(
-      'M',
-      'TC3',
+    const code = await testCaseDownload(
+      'milestone',
+      'M/TC3',
       path.join(dir, 'ms'),
       {}
     )
@@ -719,9 +715,9 @@ describe('testcase download commands', () => {
 
   it('rejects a missing directory or handle before any request', async () => {
     global.fetch = jest.fn() as never
-    expect(await taskTestCaseDownload('LUM-42/TC3', ' ')).toBe(2)
-    expect(await taskTestCaseDownload(undefined, dir)).toBe(2)
-    expect(await milestoneTestCaseDownload('M', 'TC3', undefined, {})).toBe(2)
+    expect(await testCaseDownload('task', 'LUM-42/TC3', ' ', {})).toBe(2)
+    expect(await testCaseDownload('task', undefined, dir, {})).toBe(2)
+    expect(await testCaseDownload('milestone', 'M/TC3', undefined, {})).toBe(2)
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
@@ -731,7 +727,9 @@ describe('testcase download commands', () => {
       status: 200,
       json: async () => ({ testCase: tc, runs: [], pullRequests: [] }),
     }) as never
-    expect(await taskTestCaseDownload('LUM-42/TC3', dir)).toBeUndefined()
+    expect(
+      await testCaseDownload('task', 'LUM-42/TC3', dir, {})
+    ).toBeUndefined()
     expect(printed()).toContain('never run, so no evidence to download')
   })
 })

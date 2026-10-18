@@ -1,6 +1,6 @@
 import {
-  activeDurationMsBySession,
-  activeDurationMsBySessionTask,
+  activeDurationMsByRunTask,
+  runKeyOf,
   type AttributedTurnEvent,
 } from '@/lib/agent-run/active-time'
 import {
@@ -335,17 +335,34 @@ export function computeMilestoneDeliveryStats(
   }
 
   // ---- Per-member active time (same stream + rounding as costRollup) ----
-  const memberBySession = new Map<string, string | null>()
-  for (const s of sessionRows) memberBySession.set(s.id, s.workspaceMemberId)
-  const msBySession = activeDurationMsBySession(turnEvents)
+  // LUM-1237: timed per RUN (a root session + its subagents) and task — a
+  // background subagent's turns count on their own, a foreground one inside a
+  // parent turn on the same task counts once. One grouping feeds the total,
+  // the per-member rows and the per-task rows, so they reconcile exactly.
+  // The session map is only the fallback for events that carry no task.
+  const taskBySession = new Map<string, string | null>()
+  for (const s of sessionRows) {
+    if (!taskBySession.has(s.id)) taskBySession.set(s.id, s.taskId)
+  }
+  // A run's member: any of its sessions' (a family has one spender).
+  const memberByRun = new Map<string, string | null>()
+  for (const s of sessionRows) {
+    const run = runKeyOf(s.id)
+    if ((memberByRun.get(run) ?? null) === null)
+      memberByRun.set(run, s.workspaceMemberId)
+  }
+  const runTaskMs = activeDurationMsByRunTask(
+    turnEvents,
+    sessionId => taskBySession.get(sessionId) ?? null
+  )
   const msByMember = new Map<string | null, number>()
   let totalMs = 0
-  for (const [sessionId, ms] of msBySession) {
-    totalMs += ms
-    // A session we can't map to a member — including the '__none__' bucket of
+  for (const g of runTaskMs) {
+    totalMs += g.ms
+    // A run we can't map to a member — including the '__none__' bucket of
     // session-less events — lands in the explicit unattributed row.
-    const member = memberBySession.get(sessionId) ?? null
-    msByMember.set(member, (msByMember.get(member) ?? 0) + ms)
+    const member = memberByRun.get(g.runKey) ?? null
+    msByMember.set(member, (msByMember.get(member) ?? 0) + g.ms)
   }
   const activeTimeSec = Math.round(totalMs / 1000)
 
@@ -475,17 +492,9 @@ export function computeMilestoneDeliveryStats(
 
   // LUM-932: bucket by each EVENT's task — one unattached session can carry
   // turns inferred onto several tasks (it then appears once per task in
-  // sessionRows, so a session→task map would be last-wins). The session map
-  // is only the fallback for events that carry no task.
-  const taskBySession = new Map<string, string | null>()
-  for (const s of sessionRows) {
-    if (!taskBySession.has(s.id)) taskBySession.set(s.id, s.taskId)
-  }
+  // sessionRows, so a session→task map would be last-wins).
   const msByTask = new Map<string | null, number>()
-  for (const g of activeDurationMsBySessionTask(
-    turnEvents,
-    sessionId => taskBySession.get(sessionId) ?? null
-  )) {
+  for (const g of runTaskMs) {
     // A group we can't map to a member task — including the '__none__'
     // bucket of session-less events — lands in the explicit remainder.
     const key = g.taskId !== null && taskIdSet.has(g.taskId) ? g.taskId : null

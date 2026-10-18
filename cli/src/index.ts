@@ -18,8 +18,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
-import { cost } from './commands/cost'
-import { report } from './commands/report'
+import { usageShow, type UsageShowOptions } from './commands/usage'
 import { priority, priorityList } from './commands/priority'
 import {
   crossingExplain,
@@ -62,12 +61,8 @@ import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
-import { memoryTaskList } from './commands/memory-task-list'
-import { memoryTaskAdd } from './commands/memory-task-add'
-import { memoryProjectList } from './commands/memory-project-list'
-import { memoryProjectAdd } from './commands/memory-project-add'
-import { memoryPromote } from './commands/memory-promote'
-import { memoryRm } from './commands/memory-rm'
+import { memoryAdd, memoryList, memoryUpdate } from './commands/memory'
+import { memoryDelete } from './commands/memory-delete'
 import { memoryShow } from './commands/memory-show'
 import { memorySync } from './commands/memory-sync'
 import { memoryPush } from './commands/memory-push'
@@ -77,14 +72,17 @@ import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
 import { taskArtifactUpdate } from './commands/task-artifact-update'
-import { taskTestCaseAdd } from './commands/task-testcase-add'
-import { taskTestCaseList } from './commands/task-testcase-list'
-import { taskTestCaseShow } from './commands/task-testcase-show'
-import { taskTestCaseDownload } from './commands/task-testcase-download'
-import { taskTestCaseUpdate } from './commands/task-testcase-update'
-import { taskTestCaseRm } from './commands/task-testcase-rm'
-import { taskTestCaseRun } from './commands/task-testcase-run'
-import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import {
+  testCaseAdd,
+  testCaseDelete,
+  testCaseDisposition,
+  testCaseDownload,
+  testCaseList,
+  testCaseRun,
+  testCaseShow,
+  testCaseUpdate,
+  type TestCaseParentKind,
+} from './commands/testcase'
 import {
   findingDisposition,
   type FindingDispositionOptions,
@@ -100,15 +98,16 @@ import {
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
-import { prScan, type PrScanOptions } from './commands/pr-scan'
+import {
+  prReview,
+  prShow,
+  type PrReviewOptions,
+  type PrShowOptions,
+} from './commands/pr-scan'
 import {
   workspaceSecurityScan,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
-import {
-  workspaceLearnings,
-  type WorkspaceLearningsOptions,
-} from './commands/workspace-learnings'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -124,16 +123,6 @@ import { milestoneSummary } from './commands/milestone-summary'
 import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
-import {
-  milestoneTestCaseAdd,
-  milestoneTestCaseList,
-  milestoneTestCaseShow,
-  milestoneTestCaseDownload,
-  milestoneTestCaseUpdate,
-  milestoneTestCaseRm,
-  milestoneTestCaseRun,
-  milestoneTestCaseDisposition,
-} from './commands/milestone-testcase'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -150,18 +139,15 @@ import {
   type ImportGdocOptions,
 } from './commands/doc-import-gdoc'
 import { docSync } from './commands/doc-sync'
-import { docUpdate } from './commands/doc-update'
-import { docShow } from './commands/doc-show'
 import { docDiff } from './commands/doc-diff'
 import { docRebuildSource } from './commands/doc-rebuild-source'
 import { docPatch, docAppend } from './commands/doc-section-edit'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
-import { docBind } from './commands/doc-bind'
-import { docUnbind } from './commands/doc-unbind'
-import { docShare } from './commands/doc-share'
-import { docUnshare } from './commands/doc-unshare'
-import { docShareList } from './commands/doc-share-list'
+import {
+  docShowWithMembers,
+  docUpdateWithRelations,
+} from './commands/doc-relations'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
@@ -715,68 +701,6 @@ program
     )
   )
 
-program
-  .command('cost')
-  .description(
-    'Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session'
-  )
-  .option('--task <id>', 'Aggregate a single task (e.g. LUM-42)')
-  .option('--session <id>', 'Aggregate a single Claude Code or Codex session')
-  .option(
-    '--since <date>',
-    'Workspace window lower bound (ISO date); default last 30 days'
-  )
-  .option(
-    '--by <dim>',
-    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
-  )
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      cost(
-        options as {
-          task?: string
-          session?: string
-          since?: string
-          by?: string
-          json?: boolean
-        }
-      )
-    )
-  )
-
-program
-  .command('report')
-  .description(
-    'Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself'
-  )
-  .option(
-    '--since <day>',
-    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
-  )
-  .option(
-    '--until <day>',
-    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
-  )
-  .option('--member <ref>', 'Only this member: me, an email, or a display name')
-  .option('--project <name>', 'Only tasks (and their sessions) in this project')
-  .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      report(
-        options as {
-          since?: string
-          until?: string
-          member?: string
-          project?: string
-          limit?: string
-          json?: boolean
-        }
-      )
-    )
-  )
-
 const priorityCmd = program
   .command('priority [text]')
   .description(
@@ -796,22 +720,9 @@ const pr = program
   .command('pr')
   .description('Inspect pull requests by number — linked to a task or not')
 
-pr.command('scan <number>')
-  .option(
-    '--review <mode>',
-    'Request incremental or full AI review without counting toward the automatic budget'
-  )
-  .option('--pause', 'Pause automatic AI reviews for this PR')
-  .option(
-    '--resume',
-    'Resume automatic AI review of every push and reset the reviewed-commit count'
-  )
-  .option(
-    '--limit <commits>',
-    'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
-  )
+pr.command('show <number>')
   .description(
-    'Read PR scans and control automatic AI reviews: --review incremental|full requests one, --pause / --resume control review of every push. Rule with `lumo finding disposition`.'
+    "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
   )
   .option(
     '--repo <owner/repo>',
@@ -831,7 +742,31 @@ pr.command('scan <number>')
   )
   .action(
     wrap((number, options) =>
-      prScan(number as string, options as PrScanOptions)
+      prShow(number as string, options as PrShowOptions)
+    )
+  )
+
+pr.command('review <number>')
+  .description(
+    'Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push.'
+  )
+  .option('--full', 'A full review instead of an incremental one')
+  .option('--pause', 'Pause automatic AI reviews for this PR')
+  .option(
+    '--resume',
+    'Resume automatic AI review of every push and reset the reviewed-commit count'
+  )
+  .option(
+    '--limit <commits>',
+    'With --pause / --resume: this PR pauses after N reviewed commits (1..100, over the workspace setting)'
+  )
+  .option(
+    '--repo <owner/repo>',
+    'Narrow to one repo when the same PR number exists in several (the error lists the candidates)'
+  )
+  .action(
+    wrap((number, options) =>
+      prReview(number as string, options as PrReviewOptions)
     )
   )
 
@@ -873,17 +808,59 @@ session
   .option('--json', 'Print { version, session } as JSON')
   .action(wrap(opts => sessionStatus(opts as { json?: boolean })))
 
-const usage = program.command('usage').description('Token usage maintenance')
+const usage = program
+  .command('usage')
+  .description('Token usage: what it cost, who used it, and corrections')
+
+usage
+  .command('show')
+  .description(
+    'Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days.'
+  )
+  .option(
+    '--by <dim>',
+    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
+  )
+  .option('--task <id>', 'Cost of a single task (e.g. LUM-42)')
+  .option('--session <id>', 'Cost of a single Claude Code or Codex session')
+  .option(
+    '--since <day>',
+    'First day, inclusive: YYYY-MM-DD, Nd (the N days ending on --until), today, yesterday, or a timestamp. Default: last 30 days (7 with --tasks)'
+  )
+  .option(
+    '--tasks',
+    'Append the tasks completed in the window (tokens split per member)'
+  )
+  .option(
+    '--until <day>',
+    'Last day, inclusive: YYYY-MM-DD, today, or yesterday (default today)'
+  )
+  .option(
+    '--member <ref>',
+    'With --tasks: only this member (me, an email, or a display name)'
+  )
+  .option(
+    '--project <name>',
+    'With --tasks: only tasks (and their sessions) in this project'
+  )
+  .option(
+    '--limit <N>',
+    'With --tasks: max completed tasks listed (default 50, max 500)'
+  )
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(wrap(options => usageShow(options as UsageShowOptions)))
 
 usage
   .command('resync')
   .description(
-    'Correct historical (inflated) token usage from local transcripts. Dry run by default; --apply writes. Sends token counts only, never transcript content.'
+    'Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content.'
   )
-  .option('--apply', 'Write the corrections (default is a dry run)')
+  .option('--dry-run', 'Show what would be corrected and write nothing')
   .option('--json', 'Print the merged server response as JSON')
   .action(
-    wrap(options => usageResync(options as { apply?: boolean; json?: boolean }))
+    wrap(options =>
+      usageResync(options as { dryRun?: boolean; json?: boolean })
+    )
   )
 
 const task = program
@@ -1415,62 +1392,6 @@ taskPr
     )
   )
 
-const taskMemory = task
-  .command('memory')
-  .description('View and record memories scoped to a task')
-
-taskMemory
-  .command('list [task]')
-  .description(
-    "List a task's memories. <task> defaults to the session-bound task."
-  )
-  .option(
-    '--category <cat>',
-    'Filter by trap|decision|convention|procedural (case-insensitive)'
-  )
-  .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskList(
-        taskArg as string | undefined,
-        opts as Record<string, string>
-      )
-    )
-  )
-
-taskMemory
-  .command('add [task]')
-  .description(
-    'Record a memory on a task (defaults to the bound session): only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Pick --category then its fields.'
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
-  .option('--outcome <text>', 'trap: what goes wrong')
-  .option('--workaround <text>', 'trap: optional fix')
-  .option('--what <text>', 'decision: the decision')
-  .option('--why <text>', 'decision: rationale')
-  .option('--alternatives <text>', 'decision: optional alternatives considered')
-  .option('--implications <text>', 'decision: optional implications')
-  .option('--rule <text>', 'convention: the rule')
-  .option('--applies <text>', 'convention: where the rule applies')
-  .option('--workflow <text>', 'procedural: the workflow name')
-  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
-  .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
-  )
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskAdd(
-        taskArg as string | undefined,
-        opts as Record<string, unknown>
-      )
-    )
-  )
 const taskArtifact = task
   .command('artifact')
   .description(
@@ -1576,240 +1497,284 @@ taskArtifact
     )
   )
 
+/**
+ * LUM-1233 batch 3a: one definition for `task testcase …` and
+ * `milestone testcase …` — the same verbs, flags and help text on both, so
+ * they cannot drift. Each per-case verb takes the handle `<parent>/TC<n>`.
+ */
+function registerTestCaseCommands(
+  group: Command,
+  kind: TestCaseParentKind
+): void {
+  const parent = kind === 'task' ? '[task]' : '<milestone>'
+  const handle = `<${kind}/case>`
+  const example = kind === 'task' ? 'LUM-42/TC3' : 'headless-web-cli/TC3'
+  const projectHelp =
+    kind === 'task'
+      ? 'Project name or slug (task refs are unique in the workspace, so a task case ignores it)'
+      : 'Project name or slug (narrows the milestone lookup when two projects share a slug or name)'
+  const parentNote =
+    kind === 'task' ? ' Defaults to the session-bound task.' : ''
+
+  group
+    .command(`add ${parent}`)
+    .description(
+      `Add a test case. --step / --verify are repeatable and keep the order they appear in.${parentNote}`
+    )
+    .requiredOption('--title <title>', 'Test case title')
+    .option(
+      '--setup <text>',
+      'Preconditions, e.g. "The user is on the Dashboard."'
+    )
+    .option(
+      '--step <text>',
+      'One execution step (repeatable, ordered). At least one is required.',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'One verification step (repeatable, ordered). May be omitted entirely.',
+      collect,
+      [] as string[]
+    )
+    .requiredOption('--expected <text>', 'Expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((ref: unknown, options: unknown) =>
+        testCaseAdd(
+          kind,
+          ref as string | undefined,
+          options as Record<string, never>
+        )
+      )
+    )
+
+  group
+    .command(`list ${parent}`)
+    .description(
+      `List test cases with each one's latest run (result, environment, commit).${parentNote}`
+    )
+    .option('--project <ref>', projectHelp)
+    .option(
+      '--json',
+      'Print { version, testCases, total, nextCursor, summary } as JSON'
+    )
+    .action(
+      wrap((ref: unknown, opts: unknown) =>
+        testCaseList(
+          kind,
+          ref as string | undefined,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`show ${handle}`)
+    .description(
+      `Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: ${example}`
+    )
+    .option('--project <ref>', projectHelp)
+    .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
+    .action(
+      wrap((h: unknown, opts: unknown) =>
+        testCaseShow(
+          kind,
+          h as string,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`download ${handle} <dir>`)
+    .description(
+      `Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: ${example}`
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, dir: unknown, opts: unknown) =>
+        testCaseDownload(
+          kind,
+          h as string,
+          dir as string,
+          opts as { project?: string }
+        )
+      )
+    )
+
+  group
+    .command(`update ${handle}`)
+    .description(
+      'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
+    )
+    .option('--title <title>', 'New title')
+    .option('--setup <text>', 'New preconditions')
+    .option(
+      '--step <text>',
+      'Replacement step (repeatable, ordered) - replaces the whole steps list',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'Replacement verification step (repeatable, ordered) - replaces the whole list',
+      collect,
+      [] as string[]
+    )
+    .option('--expected <text>', 'New expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseUpdate(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`delete ${handle}`)
+    .description(
+      'Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
+    )
+    .option(
+      '--confirm',
+      'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDelete(
+          kind,
+          h as string,
+          options as { project?: string; confirm?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`run ${handle}`)
+    .description(
+      'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
+    )
+    .requiredOption(
+      '--result <result>',
+      'pass | fail | blocked (case-insensitive)'
+    )
+    .requiredOption(
+      '--env <environment>',
+      'local | preview | production (case-insensitive; no default - say where this ran)'
+    )
+    .option(
+      '--pr <number>',
+      'The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)'
+    )
+    .option(
+      '--commit <sha>',
+      'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
+    )
+    .option(
+      '--failed-step <n>',
+      '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
+    )
+    .option(
+      '--failed-verify <n>',
+      '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+    )
+    .option(
+      '--cause <cause>',
+      'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
+    )
+    .option(
+      '--unproven <n>',
+      '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
+      collect,
+      [] as string[]
+    )
+    .option('--note <text>', 'Free-text note about this run')
+    .option(
+      '--evidence <url>',
+      'Evidence link (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--evidence-file <path>',
+      'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step <spec>',
+      'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step-evidence <spec>',
+      'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--actual <text>',
+      'What actually happened at the failing step (FAIL only), shown next to the expected result'
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseRun(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`disposition ${handle}`)
+    .description(
+      "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
+    )
+    .option(
+      '--known-defect',
+      'We accept this defect and ship anyway (does NOT claim it is fixed)'
+    )
+    .option(
+      '--not-a-defect',
+      'The failure was mis-attributed to the implementation'
+    )
+    .option('--note <text>', 'Why this ruling')
+    .option(
+      '--receipt <token>',
+      'The read receipt from the previous step of the handshake'
+    )
+    .option(
+      '--confirm-read',
+      "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+    )
+    .option(
+      '--confirm',
+      "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+    )
+    .option('--project <ref>', projectHelp)
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDisposition(kind, h as string, options as Record<string, never>)
+      )
+    )
+}
+
 const taskTestCase = task
   .command('testcase')
   .description(
     'Structured test cases on a task (setup / steps / verification / expected) and their run records'
   )
 
-taskTestCase
-  .command('add <task>')
-  .description(
-    'Add a test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((taskId: unknown, options: unknown) =>
-      taskTestCaseAdd(taskId as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('list <task>')
-  .description(
-    "List a task's test cases with each one's latest run (result, environment, commit)"
-  )
-  .option(
-    '--json',
-    'Print { version, testCases, total, nextCursor, summary } as JSON'
-  )
-  .action(
-    wrap((taskId: unknown, opts: unknown) =>
-      taskTestCaseList(taskId as string, opts as { json?: boolean })
-    )
-  )
-
-taskTestCase
-  .command('show <task/case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: LUM-42/TC3'
-  )
-  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
-  .action(
-    wrap((handle: unknown, opts: unknown) =>
-      taskTestCaseShow(handle as string, opts as { json?: boolean })
-    )
-  )
-
-taskTestCase
-  .command('download <task/case> <dir>')
-  .description(
-    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3'
-  )
-  .action(
-    wrap((handle: unknown, dir: unknown) =>
-      taskTestCaseDownload(handle as string, dir as string)
-    )
-  )
-
-taskTestCase
-  .command('update <task/case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseUpdate(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('rm <task/case>')
-  .description(
-    'Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRm(
-        handle as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-taskTestCase
-  .command('run <task/case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--pr <number>',
-    'The PR whose change this run exercised (must be linked to this task)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRun(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('disposition <task/case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseDisposition(
-        handle as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(taskTestCase, 'task')
 
 const memberCmd = program
   .command('member')
@@ -1906,7 +1871,7 @@ workspaceCmd
   )
   .option(
     '--auto-pause-after <n>',
-    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)'
+    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')
@@ -2008,17 +1973,6 @@ workspaceCmd
     )
   )
 
-workspaceCmd
-  .command('learnings')
-  .description(
-    "List the workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first, including unlinked repositories. Delete one with `lumo memory rm <ref>`."
-  )
-  .option('--repo <owner/name>', "Only this repository's learnings")
-  .option('--json', 'Emit { learnings } as JSON')
-  .action(
-    wrap(options => workspaceLearnings(options as WorkspaceLearningsOptions))
-  )
-
 const tagCmd = program
   .command('tag')
   .description('Workspace tags (labels) from the terminal')
@@ -2098,62 +2052,85 @@ projectCmd
     )
   )
 
-const projectMemory = projectCmd
+const memoryCmd = program
   .command('memory')
-  .description('View and record PROJECT-scope memories')
-
-projectMemory
-  .command('list [project]')
   .description(
-    "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    'Team memory: add, list, show, update, delete; --scope task|project picks the scope'
+  )
+
+memoryCmd
+  .command('add')
+  .description(
+    'Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
+  )
+  .option(
+    '--project <ref>',
+    "The project (project scope; default: the bound task's project)"
+  )
+  .requiredOption(
+    '--category <cat>',
+    'trap | decision | convention | procedural (case-insensitive)'
+  )
+  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
+  .option('--outcome <text>', 'trap: what goes wrong')
+  .option('--workaround <text>', 'trap: optional fix')
+  .option('--what <text>', 'decision: the decision')
+  .option('--why <text>', 'decision: rationale')
+  .option('--alternatives <text>', 'decision: optional alternatives considered')
+  .option('--implications <text>', 'decision: optional implications')
+  .option('--rule <text>', 'convention: the rule')
+  .option('--applies <text>', 'convention: where the rule applies')
+  .option('--workflow <text>', 'procedural: the workflow name')
+  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
+  .option(
+    '--agent <agent>',
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+  )
+  .action(wrap((opts: unknown) => memoryAdd(opts as Record<string, never>)))
+
+memoryCmd
+  .command('list')
+  .description(
+    'List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
+  )
+  .option(
+    '--project <ref>',
+    "The project (project scope; default: the bound task's project)"
   )
   .option(
     '--category <cat>',
     'Filter by trap|decision|convention|procedural (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .option('--json', 'Print { version, memories, total, nextCursor } as JSON')
-  .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectList(p as string | undefined, opts as Record<string, string>)
-    )
-  )
-
-projectMemory
-  .command('add [project]')
-  .description(
-    "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural trigger')
-  .option('--outcome <text>', 'trap outcome')
-  .option('--workaround <text>', 'trap optional workaround')
-  .option('--what <text>', 'decision')
-  .option('--why <text>', 'decision rationale')
-  .option('--alternatives <text>', 'decision optional alternatives')
-  .option('--implications <text>', 'decision optional implications')
-  .option('--rule <text>', 'convention rule')
-  .option('--applies <text>', 'convention: where it applies')
-  .option('--workflow <text>', 'procedural workflow')
-  .option('--step <text>', 'procedural step (repeatable)', collect, [])
   .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+    '--learnings',
+    "The workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first"
   )
-  .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)
-    )
+  .option(
+    '--repo <owner/name>',
+    "With --learnings: only this repository's learnings"
   )
-
-const memoryCmd = program
-  .command('memory')
-  .description(
-    'Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)'
+  .option(
+    '--json',
+    'Print { version, memories, total, nextCursor } as JSON ({ version, learnings } with --learnings)'
   )
+  .action(wrap((opts: unknown) => memoryList(opts as Record<string, never>)))
 
 memoryCmd
   .command('show <memory>')
@@ -2168,14 +2145,22 @@ memoryCmd
   )
 
 memoryCmd
-  .command('promote <memory>')
+  .command('update <memory>')
   .description(
-    'Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks.'
+    'Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks.'
   )
-  .action(wrap((id: unknown) => memoryPromote(id as string)))
+  .option(
+    '--scope <scope>',
+    'project (a memory only moves from task to project)'
+  )
+  .action(
+    wrap((id: unknown, opts: unknown) =>
+      memoryUpdate(id as string, opts as { scope?: string })
+    )
+  )
 
 memoryCmd
-  .command('rm <memory>')
+  .command('delete <memory>')
   .description(
     'Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.'
   )
@@ -2183,10 +2168,9 @@ memoryCmd
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id: unknown, opts: unknown) =>
-      memoryRm(id as string, opts as { confirm?: boolean; yes?: boolean })
+      memoryDelete(id as string, opts as { confirm?: boolean })
     )
   )
 
@@ -2528,284 +2512,7 @@ const milestoneTestCase = milestoneCmd
     "Milestone test cases: cross-task end-to-end cases. The close gate opens only when every case's latest run passed (or a proven defect was dispositioned known)."
   )
 
-milestoneTestCase
-  .command('add <milestone>')
-  .description(
-    'Add a milestone test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseAdd(ms as string, options as Record<string, never>)
-    )
-  )
-
-milestoneTestCase
-  .command('list <milestone>')
-  .description(
-    "List a milestone's test cases with each one's latest run (result, environment, commit)"
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .option(
-    '--json',
-    'Print { version, testCases, total, nextCursor, summary } as JSON'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseList(
-        ms as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('show <milestone> <case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseShow(
-        ms as string,
-        caseRef as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('download <milestone> <case> <dir>')
-  .description(
-    'Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, dir: unknown, options: unknown) =>
-      milestoneTestCaseDownload(
-        ms as string,
-        caseRef as string,
-        dir as string,
-        options as { project?: string }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('update <milestone> <case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseUpdate(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('rm <milestone> <case>')
-  .description(
-    'Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRm(
-        ms as string,
-        caseRef as string,
-        options as { project?: string; confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('run <milestone> <case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRun(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('disposition <milestone> <case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseDisposition(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(milestoneTestCase, 'milestone')
 
 const sprintCmd = program
   .command('sprint')
@@ -2988,15 +2695,21 @@ doc
   )
 
 doc
-  .command('import-gdoc <url>')
-  .description('Import a Google Doc as a Lumo doc (one-way Google → Lumo)')
+  .command('import')
+  .description(
+    'Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)'
+  )
+  .requiredOption('--gdoc <url>', 'The Google Doc to import (its sharing URL)')
   .option(
     '--scope <scope>',
     'personal | workspace (case-insensitive; default: personal)'
   )
   .option('--task <LUM-N>', 'Bind the imported doc to this task')
   .action(
-    wrap((url, opts) => docImportGdoc(url as string, opts as ImportGdocOptions))
+    wrap(opts => {
+      const { gdoc, ...rest } = opts as ImportGdocOptions & { gdoc: string }
+      return docImportGdoc(gdoc, rest)
+    })
   )
 
 doc
@@ -3048,9 +2761,40 @@ doc
     '--allow-shrink',
     'Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)'
   )
+  .option(
+    '--add-member <member>',
+    'Share with a member: "me", an email or a display name (repeatable; PRIVATE docs become SHARED)',
+    collect,
+    []
+  )
+  .option(
+    '--role <role>',
+    'With --add-member: viewer | editor | manager (case-insensitive; default: viewer)'
+  )
+  .option(
+    '--remove-member <member>',
+    'Stop sharing with a member (repeatable; a member not on the list is a no-op)',
+    collect,
+    []
+  )
+  .option(
+    '--add-task <LUM-N>',
+    'Bind the document to a task (repeatable; idempotent)',
+    collect,
+    []
+  )
+  .option(
+    '--remove-task <LUM-N>',
+    'Unbind the document from a task (repeatable; a binding from @LUM-N in the body fails with 409)',
+    collect,
+    []
+  )
   .action(
     wrap((reference, opts) =>
-      docUpdate(reference as string | undefined, opts as Record<string, string>)
+      docUpdateWithRelations(
+        reference as string | undefined,
+        opts as Record<string, never>
+      )
     )
   )
 
@@ -3071,11 +2815,20 @@ doc
     '--json',
     'Print { version, document } as JSON (not with --raw / --section)'
   )
+  .option(
+    '--members',
+    'Print only the members the document is shared with (NAME  ROLE rows)'
+  )
   .action(
     wrap((reference, opts) =>
-      docShow(
+      docShowWithMembers(
         reference as string | undefined,
-        opts as { raw?: boolean; section?: string; json?: boolean }
+        opts as {
+          raw?: boolean
+          section?: string
+          json?: boolean
+          members?: boolean
+        }
       )
     )
   )
@@ -3224,65 +2977,6 @@ doc
       )
     )
   )
-
-doc
-  .command('bind <doc> <task>')
-  .description(
-    'Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docBind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('unbind <doc> <task>')
-  .description(
-    'Unbind a document from a task. Removes explicit mentions only; a mention derived from @LUM-N in the body fails with 409 and must be removed by editing the doc body.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docUnbind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('share <doc> <member>')
-  .description(
-    'Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts "me", an email, or a display name.'
-  )
-  .option(
-    '--role <role>',
-    'viewer | editor | manager (case-insensitive; default: viewer)'
-  )
-  .action(
-    wrap((docRef, member, opts) =>
-      docShare(
-        docRef as string | undefined,
-        member as string | undefined,
-        opts as { role?: string }
-      )
-    )
-  )
-
-doc
-  .command('unshare <doc> <member>')
-  .description(
-    'Remove a member from a document\'s share list. Idempotent — prints "Not shared with …" if no row exists.'
-  )
-  .action(
-    wrap((docRef, member) =>
-      docUnshare(docRef as string | undefined, member as string | undefined)
-    )
-  )
-
-doc
-  .command('share-list <doc>')
-  .description(
-    'List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>.'
-  )
-  .action(wrap(docRef => docShareList(docRef as string | undefined)))
 
 task
   .command('update <identifier>')
@@ -3606,12 +3300,36 @@ attachHelpSections(
   program as unknown as Parameters<typeof attachHelpSections>[0]
 )
 
+/**
+ * LUM-1233 3a: whether `flag` takes a value on the registered command at
+ * `path` — so a tombstone counts positionals the way Commander would (the
+ * value of `--result pass` is not a second argument).
+ */
+function optionTakesValue(path: string, flag: string): boolean {
+  let node = program as unknown as {
+    commands: readonly { name(): string }[]
+    options: readonly {
+      long?: string
+      short?: string
+      required: boolean
+      optional: boolean
+    }[]
+  }
+  for (const word of path.split(' ')) {
+    const next = node.commands.find(c => c.name() === word)
+    if (!next) break
+    node = next as unknown as typeof node
+  }
+  const opt = node.options.find(o => o.long === flag || o.short === flag)
+  return opt ? opt.required || opt.optional : false
+}
+
 // LUM-1233 (RN-3): a removed command never runs — it fails with exit 2 and
 // names its replacement. Checked before Commander, so tombstones never show in
 // --help or grammar.json.
 const removedCommand =
   !isUpdateCheckWorker && !isIntrospect
-    ? findRemovedCommand(process.argv.slice(2))
+    ? findRemovedCommand(process.argv.slice(2), optionTakesValue)
     : null
 if (removedCommand) {
   for (const line of removedCommandLines(removedCommand)) console.error(line)

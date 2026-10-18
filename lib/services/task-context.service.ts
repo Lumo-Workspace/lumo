@@ -728,7 +728,10 @@ export const taskContextService = {
    * resource fetch failing is isolated — that section renders empty, the rest
    * still inject.
    */
-  async buildSessionStartSections(taskId: string): Promise<{
+  async buildSessionStartSections(
+    taskId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
+  ): Promise<{
     /** LUM-807: "## Test cases" nudge ('' once a script exists or on DONE). */
     testCaseSection: string
     memorySection: string
@@ -870,7 +873,7 @@ export const taskContextService = {
     // Tier-2 memory: top-K addressable index, then a pointer for the rest.
     // Wrapped in the same untrusted boundary as the old full card.
     const memorySection = wrapUntrustedMemory(
-      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K)
+      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K, commands)
     )
     // Observe-only telemetry (LUM-402): keep the `memory` metric shape so the
     // return type and the session-start metrics stamp stay intact. Memory no
@@ -1159,7 +1162,8 @@ export const taskContextService = {
    */
   async buildLayer2ReviewSectionForTask(
     taskId: string,
-    currentSessionId: string
+    currentSessionId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<{ section: string; fragments: FragmentRef[]; dropped: number }> {
     const empty = { section: '', fragments: [] as FragmentRef[], dropped: 0 }
     const task = await taskRepository.findById(taskId)
@@ -1184,7 +1188,7 @@ export const taskContextService = {
     }))
     const survivors = applyTokenBudget(ordered)
     return {
-      section: renderLayer2ReviewSection(survivors),
+      section: renderLayer2ReviewSection(survivors, commands),
       fragments: survivors.map(m => ({
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,

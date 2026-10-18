@@ -22,7 +22,7 @@ type Params = { params: Promise<{ id: string }> }
  *   the web is unchanged. It carries finding `evidence` and raw scanner text
  *   that the browser escapes on render.
  * - the read-out (`?view=readout`, and always for a bearer caller) — each PR
- *   as the same `PullRequestScanReadout` `lumo pr scan` prints: free text
+ *   as the same `PullRequestScanReadout` `lumo pr show` prints: free text
  *   sanitized and secret-redacted on the server, `evidence` never loaded.
  *   An agent's terminal only ever gets this one.
  */

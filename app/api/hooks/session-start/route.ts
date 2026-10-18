@@ -56,7 +56,10 @@ export async function POST(request: Request) {
           layer2Review,
           blockerWarning,
         ] = await Promise.all([
-          taskContextService.buildSessionStartSections(binding.taskId),
+          taskContextService.buildSessionStartSections(
+            binding.taskId,
+            commands
+          ),
           taskContextService.buildReviewTodosSectionForTask(binding.taskId),
           // Structured recovery: still drives the lineage SESSION fragment and
           // the LUM-402 metrics stamp. The CLI no longer renders it as a card —
@@ -74,7 +77,8 @@ export async function POST(request: Request) {
           ),
           taskContextService.buildLayer2ReviewSectionForTask(
             binding.taskId,
-            sessionId
+            sessionId,
+            commands
           ),
           // Never throws — returns '' on failure, so the warning can't
           // break session-start context injection (LUM-172).
@@ -171,7 +175,8 @@ export async function POST(request: Request) {
             const { stewardContextService } =
               await import('@/lib/services/steward-context.service')
             const built = await stewardContextService.buildStewardSections(
-              steward.milestoneId
+              steward.milestoneId,
+              commands
             )
             stewardMemorySection = built.section
 

@@ -609,7 +609,7 @@ export const hookEventRepository = {
       select: {
         sessionId: true,
         workspaceMemberId: true,
-        // LUM-1100: `lumo report --project` filters by task membership.
+        // LUM-1100: `lumo usage show --tasks --project` filters by task membership.
         taskId: true,
         type: true,
         toolName: true,

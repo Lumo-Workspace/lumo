@@ -9,12 +9,29 @@
  * `--help` and `grammar.json`. Drop an entry two minor releases after its
  * removal.
  */
+import { shellQuote } from './confirmation'
 
 export interface Tombstone {
   /** The removed command path, e.g. `task context`. */
   path: string
-  /** The replacement command for the given positionals and flags. */
-  replacement(args: string[], flags: string[]): string
+  /**
+   * LUM-1233 3a: a removed argument *shape* of a live command (the old
+   * `milestone testcase show <milestone> <case>`): the tombstone applies only
+   * when this returns true for the positionals. Absent = the path itself was
+   * removed.
+   */
+  match?(args: string[], flags: string[]): boolean
+  /** What the error says was removed (default: `lumo <path>`). */
+  label?: string
+  /** The replacement for the given positionals, flags and raw option tokens. */
+  replacement(args: string[], flags: string[], options: string[]): string
+  /** The command whose `--help` the hint names (default: first 3 words). */
+  help?: string
+  /** The live command whose option definitions say which flags take a
+   *  value (default: `path`); used when `path` itself no longer exists. */
+  optionsOf?: string
+  /** Flags of the removed command that took a value (beyond `optionsOf`). */
+  valueFlags?: readonly string[]
 }
 
 /** `lumo task show <task> <flags…>` keeping the task ref when one was given. */
@@ -22,6 +39,214 @@ function showWith(...flags: string[]) {
   return (args: string[]) =>
     ['lumo task show', ...args.slice(0, 1), ...flags].join(' ')
 }
+
+/** The caller's option tokens without a retired `--yes` (3b: no alias). */
+const noYes = (options: string[]) => options.filter(o => o !== '--yes')
+
+/** LUM-1233 3b: one `memory` noun, the scope a flag. */
+const MEMORY_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'task memory add',
+    optionsOf: 'memory add',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory add', args[0] ? ['--task', args[0]] : [], options),
+    help: 'lumo memory add',
+  },
+  {
+    path: 'task memory list',
+    optionsOf: 'memory list',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory list', args[0] ? ['--task', args[0]] : [], options),
+    help: 'lumo memory list',
+  },
+  {
+    path: 'task memory',
+    replacement: () => 'lumo memory list',
+    help: 'lumo memory',
+  },
+  {
+    path: 'project memory add',
+    optionsOf: 'memory add',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo memory add --scope project',
+        args[0] ? ['--project', args[0]] : [],
+        options
+      ),
+    help: 'lumo memory add',
+  },
+  {
+    path: 'project memory list',
+    optionsOf: 'memory list',
+    replacement: (args, _f, options) =>
+      cmd(
+        'lumo memory list --scope project',
+        args[0] ? ['--project', args[0]] : [],
+        options
+      ),
+    help: 'lumo memory list',
+  },
+  {
+    path: 'project memory',
+    replacement: () => 'lumo memory list --scope project',
+    help: 'lumo memory',
+  },
+  {
+    path: 'memory promote',
+    replacement: args =>
+      cmd(
+        'lumo memory update',
+        [args[0] ?? '<memory>', '--scope', 'project'],
+        []
+      ),
+    help: 'lumo memory update',
+  },
+  {
+    path: 'memory rm',
+    optionsOf: 'memory delete',
+    replacement: (args, _f, options) =>
+      cmd('lumo memory delete', [args[0] ?? '<memory>'], noYes(options)),
+    help: 'lumo memory delete',
+  },
+  {
+    path: 'workspace learnings',
+    optionsOf: 'memory list',
+    replacement: (_a, _f, options) =>
+      cmd('lumo memory list --learnings', [], options),
+    help: 'lumo memory list',
+  },
+]
+
+/** LUM-1233 3c: sharing and task binding are `doc update` fields. */
+const DOC_TOMBSTONES: readonly Tombstone[] = [
+  ...(
+    [
+      ['doc share', '--add-member'],
+      ['doc unshare', '--remove-member'],
+      ['doc bind', '--add-task'],
+      ['doc unbind', '--remove-task'],
+    ] as const
+  ).map(
+    ([path, flag]): Tombstone => ({
+      path,
+      optionsOf: 'doc update',
+      replacement: (args, _f, options) =>
+        cmd(
+          'lumo doc update',
+          [
+            args[0] ?? '<doc>',
+            flag,
+            args[1] ?? (flag.endsWith('task') ? '<LUM-N>' : '<member>'),
+          ],
+          options
+        ),
+      help: 'lumo doc update',
+    })
+  ),
+  {
+    path: 'doc share-list',
+    replacement: args =>
+      cmd('lumo doc show', [args[0] ?? '<doc>', '--members'], []),
+    help: 'lumo doc show',
+  },
+  {
+    path: 'doc import-gdoc',
+    optionsOf: 'doc import',
+    replacement: (args, _f, options) =>
+      cmd('lumo doc import', ['--gdoc', args[0] ?? '<url>'], options),
+    help: 'lumo doc import',
+  },
+]
+
+/**
+ * LUM-1233 3d: `pr scan` became the read-only `pr show`; its write flags
+ * moved to `pr review` (`--review full` → `--full`, `--review incremental`
+ * → the default).
+ */
+export function prScanReplacement(args: string[], options: string[]): string {
+  const n = args[0] ?? '<number>'
+  /** `--flag=value` and `--flag value` both become [flag, value]. */
+  const split = (o: string): [string, string | undefined] => {
+    const eq = o.indexOf('=')
+    return o.startsWith('--') && eq > 0
+      ? [o.slice(0, eq), o.slice(eq + 1)]
+      : [o, undefined]
+  }
+  const read: string[] = []
+  const review: string[] = []
+  let write = false
+  for (let i = 0; i < options.length; i++) {
+    const [flag, inline] = split(options[i]!)
+    const value = (): string | undefined =>
+      inline !== undefined
+        ? inline
+        : i + 1 < options.length
+          ? options[++i]
+          : undefined
+    if (flag === '--review') {
+      write = true
+      if (value() === 'full') review.push('--full')
+    } else if (flag === '--pause' || flag === '--resume') {
+      write = true
+      review.push(flag)
+    } else if (flag === '--limit') {
+      write = true
+      const v = value()
+      review.push('--limit', ...(v !== undefined ? [v] : []))
+    } else if (flag === '--repo') {
+      const v = value()
+      const pair = ['--repo', ...(v !== undefined ? [v] : [])]
+      read.push(...pair)
+      review.push(...pair)
+    } else read.push(options[i]!)
+  }
+  // A write keeps only the flags `pr review` takes (`--json`, `--all` … go).
+  return write
+    ? cmd('lumo pr review', [n], review)
+    : cmd('lumo pr show', [n], read)
+}
+
+const PR_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'pr scan',
+    valueFlags: ['--review', '--limit', '--repo'],
+    replacement: (args, _f, options) => prScanReplacement(args, options),
+    help: 'lumo pr',
+  },
+]
+
+/**
+ * LUM-1233 3e (Q7): one `usage` noun. `cost` and `report` became
+ * `usage show` (`report` = `usage show --tasks`); `usage resync` applies by
+ * default, so the old opt-in `--apply` is gone (`--dry-run` previews).
+ */
+const USAGE_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'cost',
+    optionsOf: 'usage show',
+    replacement: (_a, _f, options) => cmd('lumo usage show', [], options),
+    help: 'lumo usage show',
+  },
+  {
+    path: 'report',
+    optionsOf: 'usage show',
+    replacement: (_a, _f, options) =>
+      cmd('lumo usage show --by member --tasks', [], options),
+    help: 'lumo usage show',
+  },
+  {
+    path: 'usage resync',
+    match: (_args, flags) => flags.some(f => f === '--apply'),
+    label: 'lumo usage resync --apply',
+    replacement: (_a, _f, options) =>
+      cmd(
+        'lumo usage resync',
+        [],
+        options.filter(o => o !== '--apply')
+      ),
+    help: 'lumo usage resync',
+  },
+]
 
 export const TOMBSTONES: readonly Tombstone[] = [
   {
@@ -44,21 +269,91 @@ export const TOMBSTONES: readonly Tombstone[] = [
   { path: 'task deps list', replacement: showWith('--deps') },
   { path: 'outcome show', replacement: showWith('--outcome') },
   { path: 'outcome', replacement: showWith('--outcome') },
+  // LUM-1233 3a: `rm` → `delete`, and one `<parent>/TC<n>` handle.
+  {
+    path: 'task testcase rm',
+    replacement: (args, _flags, options) =>
+      cmd('lumo task testcase delete', [args[0] ?? '<task>/TC<n>'], options),
+    help: 'lumo task testcase delete',
+  },
+  {
+    path: 'milestone testcase rm',
+    replacement: (args, _flags, options) =>
+      cmd(
+        'lumo milestone testcase delete',
+        [
+          args.length >= 2
+            ? milestoneHandle(args)
+            : (args[0] ?? '<milestone>/TC<n>'),
+        ],
+        options
+      ),
+    help: 'lumo milestone testcase delete',
+  },
+  ...(['show', 'update', 'run', 'disposition'] as const).map(
+    (verb): Tombstone => ({
+      path: `milestone testcase ${verb}`,
+      match: args => args.length === 2,
+      label: `lumo milestone testcase ${verb} <milestone> <case>`,
+      replacement: (args, _flags, options) =>
+        cmd(
+          `lumo milestone testcase ${verb}`,
+          [milestoneHandle(args)],
+          options
+        ),
+      help: `lumo milestone testcase ${verb}`,
+    })
+  ),
+  {
+    path: 'milestone testcase download',
+    match: args => args.length === 3,
+    label: 'lumo milestone testcase download <milestone> <case> <dir>',
+    replacement: (args, _flags, options) =>
+      cmd(
+        'lumo milestone testcase download',
+        [milestoneHandle(args), args[2]!],
+        options
+      ),
+    help: 'lumo milestone testcase download',
+  },
+  ...MEMORY_TOMBSTONES,
+  ...DOC_TOMBSTONES,
+  ...PR_TOMBSTONES,
+  ...USAGE_TOMBSTONES,
 ]
 
-/** Options that take a value (their value is not a positional). */
+/** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
+function milestoneHandle(args: string[]): string {
+  const n = (args[1] ?? '').replace(/^TC/i, '')
+  return `${args[0]}/TC${n}`
+}
+
+/** A command line: head, positionals, then the caller's option tokens. */
+function cmd(head: string, args: string[], options: string[]): string {
+  return [head, ...args.map(shellQuote), ...options.map(shellQuote)].join(' ')
+}
+
+/** Options that take a value when no command definition says otherwise. */
 const VALUE_OPTIONS = new Set(['--limit', '-n', '--cursor', '--project'])
+
+/** Whether `flag` takes a value on the command at `path` (from Commander). */
+export type TakesValue = (path: string, flag: string) => boolean
 
 export interface RemovedHit {
   path: string
+  label: string
   replacement: string
+  help: string
 }
 
 /**
  * The tombstone `argv` (without `node lumo`) names, or null. Leading global
  * options (`--json`, `--no-hints`) are skipped; the longest matching path wins.
  */
-export function findRemovedCommand(argv: string[]): RemovedHit | null {
+export function findRemovedCommand(
+  argv: string[],
+  takesValue: TakesValue = (_path, flag) => VALUE_OPTIONS.has(flag)
+): RemovedHit | null {
   let start = 0
   while (start < argv.length && argv[start]!.startsWith('-')) start++
   const rest = argv.slice(start)
@@ -67,30 +362,47 @@ export function findRemovedCommand(argv: string[]): RemovedHit | null {
     if (tok.startsWith('-')) break
     words.push(tok)
   }
-  const matches = TOMBSTONES.filter(t => {
+  const candidates = TOMBSTONES.filter(t => {
     const parts = t.path.split(' ')
     return parts.every((p, i) => words[i] === p)
   }).sort((a, b) => b.path.length - a.path.length)
-  const hit = matches[0]
-  if (!hit) return null
-  const depth = hit.path.split(' ').length
-  const args: string[] = []
-  const flags: string[] = []
-  const after = rest.slice(depth)
-  for (let i = 0; i < after.length; i++) {
-    const tok = after[i]!
-    if (tok.startsWith('-')) {
-      flags.push(tok)
-      if (VALUE_OPTIONS.has(tok)) i++
-    } else args.push(tok)
+  for (const hit of candidates) {
+    const depth = hit.path.split(' ').length
+    const args: string[] = []
+    const flags: string[] = []
+    const options: string[] = []
+    const after = rest.slice(depth)
+    for (let i = 0; i < after.length; i++) {
+      const tok = after[i]!
+      if (tok.startsWith('-')) {
+        flags.push(tok)
+        options.push(tok)
+        if (
+          !tok.includes('=') &&
+          (hit.valueFlags?.includes(tok) ||
+            takesValue(hit.optionsOf ?? hit.path, tok))
+        ) {
+          i++
+          if (i < after.length) options.push(after[i]!)
+        }
+      } else args.push(tok)
+    }
+    if (hit.match && !hit.match(args, flags)) continue
+    const replacement = hit.replacement(args, flags, options)
+    return {
+      path: hit.path,
+      label: hit.label ?? `lumo ${hit.path}`,
+      replacement,
+      help: hit.help ?? replacement.split(' ').slice(0, 3).join(' '),
+    }
   }
-  return { path: hit.path, replacement: hit.replacement(args, flags) }
+  return null
 }
 
 /** The stderr lines for a removed command. */
 export function removedCommandLines(hit: RemovedHit): string[] {
   return [
-    `Error: lumo ${hit.path} was removed. Use: ${hit.replacement}`,
-    `Hint: see \`${hit.replacement.split(' ').slice(0, 3).join(' ')} --help\`.`,
+    `Error: ${hit.label} was removed. Use: ${hit.replacement}`,
+    `Hint: see \`${hit.help} --help\`.`,
   ]
 }

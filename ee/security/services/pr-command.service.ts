@@ -1,7 +1,7 @@
 /**
  * LUM-1129 — drive the PR reviewer from the PR itself, by command: a
  * top-level conversation comment `@<app> review | full review | pause |
- * resume | resolve` runs the same control path as `lumo pr scan --review /
+ * resume | resolve` runs the same control path as `lumo pr review /
  * --pause / --resume` (`prReviewControlService`) or the LUM-1127 thread
  * resolve, and Lumo answers with a reply.
  *

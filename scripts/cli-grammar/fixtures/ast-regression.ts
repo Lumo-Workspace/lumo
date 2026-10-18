@@ -39,9 +39,9 @@ export const HALLUCINATION_CASES: AstCase[] = [
   },
   {
     raw: 'lumo project memory list --project lumo 2>&1',
-    expect: 'unknown-flag',
-    offending: '--project',
-    note: 'project is a positional on memory commands, not a flag',
+    expect: 'unknown-command',
+    offending: 'memory',
+    note: 'LUM-1233 3b: `project memory` was removed — it is `memory list --scope project`',
   },
   {
     raw: 'lumo sprint list --project lumo 2>&1',
@@ -49,7 +49,7 @@ export const HALLUCINATION_CASES: AstCase[] = [
     offending: '--project',
   },
   {
-    raw: 'lumo project memory add lumo --category procedural --content $BODY 2>&1',
+    raw: 'lumo memory add --scope project --category procedural --content $BODY 2>&1',
     expect: 'unknown-flag',
     offending: '--content',
     note: 'memory is structured fields; --content never existed',
@@ -89,7 +89,7 @@ export const VALID_CASES: AstCase[] = [
     note: 'LUM-420: --source is an open e.g. example list (opaque free text), not a closed enum — 135 real Superpowers calls were misflagged before',
   },
   {
-    raw: 'lumo task memory add LUM-352 --category DECISION "Chose option B over option A" 2>&1',
+    raw: 'lumo memory add --task LUM-352 --category DECISION --what "Chose option B over option A" 2>&1',
     expect: 'valid',
     note: 'LUM-420: runtime lowercases --category before validating; uppercase variants are legal constructions',
   },
@@ -134,7 +134,10 @@ export const VALID_CASES: AstCase[] = [
     note: 'repeatable flags',
   },
   { raw: 'lumo task update LUM-9 --status=done', expect: 'valid' },
-  { raw: 'lumo memory rm cmq7pwqod000p04lgv0crvqox --yes', expect: 'valid' },
+  {
+    raw: 'lumo memory delete cmq7pwqod000p04lgv0crvqox --confirm',
+    expect: 'valid',
+  },
   {
     raw: 'lumo help task',
     expect: 'valid',

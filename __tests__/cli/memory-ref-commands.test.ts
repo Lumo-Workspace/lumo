@@ -20,7 +20,7 @@ jest.mock('../../cli/src/lib/report-pull', () => ({
 }))
 
 import { memoryShow } from '@/cli/src/commands/memory-show'
-import { memoryRm } from '@/cli/src/commands/memory-rm'
+import { memoryDelete } from '@/cli/src/commands/memory-delete'
 import { memoryPromote } from '@/cli/src/commands/memory-promote'
 import { formatMemoryList } from '@/cli/src/lib/memory-content'
 import { formatReviewLearnings } from '@/cli/src/commands/workspace-learnings'
@@ -97,12 +97,12 @@ describe('lumo memory show <memory>', () => {
   })
 })
 
-describe('lumo memory rm <memory>', () => {
+describe('lumo memory delete <memory>', () => {
   it('the envelope names the memory by short ref', async () => {
     jest
       .spyOn(global, 'fetch')
       .mockResolvedValue(respond(200, { memory: CARD }))
-    expect(await memoryRm(SHORT, {})).toBe(4)
+    expect(await memoryDelete(SHORT, {})).toBe(4)
     expect(printed()).toContain(`Will hard-delete memory ${SHORT} [TRAP]`)
     expect(printed()).not.toContain(FULL)
   })

@@ -286,7 +286,7 @@ export const prSecurityReminderService = {
         // next-actions list and `openFindings` leave it out.
         if (exits.has(f.id)) continue
         // LUM-988: the agentic verifier rejected it after reading the code —
-        // shown in the panel and `pr scan`, never asked of the agent.
+        // shown in the panel and `pr show`, never asked of the agent.
         if (isVerifierRejected(f)) continue
         // LUM-1127: a human resolved its thread on GitHub (non-blocking only).
         if (closedOnGithub(f)) continue

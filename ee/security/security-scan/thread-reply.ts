@@ -417,7 +417,7 @@ export function buildLearningReply(input: LearningReplyInput): string {
   const head = headLine(input.login, input.closed)
   const undo = input.inProject
     ? "edit or delete this learning in the project's memory in Lumo"
-    : `list this repository's learnings with \`lumo workspace learnings --repo ${input.repo}\` and delete one with \`lumo memory rm <id>\``
+    : `list this repository's learnings with \`lumo memory list --learnings --repo ${input.repo}\` and delete one with \`lumo memory delete <id>\` (Lumo CLI 1.125 and older: \`lumo workspace learnings --repo ${input.repo}\` / \`lumo memory rm <id>\`)`
   const body =
     input.stored === 'stored'
       ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, ${undo}._`

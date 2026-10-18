@@ -1,6 +1,6 @@
-# Pull requests by number — `lumo pr scan`
+# Pull requests by number — `lumo pr show` / `lumo pr review`
 
-`lumo pr scan <number>` prints the **security scans of one PR** in the
+`lumo pr show <number>` prints the **security scans of one PR** in the
 workspace, by PR number — whether or not a task is linked to it (LUM-788).
 Until now the only CLI window onto a scan was `lumo task status` (one summary
 line per _linked_ PR, undispositioned findings in Next actions); a PR whose
@@ -9,31 +9,34 @@ and none of the L3 hunt's stored audit (per-task commands, step trace, stop
 arithmetic, sites, model, diff sizing) had any entry point outside a
 prod-database script.
 
-Without control flags this is read-only, no LLM. This command reports dispositions, it never records
+`pr show` is read-only, no LLM; requesting or pausing a review is `lumo pr review` (LUM-1233: the former `pr scan` was split into the two; `lumo pr scan …` prints `was removed. Use: …` and exits 2). It reports dispositions, it never records
 one — the user's ruling goes through [`lumo finding disposition`](#finding-disposition) (or the web panel).
 
 ## Usage
 
 ### Which PRs are reviewed automatically (LUM-1133)
 
-Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not. For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed (unless a PR opts in by label / description keyword), its auto-review filters apply (base branches, labels, title keywords, ignored authors — LUM-1143), and its path filters decide what the AI review reads (lockfiles / generated files left out by default); a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR reviewed-commit budget and the 150-file cap apply the same way; `lumo pr scan <n> --review full` still reviews any PR by hand.
+Every open PR of a repository the workspace confirmed is reviewed on `opened` / `reopened` / `synchronize` / `ready_for_review` — task-linked or not. For a PR **without a task**, the per-repository settings apply (`lumo workspace security-scan --repos`, see [workspace-settings.md](workspace-settings.md)): a repository turned off is not reviewed (unless a PR opts in by label / description keyword), its auto-review filters apply (base branches, labels, title keywords, ignored authors — LUM-1143), and its path filters decide what the AI review reads (lockfiles / generated files left out by default); a draft is skipped until it is marked ready unless the repository includes drafts; a PR converted back to draft keeps its findings and threads, and its pushes are not reviewed while it is a draft. When several workspaces confirmed the same repository, exactly one reviews a task-less PR (the earliest confirmation that would review it; none when another workspace has the PR linked to its task), so GitHub gets one review. Task-linked PRs are always scanned — the scan is the Done gate's evidence. The per-PR reviewed-commit budget and the 150-file cap apply the same way; `lumo pr review <n> --full` still reviews any PR by hand.
 
-### Review controls (LUM-1056, LUM-1137)
+### Review controls — `lumo pr review` (LUM-1056, LUM-1137)
 
 Every push to an open PR gets an automatic incremental AI review (and exploit-path hunt) — until the PR has N reviewed commits (auto-pause): N is the PR's own `--limit`, else the workspace's `--auto-pause-after` ([workspace-settings.md](workspace-settings.md), default 5, `0` = never pause). Reviewed commits are the commits each reviewed push added; the first automatic review counts one commit, however many the PR already has. A push superseded by a newer one before its review landed counts nothing (the newer push's review covers its commits). An hourly cap per PR author (20 automatic reviews) also applies: a push over it gets its deterministic checks, its AI layers read `rate-limited — automatic review resumes within the hour`, and the next push after the hour is reviewed; a manual review is never limited.
 
-`--review incremental` requests review of affected files since the last complete AI review; `--review full` requests the entire PR. Both bypass the automatic budget without consuming or resetting it. Concurrent requests while a review is active deduplicate; a later request after completion starts another review. Active asynchronous layers must finish before the same head can be restarted.
+`lumo pr review <n>` requests an incremental review (affected files since the last complete AI review); `lumo pr review <n> --full` requests the entire PR. Both bypass the automatic budget without consuming or resetting it. Concurrent requests while a review is active deduplicate; a later request after completion starts another review. Active asynchronous layers must finish before the same head can be restarted.
 
 `--pause` pauses automatic AI review and exploit-path discovery. `--resume` resets the reviewed-commit count (counting from the PR's current commits, so the next N commits are reviewed) and resumes automatic review of every push; it does not immediately review the current head. `--limit 1..100` with pause/resume gives the PR its own pause-after (reviewed commits), over the workspace setting; a later `--resume` without `--limit` keeps it. Failed attempts keep their reservation; retries of an admitted head count nothing again. Deterministic checks continue while AI is paused. Paused does not mean checked and does not clear blocking findings.
 
-Choose exactly one of `--review`, `--pause`, `--resume`. Example: `lumo pr scan 1013 --repo owner/repo --resume --limit 2`. Use these controls when repeated fix pushes keep triggering new AI findings, or when the user requests a manual review/pause/resume.
+`pr review` takes at most one of `--full`, `--pause`, `--resume` (`--limit` only with `--pause` / `--resume`; anything else is exit 2). Example: `lumo pr review 1013 --repo owner/repo --resume --limit 2`. Use these controls when repeated fix pushes keep triggering new AI findings, or when the user requests a manual review/pause/resume.
 
 ```bash
-lumo pr scan 1013                                 # latest head's scan, prose
-lumo pr scan 1013 --full                          # + per-task hunt detail
-lumo pr scan 1013 --all                           # every pushed head, newest first
-lumo pr scan 1013 --json                          # structured payload (version 1)
-lumo pr scan 1013 --repo Lumo-Workspace/lumo      # same number in several repos
+lumo pr show 1013                                 # latest head's scan, prose
+lumo pr show 1013 --full                          # + per-task hunt detail
+lumo pr show 1013 --all                           # every pushed head, newest first
+lumo pr show 1013 --json                          # structured payload (version 1)
+lumo pr show 1013 --repo Lumo-Workspace/lumo      # same number in several repos
+lumo pr review 1013                               # request an incremental AI review now
+lumo pr review 1013 --full                        # request a full AI review
+lumo pr review 1013 --pause                       # pause automatic review of every push
 ```
 
 | Flag                  | Notes                                                                                                                                                                                        |
@@ -50,7 +53,7 @@ workspace <slug>` — so the command never leaks whether a PR exists elsewhere.
 
 ### PR comment commands (LUM-1129)
 
-The same controls work from the PR itself: a top-level PR comment whose line starts with the App's handle (production `@uselumo`; derived from `GITHUB_APP_SLUG`) — `@uselumo review` (= `--review incremental`), `@uselumo full review` (= `--review full`), `@uselumo pause`, `@uselumo resume`, `@uselumo resolve`, `@uselumo configuration`, `@uselumo summary`, `@uselumo diagram`, `@uselumo help`. Lumo answers with a reply; a short unknown command gets the help list (anything longer is a question — see "Questions to Lumo on a PR" below). Only accounts with write access to the repository are obeyed (others, bots and edited comments are ignored silently); it works on PRs with no linked task. `resolve` resolves Lumo's open review threads as the commenter's own resolve — it never dispositions a finding, leaves a finding that blocks DONE open (clear those with `lumo finding disposition` or the web panel), and is open to the PR's author by default (LUM-1142, author approval; `lumo workspace security-scan --allow-author-approval off` refuses the author again). `@uselumo approve` (LUM-1130, only when the workspace's request-changes workflow is on — `lumo workspace security-scan --request-changes on`) resolves Lumo's open threads and approves the PR's current head, dismissing Lumo's earlier "changes requested"; it is refused while any finding blocks DONE (a thread resolved on GitHub does not clear it — only a disposition does), refused for the PR's author only when the workspace turned author approval off (then also when the author is unknown), refused until Lumo's latest scan is of the PR's current head, and does nothing when refused. `@uselumo configuration` (LUM-1153) replies with the effective review settings for the PR — every `.lumo.yaml` key with its value and source (`.lumo.yaml` on the PR's base branch > repository settings > default), the workspace switches (setting vs default) and which layers run; read-only, nothing is changed by comment. `@uselumo summary` (LUM-1151) writes the latest review's high-level summary into the PR description again — Lumo's own section, or the author's `@uselumo summary` placeholder line, never the author's text; it says so when the repository keeps the summary in the comment or has it off (`lumo workspace security-scan --repo <r> --summary`, see `workspace-settings.md`). `@uselumo diagram` (LUM-1155) draws the sequence diagram of the PR's main call flow again (one model call over the whole PR diff, secrets masked) into the walkthrough of Lumo's summary comment, for the latest review when it is of the PR's head; it says so when the repository has diagrams off (`--sequence-diagrams`), the PR is too small, or no call flow was found. `@uselumo ignore pre-merge checks` (LUM-1148) overrides the PR's failed pre-merge checks (recorded; a repository may limit it to the PR's reviewers — requested by name, or who already submitted a review — never the author); `approve` is refused while an `error` check fails and the PR has not overridden them. Neither ever clears a finding that blocks DONE. The security summary comment lists the commands under "Lumo commands". `@uselumo ignore` anywhere in the PR **description** (not in a code span, code block or `>` quote; an HTML comment counts) skips the automatic AI review and exploit-path hunt of every push while it stays there (LUM-1152): each push still gets its deterministic checks (secrets, scanners, dependencies — a task-linked PR keeps its DONE-gate scan), its AI layers read `skipped — the PR description asks Lumo to ignore this PR`, and the summary says why. It beats every opt-in (labels, the description keyword); the description is read when the scan runs, so editing it starts nothing by itself — after removing it the next push is reviewed. `@uselumo review` / `lumo pr scan --review` still review on request. A manual review asked for while the head's scan is still running (its scanners, hunt or verifier not finished) waits for that scan to finish and then runs once if that scan's AI review was held (ignored, paused, rate-limited) — checked every 30 s, up to 10 minutes; if the scan's own AI review ran, that is the review (a repeated request deduplicates) — except that a requested full review still runs unless that review was itself a full one (an automatic incremental review does not count).
+The same controls work from the PR itself: a top-level PR comment whose line starts with the App's handle (production `@uselumo`; derived from `GITHUB_APP_SLUG`) — `@uselumo review` (= `lumo pr review`), `@uselumo full review` (= `lumo pr review --full`), `@uselumo pause`, `@uselumo resume`, `@uselumo resolve`, `@uselumo configuration`, `@uselumo summary`, `@uselumo diagram`, `@uselumo help`. Lumo answers with a reply; a short unknown command gets the help list (anything longer is a question — see "Questions to Lumo on a PR" below). Only accounts with write access to the repository are obeyed (others, bots and edited comments are ignored silently); it works on PRs with no linked task. `resolve` resolves Lumo's open review threads as the commenter's own resolve — it never dispositions a finding, leaves a finding that blocks DONE open (clear those with `lumo finding disposition` or the web panel), and is open to the PR's author by default (LUM-1142, author approval; `lumo workspace security-scan --allow-author-approval off` refuses the author again). `@uselumo approve` (LUM-1130, only when the workspace's request-changes workflow is on — `lumo workspace security-scan --request-changes on`) resolves Lumo's open threads and approves the PR's current head, dismissing Lumo's earlier "changes requested"; it is refused while any finding blocks DONE (a thread resolved on GitHub does not clear it — only a disposition does), refused for the PR's author only when the workspace turned author approval off (then also when the author is unknown), refused until Lumo's latest scan is of the PR's current head, and does nothing when refused. `@uselumo configuration` (LUM-1153) replies with the effective review settings for the PR — every `.lumo.yaml` key with its value and source (`.lumo.yaml` on the PR's base branch > repository settings > default), the workspace switches (setting vs default) and which layers run; read-only, nothing is changed by comment. `@uselumo summary` (LUM-1151) writes the latest review's high-level summary into the PR description again — Lumo's own section, or the author's `@uselumo summary` placeholder line, never the author's text; it says so when the repository keeps the summary in the comment or has it off (`lumo workspace security-scan --repo <r> --summary`, see `workspace-settings.md`). `@uselumo diagram` (LUM-1155) draws the sequence diagram of the PR's main call flow again (one model call over the whole PR diff, secrets masked) into the walkthrough of Lumo's summary comment, for the latest review when it is of the PR's head; it says so when the repository has diagrams off (`--sequence-diagrams`), the PR is too small, or no call flow was found. `@uselumo ignore pre-merge checks` (LUM-1148) overrides the PR's failed pre-merge checks (recorded; a repository may limit it to the PR's reviewers — requested by name, or who already submitted a review — never the author); `approve` is refused while an `error` check fails and the PR has not overridden them. Neither ever clears a finding that blocks DONE. The security summary comment lists the commands under "Lumo commands". `@uselumo ignore` anywhere in the PR **description** (not in a code span, code block or `>` quote; an HTML comment counts) skips the automatic AI review and exploit-path hunt of every push while it stays there (LUM-1152): each push still gets its deterministic checks (secrets, scanners, dependencies — a task-linked PR keeps its DONE-gate scan), its AI layers read `skipped — the PR description asks Lumo to ignore this PR`, and the summary says why. It beats every opt-in (labels, the description keyword); the description is read when the scan runs, so editing it starts nothing by itself — after removing it the next push is reviewed. `@uselumo review` / `lumo pr review` still review on request. A manual review asked for while the head's scan is still running (its scanners, hunt or verifier not finished) waits for that scan to finish and then runs once if that scan's AI review was held (ignored, paused, rate-limited) — checked every 30 s, up to 10 minutes; if the scan's own AI review ran, that is the review (a repeated request deduplicates) — except that a requested full review still runs unless that review was itself a full one (an automatic incremental review does not count).
 
 ### Questions to Lumo on a PR (LUM-1154)
 
@@ -332,15 +335,15 @@ rulings already made. Read-only, no LLM. Accepts `LUM-N` or a task cuid.
 
 - **Header** — `LUM-42 · security scans`, then `PRs:  N linked · M scanned` and
   `Findings:  a open · b block(s) DONE (latest scan of each PR)`.
-- **Then one block per PR**, printed by exactly the `lumo pr scan` printer
+- **Then one block per PR**, printed by exactly the `lumo pr show` printer
   (everything under "Reading the output" above applies, including the AI
   review controls and their commands). `--all` / `--full` mean what they mean
-  for `pr scan`, applied to every PR.
+  for `pr show`, applied to every PR.
 - **No linked PR** prints `⚠ No PR is linked to LUM-42 — nothing has been
 scanned, so it could not be confirmed clean.` — never an implicit clean.
 - **`--json`** — `{ version: 1, task: { identifier }, totals: { pullRequests,
 scanned, open, blocking }, all, redactedSecrets, scanningOff,
-pullRequests: [ <the pr scan --json payload> ] }`.
+pullRequests: [ <the pr show --json payload> ] }`.
 - **Route** — `GET /api/tasks/<id>/security-scans?view=readout[&all=1]`. An
   API-key caller always gets this read-out (free text sanitized and
   secret-redacted on the server, no `evidence`); a browser session without
@@ -349,25 +352,25 @@ pullRequests: [ <the pr scan --json payload> ] }`.
 - **Errors** — `Error: task LUM-42 not found in workspace <slug>` (unknown or
   another workspace's); ``Error: `lumo task show --scans` is not available on this
 Lumo server …`` (no security plugin); `Error: this Lumo server does not
-serve the task scan read-out yet — use `lumo pr scan <number>` per PR.`
+serve the task scan read-out yet — use `lumo pr show <number>` per PR.`
   (an older server answered with the panel model).
 
 **When to suggest:** the user asks what the scans found on a **task**
 ("what did security find on LUM-42", "show every PR's scan for this task",
-"what was already ruled") — instead of one `pr scan` per PR. `lumo task
+"what was already ruled") — instead of one `pr show` per PR. `lumo task
 status` stays the one-line summary; this is the full view behind it.
 
 ## Errors
 
 - `Error: PR #N not found in workspace <slug>` — unknown number, or a PR of another workspace (same message on purpose).
-- `Error: PR #N exists in several repos — pass --repo <owner/repo>` followed by one ready-to-run `lumo pr scan N --repo …` line per candidate.
+- `Error: PR #N exists in several repos — pass --repo <owner/repo>` followed by one ready-to-run `lumo pr show N --repo …` line per candidate.
 - `Error: --repo must be owner/repo` — malformed flag, no request made.
-- ``Error: `lumo pr scan` is not available on this Lumo server — the security plugin is not installed there.`` — the server has no scan routes at all (e.g. a self-hosted open-source build without the security plugin; CLI ≥ 1.106.0). Nothing to retry; don't suggest scan commands against that server.
+- ``Error: `lumo pr show` is not available on this Lumo server — the security plugin is not installed there.`` — the server has no scan routes at all (e.g. a self-hosted open-source build without the security plugin; CLI ≥ 1.106.0). Nothing to retry; don't suggest scan commands against that server.
 
 ## When to suggest
 
 - The user asks what the security scan found on a PR ("what did the scan say on #1013", "why is PR 1013 blocked", "show me the scan") — especially a PR **without** a linked task, which `lumo task status` cannot see.
-- `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
+- `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr show N` then `--full` for the per-task trace.
 - Auditing the L3 hunt on a real scan (which commands the gate refused, how many steps a task got, which model ran) without a prod-database script.
 - **Not** for changing a finding's standing: that is `lumo finding disposition` (the user's ruling, exit-4 gated) or the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.
 

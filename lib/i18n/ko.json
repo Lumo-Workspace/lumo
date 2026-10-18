@@ -817,7 +817,7 @@
   "lineage.operations.col.cacheCreate": "캐시 생성",
   "lineage.operations.col.cacheRead": "캐시 읽기",
   "lineage.operations.col.total": "합계",
-  "lineage.operations.footnote": "귀속은 휴리스틱입니다(병렬 도구는 한 단계를 균등하게 분할). 캐시 읽기는 구조적 비용입니다. 전체 세부 내역: lumo cost --task {id}",
+  "lineage.operations.footnote": "귀속은 휴리스틱입니다(병렬 도구는 한 단계를 균등하게 분할). 캐시 읽기는 구조적 비용입니다. 전체 세부 내역: lumo usage show --task {id} (CLI 1.125 이하: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "전체",
   "lineage.fragment.disclosure.indexPulled": "인덱스 · 확장됨",
   "lineage.fragment.disclosure.indexNotPulled": "인덱스 · 확장 안 됨",

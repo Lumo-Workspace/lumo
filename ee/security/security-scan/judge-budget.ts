@@ -1,6 +1,6 @@
 /**
  * LUM-814 — the L2 judge's budget arithmetic, written on the scan row and
- * read back by `lumo pr scan`.
+ * read back by `lumo pr show`.
  *
  * Until now the judge reported one boolean (`truncated`). A boolean cannot
  * tell two PRs apart that were both reviewed whole, which is most of them:
@@ -20,7 +20,7 @@
  * stopped selecting its tier by that count in LUM-811, so publishing it next
  * to the budget would invite the reader to believe it still means something.
  * The same reason keeps the "old rule vs new rule" comparison out: it was
- * LUM-811's forensics, not a standing capability of `pr scan`.
+ * LUM-811's forensics, not a standing capability of `pr show`.
  */
 
 /** What the judge's budget pass decided, as persisted on the scan row. */

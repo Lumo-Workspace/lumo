@@ -6,9 +6,8 @@ import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveSessionId } from '../lib/session-id'
 import { printStatusDigest } from '../lib/status-digest'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
-  splitCaseHandle,
   resolveRunLocator,
   readGitCoordinate,
   resolveCommitCoordinate,
@@ -80,26 +79,6 @@ interface UploadResponse {
     contentType: string
     size: number
   }>
-}
-
-export async function taskTestCaseRun(
-  handle: string | undefined,
-  options: TestCaseRunOptions
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase run LUM-42/TC3 --result pass --env local'
-    )
-    return EXIT_USAGE
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return EXIT_USAGE
-  }
-  return testCaseRunInScope(taskScope(split.task), split.caseRef, options)
 }
 
 export async function testCaseRunInScope(

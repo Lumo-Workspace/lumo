@@ -586,7 +586,7 @@ export function formatJudgePartial(
   const list = `${named.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`
   const howTo =
     opts.howTo ??
-    'split the PR, or narrow it and request a full review (`--review full`)'
+    'split the PR, or narrow it and request a full review (`lumo pr review <number> --full`)'
   return `This PR is over the AI review's size limit (${thousands(p.capFiles)} files, ${thousands(p.capChars)} characters), so AI review covered ${thousands(p.reviewedFiles)} of ${thousands(p.totalFiles)} reviewable files. Not reviewed: ${list}. To get them reviewed, ${howTo}.`
 }
 

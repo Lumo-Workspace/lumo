@@ -56,8 +56,8 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-it('exports compute version 2', () => {
-  expect(ATTRIBUTION_COMPUTE_VERSION).toBe(2)
+it('exports compute version 3', () => {
+  expect(ATTRIBUTION_COMPUTE_VERSION).toBe(3)
 })
 
 describe('loadFamily', () => {

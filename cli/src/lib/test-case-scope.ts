@@ -9,7 +9,9 @@ import { sanitizeField } from './sanitize'
 export interface TestCaseScope {
   /** `/api/tasks/LUM-42` or `/api/milestones/<id>` — no trailing slash. */
   basePath: string
-  /** What prints before `/TC3`: the task identifier or the milestone name. */
+  /** What prints before `/TC3`: the task identifier or the milestone slug
+   *  (LUM-1233: the handle `<milestone-slug>/TC<n>` the commands take back;
+   *  the id when the slug is unknown). */
   label: string
   kind: 'task' | 'milestone'
 }
@@ -36,8 +38,9 @@ export async function milestoneScope(
     )
     return {
       basePath: `/api/milestones/${encodeURIComponent(m.id)}`,
-      // The name is member-authored and prints before every `/TC<n>`.
-      label: sanitizeField(m.name || milestoneRef),
+      // The slug prints before every `/TC<n>` so the handle can be pasted
+      // back; it is member-chosen, so it is sanitized like the name was.
+      label: sanitizeField(m.slug || m.id || milestoneRef),
       kind: 'milestone',
     }
   } catch (err) {

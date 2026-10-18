@@ -21,7 +21,7 @@ import {
 } from '../lib/list-table'
 
 /**
- * LUM-1100 — `lumo report`: token usage + tasks completed over a window of
+ * LUM-1100 — `lumo usage show --tasks` (formerly `lumo report`): token usage + tasks completed over a window of
  * local calendar days. Local copies of the server's ReportResponse shape:
  * the CLI is a separate package and must NOT import from the app `types/`.
  */
@@ -100,7 +100,9 @@ function shiftDay(day: string, plusDays: number): string {
  */
 export function resolveReportWindow(
   opts: { since?: string | undefined; until?: string | undefined },
-  now: Date
+  now: Date,
+  /** LUM-1233 3e: `usage show` without `--tasks` defaults to 30 days. */
+  defaultDays: number = DEFAULT_REPORT_DAYS
 ): { ok: true; window: ReportWindow } | { ok: false; error: string } {
   const today = localDayLabel(now.toISOString())
   const named = (v: string): string | null => {
@@ -122,7 +124,7 @@ export function resolveReportWindow(
     untilDay = d
   }
 
-  let sinceDay = shiftDay(untilDay, -(DEFAULT_REPORT_DAYS - 1))
+  let sinceDay = shiftDay(untilDay, -(defaultDays - 1))
   if (opts.since !== undefined) {
     const rel = RELATIVE_RE.exec(opts.since.trim().toLowerCase())
     if (rel) {
@@ -177,7 +179,7 @@ const MODEL_WIDTH = 40
 /** Narrowest the MODEL / MEMBER column is cut to on a tight TTY. */
 const MIN_LABEL_WIDTH = 12
 
-/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — `lumo cost` kinds. */
+/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — the `usage show` kinds. */
 function kindCells(
   t: ReportTokenTotalsDto,
   fmt: (n: number) => string
@@ -353,7 +355,8 @@ function tokenTables(
   }
   return [
     ...compact,
-    'Abbreviated to fit the terminal; exact values: lumo report --json',
+    // LUM-1233 3e: kept within a 76-column terminal with the longer name.
+    'Abbreviated to fit; exact values: lumo usage show --tasks --json',
   ]
 }
 

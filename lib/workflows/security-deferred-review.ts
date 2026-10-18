@@ -1,6 +1,6 @@
 /**
- * LUM-1152 follow-up — a manual review (`@<app> review`, `lumo pr scan
- * --review`) asked for while the head's scan is still in flight (its managed
+ * LUM-1152 follow-up — a manual review (`@<app> review`, `lumo pr review
+ * `) asked for while the head's scan is still in flight (its managed
  * scanners, hunt or verifier running) used to be deduplicated onto that scan.
  * When that scan's AI layers were held — the description's `@<app> ignore`,
  * a pause, the hourly cap — the review the user asked for never ran.

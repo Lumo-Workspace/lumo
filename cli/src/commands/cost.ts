@@ -11,6 +11,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { note } from '../lib/feedback'
 import { localDayStart } from '../lib/local-day'
+import { resolveReportWindow } from './report'
 
 /**
  * Local copies of the server's OperationCostResponse shape. The CLI is a
@@ -102,7 +103,7 @@ function rankTable(
 
 /**
  * LUM-1124: `--since` as the server should see it. A bare YYYY-MM-DD is the
- * shell's LOCAL midnight (the same day boundary `lumo report` uses) — sent
+ * shell's LOCAL midnight (the same day boundary `usage show --tasks` uses) — sent
  * raw, the server would parse it as UTC midnight. A timestamp is read here,
  * in the shell's zone, and sent as an ISO instant. Null = not a valid day or
  * timestamp.
@@ -178,10 +179,57 @@ export function formatOperationCost(
   return out.join('\n')
 }
 
+/** LUM-1233 3e: the default window of `usage show` (as the server's). */
+const COST_DEFAULT_DAYS = 30
+
+/**
+ * LUM-1233 3e: the workspace window of `usage show`. `--since` alone keeps
+ * the original forms (a local day or a timestamp, open-ended to now); with
+ * `--until`, or a `--since` of `Nd` / `today` / `yesterday`, the window is
+ * whole local days as with `--tasks` (`--until` alone = the 30 days ending
+ * on it). Pure (clock injected).
+ */
+export function resolveCostWindow(
+  opts: { since?: string | undefined; until?: string | undefined },
+  now: Date
+):
+  | {
+      ok: true
+      since?: { iso: string; day: string | null }
+      untilIso?: string
+      untilDay?: string
+    }
+  | { ok: false; error: string } {
+  if (opts.since === undefined && opts.until === undefined) return { ok: true }
+  if (opts.until === undefined) {
+    const since = resolveCostSince(opts.since!)
+    if (since) return { ok: true, since }
+  }
+  const r = resolveReportWindow(opts, now, COST_DEFAULT_DAYS)
+  if (!r.ok) {
+    const plain =
+      opts.until === undefined &&
+      !/^(\d{1,3}d|today|yesterday)$/i.test(opts.since!.trim())
+    return {
+      ok: false,
+      error: plain
+        ? `invalid --since "${opts.since}" (expected YYYY-MM-DD, Nd such as 7d, today, yesterday, or a timestamp such as 2026-10-12T09:30)`
+        : r.error,
+    }
+  }
+  return {
+    ok: true,
+    since: { iso: r.window.sinceIso, day: r.window.sinceDay },
+    untilIso: r.window.untilIso,
+    untilDay: r.window.untilDay,
+  }
+}
+
 export async function cost(opts: {
   task?: string
   session?: string
   since?: string
+  until?: string
   by?: string
   json?: boolean
 }): Promise<number | void> {
@@ -201,16 +249,18 @@ export async function cost(opts: {
   let sinceDay: string | null = null
   if (opts.task) params.set('task', opts.task)
   else if (opts.session) params.set('session', opts.session)
-  else if (opts.since) {
-    const since = resolveCostSince(opts.since)
-    if (!since) {
-      console.error(
-        `Error: invalid --since "${opts.since}" (expected YYYY-MM-DD or a timestamp such as 2026-10-12T09:30)`
-      )
+  else if (opts.since !== undefined || opts.until !== undefined) {
+    const w = resolveCostWindow(opts, new Date())
+    if (!w.ok) {
+      console.error(`Error: ${w.error}`)
       return EXIT_USAGE
     }
-    params.set('since', since.iso)
-    sinceDay = since.day
+    if (w.since) params.set('since', w.since.iso)
+    if (w.untilIso) params.set('until', w.untilIso)
+    sinceDay =
+      w.since?.day && w.untilDay
+        ? `${w.since.day} until ${w.untilDay}`
+        : (w.since?.day ?? null)
   }
 
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)

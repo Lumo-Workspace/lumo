@@ -7,7 +7,7 @@ import type { LineageResponse } from '../../types'
 
 type Operation = LineageResponse['totals']['topOperations'][number]
 
-/** Most commands shown under an expanded row; the full list is in `lumo cost`. */
+/** Most commands shown under an expanded row; the full list is in `lumo usage show`. */
 const MAX_COMMANDS = 8
 
 export function TopOperations({
@@ -152,7 +152,7 @@ export function TopOperations({
           {
             id: 'lineage.operations.footnote',
             defaultMessage:
-              '归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo cost --task {id}',
+              '归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）',
           },
           { id: taskIdentifier }
         )}

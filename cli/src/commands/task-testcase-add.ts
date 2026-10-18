@@ -2,7 +2,7 @@ import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 
 export interface TestCaseAddOptions {
   title?: string
@@ -15,19 +15,6 @@ export interface TestCaseAddOptions {
 
 interface AddResponse {
   testCase: { id: string; number: number; title: string }
-}
-
-export async function taskTestCaseAdd(
-  identifier: string | undefined,
-  options: TestCaseAddOptions
-): Promise<number | void> {
-  if (!identifier) {
-    console.error(
-      'Error: missing <task>. Usage: lumo task testcase add LUM-42 --title "…" --step "…" --expected "…"'
-    )
-    return EXIT_USAGE
-  }
-  return testCaseAddInScope(taskScope(identifier), options)
 }
 
 export async function testCaseAddInScope(

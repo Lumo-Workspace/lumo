@@ -74,7 +74,7 @@ function mockFetch(
 }
 
 async function run(
-  opts: { apply?: boolean; json?: boolean } = {}
+  opts: { dryRun?: boolean; json?: boolean } = {}
 ): Promise<{ out: string; err: string; code: number | void }> {
   let out = ''
   let err = ''
@@ -108,10 +108,10 @@ const results = (b: Req['body']) => ({
 })
 
 describe('usage resync command and resynced runs', () => {
-  it('default posts dryRun true and prints the dry-run header', async () => {
+  it('--dry-run posts dryRun true and prints the dry-run header', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(2)
     const reqs = mockFetch(200, results)
-    const { out, code } = await run()
+    const { out, code } = await run({ dryRun: true })
     expect(code).toBe(0)
     expect(reqs).toHaveLength(1)
     expect(reqs[0]!.url).toBe('https://lumo.test/api/sessions/usage-resync')
@@ -119,25 +119,25 @@ describe('usage resync command and resynced runs', () => {
     expect(out).toContain('Dry run — nothing written.')
   })
 
-  it('--apply posts dryRun false and omits the dry-run header', async () => {
+  it('default (LUM-1233 3e: writes when run) posts dryRun false and omits the dry-run header', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(1)
     const reqs = mockFetch(200, results)
-    const { out } = await run({ apply: true })
+    const { out } = await run()
     expect(reqs[0]!.body.dryRun).toBe(false)
     expect(out).not.toContain('Dry run')
   })
 
-  it('batches 50 sessions per request on a dry run', async () => {
+  it('batches 50 sessions per request with --dry-run', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(120)
     const reqs = mockFetch(200, results)
-    await run()
+    await run({ dryRun: true })
     expect(reqs.map(r => r.body.sessions.length)).toEqual([50, 50, 20])
   })
 
-  it('batches 10 sessions per request with --apply', async () => {
+  it('batches 10 sessions per request when writing (default)', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(25)
     const reqs = mockFetch(200, results)
-    await run({ apply: true })
+    await run()
     expect(reqs.map(r => r.body.sessions.length)).toEqual([10, 10, 5])
   })
 
@@ -164,7 +164,7 @@ describe('usage resync command and resynced runs', () => {
         },
       ],
     }))
-    const { out, code } = await run()
+    const { out, code } = await run({ dryRun: true })
     expect(code).toBe(0)
     expect(out).toContain('1 would be resynced')
     expect(out).toContain('1 not on this account / unknown')
@@ -190,7 +190,7 @@ describe('usage resync command and resynced runs', () => {
         },
       ],
     }))
-    const { out, code } = await run()
+    const { out, code } = await run({ dryRun: true })
     expect(code).toBe(1)
     expect(out).toContain('1 failed — re-run later')
   })
@@ -198,7 +198,7 @@ describe('usage resync command and resynced runs', () => {
   it('--json prints the merged response', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(60)
     mockFetch(200, results)
-    const { out } = await run({ json: true })
+    const { out } = await run({ dryRun: true, json: true })
     const parsed = JSON.parse(out)
     expect(parsed.dryRun).toBe(true)
     expect(parsed.results).toHaveLength(60)
@@ -207,7 +207,7 @@ describe('usage resync command and resynced runs', () => {
   it('401 tells the user to log in and exits 1', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(1)
     mockFetch(401)
-    const { err, code } = await run()
+    const { err, code } = await run({ dryRun: true })
     expect(code).toBe(1)
     expect(err).toContain('lumo auth login')
   })
@@ -217,7 +217,7 @@ describe('usage resync command and resynced runs', () => {
     global.fetch = jest.fn(async () => {
       throw new Error('boom')
     }) as unknown as typeof fetch
-    const { err, code } = await run()
+    const { err, code } = await run({ dryRun: true })
     expect(code).toBe(1)
     expect(err).toContain('could not reach')
   })
@@ -225,7 +225,7 @@ describe('usage resync command and resynced runs', () => {
   it('no transcripts prints a message and exits 0 without posting', async () => {
     process.env.CLAUDE_CONFIG_DIR = mkdtempSync(join(tmpdir(), 'lumo-empty-'))
     const reqs = mockFetch(200, results)
-    const { out, code } = await run()
+    const { out, code } = await run({ dryRun: true })
     expect(code).toBe(0)
     expect(reqs).toHaveLength(0)
     expect(out).toContain('No transcripts found')
@@ -242,7 +242,7 @@ describe('usage resync command and resynced runs', () => {
   it('sends numbers only, never transcript content', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(1)
     const reqs = mockFetch(200, results)
-    await run()
+    await run({ dryRun: true })
     const s = JSON.stringify(reqs[0]!.body)
     expect(s).not.toContain('"type":"assistant"')
     expect(Object.keys(reqs[0]!.body.sessions[0]!).sort()).toEqual(
@@ -263,7 +263,7 @@ describe('usage resync command and resynced runs', () => {
       if (call === 2) throw new Error('boom')
       return { ok: true, status: 200, json: async () => results(body) }
     }) as unknown as typeof fetch
-    const { out, err, code } = await run({ apply: true })
+    const { out, err, code } = await run()
     expect(code).toBe(1)
     expect(out).toContain('Sent 10 of 12 session(s) with usage.')
     expect(out).toContain('10 resynced')
@@ -280,7 +280,7 @@ describe('usage resync command and resynced runs', () => {
       if (call === 2) return { ok: false, status: 401, json: async () => ({}) }
       return { ok: true, status: 200, json: async () => results(body) }
     }) as unknown as typeof fetch
-    const { out, err, code } = await run({ apply: true })
+    const { out, err, code } = await run()
     expect(code).toBe(1)
     expect(out).toContain('Sent 10 of 12 session(s) with usage.')
     expect(out).toContain('10 resynced')
@@ -297,7 +297,7 @@ describe('usage resync command and resynced runs', () => {
         throw new Error('bad json')
       },
     })) as unknown as typeof fetch
-    let r = await run()
+    let r = await run({ dryRun: true })
     expect(r.code).toBe(1)
     expect(r.err).toContain('2 session(s) not sent')
     global.fetch = jest.fn(async () => ({
@@ -305,7 +305,7 @@ describe('usage resync command and resynced runs', () => {
       status: 200,
       json: async () => ({ dryRun: true }),
     })) as unknown as typeof fetch
-    r = await run()
+    r = await run({ dryRun: true })
     expect(r.code).toBe(1)
     expect(r.err).toContain('unexpected response')
   })
@@ -351,7 +351,7 @@ describe('usage resync command and resynced runs', () => {
     )
     process.env.CLAUDE_CONFIG_DIR = dir
     const reqs = mockFetch(200, results)
-    await run()
+    await run({ dryRun: true })
     const sent = reqs[0]!.body.sessions[0] as unknown as {
       byModel: Record<string, unknown>
       bySubagent: Record<string, { total: object; byModel: object }>

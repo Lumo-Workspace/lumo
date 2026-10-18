@@ -134,54 +134,6 @@
       "isInvokable": true,
       "description": "Log out and remove local credentials"
     },
-    "cost": {
-      "arguments": [],
-      "flags": {
-        "--by": {
-          "long": "--by",
-          "short": null,
-          "value": "required",
-          "enum": ["tool", "model", "member", "session"],
-          "enumCaseInsensitive": true,
-          "description": "Headline grouping: tool | model | member | session (case-insensitive; default tool)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the versioned payload as JSON"
-        },
-        "--session": {
-          "long": "--session",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Aggregate a single Claude Code or Codex session"
-        },
-        "--since": {
-          "long": "--since",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Workspace window lower bound (ISO date); default last 30 days"
-        },
-        "--task": {
-          "long": "--task",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Aggregate a single task (e.g. LUM-42)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
-    },
     "crossing": {
       "arguments": [],
       "flags": {},
@@ -356,16 +308,6 @@
       "isInvokable": true,
       "description": "Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits."
     },
-    "doc bind": {
-      "arguments": [
-        { "name": "doc", "required": true, "variadic": false },
-        { "name": "task", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it."
-    },
     "doc create": {
       "arguments": [{ "name": "title", "required": false, "variadic": false }],
       "flags": {
@@ -478,9 +420,17 @@
       "isInvokable": true,
       "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
     },
-    "doc import-gdoc": {
-      "arguments": [{ "name": "url", "required": true, "variadic": false }],
+    "doc import": {
+      "arguments": [],
       "flags": {
+        "--gdoc": {
+          "long": "--gdoc",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The Google Doc to import (its sharing URL)"
+        },
         "--scope": {
           "long": "--scope",
           "short": null,
@@ -500,7 +450,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Import a Google Doc as a Lumo doc (one-way Google → Lumo)"
+      "description": "Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)"
     },
     "doc list": {
       "arguments": [],
@@ -678,32 +628,6 @@
       "isInvokable": true,
       "description": "Regenerate the markdown source from the HTML body with a lossless serializer, re-enabling show --raw / diff / patch / append. 422 on a structure shrink; 409 if a source exists unless --force."
     },
-    "doc share": {
-      "arguments": [
-        { "name": "doc", "required": true, "variadic": false },
-        { "name": "member", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--role": {
-          "long": "--role",
-          "short": null,
-          "value": "required",
-          "enum": ["viewer", "editor", "manager"],
-          "enumCaseInsensitive": true,
-          "description": "viewer | editor | manager (case-insensitive; default: viewer)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts \"me\", an email, or a display name."
-    },
-    "doc share-list": {
-      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>."
-    },
     "doc show": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
@@ -714,6 +638,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, document } as JSON (not with --raw / --section)"
+        },
+        "--members": {
+          "long": "--members",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print only the members the document is shared with (NAME  ROLE rows)"
         },
         "--raw": {
           "long": "--raw",
@@ -743,29 +675,17 @@
       "isInvokable": true,
       "description": "Re-sync a Google-imported doc (overwrites the Lumo body)"
     },
-    "doc unbind": {
-      "arguments": [
-        { "name": "doc", "required": true, "variadic": false },
-        { "name": "task", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Unbind a document from a task. Removes explicit mentions only; a mention derived from @LUM-N in the body fails with 409 and must be removed by editing the doc body."
-    },
-    "doc unshare": {
-      "arguments": [
-        { "name": "doc", "required": true, "variadic": false },
-        { "name": "member", "required": true, "variadic": false }
-      ],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a member from a document's share list. Idempotent — prints \"Not shared with …\" if no row exists."
-    },
     "doc update": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
+        "--add-member": {
+          "long": "--add-member",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Share with a member: \"me\", an email or a display name (repeatable; PRIVATE docs become SHARED)"
+        },
         "--add-tag": {
           "long": "--add-tag",
           "short": null,
@@ -781,6 +701,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Add tag by id (repeatable)"
+        },
+        "--add-task": {
+          "long": "--add-task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Bind the document to a task (repeatable; idempotent)"
         },
         "--allow-shrink": {
           "long": "--allow-shrink",
@@ -822,6 +750,14 @@
           "enumCaseInsensitive": false,
           "description": "Project name/slug; pass \"\" to clear"
         },
+        "--remove-member": {
+          "long": "--remove-member",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Stop sharing with a member (repeatable; a member not on the list is a no-op)"
+        },
         "--remove-tag": {
           "long": "--remove-tag",
           "short": null,
@@ -837,6 +773,22 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Remove tag by id (repeatable). Unknown ids are a no-op."
+        },
+        "--remove-task": {
+          "long": "--remove-task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Unbind the document from a task (repeatable; a binding from @LUM-N in the body fails with 409)"
+        },
+        "--role": {
+          "long": "--role",
+          "short": null,
+          "value": "required",
+          "enum": ["viewer", "editor", "manager"],
+          "enumCaseInsensitive": true,
+          "description": "With --add-member: viewer | editor | manager (case-insensitive; default: viewer)"
         },
         "--scope": {
           "long": "--scope",
@@ -1523,7 +1475,166 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Operate on a single memory by its ref — the 8-char short ref listings print, a unique id prefix (6+ chars) or the full id (see `lumo task memory` / `lumo project memory` to list/add)"
+      "description": "Team memory: add, list, show, update, delete; --scope task|project picks the scope"
+    },
+    "memory add": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "enumCaseInsensitive": true,
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
+        },
+        "--alternatives": {
+          "long": "--alternatives",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: optional alternatives considered"
+        },
+        "--applies": {
+          "long": "--applies",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "convention: where the rule applies"
+        },
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "trap | decision | convention | procedural (case-insensitive)"
+        },
+        "--implications": {
+          "long": "--implications",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: optional implications"
+        },
+        "--outcome": {
+          "long": "--outcome",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap: what goes wrong"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The project (project scope; default: the bound task's project)"
+        },
+        "--rule": {
+          "long": "--rule",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "convention: the rule"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": ["task", "project"],
+          "enumCaseInsensitive": true,
+          "description": "task | project (case-insensitive). Default: task, or project when only --project is given"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "procedural: a step (repeatable)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (task scope; default: the session-bound task)"
+        },
+        "--trigger": {
+          "long": "--trigger",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap/procedural: the situation that triggers it"
+        },
+        "--what": {
+          "long": "--what",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: the decision"
+        },
+        "--why": {
+          "long": "--why",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "decision: rationale"
+        },
+        "--workaround": {
+          "long": "--workaround",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "trap: optional fix"
+        },
+        "--workflow": {
+          "long": "--workflow",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "procedural: the workflow name"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project."
+    },
+    "memory delete": {
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory fold": {
       "arguments": [
@@ -1543,12 +1654,77 @@
       "isInvokable": true,
       "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
     },
-    "memory promote": {
-      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
-      "flags": {},
+    "memory list": {
+      "arguments": [],
+      "flags": {
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, memories, total, nextCursor } as JSON ({ version, learnings } with --learnings)"
+        },
+        "--learnings": {
+          "long": "--learnings",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Cap output to the first N rows"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The project (project scope; default: the bound task's project)"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --learnings: only this repository's learnings"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": ["task", "project"],
+          "enumCaseInsensitive": true,
+          "description": "task | project (case-insensitive). Default: task, or project when only --project is given"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The task (task scope; default: the session-bound task)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Promote a TASK memory to PROJECT scope (<memory>: short ref, unique id prefix or full id). Only when the lesson recurs across 2+ tasks."
+      "description": "List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings."
     },
     "memory push": {
       "arguments": [],
@@ -1581,30 +1757,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success."
-    },
-    "memory rm": {
-      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory show": {
       "arguments": [{ "name": "memory", "required": true, "variadic": false }],
@@ -1669,6 +1821,22 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project."
+    },
+    "memory update": {
+      "arguments": [{ "name": "memory", "required": true, "variadic": false }],
+      "flags": {
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "project (a memory only moves from task to project)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks."
     },
     "milestone": {
       "arguments": [],
@@ -2023,7 +2191,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -2068,12 +2236,37 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a milestone test case. --step / --verify are repeatable and keep the order they appear in."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+    },
+    "milestone testcase delete": {
+      "arguments": [
+        { "name": "milestone/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
     },
     "milestone testcase disposition": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--confirm": {
@@ -2122,7 +2315,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--receipt": {
           "long": "--receipt",
@@ -2135,12 +2328,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
     },
     "milestone testcase download": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false },
+        { "name": "milestone/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
       "flags": {
@@ -2150,12 +2342,12 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Case: TC3"
+      "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: headless-web-cli/TC3"
     },
     "milestone testcase list": {
       "arguments": [
@@ -2176,52 +2368,16 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List a milestone's test cases with each one's latest run (result, environment, commit)"
-    },
-    "milestone testcase rm": {
-      "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "List test cases with each one's latest run (result, environment, commit)."
     },
     "milestone testcase run": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--actual": {
@@ -2296,13 +2452,21 @@
           "enumCaseInsensitive": false,
           "description": "Free-text note about this run"
         },
+        "--pr": {
+          "long": "--pr",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
+        },
         "--project": {
           "long": "--project",
           "short": null,
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--result": {
           "long": "--result",
@@ -2343,8 +2507,7 @@
     },
     "milestone testcase show": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--json": {
@@ -2361,17 +2524,16 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Case: TC3"
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: headless-web-cli/TC3"
     },
     "milestone testcase update": {
       "arguments": [
-        { "name": "milestone", "required": true, "variadic": false },
-        { "name": "case", "required": true, "variadic": false }
+        { "name": "milestone/case", "required": true, "variadic": false }
       ],
       "flags": {
         "--expected": {
@@ -2388,7 +2550,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Project name or slug (needed when the milestone name is ambiguous)"
+          "description": "Project name or slug (narrows the milestone lookup when two projects share a slug or name)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -2585,7 +2747,55 @@
       "isInvokable": false,
       "description": "Inspect pull requests by number — linked to a task or not"
     },
-    "pr scan": {
+    "pr review": {
+      "arguments": [{ "name": "number", "required": true, "variadic": false }],
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "A full review instead of an incremental one"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --pause / --resume: this PR pauses after N reviewed commits (1..100, over the workspace setting)"
+        },
+        "--pause": {
+          "long": "--pause",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Pause automatic AI reviews for this PR"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Narrow to one repo when the same PR number exists in several (the error lists the candidates)"
+        },
+        "--resume": {
+          "long": "--resume",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push."
+    },
+    "pr show": {
       "arguments": [{ "name": "number", "required": true, "variadic": false }],
       "flags": {
         "--all": {
@@ -2612,22 +2822,6 @@
           "enumCaseInsensitive": false,
           "description": "Emit the versioned machine-readable payload ({ pullRequest, scans[].stages / findings[] / hunt.tasks[] })"
         },
-        "--limit": {
-          "long": "--limit",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume"
-        },
-        "--pause": {
-          "long": "--pause",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Pause automatic AI reviews for this PR"
-        },
         "--repo": {
           "long": "--repo",
           "short": null,
@@ -2635,27 +2829,11 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Narrow to one repo when the same PR number exists in several (the error lists the candidates)"
-        },
-        "--resume": {
-          "long": "--resume",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Resume automatic AI review of every push and reset the reviewed-commit count"
-        },
-        "--review": {
-          "long": "--review",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Request incremental or full AI review without counting toward the automatic budget"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read PR scans and control automatic AI reviews: --review incremental|full requests one, --pause / --resume control review of every push. Rule with `lumo finding disposition`."
+      "description": "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
@@ -2719,168 +2897,6 @@
       "isInvokable": true,
       "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
     },
-    "project memory": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "View and record PROJECT-scope memories"
-    },
-    "project memory add": {
-      "arguments": [
-        { "name": "project", "required": false, "variadic": false }
-      ],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "claude-code",
-            "codex",
-            "cursor",
-            "gemini-cli",
-            "github-copilot",
-            "windsurf"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
-        },
-        "--alternatives": {
-          "long": "--alternatives",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision optional alternatives"
-        },
-        "--applies": {
-          "long": "--applies",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: where it applies"
-        },
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "trap | decision | convention | procedural (case-insensitive)"
-        },
-        "--implications": {
-          "long": "--implications",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision optional implications"
-        },
-        "--outcome": {
-          "long": "--outcome",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap outcome"
-        },
-        "--rule": {
-          "long": "--rule",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention rule"
-        },
-        "--step": {
-          "long": "--step",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural step (repeatable)"
-        },
-        "--trigger": {
-          "long": "--trigger",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap/procedural trigger"
-        },
-        "--what": {
-          "long": "--what",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision"
-        },
-        "--why": {
-          "long": "--why",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision rationale"
-        },
-        "--workaround": {
-          "long": "--workaround",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap optional workaround"
-        },
-        "--workflow": {
-          "long": "--workflow",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural workflow"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
-    },
-    "project memory list": {
-      "arguments": [
-        { "name": "project", "required": false, "variadic": false }
-      ],
-      "flags": {
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, memories, total, nextCursor } as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Cap output to the first N rows"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
-    },
     "project overview": {
       "arguments": [
         { "name": "project", "required": false, "variadic": false }
@@ -2938,62 +2954,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears)."
-    },
-    "report": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the versioned payload as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Max completed tasks listed (default 50, max 500)"
-        },
-        "--member": {
-          "long": "--member",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only this member: me, an email, or a display name"
-        },
-        "--project": {
-          "long": "--project",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only tasks (and their sessions) in this project"
-        },
-        "--since": {
-          "long": "--since",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday"
-        },
-        "--until": {
-          "long": "--until",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself"
     },
     "session": {
       "arguments": [],
@@ -4114,164 +4074,6 @@
       "isInvokable": true,
       "description": "List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with \"Showing X-Y of N.\" and the next-page command)."
     },
-    "task memory": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "View and record memories scoped to a task"
-    },
-    "task memory add": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "claude-code",
-            "codex",
-            "cursor",
-            "gemini-cli",
-            "github-copilot",
-            "windsurf"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
-        },
-        "--alternatives": {
-          "long": "--alternatives",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: optional alternatives considered"
-        },
-        "--applies": {
-          "long": "--applies",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: where the rule applies"
-        },
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "trap | decision | convention | procedural (case-insensitive)"
-        },
-        "--implications": {
-          "long": "--implications",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: optional implications"
-        },
-        "--outcome": {
-          "long": "--outcome",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap: what goes wrong"
-        },
-        "--rule": {
-          "long": "--rule",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "convention: the rule"
-        },
-        "--step": {
-          "long": "--step",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural: a step (repeatable)"
-        },
-        "--trigger": {
-          "long": "--trigger",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap/procedural: the situation that triggers it"
-        },
-        "--what": {
-          "long": "--what",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: the decision"
-        },
-        "--why": {
-          "long": "--why",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "decision: rationale"
-        },
-        "--workaround": {
-          "long": "--workaround",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "trap: optional fix"
-        },
-        "--workflow": {
-          "long": "--workflow",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "procedural: the workflow name"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record a memory on a task (defaults to the bound session): only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Pick --category then its fields."
-    },
-    "task memory list": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--category": {
-          "long": "--category",
-          "short": null,
-          "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
-          "enumCaseInsensitive": true,
-          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, memories, total, nextCursor } as JSON"
-        },
-        "--limit": {
-          "long": "--limit",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Cap output to the first N rows"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a task's memories. <task> defaults to the session-bound task."
-    },
     "task pr": {
       "arguments": [],
       "flags": {},
@@ -4731,7 +4533,7 @@
       "description": "Structured test cases on a task (setup / steps / verification / expected) and their run records"
     },
     "task testcase add": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--expected": {
           "long": "--expected",
@@ -4740,6 +4542,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -4784,7 +4594,33 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in. Defaults to the session-bound task."
+    },
+    "task testcase delete": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
     },
     "task testcase disposition": {
       "arguments": [
@@ -4831,6 +4667,14 @@
           "enumCaseInsensitive": false,
           "description": "Why this ruling"
         },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        },
         "--receipt": {
           "long": "--receipt",
           "short": null,
@@ -4842,20 +4686,29 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
     },
     "task testcase download": {
       "arguments": [
         { "name": "task/case", "required": true, "variadic": false },
         { "name": "dir", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: LUM-42/TC3"
     },
     "task testcase list": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--json": {
           "long": "--json",
@@ -4864,37 +4717,19 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCases, total, nextCursor, summary } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a task's test cases with each one's latest run (result, environment, commit)"
-    },
-    "task testcase rm": {
-      "arguments": [
-        { "name": "task/case", "required": true, "variadic": false }
-      ],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
         },
-        "--yes": {
-          "long": "--yes",
+        "--project": {
+          "long": "--project",
           "short": null,
-          "value": "none",
+          "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+      "description": "List test cases with each one's latest run (result, environment, commit). Defaults to the session-bound task."
     },
     "task testcase run": {
       "arguments": [
@@ -4979,7 +4814,15 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The PR whose change this run exercised (must be linked to this task)"
+          "description": "The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--result": {
           "long": "--result",
@@ -5030,6 +4873,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print { version, testCase, runs, pullRequests } as JSON"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         }
       },
       "hasSubcommands": false,
@@ -5048,6 +4899,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New expected result"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (task refs are unique in the workspace, so a task case ignores it)"
         },
         "--requires-env": {
           "long": "--requires-env",
@@ -5335,18 +5194,18 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Token usage maintenance"
+      "description": "Token usage: what it cost, who used it, and corrections"
     },
     "usage resync": {
       "arguments": [],
       "flags": {
-        "--apply": {
-          "long": "--apply",
+        "--dry-run": {
+          "long": "--dry-run",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Write the corrections (default is a dry run)"
+          "description": "Show what would be corrected and write nothing"
         },
         "--json": {
           "long": "--json",
@@ -5359,7 +5218,95 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Correct historical (inflated) token usage from local transcripts. Dry run by default; --apply writes. Sends token counts only, never transcript content."
+      "description": "Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content."
+    },
+    "usage show": {
+      "arguments": [],
+      "flags": {
+        "--by": {
+          "long": "--by",
+          "short": null,
+          "value": "required",
+          "enum": ["tool", "model", "member", "session"],
+          "enumCaseInsensitive": true,
+          "description": "Headline grouping: tool | model | member | session (case-insensitive; default tool)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the versioned payload as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --tasks: max completed tasks listed (default 50, max 500)"
+        },
+        "--member": {
+          "long": "--member",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --tasks: only this member (me, an email, or a display name)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --tasks: only tasks (and their sessions) in this project"
+        },
+        "--session": {
+          "long": "--session",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Cost of a single Claude Code or Codex session"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "First day, inclusive: YYYY-MM-DD, Nd (the N days ending on --until), today, yesterday, or a timestamp. Default: last 30 days (7 with --tasks)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Cost of a single task (e.g. LUM-42)"
+        },
+        "--tasks": {
+          "long": "--tasks",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Append the tasks completed in the window (tokens split per member)"
+        },
+        "--until": {
+          "long": "--until",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Last day, inclusive: YYYY-MM-DD, today, or yesterday (default today)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days."
     },
     "whoami": {
       "arguments": [],
@@ -5392,30 +5339,6 @@
       "isInvokable": false,
       "description": "Workspace settings from the terminal"
     },
-    "workspace learnings": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit { learnings } as JSON"
-        },
-        "--repo": {
-          "long": "--repo",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only this repository's learnings"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List the workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first, including unlinked repositories. Delete one with `lumo memory rm <ref>`."
-    },
     "workspace security-scan": {
       "arguments": [],
       "flags": {
@@ -5441,7 +5364,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)"
+          "description": "Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)"
         },
         "--base-branches": {
           "long": "--base-branches",

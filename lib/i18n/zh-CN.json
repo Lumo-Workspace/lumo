@@ -817,7 +817,7 @@
   "lineage.operations.col.cacheCreate": "缓存创建",
   "lineage.operations.col.cacheRead": "缓存读取",
   "lineage.operations.col.total": "合计",
-  "lineage.operations.footnote": "归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo cost --task {id}",
+  "lineage.operations.footnote": "归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）",
   "lineage.fragment.disclosure.full": "全文",
   "lineage.fragment.disclosure.indexPulled": "仅索引·已展开",
   "lineage.fragment.disclosure.indexNotPulled": "仅索引·未展开",

@@ -176,42 +176,41 @@ lumo doc delete cmd_xxx            # exit 4 + envelope
 lumo doc delete cmd_xxx --confirm  # after the user approved
 ```
 
-## `lumo doc bind <doc> <task>` / `lumo doc unbind <doc> <task>` — task linkage
+## Task linkage and member sharing — fields of `doc update` (LUM-1233)
 
-`bind` adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the same pair, it's upgraded to EXPLICIT so a later `unbind` can remove it. `unbind` removes EXPLICIT mentions only — a purely CONTENT-derived mention can't be unbound from CLI (fails 409, instructing the user to remove the `@LUM-N` from the doc body in the Web UI).
+Like `--add-tag` / `--remove-tag`, sharing and task binding are flags of `doc update`; the member list is `doc show --members`. (`doc bind`, `doc unbind`, `doc share`, `doc unshare` and `doc share-list` were removed; they print `was removed. Use: …` and exit 2.) Each flag is repeatable. Field changes (title, body, tags …) apply first, then members, then tasks, stopping at the first failure; with only these flags the body is not touched and stdin is not read.
+
+| Flag                             | Effect                                                                                                                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--add-task <LUM-N>`             | adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the pair, it is upgraded to EXPLICIT so a later `--remove-task` can remove it. Idempotent.                                                                     |
+| `--remove-task <LUM-N>`          | removes EXPLICIT mentions only — a purely CONTENT-derived mention fails with 409, telling the user to remove the `@LUM-N` from the doc body in the Web UI.                                                                                                                           |
+| `--add-member <member>`          | adds (or updates) a DocumentShare row. `<member>` resolves like `task --assignee`: `me`, an email, or a display name (case-insensitive). **Auto-promotion**: on a PRIVATE doc the server flips visibility to SHARED first. A second call with another role updates the row in place. |
+| `--role viewer\|editor\|manager` | with `--add-member` only (default `viewer`; case-insensitive).                                                                                                                                                                                                                       |
+| `--remove-member <member>`       | idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that with `doc update --scope personal`.                                                                                                                        |
+
+`doc show <doc> --members` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (the doc may still be WORKSPACE-visible). It cannot be combined with `--raw`, `--section` or `--json`.
 
 ```bash
-lumo doc bind cmd_xxx LUM-42
+lumo doc update cmd_xxx --add-task LUM-42
 # Bound cmd_xxx ↔ LUM-42
 # Bound cmd_xxx ↔ LUM-42 (upgraded from content)   # when upgrading a CONTENT row
 # Already bound cmd_xxx ↔ LUM-42                   # idempotent
-lumo doc unbind cmd_xxx LUM-42
+lumo doc update cmd_xxx --remove-task LUM-42
+lumo doc update "RFC" --add-member alice@example.com --role editor
+lumo doc update cmd_xxx --add-member "Alice Wong" --role manager
+lumo doc update "RFC" --remove-member alice@example.com
+lumo doc show "RFC" --members
 ```
 
-## `lumo doc share / unshare / share-list` — member sharing
-
-`share <doc> <member> [--role viewer|editor|manager]` adds (or updates) a DocumentShare row. `<member>` resolves the same way as `task --assignee`: `me`, an email, or a display name (case-insensitive). Role defaults to `viewer`. **Auto-promotion**: invoked on a PRIVATE doc, the server transactionally flips visibility to SHARED before upserting the share row (sharing = intent that it should be SHARED). A second invocation with a different role updates the row in place.
-
-`unshare <doc> <member>` is idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that explicitly via `doc update --scope personal`.
-
-`share-list <doc>` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (may still be WORKSPACE-visible).
-
-```bash
-lumo doc share "RFC" alice@example.com --role editor
-lumo doc share cmd_xxx "Alice Wong" --role manager
-lumo doc unshare "RFC" alice@example.com
-lumo doc share-list "RFC"
-```
-
-### When to suggest the doc share commands
+### When to suggest sharing
 
 - User says "share doc X with Y", "give Y access to X".
-- After `doc create --scope personal`, if teammates need access, suggest `doc share` rather than `doc update --scope workspace` when only specific members should see it.
-- Before `doc unshare`, run `doc share-list` if the user hasn't named a specific member.
+- After `doc create --scope personal`, if teammates need access, suggest `doc update <doc> --add-member` rather than `doc update --scope workspace` when only specific members should see it.
+- Before `--remove-member`, run `doc show <doc> --members` if the user hasn't named a specific member.
 
-## `lumo doc import-gdoc <url> [--scope …] [--task LUM-N]` — import a Google Doc
+## `lumo doc import --gdoc <url> [--scope …] [--task LUM-N]` — import a Google Doc
 
-One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `<url>` accepts a Google Doc URL or a bare doc id.
+One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `--gdoc <url>` accepts a Google Doc URL or a bare doc id (`doc import-gdoc <url>` was removed in LUM-1233; it prints `was removed. Use: lumo doc import --gdoc <url>`).
 
 | Flag              | Type   | Notes                                                                                      |
 | ----------------- | ------ | ------------------------------------------------------------------------------------------ |
@@ -221,10 +220,10 @@ One-way import of a Google Doc into Lumo. The doc is exported from Google as mar
 **Over-share note:** once imported, the content follows **Lumo's** sharing model (PRIVATE / SHARED / WORKSPACE) and is **no longer gated by Google permissions**. Importing a `workspace`-scoped doc can expose it to everyone in the workspace even if the Google Doc was restricted — the command prints this reminder on success. Requires a connected Google Drive integration (connect in the Web UI at `/settings/integrations`; there is no CLI `google auth` command).
 
 ```bash
-lumo doc import-gdoc "https://docs.google.com/document/d/<id>/edit" --scope workspace --task LUM-127
+lumo doc import --gdoc "https://docs.google.com/document/d/<id>/edit" --scope workspace --task LUM-127
 ```
 
-### When to suggest `doc import-gdoc`
+### When to suggest `doc import --gdoc`
 
 - User pastes a Google Doc URL or says "import this Google Doc", "pull this gdoc into Lumo".
 - User wants a Google Doc tracked alongside Lumo tasks/docs — suggest import (with `--task LUM-N` if a task is in context) and remind them about the over-share semantics for `--scope workspace`.

@@ -76,7 +76,7 @@ jest.mock('../../cli/src/lib/session-id', () => ({
 
 import { taskDepsRm } from '@/cli/src/commands/task-deps'
 import { taskArtifactRm } from '@/cli/src/commands/task-artifact-rm'
-import { memoryRm } from '@/cli/src/commands/memory-rm'
+import { memoryDelete } from '@/cli/src/commands/memory-delete'
 import { docDelete } from '@/cli/src/commands/doc-delete'
 import { sprintDelete } from '@/cli/src/commands/sprint-delete'
 import { milestoneDelete } from '@/cli/src/commands/milestone-delete'
@@ -305,19 +305,19 @@ describe('confirmation envelope', () => {
     expect(mutations()).toHaveLength(0)
   })
 
-  it('memory rm: exit 4, shows category and a content summary, no DELETE', async () => {
-    process.argv = ['node', 'lumo', 'memory', 'rm', 'cm1']
+  it('memory delete: exit 4, shows category and a content summary, no DELETE', async () => {
+    process.argv = ['node', 'lumo', 'memory', 'delete', 'cm1']
     route(memoryRoutes)
-    const code = await memoryRm('cm1', {})
+    const code = await memoryDelete('cm1', {})
     expect(code).toBe(4)
     const env = envelope()
-    expect(env.command).toBe('memory rm')
+    expect(env.command).toBe('memory delete')
     expect(env.changes[0]).toContain('cm1')
     expect(env.changes[0]).toContain('[TRAP]')
     expect(env.changes.join('\n')).toContain(
       'Entry point eager-imports a devDependency'
     )
-    expect(env.confirmCommand).toBe('lumo memory rm cm1 --confirm')
+    expect(env.confirmCommand).toBe('lumo memory delete cm1 --confirm')
     expect(mutations()).toHaveLength(0)
   })
 
@@ -481,14 +481,16 @@ describe('confirmation envelope', () => {
       configurable: true,
       writable: true,
     })
-    process.argv = ['node', 'lumo', 'memory', 'rm', 'cm1']
+    process.argv = ['node', 'lumo', 'memory', 'delete', 'cm1']
     route(memoryRoutes)
-    const code = await memoryRm('cm1', {})
+    const code = await memoryDelete('cm1', {})
     expect(code).toBe(4)
     const out = stdout.join('')
     expect(() => JSON.parse(out)).toThrow()
     expect(out).toContain('[TRAP]')
-    expect(out.trimEnd().endsWith('lumo memory rm cm1 --confirm')).toBe(true)
+    expect(out.trimEnd().endsWith('lumo memory delete cm1 --confirm')).toBe(
+      true
+    )
     expect(mutations()).toHaveLength(0)
   })
 })
@@ -536,9 +538,9 @@ describe('yes alias', () => {
     expect(stdout.join('')).toContain('Removed a1 from LUM-9')
   })
 
-  it('memory rm --yes still deletes', async () => {
+  it('memory delete --confirm deletes', async () => {
     route(memoryRoutes)
-    const code = await memoryRm('cm1', { yes: true })
+    const code = await memoryDelete('cm1', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
   })

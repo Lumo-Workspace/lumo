@@ -37,7 +37,7 @@ export async function docShareList(
   docRef: string | undefined
 ): Promise<number | void> {
   if (!docRef) {
-    console.error('Error: usage: lumo doc share-list <doc>')
+    console.error('Error: usage: lumo doc show <doc> --members')
     return EXIT_USAGE
   }
 

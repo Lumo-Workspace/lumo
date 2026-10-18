@@ -34,7 +34,7 @@ import { renderTable } from './ui'
 
 /**
  * LUM-788 — the scan-line grammar shared by `lumo task status` (one line per
- * linked PR, LUM-735) and `lumo pr scan` (one block per scan). Extracted so
+ * linked PR, LUM-735) and `lumo pr show` (one block per scan). Extracted so
  * the two surfaces cannot name a layer, a state or a queue exit two
  * different ways; the display labels themselves come from
  * `shared/src/security-scan.ts`, the same map the GitHub PR summary and the
@@ -197,7 +197,7 @@ export interface ScanFieldExtras {
   judgeBudget?: JudgeBudgetLine | null
   /** LUM-762 — the hunt's per-task table under Exploit paths. */
   hunt?: HuntCoverageInput | null
-  /** `pr scan` — the AI review has not covered every file yet. */
+  /** `pr show` — the AI review has not covered every file yet. */
   truncated?: boolean
 }
 
@@ -206,7 +206,7 @@ export interface ScanFieldExtras {
  * budget and the hunt's per-task table nested under their own layer), then
  * `Note` / `Queue` rows for the scan-wide notes. The scrubbed external
  * reason rides on the Code scan row it explains. Shared by `task status`,
- * `pr scan` and `task show --scans`, so they cannot drift.
+ * `pr show` and `task show --scans`, so they cannot drift.
  */
 export function scanFields(
   s: ScanLayerLineInput,

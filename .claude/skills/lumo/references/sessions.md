@@ -44,7 +44,7 @@ When the session is bound, session-start may inject a **"🆕 Review needed: pro
 
 #### When to suggest
 
-Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <ref>` (the 8-char ref printed under it) — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
+Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory delete <ref>` (the 8-char ref printed under it) — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
 
 ### Blocker alert injected at `session attach` / session-start
 
@@ -278,14 +278,14 @@ Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo i
 
 ## usage resync
 
-`lumo usage resync [--apply] [--json]` (LUM-932) recomputes Claude Code token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 50 per request on a dry run and 10 with `--apply`.
+`lumo usage resync [--dry-run] [--json]` (LUM-932) recomputes Claude Code token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 10 per request when writing and 50 with `--dry-run`. It writes when run (LUM-1233 Q7); `--dry-run` previews. The old opt-in `--apply` was removed — `lumo usage resync --apply` prints `was removed. Use: lumo usage resync` and exits 2 without writing.
 
-**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
+**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Preview first with `--dry-run` (prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then run it without `--dry-run` once they agree.
 
 ```bash
-lumo usage resync            # dry run
-lumo usage resync --apply    # write corrections
-lumo usage resync --json     # merged server response
+lumo usage resync --dry-run  # preview, writes nothing
+lumo usage resync            # write corrections
+lumo usage resync --dry-run --json  # merged server response
 ```
 
 Output starts with `Sent X of Y session(s) with usage.`, then counts: resynced / would be resynced, not on this account / unknown (foreign or never-seen transcripts, not an error), not inflated, already resynced, active after cutoff, no usage.

@@ -15,6 +15,15 @@ import { STRONG_KINDS, type SignalKind } from './signals'
  *   R2 - a turn opened by a subagent's `<task-notification>` (and without
  *        strong signals of its own) takes that subagent's task; a subagent
  *        with no task or with 2+ tasks makes it UNATTRIBUTED.
+ *
+ * LUM-1237 — orchestration host. An unbound root that hosts at least one
+ * subagent which attached a task itself is orchestrating: dispatching and
+ * resuming subagents, merging, reading task state, ruling crossings. Naming a
+ * task there (a `lumo` read, a prompt, a notification) is not working on it,
+ * so a host turn is attributed ONLY by work output — a BRANCH signal (branch
+ * ruling C unchanged) or a COMMIT / PR_CREATE — and every other host turn is
+ * UNATTRIBUTED (no carry-forward, no R2 borrowing). The subagents carry the
+ * task work under their own bindings.
  */
 export interface ResolvedSignal {
   kind: SignalKind
@@ -137,6 +146,21 @@ function strongDecision(strong: TimedSignal[]): TurnDecision | null {
     return { kind: 'task', taskId: [...output][0]!, switchCapable: true }
   }
   return { kind: 'task', taskId: pickTask(strong)!, switchCapable: true }
+}
+
+/** Signal kinds that decide a turn of an orchestration host (LUM-1237). */
+const HOST_WORK_KINDS: ReadonlySet<SignalKind> = new Set<SignalKind>([
+  'BRANCH',
+  'COMMIT',
+  'PR_CREATE',
+])
+
+/** LUM-1237: a host turn is attributed only by work output, else nothing. */
+function labelHostTurn(signals: TimedSignal[]): TurnDecision {
+  return (
+    strongDecision(signals.filter(s => HOST_WORK_KINDS.has(s.signal.kind))) ??
+    UNATTRIBUTED
+  )
 }
 
 function labelTurn(signals: TimedSignal[], turn: number): TurnDecision {
@@ -517,8 +541,11 @@ export function attributeTurns(input: {
   rootSessionId: string
   sessions: EngineSession[]
   events: EngineEvent[]
+  /** LUM-1237: the root is an orchestration host (see the module doc). */
+  orchestrationHost?: boolean
 }): InferredSegment[] {
   const { rootSessionId, sessions } = input
+  const host = input.orchestrationHost === true
   const sorted = sortByTime(input.events)
   const seqOf = new Map<EngineEvent, number>(sorted.map((e, i) => [e, i]))
   const bySession = new Map<string, EngineEvent[]>()
@@ -537,12 +564,18 @@ export function attributeTurns(input: {
   const perTurn = signalsPerTurn(rootEvents, turnCount, seqOf)
   const notified = notifiedChildPerTurn(rootEvents, turnCount, children)
 
-  // A notification turn without strong signals of its own waits for its child.
+  // A notification turn without strong signals of its own waits for its child
+  // (never on a host: its turns follow no subagent).
   const pending = (turn: number): boolean =>
+    !host &&
     notified[turn] != null &&
     !perTurn[turn]!.some(s => STRONG_KINDS.has(s.signal.kind))
   const decisions: TurnDecision[] = perTurn.map((signals, turn) =>
-    pending(turn) ? NONE : labelTurn(signals, turn)
+    host
+      ? labelHostTurn(signals)
+      : pending(turn)
+        ? NONE
+        : labelTurn(signals, turn)
   )
   // In turn order: a child that follows the root only sees earlier decisions.
   for (let turn = 0; turn < turnCount; turn++) {

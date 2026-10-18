@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 /**
  * GET /api/pull-requests/[number]/scans?repo=owner/repo&all=1 — the
  * security scans of one PR in the caller's workspace (LUM-788), consumed by
- * `lumo pr scan`. Read-only, no LLM. Bearer (CLI) and Clerk sessions alike;
+ * `lumo pr show`. Read-only, no LLM. Bearer (CLI) and Clerk sessions alike;
  * the workspace comes from the identity, never from the query, so a PR of
  * another workspace is a plain 404.
  */

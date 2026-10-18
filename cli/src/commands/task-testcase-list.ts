@@ -1,4 +1,3 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtInstant } from '../lib/format'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiContext, apiCall } from '../lib/test-case-api'
@@ -10,7 +9,7 @@ import {
   formatStepProgress,
   formatTestCasesSummary,
 } from '../lib/test-case-report'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface TestCaseListOptions {
@@ -48,19 +47,6 @@ export interface ListRow {
  */
 function oneCell(text: string): string {
   return text.replace(/[\t\r\n\v\f]/g, ' ')
-}
-
-export async function taskTestCaseList(
-  identifier: string | undefined,
-  opts: TestCaseListOptions = {}
-): Promise<number | void> {
-  if (!identifier) {
-    console.error(
-      'Error: missing <task>. Usage: lumo task testcase list LUM-42'
-    )
-    return EXIT_USAGE
-  }
-  return testCaseListInScope(taskScope(identifier), opts)
 }
 
 export async function testCaseListInScope(
