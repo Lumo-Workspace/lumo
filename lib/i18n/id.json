@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "Kirim diff pull request ke model AI (retensi data nol) untuk tinjauan keamanan, ringkasan perubahan, saran positif palsu atas temuan pemindai, aturan kode semantik Anda, dan pemeriksaan klaim tugas yang selesai terhadap kode yang sudah di-merge. Juga mencakup triase AI pelanggaran batas, yang mengirim tindakan agen yang ditandai dan teks tugas ke TypeSafe Jev (tanpa retensi data nol). Jika dimatikan, tidak satu pun fitur ini mengirim apa pun ke model AI.",
   "workspaceSettings.securityScan.hunt.label": "Penelusuran jalur eksploitasi",
   "workspaceSettings.securityScan.hunt.description": "Untuk perubahan berisiko, agen AI menelusuri kode di sandbox terisolasi untuk memastikan apakah sebuah temuan benar-benar dapat dieksploitasi.",
+  "workspaceSettings.securityScan.rewardHack.label": "Perilaku agen",
+  "workspaceSettings.securityScan.rewardHack.description": "Memeriksa apakah sesi agen di balik sebuah PR memanipulasi pengujian, metrik, atau pemeriksaan alih-alih mengerjakan tugas. Hasilnya berupa petunjuk di PR dan tidak pernah memblokirnya.",
   "workspaceSettings.securityScan.requestChanges.label": "Minta perubahan sampai terselesaikan",
   "workspaceSettings.securityScan.requestChanges.description": "Ulasan Lumo menampilkan “Perubahan diminta” selama masih ada utas ulasan Lumo atau temuan yang memblokir Done yang terbuka, dan Lumo menyetujui PR setelah ulasan lengkapnya atas commit terbaru tidak menyisakan apa pun yang terbuka. Nonaktif secara default.",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "Penulis PR boleh menyelesaikan dan menyetujui lewat perintah",

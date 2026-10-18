@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "풀 리퀘스트의 diff를 AI 모델(데이터 무보존)에 보내 보안 검토, 변경 요약, 스캐너 탐지 결과에 대한 오탐 제안, 시맨틱 코드 규칙 확인, 완료된 작업의 주장과 병합된 코드의 대조를 수행합니다. 경계 위반 AI 분류도 포함되며, 이 기능은 감지된 에이전트 작업과 작업 텍스트를 TypeSafe Jev(데이터 무보존 아님)에 보냅니다. 끄면 이 중 어떤 용도로도 AI 모델에 아무것도 보내지 않습니다.",
   "workspaceSettings.securityScan.hunt.label": "익스플로잇 경로 탐색",
   "workspaceSettings.securityScan.hunt.description": "위험한 변경에 대해 AI 에이전트가 격리된 샌드박스에서 코드를 탐색하여 발견 항목이 실제로 악용 가능한지 확인합니다.",
+  "workspaceSettings.securityScan.rewardHack.label": "에이전트 동작",
+  "workspaceSettings.securityScan.rewardHack.description": "PR 뒤에 있는 에이전트 세션이 작업을 수행하는 대신 테스트, 지표 또는 검사를 속이지 않았는지 확인합니다. 결과는 PR에 표시되는 힌트일 뿐이며 PR을 차단하지 않습니다.",
   "workspaceSettings.securityScan.requestChanges.label": "해결될 때까지 변경 요청",
   "workspaceSettings.securityScan.requestChanges.description": "Lumo 리뷰 스레드나 Done을 막는 발견 사항이 열려 있는 동안 Lumo의 리뷰는 “변경 요청됨”으로 표시되며, 최신 커밋에 대한 전체 리뷰에서 열린 항목이 없으면 Lumo가 PR을 승인합니다. 기본값은 꺼짐입니다.",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "PR 작성자의 명령어 해결 및 승인 허용",

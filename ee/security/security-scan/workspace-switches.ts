@@ -12,6 +12,7 @@
  */
 import { isManagedScanEnabled } from '@/ee/security/services/security-managed-scan.config'
 import { isHuntEnabled } from '@/ee/security/services/security-hunt.config'
+import { isRewardHackEnabled } from '@/ee/security/services/security-reward-hack.config'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import {
   DEFAULT_LEARNINGS_SCOPE,
@@ -28,6 +29,8 @@ export interface WorkspaceSecuritySwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  /** LUM-1234: the reward-hack layer ("Agent behavior"; default on). */
+  securityRewardHackEnabled: boolean
   securityRequestChangesEnabled: boolean
   /** LUM-1142: the PR's author may resolve / approve by command
    *  (author approval, default on). */
@@ -43,6 +46,7 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRewardHackEnabled: true,
   securityRequestChangesEnabled: false,
   securityAllowAuthorApproval: true,
   securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
@@ -59,6 +63,8 @@ export interface EffectiveSecurityLayers {
   aiReview: boolean
   /** L3 exploit-path hunt. */
   hunt: boolean
+  /** LUM-1234: reward-hack layer (agent sessions behind the PR). */
+  rewardHack: boolean
   /**
    * LUM-892 — the customer turned the AI review off in settings (the scan
    * itself is on). Such a layer is shown as turned off, never as checked:
@@ -71,12 +77,16 @@ export interface EffectiveSecurityLayers {
    * offered at all, so there is nothing to show as turned off.
    */
   huntTurnedOff: boolean
+  /** LUM-1234 — as `huntTurnedOff`, for the reward-hack layer. */
+  rewardHackTurnedOff: boolean
 }
 
 /** Which layers the platform itself allows — what the settings page may offer. */
 export interface PlatformSecurityCeiling {
   managedScan: boolean
   hunt: boolean
+  /** LUM-1234: `LUMO_REWARD_HACK=on`. */
+  rewardHack: boolean
   /**
    * LUM-1025 — Vercel Sandbox is configured on this deployment. When false the
    * managed scan, baseline, hunt and verifier are all off, and the settings
@@ -94,6 +104,7 @@ export function platformSecurityCeiling(
   return {
     managedScan: isManagedScanEnabled(env),
     hunt: isHuntEnabled(env),
+    rewardHack: isRewardHackEnabled(env),
     sandbox: isIntegrationConfigured('vercelSandbox', env),
   }
 }
@@ -114,7 +125,10 @@ export function resolveSecurityLayers(
     managedScan: scan && ceiling.managedScan,
     aiReview: scan && ws.securityAiReviewEnabled,
     hunt: scan && ws.securityHuntEnabled && ceiling.hunt,
+    rewardHack: scan && ws.securityRewardHackEnabled && ceiling.rewardHack,
     aiReviewTurnedOff: scan && !ws.securityAiReviewEnabled,
     huntTurnedOff: scan && !ws.securityHuntEnabled && ceiling.hunt,
+    rewardHackTurnedOff:
+      scan && !ws.securityRewardHackEnabled && ceiling.rewardHack,
   }
 }

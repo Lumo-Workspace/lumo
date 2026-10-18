@@ -89,6 +89,7 @@ describe('LUM-866 workspace switches settings API', () => {
     expect(body.securityPlatform).toEqual({
       managedScan: true,
       hunt: true,
+      rewardHack: false,
       sandbox: true,
     })
   })
@@ -100,6 +101,7 @@ describe('LUM-866 workspace switches settings API', () => {
     expect(body.securityPlatform).toEqual({
       managedScan: true,
       hunt: false,
+      rewardHack: false,
       sandbox: true,
     })
   })

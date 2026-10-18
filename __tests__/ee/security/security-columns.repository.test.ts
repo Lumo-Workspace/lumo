@@ -177,3 +177,21 @@ test('LUM-1137 findReviewAutoPauseAfter — the stored value; 5 when missing or 
   mockWorkspace.findUnique.mockResolvedValueOnce(null)
   expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(5)
 })
+
+test('LUM-1234 findSecuritySwitches selects and returns the reward-hack switch', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityScanEnabled: true,
+    securityAiReviewEnabled: true,
+    securityHuntEnabled: true,
+    securityRewardHackEnabled: false,
+    securityRequestChangesEnabled: false,
+    securityAllowAuthorApproval: true,
+    securityLearningsScope: 'auto',
+    securityReviewAutoPauseAfter: 5,
+  })
+  const got = await securityColumnsRepository.findSecuritySwitches('w1')
+  expect(got?.securityRewardHackEnabled).toBe(false)
+  expect(mockWorkspace.findUnique.mock.calls[0][0].select).toMatchObject({
+    securityRewardHackEnabled: true,
+  })
+})

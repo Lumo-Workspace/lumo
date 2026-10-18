@@ -18,8 +18,10 @@ describe('LUM-866 env is the ceiling', () => {
       managedScan: true,
       aiReview: true,
       hunt: true,
+      rewardHack: false,
       aiReviewTurnedOff: false,
       huntTurnedOff: false,
+      rewardHackTurnedOff: false,
     })
     expect(resolveSecurityLayers(undefined, SANDBOX)).toEqual(
       resolveSecurityLayers(ALL_ON, SANDBOX)
@@ -68,8 +70,10 @@ describe('LUM-866 env is the ceiling', () => {
       managedScan: false,
       aiReview: false,
       hunt: false,
+      rewardHack: false,
       aiReviewTurnedOff: false,
       huntTurnedOff: false,
+      rewardHackTurnedOff: false,
     })
   })
 
@@ -108,6 +112,7 @@ describe('LUM-866 env is the ceiling', () => {
     expect(platformSecurityCeiling(SANDBOX)).toEqual({
       managedScan: true,
       hunt: true,
+      rewardHack: false,
       sandbox: true,
     })
     expect(
@@ -116,7 +121,12 @@ describe('LUM-866 env is the ceiling', () => {
         LUMO_SECURITY_HUNT: 'off',
         LUMO_MANAGED_SCAN: 'off',
       })
-    ).toEqual({ managedScan: false, hunt: false, sandbox: true })
+    ).toEqual({
+      managedScan: false,
+      hunt: false,
+      rewardHack: false,
+      sandbox: true,
+    })
   })
 })
 
@@ -125,6 +135,7 @@ describe('LUM-1025 no Vercel Sandbox on this deployment', () => {
     expect(platformSecurityCeiling({})).toEqual({
       managedScan: false,
       hunt: false,
+      rewardHack: false,
       sandbox: false,
     })
     expect(resolveSecurityLayers(ALL_ON, {})).toMatchObject({
@@ -134,5 +145,56 @@ describe('LUM-1025 no Vercel Sandbox on this deployment', () => {
       hunt: false,
       huntTurnedOff: false,
     })
+  })
+})
+
+describe('LUM-1234 reward-hack layer switches', () => {
+  const ON = { ...SANDBOX, LUMO_REWARD_HACK: 'on' }
+
+  it('runs when the platform allows it and the workspace has it on', () => {
+    const got = resolveSecurityLayers({ ...ALL_ON }, ON)
+    expect(got.rewardHack).toBe(true)
+    expect(got.rewardHackTurnedOff).toBe(false)
+    expect(platformSecurityCeiling(ON).rewardHack).toBe(true)
+  })
+
+  it('is off, and not "turned off", when the platform has it off', () => {
+    const got = resolveSecurityLayers({ ...ALL_ON }, SANDBOX)
+    expect(got.rewardHack).toBe(false)
+    expect(got.rewardHackTurnedOff).toBe(false)
+    expect(platformSecurityCeiling(SANDBOX).rewardHack).toBe(false)
+  })
+
+  it('the workspace switching it off is "turned off" while the platform allows it', () => {
+    const got = resolveSecurityLayers(
+      { ...ALL_ON, securityRewardHackEnabled: false },
+      ON
+    )
+    expect(got.rewardHack).toBe(false)
+    expect(got.rewardHackTurnedOff).toBe(true)
+  })
+
+  it('workspace off with the platform off is not "turned off"', () => {
+    const got = resolveSecurityLayers(
+      { ...ALL_ON, securityRewardHackEnabled: false },
+      SANDBOX
+    )
+    expect(got.rewardHackTurnedOff).toBe(false)
+  })
+
+  it('the master scan switch off turns it off', () => {
+    const got = resolveSecurityLayers(
+      { ...ALL_ON, securityScanEnabled: false },
+      ON
+    )
+    expect(got.rewardHack).toBe(false)
+    expect(got.rewardHackTurnedOff).toBe(false)
+  })
+
+  it('does not need the sandbox', () => {
+    expect(
+      resolveSecurityLayers({ ...ALL_ON }, { LUMO_REWARD_HACK: 'on' })
+        .rewardHack
+    ).toBe(true)
   })
 })

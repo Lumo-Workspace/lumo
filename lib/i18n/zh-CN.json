@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "将拉取请求的 diff 发送给 AI 模型（零数据保留），用于安全审查、改动摘要、扫描器发现的误报建议、你的语义代码规则，以及核对已完成任务的声明与其已合并代码是否一致。同时涵盖越界 AI 复核：它会把被标记的 agent 操作和任务文本发送给 TypeSafe Jev（不提供零数据保留）。关闭后，以上任何用途都不会向 AI 模型发送内容。",
   "workspaceSettings.securityScan.hunt.label": "漏洞利用路径探查",
   "workspaceSettings.securityScan.hunt.description": "对有风险的改动，由 AI 代理在隔离沙箱中探查代码，确认某个发现是否真的可被利用。",
+  "workspaceSettings.securityScan.rewardHack.label": "Agent 行为",
+  "workspaceSettings.securityScan.rewardHack.description": "检查 PR 背后的 agent 会话是否为了通过测试、指标或检查而取巧，而不是真正完成任务。结果只是 PR 上的提示，不会阻止合并。",
   "workspaceSettings.securityScan.requestChanges.label": "未解决前请求修改",
   "workspaceSettings.securityScan.requestChanges.description": "只要还有未解决的 Lumo 评审讨论或阻挡 Done 的发现，Lumo 的评审就显示“请求修改”；当对最新提交的完整评审不再留下任何未解决项时，Lumo 会批准该 PR。默认关闭。",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "允许 PR 作者用命令解决和批准",

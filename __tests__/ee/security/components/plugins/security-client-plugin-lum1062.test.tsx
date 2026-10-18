@@ -201,7 +201,12 @@ describe('settings slots', () => {
         props={{
           workspace: { id: 'w1', securityHuntEnabled: false },
           me: {
-            securityPlatform: { managedScan: true, hunt: true, sandbox: false },
+            securityPlatform: {
+              managedScan: true,
+              hunt: true,
+              rewardHack: true,
+              sandbox: false,
+            },
           },
         }}
       />
@@ -213,6 +218,8 @@ describe('settings slots', () => {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
+        // LUM-1234: absent on the row ⇒ on (the column default).
+        securityRewardHackEnabled: true,
         // LUM-1130: absent on the row ⇒ off (the column default).
         securityRequestChangesEnabled: false,
         // LUM-1142: absent on the row ⇒ on (the column default).
@@ -222,6 +229,7 @@ describe('settings slots', () => {
         securityReviewAutoPauseAfter: 5,
       },
       huntAvailable: true,
+      rewardHackAvailable: true,
       sandboxAvailable: false,
     })
     // LUM-1114: the rule-coverage card sits under the switches.

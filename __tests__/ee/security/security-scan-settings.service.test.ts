@@ -46,6 +46,7 @@ const ALL_OFF = {
   securityScanEnabled: false,
   securityAiReviewEnabled: false,
   securityHuntEnabled: false,
+  securityRewardHackEnabled: false,
 }
 
 beforeEach(() => {
@@ -58,12 +59,18 @@ beforeEach(() => {
 })
 
 describe('switchesForUpdate', () => {
-  it('expands { all } to all three switches', () => {
+  it('expands { all } to every layer switch', () => {
     expect(switchesForUpdate({ all: false })).toEqual(ALL_OFF)
     expect(switchesForUpdate({ all: true })).toEqual({
       securityScanEnabled: true,
       securityAiReviewEnabled: true,
       securityHuntEnabled: true,
+      securityRewardHackEnabled: true,
+    })
+  })
+  it('LUM-1234 passes the reward-hack switch through, alone', () => {
+    expect(switchesForUpdate({ securityRewardHackEnabled: false })).toEqual({
+      securityRewardHackEnabled: false,
     })
   })
   it('passes single switches through', () => {

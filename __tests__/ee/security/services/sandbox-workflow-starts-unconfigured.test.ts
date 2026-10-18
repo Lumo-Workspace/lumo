@@ -91,6 +91,7 @@ describe('without Vercel Sandbox credentials', () => {
     expect(platformSecurityCeiling({})).toEqual({
       managedScan: false,
       hunt: false,
+      rewardHack: false,
       sandbox: false,
     })
     expect(resolveSecurityLayers(null, {})).toMatchObject({

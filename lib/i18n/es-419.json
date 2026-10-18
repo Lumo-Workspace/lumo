@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "Envía el diff del pull request a un modelo de IA (retención cero de datos) para una revisión de seguridad, un resumen del cambio, sugerencias de falsos positivos sobre los hallazgos de los escáneres, tus reglas de código semánticas y la comprobación de lo que declara una tarea terminada frente a su código fusionado. También abarca el triaje con IA de cruces de límites, que envía la acción marcada del agente y el texto de la tarea a TypeSafe Jev (sin retención cero). Desactivado, ninguna de estas funciones envía nada a un modelo de IA.",
   "workspaceSettings.securityScan.hunt.label": "Búsqueda de rutas de explotación",
   "workspaceSettings.securityScan.hunt.description": "En los cambios riesgosos, un agente de IA explora el código en un entorno aislado para confirmar si un hallazgo realmente se puede explotar.",
+  "workspaceSettings.securityScan.rewardHack.label": "Comportamiento del agente",
+  "workspaceSettings.securityScan.rewardHack.description": "Verifica si las sesiones del agente detrás de un PR manipularon pruebas, métricas o verificaciones en lugar de hacer la tarea. El resultado es un aviso en el PR y nunca lo bloquea.",
   "workspaceSettings.securityScan.requestChanges.label": "Solicitar cambios hasta que se resuelva",
   "workspaceSettings.securityScan.requestChanges.description": "La revisión de Lumo muestra «Cambios solicitados» mientras haya abierto un hilo de revisión de Lumo o un hallazgo que bloquee Done, y Lumo aprueba el PR cuando su revisión completa del último commit no deja nada abierto. Desactivado de forma predeterminada.",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "Los autores de PR pueden resolver y aprobar por comando",

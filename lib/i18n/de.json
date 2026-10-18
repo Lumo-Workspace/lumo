@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "Sendet den Diff des Pull Requests an ein KI-Modell (Zero Data Retention) für eine Sicherheitsprüfung, eine Zusammenfassung der Änderung, Falsch-Positiv-Vorschläge zu Scanner-Ergebnissen, Ihre semantischen Code-Regeln und den Abgleich der Angaben einer abgeschlossenen Aufgabe mit ihrem gemergten Code. Umfasst auch die KI-Triage von Grenzüberschreitungen, die die markierte Agenten-Aktion und den Aufgabentext an TypeSafe Jev sendet (keine Zero Data Retention). Ausgeschaltet sendet keine dieser Funktionen etwas an ein KI-Modell.",
   "workspaceSettings.securityScan.hunt.label": "Exploit-Pfad-Suche",
   "workspaceSettings.securityScan.hunt.description": "Bei riskanten Änderungen untersucht ein KI-Agent den Code in einer isolierten Sandbox, um zu bestätigen, ob ein Fund tatsächlich ausnutzbar ist.",
+  "workspaceSettings.securityScan.rewardHack.label": "Agentenverhalten",
+  "workspaceSettings.securityScan.rewardHack.description": "Prüft, ob die Agenten-Sessions hinter einem PR Tests, Metriken oder Prüfungen ausgetrickst haben, statt die Aufgabe zu erledigen. Das Ergebnis ist ein Hinweis am PR und blockiert ihn nie.",
   "workspaceSettings.securityScan.requestChanges.label": "Änderungen anfordern, bis alles gelöst ist",
   "workspaceSettings.securityScan.requestChanges.description": "Lumos Review zeigt „Änderungen angefordert“, solange ein Lumo-Review-Thread oder ein Fund, der Done blockiert, offen ist. Sobald Lumos vollständiges Review des neuesten Commits nichts Offenes mehr findet, genehmigt Lumo den PR. Standardmäßig aus.",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "PR-Autoren dürfen per Befehl auflösen und genehmigen",

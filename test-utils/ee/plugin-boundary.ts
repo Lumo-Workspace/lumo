@@ -607,6 +607,7 @@ export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'securityScanEnabled',
     'securityAiReviewEnabled',
     'securityHuntEnabled',
+    'securityRewardHackEnabled',
     'securityRequestChangesEnabled',
     'securityAllowAuthorApproval',
     'securityLearningsScope',

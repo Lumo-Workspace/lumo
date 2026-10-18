@@ -2340,6 +2340,8 @@
   "workspaceSettings.securityScan.aiReview.description": "プルリクエストの差分を AI モデル（データ保持ゼロ）に送り、セキュリティレビュー、変更の要約、スキャナー検出の誤検知の提案、セマンティックなコードルールの確認、および完了したタスクの申告内容とマージ済みコードの照合を行います。境界越えの AI トリアージも対象で、検出されたエージェントの操作とタスクのテキストを TypeSafe Jev（データ保持ゼロではありません）に送ります。オフにすると、これらのいずれの目的でも AI モデルには何も送られません。",
   "workspaceSettings.securityScan.hunt.label": "悪用経路ハント",
   "workspaceSettings.securityScan.hunt.description": "リスクの高い変更について、AI エージェントが隔離されたサンドボックス内でコードを調べ、検出結果が実際に悪用可能かを確認します。",
+  "workspaceSettings.securityScan.rewardHack.label": "エージェントの挙動",
+  "workspaceSettings.securityScan.rewardHack.description": "PR の背後にあるエージェントのセッションが、タスクをこなす代わりにテスト・指標・チェックを不正に通していないかを確認します。結果は PR 上のヒントであり、PR をブロックすることはありません。",
   "workspaceSettings.securityScan.requestChanges.label": "解決するまで変更をリクエスト",
   "workspaceSettings.securityScan.requestChanges.description": "Lumo のレビュースレッドや Done をブロックする検出結果が未解決の間、Lumo のレビューは「変更をリクエスト」と表示されます。最新コミットの完全なレビューで未解決のものがなくなると、Lumo が PR を承認します。デフォルトはオフです。",
   "workspaceSettings.securityScan.allowAuthorApproval.label": "PR 作成者のコマンドによる解決と承認を許可",
