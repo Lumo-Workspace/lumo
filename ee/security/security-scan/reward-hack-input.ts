@@ -968,14 +968,21 @@ export function buildRhUserPrompt(args: {
    * fences alone do not fit). The caller must not send it to the model.
    */
   overCap: boolean
+  /** The task requirement was cut to `RH_REQUIREMENT_MAX_CHARS` (log only). */
+  requirementTruncated: boolean
 } {
   const caps = args.caps ?? RH_DEFAULT_CAPS
   let truncated = false
 
+  // The requirement has its own cap. Cutting it is a property of the task
+  // text, not lost session coverage, so it never marks the layer partial
+  // (a long comment thread would otherwise leave every PR "not fully
+  // checked"); it is reported separately for the decision log.
+  let requirementTruncated = false
   let requirementRaw = sanitizeField(args.requirement)
   if (requirementRaw.length > RH_REQUIREMENT_MAX_CHARS) {
     requirementRaw = cut(requirementRaw, RH_REQUIREMENT_MAX_CHARS)
-    truncated = true
+    requirementTruncated = true
   }
   const requirementBlock = fence('task-requirement', '', defang(requirementRaw))
 
@@ -1073,7 +1080,14 @@ export function buildRhUserPrompt(args: {
       eventFile.set(b.eventId, b.filePaths)
     }
   }
-  return { prompt: built.prompt, truncated, eventIds, eventFile, overCap }
+  return {
+    prompt: built.prompt,
+    truncated,
+    eventIds,
+    eventFile,
+    overCap,
+    requirementTruncated,
+  }
 }
 
 // ─── the PR diff for the refute call ───────────────────────────────────────
