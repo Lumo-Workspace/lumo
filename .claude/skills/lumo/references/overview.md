@@ -15,7 +15,7 @@ lumo status --json
 
 - `--claimable` and `-n, --limit <N>` shape the Next section ([tasks.md](tasks.md#lumo-status---next---claimable--n---limit-n--recommend-the-next-task-to-work-on)); with section flags that leave Next out they exit 2. `--limit` must be a positive integer.
 - `--json` with no section flag (or with two) prints `{ version, priority, inbox, drafts, next }` — `priority` only in the full view (the current declaration or `null`), and each section is the single-section envelope without its own `version`.
-- A section whose request fails prints its error on stderr; the other sections still print and the command exits 1.
+- A section whose request fails prints its error on stderr; the other sections still print (in `--json` the failed key is `null`) and the command exits 1.
 
 ### `lumo status --inbox [--json]` — your notifications
 

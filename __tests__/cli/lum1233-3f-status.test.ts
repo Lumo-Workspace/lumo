@@ -157,6 +157,14 @@ describe('status output', () => {
     expect(out).toContain('LUM-7')
   })
 
+  it('--json keeps a failed section as null and exits 1', async () => {
+    failing.add('/api/drafts')
+    expect(await status({ json: true })).toBe(1)
+    const body = JSON.parse(out)
+    expect(body.drafts).toBeNull()
+    expect(body.inbox.unreadCount).toBe(0)
+  })
+
   it('formatPriorityLine without a declaration', () => {
     expect(formatPriorityLine(null)).toBe('Priority: none declared')
   })

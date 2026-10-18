@@ -151,11 +151,16 @@ export async function status(o: StatusOptions = {}): Promise<number | void> {
       if (s === 'next' && r.next) emitJson(nextResultJson(r.next))
       return r.failed ? 1 : undefined
     }
+    // Every requested key is present; a section whose request failed is
+    // null (its error went to stderr and the exit code is 1).
     const env: Record<string, unknown> = {}
     if (full) env.priority = stripInternalFields(r.priority ?? null)
-    if (r.inbox) env.inbox = bare(inboxJson(r.inbox))
-    if (r.drafts) env.drafts = bare(draftsJson(r.drafts))
-    if (r.next) env.next = bare(nextResultJson(r.next))
+    if (sections.includes('inbox'))
+      env.inbox = r.inbox ? bare(inboxJson(r.inbox)) : null
+    if (sections.includes('drafts'))
+      env.drafts = r.drafts ? bare(draftsJson(r.drafts)) : null
+    if (sections.includes('next'))
+      env.next = r.next ? bare(nextResultJson(r.next)) : null
     emitJson(withVersion(env))
     return r.failed ? 1 : undefined
   }
