@@ -47,6 +47,7 @@ import {
 } from '@/ee/security/security-scan/reward-hack-input'
 import { citedEditsInPr } from '@/ee/security/security-scan/reward-hack-gates'
 import { settledRhCallUsd } from '@/ee/security/security-scan/reward-hack-cost'
+import { rhDecisionLogLine } from '@/ee/security/security-scan/reward-hack-log'
 import { REWARD_HACK_VERSION } from '@/ee/security/security-scan/reward-hack-prompts'
 import {
   buildRhDiffView,
@@ -204,6 +205,19 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     selected.excludedPruned.length > 0 || selected.partiallyPruned.length > 0
   const prunedCauses: PartialCause[] = pruned ? ['REWARD_HACK_PRUNED'] : []
   if (selected.included.length === 0)
+    logger.info(
+      rhDecisionLogLine({
+        scanId,
+        windowStart,
+        windowEnd: scan.startedAt,
+        sessions: sessions.length,
+        included: [],
+        prompt: null,
+        truncated: false,
+        outcome: pruned ? 'pruned' : 'no-session',
+      })
+    )
+  if (selected.included.length === 0)
     // No session behind this PR is SKIPPED — unless pruning may have taken
     // it: an empty transcript is never read as "nothing found".
     return settle(
@@ -302,6 +316,18 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     spend: ledger,
     diffView,
   })
+  logger.info(
+    rhDecisionLogLine({
+      scanId,
+      windowStart,
+      windowEnd: scan.startedAt,
+      sessions: sessions.length,
+      included: selected.included,
+      prompt: decision.built.prompt,
+      truncated: decision.built.truncated,
+      outcome: decision.outcome,
+    })
+  )
   if (decision.outcome === 'overCap')
     // Even the markers do not fit (or the text is token-dense past our
     // per-call cap): nothing is sent to the model.
