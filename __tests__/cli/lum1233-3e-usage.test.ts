@@ -183,7 +183,6 @@ describe('grammar and Codex rules', () => {
         '--json',
         '--limit',
         '--member',
-        '--project',
         '--session',
         '--since',
         '--task',

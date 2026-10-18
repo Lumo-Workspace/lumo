@@ -113,12 +113,15 @@ function resolvePath(
 function flagLookup(
   token: string,
   node: GrammarCommand | null,
-  isRoot: boolean
+  isRoot: boolean,
+  /** LUM-1233 3g: the program-level flags every command accepts. */
+  programFlags: Record<string, GrammarFlag> = {}
 ): GrammarFlag | null {
   const name = token.split('=')[0]!
   const pools: Record<string, GrammarFlag>[] = [
     node?.flags ?? {},
     GLOBAL_FLAGS,
+    programFlags,
     ...(isRoot ? [ROOT_FLAGS] : []),
   ]
   for (const pool of pools) {
@@ -211,7 +214,7 @@ export function validateSegment(
     // truncated quotes) are not judged — skipping beats a fake hallucination.
     if (!isCleanFlagToken(t)) continue
 
-    const flag = flagLookup(t, node, path.length === 0)
+    const flag = flagLookup(t, node, path.length === 0, grammar.globalFlags)
     if (!flag) {
       const name = t.split('=')[0]!
       return {

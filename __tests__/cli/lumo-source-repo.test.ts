@@ -113,10 +113,10 @@ describe('isLumoSourceRepo / isLumoSkillSource', () => {
 })
 
 describe('the Lumo skill source is never written or deleted', () => {
-  it('init --project --force leaves it alone', async () => {
+  it('init --scope project --force leaves it alone', async () => {
     const { root, skill } = sourceRepo()
     const code = await init(
-      { project: true, force: true },
+      { scope: 'project', force: true },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
@@ -129,11 +129,11 @@ describe('the Lumo skill source is never written or deleted', () => {
     expect(existsSync(join(skill, '.lumo-install.json'))).toBe(false)
   })
 
-  it('init --project --dry-run previews it as left untouched', async () => {
+  it('init --scope project --dry-run previews it as left untouched', async () => {
     const { root, skill } = sourceRepo()
     markManaged(skill)
     const code = await init(
-      { project: true, agent: 'claude-code', dryRun: true },
+      { scope: 'project', agent: 'claude-code', dryRun: true },
       {
         cliVersion: '2.0.0',
         homeDir: tmp(),
@@ -245,11 +245,11 @@ describe('symlinks and registry cannot route around the guard', () => {
   )
 
   it.each(['leaf', 'parent'] as const)(
-    'init --user --force never writes the source through a %s symlink',
+    'init --scope user --force never writes the source through a %s symlink',
     async mode => {
       const l = linkedHome(mode)
       await init(
-        { user: true, force: true },
+        { scope: 'user', force: true },
         {
           cliVersion: '2.0.0',
           homeDir: l.home,

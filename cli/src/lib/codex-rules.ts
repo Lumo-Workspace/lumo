@@ -184,7 +184,6 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
     'a human-only ruling: keep Codex asking the user first',
   hook: 'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself',
   init: 'writes skill, hook and rules files',
-  setup: 'alias of init: writes skill, hook and rules files',
   'skill status':
     'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
   'skill update': 'writes skill files',

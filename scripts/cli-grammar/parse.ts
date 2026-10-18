@@ -40,7 +40,6 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'milestone update',
   'session attach',
   'session status',
-  'setup',
   'sprint add',
   'sprint close',
   'sprint create',

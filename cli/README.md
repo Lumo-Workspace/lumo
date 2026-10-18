@@ -32,10 +32,10 @@ The command interactively asks whether to install for the current user (`~/.clau
 Non-interactive flags for CI / scripts:
 
 ```bash
-npx @lumoai/cli init --project
-npx @lumoai/cli init --user --force
-npx @lumoai/cli init --project --agent codex        # only Codex
-npx @lumoai/cli init --project --agent claude-code  # only Claude Code
+npx @lumoai/cli init --scope project
+npx @lumoai/cli init --scope user --force
+npx @lumoai/cli init --scope project --agent codex        # only Codex
+npx @lumoai/cli init --scope project --agent claude-code  # only Claude Code
 ```
 
 After `init`, install the CLI globally so the agents' hooks can resolve the `lumo` binary at startup:
@@ -56,7 +56,7 @@ Auto-update is on by default: the CLI installs new releases in the background. T
 
 ### Keeping installs in sync
 
-User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --user` or `lumo init --project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
+User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --scope user` or `lumo init --scope project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
 
 ```bash
 lumo doctor      # read-only report of every Lumo install and its state
