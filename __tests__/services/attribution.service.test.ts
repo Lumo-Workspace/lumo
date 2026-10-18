@@ -491,7 +491,7 @@ describe('attributionService.recomputeFamily', () => {
     expect(writtenRows()).toEqual([])
   })
 
-  it('explicitly attached child of an unbound root gets SUBAGENT_ATTACH instead of the engine segment', async () => {
+  it('explicitly attached child of an unbound root gets SUBAGENT_ATTACH instead of the engine segment; the orchestrating root gets none for a task-naming lumo read (LUM-1237)', async () => {
     repo.loadFamily.mockResolvedValue(
       family(
         [
@@ -518,9 +518,7 @@ describe('attributionService.recomputeFamily', () => {
     )
     await attributionService.recomputeFamily(ROOT)
     const rows = writtenRows()
-    expect(rows.filter(r => r.sessionId === ROOT)).toEqual([
-      expect.objectContaining({ taskId: 'task_12', source: 'INFERRED' }),
-    ])
+    expect(rows.filter(r => r.sessionId === ROOT)).toEqual([])
     expect(rows.filter(r => r.sessionId === CHILD)).toEqual([
       expect.objectContaining({
         taskId: 'task_child',

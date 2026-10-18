@@ -24,6 +24,7 @@ beforeEach(() => {
 // null → contributes 0 but the task stays measured). t2: only a usage-less
 // session → unmeasured. t3: no sessions at all → unmeasured.
 const S1 = {
+  id: 's1',
   taskId: 't1',
   inputTokens: 10,
   outputTokens: 20,
@@ -31,6 +32,7 @@ const S1 = {
   cacheCreationTokens: 0,
 }
 const S1B = {
+  id: 's1b',
   taskId: 't1',
   inputTokens: null,
   outputTokens: null,
@@ -38,6 +40,7 @@ const S1B = {
   cacheCreationTokens: null,
 }
 const S2 = {
+  id: 's2',
   taskId: 't2',
   inputTokens: null,
   outputTokens: null,

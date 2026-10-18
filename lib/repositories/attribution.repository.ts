@@ -24,7 +24,8 @@ import {
  * atomically replaces the family's TaskAttributionSegment rows.
  */
 // 2: R1 multi-task turns / R2 notification turns (LUM-932 acceptance rulings).
-export const ATTRIBUTION_COMPUTE_VERSION = 2
+// 3: orchestration hosts are attributed by work output only (LUM-1237).
+export const ATTRIBUTION_COMPUTE_VERSION = 3
 
 export interface FamilySession {
   id: string
@@ -402,6 +403,71 @@ export const attributionRepository = {
    * first session in `sessionIds` (priority order) that has one; within that
    * session the open segment with the latest `fromAt`. One query.
    */
+  /**
+   * LUM-1237 history recompute: ids of UNBOUND root sessions that host at
+   * least one self-attached subagent (orchestration hosts), oldest first.
+   * Optional workspace / last-activity filters; `limit` caps the batch.
+   */
+  async listOrchestrationHostRootIds(opts: {
+    workspaceId?: string
+    since?: Date
+    limit: number
+  }): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: {
+        parentSessionId: null,
+        taskId: null,
+        ...(opts.workspaceId ? { workspaceId: opts.workspaceId } : {}),
+        ...(opts.since ? { lastActivityAt: { gte: opts.since } } : {}),
+        children: {
+          some: { bindingSource: 'ATTACH', taskId: { not: null } },
+        },
+      },
+      select: { id: true },
+      orderBy: { startedAt: 'asc' },
+      take: opts.limit,
+    })
+    return rows.map(r => r.id)
+  },
+
+  /**
+   * LUM-1237 history recompute preview: how many UNDISPOSITIONED crossings
+   * hang off these events (what a retag would move).
+   */
+  async countOpenCrossingsForEvents(eventIds: string[]): Promise<number> {
+    let total = 0
+    for (let i = 0; i < eventIds.length; i += 5000) {
+      total += await prisma.boundaryCrossing.count({
+        where: {
+          disposition: null,
+          hookEventId: { in: eventIds.slice(i, i + 5000) },
+        },
+      })
+    }
+    return total
+  },
+
+  /**
+   * LUM-1237: does this root session host a subagent that attached a task
+   * itself? (The orchestration-host test of `isOrchestrationHost`, for the
+   * record-time provisional tag.)
+   */
+  async hasSelfAttachedChild(
+    workspaceId: string,
+    rootSessionId: string
+  ): Promise<boolean> {
+    const row = await prisma.session.findFirst({
+      where: {
+        workspaceId,
+        parentSessionId: rootSessionId,
+        bindingSource: 'ATTACH',
+        taskId: { not: null },
+      },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
   async findOpenSegmentTask(
     workspaceId: string,
     sessionIds: string[]

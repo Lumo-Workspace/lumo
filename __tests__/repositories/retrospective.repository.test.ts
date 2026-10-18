@@ -33,6 +33,8 @@ beforeEach(() => {
   ].forEach(m => m.mockReset())
   // Default: no turn events → active time 0. Duration-specific tests override.
   hookFind.mockResolvedValue([])
+  // Default: no inferred top-level sessions (LUM-1237 counts runs by id).
+  sessionFind.mockResolvedValue([])
 })
 
 it('loadActuals sums session usage and counts sessions', async () => {
@@ -41,6 +43,7 @@ it('loadActuals sums session usage and counts sessions', async () => {
     projectId: 'p1',
     sessions: [
       {
+        id: 's1',
         inputTokens: 10,
         outputTokens: 20,
         cacheReadTokens: 5,
@@ -49,6 +52,7 @@ it('loadActuals sums session usage and counts sessions', async () => {
         lastActivityAt: t0,
       },
       {
+        id: 's2',
         inputTokens: 1,
         outputTokens: 2,
         cacheReadTokens: 0,
@@ -95,6 +99,7 @@ it('loadActuals returns tokenCost null when no session carries usage', async () 
     projectId: 'p1',
     sessions: [
       {
+        id: 's1',
         inputTokens: null,
         outputTokens: null,
         cacheReadTokens: null,
