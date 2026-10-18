@@ -8,7 +8,7 @@ import { sanitizeField } from './sanitize'
  * session binding. This module only renders, so it serves two
  * kinds of source without caring which it got:
  *
- *  - server-computed — `lumo next` and the task commands, carried on the
+ *  - server-computed — `lumo status --next` and the task commands, carried on the
  *    response as `nextSteps`;
  *  - locally static — `worktree add` / `setup`, whose advice is fixed process
  *    wrap-up with no server round-trip to piggyback on.

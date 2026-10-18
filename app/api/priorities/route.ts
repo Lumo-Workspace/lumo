@@ -34,7 +34,7 @@ function toView(p: {
 /**
  * GET /api/priorities — the caller's team priority: the current declaration
  * (latest `effectiveFrom`) plus the full append history, newest first.
- * Dual-auth (bearer or Clerk) so the `lumo priority` CLI can read it.
+ * Dual-auth (bearer or Clerk) so `lumo priority create|list` and `lumo status` can use it.
  */
 export async function GET(request: Request) {
   const identity = await requireIdentity(request)

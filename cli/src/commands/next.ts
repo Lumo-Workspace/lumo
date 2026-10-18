@@ -12,17 +12,16 @@ import {
   formatClaimableExclusions,
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
-import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+import { listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface NextOptions {
-  count?: string
+  /** LUM-1233 3f: was `--count`; `-n` keeps working. */
+  limit?: string | undefined
   /**
    * LUM-646: restrict recommendations to the autonomy boundary — only tasks
    * that are claimable AND unblocked (F3) AND within milestone budget (F2).
    */
-  claimable?: boolean
-  /** Print the ranked tasks (with their reasons) as JSON. */
-  json?: boolean
+  claimable?: boolean | undefined
 }
 
 interface ActiveSprintsResponse {
@@ -33,18 +32,39 @@ interface TasksMeResponse {
   tasks: NextTask[]
 }
 
+/** The ranked recommendation, ready to render (text or `--json`). */
+export interface NextResult {
+  ranked: RankedTask[]
+  /** Tasks the ranking chose from: open, or claimable with `--claimable`. */
+  poolSize: number
+  claimable: boolean
+  excluded?: import('../lib/claimable-filter').ClaimableExclusions
+}
+
+/** `--limit` as a count (default 3), or null when it is not a positive integer. */
+export function parseNextLimit(limit: string | undefined): number | null {
+  if (limit === undefined) return 3
+  if (!/^\d+$/.test(limit.trim())) return null
+  const n = parseInt(limit, 10)
+  return n >= 1 ? n : null
+}
+
 /**
- * `lumo next [-n, --count <N>]` — recommend the next task(s) to work on.
+ * The Next section of `lumo status` (LUM-1233 3f; formerly `lumo next`) —
+ * recommend the next task(s) to work on.
  *
  * Chains two read-only endpoints: active sprint ids (for a ranking boost) and
  * "my tasks". The active-sprints call is non-fatal — if it fails we warn and
- * rank without the sprint boost rather than aborting.
+ * rank without the sprint boost rather than aborting. Errors are printed;
+ * the result is the exit code then.
  */
-export async function nextCommand(opts: NextOptions): Promise<number | void> {
-  const count = opts.count !== undefined ? parseInt(opts.count, 10) : 3
-  if (Number.isNaN(count) || count < 1) {
+export async function loadNext(
+  opts: NextOptions
+): Promise<NextResult | number> {
+  const count = parseNextLimit(opts.limit)
+  if (count === null) {
     console.error(
-      `Error: invalid --count "${opts.count}" (expected a positive integer)`
+      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
     )
     return EXIT_USAGE
   }
@@ -114,41 +134,49 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
   // standard LUM-645 ranking is untouched.
   if (opts.claimable) {
     const gate = filterClaimable(open)
-    if (!gate.supported) {
-      // Older server predating F4 — degrade to the standard ranking with a
-      // one-line notice rather than silently returning nothing.
-      console.error(
-        warn(
-          '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
-        )
-      )
-    } else {
-      const ranked = rankTasks(gate.kept, activeSprintIds, new Date()).slice(
-        0,
-        count
-      )
-      if (opts.json) {
-        emitJson(
-          nextJson(ranked, gate.kept.length, {
-            claimable: true,
-            excluded: gate.excluded,
-          })
-        )
-        return
+    if (gate.supported) {
+      return {
+        ranked: rankTasks(gate.kept, activeSprintIds, new Date()).slice(
+          0,
+          count
+        ),
+        poolSize: gate.kept.length,
+        claimable: true,
+        excluded: gate.excluded,
       }
-      process.stdout.write(
-        formatClaimableOutput(ranked, gate.kept.length, gate.excluded) + '\n'
-      )
-      return
     }
+    // Older server predating F4 — degrade to the standard ranking with a
+    // one-line notice rather than silently returning nothing.
+    console.error(
+      warn(
+        '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+      )
+    )
   }
 
-  const ranked = rankTasks(open, activeSprintIds, new Date()).slice(0, count)
-  if (opts.json) {
-    emitJson(nextJson(ranked, open.length, { claimable: false }))
-    return
+  return {
+    ranked: rankTasks(open, activeSprintIds, new Date()).slice(0, count),
+    poolSize: open.length,
+    claimable: false,
   }
-  process.stdout.write(formatNextOutput(ranked, open.length) + '\n')
+}
+
+/** The `--json` envelope of a loaded result. */
+export function nextResultJson(r: NextResult): Record<string, unknown> {
+  return nextJson(r.ranked, r.poolSize, {
+    claimable: r.claimable,
+    ...(r.excluded ? { excluded: r.excluded } : {}),
+  })
+}
+
+/** The text of a loaded result. */
+export function formatNextResult(
+  r: NextResult,
+  opts: Parameters<typeof formatNextOutput>[3] = {}
+): string {
+  return r.claimable && r.excluded
+    ? formatClaimableOutput(r.ranked, r.poolSize, r.excluded, opts)
+    : formatNextOutput(r.ranked, r.poolSize, 'open', opts)
 }
 
 /**
@@ -188,7 +216,8 @@ export function nextJson(
 export function formatClaimableOutput(
   ranked: RankedTask[],
   totalClaimable: number,
-  excluded: import('../lib/claimable-filter').ClaimableExclusions
+  excluded: import('../lib/claimable-filter').ClaimableExclusions,
+  opts: Parameters<typeof formatNextOutput>[3] = {}
 ): string {
   if (ranked.length === 0) {
     const breakdown = formatClaimableExclusions(excluded)
@@ -196,7 +225,7 @@ export function formatClaimableOutput(
     return breakdown ? `${base} (excluded: ${breakdown})` : base
   }
 
-  return formatNextOutput(ranked, totalClaimable, 'claimable')
+  return formatNextOutput(ranked, totalClaimable, 'claimable', opts)
 }
 
 /**

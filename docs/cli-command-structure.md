@@ -492,6 +492,8 @@ As built: `--tasks` selects the per-member window summary with the completed tas
 | `priority [text]` (writes; prompts without text) | `priority create <text>`                                  | `priority <text>` removed → use `priority create <text>` |
 | `priority list`                                  | `priority list` (the current line also shows in `status`) | —                                                        |
 
+As built: bare `lumo status` prints the priority line, then Inbox, Drafts and Next. One section flag prints exactly the old command's output and `--json` envelope (no heading). Two section flags, or none, print headed sections, and `--json` nests them as `{ version, priority?, inbox, drafts, next }`. `--claimable` / `--limit` exit 2 unless Next is printed. A section whose request fails reports its error on stderr; the others still print and the exit code is 1. `priority create` with blank text exits 2; bare `lumo priority` prints the group's help.
+
 #### 3g. Global `--project`
 
 Spelling stays `--project <ref>` where it is a project name, so most rows need no release note.

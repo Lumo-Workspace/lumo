@@ -36,11 +36,8 @@ import {
 import { tagList } from '@/cli/src/commands/tag'
 import { searchJson } from '@/cli/src/commands/task-search'
 import { taskHistory } from '@/cli/src/commands/task-history'
-import {
-  INBOX_SERVER_CAP,
-  inboxList,
-  inboxPage,
-} from '@/cli/src/commands/inbox-list'
+import { INBOX_SERVER_CAP, inboxPage } from '@/cli/src/commands/inbox-list'
+import { status } from '@/cli/src/commands/status'
 import { taskTemplateList } from '@/cli/src/commands/task-template-list'
 import { EXIT_USAGE } from '@/cli/src/lib/exit-codes'
 
@@ -330,11 +327,11 @@ describe('wrapped bare arrays', () => {
   })
 })
 
-describe('inbox list --json', () => {
+describe('status --inbox --json', () => {
   it('keeps notifications + unreadCount and adds version, total, nextCursor', async () => {
     routes['/api/notifications'] = () =>
       json({ notifications: [], unreadCount: 0 })
-    await inboxList({ json: true })
+    await status({ inbox: true, json: true })
     expect(JSON.parse(out)).toEqual({
       version: 1,
       notifications: [],

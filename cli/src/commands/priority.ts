@@ -2,11 +2,11 @@ import { fmtDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { promptLine } from '../lib/line-prompt'
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
-interface PriorityView {
+export interface PriorityView {
   id: string
   statement: string
   effectiveFrom: string
@@ -18,35 +18,32 @@ interface DeclareResponse {
   priority: PriorityView
 }
 
-interface ListResponse {
+export interface ListResponse {
   current: PriorityView | null
   history: PriorityView[]
 }
 
 /**
- * `lumo priority [text]`
- *
- * With `text`: records it directly as the team's current priority.
- * Without `text`: interactively prompts for a 1-3 sentence statement.
+ * `lumo priority create <text>` (LUM-1233 3f, Q2; formerly `lumo priority
+ * [text]`) — record `text` as the team's current priority. No interactive
+ * prompt: an empty text is a usage error (exit 2).
  *
  * Priority is append-only — recording a new one supersedes the old without
- * deleting it. Read the append history with `lumo priority list`.
+ * deleting it. Read the append history with `lumo priority list`; the current
+ * one is also the first line of `lumo status`.
  */
-export async function priority(
-  text: string | undefined
-): Promise<number | void> {
+export async function priorityCreate(text: string): Promise<number | void> {
+  const statement = text.trim()
+  if (!statement) {
+    console.error(
+      'Error: the priority text is empty; nothing recorded. Pass 1-3 sentences: lumo priority create "<text>"'
+    )
+    return EXIT_USAGE
+  }
+
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
-    return 1
-  }
-
-  let statement = (text ?? '').trim()
-  if (!statement) {
-    statement = (await promptLine('Priority (1-3 sentences): ')).trim()
-  }
-  if (!statement) {
-    console.error('Error: no priority provided. Nothing recorded.')
     return 1
   }
 

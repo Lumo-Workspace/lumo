@@ -17,9 +17,9 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
-import { nextCommand } from './commands/next'
+import { status, type StatusOptions } from './commands/status'
 import { usageShow, type UsageShowOptions } from './commands/usage'
-import { priority, priorityList } from './commands/priority'
+import { priorityCreate, priorityList } from './commands/priority'
 import {
   crossingExplain,
   type CrossingExplainOptions,
@@ -46,8 +46,6 @@ import {
 } from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
-import { inboxList } from './commands/inbox-list'
-import { draftList } from './commands/draft-list'
 import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
@@ -683,30 +681,40 @@ finding
   )
 
 program
-  .command('next')
+  .command('status')
   .description(
-    'Recommend the next task(s) to work on, ranked by priority, active sprint and due date (top 3 by default). --claimable keeps only claimable, unblocked, in-budget tasks.'
+    'Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.'
   )
-  .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
+  .option(
+    '--inbox',
+    'My notifications: pending responses first, then the rest; • marks unread'
+  )
+  .option('--drafts', 'My unsent task / project drafts from the web composer')
+  .option(
+    '--next',
+    'The next tasks to work on, ranked by priority, active sprint and due date'
+  )
   .option(
     '--claimable',
-    'Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)'
+    'Next: only agent-claimable tasks that are unblocked and within milestone budget'
   )
-  .option('--json', 'Print { version, tasks, total, nextCursor } as JSON')
-  .action(
-    wrap(options =>
-      nextCommand(
-        options as { count?: string; claimable?: boolean; json?: boolean }
-      )
-    )
+  .option('-n, --limit <N>', 'Next: number of tasks to recommend (default 3)')
+  .option(
+    '--json',
+    "Print the sections as JSON (one section flag: that section's own envelope)"
   )
+  .action(wrap(options => status(options as StatusOptions)))
 
 const priorityCmd = program
-  .command('priority [text]')
+  .command('priority')
+  .description('The team priority: an append-only list of declarations')
+
+priorityCmd
+  .command('create <text>')
   .description(
-    'Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it.'
+    'Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it.'
   )
-  .action(wrap((text: unknown) => priority(text as string | undefined)))
+  .action(wrap((text: unknown) => priorityCreate(text as string)))
 
 priorityCmd
   .command('list')
@@ -1787,26 +1795,6 @@ memberCmd
   )
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
-
-program
-  .command('inbox')
-  .description('Your Lumo inbox (notifications) from the terminal')
-  .command('list')
-  .description(
-    'List your notifications as the web inbox shows them: pending responses first, then the rest, newest first; • marks unread. Read-only.'
-  )
-  .option('--json', 'Emit { notifications, unreadCount } as JSON')
-  .action(wrap(options => inboxList(options as { json?: boolean })))
-
-program
-  .command('draft')
-  .description('Your unsent task / project drafts')
-  .command('list')
-  .description(
-    'List your own task / project drafts saved by the web composer, newest first. Read-only.'
-  )
-  .option('--json', 'Emit { drafts } as JSON')
-  .action(wrap(options => draftList(options as { json?: boolean })))
 
 const auditCmd = program
   .command('audit')

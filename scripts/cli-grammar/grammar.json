@@ -843,29 +843,6 @@
       "isInvokable": true,
       "description": "Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0."
     },
-    "draft": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Your unsent task / project drafts"
-    },
-    "draft list": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit { drafts } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List your own task / project drafts saved by the web composer, newest first. Read-only."
-    },
     "finding": {
       "arguments": [],
       "flags": {},
@@ -1375,29 +1352,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Retired: forwards a WorktreeRemove event; `lumo init` no longer installs it and removes old entries"
-    },
-    "inbox": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Your Lumo inbox (notifications) from the terminal"
-    },
-    "inbox list": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit { notifications, unreadCount } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List your notifications as the web inbox shows them: pending responses first, then the rest, newest first; • marks unread. Read-only."
     },
     "init": {
       "arguments": [],
@@ -2708,38 +2662,6 @@
       "isInvokable": true,
       "description": "Update a milestone: at least one of --name, --description, --start, --target, --token-budget (\"\" clears a nullable field). Completion is derived from its tasks."
     },
-    "next": {
-      "arguments": [],
-      "flags": {
-        "--claimable": {
-          "long": "--claimable",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)"
-        },
-        "--count": {
-          "long": "--count",
-          "short": "-n",
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Number of tasks to recommend (default 3)"
-        },
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print { version, tasks, total, nextCursor } as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Recommend the next task(s) to work on, ranked by priority, active sprint and due date (top 3 by default). --claimable keeps only claimable, unblocked, in-budget tasks."
-    },
     "pr": {
       "arguments": [],
       "flags": {},
@@ -2836,11 +2758,18 @@
       "description": "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
     },
     "priority": {
-      "arguments": [{ "name": "text", "required": false, "variadic": false }],
+      "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "The team priority: an append-only list of declarations"
+    },
+    "priority create": {
+      "arguments": [{ "name": "text", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it."
+      "description": "Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it."
     },
     "priority list": {
       "arguments": [],
@@ -3451,6 +3380,62 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared."
+    },
+    "status": {
+      "arguments": [],
+      "flags": {
+        "--claimable": {
+          "long": "--claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Next: only agent-claimable tasks that are unblocked and within milestone budget"
+        },
+        "--drafts": {
+          "long": "--drafts",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "My unsent task / project drafts from the web composer"
+        },
+        "--inbox": {
+          "long": "--inbox",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "My notifications: pending responses first, then the rest; • marks unread"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print the sections as JSON (one section flag: that section's own envelope)"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Next: number of tasks to recommend (default 3)"
+        },
+        "--next": {
+          "long": "--next",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The next tasks to work on, ranked by priority, active sprint and due date"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`."
     },
     "tag": {
       "arguments": [],

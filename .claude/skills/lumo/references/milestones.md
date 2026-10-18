@@ -258,7 +258,7 @@ The **steward's batch annotation** for the F4/自治边界 loop. Marks **one or 
 
 Mirrors `milestone add/remove`: dedupes refs, and a task **not in this milestone is skipped** (triage is milestone-scoped, never touches tasks elsewhere). `<identifier>` accepts the slug, name or id (see **Milestone refs**); each `<task>` accepts `LUM-N` or a task UUID. Best-effort — partial failures do not roll back.
 
-Setting the marker is a **governance** action, so a STEWARD session (`lumo session attach --steward <milestone>`) passes the server-side binding guard. `claimable` is **fail-closed**: a task is not auto-claimable until triaged. Once tasks are triaged, an agent runs `lumo next --claimable` to get only claimable ∩ unblocked (F3) ∩ in-budget (F2) work. A single task can also be toggled with `lumo task update <id> --claimable | --not-claimable`.
+Setting the marker is a **governance** action, so a STEWARD session (`lumo session attach --steward <milestone>`) passes the server-side binding guard. `claimable` is **fail-closed**: a task is not auto-claimable until triaged. Once tasks are triaged, an agent runs `lumo status --next --claimable` to get only claimable ∩ unblocked (F3) ∩ in-budget (F2) work. A single task can also be toggled with `lumo task update <id> --claimable | --not-claimable`.
 
 ```bash
 lumo milestone triage "Agent-Native Milestones" LUM-1 LUM-2 --claimable
