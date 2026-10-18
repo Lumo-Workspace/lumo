@@ -25,12 +25,12 @@ describe('taskArtifactRm', () => {
   beforeEach(() => jest.restoreAllMocks())
 
   it('errors when <task> is missing', async () => {
-    const code = await taskArtifactRm(undefined, 'a1', { yes: true })
+    const code = await taskArtifactRm(undefined, 'a1', { confirm: true })
     expect(code).toBe(2)
   })
 
   it('errors when <artifact> is missing', async () => {
-    const code = await taskArtifactRm('LUM-9', undefined, { yes: true })
+    const code = await taskArtifactRm('LUM-9', undefined, { confirm: true })
     expect(code).toBe(2)
   })
 

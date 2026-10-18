@@ -169,7 +169,7 @@ lumo doc move "Sub-doc" --root
 
 ## `lumo doc delete <doc> --confirm` — move a document to the trash
 
-Moves the document **and every document nested under it** to the trash (LUM-918): restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. Immediate erasure is Settings → Trash → Delete permanently.
+Moves the document **and every document nested under it** to the trash (LUM-918): restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). Immediate erasure is Settings → Trash → Delete permanently.
 
 ```bash
 lumo doc delete cmd_xxx            # exit 4 + envelope

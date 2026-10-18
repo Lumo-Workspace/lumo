@@ -2,8 +2,8 @@
  * LUM-755 confirmation protocol: `worktree rm` has two gates — a missing
  * --confirm and a dirty worktree without --force — and both stop with the
  * same `confirmation_required` envelope on stdout and exit 4, sending no
- * `git worktree remove`. --yes survives only as a legacy alias of --confirm,
- * so it satisfies the first gate but never the second.
+ * `git worktree remove`. --confirm satisfies the first gate but never the
+ * second (LUM-1233 3i: the --yes alias is gone).
  */
 import { worktreeRm } from '../src/commands/worktree-rm'
 import { EXIT_CONFIRMATION_REQUIRED } from '../src/lib/confirmation'
@@ -114,11 +114,11 @@ describe('worktreeRm', () => {
   })
 
   it('errors when no worktree matches', async () => {
-    expect(await worktreeRm('LUM-999', { yes: true })).toBe(1)
+    expect(await worktreeRm('LUM-999', { confirm: true })).toBe(1)
   })
 
   it('removes a clean worktree and keeps the branch by default', async () => {
-    expect(await worktreeRm('LUM-267', { yes: true })).toBe(0)
+    expect(await worktreeRm('LUM-267', { confirm: true })).toBe(0)
     const calls = runGit.mock.calls.map(c => c[0])
     expect(calls).toContainEqual([
       'worktree',
@@ -130,9 +130,9 @@ describe('worktreeRm', () => {
 
   it('refuses a dirty worktree without --force, removes with --force', async () => {
     gitOutput.mockImplementation(gitFake(' M file.ts'))
-    // --yes clears the confirm gate; the dirty tree is a second gate, so the
+    // --confirm clears the confirm gate; the dirty tree is a second gate, so the
     // envelope comes back with --force folded into confirmCommand.
-    expect(await worktreeRm('LUM-267', { yes: true })).toBe(
+    expect(await worktreeRm('LUM-267', { confirm: true })).toBe(
       EXIT_CONFIRMATION_REQUIRED
     )
     const env = envelope(stdout)
@@ -150,7 +150,7 @@ describe('worktreeRm', () => {
     repoRoot.mockReturnValue('/repo')
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' })
     gitOutput.mockImplementation(gitFake(' M file.ts'))
-    expect(await worktreeRm('LUM-267', { yes: true, force: true })).toBe(0)
+    expect(await worktreeRm('LUM-267', { confirm: true, force: true })).toBe(0)
     expect(runGit.mock.calls.map(c => c[0])).toContainEqual([
       'worktree',
       'remove',
@@ -160,9 +160,9 @@ describe('worktreeRm', () => {
   })
 
   it('deletes the branch with --delete-branch', async () => {
-    expect(await worktreeRm('LUM-267', { yes: true, deleteBranch: true })).toBe(
-      0
-    )
+    expect(
+      await worktreeRm('LUM-267', { confirm: true, deleteBranch: true })
+    ).toBe(0)
     expect(runGit.mock.calls.map(c => c[0])).toContainEqual([
       'branch',
       '-d',

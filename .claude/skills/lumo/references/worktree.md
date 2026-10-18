@@ -126,8 +126,8 @@ Removes the worktree for a task. Gated by the confirmation protocol
 uncommitted changes and no `--force` — it exits **4** with an envelope naming
 the path and branch, a `⚠ … uncommitted changes … discarded` line when dirty,
 and whether the branch is kept or deleted; nothing is removed. A dirty tree's
-`confirmCommand` carries `--force --confirm`. `--yes` is a legacy alias of
-`--confirm`. Keeps the branch by default (it may hold unpushed work / an open
+`confirmCommand` carries `--force --confirm`. (`--yes` was removed in
+LUM-1233: it prints `was removed. Use: … --confirm` and exits 2.) Keeps the branch by default (it may hold unpushed work / an open
 PR); `--delete-branch` removes it with `git branch -d` (which itself refuses
 an unmerged branch — including a squash-merged one).
 

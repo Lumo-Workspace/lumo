@@ -1178,13 +1178,9 @@ taskTemplate
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((key, options) =>
-      taskTemplateRm(
-        key as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
+      taskTemplateRm(key as string, options as { confirm?: boolean })
     )
   )
 
@@ -1369,14 +1365,9 @@ taskDeps
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id, edge, opts) =>
-      taskDepsRm(
-        id as string,
-        edge as string,
-        opts as { confirm?: boolean; yes?: boolean }
-      )
+      taskDepsRm(id as string, edge as string, opts as { confirm?: boolean })
     )
   )
 
@@ -1490,13 +1481,12 @@ taskArtifact
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
       taskArtifactRm(
         taskId as string,
         artifactId as string,
-        options as { confirm?: boolean; yes?: boolean }
+        options as { confirm?: boolean }
       )
     )
   )
@@ -2278,12 +2268,11 @@ milestoneCmd
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       milestoneDelete(
         identifier as string,
-        options as { project?: string; confirm?: boolean; yes?: boolean }
+        options as { project?: string; confirm?: boolean }
       )
     )
   )
@@ -2502,7 +2491,6 @@ sprintCmd
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintDelete(identifier as string, options as Record<string, unknown>)
@@ -2531,7 +2519,6 @@ sprintCmd
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
@@ -2804,19 +2791,15 @@ doc
 doc
   .command('rebuild-source <doc>')
   .description(
-    'Regenerate the markdown source from the HTML body with a lossless serializer, re-enabling show --raw / diff / patch / append. 422 on a structure shrink; 409 if a source exists unless --force.'
+    'Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm.'
   )
   .option(
     '--allow-shrink',
     'Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)'
   )
   .option(
-    '--force',
-    'Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm.'
-  )
-  .option(
     '--confirm',
-    'The user has approved replacing the existing source; pair with --force as the envelope instructs'
+    'The user has approved replacing the existing source (without it an existing source exits 4 with a confirmation envelope)'
   )
   .option(
     '--if-revision <n>',
@@ -2828,7 +2811,6 @@ doc
         reference as string | undefined,
         opts as {
           allowShrink?: boolean
-          force?: boolean
           confirm?: boolean
           ifRevision?: string
         }
@@ -2877,13 +2859,9 @@ doc
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((reference, opts) =>
-      docDelete(
-        reference as string | undefined,
-        opts as { confirm?: boolean; yes?: boolean }
-      )
+      docDelete(reference as string | undefined, opts as { confirm?: boolean })
     )
   )
 
@@ -3015,7 +2993,6 @@ worktree
     '--confirm',
     'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .option('--force', 'Remove even with uncommitted changes (discards them)')
   .option(
     '--delete-branch',
@@ -3027,7 +3004,6 @@ worktree
         identifier as string,
         options as {
           confirm?: boolean
-          yes?: boolean
           force?: boolean
           deleteBranch?: boolean
         }

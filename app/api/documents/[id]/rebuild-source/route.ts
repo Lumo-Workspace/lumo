@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { rebuildDocumentSourceSchema } from '@/lib/validation/schemas'
 import { documentService } from '@/lib/services'
+import { cliCommandNamesFromHeaders } from '@/lib/cli/command-names'
 
 /**
  * Rebuild the markdown source from the stored HTML body (LUM-446).
@@ -33,7 +34,11 @@ export async function POST(
       id,
       identity.memberId,
       identity.workspaceId,
-      parsed.data
+      {
+        ...parsed.data,
+        cliApproval: cliCommandNamesFromHeaders(request.headers)
+          .rebuildSourceApproval,
+      }
     )
     return NextResponse.json({ document })
   } catch (error) {

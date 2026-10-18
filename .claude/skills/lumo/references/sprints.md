@@ -114,7 +114,7 @@ When to suggest: user wants to rename a sprint, extend dates, or fix sprint meta
 
 ### `lumo sprint delete <identifier> --confirm` — delete a sprint (DRAFT only)
 
-Without `--confirm` the CLI exits **4** with a confirmation envelope (`Will delete sprint #3 "Sprint 3"` · `N tasks under it keep their data; only sprintId is cleared`) and deletes nothing — relay it to the user, re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. Server rejects with an error if the sprint is ACTIVE or CLOSED.
+Without `--confirm` the CLI exits **4** with a confirmation envelope (`Will delete sprint #3 "Sprint 3"` · `N tasks under it keep their data; only sprintId is cleared`) and deletes nothing — relay it to the user, re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). Server rejects with an error if the sprint is ACTIVE or CLOSED.
 
 ```bash
 lumo sprint delete 3            # exit 4 + envelope
@@ -137,11 +137,11 @@ When to suggest: user says "start the sprint", "kick off sprint 3", "activate sp
 
 Handles unfinished tasks based on flags. Without flags: closes only if all tasks are done; otherwise prints a list of unfinished tasks and refuses.
 
-| Flag            | Type    | Notes                                                                                                                                                       |
-| --------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--move-all`    | boolean | Move all unfinished tasks to the next sprint. Gated by `--confirm`.                                                                                         |
-| `--backlog-all` | boolean | Remove all unfinished tasks from the sprint (send to backlog). Gated by `--confirm`.                                                                        |
-| `--confirm`     | boolean | The user approved the envelope. Without it a mode flag exits 4 with a confirmation envelope listing every task that would move (`--yes` is a legacy alias). |
+| Flag            | Type    | Notes                                                                                                                           |
+| --------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--move-all`    | boolean | Move all unfinished tasks to the next sprint. Gated by `--confirm`.                                                             |
+| `--backlog-all` | boolean | Remove all unfinished tasks from the sprint (send to backlog). Gated by `--confirm`.                                            |
+| `--confirm`     | boolean | The user approved the envelope. Without it a mode flag exits 4 with a confirmation envelope listing every task that would move. |
 
 ```bash
 lumo sprint close 3                               # fails (exit 1) if unfinished tasks exist — pick a mode

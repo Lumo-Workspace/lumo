@@ -400,14 +400,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -607,15 +599,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The user has approved replacing the existing source; pair with --force as the envelope instructs"
-        },
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm."
+          "description": "The user has approved replacing the existing source (without it an existing source exits 4 with a confirmation envelope)"
         },
         "--if-revision": {
           "long": "--if-revision",
@@ -628,7 +612,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Regenerate the markdown source from the HTML body with a lossless serializer, re-enabling show --raw / diff / patch / append. 422 on a structure shrink; 409 if a source exists unless --force."
+      "description": "Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm."
     },
     "doc show": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -1834,14 +1818,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -2838,14 +2814,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -2912,14 +2880,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -3290,14 +3250,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -3620,14 +3572,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -4172,14 +4116,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
@@ -5325,14 +5261,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Remove even with uncommitted changes (discards them)"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,

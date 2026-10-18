@@ -459,7 +459,7 @@ describe('confirmation envelope', () => {
     expect(runGit).not.toHaveBeenCalled()
   })
 
-  it('doc rebuild-source on a doc that already has a source: exit 4 with the server reason, confirmCommand carries --force', async () => {
+  it('doc rebuild-source on a doc that already has a source: exit 4 with the server reason, confirmCommand adds only --confirm', async () => {
     process.argv = ['node', 'lumo', 'doc', 'rebuild-source', 'Design notes']
     route(rebuildRoutes(true))
     const code = await docRebuildSource('Design notes', {})
@@ -471,7 +471,7 @@ describe('confirmation envelope', () => {
     )
     expect(env.changes.join('\n')).toMatch(/replace/i)
     expect(env.confirmCommand).toBe(
-      "lumo doc rebuild-source 'Design notes' --force --confirm"
+      "lumo doc rebuild-source 'Design notes' --confirm"
     )
   })
 
@@ -506,9 +506,9 @@ describe('--confirm executes the mutation', () => {
     )
   })
 
-  it('doc rebuild-source --force proceeds without an envelope', async () => {
+  it('doc rebuild-source --confirm proceeds without an envelope (LUM-1233 3h: no --force)', async () => {
     route(rebuildRoutes(true))
-    const code = await docRebuildSource('Design notes', { force: true })
+    const code = await docRebuildSource('Design notes', { confirm: true })
     expect(code).toBeUndefined()
     expect(stdout.join('')).toContain('Rebuilt markdown source')
   })
@@ -529,10 +529,11 @@ describe('--confirm executes the mutation', () => {
   })
 })
 
-describe('yes alias', () => {
-  it('task artifact rm --yes still deletes', async () => {
+// LUM-1233 3i: `--yes` was removed; these commands approve with --confirm.
+describe('--confirm on the commands that had the --yes alias', () => {
+  it('task artifact rm --confirm deletes', async () => {
     route(artifactRoutes)
-    const code = await taskArtifactRm('LUM-9', 'a1', { yes: true })
+    const code = await taskArtifactRm('LUM-9', 'a1', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
     expect(stdout.join('')).toContain('Removed a1 from LUM-9')
@@ -545,30 +546,30 @@ describe('yes alias', () => {
     expect(mutations()).toHaveLength(1)
   })
 
-  it('doc delete --yes still deletes', async () => {
+  it('doc delete --confirm deletes', async () => {
     route(docRoutes)
-    const code = await docDelete('Design notes', { yes: true })
+    const code = await docDelete('Design notes', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
   })
 
-  it('sprint delete --yes still deletes', async () => {
+  it('sprint delete --confirm deletes', async () => {
     route(sprintRoutes([]))
-    const code = await sprintDelete('3', { yes: true })
+    const code = await sprintDelete('3', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
   })
 
-  it('milestone delete --yes still deletes', async () => {
+  it('milestone delete --confirm deletes', async () => {
     route(milestoneRoutes)
-    const code = await milestoneDelete('Q3 Launch', { yes: true })
+    const code = await milestoneDelete('Q3 Launch', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
   })
 
-  it('sprint close --move-all --yes still closes with move decisions', async () => {
+  it('sprint close --move-all --confirm closes with move decisions', async () => {
     route(sprintRoutes([task('t3', 3, 'IN_PROGRESS')]))
-    const code = await sprintClose('3', { moveAll: true, yes: true })
+    const code = await sprintClose('3', { moveAll: true, confirm: true })
     expect(code).toBeUndefined()
     const [post] = mutations()
     expect(JSON.parse(String((post[1] as RequestInit).body))).toEqual({
@@ -576,14 +577,14 @@ describe('yes alias', () => {
     })
   })
 
-  it('worktree rm --yes still removes a clean worktree', async () => {
+  it('worktree rm --confirm removes a clean worktree', async () => {
     ;(gitOutput as jest.Mock).mockImplementation((args: string[]) =>
       args[0] === 'status' ? '' : 'porcelain'
     )
     const { runGit } = jest.requireMock('@/cli/src/lib/worktree') as {
       runGit: jest.Mock
     }
-    const code = await worktreeRm('LUM-267', { yes: true })
+    const code = await worktreeRm('LUM-267', { confirm: true })
     expect(code).toBe(0)
     expect(runGit).toHaveBeenCalledWith(
       ['worktree', 'remove', '/repo/.worktrees/LUM-267-x'],
@@ -591,9 +592,9 @@ describe('yes alias', () => {
     )
   })
 
-  it('task deps rm --yes still deletes', async () => {
+  it('task deps rm --confirm deletes', async () => {
     route(depsRoutes)
-    const code = await taskDepsRm('LUM-42', 'a1b2c3', { yes: true })
+    const code = await taskDepsRm('LUM-42', 'a1b2c3', { confirm: true })
     expect(code).toBeUndefined()
     expect(mutations()).toHaveLength(1)
   })
