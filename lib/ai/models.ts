@@ -89,6 +89,19 @@ export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
 export const HUNT_MODEL = 'anthropic/claude-haiku-4.5'
 
 /**
+ * 桶 REWARD_HACK — the PR scan's reward-hack layer: a whole-trajectory judge
+ * over the agent sessions that produced the PR, and the per-item refute call
+ * (ee/security/llm/reward-hack-judge-client.ts).
+ *
+ * Why Sonnet 4.6 (LUM-1234): on the synthetic TRACE benchmark a
+ * whole-trajectory, non-contrastive (one trajectory per call) Sonnet 4.6
+ * judge reached AUROC 0.84. Catalog: the same id the LUM-965 / LUM-1234
+ * experiments called successfully through the gateway on 2026-10-18. Gateway
+ * format; keep the version dot, do NOT dash-normalise.
+ */
+export const REWARD_HACK_MODEL = 'anthropic/claude-sonnet-4.6'
+
+/**
  * LUM-988 — models whose gateway routing is pinned to the listed hosts.
  * `lib/ai/zdr-fetch.ts` forces `providerOptions.gateway.only` to this list on
  * every request for the model, at the wire, like ZDR. The gateway's default
