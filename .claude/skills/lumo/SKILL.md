@@ -23,7 +23,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | -------------------------------------------------------------------- | --------------------------------------------------------- |
 | `init`, `doctor`, `skill`, `auth`, `whoami`, `update`                | [onboarding.md](references/onboarding.md)                 |
 | `task show` and its aspects, `slack/web/figma`, comments, PRs        | [task-context.md](references/task-context.md)             |
-| `pr scan`, `task show --scans`, `finding disposition`                | [pr-scan.md](references/pr-scan.md)                       |
+| `pr show`, `pr review`, `task show --scans`, `finding disposition`   | [pr-scan.md](references/pr-scan.md)                       |
 | `task create/update/list/search/show/…`, `next`, templates           | [tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
@@ -66,7 +66,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
 
-- `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR's scans; `--review`, `--pause` / `--resume` control AI rounds (read the reference first)
+- `lumo pr show <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR's scans · `lumo pr review <number> [--full | --pause | --resume]` — request / pause AI reviews (read the reference first)
 - `lumo finding disposition <id...> --false-positive | --accepted-risk [--note]` — the **user's** ruling on security findings (clears a DONE block); exit-4 gated. See [pr-scan.md](references/pr-scan.md#finding-disposition).
 
 ### Tasks — see [tasks.md](references/tasks.md)
@@ -192,10 +192,10 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No subtasks / `--parent` (removed in LUM-959) — group with a milestone, order with `task deps add`, fold small follow-ups into the original task
 - No `lumo session start` (it's `session attach`) and no `lumo session detach` — the binding is a lifetime lock; start a new agent session for a different task
 - No steward role switch or un-steward — `session attach --steward` is the same lifetime lock; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo pr show` / `lumo scan` — it's `lumo pr scan <number>` (settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
+- No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan`); `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
-- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`
+- Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`)
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done` ([tasks.md](references/tasks.md)); no prompt, no `--yes`
 - No interactive yes/no prompts and no `--yes` on `task update` — gated mutations exit 4 with a `confirmation_required` envelope; `--yes` survives only as a legacy alias of `--confirm` on delete/rm/close
 

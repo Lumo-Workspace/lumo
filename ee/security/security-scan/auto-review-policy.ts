@@ -31,7 +31,7 @@
  *    one confirmed first — so a repository two workspaces share gets one
  *    review on GitHub, not two.
  *
- * Manual `@<app> review` and `lumo pr scan --review` bypass all of this.
+ * Manual `@<app> review` and `lumo pr review` bypass all of this.
  *
  * LUM-1152 — `@<app> ignore` in the PR description (`hasIgnoreDirective`)
  * sits on top of every rule above, for task-linked and task-less PRs alike:

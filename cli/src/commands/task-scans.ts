@@ -15,13 +15,13 @@ export interface TaskScansOptions {
   all?: boolean | undefined
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean | undefined
-  /** Append the per-task hunt detail under each scan (as `pr scan --full`). */
+  /** Append the per-task hunt detail under each scan (as `pr show --full`). */
   full?: boolean | undefined
 }
 
 /**
  * Mirrors `TaskScanReadout` served by GET /api/tasks/[id]/security-scans to a
- * bearer caller (v1): each linked PR is exactly the payload `lumo pr scan`
+ * bearer caller (v1): each linked PR is exactly the payload `lumo pr show`
  * renders, so this command renders it with the same printer.
  */
 export interface TaskScansPayload {
@@ -55,7 +55,7 @@ export function isTaskScansPayload(body: unknown): body is TaskScansPayload {
 
 /**
  * The task header (linked / scanned PRs, open and DONE-blocking findings on
- * each PR's latest scan), then one `lumo pr scan` block per PR, newest PR
+ * each PR's latest scan), then one `lumo pr show` block per PR, newest PR
  * first. No linked PR is said as "nothing scanned" — never a clean result.
  */
 export function formatTaskScans(
@@ -182,7 +182,7 @@ export async function taskScans(
   const data: unknown = await res.json()
   if (!isTaskScansPayload(data)) {
     console.error(
-      'Error: this Lumo server does not serve the task scan read-out yet — use `lumo pr scan <number>` per PR.'
+      'Error: this Lumo server does not serve the task scan read-out yet — use `lumo pr show <number>` per PR.'
     )
     return 1
   }

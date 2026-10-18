@@ -28,7 +28,7 @@ import {
 } from '@/cli/src/lib/done-readiness'
 import {
   formatPrScan,
-  prScan,
+  prShow,
   type PrScanFinding,
   type PrScanPayload,
 } from '@/cli/src/commands/pr-scan'
@@ -564,11 +564,11 @@ describe('LUM-1091 long-report layout', () => {
       [
         'AI review',
         '  Automatic:  enabled · 1/3 rounds',
-        '  Run a review now (incremental or full):',
-        '    lumo pr scan 77 --repo o/r --review incremental',
-        '    lumo pr scan 77 --repo o/r --review full',
+        '  Run a review now (incremental, or --full):',
+        '    lumo pr review 77 --repo o/r',
+        '    lumo pr review 77 --repo o/r --full',
         '  Resume automatic review:',
-        '    lumo pr scan 77 --repo o/r --resume',
+        '    lumo pr review 77 --repo o/r --resume',
         '  ⚠ Latest head has no scan yet; the results below are for an earlier commit.',
       ].join('\n')
     )
@@ -668,7 +668,7 @@ describe('LUM-1091 --json is untouched by the new layout', () => {
 
   it('pr scan --json is the server payload, byte for byte', async () => {
     route()
-    await prScan('77', { json: true, full: true })
+    await prShow('77', { json: true, full: true })
     expect(out.join('')).toBe(JSON.stringify(PR_SCAN, null, 2) + '\n')
   })
 })

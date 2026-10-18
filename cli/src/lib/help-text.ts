@@ -80,7 +80,12 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   'crossing disposition': [
     'lumo crossing disposition LUM-X12 --false-positive --task LUM-42',
   ],
-  'pr scan': ['lumo pr scan 123', 'lumo pr scan 123 --full'],
+  'pr show': ['lumo pr show 123', 'lumo pr show 123 --full'],
+  'pr review': [
+    'lumo pr review 123',
+    'lumo pr review 123 --full',
+    'lumo pr review 123 --pause',
+  ],
   'milestone list': ['lumo milestone list', 'lumo milestone list --all'],
   'milestone show': ['lumo milestone show q3-launch'],
   'sprint list': ['lumo sprint list', 'lumo sprint list --status active'],

@@ -3,7 +3,7 @@
  * this pull_request event, and if so, dispatches the scan. Loads the inputs
  * of the pure decision (ee/security/security-scan/auto-review-policy.ts).
  * Never throws: a failure is logged and the PR is simply not reviewed on
- * this event (the next push tries again; `lumo pr scan` reviews by hand).
+ * this event (the next push tries again; `lumo pr show` reviews by hand).
  */
 import { logger } from '@/lib/logger'
 import {

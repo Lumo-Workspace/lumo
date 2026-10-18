@@ -39,7 +39,7 @@ describe('summary: PR comment commands', () => {
       'Comment `@uselumo review` for an incremental review'
     )
     expect(body).toContain(
-      'CLI: `lumo pr scan 9 --repo acme/app --review incremental`'
+      'CLI: `lumo pr review 9 --repo acme/app` (Lumo CLI 1.125 and older: `lumo pr scan 9 --repo acme/app --review incremental`)'
     )
   })
 
@@ -47,7 +47,7 @@ describe('summary: PR comment commands', () => {
     const body = buildSummary(base)
     expect(body).not.toContain('Lumo commands')
     expect(body).toContain(
-      'Request an incremental review with `lumo pr scan 9 --repo acme/app --review incremental`'
+      'Request an incremental review with `lumo pr review 9 --repo acme/app` (Lumo CLI 1.125 and older: `lumo pr scan 9 --repo acme/app --review incremental`)'
     )
   })
 

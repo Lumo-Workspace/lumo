@@ -30,6 +30,8 @@ export interface Tombstone {
   /** The live command whose option definitions say which flags take a
    *  value (default: `path`); used when `path` itself no longer exists. */
   optionsOf?: string
+  /** Flags of the removed command that took a value (beyond `optionsOf`). */
+  valueFlags?: readonly string[]
 }
 
 /** `lumo task show <task> <flags…>` keeping the task ref when one was given. */
@@ -156,6 +158,50 @@ const DOC_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/**
+ * LUM-1233 3d: `pr scan` became the read-only `pr show`; its write flags
+ * moved to `pr review` (`--review full` → `--full`, `--review incremental`
+ * → the default).
+ */
+export function prScanReplacement(args: string[], options: string[]): string {
+  const n = args[0] ?? '<number>'
+  const out: string[] = []
+  let write = false
+  for (let i = 0; i < options.length; i++) {
+    const o = options[i]!
+    if (o === '--review' || o.startsWith('--review=')) {
+      write = true
+      const mode = o.includes('=') ? o.split('=')[1] : options[++i]
+      if (mode === 'full') out.push('--full')
+    } else if (o === '--pause' || o === '--resume' || o === '--limit') {
+      write = true
+      out.push(o)
+      if (o === '--limit' && i + 1 < options.length) out.push(options[++i]!)
+    } else out.push(o)
+  }
+  if (!write) return cmd('lumo pr show', [n], out)
+  // A write keeps only the flags `pr review` takes.
+  const keep: string[] = []
+  for (let i = 0; i < out.length; i++) {
+    const o = out[i]!
+    if (['--full', '--pause', '--resume'].includes(o)) keep.push(o)
+    else if (o === '--limit' || o === '--repo') {
+      keep.push(o)
+      if (i + 1 < out.length) keep.push(out[++i]!)
+    }
+  }
+  return cmd('lumo pr review', [n], keep)
+}
+
+const PR_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'pr scan',
+    valueFlags: ['--review', '--limit', '--repo'],
+    replacement: (args, _f, options) => prScanReplacement(args, options),
+    help: 'lumo pr',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -226,6 +272,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   },
   ...MEMORY_TOMBSTONES,
   ...DOC_TOMBSTONES,
+  ...PR_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */
@@ -283,7 +330,11 @@ export function findRemovedCommand(
       if (tok.startsWith('-')) {
         flags.push(tok)
         options.push(tok)
-        if (!tok.includes('=') && takesValue(hit.optionsOf ?? hit.path, tok)) {
+        if (
+          !tok.includes('=') &&
+          (hit.valueFlags?.includes(tok) ||
+            takesValue(hit.optionsOf ?? hit.path, tok))
+        ) {
           i++
           if (i < after.length) options.push(after[i]!)
         }

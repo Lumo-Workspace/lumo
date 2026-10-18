@@ -1,5 +1,5 @@
 /**
- * LUM-788 — the per-task hunt read-out, shared by the CLI (`lumo pr scan
+ * LUM-788 — the per-task hunt read-out, shared by the CLI (`lumo pr show
  * --full`) and the lum739 analysis script. One implementation: the CLI is a
  * separate package that cannot import `lib/` or `scripts/`, and a second copy
  * of this printer is exactly how the audit lost four fields to "computed,
@@ -116,7 +116,7 @@ function traceCacheLine(
 
 /**
  * The per-task listing for EVERY task handed in, idle ones included — the
- * `lumo pr scan --full` shape. A task that never asked the shell for anything
+ * `lumo pr show --full` shape. A task that never asked the shell for anything
  * still has a stop line, a model and the sites it was briefed on, and "this
  * task ran two steps and submitted nothing" is a fact the reader came for.
  *
