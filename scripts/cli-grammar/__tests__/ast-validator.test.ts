@@ -85,7 +85,7 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
     ],
     ['lumo task update LUM-9 --priority HIGH', '--priority uppercase'],
     [
-      'lumo task memory add LUM-9 --category DECISION "body"',
+      'lumo memory add --task LUM-9 --category DECISION --what body',
       '--category uppercase',
     ],
     [
@@ -106,7 +106,7 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
     ['lumo task update LUM-9 --status bogus', 'bogus'],
     ['lumo task update LUM-9 --status BOGUS', 'BOGUS'],
     ['lumo task update LUM-9 --priority critical', 'critical'],
-    ['lumo task memory add LUM-9 --category lesson "body"', 'lesson'],
+    ['lumo memory add --task LUM-9 --category lesson --what body', 'lesson'],
   ])('still flags genuinely unknown values: %s', (raw, offending) => {
     const v = validateSegment(raw, grammar)
     expect(v.kind).toBe('illegal-enum')
