@@ -65,6 +65,9 @@ const DEVIATIONS = {
   sandboxedAdded: {
     'feedback create':
       'reads local files (--file …) — Codex asks first (--evidence-file)',
+    // LUM-1255: reads only git and the working tree, no Lumo API call.
+    'security scan':
+      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
   } as Record<string, string>,
 }
 

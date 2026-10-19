@@ -149,6 +149,7 @@ Some actions are not any of the eight. They are allowed when they name a real do
 | `refresh`                                                             | `task figma`                                                 | re-fetch from Figma                                                                      |
 | `resync`                                                              | `usage`                                                      | correct historical usage                                                                 |
 | `prune`                                                               | `worktree`                                                   | clean up                                                                                 |
+| `scan`                                                                | `security`                                                   | run Lumo's scanners on local changes before a push; reads, but starts work, not a `show` |
 | `login`, `logout`                                                     | `auth`                                                       | authentication                                                                           |
 | hook event names                                                      | `hook`                                                       | frozen; named after the agent's hook events                                              |
 

@@ -123,6 +123,12 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'project list': { serverOnly: true, localFiles: 'none' },
   'project show': { serverOnly: true, localFiles: 'none' },
   'project update': { serverOnly: true, localFiles: 'none' },
+  'security scan': {
+    serverOnly: false,
+    localFiles: 'none',
+    detail:
+      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+  },
   'session attach': {
     serverOnly: false,
     localFiles: 'writes',

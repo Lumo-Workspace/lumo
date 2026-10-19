@@ -110,6 +110,10 @@ import {
   type PrShowOptions,
 } from './commands/pr-scan'
 import {
+  securityScanCommand,
+  type SecurityScanOptions,
+} from './commands/security-scan'
+import {
   workspaceSecurityScan,
   workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
@@ -853,6 +857,44 @@ pr.command('review <number>')
       prReview(number as string, options as PrReviewOptions)
     )
   )
+
+const security = program
+  .command('security')
+  .description(
+    'Run Lumo security scans on your local changes before you push. Read-only; the PR scan stays the authority for DONE.'
+  )
+
+security
+  .command('scan')
+  .codex(
+    sandboxed(
+      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)'
+    )
+  )
+  .description(
+    "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints."
+  )
+  .option(
+    '--secrets',
+    'Run the secret scanner (no scanner flag runs every local scanner)'
+  )
+  .option(
+    '--staged',
+    'Scan only staged changes (git diff --cached), for a pre-commit hook'
+  )
+  .option(
+    '--since <ref>',
+    'Scan from <ref> to the working tree instead of from the merge-base'
+  )
+  .option(
+    '--json',
+    'Emit the list envelope ({ version, findings[], summary, … })'
+  )
+  .option(
+    '--fail-on <severity>',
+    'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)'
+  )
+  .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
 const session = program
   .command('session')

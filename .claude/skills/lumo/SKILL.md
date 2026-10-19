@@ -24,6 +24,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `init`, `doctor`, `skill`, `auth`, `whoami`, `update`                | [onboarding.md](references/onboarding.md)                 |
 | `task show` and its aspects, `slack/web/figma`, comments, PRs        | [task-context.md](references/task-context.md)             |
 | `pr show`, `pr review`, `task show --scans`, `finding disposition`   | [pr-scan.md](references/pr-scan.md)                       |
+| `security scan` — scan your local changes before pushing             | [security-scan.md](references/security-scan.md)           |
 | `task create/update/list/search/show/…`, `status --next`, templates  | [tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
@@ -69,6 +70,10 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 - `lumo pr show <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR's scans · `lumo pr review <number> [--full | --pause | --resume]` — request / pause AI reviews (read the reference first)
 - `lumo finding disposition <id...> --false-positive | --accepted-risk [--note]` — the **user's** ruling on security findings (clears a DONE block); exit-4 gated. See [pr-scan.md](references/pr-scan.md#finding-disposition).
+
+### Local security scans — see [security-scan.md](references/security-scan.md)
+
+- `lumo security scan [--secrets] [--staged | --since <ref>] [--fail-on <sev>] [--json]` — the PR scan's rules on your local changes (merge-base → working tree; no network); exit 3 at `--fail-on`. Read-only; never a DONE gate.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 
@@ -200,7 +205,7 @@ Every read-only command takes `--json`: one object on stdout, never a bare array
 - No subtasks / `--parent` (removed in LUM-959) — group with a milestone, order with `task dep add`, fold small follow-ups into the original task
 - No `lumo session start` (it's `session attach`) and no `lumo session detach` — the binding is a lifetime lock; start a new agent session for a different task
 - No steward role switch or un-steward — `session attach --steward` is the same lifetime lock; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo scan` / `lumo pr view` — it's `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan show/update`); `lumo task pr show` is the task-scoped PR card
+- No `lumo scan` / `lumo pr view` — a PR's scans are `lumo pr show <number>` (read) and `lumo pr review <number>` (request / pause; settings: `workspace security-scan show/update`); scanning local changes is `lumo security scan`; `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` (it's `update`), no `lumo auth status` (it's `lumo whoami`), no global `--verbose`
 - No `--body` on `lumo task comment add` (body is positional); no `--content` on `memory add` (structured fields, see [memory.md](references/memory.md))
 - Removed in LUM-1233 (they print `was removed. Use: …`, exit 2): `task context` → `task show --full` (`--full` → `--full --memory`), `task wrapup` → `task status`, `task comments list` / `history` / `scans` / `runs` / `lineage` / `deps list` and `outcome show` → `task show --comments` / `--history` / `--scans` / `--runs` / `--lineage` / `--deps` / `--outcome`; `task|milestone testcase rm` → `delete`; `milestone testcase <verb> <milestone> <case>` → `<milestone>/TC<n>`; `task memory` / `project memory` → `memory add|list [--scope project]`, `memory promote` → `memory update --scope project`, `memory rm` → `memory delete`, `workspace learnings` → `memory list --learnings`; `doc bind/unbind` → `doc update --add-task/--remove-task`, `doc share/unshare` → `doc update --add-member/--remove-member`, `doc share-list` → `doc show --members`, `doc import-gdoc` → `doc import --gdoc`; `pr scan` → `pr show` (read) / `pr review` (`--review incremental` → default, `--review full` → `--full`, `--pause`, `--resume`); `cost` → `usage show`, `report` → `usage show --by member --tasks`, `usage resync --apply` → `usage resync` (it writes by default; `--dry-run` previews); `inbox list` / `draft list` / `next` → `status --inbox` / `--drafts` / `--next` (`--count` → `--limit`), `priority <text>` → `priority create <text>` (no prompt); `init` / `skill update --user|--project` → `--scope user|project`, `setup` → `init`, `task list -p` → `--project`, `--yes` → `--confirm` (every command), `doc rebuild-source --force` → `--confirm`; 3j renames: `task comment <task> <body>` → `task comment add <body> --task <task>`, `task comments edit/rm` → `task comment update/delete`, `task deps *` → `task dep *` (`rm` → `remove`), `task artifact rm` / `task template rm` → `delete`, `task template edit` → `update`, `task figma rm/context` → `remove/show`, `project overview` → `project show`, `milestone summary` / `changelog` / `sprint summary` → `show --summary` / `--changelog` (`--retry` → `update --refresh-summary`), `workspace security-scan [--setting …]` → `security-scan show` / `update`
