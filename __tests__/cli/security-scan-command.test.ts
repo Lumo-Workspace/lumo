@@ -27,11 +27,16 @@ import { fakeAwsKeyId } from '../../cli/test-support/fake-secrets'
 
 describe('selectScanners', () => {
   it('runs every local scanner when no scanner flag is given', () => {
-    expect(selectScanners({})).toEqual(['SECRETS'])
+    expect(selectScanners({})).toEqual(['SECRETS', 'DEPS'])
   })
 
-  it('runs the flagged scanner', () => {
+  it('runs the flagged scanners', () => {
     expect(selectScanners({ secrets: true })).toEqual(['SECRETS'])
+    expect(selectScanners({ deps: true })).toEqual(['DEPS'])
+    expect(selectScanners({ secrets: true, deps: true })).toEqual([
+      'SECRETS',
+      'DEPS',
+    ])
   })
 })
 
@@ -62,7 +67,11 @@ describe('securityScanCommand', () => {
     const { result, out } = await run({})
     expect(result).toBe(0)
     expect(out.split('\n')[0]).toBe('scan: 1 finding (1 high, 0 medium, 0 low)')
-    expect(out).toContain('Scope: SECRETS · ')
+    expect(out).toContain('Scope: SECRETS, DEPS · ')
+    // No lockfile in the change: DEPS makes no lookup and says so.
+    expect(out).toContain(
+      'Deps: no added or changed package in an npm lockfile'
+    )
     expect(out).not.toContain(key)
   })
 
@@ -88,8 +97,10 @@ describe('securityScanCommand', () => {
       version: 1,
       total: 1,
       nextCursor: null,
-      scanners: ['SECRETS'],
+      scanners: ['SECRETS', 'DEPS'],
       summary: { total: 1, high: 1, medium: 0, low: 0 },
+      complete: true,
+      incomplete: [],
     })
     expect(json.findings[0]).toMatchObject({
       scanner: 'SECRETS',

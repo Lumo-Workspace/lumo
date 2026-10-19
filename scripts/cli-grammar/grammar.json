@@ -2761,6 +2761,14 @@
     "security scan": {
       "arguments": [],
       "flags": {
+        "--deps": {
+          "long": "--deps",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev"
+        },
         "--fail-on": {
           "long": "--fail-on",
           "short": null,
@@ -2769,6 +2777,14 @@
           "enumCaseInsensitive": true,
           "description": "Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)"
         },
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -2776,6 +2792,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Emit the list envelope ({ version, findings[], summary, … })"
+        },
+        "--offline": {
+          "long": "--offline",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Make no network call: dependencies are checked against osv-scanner's local database"
         },
         "--secrets": {
           "long": "--secrets",
@@ -2804,11 +2828,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints.",
+      "description": "Scan your changes with the PR scan's rules (merge-base to working tree, untracked files included); findings carry the server's fingerprints. --deps sends package names and versions to api.osv.dev.",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",
-        "detail": "local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)"
+        "detail": "reads git and the working tree, no Lumo API call; --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH"
       }
     },
     "session": {

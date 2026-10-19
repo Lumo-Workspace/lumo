@@ -838,15 +838,27 @@ security
   .command('scan')
   .codex(
     sandboxed(
-      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)'
+      'reads git and the working tree, no Lumo API call; --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH'
     )
   )
   .description(
-    "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints."
+    "Scan your changes with the PR scan's rules (merge-base to working tree, untracked files included); findings carry the server's fingerprints. --deps sends package names and versions to api.osv.dev."
   )
   .option(
     '--secrets',
     'Run the secret scanner (no scanner flag runs every local scanner)'
+  )
+  .option(
+    '--deps',
+    'Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev'
+  )
+  .option(
+    '--full',
+    'With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)'
+  )
+  .option(
+    '--offline',
+    "Make no network call: dependencies are checked against osv-scanner's local database"
   )
   .option(
     '--staged',

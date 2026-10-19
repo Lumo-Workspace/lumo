@@ -56,11 +56,12 @@ const DEVIATIONS = {
 /**
  * Leaves added after the hand-kept lists, with the class they declare.
  * `security scan` (LUM-1255) reads only git and the working tree and calls no
- * Lumo API, so it stays sandboxed (it runs fine there).
+ * Lumo API, so it stays sandboxed; its `--deps` (LUM-1257) calls api.osv.dev,
+ * so inside Codex that needs network.
  */
 const ADDED_SANDBOXED: Record<string, string> = {
   'security scan':
-    'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+    'reads git and the working tree, no Lumo API call; --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
 }
 
 /**
