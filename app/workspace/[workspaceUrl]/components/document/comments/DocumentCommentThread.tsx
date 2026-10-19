@@ -84,7 +84,7 @@ function Row({
         <CommentAvatar
           isAgent={author.isAgent}
           imageUrl={author.imageUrl}
-          initials={author.initials}
+          name={author.name}
           size='sm'
         />
         <div className='min-w-0 flex-1'>

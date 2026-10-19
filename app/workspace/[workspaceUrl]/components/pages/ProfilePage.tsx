@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usersClient } from '@/lib/api-client'
 import { Spinner } from '@/components/ui/spinner'
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 export function ProfilePage() {
   const intl = useIntl()
@@ -79,11 +80,9 @@ export function ProfilePage() {
     }
   }
 
-  const initials =
-    [user?.firstName?.[0], user?.lastName?.[0]]
-      .filter(Boolean)
-      .join('')
-      .toUpperCase() || '?'
+  const displayName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className='h-full overflow-y-auto'>
@@ -99,17 +98,11 @@ export function ProfilePage() {
           {/* Avatar row */}
           <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-3'>
-              {isLoaded && user?.imageUrl ? (
-                <img
-                  src={user.imageUrl}
-                  alt={intl.formatMessage({ id: 'profile.avatar' })}
-                  className='w-9 h-9 rounded-full object-cover'
-                />
-              ) : (
-                <div className='w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-body-strong'>
-                  {initials}
-                </div>
-              )}
+              <MemberAvatar
+                name={displayName}
+                imageUrl={isLoaded ? user?.imageUrl : null}
+                size='xl'
+              />
               <div>
                 <p className='text-body-strong text-foreground'>
                   {intl.formatMessage({ id: 'profile.avatar' })}

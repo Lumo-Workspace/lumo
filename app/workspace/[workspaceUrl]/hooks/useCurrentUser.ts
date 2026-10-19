@@ -12,8 +12,6 @@ export interface CurrentUser {
   email: string | null
   /** firstName or email fallback */
   displayName: string
-  /** First letter of displayName, uppercased */
-  initials: string
 }
 
 export interface UseCurrentUserReturn {
@@ -24,7 +22,7 @@ export interface UseCurrentUserReturn {
 
 /**
  * Thin wrapper around the auth provider's useUser that flattens deeply nested fields
- * (email, displayName, initials) so consumers don't violate LoD.
+ * (email, displayName) so consumers don't violate LoD.
  */
 export function useCurrentUser(): UseCurrentUserReturn {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser()
@@ -36,10 +34,6 @@ export function useCurrentUser(): UseCurrentUserReturn {
     const displayName = clerkUser.firstName
       ? `${clerkUser.firstName} ${clerkUser.lastName ?? ''}`.trim()
       : (email ?? '')
-    const initials =
-      clerkUser.firstName?.[0]?.toUpperCase() ??
-      email?.[0]?.toUpperCase() ??
-      '?'
 
     return {
       id: clerkUser.id,
@@ -48,7 +42,6 @@ export function useCurrentUser(): UseCurrentUserReturn {
       imageUrl: clerkUser.imageUrl,
       email,
       displayName,
-      initials,
     }
   }, [clerkUser])
 

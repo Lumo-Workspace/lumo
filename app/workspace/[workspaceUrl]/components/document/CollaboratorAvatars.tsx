@@ -1,6 +1,11 @@
 'use client'
 
-import { getInitials } from '@/lib/utils/getInitials'
+import {
+  AVATAR_SIZE_CLASS,
+  MemberAvatar,
+  type AvatarSize,
+} from '@/components/MemberAvatar'
+import { cn } from '@/lib/utils'
 
 interface Editor {
   member: { id: string; name: string; imageUrl: string | null }
@@ -10,19 +15,18 @@ interface Editor {
 interface CollaboratorAvatarsProps {
   editors: Editor[]
   max?: number
-  size?: number
+  size?: AvatarSize
 }
 
+/** Overlapping stack of document editors; a background-coloured border separates the circles. */
 export function CollaboratorAvatars({
   editors,
   max = 3,
-  size = 22,
+  size = 'xs',
 }: CollaboratorAvatarsProps) {
   if (editors.length === 0) return null
   const visible = editors.slice(0, max)
   const overflow = editors.length - max
-  // Two caption-size initials don't fit a small chip (< 24px); show one.
-  const initialsLength = size < 24 ? 1 : 2
 
   return (
     <div
@@ -30,38 +34,21 @@ export function CollaboratorAvatars({
       title={editors.map(e => e.member.name).join(', ')}
     >
       {visible.map((editor, i) => (
-        <div
+        <MemberAvatar
           key={editor.member.id}
-          className='rounded-full border-2 border-background bg-muted flex items-center justify-center overflow-hidden shrink-0'
-          style={{
-            width: size,
-            height: size,
-            marginLeft: i > 0 ? -6 : 0,
-            zIndex: visible.length - i,
-          }}
-        >
-          {editor.member.imageUrl ? (
-            <img
-              src={editor.member.imageUrl}
-              alt={editor.member.name}
-              className='w-full h-full object-cover'
-            />
-          ) : (
-            <span className='text-caption text-muted-foreground'>
-              {getInitials(editor.member.name).slice(0, initialsLength)}
-            </span>
-          )}
-        </div>
+          name={editor.member.name}
+          imageUrl={editor.member.imageUrl}
+          size={size}
+          className={cn('border-2 border-background', i > 0 && '-ml-1.5')}
+          style={{ zIndex: visible.length - i }}
+        />
       ))}
       {overflow > 0 && (
         <div
-          className='rounded-full border-2 border-background bg-muted flex items-center justify-center shrink-0'
-          style={{
-            width: size,
-            height: size,
-            marginLeft: -6,
-            zIndex: 0,
-          }}
+          className={cn(
+            AVATAR_SIZE_CLASS[size],
+            '-ml-1.5 flex shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted'
+          )}
         >
           <span className='text-caption text-muted-foreground'>
             +{overflow}

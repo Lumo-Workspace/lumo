@@ -64,7 +64,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -366,21 +366,12 @@ export function MembersPage() {
                       >
                         {/* Member — avatar, name, email */}
                         <div className='flex items-center gap-3 min-w-0'>
-                          {m.imageUrl ? (
-                            <img
-                              src={m.imageUrl}
-                              alt=''
-                              className='size-9 rounded-full object-cover shrink-0'
-                              referrerPolicy='no-referrer'
-                            />
-                          ) : (
-                            <div
-                              aria-hidden
-                              className='size-9 rounded-full bg-muted border border-border flex items-center justify-center text-caption font-semibold text-foreground shrink-0 uppercase'
-                            >
-                              {getInitials(m.name)}
-                            </div>
-                          )}
+                          <MemberAvatar
+                            decorative
+                            name={m.name}
+                            imageUrl={m.imageUrl}
+                            size='xl'
+                          />
                           <div className='flex min-w-0 flex-col'>
                             <div className='flex items-center gap-2 min-w-0'>
                               <span className='text-body-strong text-foreground truncate'>

@@ -45,7 +45,6 @@ describe('resolveCommentAuthor (LUM-1238)', () => {
     )
     expect(a.name).toBe('Chao Li')
     expect(a.imageUrl).toBe('https://img.example/chao.png')
-    expect(a.initials).toBe('CL')
   })
 
   it('resolves an optimistic comment without authorName through members', () => {
@@ -77,7 +76,6 @@ describe('resolveCommentAuthor (LUM-1238)', () => {
     expect(a).toMatchObject({
       isAgent: true,
       name: 'Claude Code',
-      initials: 'CA',
     })
   })
 })

@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react'
 import { useIntl } from 'react-intl'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { ListChecks, Layers, FolderKanban, Flag } from 'lucide-react'
 import { StatusIcon } from './StatusIcon'
 import { cn } from '@/lib/utils'
@@ -153,20 +153,14 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       }
 
       if (item.kind === 'user') {
-        const initials = item.label
-          .split(' ')
-          .map(w => w[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)
         return (
           <button key={`user-${item.id}`} {...common}>
-            <Avatar className='size-5 shrink-0'>
-              <AvatarImage src={item.imageUrl ?? undefined} />
-              <AvatarFallback className='text-caption'>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <MemberAvatar
+              decorative
+              name={item.label}
+              imageUrl={item.imageUrl}
+              size='xs'
+            />
             <span className='min-w-0 truncate text-foreground'>
               {item.label}
             </span>
