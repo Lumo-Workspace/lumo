@@ -119,15 +119,15 @@ export function AppSidebar({
                       referrerPolicy='no-referrer'
                     />
                   ) : (
-                    <div className='size-8 rounded-full bg-sidebar-accent flex items-center justify-center text-[11px] font-bold shrink-0'>
+                    <div className='size-8 rounded-full bg-sidebar-accent flex items-center justify-center text-caption font-semibold shrink-0'>
                       {initials}
                     </div>
                   )}
                   <div className='flex-1 min-w-0 text-left leading-tight'>
-                    <p className='text-sm font-semibold truncate'>
+                    <p className='text-body-strong truncate'>
                       {workspaceName || 'Workspace'}
                     </p>
-                    <p className='text-xs text-sidebar-foreground/60 truncate'>
+                    <p className='text-caption text-sidebar-foreground/60 truncate'>
                       {displayName}
                     </p>
                   </div>
@@ -228,7 +228,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.inbox' })}
                     </span>
                     {unreadCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-info hover:bg-info text-info-foreground rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-caption font-semibold bg-info hover:bg-info text-info-foreground rounded-full justify-center'>
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </Badge>
                     )}
@@ -253,7 +253,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.drafts' })}
                     </span>
                     {draftCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-muted-foreground hover:bg-muted-foreground text-white rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-caption font-semibold bg-muted-foreground hover:bg-muted-foreground text-white rounded-full justify-center'>
                         {draftCount > 99 ? '99+' : draftCount}
                       </Badge>
                     )}

@@ -137,7 +137,7 @@ export function LinkDocPopover({
             placeholder={intl.formatMessage({
               id: 'task.contextLink.doc.placeholder',
             })}
-            className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
+            className='w-full text-body bg-transparent outline-none placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
             autoFocus
           />
         </div>
@@ -148,7 +148,7 @@ export function LinkDocPopover({
                 type='button'
                 onClick={() => attachAndClose({ documentId: r.id })}
                 disabled={submitting}
-                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50'
+                className='w-full flex items-center gap-2 px-3 py-2 text-left text-body hover:bg-muted transition-colors disabled:opacity-50'
               >
                 {r.emoji ? (
                   <span className='shrink-0'>{r.emoji}</span>
@@ -163,13 +163,13 @@ export function LinkDocPopover({
             </li>
           ))}
           {showEmpty && (
-            <li className='px-3 py-2 text-xs text-muted-foreground text-center'>
+            <li className='px-3 py-2 text-caption text-muted-foreground text-center'>
               {intl.formatMessage({ id: 'task.contextLink.doc.searchEmpty' })}
             </li>
           )}
         </ul>
         {error && (
-          <p role='alert' className='px-3 py-2 text-xs text-danger-text'>
+          <p role='alert' className='px-3 py-2 text-caption text-danger-text'>
             {error}
           </p>
         )}

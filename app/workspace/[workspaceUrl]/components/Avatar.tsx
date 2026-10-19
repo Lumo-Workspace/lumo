@@ -8,16 +8,16 @@ interface AvatarProps {
 }
 
 const SIZE_CLASSES = {
-  sm: 'size-5 text-[8px]',
-  md: 'size-7 text-[10px]',
-  lg: 'size-10 text-[14px]',
+  sm: 'size-5 text-caption font-semibold',
+  md: 'size-7 text-caption font-semibold',
+  lg: 'size-10 text-body-strong',
 }
 
 export function Avatar({ src, initials, size = 'md', className }: AvatarProps) {
   return (
     <div
       className={cn(
-        'rounded-full border border-border bg-muted flex items-center justify-center font-bold overflow-hidden shrink-0',
+        'rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0',
         SIZE_CLASSES[size],
         className
       )}

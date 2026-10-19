@@ -76,16 +76,14 @@ export function FigmaIntegrationCard({
       >
         {connected ? (
           <>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'figma.connectedAs' })}{' '}
-              <span className='font-medium text-foreground'>
-                @{status?.handle}
-              </span>
+              <span className='text-foreground'>@{status?.handle}</span>
               {status?.email ? ` (${status.email})` : ''}
             </p>
 
             {status?.needsReauth && (
-              <p className='text-xs text-danger-text'>
+              <p className='text-caption text-danger-text'>
                 {intl.formatMessage({ id: 'figma.reauthRequired' })}
               </p>
             )}

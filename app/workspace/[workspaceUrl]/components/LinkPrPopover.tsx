@@ -138,7 +138,7 @@ export function LinkPrPopover({
               })}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1'
+              className='w-full text-body bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1'
             />
           </div>
 
@@ -148,7 +148,7 @@ export function LinkPrPopover({
               <button
                 onClick={() => handleLink({ url: query.trim() })}
                 disabled={linking}
-                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50'
+                className='w-full flex items-center gap-2 px-3 py-2 text-left text-body hover:bg-muted transition-colors disabled:opacity-50'
               >
                 <LinkIcon
                   size={14}
@@ -190,20 +190,20 @@ export function LinkPrPopover({
                   >
                     <div className='min-w-0 flex-1'>
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-[11px] text-muted-foreground shrink-0'>
+                        <span className='text-caption text-muted-foreground shrink-0'>
                           {pr.repo}
                         </span>
-                        <span className='text-xs font-medium text-foreground'>
+                        <span className='text-caption text-foreground'>
                           #{pr.number}
                         </span>
                       </div>
-                      <p className='text-xs text-muted-foreground truncate mt-0.5'>
+                      <p className='text-caption text-muted-foreground truncate mt-0.5'>
                         {pr.title}
                       </p>
                       <div className='flex items-center gap-1.5 mt-1'>
                         <PrStateBadge state={pr.state} />
                         {linkedToOther && (
-                          <span className='text-[10px] text-muted-foreground'>
+                          <span className='text-caption text-muted-foreground'>
                             {intl.formatMessage(
                               { id: 'linkPr.linkedTo' },
                               {
@@ -220,14 +220,14 @@ export function LinkPrPopover({
 
             {/* Empty state */}
             {!loading && !isUrl && query.trim() && results.length === 0 && (
-              <div className='px-3 py-4 text-xs text-muted-foreground text-center'>
+              <div className='px-3 py-4 text-caption text-muted-foreground text-center'>
                 {intl.formatMessage({ id: 'linkPr.empty' })}
               </div>
             )}
 
             {/* Initial state */}
             {!query.trim() && (
-              <div className='px-3 py-4 text-xs text-muted-foreground text-center'>
+              <div className='px-3 py-4 text-caption text-muted-foreground text-center'>
                 {intl.formatMessage({ id: 'linkPr.initial' })}
               </div>
             )}
@@ -254,7 +254,7 @@ export function LinkPrPopover({
                   identifier: conflict?.taskIdentifier ?? '',
                   title: conflict?.taskTitle ?? '',
                   strong: chunks => (
-                    <span className='font-medium text-foreground'>
+                    <span className='text-body-strong text-foreground'>
                       {chunks}
                     </span>
                   ),

@@ -77,7 +77,7 @@ export function GitHubAccountCard({
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {connected ? (
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'githubAccount.connectedAs' })}{' '}
             <span className='font-mono text-foreground'>
               @{status?.githubLogin}

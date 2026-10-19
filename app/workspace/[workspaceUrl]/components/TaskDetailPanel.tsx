@@ -227,7 +227,7 @@ export function TaskDetailPanel({
 
         {task.pullRequests && task.pullRequests.length > 0 && (
           <div className='pt-3 border-t border-border'>
-            <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2'>
+            <p className='text-caption text-muted-foreground uppercase flex items-center gap-1.5 mb-2'>
               <GitPullRequest size={12} />
               Pull Requests
             </p>
@@ -240,13 +240,13 @@ export function TaskDetailPanel({
                       href={pr.url}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='text-xs text-foreground hover:underline font-medium truncate block'
+                      className='text-caption text-foreground hover:underline truncate block'
                     >
                       #{pr.number} {pr.title}
                     </a>
                     <div className='flex items-center gap-1.5 mt-0.5'>
                       <PrStateBadge state={pr.state} />
-                      <span className='text-[10px] text-muted-foreground font-mono truncate'>
+                      <span className='text-caption text-muted-foreground font-mono truncate'>
                         {pr.headBranch}
                       </span>
                     </div>
@@ -305,7 +305,7 @@ export function TaskDetailPanel({
         {/* Related Documents */}
         {relatedDocs.length > 0 && (
           <div className='mt-4 pt-4 border-t'>
-            <div className='text-xs font-medium text-muted-foreground mb-2'>
+            <div className='text-caption text-muted-foreground mb-2'>
               Related Documents
             </div>
             <div className='space-y-1'>
@@ -313,7 +313,7 @@ export function TaskDetailPanel({
                 <button
                   key={doc.id}
                   type='button'
-                  className='flex items-center gap-2 w-full text-left text-xs py-1 px-2 rounded-sm hover:bg-muted transition-colors'
+                  className='flex items-center gap-2 w-full text-left text-caption py-1 px-2 rounded-sm hover:bg-muted transition-colors'
                   onClick={() => {
                     window.location.href = `/workspace/${workspaceUrl}/documents/${doc.slug}`
                   }}

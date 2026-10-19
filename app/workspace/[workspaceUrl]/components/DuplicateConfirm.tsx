@@ -51,7 +51,7 @@ export function DuplicateConfirm({
   return (
     <div className='space-y-4'>
       {/* Warning banner */}
-      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-warning-border bg-warning-subtle text-sm text-warning-text'>
+      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-warning-border bg-warning-subtle text-body text-warning-text'>
         <AlertTriangle className='size-4 shrink-0' />
         <span>
           {intl.formatMessage(
@@ -75,18 +75,18 @@ export function DuplicateConfirm({
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-2 mb-1'>
                   <span
-                    className={`text-xs font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
+                    className={`text-caption font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
                   >
                     {intl.formatMessage(
                       { id: 'duplicate.match' },
                       { score: Math.round(match.score * 100) }
                     )}
                   </span>
-                  <span className='text-sm font-medium text-foreground truncate'>
+                  <span className='text-body-strong text-foreground truncate'>
                     {match.title}
                   </span>
                 </div>
-                <div className='flex items-center gap-1 text-xs text-muted-foreground'>
+                <div className='flex items-center gap-1 text-caption text-muted-foreground'>
                   <span>{identifier}</span>
                   <span>·</span>
                   <span>{statusLabel(intl, match.status)}</span>

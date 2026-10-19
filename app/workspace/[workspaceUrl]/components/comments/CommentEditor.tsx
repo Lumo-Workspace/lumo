@@ -42,7 +42,7 @@ export function CommentEditor({
 
   return (
     <div
-      className='px-3 pt-2 pb-1 text-sm'
+      className='px-3 pt-2 pb-1 text-body'
       onKeyDown={e => {
         if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
           e.preventDefault()

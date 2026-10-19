@@ -431,7 +431,7 @@ export function NewTaskModal({
             )}
             <input
               ref={titleInputRef}
-              className='w-full bg-transparent border-none p-0 text-xl font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
+              className='w-full bg-transparent border-none p-0 text-heading text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
               placeholder={intl.formatMessage({
                 id: 'newTask.titlePlaceholder',
               })}

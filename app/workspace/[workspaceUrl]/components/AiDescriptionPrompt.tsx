@@ -94,7 +94,7 @@ export function AiDescriptionPrompt({
       <div className='rounded-lg border-2 border-dashed border-info-border bg-info-subtle px-4 py-3'>
         <div className='flex items-center gap-2.5'>
           <Loader2 className='size-4 animate-spin text-info-text' />
-          <span className='text-sm text-info-text'>
+          <span className='text-body text-info-text'>
             {intl.formatMessage({ id: 'aiDesc.generating' })}
           </span>
         </div>
@@ -106,7 +106,7 @@ export function AiDescriptionPrompt({
   if (state === 'preview' && preview) {
     return (
       <Card className='border-info-border p-4'>
-        <div className='mb-2 text-xs font-semibold text-info-text'>
+        <div className='mb-2 text-caption font-semibold text-info-text'>
           ✦ {intl.formatMessage({ id: 'aiDesc.preview' })}
         </div>
         <RichHtml
@@ -117,21 +117,21 @@ export function AiDescriptionPrompt({
           <button
             type='button'
             onClick={handleAccept}
-            className='rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors'
+            className='rounded-md bg-primary px-3 py-1.5 text-caption text-primary-foreground hover:bg-primary/90 transition-colors'
           >
             {intl.formatMessage({ id: 'aiDesc.useThis' })}
           </button>
           <button
             type='button'
             onClick={handleGenerate}
-            className='rounded-md border border-info-border px-3 py-1.5 text-xs font-medium text-info-text hover:bg-info/15 transition-colors'
+            className='rounded-md border border-info-border px-3 py-1.5 text-caption text-info-text hover:bg-info/15 transition-colors'
           >
             ↻ {intl.formatMessage({ id: 'aiDesc.regenerate' })}
           </button>
           <button
             type='button'
             onClick={handleCancel}
-            className='rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors'
+            className='rounded-md border border-border px-3 py-1.5 text-caption text-muted-foreground hover:bg-muted transition-colors'
           >
             {intl.formatMessage({ id: 'aiDesc.cancel' })}
           </button>
@@ -142,7 +142,7 @@ export function AiDescriptionPrompt({
 
   // Error display (shown briefly, then back to idle prompt)
   const errorBanner = error ? (
-    <div className='mb-2 rounded-md bg-danger-subtle px-3 py-1.5 text-xs text-danger-text'>
+    <div className='mb-2 rounded-md bg-danger-subtle px-3 py-1.5 text-caption text-danger-text'>
       {error}
     </div>
   ) : null
@@ -155,7 +155,7 @@ export function AiDescriptionPrompt({
         <button
           type='button'
           onClick={handleGenerate}
-          className='flex items-center gap-1 rounded-md border border-info-border bg-info-subtle px-2.5 py-1 text-xs font-medium text-info-text hover:bg-info/15 transition-colors'
+          className='flex items-center gap-1 rounded-md border border-info-border bg-info-subtle px-2.5 py-1 text-caption text-info-text hover:bg-info/15 transition-colors'
         >
           <span>✦</span>
           <span>{intl.formatMessage({ id: 'aiDesc.refine' })}</span>
@@ -176,14 +176,14 @@ export function AiDescriptionPrompt({
           'border-info-border bg-info-subtle hover:bg-info/15'
         )}
       >
-        <span className='flex size-6 items-center justify-center rounded-full bg-info text-sm text-info-foreground'>
+        <span className='flex size-6 items-center justify-center rounded-full bg-info text-body text-info-foreground'>
           ✦
         </span>
         <div className='flex-1'>
-          <div className='text-sm font-semibold text-info-text'>
+          <div className='text-body-strong text-info-text'>
             {intl.formatMessage({ id: 'aiDesc.generate' })}
           </div>
-          <div className='text-xs text-muted-foreground'>
+          <div className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'aiDesc.generateHint' })}
           </div>
         </div>

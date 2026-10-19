@@ -106,26 +106,29 @@ export function LinkSlackPopover({
                 placeholder={intl.formatMessage({
                   id: 'task.contextLink.slack.placeholder',
                 })}
-                className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
+                className='w-full text-body bg-transparent outline-none placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
                 autoFocus
               />
             </div>
             {error && (
-              <p role='alert' className='px-3 py-2 text-xs text-danger-text'>
+              <p
+                role='alert'
+                className='px-3 py-2 text-caption text-danger-text'
+              >
                 {error}
               </p>
             )}
           </>
         ) : (
           <div className='p-3 space-y-2'>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({
                 id: 'task.contextLink.slack.errors.workspaceNotConnected',
               })}
             </p>
             <Link
               href={integrationsHref}
-              className='inline-block text-xs font-medium text-info-text hover:underline'
+              className='inline-block text-caption text-info-text hover:underline'
             >
               {intl.formatMessage({ id: 'task.contextLink.slack.connectCta' })}
             </Link>

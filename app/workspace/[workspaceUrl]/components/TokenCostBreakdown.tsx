@@ -116,7 +116,7 @@ function ModelGroup({
   const totalNode = (
     <span className={`${headlineSize} ml-auto tabular-nums`}>
       {fmt(m.total)}{' '}
-      <span className='text-[10px] font-normal text-muted-foreground/60'>
+      <span className='text-caption font-normal text-muted-foreground/60'>
         {unit}
       </span>
     </span>
@@ -237,7 +237,7 @@ function ModelGroup({
         bar
       )}
       {m.inFlight && m.model !== IN_FLIGHT_MODEL && (
-        <div className='mt-1 flex items-center gap-1 text-[10px] text-muted-foreground'>
+        <div className='mt-1 flex items-center gap-1 text-caption text-muted-foreground'>
           <span
             className='size-1.5 animate-pulse rounded-full bg-muted-foreground/60'
             aria-hidden
@@ -326,7 +326,7 @@ export function TokenCostBreakdown({
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
       {showTitle && (
-        <div className='mb-2 text-caption font-medium text-muted-foreground'>
+        <div className='mb-2 text-caption text-muted-foreground'>
           {intl.formatMessage({
             id: 'tokenCost.label',
             defaultMessage: 'Token usage',
@@ -347,14 +347,14 @@ export function TokenCostBreakdown({
       {hasFooter && (
         <div className='mt-2 flex flex-wrap gap-1'>
           {loopChip && (
-            <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
+            <span className='rounded-full border border-border px-1.5 py-px text-caption text-muted-foreground'>
               {loopChip}
             </span>
           )}
           {chips?.map(c => (
             <span
               key={c.id}
-              className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'
+              className='rounded-full border border-border px-1.5 py-px text-caption text-muted-foreground'
             >
               {intl.formatMessage({
                 id: c.id,

@@ -48,7 +48,7 @@ export function BulkActionBar({
   const intl = useIntl()
   return (
     <div className='absolute inset-0 z-sticky flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
-      <span className='text-xs font-medium text-foreground'>
+      <span className='text-caption text-foreground'>
         {intl.formatMessage(
           { id: 'common.selected', defaultMessage: '{count} selected' },
           { count }

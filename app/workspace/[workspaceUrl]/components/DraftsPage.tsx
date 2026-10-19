@@ -52,7 +52,7 @@ export function DraftsPage({
   }
 
   const tabCls = (active: boolean) =>
-    `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+    `px-4 py-2 text-body-strong rounded-md transition-colors ${
       active
         ? 'bg-muted text-foreground'
         : 'text-muted-foreground hover:text-foreground'
@@ -71,7 +71,7 @@ export function DraftsPage({
             >
               {intl.formatMessage({ id: 'drafts.tabTasks' })}
               {taskDrafts.length > 0 && (
-                <span className='ml-1.5 text-xs text-muted-foreground'>
+                <span className='ml-1.5 text-caption text-muted-foreground'>
                   {taskDrafts.length}
                 </span>
               )}
@@ -82,7 +82,7 @@ export function DraftsPage({
             >
               {intl.formatMessage({ id: 'drafts.tabProjects' })}
               {projectDrafts.length + ideaProjects.length > 0 && (
-                <span className='ml-1.5 text-xs text-muted-foreground'>
+                <span className='ml-1.5 text-caption text-muted-foreground'>
                   {projectDrafts.length + ideaProjects.length}
                 </span>
               )}
@@ -147,10 +147,10 @@ export function DraftsPage({
                       onClick={() => onOpenIdeaProject(project)}
                     >
                       <div className='flex-1 min-w-0'>
-                        <p className='text-sm font-medium text-foreground truncate'>
+                        <p className='text-body-strong text-foreground truncate'>
                           {project.name}
                         </p>
-                        <p className='text-xs text-warning-text mt-0.5'>
+                        <p className='text-caption text-warning-text mt-0.5'>
                           {intl.formatMessage({ id: 'drafts.ideaProject' })}
                         </p>
                       </div>
@@ -226,17 +226,17 @@ function DraftCard({
       onClick={onClick}
     >
       <div className='flex-1 min-w-0'>
-        <p className='text-sm font-medium text-foreground truncate'>
+        <p className='text-body-strong text-foreground truncate'>
           {title || intl.formatMessage({ id: 'drafts.untitled' })}
         </p>
         {subtitle && (
-          <p className='text-xs text-muted-foreground mt-0.5 truncate'>
+          <p className='text-caption text-muted-foreground mt-0.5 truncate'>
             {subtitle}
           </p>
         )}
       </div>
       <div className='flex items-center gap-2'>
-        <span className='flex items-center gap-1 text-xs text-muted-foreground'>
+        <span className='flex items-center gap-1 text-caption text-muted-foreground'>
           <Clock className='size-3' />
           {fmtTimestamp(updatedAt)}
         </span>
@@ -264,10 +264,10 @@ function EmptyState({ intl }: { intl: ReturnType<typeof useIntl> }) {
   return (
     <div className='flex flex-col items-center justify-center py-16 text-center'>
       <FileEdit className='size-12 text-muted-foreground mb-4' />
-      <p className='text-sm font-medium text-muted-foreground'>
+      <p className='text-body-strong text-muted-foreground'>
         {intl.formatMessage({ id: 'drafts.empty' })}
       </p>
-      <p className='text-xs text-muted-foreground mt-1 max-w-xs'>
+      <p className='text-caption text-muted-foreground mt-1 max-w-xs'>
         {intl.formatMessage({ id: 'drafts.emptyDescription' })}
       </p>
     </div>

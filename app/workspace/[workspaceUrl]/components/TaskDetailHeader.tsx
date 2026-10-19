@@ -60,7 +60,7 @@ export function TaskDetailHeader({
 
   return (
     <>
-      <div className='flex items-center justify-between px-5 h-10 border-b border-border shrink-0 text-sm'>
+      <div className='flex items-center justify-between px-5 h-10 border-b border-border shrink-0 text-body'>
         <div className='flex items-center gap-1.5'>
           <button
             onClick={() => {
@@ -71,7 +71,7 @@ export function TaskDetailHeader({
             <span>{sourceLabel}</span>
           </button>
           <span className='text-muted-foreground'>&rsaquo;</span>
-          <span className='text-muted-foreground font-medium'>
+          <span className='text-body-strong text-muted-foreground'>
             {taskIdentifier}
           </span>
           <span className='text-muted-foreground'>&middot;</span>

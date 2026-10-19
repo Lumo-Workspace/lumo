@@ -74,7 +74,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
     <div className='mb-6'>
       <div className='flex items-center justify-between mb-2.5'>
         <div className='flex items-center gap-2.5'>
-          <span className='text-xs font-semibold tracking-wide text-muted-foreground'>
+          <span className='text-caption font-semibold text-muted-foreground'>
             {intl.formatMessage({ id: 'taskArtifact.groupLabel' })}
           </span>
           <span className='flex -space-x-1.5'>
@@ -83,11 +83,11 @@ export function SpecArtifactGroup({ taskId }: Props) {
             ))}
           </span>
           {distinctAgents.length > 1 && (
-            <span className='text-xs text-muted-foreground'>
+            <span className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'taskArtifact.crossAgent' })}
             </span>
           )}
-          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-sm inline-flex items-center gap-1'>
+          <span className='text-caption text-muted-foreground bg-muted px-2 py-0.5 rounded-sm inline-flex items-center gap-1'>
             <Sparkle className='size-3 fill-current' />
             {intl.formatMessage(
               { id: 'taskArtifact.sourceCount' },
@@ -98,7 +98,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
         <button
           type='button'
           onClick={() => setAdding(true)}
-          className='text-xs text-foreground border border-border rounded-sm px-2.5 py-1 inline-flex items-center gap-1 hover:bg-accent'
+          className='text-caption text-foreground border border-border rounded-sm px-2.5 py-1 inline-flex items-center gap-1 hover:bg-accent'
         >
           <Plus className='size-3' />
           {intl.formatMessage({ id: 'taskArtifact.add' })}
@@ -127,10 +127,10 @@ export function SpecArtifactGroup({ taskId }: Props) {
                   ) : (
                     <ChevronRight className='size-3.5 text-muted-foreground shrink-0' />
                   )}
-                  <span className='text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-sm shrink-0'>
+                  <span className='text-caption font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-sm shrink-0'>
                     {a.kind}
                   </span>
-                  <span className='text-sm text-foreground truncate'>
+                  <span className='text-body text-foreground truncate'>
                     {a.title}
                   </span>
                 </button>
@@ -179,7 +179,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
               {open && !editing && (
                 <div className='px-4 pb-3.5 pl-10'>
                   <RichTextViewer value={markdownToHtml(a.content)} />
-                  <div className='mt-3 pt-2.5 border-t border-border text-xs text-muted-foreground inline-flex items-center gap-1'>
+                  <div className='mt-3 pt-2.5 border-t border-border text-caption text-muted-foreground inline-flex items-center gap-1'>
                     <Sparkle className='size-3 fill-current' />
                     {intl.formatMessage(
                       { id: 'taskArtifact.generatedMeta' },
@@ -263,25 +263,25 @@ function ManualAddForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <textarea
         value={content}
         onChange={e => setContent(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addContent' })}
         rows={5}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none font-mono'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none font-mono'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
@@ -290,12 +290,12 @@ function ManualAddForm({
           </option>
         ))}
       </select>
-      {error && <p className='text-xs text-danger-text'>{error}</p>}
+      {error && <p className='text-caption text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button
           type='button'
           onClick={onCancel}
-          className='text-xs text-muted-foreground px-2.5 py-1'
+          className='text-caption text-muted-foreground px-2.5 py-1'
         >
           {intl.formatMessage({ id: 'taskArtifact.cancel' })}
         </button>
@@ -319,7 +319,7 @@ function ManualAddForm({
               setSaving(false)
             }
           }}
-          className='text-xs bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
+          className='text-caption bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
         >
           {intl.formatMessage({ id: 'taskArtifact.save' })}
         </button>
@@ -353,24 +353,24 @@ function EditForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={source}
         onChange={e => setSource(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.editSource' })}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
+        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
@@ -379,12 +379,12 @@ function EditForm({
           </option>
         ))}
       </select>
-      {error && <p className='text-xs text-danger-text'>{error}</p>}
+      {error && <p className='text-caption text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button
           type='button'
           onClick={onCancel}
-          className='text-xs text-muted-foreground px-2.5 py-1'
+          className='text-caption text-muted-foreground px-2.5 py-1'
         >
           {intl.formatMessage({ id: 'taskArtifact.cancel' })}
         </button>
@@ -407,7 +407,7 @@ function EditForm({
               setSaving(false)
             }
           }}
-          className='text-xs bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
+          className='text-caption bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
         >
           {intl.formatMessage({ id: 'taskArtifact.save' })}
         </button>

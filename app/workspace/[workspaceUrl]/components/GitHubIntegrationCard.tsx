@@ -98,17 +98,17 @@ export function GitHubIntegrationCard({
               className='mt-0.5 shrink-0 text-warning-text'
             />
             <div className='min-w-0'>
-              <p className='text-xs font-medium text-foreground'>
+              <p className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'github.scanDisabled' })}
               </p>
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: 'github.scanDisabledDesc' })}
               </p>
             </div>
           </div>
         ) : installed ? (
           <>
-            <p className='text-sm text-muted-foreground'>{installedLabel}</p>
+            <p className='text-body text-muted-foreground'>{installedLabel}</p>
             <GitHubAccessNotices
               accessRecheckEnabled={status?.accessRecheckEnabled}
               accessRemovedCount={status?.accessRemovedCount}
@@ -117,7 +117,7 @@ export function GitHubIntegrationCard({
             />
             <div>
               <div className='flex items-center justify-between mb-2'>
-                <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>
+                <p className='text-caption text-muted-foreground uppercase'>
                   {intl.formatMessage({ id: 'github.appRepos' })}
                 </p>
                 <div className='flex items-center gap-3'>
@@ -126,7 +126,7 @@ export function GitHubIntegrationCard({
                       type='button'
                       onClick={handleReverify}
                       title={intl.formatMessage({ id: 'github.reverifyHint' })}
-                      className='text-xs text-muted-foreground hover:text-foreground transition-colors'
+                      className='text-caption text-muted-foreground hover:text-foreground transition-colors'
                     >
                       {intl.formatMessage({ id: 'github.reverify' })}
                     </button>
@@ -135,7 +135,7 @@ export function GitHubIntegrationCard({
                     href='https://github.com/settings/installations'
                     target='_blank'
                     rel='noreferrer'
-                    className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+                    className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors'
                   >
                     {intl.formatMessage({ id: 'github.manageOnGithub' })}
                     <ExternalLink size={11} />
@@ -147,16 +147,16 @@ export function GitHubIntegrationCard({
                   {status.repositories.map(repo => (
                     <li
                       key={repo}
-                      className='px-3 py-2 rounded-lg bg-card border border-border text-sm'
+                      className='px-3 py-2 rounded-lg bg-card border border-border text-body'
                     >
-                      <span className='text-foreground font-mono text-xs'>
+                      <span className='text-foreground font-mono text-caption'>
                         {repo}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className='text-xs text-muted-foreground italic'>
+                <p className='text-caption text-muted-foreground italic'>
                   {intl.formatMessage({ id: 'github.appNoRepos' })}
                 </p>
               )}

@@ -25,12 +25,10 @@ export function CommentQuote({ authorName, text, onClick, variant }: Props) {
       : 'mb-1.5 w-full text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
   return (
     <button type='button' onClick={onClick} className={wrapperClass}>
-      <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
+      <p className='text-caption font-semibold text-muted-foreground mb-0.5'>
         {authorName}
       </p>
-      <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
-        {text}
-      </p>
+      <p className='text-caption text-muted-foreground line-clamp-2'>{text}</p>
     </button>
   )
 }

@@ -78,12 +78,12 @@ export function SentryIntegrationCard({
       >
         {connected ? (
           <>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'sentry.connectedTo' },
                 {
                   orgSlug: (
-                    <span className='font-medium text-foreground font-mono'>
+                    <span className='text-foreground font-mono'>
                       {status?.orgSlug}
                     </span>
                   ),
@@ -91,7 +91,7 @@ export function SentryIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {status?.lastWebhookAt
                 ? intl.formatMessage(
                     { id: 'sentry.lastWebhook' },

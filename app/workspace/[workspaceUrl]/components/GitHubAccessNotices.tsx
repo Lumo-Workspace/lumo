@@ -45,7 +45,7 @@ export function GitHubAccessNotices({
             size={14}
             className='mt-0.5 shrink-0 text-warning-text'
           />
-          <p className='text-xs text-foreground'>
+          <p className='text-caption text-foreground'>
             {intl.formatMessage(
               { id: 'github.tokenFailing' },
               {
@@ -63,7 +63,7 @@ export function GitHubAccessNotices({
             size={14}
             className='mt-0.5 shrink-0 text-warning-text'
           />
-          <p className='text-xs text-foreground'>
+          <p className='text-caption text-foreground'>
             {intl.formatMessage(
               {
                 id:
@@ -79,7 +79,7 @@ export function GitHubAccessNotices({
       {accessRecheckEnabled === false && (
         <div className='flex items-start gap-2 rounded-lg border border-border bg-muted px-3 py-2'>
           <Info size={14} className='mt-0.5 shrink-0 text-muted-foreground' />
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'github.accessRecheckOff' })}
           </p>
         </div>

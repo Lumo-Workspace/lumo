@@ -30,7 +30,7 @@ export function CommentAvatar({
   return (
     <Avatar className={`${sizeClass} shrink-0 mt-0.5`}>
       <AvatarImage src={imageUrl} />
-      <AvatarFallback className='text-[10px]'>{initials}</AvatarFallback>
+      <AvatarFallback className='text-caption'>{initials}</AvatarFallback>
     </Avatar>
   )
 }

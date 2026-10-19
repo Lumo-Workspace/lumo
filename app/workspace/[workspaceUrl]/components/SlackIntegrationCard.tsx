@@ -70,12 +70,12 @@ export function SlackIntegrationCard({
       >
         {status?.connected ? (
           <>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'slack.connectedTo' },
                 {
                   teamName: (
-                    <span className='font-medium text-foreground'>
+                    <span className='text-foreground'>
                       {status.slackTeamName}
                     </span>
                   ),
@@ -83,7 +83,7 @@ export function SlackIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'slack.channelNote' })}
             </p>
           </>

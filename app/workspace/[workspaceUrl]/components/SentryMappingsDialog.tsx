@@ -51,7 +51,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             {intl.formatMessage({ id: 'sentry.mappingsTitle' })}
           </DialogTitle>
         </DialogHeader>
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           <FormattedMessage
             id='sentry.mappingsDesc'
             values={{
@@ -62,18 +62,18 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
 
         <div className='mt-3 space-y-2'>
           {loading ? (
-            <div className='text-xs text-muted-foreground'>
+            <div className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'common.loading' })}
             </div>
           ) : mappings.length === 0 ? (
-            <div className='text-xs text-muted-foreground'>
+            <div className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
             </div>
           ) : (
             mappings.map(m => (
               <div
                 key={m.id}
-                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs'
+                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-caption'
               >
                 <div>
                   <span className='font-mono'>{m.sentryProjectSlug}</span>
@@ -95,27 +95,27 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className='mt-4 border-t border-border pt-3'>
-          <p className='text-xs font-medium'>
+          <p className='text-caption'>
             {intl.formatMessage({ id: 'sentry.addMapping' })}
           </p>
           <div className='mt-2 flex items-end gap-2'>
             <label className='flex-1'>
-              <span className='text-xs text-foreground'>
+              <span className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'sentry.sentrySlugLabel' })}
               </span>
               <input
-                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs font-mono'
+                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-caption font-mono'
                 value={newSlug}
                 onChange={e => setNewSlug(e.target.value)}
                 placeholder='frontend'
               />
             </label>
             <label className='flex-1'>
-              <span className='text-xs text-foreground'>
+              <span className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}
               </span>
               <select
-                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs'
+                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-caption'
                 value={newProjectId}
                 onChange={e => setNewProjectId(e.target.value)}
               >
@@ -128,7 +128,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
               </select>
             </label>
             <button
-              className='text-xs px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
+              className='text-caption px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
               disabled={submitting || !newSlug || !newProjectId}
               onClick={handleAdd}
             >

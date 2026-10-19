@@ -319,7 +319,7 @@ export function ProjectSlackDialog({
 
         {loadState.phase === 'error' && (
           <div className='space-y-3 py-2'>
-            <p className='text-sm text-danger-text'>
+            <p className='text-body text-danger-text'>
               Failed to load configuration.
             </p>
             <Button variant='outline' className='w-full' onClick={load}>
@@ -333,7 +333,7 @@ export function ProjectSlackDialog({
             {/* Not-connected state */}
             {loadState.availableChannels.length === 0 &&
               !loadState.savedChannel && (
-                <p className='text-sm text-muted-foreground'>
+                <p className='text-body text-muted-foreground'>
                   Slack is not connected to this workspace.{' '}
                   <a
                     href={`/workspace/${workspaceUrl}/settings/integrations`}
@@ -351,10 +351,10 @@ export function ProjectSlackDialog({
                 {/* Toggle */}
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-sm font-medium text-foreground'>
+                    <p className='text-body-strong text-foreground'>
                       Project notifications
                     </p>
-                    <p className='text-xs text-muted-foreground'>
+                    <p className='text-caption text-muted-foreground'>
                       Send notifications to a Slack channel.
                     </p>
                   </div>
@@ -368,7 +368,7 @@ export function ProjectSlackDialog({
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
                     <div className='flex items-center justify-between'>
-                      <label className='text-xs font-medium text-muted-foreground'>
+                      <label className='text-caption text-muted-foreground'>
                         Channel
                       </label>
                       {!showCreate && (
@@ -392,7 +392,7 @@ export function ProjectSlackDialog({
                               }
                             }, 50)
                           }}
-                          className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+                          className='flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors'
                         >
                           <Plus size={12} />
                           Create channel
@@ -422,7 +422,7 @@ export function ProjectSlackDialog({
                               }
                             }}
                             placeholder='channel-name'
-                            className='h-8 text-sm'
+                            className='h-8 text-body'
                           />
                           <Button
                             size='sm'
@@ -453,7 +453,7 @@ export function ProjectSlackDialog({
                           </Button>
                         </div>
                         {createError && (
-                          <p className='text-xs text-danger-text'>
+                          <p className='text-caption text-danger-text'>
                             {createError}
                           </p>
                         )}
@@ -483,7 +483,7 @@ export function ProjectSlackDialog({
                             loadState.availableChannels
                           )
                         }
-                        className='w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
+                        className='w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
                       >
                         <option value=''>
                           {intl.formatMessage({ id: 'slack.selectChannel' })}
@@ -500,7 +500,7 @@ export function ProjectSlackDialog({
 
                   {/* Event checklist */}
                   <div className='space-y-2'>
-                    <p className='text-xs font-medium text-muted-foreground'>
+                    <p className='text-caption text-muted-foreground'>
                       {intl.formatMessage({ id: 'slack.notifyOn' })}
                     </p>
                     {ALL_SLACK_EVENTS.map(event => (
@@ -514,7 +514,7 @@ export function ProjectSlackDialog({
                           onChange={() => toggleEvent(event)}
                           className='rounded-sm border-border text-foreground'
                         />
-                        <span className='text-sm text-foreground'>
+                        <span className='text-body text-foreground'>
                           {intl.formatMessage({
                             id: SLACK_EVENT_LABEL_KEYS[event],
                           })}
@@ -525,7 +525,7 @@ export function ProjectSlackDialog({
                 </div>
 
                 {saveError && (
-                  <p className='text-xs text-danger-text'>{saveError}</p>
+                  <p className='text-caption text-danger-text'>{saveError}</p>
                 )}
 
                 <Button
