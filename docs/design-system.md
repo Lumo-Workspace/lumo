@@ -236,6 +236,10 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 裸 `rounded`(= `0.25rem`,与 `rounded-sm` 同值)**禁用** —— 由 `lint:tokens` 拦截。
 方向性圆角(`rounded-t/l/r/b/tl…`)与 arbitrary `rounded-[..]` 按需使用,不受档位约束。
 
+## Card surface
+
+Static card surfaces use `Card` from `components/ui/card.tsx` (`rounded-lg border bg-card text-card-foreground shadow-elevation-1`, no padding) instead of a hand-rolled `rounded-lg border … bg-card` div (LUM-1246). Pass the element's own padding / layout via `className`; a large container may override to `rounded-xl` (see the radius table). For a semantic or interactive element use `asChild`: `<Card asChild className='p-4'><button …>…</button></Card>` (also `<section>`, `<li>`). `CardTitle` is `text-title`. Not for overlays (dialog / popover / menus use `shadow-elevation-2/3`) or dnd-kit board cards (`SortableTaskCard`).
+
 ## Focus rings
 
 - Token: `--ring: var(--focus-ring)`, where `--focus-ring` = `oklch(0.6231 0.188 259.813)` (`#3b82f6`, blue). Defined once in `:root` with no `.dark` override, so it is identical in light and dark (LUM-262). `--sidebar-ring` derives from `--focus-ring` too.

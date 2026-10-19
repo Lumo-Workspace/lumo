@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
@@ -104,7 +105,7 @@ export function AiDescriptionPrompt({
   // Preview state
   if (state === 'preview' && preview) {
     return (
-      <div className='rounded-lg border border-info-border bg-card p-4'>
+      <Card className='border-info-border p-4'>
         <div className='mb-2 text-xs font-semibold text-info-text'>
           ✦ {intl.formatMessage({ id: 'aiDesc.preview' })}
         </div>
@@ -135,7 +136,7 @@ export function AiDescriptionPrompt({
             {intl.formatMessage({ id: 'aiDesc.cancel' })}
           </button>
         </div>
-      </div>
+      </Card>
     )
   }
 

@@ -9,6 +9,7 @@ import { Search, Plus, X } from 'lucide-react'
 import type { Sprint } from '@prisma/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { sprintsClient } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
@@ -92,7 +93,7 @@ function UpcomingCard({
   const href = `/workspace/${workspaceUrl}/sprints/${sprint.number}`
 
   return (
-    <div className='rounded-xl border border-border bg-card p-5 shadow-elevation-1 transition-colors hover:border-muted-foreground/30'>
+    <Card className='rounded-xl p-5 transition-colors hover:border-muted-foreground/30'>
       <div className='flex items-start justify-between gap-3'>
         <div className='min-w-0'>
           <Link href={href} className='hover:underline'>
@@ -130,7 +131,7 @@ function UpcomingCard({
           {intl.formatMessage({ id: 'sprints.landing.plan' })} →
         </Link>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -195,7 +196,7 @@ function CompletedTable({
 }) {
   const intl = useIntl()
   return (
-    <div className='overflow-hidden rounded-xl border border-border bg-card shadow-elevation-1'>
+    <Card className='overflow-hidden rounded-xl'>
       <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] gap-4 border-b border-border px-5 py-2.5 text-xs font-medium text-muted-foreground'>
         <span>{intl.formatMessage({ id: 'sprints.table.sprint' })}</span>
         <span>{intl.formatMessage({ id: 'sprints.table.dates' })}</span>
@@ -207,7 +208,7 @@ function CompletedTable({
       {sprints.map(s => (
         <CompletedRow key={s.id} sprint={s} workspaceUrl={workspaceUrl} />
       ))}
-    </div>
+    </Card>
   )
 }
 
