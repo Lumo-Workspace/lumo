@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
 import { Plus, MoreHorizontal, Trash2, Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import {
   Select,
   SelectContent,
@@ -373,14 +374,18 @@ export function DocumentsPage({
           onRetry={onRetry}
           empty={sorted.length === 0}
           emptyState={
-            <div className='text-center text-muted-foreground text-body py-12'>
-              {intl.formatMessage({
-                id:
-                  search || filter !== 'ALL'
-                    ? 'documents.emptyFiltered'
-                    : 'documents.empty',
-              })}
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyDescription>
+                  {intl.formatMessage({
+                    id:
+                      search || filter !== 'ALL'
+                        ? 'documents.emptyFiltered'
+                        : 'documents.empty',
+                  })}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           }
         >
           {viewMode === 'list' ? renderListView() : renderBoardView()}
