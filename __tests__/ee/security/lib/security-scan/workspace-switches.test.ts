@@ -149,26 +149,29 @@ describe('LUM-1025 no Vercel Sandbox on this deployment', () => {
 })
 
 describe('LUM-1234 reward-hack layer switches', () => {
-  const ON = { ...SANDBOX, LUMO_REWARD_HACK: 'on' }
+  // LUM-1260: the platform ceiling is the `reward-hack-scan` rollout stage
+  // (dogfood), so "platform on" means the workspace is in the dogfood cohort.
+  const ON = { ...SANDBOX, LUMO_DOGFOOD_WORKSPACE_IDS: 'ws-a' }
 
   it('runs when the platform allows it and the workspace has it on', () => {
-    const got = resolveSecurityLayers({ ...ALL_ON }, ON)
+    const got = resolveSecurityLayers({ ...ALL_ON }, ON, 'ws-a')
     expect(got.rewardHack).toBe(true)
     expect(got.rewardHackTurnedOff).toBe(false)
-    expect(platformSecurityCeiling(ON).rewardHack).toBe(true)
+    expect(platformSecurityCeiling(ON, 'ws-a').rewardHack).toBe(true)
   })
 
   it('is off, and not "turned off", when the platform has it off', () => {
-    const got = resolveSecurityLayers({ ...ALL_ON }, SANDBOX)
+    const got = resolveSecurityLayers({ ...ALL_ON }, SANDBOX, 'ws-a')
     expect(got.rewardHack).toBe(false)
     expect(got.rewardHackTurnedOff).toBe(false)
-    expect(platformSecurityCeiling(SANDBOX).rewardHack).toBe(false)
+    expect(platformSecurityCeiling(SANDBOX, 'ws-a').rewardHack).toBe(false)
   })
 
   it('the workspace switching it off is "turned off" while the platform allows it', () => {
     const got = resolveSecurityLayers(
       { ...ALL_ON, securityRewardHackEnabled: false },
-      ON
+      ON,
+      'ws-a'
     )
     expect(got.rewardHack).toBe(false)
     expect(got.rewardHackTurnedOff).toBe(true)
@@ -177,7 +180,8 @@ describe('LUM-1234 reward-hack layer switches', () => {
   it('workspace off with the platform off is not "turned off"', () => {
     const got = resolveSecurityLayers(
       { ...ALL_ON, securityRewardHackEnabled: false },
-      SANDBOX
+      SANDBOX,
+      'ws-a'
     )
     expect(got.rewardHackTurnedOff).toBe(false)
   })
@@ -185,7 +189,8 @@ describe('LUM-1234 reward-hack layer switches', () => {
   it('the master scan switch off turns it off', () => {
     const got = resolveSecurityLayers(
       { ...ALL_ON, securityScanEnabled: false },
-      ON
+      ON,
+      'ws-a'
     )
     expect(got.rewardHack).toBe(false)
     expect(got.rewardHackTurnedOff).toBe(false)
@@ -193,59 +198,61 @@ describe('LUM-1234 reward-hack layer switches', () => {
 
   it('does not need the sandbox', () => {
     expect(
-      resolveSecurityLayers({ ...ALL_ON }, { LUMO_REWARD_HACK: 'on' })
-        .rewardHack
+      resolveSecurityLayers(
+        { ...ALL_ON },
+        { LUMO_DOGFOOD_WORKSPACE_IDS: 'ws-a' },
+        'ws-a'
+      ).rewardHack
     ).toBe(true)
   })
 })
 
-describe('LUM-1234 LUMO_REWARD_HACK_WORKSPACES rollout allowlist', () => {
-  const ON = { ...SANDBOX, LUMO_REWARD_HACK: 'on' }
-  const LISTED = { ...ON, LUMO_REWARD_HACK_WORKSPACES: 'ws-a,ws-b' }
+describe('LUM-1260 reward-hack rollout stage (dogfood)', () => {
+  const DOGFOOD = { ...SANDBOX, LUMO_DOGFOOD_WORKSPACE_IDS: 'ws-a,ws-b' }
 
-  it('a listed workspace gets the layer', () => {
+  it('a dogfood workspace gets the layer', () => {
     expect(
-      resolveSecurityLayers({ ...ALL_ON }, LISTED, 'ws-a').rewardHack
+      resolveSecurityLayers({ ...ALL_ON }, DOGFOOD, 'ws-a').rewardHack
     ).toBe(true)
-    expect(platformSecurityCeiling(LISTED, 'ws-b').rewardHack).toBe(true)
+    expect(platformSecurityCeiling(DOGFOOD, 'ws-b').rewardHack).toBe(true)
   })
 
-  it('a workspace not listed sees it as not offered, never as turned off by it', () => {
-    const got = resolveSecurityLayers({ ...ALL_ON }, LISTED, 'ws-c')
+  it('any other workspace sees it as not offered, never as turned off by it', () => {
+    const got = resolveSecurityLayers({ ...ALL_ON }, DOGFOOD, 'ws-c')
     expect(got.rewardHack).toBe(false)
     expect(got.rewardHackTurnedOff).toBe(false)
     const off = resolveSecurityLayers(
       { ...ALL_ON, securityRewardHackEnabled: false },
-      LISTED,
+      DOGFOOD,
       'ws-c'
     )
     expect(off.rewardHackTurnedOff).toBe(false)
-    expect(platformSecurityCeiling(LISTED, 'ws-c').rewardHack).toBe(false)
+    expect(platformSecurityCeiling(DOGFOOD, 'ws-c').rewardHack).toBe(false)
     // The other layers' ceiling is not affected.
-    expect(platformSecurityCeiling(LISTED, 'ws-c')).toMatchObject({
+    expect(platformSecurityCeiling(DOGFOOD, 'ws-c')).toMatchObject({
       managedScan: true,
       hunt: true,
     })
   })
 
-  it('a set allowlist with no workspace to check reads as off', () => {
-    expect(platformSecurityCeiling(LISTED).rewardHack).toBe(false)
+  it('no workspace to check reads as off', () => {
+    expect(platformSecurityCeiling(DOGFOOD).rewardHack).toBe(false)
   })
 
-  it('an empty or whitespace allowlist means every workspace', () => {
-    for (const raw of ['', '  ', ' , ']) {
-      const env = { ...ON, LUMO_REWARD_HACK_WORKSPACES: raw }
-      expect(resolveSecurityLayers({ ...ALL_ON }, env, 'ws-z').rewardHack).toBe(
-        true
-      )
+  it('an unset dogfood cohort is off for every workspace', () => {
+    expect(
+      resolveSecurityLayers({ ...ALL_ON }, SANDBOX, 'ws-a').rewardHack
+    ).toBe(false)
+  })
+
+  it('the removed LUMO_REWARD_HACK / _WORKSPACES env vars have no effect', () => {
+    const legacy = {
+      ...SANDBOX,
+      LUMO_REWARD_HACK: 'on',
+      LUMO_REWARD_HACK_WORKSPACES: 'ws-c',
     }
-  })
-
-  it('the platform switch off is off for a listed workspace too', () => {
-    const env = { ...SANDBOX, LUMO_REWARD_HACK_WORKSPACES: 'ws-a' }
-    expect(resolveSecurityLayers({ ...ALL_ON }, env, 'ws-a').rewardHack).toBe(
-      false
-    )
-    expect(platformSecurityCeiling(env, 'ws-a').rewardHack).toBe(false)
+    expect(
+      resolveSecurityLayers({ ...ALL_ON }, legacy, 'ws-c').rewardHack
+    ).toBe(false)
   })
 })

@@ -52,8 +52,7 @@ describe('installed (the security plugin)', () => {
 
   it("LUM-1234: the platform ceiling it serves is the viewing workspace's", () => {
     const saved = { ...process.env }
-    process.env.LUMO_REWARD_HACK = 'on'
-    process.env.LUMO_REWARD_HACK_WORKSPACES = 'ws-listed'
+    process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'ws-listed'
     try {
       const platform = (id: string) =>
         (
