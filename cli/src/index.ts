@@ -184,6 +184,14 @@ import {
   shouldAutoSync,
   shouldCheckForUpdates,
 } from './lib/auto-sync'
+import {
+  feedbackCreate,
+  feedbackList,
+  feedbackShow,
+  type FeedbackCreateOptions,
+  type FeedbackListOptions,
+} from './commands/feedback'
+import { buildLastCommand, recordLastCommand } from './lib/last-command'
 
 // Introspection mode: tooling (CLI grammar extraction) imports
 // this module to walk the registered commander tree without running the CLI.
@@ -287,7 +295,28 @@ function commandFromArgv(root: CommandLike, argv: string[]): CommandLike {
   return node
 }
 
+/**
+ * LUM-1240: remember this run (command path + the NAMES of the flags given +
+ * exit code — never a value) for `lumo feedback create`. Best-effort.
+ */
+function noteLastCommand(code: number): void {
+  if (isIntrospect || !currentCommand) return
+  const cmd = currentCommand as unknown as {
+    name(): string
+    parent: unknown
+    options: ReadonlyArray<{ long?: string; attributeName(): string }>
+    getOptionValueSource(key: string): string | undefined
+  }
+  const flags = cmd.options
+    .filter(o => cmd.getOptionValueSource(o.attributeName()) === 'cli')
+    .map(o => o.long ?? '')
+  recordLastCommand(
+    buildLastCommand(commandPathOf(cmd), flags, code, new Date())
+  )
+}
+
 function exitWith(code: number): never {
+  noteLastCommand(code)
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
   const netHint = sandboxNetTracker?.hintFor(code)
@@ -347,6 +376,7 @@ function wrap(fn: CommandFn) {
     try {
       const code = await fn(...args)
       if (typeof code === 'number' && code !== 0) exitWith(code)
+      noteLastCommand(0)
     } catch (err) {
       // LUM-1232 X-3: a thrown git / tool message is wrapped, never passed
       // through as the whole error.
@@ -1877,6 +1907,77 @@ memberCmd
   )
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
+
+// LUM-1240: report a Lumo bug / idea / question to the Lumo team.
+const feedbackCmd = program
+  .command('feedback')
+  .description('Report a Lumo bug, idea or question to the Lumo team')
+
+feedbackCmd
+  .command('create')
+  .codex(readsLocalFile('--evidence-file'))
+  .description(
+    'Send a report to the Lumo team. Agents may file directly. Environment info (CLI version, OS, last lumo command and exit code; never argument values) is sent unless --no-env.'
+  )
+  .requiredOption(
+    '--title <title>',
+    'One line: what went wrong or what you want'
+  )
+  .option(
+    '--kind <kind>',
+    'bug | idea | question (case-insensitive; default bug)'
+  )
+  .option(
+    '--step <text>',
+    'One step to reproduce (repeatable, ordered)',
+    collect,
+    [] as string[]
+  )
+  .option('--expected <text>', 'What you expected')
+  .option('--actual <text>', 'What actually happened (quote the error line)')
+  .option(
+    '--evidence-file <path>',
+    'Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each for now (request-size limit), 5 files (repeatable)',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--task <ref>',
+    'Related task ref, e.g. LUM-42 (only the ref is sent)'
+  )
+  .option('--no-env', 'Do not send environment info or the session id')
+  .option('--json', 'Print { version, feedback, replies } as JSON')
+  .action(wrap(options => feedbackCreate(options as FeedbackCreateOptions)))
+
+feedbackCmd
+  .command('list')
+  .codex(SERVER_ONLY)
+  .description(
+    "List this workspace's reports to the Lumo team with their status, newest first."
+  )
+  .option(
+    '-s, --status <status>',
+    'new | triaged | resolved | wontfix (case-insensitive)'
+  )
+  .option('--kind <kind>', 'bug | idea | question (case-insensitive)')
+  .option('--mine', 'Only reports you sent')
+  .option('-n, --limit <n>', 'Reports per page (1-500, default 50)')
+  .option('--cursor <cursor>', 'Continue from a previous page')
+  .option('--json', 'Print { version, feedback, total, nextCursor } as JSON')
+  .action(wrap(options => feedbackList(options as FeedbackListOptions)))
+
+feedbackCmd
+  .command('show <ref>')
+  .codex(SERVER_ONLY)
+  .description(
+    "Show one report (FB-<n>) with its status, environment and the Lumo team's replies."
+  )
+  .option('--json', 'Print { version, feedback, replies } as JSON')
+  .action(
+    wrap((ref: unknown, options: unknown) =>
+      feedbackShow(ref as string, options as { json?: boolean })
+    )
+  )
 
 const auditCmd = program
   .command('audit')

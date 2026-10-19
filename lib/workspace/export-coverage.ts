@@ -27,6 +27,8 @@ export const EXPORTED_MODELS = [
   'TaskDependency',
   // LUM-907: the workspace audit log.
   'AuditEvent',
+  // LUM-1240: feedback the workspace sent to the Lumo team (with replies).
+  'Feedback',
 ] as const
 
 const INTEGRATION = 'integration credentials and connection config — secrets'

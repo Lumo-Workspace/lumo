@@ -47,6 +47,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'DocumentRevision',
   'Draft',
   'DroppedFragment',
+  'Feedback',
   'FigmaIntegration',
   'GitHubAppInstallation',
   'GitHubIntegration',
