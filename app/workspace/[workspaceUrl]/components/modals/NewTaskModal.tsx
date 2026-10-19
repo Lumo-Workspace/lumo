@@ -34,7 +34,7 @@ import { CACHE_KEY } from '../../constants'
 import { toast } from 'sonner'
 import { DuplicateWarning } from '../DuplicateWarning'
 import { DuplicateConfirm, DuplicateMatch } from '../DuplicateConfirm'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 // Stable reference for the `tasks` default. Using `tasks = []` as a destructuring
 // default creates a new [] every render, which would feed an unstable ref into
@@ -398,7 +398,7 @@ export function NewTaskModal({
             >
               {phase === 'checking' ? (
                 <>
-                  <Loader2 className='size-4 animate-spin mr-1' />
+                  <Spinner className='mr-1' />
                   {intl.formatMessage({ id: 'newTask.checking' })}
                 </>
               ) : (

@@ -7,6 +7,8 @@ import { FigmaIcon } from '../FigmaIcon'
 import type { OptimisticFigmaLink } from '../../hooks/useFigmaLinks'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface Props {
   link: OptimisticFigmaLink
@@ -26,6 +28,7 @@ export function FigmaLinkCard({
   const intl = useIntl()
   const now = useNow()
   const [busy, setBusy] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const safeHref = isSafeUrl(link.url) ? link.url : undefined
   const safeThumbnail =
@@ -51,13 +54,7 @@ export function FigmaLinkCard({
   }
 
   const handleRemove = async () => {
-    const confirmed = window.confirm(
-      intl.formatMessage({
-        id: 'task.figma.confirmDelete',
-        defaultMessage: 'Remove this Figma design?',
-      })
-    )
-    if (!confirmed) return
+    setConfirmOpen(false)
     setBusy(true)
     try {
       await onRemove(link.id)
@@ -71,7 +68,7 @@ export function FigmaLinkCard({
       <div className='flex gap-3 p-3'>
         {/* Thumbnail or placeholder */}
         {link.loading ? (
-          <div className='w-[120px] h-[72px] rounded-sm flex-shrink-0 bg-muted animate-pulse' />
+          <Skeleton className='h-[72px] w-[120px] shrink-0 rounded-sm' />
         ) : safeThumbnail ? (
           /* Figma CDN thumbnails — use <img> to avoid next.config changes */
           // eslint-disable-next-line @next/next/no-img-element
@@ -132,7 +129,7 @@ export function FigmaLinkCard({
                 <button
                   onClick={e => {
                     e.preventDefault()
-                    void handleRemove()
+                    setConfirmOpen(true)
                   }}
                   disabled={busy}
                   title={intl.formatMessage({
@@ -174,19 +171,44 @@ export function FigmaLinkCard({
     </div>
   )
 
+  const confirmDialog = (
+    <ConfirmActionDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title={intl.formatMessage({
+        id: 'task.figma.confirmDelete',
+        defaultMessage: 'Remove this Figma design?',
+      })}
+      confirmLabel={intl.formatMessage({
+        id: 'task.figma.card.delete',
+        defaultMessage: 'Remove',
+      })}
+      destructive
+      onConfirm={() => void handleRemove()}
+    />
+  )
+
   if (safeHref && !link.loading) {
     return (
-      <a
-        href={safeHref}
-        target='_blank'
-        rel='noopener noreferrer'
-        referrerPolicy='no-referrer'
-        className='block'
-      >
-        {cardInner}
-      </a>
+      <>
+        <a
+          href={safeHref}
+          target='_blank'
+          rel='noopener noreferrer'
+          referrerPolicy='no-referrer'
+          className='block'
+        >
+          {cardInner}
+        </a>
+        {confirmDialog}
+      </>
     )
   }
 
-  return <div>{cardInner}</div>
+  return (
+    <>
+      <div>{cardInner}</div>
+      {confirmDialog}
+    </>
+  )
 }

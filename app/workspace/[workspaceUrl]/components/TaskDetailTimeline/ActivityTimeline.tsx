@@ -9,6 +9,7 @@ import {
   TimelineEntryRenderer,
   RETIRED_ACTIVITY_TYPES,
 } from './TimelineEntryRenderer'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ── Filter categories ────────────────────────────────────────────────────────
 
@@ -239,9 +240,9 @@ export function ActivityTimeline({
       <div className='space-y-3 py-4'>
         {[1, 2, 3].map(i => (
           <div key={i} className='flex gap-2.5'>
-            <div className='size-5 rounded-full bg-muted animate-pulse shrink-0' />
+            <Skeleton className='size-5 shrink-0 rounded-full' />
             <div className='flex-1 space-y-1.5 pt-0.5'>
-              <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
+              <Skeleton className='h-2.5 w-2/3 rounded-sm' />
             </div>
           </div>
         ))}

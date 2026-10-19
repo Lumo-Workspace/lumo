@@ -45,13 +45,13 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useDocumentRevisions', () => ({
   useDocumentRevisions: () => hook,
 }))
 
-function renderModal(onRestored = jest.fn()) {
+function renderModal(onRestored = jest.fn(), onClose = jest.fn()) {
   return render(
     <DocumentHistoryModal
       open
       documentId='d1'
       currentHtml='<p>current</p>'
-      onClose={jest.fn()}
+      onClose={onClose}
       onRestored={onRestored}
     />
   )
@@ -72,4 +72,32 @@ it('restores the selected revision and calls onRestored', async () => {
   fireEvent.click(screen.getByRole('button', { name: /restore/i }))
   await waitFor(() => expect(hook.restore).toHaveBeenCalledWith('r1'))
   await waitFor(() => expect(onRestored).toHaveBeenCalled())
+})
+
+// LUM-1264: the modal is a Radix Dialog — standard scrim, focus trap, Esc.
+it('renders as a labelled dialog over the standard scrim', async () => {
+  renderModal()
+  const dialog = await screen.findByRole('dialog', { name: 'Version history' })
+  expect(dialog).toBeInTheDocument()
+  expect(document.querySelector('.bg-black\\/50')).not.toBeNull()
+})
+
+it('closes on Esc', async () => {
+  const onClose = jest.fn()
+  renderModal(jest.fn(), onClose)
+  fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' })
+  expect(onClose).toHaveBeenCalled()
+})
+
+it('renders nothing while closed', () => {
+  render(
+    <DocumentHistoryModal
+      open={false}
+      documentId='d1'
+      currentHtml={null}
+      onClose={jest.fn()}
+      onRestored={jest.fn()}
+    />
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

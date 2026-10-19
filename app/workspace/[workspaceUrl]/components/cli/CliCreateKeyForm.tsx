@@ -1,11 +1,12 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { Loader2, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useApiKeys } from '../../hooks/useApiKeys'
 import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
+import { Spinner } from '@/components/ui/spinner'
 
 export function CliCreateKeyForm() {
   const intl = useIntl()
@@ -37,7 +38,7 @@ export function CliCreateKeyForm() {
           disabled={creating || !label.trim()}
         >
           {creating ? (
-            <Loader2 size={14} className='animate-spin mr-1.5' />
+            <Spinner className='size-3.5 mr-1.5' />
           ) : (
             <Plus size={14} className='mr-1.5' />
           )}

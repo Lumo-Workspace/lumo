@@ -48,6 +48,7 @@ import {
 } from './boundary-format'
 import { systemExplainState } from './boundary-explain'
 import { groupCrossings, type CrossingGroup } from './crossing-groups'
+import { Badge as UiBadge, badgeVariants } from '@/components/ui/badge'
 export { systemExplainState } from './boundary-explain'
 
 /**
@@ -926,7 +927,9 @@ function CrossingRow({
         </div>
       </CollapsibleTrigger>
 
-      <CollapsibleContent>
+      {/* -mx-1/px-1: room for the focus rings of the note/reason inputs,
+          which the content's overflow-hidden would otherwise clip. */}
+      <CollapsibleContent className='-mx-1 px-1'>
         {/* LUM-912: the raw text was replaced after the retention window. */}
         {c.rawPurged && (
           <p
@@ -1030,7 +1033,11 @@ function CrossingRow({
                     )
                   : undefined
               }
-              className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-caption text-warning-text'
+              className={badgeVariants({
+                variant: 'warning',
+                size: 'sm',
+                shape: 'square',
+              })}
             >
               <Repeat className='size-3' aria-hidden />
               {intl.formatMessage(
@@ -1496,9 +1503,14 @@ function CrossingRow({
                 <span className='text-body-strong text-foreground'>
                   {rt.identifier}
                 </span>
-                <span className='rounded-sm border border-border bg-background px-1.5 py-0.5 text-caption text-muted-foreground'>
+                <UiBadge
+                  variant='outline-muted'
+                  size='xs'
+                  shape='square'
+                  className='bg-background'
+                >
                   {rt.status}
-                </span>
+                </UiBadge>
               </div>
               <div className='truncate text-caption text-muted-foreground'>
                 {rt.title}
@@ -1842,17 +1854,9 @@ function Badge({
   tone: 'warning' | 'danger' | 'muted'
   children: React.ReactNode
 }) {
-  const cls =
-    tone === 'warning'
-      ? 'bg-warning-subtle text-warning-text'
-      : tone === 'danger'
-        ? 'bg-danger-subtle text-danger-text'
-        : 'bg-muted text-muted-foreground'
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-caption ${cls}`}
-    >
+    <UiBadge variant={tone} size='sm' shape='square'>
       {children}
-    </span>
+    </UiBadge>
   )
 }
