@@ -165,7 +165,7 @@ function WorkspaceStep({
             type='button'
             disabled={isSubmitting || !isValid}
             onClick={handleSubmit}
-            className='w-full h-12 text-base font-normal'
+            className='w-full text-base font-normal'
           >
             {isSubmitting
               ? intl.formatMessage({ id: 'common.creating' })
@@ -305,7 +305,7 @@ function InviteStep({
           <Button
             disabled={isSending || !allValid}
             onClick={handleSend}
-            className='w-full h-12 text-base font-normal'
+            className='w-full text-base font-normal'
           >
             {isSending
               ? intl.formatMessage({ id: 'common.sending' })
