@@ -1357,6 +1357,7 @@
   "sprints.view.list": "リスト",
   "sprints.view.timeline": "タイムライン",
   "sprints.filter.all": "すべて",
+  "sprints.statusFilter.label": "ステータスでスプリントを絞り込む",
   "sprints.metric.completed": "完了",
   "sprints.metric.remaining": "残り",
   "sprints.metric.timeLeft": "残り時間",

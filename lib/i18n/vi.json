@@ -1357,6 +1357,7 @@
   "sprints.view.list": "Danh sách",
   "sprints.view.timeline": "Dòng thời gian",
   "sprints.filter.all": "Tất cả",
+  "sprints.statusFilter.label": "Lọc sprint theo trạng thái",
   "sprints.metric.completed": "Hoàn thành",
   "sprints.metric.remaining": "Còn lại",
   "sprints.metric.timeLeft": "Thời gian còn lại",

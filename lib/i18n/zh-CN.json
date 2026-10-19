@@ -1359,6 +1359,7 @@
   "sprints.view.list": "列表",
   "sprints.view.timeline": "时间线",
   "sprints.filter.all": "全部",
+  "sprints.statusFilter.label": "按状态筛选冲刺",
   "sprints.metric.completed": "已完成",
   "sprints.metric.remaining": "剩余",
   "sprints.metric.timeLeft": "剩余时间",

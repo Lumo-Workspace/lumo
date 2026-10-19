@@ -1357,6 +1357,7 @@
   "sprints.view.list": "목록",
   "sprints.view.timeline": "타임라인",
   "sprints.filter.all": "전체",
+  "sprints.statusFilter.label": "상태별 스프린트 필터",
   "sprints.metric.completed": "완료",
   "sprints.metric.remaining": "남음",
   "sprints.metric.timeLeft": "남은 시간",

@@ -1357,6 +1357,7 @@
   "sprints.view.list": "Liste",
   "sprints.view.timeline": "Zeitleiste",
   "sprints.filter.all": "Alle",
+  "sprints.statusFilter.label": "Sprints nach Status filtern",
   "sprints.metric.completed": "Abgeschlossen",
   "sprints.metric.remaining": "Verbleibend",
   "sprints.metric.timeLeft": "Restzeit",

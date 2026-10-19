@@ -377,6 +377,9 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
               // Single-select: ignore the '' Radix sends on re-click.
               if (v) setStatusFilter(v as StatusFilter)
             }}
+            aria-label={intl.formatMessage({
+              id: 'sprints.statusFilter.label',
+            })}
           >
             {statusChips.map(c => (
               <ToggleGroupItem key={c.value} value={c.value}>
