@@ -294,13 +294,14 @@ describe('MemberFilterTabs', () => {
         onChange={onChange}
       />
     )
-    const all = screen.getByRole('button', { name: /All/ })
-    expect(all.getAttribute('aria-pressed')).toBe('true')
+    const all = screen.getByRole('tab', { name: /All/ })
+    expect(all.getAttribute('aria-selected')).toBe('true')
     expect(all.textContent).toBe('All4')
-    expect(
-      screen.getByRole('button', { name: /Not connected/ }).textContent
-    ).toBe('Not connected')
-    fireEvent.click(screen.getByRole('button', { name: /Needs update/ }))
+    expect(screen.getByRole('tab', { name: /Not connected/ }).textContent).toBe(
+      'Not connected'
+    )
+    // Radix tabs activate on mousedown (and on keyboard focus), not click.
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Needs update/ }))
     expect(onChange).toHaveBeenCalledWith('needsUpdate')
   })
 })

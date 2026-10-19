@@ -296,14 +296,14 @@ export function MembersPage() {
 
         {/* Active members */}
         <section className='flex flex-col gap-4'>
-          <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
             <MemberFilterTabs
               value={filter}
               counts={filterCounts}
               onChange={setFilter}
             />
             {latestCliVersion && (
-              <p className='pb-2.5 text-caption text-muted-foreground'>
+              <p className='text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'members.latestRelease' },
                   {

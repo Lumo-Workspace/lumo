@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { copyLink } from '@/lib/utils/copyLink'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -89,29 +89,21 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   }
 
   const filterBar = (
-    <div
-      className='flex flex-wrap items-center gap-2'
-      role='group'
-      aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
-    >
-      {TABS.map(t => (
-        <button
-          key={t.key}
-          type='button'
-          aria-pressed={tab === t.key}
-          onClick={() => setTab(t.key)}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-caption transition-colors',
-            tab === t.key
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {intl.formatMessage({ id: t.labelId })}
-          <span className='tabular-nums opacity-70'>{counts[t.key]}</span>
-        </button>
-      ))}
-    </div>
+    <Tabs value={tab} onValueChange={value => setTab(value as Tab)}>
+      <TabsList
+        className='h-auto flex-wrap justify-start'
+        aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
+      >
+        {TABS.map(t => (
+          <TabsTrigger key={t.key} value={t.key} className='gap-1.5'>
+            {intl.formatMessage({ id: t.labelId })}
+            <span className='tabular-nums text-muted-foreground'>
+              {counts[t.key]}
+            </span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 
   return (

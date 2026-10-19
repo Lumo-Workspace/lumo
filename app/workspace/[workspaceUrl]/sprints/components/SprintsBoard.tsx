@@ -10,6 +10,7 @@ import type { Sprint } from '@prisma/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { sprintsClient } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
@@ -39,23 +40,15 @@ function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className='inline-flex gap-0.5 rounded-lg bg-muted p-1'>
-      {options.map(o => (
-        <button
-          key={o.value}
-          type='button'
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'h-7 rounded-md px-3 text-body-strong transition-colors',
-            value === o.value
-              ? 'bg-card text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Tabs value={value} onValueChange={v => onChange(v as T)}>
+      <TabsList className='h-auto flex-wrap justify-start'>
+        {options.map(o => (
+          <TabsTrigger key={o.value} value={o.value}>
+            {o.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }
 
@@ -377,23 +370,11 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
               </button>
             )}
           </div>
-          <div className='flex gap-1.5'>
-            {statusChips.map(c => (
-              <button
-                key={c.value}
-                type='button'
-                onClick={() => setStatusFilter(c.value)}
-                className={cn(
-                  'h-8 rounded-md px-3 text-caption transition-colors',
-                  statusFilter === c.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border bg-card text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={statusChips}
+          />
           <span className='ml-auto font-mono text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'sprints.landing.resultCount' },

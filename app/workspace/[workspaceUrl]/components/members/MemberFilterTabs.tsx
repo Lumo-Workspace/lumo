@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   MEMBER_FILTERS,
   type MemberFilter,
@@ -26,34 +26,22 @@ export function MemberFilterTabs({
 }) {
   const intl = useIntl()
   return (
-    <nav
-      aria-label={intl.formatMessage({ id: 'members.filter.label' })}
-      className='flex flex-wrap gap-1'
-    >
-      {MEMBER_FILTERS.map(f => {
-        const active = f === value
-        return (
-          <button
-            key={f}
-            type='button'
-            aria-pressed={active}
-            onClick={() => onChange(f)}
-            className={cn(
-              '-mb-px h-10 shrink-0 whitespace-nowrap border-b-2 px-3 text-body transition-colors',
-              active
-                ? 'border-foreground text-body-strong text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            )}
-          >
+    <Tabs value={value} onValueChange={v => onChange(v as MemberFilter)}>
+      <TabsList
+        aria-label={intl.formatMessage({ id: 'members.filter.label' })}
+        className='h-auto flex-wrap justify-start'
+      >
+        {MEMBER_FILTERS.map(f => (
+          <TabsTrigger key={f} value={f} className='gap-1.5'>
             {intl.formatMessage({ id: LABEL_ID[f] })}
             {counts[f] !== undefined && (
-              <span className='ml-1.5 font-normal text-muted-foreground'>
+              <span className='tabular-nums text-muted-foreground'>
                 {counts[f]}
               </span>
             )}
-          </button>
-        )
-      })}
-    </nav>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }
