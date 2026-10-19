@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { workspacesClient } from '@/lib/api-client'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -68,12 +69,12 @@ export function DefaultLanguageRow({
   return (
     <div className='flex items-center justify-between gap-4 px-5 py-4'>
       <div className='min-w-0'>
-        <label
+        <Label
           htmlFor='workspace-default-locale'
           className='text-body-strong text-foreground'
         >
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguage' })}
-        </label>
+        </Label>
         <p className='text-caption text-muted-foreground mt-0.5'>
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguageDesc' })}
         </p>

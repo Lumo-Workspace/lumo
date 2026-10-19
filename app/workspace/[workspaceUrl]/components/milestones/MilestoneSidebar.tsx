@@ -3,8 +3,9 @@
 import { useId } from 'react'
 import { useIntl } from 'react-intl'
 import type { MilestoneUpdateInput } from '@/lib/api-client'
-import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { MilestoneState } from '@/lib/summaries/milestone-state'
+import { CalendarDayPicker } from '../fields/CalendarDayPicker'
 
 interface MilestoneSidebarProps {
   /**
@@ -48,36 +49,38 @@ export function MilestoneSidebar({
       </section>
 
       <section>
-        <label
+        <Label
           htmlFor={`${fieldId}-start`}
           className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({ id: 'milestone.field.startDate' })}
-        </label>
-        <Input
+        </Label>
+        <CalendarDayPicker
           id={`${fieldId}-start`}
-          type='date'
-          className='mt-1 h-7 text-caption'
-          value={startDate?.slice(0, 10) ?? ''}
+          className='mt-2 h-8'
+          value={startDate ?? ''}
+          placeholder={intl.formatMessage({ id: 'milestone.hero.notSet' })}
           disabled={archived}
-          onChange={e => onUpdate({ startDate: e.target.value || null })}
+          clearable
+          onChange={v => onUpdate({ startDate: v || null })}
         />
       </section>
 
       <section>
-        <label
+        <Label
           htmlFor={`${fieldId}-target`}
           className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({ id: 'milestone.field.targetDate' })}
-        </label>
-        <Input
+        </Label>
+        <CalendarDayPicker
           id={`${fieldId}-target`}
-          type='date'
-          className='mt-1 h-7 text-caption'
-          value={targetDate?.slice(0, 10) ?? ''}
+          className='mt-2 h-8'
+          value={targetDate ?? ''}
+          placeholder={intl.formatMessage({ id: 'milestone.hero.notSet' })}
           disabled={archived}
-          onChange={e => onUpdate({ targetDate: e.target.value || null })}
+          clearable
+          onChange={v => onUpdate({ targetDate: v || null })}
         />
         {datesMissing ? (
           <p className='mt-1 text-caption text-muted-foreground'>

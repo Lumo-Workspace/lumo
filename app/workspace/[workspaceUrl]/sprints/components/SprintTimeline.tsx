@@ -11,7 +11,7 @@ import {
   viewerDayKey,
 } from '@/lib/services/sprint-date'
 import { useSprint } from '../../hooks/useSprints'
-import { formatDate } from './DatePickerField'
+import { formatDate } from '../../components/fields/DatePickerField'
 import { Badge } from '@/components/ui/badge'
 
 interface Domain {

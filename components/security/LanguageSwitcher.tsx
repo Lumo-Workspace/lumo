@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 
 import {
   PUBLIC_LOCALES,
@@ -28,9 +29,9 @@ export function LanguageSwitcher({ locale, path }: LanguageSwitcherProps) {
 
   return (
     <div className='flex items-center gap-2 text-body text-muted-foreground'>
-      <label htmlFor='security-language'>
+      <Label htmlFor='security-language' className='text-body'>
         {intl.formatMessage({ id: 'security.language' })}
-      </label>
+      </Label>
       <Select
         value={locale}
         onValueChange={v => router.replace(`${path}?lang=${v}`)}

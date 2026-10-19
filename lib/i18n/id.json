@@ -2617,6 +2617,7 @@
   "settings.auditLog.filter.allActors": "Semua orang",
   "settings.auditLog.filter.since": "Dari",
   "settings.auditLog.filter.until": "Sampai",
+  "settings.auditLog.filter.anyDate": "Tanggal apa pun",
   "settings.auditLog.filter.reset": "Atur ulang",
   "settings.auditLog.export": "Ekspor CSV",
   "settings.auditLog.exportHint": "Mengunduh hingga {max} peristiwa terbaru yang cocok dengan filter.",

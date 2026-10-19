@@ -259,10 +259,7 @@ export function MembersPage() {
             </p>
           </div>
           <div className='flex flex-wrap items-center gap-2'>
-            <label className='relative flex items-center'>
-              <span className='sr-only'>
-                {intl.formatMessage({ id: 'members.search.label' })}
-              </span>
+            <div className='relative flex items-center'>
               <Search
                 size={14}
                 aria-hidden
@@ -270,6 +267,7 @@ export function MembersPage() {
               />
               <input
                 type='search'
+                aria-label={intl.formatMessage({ id: 'members.search.label' })}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={intl.formatMessage({
@@ -277,7 +275,7 @@ export function MembersPage() {
                 })}
                 className='h-9 w-60 rounded-md border border-border bg-transparent pl-8 pr-3 text-body text-foreground outline-none focus-visible:border-ring placeholder:text-muted-foreground'
               />
-            </label>
+            </div>
             <Button className='gap-1.5' onClick={() => setInviteOpen(true)}>
               <Plus size={14} />
               {intl.formatMessage({ id: 'common.invite' })}

@@ -10,6 +10,7 @@ const en: Record<string, string> = {
   'milestone.field.targetDate': 'Target date',
   'milestone.dates.start': 'Start',
   'milestone.dates.target': 'Target',
+  'milestone.hero.notSet': 'Not set',
   'milestone.dialog.name.placeholder':
     'Milestone name, e.g. Agent-Native Sprints',
   'milestone.dialog.description.placeholder':
@@ -141,6 +142,17 @@ function renderDialog(props: Partial<{ milestone: ApiMilestone }> = {}) {
   return { onClose }
 }
 
+/** Open the calendar behind `trigger` and click `day` (local midnight — what
+ *  the calendar itself hands back). */
+function pickDay(trigger: HTMLElement, day: Date) {
+  fireEvent.click(trigger)
+  const cell = document.querySelector(
+    `button[data-day="${day.toLocaleDateString()}"]`
+  )
+  if (!cell) throw new Error(`no calendar cell for ${day.toDateString()}`)
+  fireEvent.click(cell)
+}
+
 const nameField = () => screen.getByLabelText('Name')
 const descriptionField = () => screen.getByLabelText('Description')
 
@@ -185,15 +197,16 @@ describe('MilestoneFormDialog', () => {
     expect(mentionSourcesSpy).toHaveBeenCalledWith(MEMBERS)
     expect(editorProps.mentionSources).toEqual({ members: MEMBERS })
 
-    // Both dates are chips, and both may be left empty.
+    // Both dates are chips (the shared calendar picker's trigger), and both
+    // may be left empty.
     const start = screen.getByLabelText('Start date')
     const target = screen.getByLabelText('Target date')
-    expect(start).toHaveAttribute('type', 'date')
-    expect(target).toHaveAttribute('type', 'date')
-    expect(start).toHaveValue('')
-    expect(target).toHaveValue('')
-    expect(start.closest('label')?.className).toContain('rounded-full')
-    expect(target.closest('label')?.className).toContain('rounded-full')
+    expect(start.tagName).toBe('BUTTON')
+    expect(target.tagName).toBe('BUTTON')
+    expect(start).toHaveTextContent('Not set')
+    expect(target).toHaveTextContent('Not set')
+    expect(start.className).toContain('rounded-full')
+    expect(target.className).toContain('rounded-full')
     // Status is not part of this form in either mode — see the edit test.
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
 
@@ -251,20 +264,22 @@ describe('MilestoneFormDialog', () => {
     ).toBeInTheDocument()
     expect(nameField()).toHaveValue('Q3 Launch')
     expect(descriptionField()).toHaveValue('Ship the thing')
-    expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-01')
-    expect(screen.getByLabelText('Target date')).toHaveValue('2026-09-30')
+    expect(screen.getByLabelText('Start date')).toHaveTextContent('Aug 1, 2026')
+    expect(screen.getByLabelText('Target date')).toHaveTextContent(
+      'Sep 30, 2026'
+    )
 
     await userEvent.clear(nameField())
     await userEvent.type(nameField(), 'Q4 Launch')
     await userEvent.clear(descriptionField())
     await userEvent.type(descriptionField(), 'Ship the other thing')
 
-    const start = screen.getByLabelText('Start date') as HTMLInputElement
-    const target = screen.getByLabelText('Target date') as HTMLInputElement
-    await userEvent.clear(start)
-    await userEvent.type(start, '2026-10-01')
-    await userEvent.clear(target)
-    await userEvent.type(target, '2026-12-15')
+    // Each calendar opens on its current value's month.
+    pickDay(screen.getByLabelText('Start date'), new Date(2026, 7, 20))
+    pickDay(screen.getByLabelText('Target date'), new Date(2026, 8, 15))
+    expect(screen.getByLabelText('Start date')).toHaveTextContent(
+      'Aug 20, 2026'
+    )
 
     // LUM-714: state is derived (completedAt / archivedAt), so no surface
     // offers a control for it — least of all this dialog, which must never
@@ -279,8 +294,8 @@ describe('MilestoneFormDialog', () => {
     expect(updateMock).toHaveBeenCalledWith('ms_1', {
       name: 'Q4 Launch',
       description: 'Ship the other thing',
-      startDate: '2026-10-01',
-      targetDate: '2026-12-15',
+      startDate: '2026-08-20',
+      targetDate: '2026-09-15',
     })
     expect(updateMock.mock.calls[0]?.[1]).not.toHaveProperty('status')
     expect(createMock).not.toHaveBeenCalled()

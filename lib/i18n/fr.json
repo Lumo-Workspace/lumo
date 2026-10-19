@@ -2617,6 +2617,7 @@
   "settings.auditLog.filter.allActors": "Tout le monde",
   "settings.auditLog.filter.since": "Du",
   "settings.auditLog.filter.until": "Au",
+  "settings.auditLog.filter.anyDate": "N’importe quelle date",
   "settings.auditLog.filter.reset": "Réinitialiser",
   "settings.auditLog.export": "Exporter en CSV",
   "settings.auditLog.exportHint": "Télécharge jusqu'à {max} des événements les plus récents correspondant aux filtres.",

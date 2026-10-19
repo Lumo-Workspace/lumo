@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { useParams } from 'next/navigation'
 import { FormattedMessage, useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Trash2 } from 'lucide-react'
 import {
   Dialog,
@@ -28,6 +29,7 @@ interface Props {
 export function SentryMappingsDialog({ open, onOpenChange }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
+  const fieldId = useId()
   // Mappings load (and stay cached) only while the dialog is open; projects
   // come from the workspace-level ProjectsProvider cache, so no extra fetch.
   const { mappings, loading, submitting, addMapping, removeMapping } =
@@ -106,17 +108,21 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             {intl.formatMessage({ id: 'sentry.addMapping' })}
           </p>
           <div className='mt-2 flex items-end gap-2'>
-            <label className='flex-1'>
-              <span className='text-caption text-foreground'>
+            <div className='flex-1'>
+              <Label
+                htmlFor={`${fieldId}-slug`}
+                className='text-caption text-foreground'
+              >
                 {intl.formatMessage({ id: 'sentry.sentrySlugLabel' })}
-              </span>
+              </Label>
               <input
+                id={`${fieldId}-slug`}
                 className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-caption font-mono'
                 value={newSlug}
                 onChange={e => setNewSlug(e.target.value)}
                 placeholder='frontend'
               />
-            </label>
+            </div>
             <div className='flex-1'>
               <span className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}

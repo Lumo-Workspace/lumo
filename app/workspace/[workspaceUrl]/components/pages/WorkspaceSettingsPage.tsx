@@ -14,6 +14,7 @@ import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
 import { PluginSlot } from '@/lib/plugins/client'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 
 /** The core columns this page reads; plugin-owned ones pass through (LUM-1062). */
@@ -231,12 +232,16 @@ export function WorkspaceSettingsPage() {
 
           {/* Name row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-border'>
-            <label className='text-body-strong text-foreground shrink-0 w-16'>
+            <Label
+              htmlFor='workspace-settings-name'
+              className='text-body-strong text-foreground shrink-0 w-16'
+            >
               {intl.formatMessage({ id: 'workspaceSettings.name' })}
-            </label>
+            </Label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
               <input
                 type='text'
+                id='workspace-settings-name'
                 value={name}
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
@@ -259,9 +264,12 @@ export function WorkspaceSettingsPage() {
 
           {/* URL row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4'>
-            <label className='text-body-strong text-foreground shrink-0 w-16'>
+            <Label
+              htmlFor='workspace-settings-url'
+              className='text-body-strong text-foreground shrink-0 w-16'
+            >
               {intl.formatMessage({ id: 'workspaceSettings.url' })}
-            </label>
+            </Label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
               <div className='flex items-center h-8 rounded-md border border-border overflow-hidden w-64'>
                 <span className='px-2.5 text-caption text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
@@ -269,6 +277,7 @@ export function WorkspaceSettingsPage() {
                 </span>
                 <input
                   type='text'
+                  id='workspace-settings-url'
                   value={slug}
                   onChange={e =>
                     setSlug(

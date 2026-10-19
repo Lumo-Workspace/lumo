@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { AlertTriangle } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,12 +60,12 @@ export function RetentionRow({
     >
       <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
         <div className='min-w-0 sm:flex-1'>
-          <label
+          <Label
             htmlFor={`retention-${id}`}
             className='text-body-strong text-foreground'
           >
             {label}
-          </label>
+          </Label>
           <p className='text-caption text-muted-foreground mt-0.5'>
             {description}
           </p>

@@ -2617,6 +2617,7 @@
   "settings.auditLog.filter.allActors": "所有人",
   "settings.auditLog.filter.since": "开始日期",
   "settings.auditLog.filter.until": "结束日期",
+  "settings.auditLog.filter.anyDate": "任意日期",
   "settings.auditLog.filter.reset": "重置",
   "settings.auditLog.export": "导出 CSV",
   "settings.auditLog.exportHint": "下载符合筛选条件的最新事件，最多 {max} 条。",

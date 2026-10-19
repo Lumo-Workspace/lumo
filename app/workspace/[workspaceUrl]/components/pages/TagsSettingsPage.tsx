@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Plus, Pencil, Trash2, Tag as TagIcon } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -221,10 +222,14 @@ export function TagsSettingsPage() {
           <div className='space-y-4 py-2'>
             {/* Name */}
             <div>
-              <label className='text-caption text-muted-foreground mb-1.5 block'>
+              <Label
+                htmlFor='tag-form-name'
+                className='text-caption text-muted-foreground mb-1.5 block'
+              >
                 {intl.formatMessage({ id: 'settings.tags.name' })}
-              </label>
+              </Label>
               <Input
+                id='tag-form-name'
                 value={form.name}
                 onChange={e => {
                   setForm(prev => ({ ...prev, name: e.target.value }))
@@ -249,10 +254,17 @@ export function TagsSettingsPage() {
             </div>
             {/* Color */}
             <div>
-              <label className='text-caption text-muted-foreground mb-1.5 block'>
+              <p
+                id='tag-form-color'
+                className='text-caption text-muted-foreground mb-1.5'
+              >
                 {intl.formatMessage({ id: 'settings.tags.color' })}
-              </label>
-              <div className='flex items-center gap-2 flex-wrap'>
+              </p>
+              <div
+                role='group'
+                aria-labelledby='tag-form-color'
+                className='flex items-center gap-2 flex-wrap'
+              >
                 {/* No color (auto) */}
                 <button
                   onClick={() => setForm(prev => ({ ...prev, color: null }))}

@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import {
@@ -286,13 +287,13 @@ function FieldRow({
 
   return (
     <div className='pb-4'>
-      <label
+      <Label
         htmlFor={`memory-field-${field.key}`}
         className='mb-1.5 block text-caption uppercase text-muted-foreground'
       >
         {label}
         {field.required && <span aria-hidden> *</span>}
-      </label>
+      </Label>
       <div className='-mx-2 grid w-[calc(100%+1rem)]'>
         <textarea
           id={`memory-field-${field.key}`}
