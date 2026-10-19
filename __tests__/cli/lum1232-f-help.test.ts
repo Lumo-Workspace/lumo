@@ -22,7 +22,7 @@ const TICKET_RE = /\((?:LUM|SPEC)-\d+\)|\b(?:LUM|SPEC)-\d+:|\bLUM-\d{3,}\b/
 describe('HT-1 — Examples and Exit codes sections', () => {
   it('Examples: one indented invocation per line', () => {
     expect(examplesHelp('task list')).toBe(
-      '\nExamples:\n  lumo task list\n  lumo task list --status in_progress --limit 10\n  lumo task list --cursor 50'
+      '\nExamples:\n  lumo task list --status in_progress --limit 10\n  lumo task list --assignee any --search "oauth redirect"\n  lumo task list --assignee none --priority high --priority urgent --tag bug'
     )
     expect(examplesHelp('no such command')).toBe('')
   })

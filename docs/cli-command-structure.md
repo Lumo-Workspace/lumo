@@ -506,7 +506,6 @@ Spelling stays `--project <ref>` where it is a project name, so most rows need n
 | `task list -p <project>`               | `task list --project <project>` (no short form)                                             | `task list -p` removed → use `--project`                          |
 | `task create --project`                | global `--project`                                                                          | —                                                                 |
 | `task list --project`                  | global `--project`                                                                          | —                                                                 |
-| `task search --project`                | global `--project`                                                                          | —                                                                 |
 | `doc create --project`                 | global `--project`                                                                          | —                                                                 |
 | `doc list --project`                   | global `--project`                                                                          | —                                                                 |
 | `doc update --project`                 | global `--project`                                                                          | —                                                                 |
@@ -596,6 +595,23 @@ As built:
 - Each new command keeps the old command's Codex class, so the generated whitelist changes in names only (pinned by a test).
 - Server text naming a renamed command follows `X-Lumo-Cli-Version`: the figma hint in task context and the stale-dependency hint (`RENAMES_MIN_CLI_VERSION` 1.125.5, env override). Texts with no version (the `--parent` 400, GitHub PR replies) give the new form with the 1.125-and-older form in parentheses.
 
+#### 3k. `task search` folded into `task list`
+
+Per [Q10](#q10-one-task-query). One task query, modelled on `gh issue list`: a repeated flag ORs its values, different flags AND.
+
+| Current                         | Target                                                  | Release note                                                            |
+| ------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `task search [query] [filters]` | `task list --assignee any [--search <query>] [filters]` | `task search` removed → use `task list --assignee any --search`         |
+| `task list` (my tasks only)     | `task list` — still my tasks without `--assignee`       | Added: every `task search` filter, `--search`, `--exact` on `task list` |
+
+As built:
+
+- `task list` takes `--assignee` (me by default; `any`, `none`, an email or a name; repeatable), `--search`/`--exact`, and repeatable `--status`, `--priority` and `--tag`, plus `--milestone`, `--sprint`/`--team`, `--due-after`/`--due-before`, the global `--project`, paging, `--json` and `--fields`. No `-p` short flag: it was `--project` until 3g.
+- With no flags it sends the 1.126.0 request unchanged (`GET /api/tasks/me?limit=50`) and prints the same table. With `--assignee` the table adds ASSIGNEE and DUE columns. `--json` gains `truncated` (a fuzzy `--search` hit the 500-match ranking cap).
+- Server: `GET /api/tasks/me` (paged path) now runs the workspace query: the same WHERE, order and ranking as `/api/tasks/workspace`. It only gained params (`assignee=any`, `assigneeActorIds`, `unassigned`, `priorities`, `tagIds`, `projectIds`, `q`, `match`, `dueAfter`, `dueBefore`); the old ones mean what they meant, and `/api/tasks/workspace` is unchanged for CLI 1.126.0 and the web board. A new CLI that gets no `truncated` back for a new filter fails instead of printing the unfiltered list. No server text named `task search`, so nothing is version-gated.
+- The `task search` tombstone keeps the caller's filters, adds `--assignee any` when none was given (search spanned the workspace), turns the query words into `--search`, `-p` into `--priority`, and drops `--exact` when there was no query.
+- Codex: `task list` keeps its class; the generated whitelist only loses `task search` (pinned by a test).
+
 ### Batch 4 — Codex rules from the grammar
 
 No command changes its name. `cli/src/lib/codex-rules.ts` stops keeping its own lists and is generated from per-command metadata in `grammar.json` (CX-1). Release note: none, as long as the generated `.rules` file is identical for unchanged commands.
@@ -609,7 +625,7 @@ As built:
 
 ### Not affected
 
-Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/list/search/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
+Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
 
 ### Counts
 
@@ -701,3 +717,8 @@ The review draft listed nine open questions. The user decided all of them on 202
 
 - **Decision (2026-10-18):** yes, all of 3j: `rm` → `delete`/`remove`, `edit` → `update`, `comments` → `comment`, `deps` → `dep`, `overview` → `show`, and the summary/changelog aspects. Exceptions stay listed: `worktree rm` (frozen) and `task statuses` (`task status` is taken).
 - **Why:** an agent can predict a name from the rules only if the rules have no silent exceptions; the renamed commands are mostly rarely called (`task comments edit` 3, `task template rm` 1, `task deps rm` 0 in 30 days), so the habit cost is low.
+
+### Q10. One task query
+
+- **Decision (2026-10-19):** `task list` takes every `task search` filter plus `--search <text>` (same ranking and typo tolerance, `--exact` kept); `task search` becomes a tombstone. Without `--assignee` `task list` still lists only my tasks; `--assignee any` lists everyone's, `--assignee none` the unassigned ones.
+- **Why:** two commands for one query made agents pick between "mine" and "all" before filtering; one command with an assignee filter is the `gh issue list` shape agents already know.

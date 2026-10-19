@@ -1,6 +1,6 @@
 import {
   taskRepository,
-  type AssignedTaskFilters,
+  type TaskListFilters,
   type WorkspaceTaskFilters,
 } from '@/lib/repositories/task.repository'
 import { nextPageCursor, type PageRequest } from '@/lib/validation/pagination'
@@ -53,18 +53,24 @@ export const taskQueryService = {
   },
 
   /**
-   * LUM-1093: one page of the caller's assigned tasks (`lumo task list`),
-   * filtered server-side, with the total and the next page's cursor.
+   * LUM-1093 / LUM-1233: one page of `lumo task list`, filtered server-side,
+   * with the total and the next page's cursor. The assignee scope:
+   *   - `assigneeActorIds` / `unassigned` given → exactly those (ORed);
+   *   - else `assignee: 'any'` → every assignee in the workspace;
+   *   - else the caller only (`meActorId`; no actor → an empty page).
    */
-  async findAssignedPage(
+  async findTaskListPage(
     workspaceId: string,
-    actorId: string,
-    filters: AssignedTaskFilters,
+    meActorId: string | null,
+    query: TaskListQuery,
     page: PageRequest
   ) {
-    const { rows, total } = await taskRepository.findAssignedTasksPage(
+    const filters = taskListFilters(meActorId, query)
+    if (!filters) {
+      return { tasks: [], total: 0, nextCursor: null, truncated: false }
+    }
+    const { rows, total, truncated } = await taskRepository.findTaskListPage(
       workspaceId,
-      actorId,
       filters,
       page
     )
@@ -72,6 +78,30 @@ export const taskQueryService = {
       tasks: rows,
       total,
       nextCursor: nextPageCursor(page, rows.length, total),
+      // A fuzzy query ranks at most WORKSPACE_TASK_QUERY_LIMIT matches.
+      truncated,
     }
   },
+}
+
+/** `lumo task list`'s query: the filters plus the assignee scope. */
+export interface TaskListQuery extends TaskListFilters {
+  /** `any` = every assignee; absent / `me` = the caller (the default). */
+  assignee?: 'me' | 'any' | undefined
+}
+
+/**
+ * The repository filters for a task-list query (see findTaskListPage), or
+ * null when it can only be empty: the default "me" scope for a caller who
+ * has no actor.
+ */
+export function taskListFilters(
+  meActorId: string | null,
+  query: TaskListQuery
+): TaskListFilters | null {
+  const { assignee, ...filters } = query
+  if (filters.assigneeActorIds?.length || filters.unassigned) return filters
+  if (assignee === 'any') return filters
+  if (!meActorId) return null
+  return { ...filters, assigneeActorIds: [meActorId] }
 }

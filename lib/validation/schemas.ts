@@ -728,14 +728,16 @@ export const workspaceTaskFiltersSchema = z.object({
 
 /**
  * LUM-1093: server-side filters of GET /api/tasks/me (`lumo task list`).
- * Only read on the paged path (`limit` / `cursor` present).
+ * Only read on the paged path (`limit` / `cursor` present). LUM-1233 added
+ * every workspace-query filter plus `assignee=any`; the original three
+ * (statuses, milestoneIds, projectName) keep their meaning for older CLIs.
  */
-export const myTaskFiltersSchema = z.object({
-  statuses: z
-    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
-    .optional(),
+export const myTaskFiltersSchema = workspaceTaskFiltersSchema.extend({
   milestoneIds: z.array(z.string().min(1)).optional(),
   projectName: z.string().trim().min(1).max(200).optional(),
+  // LUM-1233: no assignee filter → `any` widens to the whole workspace;
+  // `me` (the default) keeps the caller's own tasks.
+  assignee: z.enum(['me', 'any']).optional(),
 })
 
 // ─── Task Dependencies ─────────────────────────────────────────────────────

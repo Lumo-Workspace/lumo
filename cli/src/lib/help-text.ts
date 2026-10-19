@@ -9,13 +9,9 @@
 /** Command path (`task testcase run`) → 1–3 complete invocations. */
 export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   'task list': [
-    'lumo task list',
     'lumo task list --status in_progress --limit 10',
-    'lumo task list --cursor 50',
-  ],
-  'task search': [
-    'lumo task search "oauth redirect"',
-    'lumo task search --status todo --priority high',
+    'lumo task list --assignee any --search "oauth redirect"',
+    'lumo task list --assignee none --priority high --priority urgent --tag bug',
   ],
   'task show': [
     'lumo task show LUM-42',

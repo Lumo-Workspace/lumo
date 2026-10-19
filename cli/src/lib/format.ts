@@ -239,7 +239,7 @@ const TASK_COLUMN_HEADER: Record<TaskTableColumn, string> = {
 }
 
 /**
- * LUM-1089: the one task table `task list`, `task search` and `next` share:
+ * LUM-1089: the one task table `task list` and `status --next` share:
  *   <id>  <STATUS>  <PRIORITY>  [<extra columns>…]  <title>
  * Header on a TTY only; the title is the column cut to the terminal width.
  */

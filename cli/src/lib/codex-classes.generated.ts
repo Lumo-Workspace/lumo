@@ -172,7 +172,6 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'task figma show': { serverOnly: true, localFiles: 'none' },
   'task list': { serverOnly: true, localFiles: 'none' },
   'task pr show': { serverOnly: true, localFiles: 'none' },
-  'task search': { serverOnly: true, localFiles: 'none' },
   'task show': { serverOnly: true, localFiles: 'none' },
   'task slack show': { serverOnly: true, localFiles: 'none' },
   'task status': { serverOnly: true, localFiles: 'none' },

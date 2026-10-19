@@ -34,7 +34,7 @@ import {
   taskRepository,
 } from '@/lib/repositories/task.repository'
 import { GET } from '@/app/api/tasks/workspace/route'
-import { buildSearchQuery } from '@/cli/src/commands/task-search'
+import { buildTaskListPath } from '@/cli/src/commands/task-list'
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -237,20 +237,11 @@ describe('GET /api/tasks/workspace — match param', () => {
   })
 })
 
-describe('CLI task search query', () => {
-  const base = {
-    statuses: [],
-    priorities: [],
-    assigneeActorIds: [],
-    unassigned: false,
-    tagIds: [],
-    projectIds: [],
-    milestoneIds: [],
-    sprintIds: [],
-  }
+describe('CLI task list --search query (was task search, LUM-1233)', () => {
   it('sends match=fuzzy by default and match=exact with --exact; no match param without a query', () => {
     const p = (o: object) =>
-      new URL(`https://x${buildSearchQuery({ ...base, ...o })}`).searchParams
+      new URL(`https://x${buildTaskListPath(o, { limit: 50, offset: 0 })}`)
+        .searchParams
     expect(p({ q: 'oauht' }).get('match')).toBe('fuzzy')
     expect(p({ q: 'oauht', exact: true }).get('match')).toBe('exact')
     expect(p({}).has('match')).toBe(false)

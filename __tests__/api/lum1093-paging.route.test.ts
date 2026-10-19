@@ -31,7 +31,7 @@ const mockWorkspaceAll = jest.fn()
 jest.mock('@/lib/repositories/task.repository', () => ({
   WORKSPACE_TASK_QUERY_LIMIT: 500,
   taskRepository: {
-    findAssignedTasksPage: (...a: unknown[]) => mockAssignedPage(...a),
+    findTaskListPage: (...a: unknown[]) => mockAssignedPage(...a),
     findByWorkspaceWithFiltersPage: (...a: unknown[]) =>
       mockWorkspacePage(...a),
     findByWorkspaceWithFilters: (...a: unknown[]) => mockWorkspaceAll(...a),
@@ -77,12 +77,12 @@ beforeEach(() => {
   mockAssignedPage.mockImplementation(
     async (
       _w: string,
-      _a: string,
       _f: unknown,
       page: { offset: number; limit: number }
     ) => ({
       rows: ALL.slice(page.offset, page.offset + page.limit),
       total: ALL.length,
+      truncated: false,
     })
   )
 })
@@ -108,8 +108,12 @@ describe('GET /api/tasks/me paging', () => {
     const body = await res.json()
     expect(mockAssignedPage).toHaveBeenCalledWith(
       'w1',
-      'act-1',
-      { statuses: ['TODO', 'DONE'], milestoneIds: ['m1'], projectName: 'Lumo' },
+      {
+        statuses: ['TODO', 'DONE'],
+        milestoneIds: ['m1'],
+        projectName: 'Lumo',
+        assigneeActorIds: ['act-1'],
+      },
       { offset: 50, limit: 50 }
     )
     expect(body.tasks).toHaveLength(50)

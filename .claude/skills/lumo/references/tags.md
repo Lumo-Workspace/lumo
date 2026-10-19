@@ -28,5 +28,5 @@ lumo tag create infra --color "#3b82f6"
 
 ### When to suggest
 
-- Before `task search --tag` or `task update --add-tag`, when you are unsure of a tag's exact name — `tag list` avoids a typo minting a stray tag via `--add-tag`.
+- Before `task list --tag` or `task update --add-tag`, when you are unsure of a tag's exact name — `tag list` avoids a typo minting a stray tag via `--add-tag`.
 - "What labels do we have", "create a label for X".

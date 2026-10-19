@@ -2,7 +2,7 @@
 
 ### `lumo member list [--json]` — the workspace member directory (LUM-821)
 
-Lists every workspace member as `name  email  ROLE` (on a TTY aligned by display width under a `NAME  EMAIL  ROLE` header; piped, TAB-separated with no header), then the agent actors. These are exactly the refs `--assignee` accepts on `task create`, `task update` and `task search` (`me`, an email, a member name; `task search` also takes an agent name or `none`).
+Lists every workspace member as `name  email  ROLE` (on a TTY aligned by display width under a `NAME  EMAIL  ROLE` header; piped, TAB-separated with no header), then the agent actors. These are exactly the refs `--assignee` accepts on `task create`, `task update` and `task list` (`me`, an email, a member name; `task list` also takes an agent name, `none` or `any`).
 
 ```bash
 lumo member list
