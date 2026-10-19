@@ -6,7 +6,7 @@
  *   - 陈旧性 fail-closed：PR head 未同步时不得渲染成「新鲜」的样子。
  */
 import '@testing-library/jest-dom'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
 // react-intl is ESM-only under jest here, so the repo convention is to mock it
 // (see SprintDetailClient.layout.test.tsx). This mock resolves against the real
@@ -281,7 +281,10 @@ describe('runner', () => {
     })
     const chip = screen.getByTestId('member-chip')
     expect(chip).toHaveTextContent('Ada Lovelace')
-    expect(chip).toHaveTextContent('AL')
+    // xs member avatar: labelled with the name, one initial (LUM-1269).
+    expect(
+      within(chip).getByRole('img', { name: 'Ada Lovelace' })
+    ).toHaveTextContent('A')
   })
 
   it('falls back to the name label when the runner is not a current member', () => {

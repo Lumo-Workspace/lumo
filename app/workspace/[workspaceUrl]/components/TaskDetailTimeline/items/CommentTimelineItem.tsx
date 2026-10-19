@@ -32,7 +32,7 @@ export function CommentTimelineItem({
       <CommentAvatar
         isAgent={ca.isAgent}
         imageUrl={ca.imageUrl}
-        initials={ca.initials}
+        name={ca.name}
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2 mb-1'>

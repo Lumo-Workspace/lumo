@@ -3,14 +3,13 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Users, Cpu } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type { AgentRunMemberStat, ModelCost } from '../../types'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import {
   foldMembersToCostRows,
   type MemberCostRow,
 } from './fold-members-to-cost'
-import { initialsOf } from '../initials'
 
 interface TokenUsageBreakdownProps {
   totals: { runCount: number; loopCount: number; byModel: ModelCost[] }
@@ -30,13 +29,7 @@ function memberHeader(m: ModelCost) {
   const r = m as MemberCostRow
   return (
     <span className='flex items-center gap-1.5 text-caption font-semibold'>
-      <Avatar className='size-4 shrink-0'>
-        <AvatarImage src={r.imageUrl || undefined} />
-        {/* A 16px chip only fits one caption-size initial. */}
-        <AvatarFallback className='text-caption'>
-          {initialsOf(r.name).slice(0, 1)}
-        </AvatarFallback>
-      </Avatar>
+      <MemberAvatar name={r.name} imageUrl={r.imageUrl} size='xs' />
       {r.name}
     </span>
   )

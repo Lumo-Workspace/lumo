@@ -1,11 +1,9 @@
 'use client'
 
 import type { ComponentProps } from 'react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getInitials } from '@/lib/utils/getInitials'
 import { cn } from '@/lib/utils'
-import type { ApiPriority, WorkspaceMemberInfo } from '../../types'
+import type { ApiPriority } from '../../types'
 
 // ─── Priority config ───────────────────────────────────────────────────────────
 
@@ -107,35 +105,5 @@ export function PriorityDot({
 
 // ─── MemberAvatar ──────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = [
-  'bg-status-in-review-subtle text-status-in-review-text',
-  'bg-info-subtle text-info-text',
-  'bg-success-subtle text-success-text',
-  'bg-warning-subtle text-warning-text',
-  'bg-danger-subtle text-danger-text',
-]
-
-function memberColor(name: string) {
-  const code = name.charCodeAt(0) + (name.charCodeAt(1) ?? 0)
-  return AVATAR_COLORS[code % AVATAR_COLORS.length]
-}
-
-export function MemberAvatar({
-  member,
-}: {
-  member: WorkspaceMemberInfo
-  /** Kept for call-site compatibility: both sizes render at size-5 since
-   *  12px caption initials don't fit a 16px circle (LUM-1244). */
-  size?: 'sm' | 'xs'
-}) {
-  return (
-    <Avatar className='size-5 shrink-0'>
-      <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
-      <AvatarFallback
-        className={`${memberColor(member.name)} text-caption font-semibold`}
-      >
-        {getInitials(member.name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
+/** Re-exported so field pickers keep importing it from here (LUM-1269). */
+export { MemberAvatar } from '@/components/MemberAvatar'

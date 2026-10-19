@@ -1,12 +1,11 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AgentAvatar, MemberAvatar } from '@/components/MemberAvatar'
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { Bot } from 'lucide-react'
 import type { WorkspaceMemberInfo } from '../../types'
 
 interface ActorMentionProps {
@@ -24,13 +23,6 @@ export function ActorMention({
   email,
   role,
 }: ActorMentionProps) {
-  const initials = name
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-
   return (
     <HoverCard openDelay={300} closeDelay={100}>
       <HoverCardTrigger asChild>
@@ -41,16 +33,9 @@ export function ActorMention({
       <HoverCardContent className='w-56 p-3' side='top'>
         <div className='flex gap-2.5'>
           {isAgent ? (
-            <div className='size-8 shrink-0 rounded-full bg-info-subtle flex items-center justify-center'>
-              <Bot className='size-4 text-info-text' />
-            </div>
+            <AgentAvatar name={name} size='lg' />
           ) : (
-            <Avatar className='size-8 shrink-0'>
-              <AvatarImage src={imageUrl} />
-              <AvatarFallback className='text-caption'>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <MemberAvatar name={name} imageUrl={imageUrl} size='lg' />
           )}
           <div className='min-w-0'>
             <span className='block text-body-strong text-foreground truncate'>

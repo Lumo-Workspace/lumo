@@ -154,7 +154,11 @@ function MemberCard({
           }`}
         />
         {member ? (
-          <MemberAvatar member={member} size='sm' />
+          <MemberAvatar
+            name={member.name}
+            imageUrl={member.imageUrl}
+            size='xs'
+          />
         ) : (
           <span className='flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-caption text-muted-foreground'>
             ?

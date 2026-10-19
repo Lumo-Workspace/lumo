@@ -2,7 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { Button } from '@/components/ui/button'
 import { isMac } from '@/lib/utils/keyboard'
 import type { MentionSources } from '@/types/mention'
@@ -14,7 +14,7 @@ interface Props {
   /** The parent comment id we're replying under. */
   parentCommentId: string
   mentionSources?: MentionSources
-  user: { imageUrl?: string; initials?: string } | null | undefined
+  user: { imageUrl?: string; displayName?: string } | null | undefined
   tc: ReturnType<typeof useTaskComments>
 }
 
@@ -33,12 +33,12 @@ export function ReplyInput({
 
   return (
     <div className='ml-9 mt-3 flex gap-2'>
-      <Avatar className='size-5 shrink-0 mt-0.5'>
-        <AvatarImage src={user?.imageUrl} />
-        <AvatarFallback className='text-caption'>
-          {user?.initials ?? '?'}
-        </AvatarFallback>
-      </Avatar>
+      <MemberAvatar
+        name={user?.displayName ?? ''}
+        imageUrl={user?.imageUrl}
+        size='xs'
+        className='mt-0.5'
+      />
       <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
         {tc.replyingToComment && (
           <CommentQuote

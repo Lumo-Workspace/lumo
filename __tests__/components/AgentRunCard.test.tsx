@@ -88,8 +88,9 @@ describe('AgentRunCard — run-header attribution (LUM-308)', () => {
     render(<AgentRunCard run={baseRun()} />)
     expect(screen.getByTestId('run-member')).toBeInTheDocument()
     expect(screen.getByText('Chao Li')).toBeInTheDocument()
-    // Avatar fallback initials.
-    expect(screen.getByText('CL')).toBeInTheDocument()
+    // Shared MemberAvatar: labelled with the name, xs shows one initial.
+    expect(screen.getByRole('img', { name: 'Chao Li' })).toBeInTheDocument()
+    expect(screen.getByText('C')).toBeInTheDocument()
   })
 
   it('omits the member chip for an orphan run with no member', () => {

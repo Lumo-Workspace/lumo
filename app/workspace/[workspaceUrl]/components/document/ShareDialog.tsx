@@ -27,44 +27,7 @@ import type {
   WorkspaceMemberInfo,
 } from '../../types'
 import { documentsClient } from '@/lib/api-client'
-
-// ─── Helper: avatar with image or initials fallback ─────────────────────────
-
-function MemberAvatar({
-  name,
-  imageUrl,
-  size = 32,
-}: {
-  name: string
-  imageUrl: string | null
-  size?: number
-}) {
-  const initials = (name || '?')
-    .split(' ')
-    .map(p => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt={name}
-        className='rounded-full object-cover shrink-0'
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <div
-      className='rounded-full bg-muted flex items-center justify-center text-caption text-muted-foreground shrink-0'
-      style={{ width: size, height: size }}
-    >
-      {initials}
-    </div>
-  )
-}
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -369,7 +332,7 @@ export function ShareDialog({
                     <MemberAvatar
                       name={m.name}
                       imageUrl={m.imageUrl}
-                      size={24}
+                      size='sm'
                     />
                     <div className='flex-1 min-w-0'>
                       <div className='truncate text-body-strong'>{m.name}</div>
@@ -399,7 +362,7 @@ export function ShareDialog({
               <MemberAvatar
                 name={owner.name}
                 imageUrl={owner.imageUrl}
-                size={28}
+                size='md'
               />
               <div className='flex-1 min-w-0'>
                 <div className='text-body truncate'>{owner.name}</div>
@@ -418,7 +381,7 @@ export function ShareDialog({
                 <MemberAvatar
                   name={share.member.name}
                   imageUrl={share.member.imageUrl}
-                  size={28}
+                  size='md'
                 />
                 <div className='flex-1 min-w-0'>
                   <div className='text-body truncate'>{share.member.name}</div>
