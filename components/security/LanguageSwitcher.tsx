@@ -8,6 +8,13 @@ import {
   PUBLIC_LOCALE_NAMES,
   type PublicLocale,
 } from '@/lib/i18n/public-locale'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface LanguageSwitcherProps {
   locale: PublicLocale
@@ -20,19 +27,28 @@ export function LanguageSwitcher({ locale, path }: LanguageSwitcherProps) {
   const router = useRouter()
 
   return (
-    <label className='flex items-center gap-2 text-body text-muted-foreground'>
-      {intl.formatMessage({ id: 'security.language' })}
-      <select
-        className='rounded-md border bg-background px-2 py-1 text-foreground'
+    <div className='flex items-center gap-2 text-body text-muted-foreground'>
+      <label htmlFor='security-language'>
+        {intl.formatMessage({ id: 'security.language' })}
+      </label>
+      <Select
         value={locale}
-        onChange={e => router.replace(`${path}?lang=${e.target.value}`)}
+        onValueChange={v => router.replace(`${path}?lang=${v}`)}
       >
-        {PUBLIC_LOCALES.map(l => (
-          <option key={l} value={l} lang={l}>
-            {PUBLIC_LOCALE_NAMES[l]}
-          </option>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger
+          id='security-language'
+          className='h-8 w-auto gap-2 bg-background text-foreground'
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PUBLIC_LOCALES.map(l => (
+            <SelectItem key={l} value={l} lang={l}>
+              {PUBLIC_LOCALE_NAMES[l]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   )
 }

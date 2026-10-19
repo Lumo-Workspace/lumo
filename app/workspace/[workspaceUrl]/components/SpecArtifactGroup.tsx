@@ -30,6 +30,13 @@ import { useArtifacts, type OptimisticArtifact } from '../hooks/useArtifacts'
 import { RichTextViewer } from './RichTextViewer'
 import { AgentBadge, AgentAvatar } from './AgentBadge'
 import { ContentSignalsBadge } from './ContentSignalsBadge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface Props {
   taskId: string
@@ -278,18 +285,23 @@ function ManualAddForm({
         rows={5}
         className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none font-mono'
       />
-      <select
+      <Select
         value={agent}
-        onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
-        aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
+        onValueChange={v => setAgent(v as TaskArtifactAgent)}
       >
-        {Object.values(TaskArtifactAgent).map(value => (
-          <option key={value} value={value}>
-            {intl.formatMessage({ id: `taskArtifact.agent.${value}` })}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.values(TaskArtifactAgent).map(value => (
+            <SelectItem key={value} value={value}>
+              {intl.formatMessage({ id: `taskArtifact.agent.${value}` })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {error && <p className='text-caption text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button
@@ -367,18 +379,23 @@ function EditForm({
         placeholder={intl.formatMessage({ id: 'taskArtifact.editSource' })}
         className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
       />
-      <select
+      <Select
         value={agent}
-        onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-body bg-transparent border border-border rounded-sm px-2 py-1 outline-none'
-        aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
+        onValueChange={v => setAgent(v as TaskArtifactAgent)}
       >
-        {Object.values(TaskArtifactAgent).map(value => (
-          <option key={value} value={value}>
-            {intl.formatMessage({ id: `taskArtifact.agent.${value}` })}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.values(TaskArtifactAgent).map(value => (
+            <SelectItem key={value} value={value}>
+              {intl.formatMessage({ id: `taskArtifact.agent.${value}` })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {error && <p className='text-caption text-danger-text'>{error}</p>}
       <div className='flex justify-end gap-2'>
         <button

@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type {
   CustomPreMergeCheck,
   PreMergeCheckMode,
@@ -98,22 +105,28 @@ function ModeSelect({
 }: ModeSelectProps) {
   const intl = useIntl()
   return (
-    <select
-      id={id}
+    <Select
       value={value}
       disabled={disabled}
-      aria-label={ariaLabel}
-      onChange={e => onChange(e.target.value as PreMergeCheckMode)}
-      className='h-8 rounded-md border border-border bg-transparent px-2 text-caption text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      onValueChange={v => onChange(v as PreMergeCheckMode)}
     >
-      {MODES.map(m => (
-        <option key={m} value={m}>
-          {intl.formatMessage({
-            id: `workspaceSettings.repoReview.checks.mode.${m}`,
-          })}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger
+        id={id}
+        aria-label={ariaLabel}
+        className='h-8 w-auto gap-2 px-2 text-caption text-foreground'
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {MODES.map(m => (
+          <SelectItem key={m} value={m}>
+            {intl.formatMessage({
+              id: `workspaceSettings.repoReview.checks.mode.${m}`,
+            })}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
