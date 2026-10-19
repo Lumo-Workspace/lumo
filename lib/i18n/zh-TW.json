@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n} 次循環",
   "task.edited": "已編輯",
+  "comment.unknownAuthor": "未知使用者",
   "task.copyCommentLink": "複製連結",
   "task.reply": "回覆",
   "task.comment": "留言",

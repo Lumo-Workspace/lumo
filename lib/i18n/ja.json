@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# ループ}}",
   "task.edited": "編集済み",
+  "comment.unknownAuthor": "不明",
   "task.copyCommentLink": "リンクをコピー",
   "task.reply": "返信",
   "task.comment": "コメント",

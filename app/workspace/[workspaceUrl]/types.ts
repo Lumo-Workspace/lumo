@@ -220,6 +220,9 @@ export interface ApiComment {
   type: 'USER' | 'AGENT'
   createdAt: string
   updatedAt: string
+  /** LUM-1232 G2: member / agent / `@github-login` name from the API; null
+   * when unknown, absent on optimistic (temp-id) comments. */
+  authorName?: string | null
   /** LUM-783: write-time injection scan of the body; null = clean. */
   contentSignals?: unknown
   /** Only present on top-level comments (parentId === null). */

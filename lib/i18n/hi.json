@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# लूप} other {# लूप}}",
   "task.edited": "संपादित किया",
+  "comment.unknownAuthor": "अज्ञात",
   "task.copyCommentLink": "लिंक कॉपी करें",
   "task.reply": "उत्तर दें",
   "task.comment": "टिप्पणी",

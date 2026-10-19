@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# итерация} few {# итерации} other {# итераций}}",
   "task.edited": "отредактировано",
+  "comment.unknownAuthor": "Неизвестно",
   "task.copyCommentLink": "Скопировать ссылку",
   "task.reply": "Ответить",
   "task.comment": "Комментировать",

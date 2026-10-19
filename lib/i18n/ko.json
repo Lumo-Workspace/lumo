@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# 루프}}",
   "task.edited": "편집됨",
+  "comment.unknownAuthor": "알 수 없음",
   "task.copyCommentLink": "링크 복사",
   "task.reply": "답글",
   "task.comment": "댓글",

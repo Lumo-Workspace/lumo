@@ -54,7 +54,12 @@ function Row({
   const [draft, setDraft] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const author = resolveCommentAuthor(c, members, agentActors)
+  const author = resolveCommentAuthor(
+    c,
+    members,
+    agentActors,
+    intl.formatMessage({ id: 'comment.unknownAuthor' })
+  )
   const isDeleted = !!c.deletedAt
   const isAuthor =
     !isDeleted && !!currentActorId && c.authorActorId === currentActorId

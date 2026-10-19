@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# gelung}}",
   "task.edited": "diedit",
+  "comment.unknownAuthor": "Tidak diketahui",
   "task.copyCommentLink": "Salin pautan",
   "task.reply": "Balas",
   "task.comment": "Komen",

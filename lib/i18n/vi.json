@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# vòng lặp}}",
   "task.edited": "đã chỉnh sửa",
+  "comment.unknownAuthor": "Không rõ",
   "task.copyCommentLink": "Sao chép liên kết",
   "task.reply": "Trả lời",
   "task.comment": "Bình luận",

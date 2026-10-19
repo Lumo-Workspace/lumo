@@ -77,6 +77,7 @@ export function TaskDetailComments({
   tc,
 }: TaskDetailCommentsProps) {
   const intl = useIntl()
+  const unknownAuthor = intl.formatMessage({ id: 'comment.unknownAuthor' })
   const { fmtTimestamp } = useFormatDate()
   const mentionSources = useMentionSources(mentionableMembers)
 
@@ -98,7 +99,12 @@ export function TaskDetailComments({
       ) : (
         <div className='space-y-5'>
           {tc.comments.map(comment => {
-            const ca = resolveCommentAuthor(comment, members, agentActors)
+            const ca = resolveCommentAuthor(
+              comment,
+              members,
+              agentActors,
+              unknownAuthor
+            )
             const isAuthor =
               !ca.isAgent && comment.authorActorId === currentActorId
             const isEditing = tc.editingCommentId === comment.id
@@ -277,7 +283,8 @@ export function TaskDetailComments({
                       const ra = resolveCommentAuthor(
                         reply,
                         members,
-                        agentActors
+                        agentActors,
+                        unknownAuthor
                       )
                       const rIsAuthor =
                         !ra.isAgent && reply.authorActorId === currentActorId
@@ -378,10 +385,12 @@ export function TaskDetailComments({
                                       c => c.id === reply.quotedCommentId
                                     )
                                     if (!quoted) return null
-                                    const qAuthor = members.find(
-                                      m => m.actorId === quoted.authorActorId
-                                    )
-                                    const qName = qAuthor?.name ?? 'Unknown'
+                                    const qName = resolveCommentAuthor(
+                                      quoted,
+                                      members,
+                                      agentActors,
+                                      unknownAuthor
+                                    ).name
                                     const qText = previewCommentText(
                                       quoted.body
                                     )
