@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "「{filename}」は対応していない形式です。PNG、JPEG、WebP、GIF、テキスト、JSON を使用してください。",
   "testCases.report.state.skipped": "スキップ",
   "formDialog.collapse": "折りたたむ",
-  "formDialog.expand": "展開"
+  "formDialog.expand": "展開",
+  "task.section.planning": "計画",
+  "task.section.relations": "関連",
+  "task.showProperties": "プロパティを表示"
 }

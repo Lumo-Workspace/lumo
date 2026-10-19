@@ -92,7 +92,7 @@ jest.mock(
   })
 )
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TimelineTabs } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs'
 import { useMemories } from '@/app/workspace/[workspaceUrl]/hooks/useMemories'
 import { useTaskLineage } from '@/app/workspace/[workspaceUrl]/hooks/useTaskLineage'
@@ -149,22 +149,22 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
     setPresence()
     render(<TimelineTabs {...baseProps} />)
 
-    expect(screen.getByRole('button', { name: 'Comments' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Comments' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Context' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Record' })).toBeInTheDocument()
 
     // The merged trio no longer exist as top-level tabs.
-    expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Acceptance' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Delivery' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Memory' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Lineage' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Acceptance' })).toBeNull()
   })
 
   it('opens the dossier panel when the Dossier tab is clicked', () => {
     setPresence()
     render(<TimelineTabs {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Record' }))
     expect(screen.getByTestId('panel-dossier')).toBeInTheDocument()
     expect(mockNav.push).toHaveBeenCalledWith(
       '/workspace/acme/my-tasks/LUM-1/record',
@@ -177,7 +177,7 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
     mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/record'
     mockNav.tab = ['record']
     render(<TimelineTabs {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Comments' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }))
     expect(mockNav.push).toHaveBeenCalledWith(
       '/workspace/acme/my-tasks/LUM-1',
       { scroll: false }
@@ -236,5 +236,57 @@ describe('TimelineTabs legacy deep links resolve into the dossier (LUM-458/567)'
       { scroll: false }
     )
     expect(mockNav.replace).toHaveBeenCalledTimes(1)
+  })
+})
+
+// LUM-1274: the tab bar is the shared Tabs primitive (Radix). Triggers are
+// role=tab, activate on mousedown, support arrow-key roving focus, and the
+// active value stays in sync with the URL segment.
+describe('TimelineTabs on the Tabs primitive (LUM-1274)', () => {
+  it('marks the URL tab as the selected tab', () => {
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/activity'
+    mockNav.tab = ['activity']
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByRole('tab', { name: 'Comments' })).toHaveAttribute(
+      'aria-selected',
+      'false'
+    )
+    expect(screen.getByTestId('panel-activity')).toBeInTheDocument()
+    // Only the active panel is mounted, so inactive tabs never fetch.
+    expect(screen.queryByTestId('panel-comments')).toBeNull()
+  })
+
+  it('moves to the next tab with ArrowRight and pushes its URL', async () => {
+    setPresence()
+    render(<TimelineTabs {...baseProps} />)
+    const comments = screen.getByRole('tab', { name: 'Comments' })
+    comments.focus()
+    fireEvent.keyDown(comments, { key: 'ArrowRight' })
+    // Radix roving focus moves focus on the next tick.
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
+    )
+    expect(mockNav.push).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1/activity',
+      { scroll: false }
+    )
+  })
+
+  it('shows the comment count on the Comments tab only when non-zero', () => {
+    setPresence()
+    const { rerender } = render(
+      <TimelineTabs {...baseProps} commentCount={3} />
+    )
+    expect(screen.getByRole('tab', { name: 'Comments 3' })).toBeInTheDocument()
+    rerender(<TimelineTabs {...baseProps} commentCount={0} />)
+    expect(screen.getByRole('tab', { name: 'Comments' })).toBeInTheDocument()
   })
 })

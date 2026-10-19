@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "„{filename}“ hat keinen unterstützten Typ – verwende PNG, JPEG, WebP, GIF, Text oder JSON.",
   "testCases.report.state.skipped": "Übersprungen",
   "formDialog.collapse": "Einklappen",
-  "formDialog.expand": "Erweitern"
+  "formDialog.expand": "Erweitern",
+  "task.section.planning": "Planung",
+  "task.section.relations": "Beziehungen",
+  "task.showProperties": "Eigenschaften anzeigen"
 }

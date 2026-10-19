@@ -2916,5 +2916,8 @@
   "securityScan.review.roundsNoLimit": "Automatic AI review: {rounds} commits reviewed · never pauses",
   "language.switcher.label": "Language",
   "formDialog.collapse": "Collapse",
-  "formDialog.expand": "Expand"
+  "formDialog.expand": "Expand",
+  "task.section.planning": "Planning",
+  "task.section.relations": "Relations",
+  "task.showProperties": "Show properties"
 }

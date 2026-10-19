@@ -45,6 +45,20 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
 export const FIELD_TRIGGER_CLS =
   'h-7 text-caption border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
 
+/**
+ * LUM-1274: how an inline task-field select draws its trigger. `default` keeps
+ * the caller-styled trigger (`triggerClassName`); `ghost` is the borderless
+ * control-sm row that reads as text until hovered (the task detail panel).
+ */
+export type FieldVariant = 'default' | 'ghost'
+
+/** SelectTrigger variant/size props for a field variant. */
+export function fieldTriggerProps(variant: FieldVariant = 'default') {
+  return variant === 'ghost'
+    ? ({ variant: 'ghost', size: 'sm' } as const)
+    : ({ variant: 'default', size: 'default' } as const)
+}
+
 // ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
 
 /**

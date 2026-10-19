@@ -25,6 +25,9 @@ const buttonVariants = cva(
         sm: 'h-control-sm rounded-md px-control-inset-sm text-caption',
         lg: 'h-control-lg rounded-md px-control-inset-lg',
         icon: 'h-control-md w-control-md',
+        /** Compact square icon button (control-sm) for dense toolbars such as
+         *  a page header's secondary actions (LUM-1274). */
+        'icon-sm': 'h-control-sm w-control-sm',
         /** No box of its own — a text-link action that sits inline in a
          *  sentence or a footer row (pairs with `variant='link'`). */
         inline: 'h-auto p-0',

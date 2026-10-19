@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "“{filename}”的类型不受支持——请用 PNG、JPEG、WebP、GIF、文本或 JSON。",
   "testCases.report.state.skipped": "已跳过",
   "formDialog.collapse": "收起",
-  "formDialog.expand": "展开"
+  "formDialog.expand": "展开",
+  "task.section.planning": "规划",
+  "task.section.relations": "关联",
+  "task.showProperties": "显示属性"
 }
