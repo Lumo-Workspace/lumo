@@ -49,6 +49,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 
 type ProjectSortKey =
   | 'name'
@@ -497,9 +498,9 @@ export function ProjectsPage({
                     </div>
                   </td>
                   <td className='py-4 px-6 border-b border-border text-center'>
-                    <span className='px-2 py-0.5 rounded-full bg-muted text-caption text-muted-foreground'>
+                    <Badge variant='muted' size='sm'>
                       {project._count.tasks}
-                    </span>
+                    </Badge>
                   </td>
                   <StatusCell count={project.todoCount} status='TODO' />
                   <StatusCell

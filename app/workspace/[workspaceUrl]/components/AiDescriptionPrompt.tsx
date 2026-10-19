@@ -3,10 +3,12 @@
 import { useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { CircleAlert } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
 import { RichHtml } from '@/components/RichHtml'
+import { Spinner } from '@/components/ui/spinner'
 
 type PromptState = 'idle' | 'loading' | 'preview'
 
@@ -93,7 +95,7 @@ export function AiDescriptionPrompt({
     return (
       <div className='rounded-lg border-2 border-dashed border-info-border bg-info-subtle px-4 py-3'>
         <div className='flex items-center gap-2.5'>
-          <Loader2 className='size-4 animate-spin text-info-text' />
+          <Spinner className='text-info-text' />
           <span className='text-body text-info-text'>
             {intl.formatMessage({ id: 'aiDesc.generating' })}
           </span>
@@ -142,9 +144,10 @@ export function AiDescriptionPrompt({
 
   // Error display (shown briefly, then back to idle prompt)
   const errorBanner = error ? (
-    <div className='mb-2 rounded-md bg-danger-subtle px-3 py-1.5 text-caption text-danger-text'>
-      {error}
-    </div>
+    <Alert variant='danger' size='sm' className='mb-2'>
+      <CircleAlert />
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
   ) : null
 
   // Refine mode: small button

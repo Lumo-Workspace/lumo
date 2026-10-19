@@ -20,6 +20,7 @@ import { StatusIcon } from '../../StatusIcon'
 import { PRIORITY_CONFIG, PriorityDot } from '../../fields/shared'
 import type { ApiPriority } from '../../../types'
 import { buildActorMention } from '../ActorMention'
+import { Badge } from '@/components/ui/badge'
 
 interface CompactActivityItemProps {
   entry: TimelineActivityEntry
@@ -77,12 +78,15 @@ function InlineTagBadge({ name }: { name: string }) {
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
   const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
   return (
-    <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-caption whitespace-nowrap align-middle'
+    <Badge
+      variant='plain'
+      size='xs'
+      shape='square'
+      className='align-middle'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {name}
-    </span>
+    </Badge>
   )
 }
 

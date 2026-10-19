@@ -140,6 +140,13 @@ Survivors with a recorded reason: `RevisionDiffView` (diff ins/del colours — n
 diff token yet), `TurnCard` memory left border (owned by LUM-1249), and the
 vendored `components/ui/shadcn-io/aurora-background`.
 
+**Callouts and inline notices use `<Alert>`** (`components/ui/alert.tsx`,
+LUM-1268): `variant` = `default` (neutral) / `info` / `success` / `warning` /
+`danger`, `size='sm'` for the compact caption form under fields and inside
+cards. A direct `<svg>` child is the icon (tinted with the `-text` step);
+text stays `text-foreground`. Pass `role='note'` / `'status'` for persistent
+notices — the default `role='alert'` is for errors and fresh warnings.
+
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep
 back; `__tests__/styles/feedback-contrast.test.ts` computes every ratio above

@@ -2,7 +2,16 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { AlertTriangle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export interface RetentionRowOption {
   value: string
@@ -62,19 +71,21 @@ export function RetentionRow({
           {notes}
         </div>
         <div className='flex items-center gap-2 sm:shrink-0'>
-          <select
-            id={`retention-${id}`}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            disabled={saving}
-            className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
-          >
-            {options.map(o => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select value={value} onValueChange={onChange} disabled={saving}>
+            <SelectTrigger
+              id={`retention-${id}`}
+              className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none text-foreground'
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map(o => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size='sm' onClick={onSave} disabled={saving}>
             {saving
               ? intl.formatMessage({ id: 'common.saving' })
@@ -83,13 +94,15 @@ export function RetentionRow({
         </div>
       </div>
       {warning && (
-        <p
-          role='alert'
+        <Alert
+          variant='warning'
+          size='sm'
           data-testid={`retention-warning-${id}`}
-          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-caption text-warning-text'
+          className='mt-2'
         >
-          {warning}
-        </p>
+          <AlertTriangle />
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
       )}
     </div>
   )

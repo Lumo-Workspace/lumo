@@ -4,11 +4,12 @@
 import { useRef, useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { PasswordSettings, useUser } from '@/lib/auth/client'
-import { Loader2, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usersClient } from '@/lib/api-client'
+import { Spinner } from '@/components/ui/spinner'
 import { MemberAvatar } from '@/components/MemberAvatar'
 
 export function ProfilePage() {
@@ -125,7 +126,7 @@ export function ProfilePage() {
               disabled={uploading || !isLoaded}
             >
               {uploading ? (
-                <Loader2 size={14} className='animate-spin mr-1.5' />
+                <Spinner className='size-3.5 mr-1.5' />
               ) : (
                 <Upload size={14} className='mr-1.5' />
               )}
@@ -159,7 +160,7 @@ export function ProfilePage() {
                 disabled={savingName || !isLoaded}
               >
                 {savingName ? (
-                  <Loader2 size={14} className='animate-spin' />
+                  <Spinner className='size-3.5' />
                 ) : (
                   intl.formatMessage({ id: 'common.save' })
                 )}

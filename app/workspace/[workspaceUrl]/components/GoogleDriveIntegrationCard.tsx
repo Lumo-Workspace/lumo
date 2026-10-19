@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -19,6 +18,7 @@ import { GoogleDriveIcon } from './GoogleDriveIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { API } from '../constants'
 import { useGoogleDriveIntegration } from '../hooks/useGoogleDriveIntegration'
+import { Spinner } from '@/components/ui/spinner'
 
 export function GoogleDriveIntegrationCard({
   onConnectedChange,
@@ -43,7 +43,7 @@ export function GoogleDriveIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'googleDrive.connected' })} />
   ) : (
@@ -123,7 +123,7 @@ export function GoogleDriveIntegrationCard({
               disabled={disconnecting}
             >
               {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
               )}

@@ -56,6 +56,7 @@ import {
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
+import { Spinner } from '@/components/ui/spinner'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -433,9 +434,7 @@ export function DocumentEditorPage({
   if (loading && !doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='animate-pulse text-muted-foreground text-body'>
-          Loading...
-        </div>
+        <Spinner className='size-5 text-muted-foreground' />
       </div>
     )
   }

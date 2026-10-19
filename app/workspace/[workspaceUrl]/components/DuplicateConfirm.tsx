@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { slugify } from '@/lib/utils/slugify'
 import { statusLabel } from '../utils/taskStatus'
 
@@ -51,15 +52,15 @@ export function DuplicateConfirm({
   return (
     <div className='space-y-4'>
       {/* Warning banner */}
-      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-warning-border bg-warning-subtle text-body text-warning-text'>
-        <AlertTriangle className='size-4 shrink-0' />
-        <span>
+      <Alert variant='warning'>
+        <AlertTriangle />
+        <AlertDescription>
           {intl.formatMessage(
             { id: 'duplicate.confirmMessage' },
             { count: matches.length }
           )}
-        </span>
-      </div>
+        </AlertDescription>
+      </Alert>
 
       {/* Match list */}
       <div className='space-y-2'>

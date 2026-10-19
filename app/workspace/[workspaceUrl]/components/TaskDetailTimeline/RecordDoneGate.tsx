@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import { Check, X } from 'lucide-react'
+import { Check, CircleCheck, X } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import type { DoneGate } from '@/lib/acceptance/done-gate'
 
 export interface RecordDoneGateProps {
@@ -124,23 +125,22 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
 
   if (gate.headline === 'accepted') {
     return (
-      <section
+      <Alert
+        variant='success'
+        role='status'
         data-testid='record-done-gate'
         data-headline='accepted'
-        className='flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-success-border bg-success-subtle px-5 py-3.5'
       >
-        <span className='inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-background'>
-          <Check className='size-3 text-success-text' aria-hidden />
-        </span>
-        <span className='text-title text-foreground'>
+        <CircleCheck aria-hidden />
+        <AlertTitle>
           {intl.formatMessage({ id: 'record.gap.accepted' })}
-        </span>
-        <span className='min-w-0 grow basis-48 text-body text-foreground'>
+        </AlertTitle>
+        <AlertDescription>
           {[crossingsDetail, securityDetail, testsDetail]
             .filter(d => d !== null)
             .join(' · ')}
-        </span>
-      </section>
+        </AlertDescription>
+      </Alert>
     )
   }
 
