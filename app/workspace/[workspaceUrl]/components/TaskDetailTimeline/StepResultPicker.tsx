@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
@@ -93,11 +94,11 @@ export function StepResultPicker({
                   return (
                     <div key={s} className='flex items-center gap-1'>
                       <RadioGroupItem id={id} value={s} />
-                      <label htmlFor={id}>
+                      <Label htmlFor={id} className='text-body'>
                         {intl.formatMessage({
                           id: `testCases.field.stepResults.${s.toLowerCase()}`,
                         })}
-                      </label>
+                      </Label>
                     </div>
                   )
                 })}

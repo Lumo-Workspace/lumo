@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import type { TestCase } from '@prisma/client'
 import type { CreateTestCaseBody } from '@/lib/validation/test-case'
 import {
@@ -168,9 +169,12 @@ export function TestCaseForm({
 
   return (
     <div className='flex flex-col gap-3 rounded-md border border-border px-3 py-3'>
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.form.title' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-title`}>
+          {intl.formatMessage({ id: 'testCases.form.title' })}
+        </Label>
         <input
+          id={`${fieldId}-title`}
           className={fieldClass}
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -181,17 +185,20 @@ export function TestCaseForm({
             )
           }
         />
-      </label>
+      </div>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.form.setup' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-setup`}>
+          {intl.formatMessage({ id: 'testCases.form.setup' })}
+        </Label>
         <textarea
+          id={`${fieldId}-setup`}
           className={fieldClass}
           rows={2}
           value={setup}
           onChange={e => setSetup(e.target.value)}
         />
-      </label>
+      </div>
 
       <StepList
         label={intl.formatMessage({ id: 'testCases.form.steps' })}
@@ -207,20 +214,23 @@ export function TestCaseForm({
         addLabel={intl.formatMessage({ id: 'testCases.form.addStep' })}
       />
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.form.expected' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-expected`}>
+          {intl.formatMessage({ id: 'testCases.form.expected' })}
+        </Label>
         <textarea
+          id={`${fieldId}-expected`}
           className={fieldClass}
           rows={2}
           value={expected}
           onChange={e => setExpected(e.target.value)}
         />
-      </label>
+      </div>
 
-      <div className='flex flex-col gap-1 text-body text-muted-foreground'>
-        <label htmlFor={`${fieldId}-requires-env`}>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-requires-env`}>
           {intl.formatMessage({ id: 'testCases.form.requiresEnv' })}
-        </label>
+        </Label>
         <Select
           value={requiredEnvironment || ANY_ENV}
           onValueChange={v =>

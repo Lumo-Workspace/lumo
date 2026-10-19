@@ -35,6 +35,11 @@ import { useRemoveMember } from '../../hooks/useRemoveMember'
 import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -64,7 +69,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -259,10 +264,7 @@ export function MembersPage() {
             </p>
           </div>
           <div className='flex flex-wrap items-center gap-2'>
-            <label className='relative flex items-center'>
-              <span className='sr-only'>
-                {intl.formatMessage({ id: 'members.search.label' })}
-              </span>
+            <div className='relative flex items-center'>
               <Search
                 size={14}
                 aria-hidden
@@ -270,6 +272,7 @@ export function MembersPage() {
               />
               <input
                 type='search'
+                aria-label={intl.formatMessage({ id: 'members.search.label' })}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={intl.formatMessage({
@@ -277,7 +280,7 @@ export function MembersPage() {
                 })}
                 className='h-9 w-60 rounded-md border border-border bg-transparent pl-8 pr-3 text-body text-foreground outline-none focus-visible:border-ring placeholder:text-muted-foreground'
               />
-            </label>
+            </div>
             <Button className='gap-1.5' onClick={() => setInviteOpen(true)}>
               <Plus size={14} />
               {intl.formatMessage({ id: 'common.invite' })}
@@ -296,14 +299,14 @@ export function MembersPage() {
 
         {/* Active members */}
         <section className='flex flex-col gap-4'>
-          <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
             <MemberFilterTabs
               value={filter}
               counts={filterCounts}
               onChange={setFilter}
             />
             {latestCliVersion && (
-              <p className='pb-2.5 text-caption text-muted-foreground'>
+              <p className='text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'members.latestRelease' },
                   {
@@ -357,8 +360,10 @@ export function MembersPage() {
                   const expanded = expandedId === m.id
                   const memberConnections = connections[m.id]
                   return (
-                    <div
+                    <Collapsible
                       key={m.id}
+                      open={expanded && !connectionsUnknown}
+                      onOpenChange={open => setExpandedId(open ? m.id : null)}
                       className='border-b border-border/50 last:border-0'
                     >
                       <div
@@ -366,21 +371,12 @@ export function MembersPage() {
                       >
                         {/* Member — avatar, name, email */}
                         <div className='flex items-center gap-3 min-w-0'>
-                          {m.imageUrl ? (
-                            <img
-                              src={m.imageUrl}
-                              alt=''
-                              className='size-9 rounded-full object-cover shrink-0'
-                              referrerPolicy='no-referrer'
-                            />
-                          ) : (
-                            <div
-                              aria-hidden
-                              className='size-9 rounded-full bg-muted border border-border flex items-center justify-center text-caption font-semibold text-foreground shrink-0 uppercase'
-                            >
-                              {getInitials(m.name)}
-                            </div>
-                          )}
+                          <MemberAvatar
+                            decorative
+                            name={m.name}
+                            imageUrl={m.imageUrl}
+                            size='xl'
+                          />
                           <div className='flex min-w-0 flex-col'>
                             <div className='flex items-center gap-2 min-w-0'>
                               <span className='text-body-strong text-foreground truncate'>
@@ -504,45 +500,39 @@ export function MembersPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : null}
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            aria-expanded={expanded}
-                            aria-label={intl.formatMessage(
-                              {
-                                id: expanded
-                                  ? 'members.details.hide'
-                                  : 'members.details.show',
-                              },
-                              { name: m.name }
-                            )}
-                            className='text-muted-foreground hover:text-foreground shrink-0'
-                            disabled={connectionsUnknown}
-                            onClick={() =>
-                              setExpandedId(expanded ? null : m.id)
-                            }
-                          >
-                            <ChevronDown
-                              size={16}
-                              className={
-                                expanded
-                                  ? 'rotate-180 transition-transform'
-                                  : 'transition-transform'
-                              }
-                            />
-                          </Button>
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant='ghost'
+                              size='icon'
+                              aria-label={intl.formatMessage(
+                                {
+                                  id: expanded
+                                    ? 'members.details.hide'
+                                    : 'members.details.show',
+                                },
+                                { name: m.name }
+                              )}
+                              className='text-muted-foreground hover:text-foreground shrink-0'
+                              disabled={connectionsUnknown}
+                            >
+                              <ChevronDown
+                                size={16}
+                                className='transition-transform group-data-[state=open]/collapsible:rotate-180'
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
                         </div>
                       </div>
 
-                      {expanded && !connectionsUnknown && (
+                      <CollapsibleContent>
                         <div className='pl-16 pr-4 pb-5'>
                           <MemberConnectionDetails
                             connections={memberConnections}
                             now={now}
                           />
                         </div>
-                      )}
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   )
                 })
               )}

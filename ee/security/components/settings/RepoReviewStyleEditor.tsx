@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -132,12 +133,12 @@ export function RepoReviewStyleEditor({
       <p className='text-caption text-muted-foreground'>{t('precedence')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-profile`}
             className='text-caption text-foreground'
           >
             {t('profile')}
-          </label>
+          </Label>
           <Select
             value={draft.reviewProfile}
             disabled={disabled}
@@ -161,12 +162,12 @@ export function RepoReviewStyleEditor({
           </p>
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-tone`}
             className='text-caption text-foreground'
           >
             {t('tone')}
-          </label>
+          </Label>
           <Input
             id={`${idBase}-tone`}
             value={draft.toneInstructions}
@@ -180,12 +181,12 @@ export function RepoReviewStyleEditor({
           <p className='text-caption text-muted-foreground'>{t('toneHint')}</p>
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-summary`}
             className='text-caption text-foreground'
           >
             {t('summary')}
-          </label>
+          </Label>
           <Select
             value={draft.highLevelSummary}
             disabled={disabled}
@@ -212,7 +213,7 @@ export function RepoReviewStyleEditor({
           </p>
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-diagrams`}
             className='flex items-center gap-2 self-start text-caption text-foreground'
           >
@@ -225,7 +226,7 @@ export function RepoReviewStyleEditor({
               }
             />
             {t('sequenceDiagrams')}
-          </label>
+          </Label>
           <p className='text-caption text-muted-foreground'>
             {t('sequenceDiagramsHint')}
           </p>

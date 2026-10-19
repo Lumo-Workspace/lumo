@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -91,12 +92,12 @@ export function RepoReviewFiltersEditor({
 
   const field = (name: ListField, hint?: string) => (
     <div className='flex flex-col gap-1'>
-      <label
+      <Label
         htmlFor={`${idBase}-${name}`}
         className='text-caption text-foreground'
       >
         {t(name)}
-      </label>
+      </Label>
       <Textarea
         id={`${idBase}-${name}`}
         value={draft[name]}
@@ -126,12 +127,12 @@ export function RepoReviewFiltersEditor({
         {field('ignoreUsernames')}
         {field('pathFilters', t('pathFiltersHint'))}
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-descriptionKeyword`}
             className='text-caption text-foreground'
           >
             {t('descriptionKeyword')}
-          </label>
+          </Label>
           <Input
             id={`${idBase}-descriptionKeyword`}
             value={draft.descriptionKeyword}

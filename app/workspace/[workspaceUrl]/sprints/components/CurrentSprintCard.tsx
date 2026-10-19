@@ -11,7 +11,7 @@ import {
   useSprintTasks,
 } from '../../hooks/useSprints'
 import { SprintActionsMenu } from './SprintActionsMenu'
-import { formatDate } from './DatePickerField'
+import { formatDate } from '../../components/fields/DatePickerField'
 import { daysFromNow, timeElapsedPct } from './sprintLandingUtils'
 import { fromSample } from '@/lib/baseline/adapters'
 import { BaselineStatView } from '@/components/BaselineStat'

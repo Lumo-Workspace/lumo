@@ -7,7 +7,6 @@ import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { formatDueDate, isOverdue } from '../../utils'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../fields'
-import { getInitials } from '@/lib/utils/getInitials'
 import { UserCircle2 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -15,7 +14,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -166,7 +164,11 @@ export function ProjectTaskCard({
                 className='cursor-default'
                 onClick={e => e.stopPropagation()}
               >
-                <MemberAvatar member={assignee} size='xs' />
+                <MemberAvatar
+                  name={assignee.name}
+                  imageUrl={assignee.imageUrl}
+                  size='xs'
+                />
               </span>
             </HoverCardTrigger>
             <HoverCardContent
@@ -175,15 +177,12 @@ export function ProjectTaskCard({
               className='w-auto p-3'
             >
               <div className='flex items-center gap-3'>
-                <Avatar className='size-8 shrink-0'>
-                  <AvatarImage
-                    src={assignee.imageUrl ?? undefined}
-                    alt={assignee.name}
-                  />
-                  <AvatarFallback className='text-caption font-semibold'>
-                    {getInitials(assignee.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <MemberAvatar
+                  decorative
+                  name={assignee.name}
+                  imageUrl={assignee.imageUrl}
+                  size='lg'
+                />
                 <div className='flex flex-col min-w-0'>
                   <span className='text-caption font-semibold'>
                     {assignee.name}

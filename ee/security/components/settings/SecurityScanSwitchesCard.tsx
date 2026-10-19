@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { AlertTriangle } from 'lucide-react'
 import { securityScanClient } from '@/ee/security/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
@@ -63,9 +64,9 @@ function SwitchRow({
   return (
     <div className='flex items-start justify-between gap-4 px-5 py-4 border-b border-border'>
       <div>
-        <label htmlFor={id} className='text-body-strong text-foreground'>
+        <Label htmlFor={id} className='text-body-strong text-foreground'>
           {label}
-        </label>
+        </Label>
         <p className='text-caption text-muted-foreground mt-0.5'>
           {description}
         </p>
@@ -107,12 +108,12 @@ function ScopeRow({
   return (
     <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
       <div className='min-w-0 sm:flex-1'>
-        <label
+        <Label
           htmlFor='security-learnings-scope'
           className='text-body-strong text-foreground'
         >
           {label}
-        </label>
+        </Label>
         <p className='text-caption text-muted-foreground mt-0.5'>
           {description}
         </p>
@@ -184,12 +185,12 @@ function PauseAfterRow({
   return (
     <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
       <div className='min-w-0 sm:flex-1'>
-        <label
+        <Label
           htmlFor='security-review-auto-pause-after'
           className='text-body-strong text-foreground'
         >
           {label}
-        </label>
+        </Label>
         <p className='text-caption text-muted-foreground mt-0.5'>
           {description}
         </p>

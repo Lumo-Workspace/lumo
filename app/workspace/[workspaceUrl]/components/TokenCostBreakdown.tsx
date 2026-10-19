@@ -3,6 +3,11 @@
 import { useState, type ReactNode } from 'react'
 import { useIntl, type IntlShape } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { ModelCost } from '../types'
 import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
@@ -123,20 +128,17 @@ function ModelGroup({
   )
 
   const headerRow = collapsibleDetails ? (
-    <button
-      type='button'
-      onClick={() => setDetailsOpen(v => !v)}
-      aria-expanded={detailsOpen}
+    <CollapsibleTrigger
       data-testid='model-detail-toggle'
       className='flex w-full items-center gap-2 rounded-md -mx-1 px-1 py-0.5 hover:bg-muted/60'
     >
       <ChevronRight
-        className={`size-3 shrink-0 text-muted-foreground transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
+        className='size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90'
         aria-hidden
       />
       {nameNode}
       {totalNode}
-    </button>
+    </CollapsibleTrigger>
   ) : (
     <div className='flex items-center gap-2'>
       {nameNode}
@@ -207,7 +209,11 @@ function ModelGroup({
   )
 
   return (
-    <div className='mt-3 first:mt-0'>
+    <Collapsible
+      open={!collapsibleDetails || detailsOpen}
+      onOpenChange={setDetailsOpen}
+      className='mt-3 first:mt-0'
+    >
       {headerRow}
       {collapsibleDetails && !detailsOpen ? (
         <Tooltip>
@@ -251,8 +257,8 @@ function ModelGroup({
           )}
         </div>
       )}
-      {(!collapsibleDetails || detailsOpen) && detailRows}
-    </div>
+      <CollapsibleContent>{detailRows}</CollapsibleContent>
+    </Collapsible>
   )
 }
 

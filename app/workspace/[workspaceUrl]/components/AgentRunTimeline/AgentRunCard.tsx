@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { deriveRunDigest } from './derive-run-digest'
@@ -12,7 +12,6 @@ import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
 import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
-import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
 import { runOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { RunRawRecordDelete } from './RunRawRecordDelete'
@@ -75,12 +74,12 @@ export function AgentRunCard({
             className='flex items-center gap-1.5 shrink-0'
             data-testid='run-member'
           >
-            <Avatar className='size-5'>
-              <AvatarImage src={run.member.imageUrl || undefined} />
-              <AvatarFallback className='text-caption'>
-                {initialsOf(run.member.name)}
-              </AvatarFallback>
-            </Avatar>
+            <MemberAvatar
+              decorative
+              name={run.member.name}
+              imageUrl={run.member.imageUrl}
+              size='xs'
+            />
             <span className='text-caption'>{run.member.name}</span>
           </span>
         )}

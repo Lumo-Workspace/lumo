@@ -20,6 +20,7 @@ import {
   type StepFiles,
 } from '@/lib/test-cases/step-evidence'
 import { EVIDENCE_ALLOWED_TYPES } from '@/lib/validation/test-case'
+import { Label } from '@/components/ui/label'
 import { StepResultPicker } from './StepResultPicker'
 import { StepEvidenceInput } from './StepEvidenceInput'
 import {
@@ -294,10 +295,10 @@ export function RecordRunDialog({
         {intl.formatMessage({ id: 'testCases.dialog.title' })}
       </p>
 
-      <div className='flex flex-col gap-1 text-body text-muted-foreground'>
-        <label htmlFor={`${fieldId}-result`}>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-result`}>
           {intl.formatMessage({ id: 'testCases.field.result' })}
-        </label>
+        </Label>
         <Select
           value={result}
           onValueChange={v => changeResult(v as (typeof RESULTS)[number])}
@@ -315,10 +316,10 @@ export function RecordRunDialog({
         </Select>
       </div>
 
-      <div className='flex flex-col gap-1 text-body text-muted-foreground'>
-        <label htmlFor={`${fieldId}-environment`}>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-environment`}>
           {intl.formatMessage({ id: 'testCases.field.environment' })}
-        </label>
+        </Label>
         {/* LUM-801: no default — '' shows the placeholder until someone picks. */}
         <Select
           value={environment}
@@ -347,10 +348,10 @@ export function RecordRunDialog({
       </div>
 
       {showPullRequests ? (
-        <div className='flex flex-col gap-1 text-body text-muted-foreground'>
-          <label htmlFor={`${fieldId}-pr`}>
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-pr`}>
             {intl.formatMessage({ id: 'testCases.field.pullRequest' })}
-          </label>
+          </Label>
           <Select
             value={prNumber || NO_PR}
             onValueChange={v => setPrNumber(v === NO_PR ? '' : v)}
@@ -396,10 +397,10 @@ export function RecordRunDialog({
       ) : null}
 
       {result === 'FAIL' ? (
-        <div className='flex flex-col gap-1 text-body text-muted-foreground'>
-          <label htmlFor={`${fieldId}-cause`}>
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-cause`}>
             {intl.formatMessage({ id: 'testCases.field.cause' })}
-          </label>
+          </Label>
           <Select
             value={cause}
             onValueChange={v => setCause(v as (typeof CAUSES)[number])}
@@ -423,9 +424,12 @@ export function RecordRunDialog({
       ) : null}
 
       {result === 'FAIL' ? (
-        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.actual' })}
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-actual`}>
+            {intl.formatMessage({ id: 'testCases.field.actual' })}
+          </Label>
           <textarea
+            id={`${fieldId}-actual`}
             className={fieldClass}
             value={actual}
             onChange={e => setActual(e.target.value)}
@@ -434,23 +438,30 @@ export function RecordRunDialog({
             })}
             rows={2}
           />
-        </label>
+        </div>
       ) : null}
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.note' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-note`}>
+          {intl.formatMessage({ id: 'testCases.field.note' })}
+        </Label>
         <textarea
+          id={`${fieldId}-note`}
           className={fieldClass}
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
         />
-      </label>
+      </div>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-evidence`}>
+          {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
+        </Label>
         <input
+          id={`${fieldId}-evidence`}
           type='file'
+          className='text-body text-muted-foreground'
           multiple
           accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
@@ -459,7 +470,7 @@ export function RecordRunDialog({
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}{' '}
           {intl.formatMessage({ id: 'testCases.field.stepEvidence.hint' })}
         </span>
-      </label>
+      </div>
 
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 

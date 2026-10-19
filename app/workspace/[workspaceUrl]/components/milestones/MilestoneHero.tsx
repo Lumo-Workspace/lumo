@@ -1,12 +1,12 @@
 'use client'
 
-import { useRef } from 'react'
 import { useIntl } from 'react-intl'
 import type { TaskStatus } from '@prisma/client'
 import type { MilestoneUpdateInput } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 import { useFormatDate } from '../../hooks/useFormatDate'
 import { DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
+import { CalendarDayPopover } from '../fields/CalendarDayPicker'
 
 /** Ring geometry shared by the SVG and the dasharray math. */
 const RING_R = 62
@@ -48,7 +48,6 @@ export function MilestoneHero({
 }: MilestoneHeroProps) {
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const done = taskCounts?.DONE ?? 0
   const total = taskCounts
@@ -216,40 +215,19 @@ export function MilestoneHero({
               {intl.formatMessage({ id: 'milestone.hero.notSet' })}
             </span>
           ) : (
-            <span className='relative'>
+            <CalendarDayPopover
+              value=''
+              onChange={v => {
+                if (v) onUpdate({ targetDate: v })
+              }}
+            >
               <button
                 type='button'
                 className='text-body-strong text-[var(--chart-1)] hover:underline'
-                onClick={() => {
-                  const input = dateInputRef.current
-                  if (!input) return
-                  // Chrome ≥99: open the native calendar directly. Older
-                  // engines fall back to focusing the (invisible) input,
-                  // which at least enables keyboard entry.
-                  try {
-                    input.showPicker()
-                  } catch {
-                    input.focus()
-                  }
-                }}
               >
                 {intl.formatMessage({ id: 'milestone.hero.setDate' })}
               </button>
-              {/* pointer-events-none: the CTA button must receive the click
-                  (a bare date input opens no picker on click) — the input
-                  exists only as the showPicker/keyboard anchor. */}
-              <input
-                ref={dateInputRef}
-                type='date'
-                aria-label={intl.formatMessage({
-                  id: 'milestone.field.targetDate',
-                })}
-                className='pointer-events-none absolute inset-0 h-full w-full opacity-0'
-                onChange={e => {
-                  if (e.target.value) onUpdate({ targetDate: e.target.value })
-                }}
-              />
-            </span>
+            </CalendarDayPopover>
           )
         )}
       </div>

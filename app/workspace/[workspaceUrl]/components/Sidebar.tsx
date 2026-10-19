@@ -24,6 +24,7 @@ import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
 import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import {
   Sidebar,
   SidebarContent,
@@ -93,7 +94,6 @@ export function AppSidebar({
   const workspaceName = workspace?.name ?? ''
   const workspaceLogoUrl = workspace?.logoUrl ?? null
 
-  const initials = user?.initials ?? '?'
   const displayName = user?.displayName ?? ''
 
   return (
@@ -116,17 +116,13 @@ export function AppSidebar({
                       alt={workspaceName}
                       className='size-8 rounded-sm object-contain shrink-0'
                     />
-                  ) : user?.imageUrl ? (
-                    <img
-                      src={user.imageUrl}
-                      className='size-8 rounded-full object-cover shrink-0'
-                      alt='avatar'
-                      referrerPolicy='no-referrer'
-                    />
                   ) : (
-                    <div className='size-8 rounded-full bg-sidebar-accent flex items-center justify-center text-caption font-semibold shrink-0'>
-                      {initials}
-                    </div>
+                    <MemberAvatar
+                      decorative
+                      name={displayName}
+                      imageUrl={user?.imageUrl}
+                      size='lg'
+                    />
                   )}
                   <div className='flex-1 min-w-0 text-left leading-tight'>
                     <p className='text-body-strong truncate'>
