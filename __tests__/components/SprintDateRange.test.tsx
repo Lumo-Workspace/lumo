@@ -20,7 +20,7 @@ jest.mock('@/lib/api-client', () => ({
 }))
 // A picker stub whose button, when clicked, fires onChange with a fixed date.
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/sprints/components/DatePickerField',
+  '@/app/workspace/[workspaceUrl]/components/fields/DatePickerField',
   () => ({
     startOfDay: (d: Date) => d,
     DatePickerField: ({

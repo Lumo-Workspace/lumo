@@ -15,7 +15,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 // Agent widgets hidden — agent features disabled for now
 import type { NotificationItemProps } from './types'
 
@@ -29,10 +29,7 @@ export function CommentPreview({ body }: { body: string }) {
       {parts.map((part, i) => {
         if (part.startsWith('@[') && part.endsWith(']')) {
           return (
-            <mark
-              key={i}
-              className='bg-transparent text-blue-500 dark:text-blue-400 font-medium not-italic'
-            >
+            <mark key={i} className='bg-transparent text-info-text not-italic'>
               {`@${part.slice(2, -1)}`}
             </mark>
           )
@@ -199,8 +196,7 @@ export function NotificationItem({
             'relative cursor-pointer rounded-md hover:bg-accent/50',
             isSelected && 'bg-accent',
             read && !pendingAction && 'opacity-60',
-            pendingAction &&
-              'border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20'
+            pendingAction && 'border border-info-border bg-info-subtle'
           )}
           onClick={e => {
             e.stopPropagation()
@@ -210,23 +206,28 @@ export function NotificationItem({
         >
           {/* Unread dot */}
           {!read && (
-            <div className='absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-blue-500' />
+            <div className='absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-info' />
           )}
 
           <ItemMedia className='self-start'>
-            <Avatar className='size-9'>
-              <AvatarImage
-                src={actor?.imageUrl ?? (!actor ? '/logo-dark.svg' : undefined)}
+            {actor ? (
+              <MemberAvatar
+                decorative
+                name={actor.name}
+                imageUrl={actor.imageUrl}
+                size='xl'
               />
-              <AvatarFallback className='text-[10px]'>
-                {actor ? getInitials(actor.name) : 'LA'}
-              </AvatarFallback>
-            </Avatar>
+            ) : (
+              <Avatar className='size-9'>
+                <AvatarImage src='/logo-dark.svg' />
+                <AvatarFallback className='text-caption'>LA</AvatarFallback>
+              </Avatar>
+            )}
           </ItemMedia>
 
           <ItemContent>
-            <p className='text-xs leading-snug text-foreground'>
-              <span className='font-semibold'>
+            <p className='text-caption text-foreground'>
+              <span className='text-caption font-semibold'>
                 {actor?.name ??
                   intlLocal.formatMessage({
                     id: 'notification.defaultActor',
@@ -235,7 +236,7 @@ export function NotificationItem({
               </span>{' '}
               {verb}{' '}
               {type === 'SPRINT_STARTED' || type === 'SPRINT_CLOSED' ? (
-                <span className='font-medium'>
+                <span>
                   {sprint?.name ??
                     intlLocal.formatMessage({
                       id: 'notification.unspecifiedSprint',
@@ -243,31 +244,22 @@ export function NotificationItem({
                     })}
                 </span>
               ) : type === 'PROJECT_MENTIONED' && project ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {project.name}
                 </a>
               ) : type === 'MILESTONE_MENTIONED' && milestone ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {milestone.name}
                 </a>
               ) : (type === 'DOCUMENT_MENTIONED' ||
                   type === 'DOCUMENT_COMMENT_MENTIONED') &&
                 document ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {document.title}
                 </a>
               ) : (
                 <>
-                  <span className='font-medium'>
+                  <span>
                     {task
                       ? `${task.teamIdentifier}-${task.number}`
                       : intlLocal.formatMessage({
@@ -283,12 +275,12 @@ export function NotificationItem({
             </p>
 
             {commentPreview && type === 'TASK_MENTIONED' && (
-              <p className='text-xs text-muted-foreground line-clamp-2'>
+              <p className='text-caption text-muted-foreground line-clamp-2'>
                 <CommentPreview body={commentPreview} />
               </p>
             )}
 
-            <p className='text-[10px] text-muted-foreground'>{timeAgo}</p>
+            <p className='text-caption text-muted-foreground'>{timeAgo}</p>
 
             {/* Agent notification widgets hidden — agent features disabled for now */}
 
@@ -301,7 +293,7 @@ export function NotificationItem({
                 <Button
                   size='sm'
                   className={cn(
-                    'h-6 text-[11px] px-2',
+                    'h-6 text-caption px-2',
                     taskActionTaken === 'IN_PROGRESS' && 'opacity-40'
                   )}
                   onClick={() => {
@@ -320,7 +312,7 @@ export function NotificationItem({
                   size='sm'
                   variant='outline'
                   className={cn(
-                    'h-6 text-[11px] px-2',
+                    'h-6 text-caption px-2',
                     taskActionTaken === 'DONE' && 'opacity-40'
                   )}
                   onClick={() => {

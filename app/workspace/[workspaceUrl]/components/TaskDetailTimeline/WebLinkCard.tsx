@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2, Link } from 'lucide-react'
 import type { OptimisticWebLink } from '../../hooks/useWebLinks'
 import { useNow } from '@/hooks/use-now'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { ContentSignalsBadge } from '../ContentSignalsBadge'
 
@@ -25,6 +26,7 @@ export function WebLinkCard({
 }: Props): React.ReactElement {
   const intl = useIntl()
   const [busy, setBusy] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const now = useNow()
 
   const safeHref = isSafeUrl(link.url) ? link.url : undefined
@@ -45,13 +47,7 @@ export function WebLinkCard({
   }
 
   const handleRemove = async () => {
-    const confirmed = window.confirm(
-      intl.formatMessage({
-        id: 'task.webLinks.confirmDelete',
-        defaultMessage: 'Delete this link?',
-      })
-    )
-    if (!confirmed) return
+    setConfirmOpen(false)
     setBusy(true)
     try {
       await onRemove(link.id)
@@ -100,7 +96,7 @@ export function WebLinkCard({
                 <button
                   onClick={e => {
                     e.preventDefault()
-                    void handleRemove()
+                    setConfirmOpen(true)
                   }}
                   disabled={busy}
                   title={intl.formatMessage({
@@ -153,9 +149,7 @@ export function WebLinkCard({
                 <ContentSignalsBadge signals={link.contentSignals} />
                 <p
                   className={`mt-0.5 text-caption ${
-                    link.loading
-                      ? 'text-muted-foreground'
-                      : 'text-amber-600 dark:text-amber-400'
+                    link.loading ? 'text-muted-foreground' : 'text-warning-text'
                   }`}
                 >
                   {link.loading
@@ -188,7 +182,7 @@ export function WebLinkCard({
                   <button
                     onClick={e => {
                       e.preventDefault()
-                      void handleRemove()
+                      setConfirmOpen(true)
                     }}
                     disabled={busy}
                     title={intl.formatMessage({
@@ -211,19 +205,44 @@ export function WebLinkCard({
     </div>
   )
 
+  const confirmDialog = (
+    <ConfirmActionDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title={intl.formatMessage({
+        id: 'task.webLinks.confirmDelete',
+        defaultMessage: 'Delete this link?',
+      })}
+      confirmLabel={intl.formatMessage({
+        id: 'task.webLinks.card.delete',
+        defaultMessage: 'Delete',
+      })}
+      destructive
+      onConfirm={() => void handleRemove()}
+    />
+  )
+
   if (safeHref) {
     return (
-      <a
-        href={safeHref}
-        target='_blank'
-        rel='noopener noreferrer'
-        referrerPolicy='no-referrer'
-        className='block'
-      >
-        {cardInner}
-      </a>
+      <>
+        <a
+          href={safeHref}
+          target='_blank'
+          rel='noopener noreferrer'
+          referrerPolicy='no-referrer'
+          className='block'
+        >
+          {cardInner}
+        </a>
+        {confirmDialog}
+      </>
     )
   }
 
-  return <div>{cardInner}</div>
+  return (
+    <>
+      <div>{cardInner}</div>
+      {confirmDialog}
+    </>
+  )
 }

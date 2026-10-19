@@ -100,14 +100,14 @@ export function MemoryCard({
             aria-hidden
             className={`size-[7px] shrink-0 rounded-full ${style.dot}`}
           />
-          <span className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+          <span className='text-caption uppercase text-muted-foreground'>
             {intl.formatMessage({ id: style.labelId })}
           </span>
           {trustBadge}
           <ContentSignalsBadge signals={item.contentSignals} />
         </span>
         {source ? (
-          <span className='shrink-0 text-[10px] text-muted-foreground transition-opacity group-hover:opacity-0'>
+          <span className='shrink-0 text-caption text-muted-foreground transition-opacity group-hover:opacity-0'>
             {source}
           </span>
         ) : showSedimentedLabel ? (
@@ -124,10 +124,8 @@ export function MemoryCard({
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className='mt-2.5'>
-      <p className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
-        {label}
-      </p>
-      <div className='mt-0.5 text-sm text-foreground'>{children}</div>
+      <p className='text-caption uppercase text-muted-foreground'>{label}</p>
+      <div className='mt-0.5 text-body text-foreground'>{children}</div>
     </div>
   )
 }
@@ -135,9 +133,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 /** The card title: medium weight (not bold), capped at two lines. */
 function Title({ children }: { children: ReactNode }) {
   return (
-    <p className='line-clamp-2 text-sm font-medium leading-snug text-foreground'>
-      {children}
-    </p>
+    <p className='line-clamp-2 text-body-strong text-foreground'>{children}</p>
   )
 }
 

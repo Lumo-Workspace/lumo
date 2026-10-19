@@ -21,7 +21,7 @@ import { useMentionSources } from '../../hooks/useMentionSources'
 import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
 import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type {
   ApiDocumentDetail,
   ApiDocumentAncestor,
@@ -56,6 +56,7 @@ import {
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
+import { Spinner } from '@/components/ui/spinner'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -433,9 +434,7 @@ export function DocumentEditorPage({
   if (loading && !doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='animate-pulse text-muted-foreground text-sm'>
-          Loading...
-        </div>
+        <Spinner className='size-5 text-muted-foreground' />
       </div>
     )
   }
@@ -443,7 +442,7 @@ export function DocumentEditorPage({
   if (!doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='text-muted-foreground text-sm'>
+        <div className='text-muted-foreground text-body'>
           {intl.formatMessage({ id: 'documentEditor.notFound' })}
         </div>
       </div>
@@ -480,7 +479,7 @@ export function DocumentEditorPage({
           <div className='flex items-center gap-2'>
             <button
               type='button'
-              className='h-8 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground'
+              className='h-8 rounded-md px-2 text-body text-muted-foreground hover:text-foreground'
               onClick={async () => {
                 const label = window.prompt(
                   intl.formatMessage({
@@ -600,7 +599,7 @@ export function DocumentEditorPage({
                     type='text'
                     value={title}
                     onChange={e => handleTitleChange(e.target.value)}
-                    className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
+                    className='flex-1 text-display bg-transparent border-none outline-none placeholder:text-muted-foreground'
                     placeholder={intl.formatMessage({
                       id: 'documents.untitled',
                     })}
@@ -608,22 +607,15 @@ export function DocumentEditorPage({
                 </div>
 
                 {/* Metadata */}
-                <div className='flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap'>
+                <div className='flex items-center gap-2 text-caption text-muted-foreground mb-3 flex-wrap'>
                   {/* Creator */}
                   <span className='flex items-center gap-1 shrink-0'>
-                    <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                      {doc.createdBy.imageUrl ? (
-                        <img
-                          src={doc.createdBy.imageUrl}
-                          alt={doc.createdBy.name}
-                          className='w-full h-full object-cover'
-                        />
-                      ) : (
-                        <span className='text-[8px] font-medium'>
-                          {getInitials(doc.createdBy.name)}
-                        </span>
-                      )}
-                    </span>
+                    <MemberAvatar
+                      decorative
+                      name={doc.createdBy.name}
+                      imageUrl={doc.createdBy.imageUrl}
+                      size='xs'
+                    />
                     <span>{doc.createdBy.name}</span>
                   </span>
 
@@ -650,11 +642,7 @@ export function DocumentEditorPage({
                   {doc.editors && doc.editors.length > 0 && (
                     <>
                       <span className='text-border'>·</span>
-                      <CollaboratorAvatars
-                        editors={doc.editors}
-                        max={3}
-                        size={18}
-                      />
+                      <CollaboratorAvatars editors={doc.editors} max={3} />
                     </>
                   )}
 

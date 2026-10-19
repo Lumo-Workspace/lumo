@@ -480,4 +480,35 @@ describe('LUM-911 evidence-retention helpers', () => {
       error: 'redacted',
     })
   })
+
+  it('LUM-1226 redactHuntAuditToCounts keeps each task’s submission counts and reason field names', () => {
+    // Counts and schema field names quote no code; a scrubbed scan keeps them
+    // so `lumo pr show --full` still reads how many candidates a task sent.
+    const out = redactHuntAuditToCounts({
+      tasks: [
+        {
+          taskId: 't1',
+          stopped: 'done',
+          submission: {
+            calls: 1,
+            submitted: 3,
+            kept: 2,
+            dropped: 1,
+            reasons: ['cwe', 'call_chain.from', CODE],
+            note: CODE,
+          },
+        },
+        { taskId: 't2', stopped: 'done' },
+      ],
+    }) as { tasks: Record<string, unknown>[] }
+    expect(out.tasks[0]!.submission).toEqual({
+      calls: 1,
+      submitted: 3,
+      kept: 2,
+      dropped: 1,
+      reasons: ['cwe', 'call_chain.from'],
+    })
+    expect(out.tasks[1]).not.toHaveProperty('submission')
+    expect(JSON.stringify(out)).not.toContain('req.query.t')
+  })
 })

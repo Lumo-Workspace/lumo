@@ -56,7 +56,11 @@ export function EditorSuggestionPopup({
   return createPortal(
     <div
       ref={ref}
-      className={cn('fixed z-dropdown', className)}
+      // Portaled to <body>: inside a modal Dialog, body gets
+      // `pointer-events: none`, so opt back in; the data attribute lets the
+      // dialog treat clicks / Esc here as the editor's, not as a dismissal.
+      data-editor-suggestion-popup=''
+      className={cn('pointer-events-auto fixed z-dropdown', className)}
       style={{ top: pos.top, left: pos.left }}
     >
       {children}

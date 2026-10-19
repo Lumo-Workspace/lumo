@@ -28,7 +28,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityScanEnabled: z.boolean().optional(),
     securityAiReviewEnabled: z.boolean().optional(),
     securityHuntEnabled: z.boolean().optional(),
-    // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
+    // LUM-1234: the reward-hack layer (its rollout stage is the ceiling).
     securityRewardHackEnabled: z.boolean().optional(),
     // LUM-1130: the PR reviewer's request-changes workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),

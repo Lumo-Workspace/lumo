@@ -346,6 +346,7 @@
   "slack.connected": "Подключено",
   "slack.connectedTo": "Подключено к рабочему пространству: {teamName}",
   "slack.channelNote": "Уведомления в каналы настраиваются для каждого проекта.",
+  "slack.channelUnavailable": "(недоступен)",
   "slack.disconnectTitle": "Отключить Slack?",
   "slack.disconnectDesc": "Все подписки на каналы будут удалены. Вы сможете переподключиться в любое время.",
   "slack.connectSuccess": "Slack успешно подключён",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Список",
   "sprints.view.timeline": "Хронология",
   "sprints.filter.all": "Все",
+  "sprints.statusFilter.label": "Фильтр спринтов по статусу",
   "sprints.metric.completed": "Завершено",
   "sprints.metric.remaining": "Осталось",
   "sprints.metric.timeLeft": "Осталось времени",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Размер команды",
   "waitlist.teamSize.select": "Выберите…",
   "waitlist.teamSize.justMe": "Только я",
+  "waitlist.teamSize.preferNotToSay": "Предпочитаю не указывать",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Все",
   "settings.auditLog.filter.since": "С",
   "settings.auditLog.filter.until": "По",
+  "settings.auditLog.filter.anyDate": "Любая дата",
   "settings.auditLog.filter.reset": "Сбросить",
   "settings.auditLog.export": "Экспорт в CSV",
   "settings.auditLog.exportHint": "Скачивает до {max} самых новых событий, подходящих под фильтры.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Файлы, прикреплённые к шагам, входят в тот же лимит.",
   "testCases.field.evidenceFiles.tooManyTotal": "С учётом файлов, прикреплённых к шагам, в этом запуске будет {count} файлов — максимум {max}.",
   "testCases.field.evidenceFiles.badType": "«{filename}» — неподдерживаемый тип. Используйте PNG, JPEG, WebP, GIF, текст или JSON.",
-  "testCases.report.state.skipped": "Пропущен"
+  "testCases.report.state.skipped": "Пропущен",
+  "formDialog.collapse": "Свернуть",
+  "formDialog.expand": "Развернуть"
 }

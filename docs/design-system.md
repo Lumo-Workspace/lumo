@@ -123,6 +123,30 @@ Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
   — no feedback hue clears 3:1 on both the near-black (light) and white
   (dark) primary.
 
+**No raw Tailwind palette classes in app UI (LUM-1245).** Map hues to the
+families above instead of `text-red-500` / `bg-amber-50` / `border-indigo-300`
+plus a `dark:` twin: red → `danger`, amber/yellow/orange → `warning`,
+green/emerald → `success`, blue/sky and AI/agent violet/indigo → `info`.
+Fills use `bg-*-subtle`, hover fills `hover:bg-*/15`, outlines `border-*-border`,
+text and icons `text-*-text`; selection/drop indicators use `ring` /
+`border-ring`; destructive confirm buttons use `variant='destructive'`. The
+tokens already re-resolve in `.dark`, so no `dark:` colour override is needed.
+A fixed-dark surface (signup) puts `dark` on its root and uses the same tokens.
+PR state indicators (`PrStateBadge`, `PrBadge`, `PrItem`) keep GitHub's colours
+through tokens: open → `success`, merged → `status-in-review` (the only
+purple/magenta family), closed → `danger`, draft → `muted` /
+`muted-foreground`.
+Survivors with a recorded reason: `RevisionDiffView` (diff ins/del colours — no
+diff token yet), `TurnCard` memory left border (owned by LUM-1249), and the
+vendored `components/ui/shadcn-io/aurora-background`.
+
+**Callouts and inline notices use `<Alert>`** (`components/ui/alert.tsx`,
+LUM-1268): `variant` = `default` (neutral) / `info` / `success` / `warning` /
+`danger`, `size='sm'` for the compact caption form under fields and inside
+cards. A direct `<svg>` child is the icon (tinted with the `-text` step);
+text stays `text-foreground`. Pass `role='note'` / `'status'` for persistent
+notices — the default `role='alert'` is for errors and fresh warnings.
+
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep
 back; `__tests__/styles/feedback-contrast.test.ts` computes every ratio above
@@ -158,29 +182,73 @@ unset state.
 Source of truth: `components/ui/typography.tsx`. Use these components in
 preference to raw `<h1>` … `<h6>` so the scale stays consistent.
 
-| Component                                      | Element            | Size · Weight                                    | Notes                                                                                                                                                                           |
-| ---------------------------------------------- | ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<TypographyH1>`                               | `<h1>`             | `text-4xl` · `font-extrabold` · `tracking-tight` | Props: `align` (`left` default, `center`, `right`), `balance` (default off). Default is the conservative app-heading idiom; pass `align="center" balance` for marketing heroes. |
-| `<TypographyH2>`                               | `<h2>`             | `text-3xl` · `font-semibold` · bottom border     | `first:mt-0` so it sits flush at top of section.                                                                                                                                |
-| `<TypographyH3>`                               | `<h3>`             | `text-2xl` · `font-semibold`                     |                                                                                                                                                                                 |
-| `<TypographyH4>`                               | `<h4>`             | `text-xl` · `font-semibold`                      |                                                                                                                                                                                 |
-| `<TypographyH5>`                               | `<h5>`             | `text-lg` · `font-semibold`                      |                                                                                                                                                                                 |
-| `<TypographyH6>`                               | `<h6>`             | `text-base` · `font-semibold`                    |                                                                                                                                                                                 |
-| `<TypographyP>`                                | `<p>`              | `leading-7` + top margin after siblings          |                                                                                                                                                                                 |
-| `<TypographyLead>`                             | `<p>`              | `text-xl text-muted-foreground`                  | Sub-heading callouts                                                                                                                                                            |
-| `<TypographyLarge>`                            | `<div>`            | `text-lg font-semibold`                          |                                                                                                                                                                                 |
-| `<TypographySmall>`                            | `<small>`          | `text-sm leading-none font-medium`               |                                                                                                                                                                                 |
-| `<TypographyMuted>`                            | `<p>`              | `text-sm text-muted-foreground`                  |                                                                                                                                                                                 |
-| `<TypographyBlockquote>`                       | `<blockquote>`     | left-border + italic                             |                                                                                                                                                                                 |
-| `<TypographyList>` / `<TypographyOrderedList>` | `<ul>` / `<ol>`    | `list-disc` / `list-decimal` with item spacing   |                                                                                                                                                                                 |
-| `<TypographyInlineCode>` / `<TypographyCode>`  | `<code>` / `<pre>` | Mono, tokenized via `--muted` / `--foreground`   |                                                                                                                                                                                 |
-| `<TypographyTable*>`                           | `<table>` family   | Tokenized via `--border` / `--muted`             |                                                                                                                                                                                 |
+| Component                                      | Element            | Size · Weight                                  | Notes                                                                                                                                                                           |
+| ---------------------------------------------- | ------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<TypographyH1>`                               | `<h1>`             | `text-display` · `tracking-tight`              | Props: `align` (`left` default, `center`, `right`), `balance` (default off). Default is the conservative app-heading idiom; pass `align="center" balance` for marketing heroes. |
+| `<TypographyH2>`                               | `<h2>`             | `text-heading` · bottom border                 | `first:mt-0` so it sits flush at top of section.                                                                                                                                |
+| `<TypographyH3>`                               | `<h3>`             | `text-heading`                                 |                                                                                                                                                                                 |
+| `<TypographyH4>`                               | `<h4>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyH5>`                               | `<h5>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyH6>`                               | `<h6>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyP>`                                | `<p>`              | `text-body` + top margin after siblings        |                                                                                                                                                                                 |
+| `<TypographyLead>`                             | `<p>`              | `text-heading text-muted-foreground`           | Sub-heading callouts                                                                                                                                                            |
+| `<TypographyLarge>`                            | `<div>`            | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographySmall>`                            | `<small>`          | `text-caption leading-none`                    |                                                                                                                                                                                 |
+| `<TypographyMuted>`                            | `<p>`              | `text-caption text-muted-foreground`           |                                                                                                                                                                                 |
+| `<TypographyBlockquote>`                       | `<blockquote>`     | left-border + italic                           |                                                                                                                                                                                 |
+| `<TypographyList>` / `<TypographyOrderedList>` | `<ul>` / `<ol>`    | `list-disc` / `list-decimal` with item spacing |                                                                                                                                                                                 |
+| `<TypographyInlineCode>` / `<TypographyCode>`  | `<code>` / `<pre>` | Mono, tokenized via `--muted` / `--foreground` |                                                                                                                                                                                 |
+| `<TypographyTable*>`                           | `<table>` family   | Tokenized via `--border` / `--muted`           |                                                                                                                                                                                 |
+
+### Semantic tiers (app UI)
+
+App UI sizes text with six tiers only, defined as Tailwind v4 font-size tokens
+in `app/globals.css`; each bundles size, line-height, weight and tracking
+(full reference: [`docs/design-system/typography-scale.md`](design-system/typography-scale.md)).
+
+| Tier               | Size · weight | Use                                      |
+| ------------------ | ------------- | ---------------------------------------- |
+| `text-caption`     | 12px · 500    | metadata, timestamps, labels, badges     |
+| `text-body`        | 14px · 400    | default body text, table cells           |
+| `text-body-strong` | 14px · 500    | emphasized body, row titles, form labels |
+| `text-title`       | 16px · 600    | card / dialog / section titles           |
+| `text-heading`     | 20px · 600    | page / panel headings                    |
+| `text-display`     | 30px · 700    | hero, large empty states (rare)          |
+
+Mapping from raw utilities (LUM-1244):
+
+| Found                                                     | Use                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `text-xs`, `text-[8px]`…`text-[11.5px]`, `text-[0.75rem]` | `text-caption` (may add `font-normal` / `font-semibold`)                |
+| `text-sm`, `text-[13px]`                                  | `text-body`                                                             |
+| `text-sm` + `font-medium` / `font-semibold` / `font-bold` | `text-body-strong`                                                      |
+| `text-base` / `text-lg` title                             | `text-title`                                                            |
+| `text-xl` / `text-2xl` heading                            | `text-heading`                                                          |
+| `text-3xl` and up                                         | `text-display`                                                          |
+| bare `font-medium` / `font-bold`                          | the tier that carries the weight, or `font-semibold` for state emphasis |
+
+**Enforced by `lint:tokens`** (rule `type-scale`, see
+[Token-discipline lint](#token-discipline-lint)) on `.ts` / `.tsx` under `app/`,
+`components/`, `ee/`: it flags `text-xs|sm|lg|xl…9xl`, arbitrary
+`text-[<n>px|rem|em]`, and `font-medium|bold|extrabold|black`, with or without a
+variant prefix. Allowed: the tiers, `font-semibold` / `font-normal` layered on a
+tier, and `text-base` only when the same class string also sets an `md:` tier
+(the iOS zoom guard on inputs: `text-base md:text-body`). Exempt: the landing
+fork, `app/page.tsx`, `components/ui/typography.tsx`. The few intentional
+leftovers are grandfathered in the baseline and listed in the rule's comment in
+`scripts/lint-tokens.ts`.
 
 **Fonts** (registered via `@theme inline` → Tailwind utilities `font-sans` /
 `font-mono`):
 
-- `--font-inter` → `Inter, sans-serif`
-- `--font-source-code-pro` → `Source Code Pro, monospace`
+- `--font-sans` → `var(--font-inter)` — Inter, loaded by `next/font/google` in
+  `app/layout.tsx`, which sets `--font-inter` on `<html>` (with a
+  metric-matched fallback face). Do not redeclare it in `globals.css`.
+- `--font-mono` → `var(--font-source-code-pro)` — Source Code Pro, same
+  mechanism. Plain CSS that needs mono uses `var(--font-mono)`, never
+  `ui-monospace`.
+- CJK glyph forms follow `<html lang>`, which tracks the active UI locale
+  (`lib/i18n/DocumentLang.tsx`), so ja / zh-TW / ko pick their own system face.
 
 ## Spacing & layout
 
@@ -197,14 +265,14 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 ## Radius
 
-单一来源 `--radius: 0.75rem`;`@theme inline` 派生干净的 4px 步进档位。
+单一来源 `--radius: 0.625rem`;`@theme inline` 按 shadcn v4 默认派生档位(LUM-1251):控件保持 8px,表面 10px。
 
-| Token / utility              | calc                   | 值        |
-| ---------------------------- | ---------------------- | --------- |
-| `rounded-sm` (`--radius-sm`) | `calc(--radius − 8px)` | `0.25rem` |
-| `rounded-md` (`--radius-md`) | `calc(--radius − 4px)` | `0.5rem`  |
-| `rounded-lg` (`--radius-lg`) | `var(--radius)`        | `0.75rem` |
-| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `1rem`    |
+| Token / utility              | calc                   | 值                |
+| ---------------------------- | ---------------------- | ----------------- |
+| `rounded-sm` (`--radius-sm`) | `calc(--radius − 4px)` | `0.375rem` (6px)  |
+| `rounded-md` (`--radius-md`) | `calc(--radius − 2px)` | `0.5rem` (8px)    |
+| `rounded-lg` (`--radius-lg`) | `var(--radius)`        | `0.625rem` (10px) |
+| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `0.875rem` (14px) |
 
 **档位映射规则(哪类元素用哪档):**
 
@@ -218,6 +286,10 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 裸 `rounded`(= `0.25rem`,与 `rounded-sm` 同值)**禁用** —— 由 `lint:tokens` 拦截。
 方向性圆角(`rounded-t/l/r/b/tl…`)与 arbitrary `rounded-[..]` 按需使用,不受档位约束。
+
+## Card surface
+
+Static card surfaces use `Card` from `components/ui/card.tsx` (`rounded-lg border bg-card text-card-foreground`, no padding, no shadow — cards separate from the page by their border only, LUM-1247) instead of a hand-rolled `rounded-lg border … bg-card` div (LUM-1246). Pass the element's own padding / layout via `className`; a large container may override to `rounded-xl` (see the radius table). For a semantic or interactive element use `asChild`: `<Card asChild className='p-4'><button …>…</button></Card>` (also `<section>`, `<li>`). `CardTitle` is `text-title`. Not for overlays (dialog / popover / menus use `shadow-elevation-2/3`) or dnd-kit board cards (`SortableTaskCard`).
 
 ## Focus rings
 
@@ -271,9 +343,17 @@ Avoid arbitrary `z-[1]` etc. — pick a tier above.
 
 ### Overlay (scrim)
 
-Every modal surface — Dialog, AlertDialog, Sheet and the workspace `Modal` —
-uses the same scrim: `bg-black/50`, **no** `backdrop-blur`, in both themes.
-Don't hand-roll a different tint or blur on a new overlay.
+Every modal surface — Dialog, AlertDialog and Sheet — uses the same scrim:
+`bg-black/50`, **no** `backdrop-blur`, in both themes. Don't hand-roll a
+different tint or blur on a new overlay.
+
+There is no hand-rolled modal any more (LUM-1248 removed the workspace
+`Modal`): build modals on `components/ui/dialog.tsx`. The workspace create
+forms (new task / project, quick dispatch) share `FormDialog`, a header +
+scrolling body + footer layout composed on `DialogContent`
+(`showCloseButton={false}` because the header renders its own close). Width:
+pass an **unprefixed** `max-w-[…]` — a `sm:max-w-*` loses to the built-in
+`max-w-lg`.
 
 ## Shadows / Elevation
 
@@ -284,13 +364,19 @@ Tailwind 内置 `shadow` / `shadow-xs…2xl` 或硬编码 `shadow-[..]`(由 `lin
 
 | 工具类               | 用途     | 组件                                                           | 亮色值                                                                  | 暗色值                                                                  |
 | -------------------- | -------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          | `0 1px 2px 0 rgb(0 0 0 / 0.05)`(单层发丝阴影,同 shadcn `shadow-xs`)     | `0 1px 2px 0 rgb(0 0 0 / 0.3)`                                          |
+| `shadow-elevation-1` | 静态抬起 | 抬起控件(button/input/select/checkbox/switch/激活 tab)         | `0 1px 2px 0 rgb(0 0 0 / 0.05)`(单层发丝阴影,同 shadcn `shadow-xs`)     | `0 1px 2px 0 rgb(0 0 0 / 0.3)`                                          |
 | `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu | `0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12)`    | `0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55)`    |
 | `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          | `0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18)` | `0 8px 16px -4px rgb(0 0 0 / 0.55), 0 12px 24px -6px rgb(0 0 0 / 0.65)` |
 
 elevation-1 刻意只有一层很淡的阴影,让静态控件读起来是平的(LUM-1241);层次主要靠
 1px 边框。因此控件本身必须不依赖阴影也能看清 —— 例如 Switch 未选中轨道用 `bg-border`
 而不是 `bg-input`(亮色 `--input` 是白色输入框底色)。
+
+页内平面(Card、看板静止态任务卡、分段控件激活项、浮在编辑区角落的统计 pill 等)
+**不带阴影**,只靠 `border` 分隔(LUM-1247);hover 反馈用边框色(如
+`hover:border-muted-foreground/50`)或 `bg-accent`,不要做阴影 lift。阴影只留给真正
+浮起的东西:popover / dropdown / dialog / sheet / toast / bubble menu,以及拖拽中的
+看板卡(DragOverlay,`shadow-elevation-3`)。
 
 底层值在 `app/globals.css` 的 `--elevation-1/2/3`(`:root`/`.dark`)。调整观感改
 那里即可,组件不碰。landing 专用的 `--shadow-mockup` 仍在 `landing.css`。
@@ -377,7 +463,7 @@ class string for headings makes the scale drift.
 ## Token-discipline lint
 
 `scripts/lint-tokens.ts` enforces the no-hex / no-neutral-palette rules
-above. It runs:
+and the semantic type scale above. It runs:
 
 - on every staged commit via `lint-staged` (the husky pre-commit hook)
 - when you run `npm run lint`

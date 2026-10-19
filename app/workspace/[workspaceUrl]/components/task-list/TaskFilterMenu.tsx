@@ -84,7 +84,7 @@ export function TaskFilterMenu({
         >
           <ListFilter size={14} />
           {activeCount > 0 && (
-            <span className='min-w-4 rounded-sm bg-muted px-1 text-[10px] leading-4 text-foreground'>
+            <span className='min-w-4 rounded-sm bg-muted px-1 text-caption text-foreground'>
               {activeCount}
             </span>
           )}
@@ -92,7 +92,7 @@ export function TaskFilterMenu({
       </PopoverTrigger>
       <PopoverContent align='end' className='w-56 p-2'>
         {dimensions.length === 0 ? (
-          <p className='px-2 py-1.5 text-sm text-muted-foreground'>
+          <p className='px-2 py-1.5 text-body text-muted-foreground'>
             {intl.formatMessage({
               id: 'filter.noFields',
               defaultMessage: 'Nothing to filter on here yet',
@@ -104,12 +104,12 @@ export function TaskFilterMenu({
               key={dim}
               type='button'
               onClick={() => setDimension(dim)}
-              className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
+              className='flex items-center justify-between w-full px-2 py-1.5 text-body rounded-md hover:bg-muted transition-colors'
             >
               <span className='text-foreground'>{dimensionLabel(dim)}</span>
               <span className='flex items-center gap-1 text-muted-foreground'>
                 {(filters[dim]?.length ?? 0) > 0 && (
-                  <span className='text-[10px]'>{filters[dim]?.length}</span>
+                  <span className='text-caption'>{filters[dim]?.length}</span>
                 )}
                 <ChevronRight size={14} />
               </span>
@@ -123,7 +123,7 @@ export function TaskFilterMenu({
               className='flex items-center gap-1 w-full px-2 py-1.5 rounded-md hover:bg-muted transition-colors'
             >
               <ChevronLeft size={12} className='text-muted-foreground' />
-              <span className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
+              <span className='text-caption text-muted-foreground uppercase'>
                 {dimensionLabel(dimension)}
               </span>
             </button>
@@ -136,13 +136,13 @@ export function TaskFilterMenu({
                   key={option.value}
                   type='button'
                   onClick={() => onToggleValue(dimension, option.value)}
-                  className='flex items-center justify-between gap-2 w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
+                  className='flex items-center justify-between gap-2 w-full px-2 py-1.5 text-body rounded-md hover:bg-muted transition-colors'
                 >
                   <span className='text-foreground truncate'>
                     {valueLabel(dimension, option.value)}
                   </span>
                   <span className='flex items-center gap-1.5 shrink-0 text-muted-foreground'>
-                    <span className='text-[10px]'>{option.count}</span>
+                    <span className='text-caption'>{option.count}</span>
                     {selected && <Check size={14} />}
                   </span>
                 </button>

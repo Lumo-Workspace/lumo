@@ -2,10 +2,18 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type {
   CustomPreMergeCheck,
   PreMergeCheckMode,
@@ -98,22 +106,28 @@ function ModeSelect({
 }: ModeSelectProps) {
   const intl = useIntl()
   return (
-    <select
-      id={id}
+    <Select
       value={value}
       disabled={disabled}
-      aria-label={ariaLabel}
-      onChange={e => onChange(e.target.value as PreMergeCheckMode)}
-      className='h-8 rounded-md border border-border bg-transparent px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      onValueChange={v => onChange(v as PreMergeCheckMode)}
     >
-      {MODES.map(m => (
-        <option key={m} value={m}>
-          {intl.formatMessage({
-            id: `workspaceSettings.repoReview.checks.mode.${m}`,
-          })}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger
+        id={id}
+        aria-label={ariaLabel}
+        className='h-8 w-auto gap-2 px-2 text-caption text-foreground'
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {MODES.map(m => (
+          <SelectItem key={m} value={m}>
+            {intl.formatMessage({
+              id: `workspaceSettings.repoReview.checks.mode.${m}`,
+            })}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -158,15 +172,15 @@ export function RepoPreMergeChecksEditor({
 
   return (
     <div className='flex flex-col gap-3 pt-3'>
-      <p className='text-xs text-muted-foreground'>{t('intro')}</p>
+      <p className='text-caption text-muted-foreground'>{t('intro')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-title`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('title')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-title`}
             value={draft.titleMode}
@@ -175,12 +189,12 @@ export function RepoPreMergeChecksEditor({
           />
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-description`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('description')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-description`}
             value={draft.descriptionMode}
@@ -189,25 +203,25 @@ export function RepoPreMergeChecksEditor({
           />
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-issue`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('issueAssessment')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-issue`}
             value={draft.issueMode}
             disabled={disabled}
             onChange={mode => setDraft(d => ({ ...d, issueMode: mode }))}
           />
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t('issueAssessmentHint')}
           </p>
         </div>
-        <label
+        <Label
           htmlFor={`${idBase}-task-details`}
-          className='flex items-center gap-2 self-start text-xs text-muted-foreground sm:pt-6'
+          className='flex items-center gap-2 self-start text-caption text-muted-foreground sm:pt-6'
         >
           <Switch
             id={`${idBase}-task-details`}
@@ -218,28 +232,28 @@ export function RepoPreMergeChecksEditor({
             }
           />
           {t('taskDetailsOnPublicRepos')}
-        </label>
+        </Label>
         <div className='flex flex-col gap-1 sm:col-span-2'>
-          <label
+          <Label
             htmlFor={`${idBase}-requirements`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('titleRequirements')}
-          </label>
+          </Label>
           <Textarea
             id={`${idBase}-requirements`}
             value={draft.titleRequirements}
             rows={2}
             maxLength={INSTRUCTIONS_MAX}
             disabled={disabled}
-            className='text-xs'
+            className='text-caption'
             onChange={e =>
               setDraft(d => ({ ...d, titleRequirements: e.target.value }))
             }
           />
         </div>
       </div>
-      <p className='text-xs font-medium text-foreground'>{t('custom')}</p>
+      <p className='text-caption text-foreground'>{t('custom')}</p>
       {draft.customChecks.map((c, i) => (
         <div
           key={i}
@@ -252,7 +266,7 @@ export function RepoPreMergeChecksEditor({
               value={c.name}
               maxLength={NAME_MAX}
               disabled={disabled}
-              className='h-8 flex-1 text-xs'
+              className='h-8 flex-1 text-caption'
               onChange={e => setCustom(i, { name: e.target.value })}
             />
             <ModeSelect
@@ -285,7 +299,7 @@ export function RepoPreMergeChecksEditor({
             rows={2}
             maxLength={INSTRUCTIONS_MAX}
             disabled={disabled}
-            className='text-xs'
+            className='text-caption'
             onChange={e => setCustom(i, { instructions: e.target.value })}
           />
         </div>
@@ -310,9 +324,9 @@ export function RepoPreMergeChecksEditor({
           </Button>
         </div>
       )}
-      <label
+      <Label
         htmlFor={`${idBase}-reviewers-only`}
-        className='flex items-center gap-2 text-xs text-muted-foreground'
+        className='flex items-center gap-2 text-caption text-muted-foreground'
       >
         <Switch
           id={`${idBase}-reviewers-only`}
@@ -323,7 +337,7 @@ export function RepoPreMergeChecksEditor({
           }
         />
         {t('reviewersOnly')}
-      </label>
+      </Label>
       {canEdit && (
         <div>
           <Button

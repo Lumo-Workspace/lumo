@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react'
 import { useIntl } from 'react-intl'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { ListChecks, Layers, FolderKanban, Flag } from 'lucide-react'
 import { StatusIcon } from './StatusIcon'
 import { cn } from '@/lib/utils'
@@ -121,7 +121,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     if (!items.length) {
       return (
-        <div className='px-2 py-2 text-xs text-muted-foreground'>
+        <div className='px-2 py-2 text-caption text-muted-foreground'>
           {loading
             ? intl.formatMessage({ id: 'mention.searching' })
             : intl.formatMessage({ id: 'mention.empty' })}
@@ -136,7 +136,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       // would trigger a horizontal scrollbar). Selected rows get a subtle
       // inset background + a 2px left accent bar rather than a full-bleed fill.
       const rowCls = cn(
-        'relative w-full flex items-center gap-2 rounded-md px-2 py-1.5 min-h-8 text-sm text-left min-w-0 transition-colors',
+        'relative w-full flex items-center gap-2 rounded-md px-2 py-1.5 min-h-8 text-body text-left min-w-0 transition-colors',
         isSelected
           ? "bg-muted before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-foreground before:content-['']"
           : 'hover:bg-muted'
@@ -153,20 +153,14 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       }
 
       if (item.kind === 'user') {
-        const initials = item.label
-          .split(' ')
-          .map(w => w[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)
         return (
           <button key={`user-${item.id}`} {...common}>
-            <Avatar className='size-5 shrink-0'>
-              <AvatarImage src={item.imageUrl ?? undefined} />
-              <AvatarFallback className='text-[10px]'>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <MemberAvatar
+              decorative
+              name={item.label}
+              imageUrl={item.imageUrl}
+              size='xs'
+            />
             <span className='min-w-0 truncate text-foreground'>
               {item.label}
             </span>
@@ -183,7 +177,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           <EntityGlyph kind={item.kind} status={item.status} />
           {item.sublabel ? (
             <>
-              <span className='shrink-0 font-medium text-muted-foreground'>
+              <span className='shrink-0 text-body-strong text-muted-foreground'>
                 {item.label}
               </span>
               <span className='min-w-0 truncate text-foreground'>
@@ -219,7 +213,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             >
               <div
                 className={cn(
-                  'px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80',
+                  'px-2 pb-1 pt-1.5 text-caption font-semibold uppercase text-muted-foreground/80',
                   groupIdx > 0 &&
                     offset > 0 &&
                     'mt-1 border-t border-border/60 pt-2'
@@ -232,7 +226,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           )
         })}
         {loading && (
-          <div className='px-2 py-1.5 text-xs text-muted-foreground'>
+          <div className='px-2 py-1.5 text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'mention.searching' })}
           </div>
         )}

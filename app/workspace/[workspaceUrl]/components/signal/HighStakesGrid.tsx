@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { idleDays, IDLE_SEVERE_DAYS } from '@/lib/summaries/signal-view'
 import type { StalledBlockerItem } from '@/types/summary'
@@ -51,23 +52,24 @@ export function HighStakesGrid({
       className='grid grid-cols-1 gap-3 md:grid-cols-2'
     >
       {tasks.map(task => (
-        <button
+        <Card
           key={task.id}
-          type='button'
-          onClick={() => onOpenTask(task.id)}
-          className='rounded-lg border border-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted'
+          asChild
+          className='px-4 py-3.5 text-left transition-colors hover:bg-muted'
         >
-          <div className='mb-1.5 flex items-center gap-2'>
-            <PriorityBadge priority={task.priority} variant='dot' />
-            <span className='text-caption font-mono text-muted-foreground'>
-              {task.identifier}
-            </span>
-            <IdleBadge
-              days={now === null ? null : idleDays(task.updatedAt, now)}
-            />
-          </div>
-          <div className='text-body-strong text-foreground'>{task.title}</div>
-        </button>
+          <button type='button' onClick={() => onOpenTask(task.id)}>
+            <div className='mb-1.5 flex items-center gap-2'>
+              <PriorityBadge priority={task.priority} variant='dot' />
+              <span className='text-caption font-mono text-muted-foreground'>
+                {task.identifier}
+              </span>
+              <IdleBadge
+                days={now === null ? null : idleDays(task.updatedAt, now)}
+              />
+            </div>
+            <div className='text-body-strong text-foreground'>{task.title}</div>
+          </button>
+        </Card>
       ))}
     </div>
   )

@@ -89,7 +89,7 @@ export function RetireReviewPanel({
 
   return (
     <div className='rounded-md border border-dashed border-border bg-muted/30 p-3 space-y-2'>
-      <div className='flex items-center gap-1.5 text-xs font-medium text-muted-foreground'>
+      <div className='flex items-center gap-1.5 text-caption text-muted-foreground'>
         <Archive className='size-3.5' />
         {intl.formatMessage(
           {
@@ -100,7 +100,7 @@ export function RetireReviewPanel({
           { count: visible.length }
         )}
       </div>
-      <p className='text-[11px] text-muted-foreground'>
+      <p className='text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'memory.retire.description',
           defaultMessage:
@@ -120,7 +120,9 @@ export function RetireReviewPanel({
               className='flex items-center justify-between gap-2 rounded-sm bg-background/60 px-2 py-1.5'
             >
               <div className='min-w-0 flex-1'>
-                <p className='truncate text-xs text-foreground'>{snippet}</p>
+                <p className='truncate text-caption text-foreground'>
+                  {snippet}
+                </p>
                 <div className='mt-0.5 flex flex-wrap gap-1'>
                   {c.reasons.map(r => {
                     const label = REASON_LABELS[r]
@@ -128,7 +130,7 @@ export function RetireReviewPanel({
                     return (
                       <span
                         key={r}
-                        className='rounded-sm border border-border px-1 text-[10px] leading-4 text-muted-foreground'
+                        className='rounded-sm border border-border px-1 text-caption text-muted-foreground'
                       >
                         {intl.formatMessage(label)}
                       </span>
@@ -136,7 +138,7 @@ export function RetireReviewPanel({
                   })}
                 </div>
                 {c.staleAnchors && c.staleAnchors.length > 0 && (
-                  <p className='mt-0.5 truncate font-mono text-[10px] text-muted-foreground'>
+                  <p className='mt-0.5 truncate font-mono text-caption text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'memory.retire.anchor.deadLabel',
                       defaultMessage: 'gone:',
@@ -157,7 +159,7 @@ export function RetireReviewPanel({
                 <Button
                   size='sm'
                   variant='ghost'
-                  className='h-6 px-2 text-[11px]'
+                  className='h-6 px-2 text-caption'
                   onClick={() => dismiss(c.memoryId)}
                 >
                   {intl.formatMessage({
@@ -168,7 +170,7 @@ export function RetireReviewPanel({
                 <Button
                   size='sm'
                   variant='outline'
-                  className='h-6 px-2 text-[11px]'
+                  className='h-6 px-2 text-caption'
                   disabled={confirming}
                   onClick={() => handleConfirm(c.memoryId)}
                 >

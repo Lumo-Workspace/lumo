@@ -2076,7 +2076,7 @@ export const prSecurityScanService = {
       // LUM-1234: the reward-hack layer ("Agent behavior") reads the agent
       // sessions behind the PR, so a PR with no task has nothing to judge.
       // It runs after this result is persisted (below), like the hunt. With
-      // the platform switch off (LUMO_REWARD_HACK) there is no layer at all,
+      // the layer not rolled out to the workspace there is no layer at all,
       // as for the hunt: a NOT_CONFIGURED key would read every scan as
       // unfinished while the layer is not offered.
       // R12: held by the same pause / ignore / hourly cap as the AI review.

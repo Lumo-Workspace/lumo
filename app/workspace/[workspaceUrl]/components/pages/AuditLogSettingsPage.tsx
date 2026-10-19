@@ -1,10 +1,10 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useId, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Download, ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ import { AUDIT_EXPORT_MAX_ROWS, type AuditEventView } from '@/lib/audit/query'
 import { auditClient } from '@/lib/api-client/audit'
 import { useAuditEvents } from '../../hooks/useAuditEvents'
 import { useMembers } from '../../hooks/useMembers'
+import { CalendarDayPicker } from '../fields/CalendarDayPicker'
 
 /** Radix Select items cannot have an empty value. */
 const ALL = 'all'
@@ -79,10 +80,10 @@ export function AuditLogSettingsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-5xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'settings.auditLog.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-6'>
+        <p className='text-body text-muted-foreground mb-6'>
           {intl.formatMessage(
             { id: 'settings.auditLog.description' },
             { days: AUDIT_RETENTION_DAYS }
@@ -90,7 +91,7 @@ export function AuditLogSettingsPage() {
         </p>
 
         {audit.forbidden ? (
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.auditLog.ownerOnly' })}
           </p>
         ) : (
@@ -140,18 +141,21 @@ function AuditFilters({
   exportHref: string
 }) {
   const intl = useIntl()
+  const fieldId = useId()
   const t = (id: string) => intl.formatMessage({ id })
   return (
     <div className='mb-4 flex flex-wrap items-end gap-3'>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-        {t('settings.auditLog.filter.action')}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-action`}>
+          {t('settings.auditLog.filter.action')}
+        </Label>
         <Select
           value={filters.action || ALL}
           onValueChange={v => onChange('action', v)}
         >
           <SelectTrigger
-            className='h-8 w-56 text-sm'
-            aria-label={t('settings.auditLog.filter.action')}
+            id={`${fieldId}-action`}
+            className='h-8 w-56 text-body'
           >
             <SelectValue />
           </SelectTrigger>
@@ -160,23 +164,22 @@ function AuditFilters({
               {t('settings.auditLog.filter.allActions')}
             </SelectItem>
             {AUDIT_ACTIONS.map(a => (
-              <SelectItem key={a} value={a} className='font-mono text-xs'>
+              <SelectItem key={a} value={a} className='font-mono text-caption'>
                 {a}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-        {t('settings.auditLog.filter.actor')}
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-actor`}>
+          {t('settings.auditLog.filter.actor')}
+        </Label>
         <Select
           value={filters.actor || ALL}
           onValueChange={v => onChange('actor', v)}
         >
-          <SelectTrigger
-            className='h-8 w-44 text-sm'
-            aria-label={t('settings.auditLog.filter.actor')}
-          >
+          <SelectTrigger id={`${fieldId}-actor`} className='h-8 w-44 text-body'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -190,27 +193,35 @@ function AuditFilters({
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-        {t('settings.auditLog.filter.since')}
-        <Input
-          type='date'
-          className='h-8 w-36 text-sm'
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-since`}>
+          {t('settings.auditLog.filter.since')}
+        </Label>
+        <CalendarDayPicker
+          id={`${fieldId}-since`}
+          className='h-8 w-40'
           value={filters.since}
           max={filters.until || undefined}
-          onChange={e => onChange('since', e.target.value)}
+          placeholder={t('settings.auditLog.filter.anyDate')}
+          clearable
+          onChange={v => onChange('since', v)}
         />
-      </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-        {t('settings.auditLog.filter.until')}
-        <Input
-          type='date'
-          className='h-8 w-36 text-sm'
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-until`}>
+          {t('settings.auditLog.filter.until')}
+        </Label>
+        <CalendarDayPicker
+          id={`${fieldId}-until`}
+          className='h-8 w-40'
           value={filters.until}
           min={filters.since || undefined}
-          onChange={e => onChange('until', e.target.value)}
+          placeholder={t('settings.auditLog.filter.anyDate')}
+          clearable
+          onChange={v => onChange('until', v)}
         />
-      </label>
+      </div>
       <Button variant='ghost' size='sm' onClick={onReset}>
         {t('settings.auditLog.filter.reset')}
       </Button>
@@ -245,14 +256,14 @@ function AuditEventsBody({
   const intl = useIntl()
   if (isLoading) {
     return (
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'common.loading' })}
       </p>
     )
   }
   if (isError) {
     return (
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'settings.auditLog.loadFailed' })}
       </p>
     )
@@ -261,7 +272,7 @@ function AuditEventsBody({
     return (
       <div className='text-center py-12'>
         <ScrollText size={32} className='mx-auto mb-3 text-muted-foreground' />
-        <p className='text-sm font-medium text-muted-foreground'>
+        <p className='text-body-strong text-muted-foreground'>
           {intl.formatMessage({ id: 'settings.auditLog.empty' })}
         </p>
       </div>
@@ -319,11 +330,11 @@ function AuditEventsTable({ events }: { events: AuditEventView[] }) {
                   <TableCell className='max-w-48 truncate'>
                     {actorLabel(e, t)}
                   </TableCell>
-                  <TableCell className='font-mono text-xs'>
+                  <TableCell className='font-mono text-caption'>
                     {e.action}
                   </TableCell>
                   <TableCell className='max-w-48 truncate text-muted-foreground'>
-                    <span className='font-mono text-xs'>
+                    <span className='font-mono text-caption'>
                       {e.targetType}
                       {e.targetId ? ` · ${e.targetId}` : ''}
                     </span>
@@ -331,7 +342,7 @@ function AuditEventsTable({ events }: { events: AuditEventView[] }) {
                   <TableCell className='text-muted-foreground'>
                     {t(`settings.auditLog.source.${e.source}`)}
                   </TableCell>
-                  <TableCell className='font-mono text-xs text-muted-foreground'>
+                  <TableCell className='font-mono text-caption text-muted-foreground'>
                     {e.ip ?? '—'}
                   </TableCell>
                 </TableRow>
@@ -364,7 +375,7 @@ function AuditEventDetails({ event }: { event: AuditEventView }) {
   const intl = useIntl()
   const t = (id: string) => intl.formatMessage({ id })
   return (
-    <dl className='grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs'>
+    <dl className='grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-caption'>
       {event.actorEmail && (
         <>
           <dt className='text-muted-foreground'>

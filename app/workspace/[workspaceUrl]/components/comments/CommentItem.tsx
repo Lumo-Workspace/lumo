@@ -67,19 +67,19 @@ export function CommentItem({
   return (
     <div
       id={`comment-${comment.id}`}
-      className={`group flex gap-2.5 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+      className={`group flex gap-2.5 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === comment.id ? 'bg-warning-subtle' : ''}`}
     >
       <CommentAvatar
         isAgent={ca.isAgent}
         imageUrl={ca.imageUrl}
-        initials={ca.initials}
+        name={ca.name}
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
-          <span className='text-xs font-semibold text-foreground'>
+          <span className='text-caption font-semibold text-foreground'>
             {ca.name}
           </span>
-          <span className='text-[11px] text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {fmtTimestamp(comment.createdAt)}
             {wasEdited &&
               ` · ${intl.formatMessage({ id: 'comment.edited', defaultMessage: 'edited' })}`}

@@ -52,7 +52,7 @@ export function AgentBadge({ agent }: { agent: TaskArtifactAgent }) {
   const { Icon, color } = AGENT_META[a]
   const label = useAgentLabel(a)
   return (
-    <span className='inline-flex items-center gap-1.5 text-xs text-muted-foreground shrink-0'>
+    <span className='inline-flex items-center gap-1.5 text-caption text-muted-foreground shrink-0'>
       <span
         className='inline-flex size-5 items-center justify-center rounded-full'
         style={{ backgroundColor: `${color}1A`, color }}

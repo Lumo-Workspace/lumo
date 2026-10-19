@@ -29,6 +29,9 @@ export const STORAGE_REDACTED_FIELDS = {
     'systemExplanation',
   ],
   testCaseRun: ['note', 'actual', 'stepResults'],
+  // LUM-1240: customer-written feedback to the Lumo team, and staff replies.
+  feedback: ['title', 'steps', 'expected', 'actual'],
+  feedbackReply: ['body'],
   task: [
     'title',
     'description',

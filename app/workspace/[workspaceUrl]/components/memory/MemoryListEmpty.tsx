@@ -53,9 +53,9 @@ export function MemoryListEmpty({
           <EmptyMedia variant='icon'>
             {noResults ? <SearchX /> : <Brain />}
           </EmptyMedia>
-          {/* `font-semibold` is not redundant with the token: EmptyTitle's own
-              `font-medium` survives the merge and would otherwise win. */}
-          <EmptyTitle className='text-body-strong font-semibold'>
+          {/* `text-body-strong` replaces EmptyTitle's default `text-title` (cn
+              merges the two tiers), so the title takes the tier's weight. */}
+          <EmptyTitle className='text-body-strong'>
             {intl.formatMessage({
               id: noResults
                 ? 'memory.list.empty.noResults.title'

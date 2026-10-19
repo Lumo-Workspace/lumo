@@ -6,6 +6,7 @@ import { X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
 import { TAG_PICKER_COLORS } from './tag-colors'
+import { Badge } from '@/components/ui/badge'
 
 // ── Tag color helpers ─────────────────────────────────────────────────────
 
@@ -29,12 +30,14 @@ interface TagBadgeNewProps {
 export function TagBadgeNew({ tag }: TagBadgeNewProps) {
   const color = getTagColor(tag)
   return (
-    <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap'
+    <Badge
+      variant='plain'
+      size='xs'
+      shape='square'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {tag.name}
-    </span>
+    </Badge>
   )
 }
 
@@ -56,7 +59,7 @@ export function TagListNew({ tags, max = 3 }: TagListNewProps) {
         <TagBadgeNew key={tag.id} tag={tag} />
       ))}
       {overflow > 0 && (
-        <span className='text-[10px] text-muted-foreground'>+{overflow}</span>
+        <span className='text-caption text-muted-foreground'>+{overflow}</span>
       )}
     </div>
   )
@@ -193,7 +196,7 @@ export function TagPicker({
                 })
               : ''
           }
-          className='bg-transparent text-xs outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
+          className='bg-transparent text-caption outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
         />
       </div>
       {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (
@@ -203,7 +206,7 @@ export function TagPicker({
               key={tag.id}
               onMouseDown={e => e.preventDefault()}
               onClick={() => addTag(tag)}
-              className='flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-muted'
+              className='flex items-center gap-2 w-full text-left px-3 py-1.5 text-body hover:bg-muted'
             >
               <TagBadgeNew tag={tag} />
             </button>
@@ -213,7 +216,7 @@ export function TagPicker({
               onMouseDown={e => e.preventDefault()}
               onClick={handleCreate}
               disabled={creating}
-              className='flex items-center gap-1.5 w-full text-left px-3 py-1.5 text-sm hover:bg-muted text-muted-foreground'
+              className='flex items-center gap-1.5 w-full text-left px-3 py-1.5 text-body hover:bg-muted text-muted-foreground'
             >
               <Plus className='h-3 w-3' />
               {intl.formatMessage(

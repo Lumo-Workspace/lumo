@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { deriveRunDigest } from './derive-run-digest'
@@ -12,7 +12,6 @@ import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
 import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
-import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
 import { runOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { RunRawRecordDelete } from './RunRawRecordDelete'
@@ -61,7 +60,7 @@ export function AgentRunCard({
             not the pill, sets the row height — keeps this header the same
             height as the token-usage summary header above. */}
         <span
-          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption leading-4 font-semibold shrink-0'
+          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption font-semibold shrink-0'
           data-testid='run-number'
         >
           <Bot className='size-3' />
@@ -75,13 +74,13 @@ export function AgentRunCard({
             className='flex items-center gap-1.5 shrink-0'
             data-testid='run-member'
           >
-            <Avatar className='size-5'>
-              <AvatarImage src={run.member.imageUrl || undefined} />
-              <AvatarFallback className='text-[9px]'>
-                {initialsOf(run.member.name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className='text-caption font-medium'>{run.member.name}</span>
+            <MemberAvatar
+              decorative
+              name={run.member.name}
+              imageUrl={run.member.imageUrl}
+              size='xs'
+            />
+            <span className='text-caption'>{run.member.name}</span>
           </span>
         )}
         <AgentBadge agent={run.agent} />
@@ -107,7 +106,7 @@ export function AgentRunCard({
             <>
               <span>·</span>
               <span
-                className='font-medium text-foreground'
+                className='font-semibold text-foreground'
                 data-testid='run-memory-count'
               >
                 {intl.formatMessage(
@@ -228,7 +227,7 @@ export function AgentRunCard({
             </div>
           )}
           {run.items.length === 0 ? (
-            <p className='py-3 text-xs text-muted-foreground italic'>
+            <p className='py-3 text-caption text-muted-foreground italic'>
               {intl.formatMessage({
                 id: 'agentRun.noEvents',
                 defaultMessage: '本次运行没有捕获到事件',

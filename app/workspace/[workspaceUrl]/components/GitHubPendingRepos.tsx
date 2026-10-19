@@ -20,7 +20,7 @@ export function GitHubPendingRepos({
 
   if (pendingRepositories === null) {
     return (
-      <p className='text-xs text-muted-foreground italic'>
+      <p className='text-caption text-muted-foreground italic'>
         {intl.formatMessage({ id: 'github.appPendingUnknown' })}
       </p>
     )
@@ -29,19 +29,19 @@ export function GitHubPendingRepos({
 
   return (
     <div>
-      <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1'>
+      <p className='text-caption text-muted-foreground uppercase mb-1'>
         {intl.formatMessage({ id: 'github.appPendingRepos' })}
       </p>
-      <p className='text-xs text-muted-foreground mb-2'>
+      <p className='text-caption text-muted-foreground mb-2'>
         {intl.formatMessage({ id: 'github.appPendingReposDesc' })}
       </p>
       <ul className='space-y-1.5'>
         {pendingRepositories.map(repo => (
           <li
             key={repo}
-            className='px-3 py-2 rounded-lg border border-dashed border-border text-sm'
+            className='px-3 py-2 rounded-lg border border-dashed border-border text-body'
           >
-            <span className='text-muted-foreground font-mono text-xs'>
+            <span className='text-muted-foreground font-mono text-caption'>
               {repo}
             </span>
           </li>

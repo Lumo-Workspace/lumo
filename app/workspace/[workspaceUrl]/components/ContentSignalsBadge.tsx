@@ -12,6 +12,7 @@ import {
   isContentSignals,
   type InjectionSignalKind,
 } from '@/shared/src/untrusted-content'
+import { Badge } from '@/components/ui/badge'
 
 /**
  * LUM-783 — the warning badge a source card (Slack context, web link,
@@ -69,13 +70,16 @@ export function ContentSignalsBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
+        <Badge
           data-testid='content-signals-badge'
-          className={`inline-flex items-center gap-1 rounded-sm border border-warning-border bg-warning-subtle px-1.5 py-0.5 text-[11px] font-medium text-warning-text ${className ?? ''}`}
+          variant='warning'
+          size='xs'
+          shape='square'
+          className={className}
         >
           <ShieldAlert size={12} aria-hidden='true' />
           {label}
-        </span>
+        </Badge>
       </TooltipTrigger>
       <TooltipContent className='max-w-xs'>{tooltip}</TooltipContent>
     </Tooltip>

@@ -25,7 +25,7 @@ export function AsyncContent({
   const intl = useIntl()
   if (loading) {
     return (
-      <div className='flex items-center justify-center h-40 text-sm text-muted-foreground'>
+      <div className='flex items-center justify-center h-40 text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'common.loading' })}
       </div>
     )
@@ -33,12 +33,12 @@ export function AsyncContent({
   if (error) {
     return (
       <div className='flex flex-col items-center justify-center h-40 gap-2'>
-        <p className='text-sm text-red-500'>{error}</p>
+        <p className='text-body text-danger-text'>{error}</p>
         <Button
           variant='ghost'
           size='sm'
           onClick={onRetry}
-          className='text-xs text-muted-foreground underline h-auto p-0 hover:bg-transparent hover:underline'
+          className='text-caption text-muted-foreground underline h-auto p-0 hover:bg-transparent hover:underline'
         >
           {intl.formatMessage({ id: 'common.retry' })}
         </Button>
@@ -49,7 +49,7 @@ export function AsyncContent({
     return (
       <div className='flex flex-1 items-center justify-center p-8'>
         {emptyState ?? (
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'common.empty' })}
           </p>
         )}

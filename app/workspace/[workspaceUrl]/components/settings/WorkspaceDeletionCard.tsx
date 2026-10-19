@@ -92,17 +92,17 @@ export function WorkspaceDeletionCard({
     <>
       <div className='rounded-lg border border-danger-border overflow-hidden'>
         <div className='px-5 py-3 bg-danger-subtle border-b border-danger-border'>
-          <p className='text-sm font-semibold text-danger-text'>
+          <p className='text-body-strong text-danger-text'>
             {intl.formatMessage({ id: 'workspaceSettings.dangerZone' })}
           </p>
         </div>
         {pendingDeletion ? (
           <div className='flex items-center justify-between px-5 py-4 gap-4'>
             <div>
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'workspaceDeletion.pendingTitle' })}
               </p>
-              <p className='text-xs text-muted-foreground mt-0.5'>
+              <p className='text-caption text-muted-foreground mt-0.5'>
                 {intl.formatMessage(
                   { id: 'workspaceDeletion.pendingDesc' },
                   { date: deadline }
@@ -131,10 +131,10 @@ export function WorkspaceDeletionCard({
         ) : (
           <div className='flex items-center justify-between px-5 py-4'>
             <div>
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
               </p>
-              <p className='text-xs text-muted-foreground mt-0.5'>
+              <p className='text-caption text-muted-foreground mt-0.5'>
                 {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
               </p>
             </div>
@@ -179,7 +179,7 @@ export function WorkspaceDeletionCard({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className='px-1 pb-2'>
-            <p className='text-xs text-muted-foreground mb-1.5'>
+            <p className='text-caption text-muted-foreground mb-1.5'>
               {intl.formatMessage(
                 { id: 'workspaceSettings.deleteTypePrompt' },
                 { name: workspaceName }
@@ -190,7 +190,7 @@ export function WorkspaceDeletionCard({
               value={confirmName}
               onChange={e => setConfirmName(e.target.value)}
               placeholder={workspaceName}
-              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-danger'
+              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-body outline-none focus:ring-2 focus:ring-danger'
             />
           </div>
           <AlertDialogFooter>

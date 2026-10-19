@@ -7,7 +7,6 @@ import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { formatDueDate, isOverdue } from '../../utils'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../fields'
-import { getInitials } from '@/lib/utils/getInitials'
 import { UserCircle2 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -15,7 +14,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -60,10 +58,10 @@ function CardShell({
       {...drag.listeners}
       onClick={onClick}
       className={cn(
-        'bg-card border border-border p-3 rounded-lg shadow-elevation-1 hover:shadow-elevation-2 transition-shadow',
+        'bg-card border border-border p-3 rounded-lg hover:border-muted-foreground/50 transition-colors',
         cursorClass,
         isOverlay &&
-          'shadow-elevation-3 border-blue-500/50 rotate-2 cursor-grabbing',
+          'shadow-elevation-3 border-ring/50 rotate-2 cursor-grabbing',
         needsAttention && 'border-l-3 border-l-orange-400'
       )}
     >
@@ -150,15 +148,13 @@ export function ProjectTaskCard({
         {task.number === 0 ? (
           <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-muted-foreground'>
+          <span className='text-caption font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
         <PriorityBadge priority={task.priority} />
       </div>
-      <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
-        {task.title}
-      </h4>
+      <h4 className='text-body-strong mb-4 line-clamp-2'>{task.title}</h4>
       <div className='flex justify-between items-center'>
         {/* ── Left: avatar ── */}
         {assignee ? (
@@ -168,7 +164,11 @@ export function ProjectTaskCard({
                 className='cursor-default'
                 onClick={e => e.stopPropagation()}
               >
-                <MemberAvatar member={assignee} size='xs' />
+                <MemberAvatar
+                  name={assignee.name}
+                  imageUrl={assignee.imageUrl}
+                  size='xs'
+                />
               </span>
             </HoverCardTrigger>
             <HoverCardContent
@@ -177,19 +177,18 @@ export function ProjectTaskCard({
               className='w-auto p-3'
             >
               <div className='flex items-center gap-3'>
-                <Avatar className='size-8 shrink-0'>
-                  <AvatarImage
-                    src={assignee.imageUrl ?? undefined}
-                    alt={assignee.name}
-                  />
-                  <AvatarFallback className='text-xs font-semibold'>
-                    {getInitials(assignee.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <MemberAvatar
+                  decorative
+                  name={assignee.name}
+                  imageUrl={assignee.imageUrl}
+                  size='lg'
+                />
                 <div className='flex flex-col min-w-0'>
-                  <span className='text-xs font-semibold'>{assignee.name}</span>
+                  <span className='text-caption font-semibold'>
+                    {assignee.name}
+                  </span>
                   {assignee.email && (
-                    <span className='text-[11px] text-muted-foreground'>
+                    <span className='text-caption text-muted-foreground'>
                       {assignee.email}
                     </span>
                   )}
@@ -204,9 +203,9 @@ export function ProjectTaskCard({
         {/* ── Right: date ── */}
         <span
           className={cn(
-            'text-[10px]',
+            'text-caption',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-red-500 font-medium'
+              ? 'text-danger-text'
               : 'text-muted-foreground'
           )}
         >
@@ -236,24 +235,22 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         {task.number === 0 ? (
           <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-muted-foreground'>
+          <span className='text-caption font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
         <PriorityBadge priority={task.priority} />
       </div>
-      <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
-        {task.title}
-      </h4>
+      <h4 className='text-body-strong mb-4 line-clamp-2'>{task.title}</h4>
       <div className='flex justify-between items-center'>
-        <span className='text-[10px] text-muted-foreground truncate max-w-[140px]'>
+        <span className='text-caption text-muted-foreground truncate max-w-[140px]'>
           {projectName}
         </span>
         <span
           className={cn(
-            'text-[10px]',
+            'text-caption',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-red-500 font-medium'
+              ? 'text-danger-text'
               : 'text-muted-foreground'
           )}
         >

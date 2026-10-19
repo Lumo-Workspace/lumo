@@ -151,7 +151,7 @@ describe('ProjectMilestonesTab list', () => {
 
     const chips = screen.getByRole('group', { name: 'Filter milestones' })
     const chip = (label: string) =>
-      within(chips).getByRole('button', { name: new RegExp(`^${label}`) })
+      within(chips).getByRole('radio', { name: new RegExp(`^${label}`) })
     expect(chip('Active')).toHaveTextContent('Active2')
     expect(chip('Archived')).toHaveTextContent('Archived1')
     expect(chip('All')).toHaveTextContent('All3')

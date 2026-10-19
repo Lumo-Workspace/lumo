@@ -346,6 +346,7 @@
   "slack.connected": "已連線",
   "slack.connectedTo": "已連線到工作區：{teamName}",
   "slack.channelNote": "頻道通知按專案設定。",
+  "slack.channelUnavailable": "（無法使用）",
   "slack.disconnectTitle": "中斷 Slack？",
   "slack.disconnectDesc": "所有頻道訂閱將被移除。你可以隨時重新連線。",
   "slack.connectSuccess": "Slack 連線成功",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "清單",
   "sprints.view.timeline": "時間軸",
   "sprints.filter.all": "全部",
+  "sprints.statusFilter.label": "依狀態篩選衝刺",
   "sprints.metric.completed": "已完成",
   "sprints.metric.remaining": "剩餘",
   "sprints.metric.timeLeft": "剩餘時間",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "團隊規模",
   "waitlist.teamSize.select": "請選擇…",
   "waitlist.teamSize.justMe": "只有自己",
+  "waitlist.teamSize.preferNotToSay": "不便透露",
   "waitlist.teamSize.2to5": "2–5 人",
   "waitlist.teamSize.6to15": "6–15 人",
   "waitlist.teamSize.16to50": "16–50 人",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "所有人",
   "settings.auditLog.filter.since": "開始日期",
   "settings.auditLog.filter.until": "結束日期",
+  "settings.auditLog.filter.anyDate": "任意日期",
   "settings.auditLog.filter.reset": "重設",
   "settings.auditLog.export": "匯出 CSV",
   "settings.auditLog.exportHint": "下載符合篩選條件的最新事件，最多 {max} 筆。",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "附加在步驟上的檔案也計入同一上限。",
   "testCases.field.evidenceFiles.tooManyTotal": "這次執行加上附加在步驟上的檔案共 {count} 個——最多 {max} 個。",
   "testCases.field.evidenceFiles.badType": "「{filename}」的類型不受支援——請使用 PNG、JPEG、WebP、GIF、文字或 JSON。",
-  "testCases.report.state.skipped": "已略過"
+  "testCases.report.state.skipped": "已略過",
+  "formDialog.collapse": "收合",
+  "formDialog.expand": "展開"
 }

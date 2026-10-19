@@ -8,6 +8,11 @@ import { render, screen } from '@testing-library/react'
 import { WorkspaceSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/WorkspaceSettingsPage'
 import { workspacesClient } from '@/lib/api-client'
 
+// LUM-1265: this suite is about the form's logic, not the dropdown — drive
+// the shadcn Select as a native <select> (see the helper for why).
+jest.mock('@/components/ui/select', () =>
+  require('../../helpers/native-select-mock').nativeSelectMock()
+)
 jest.mock('react-intl', () => {
   const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
     string,

@@ -31,7 +31,7 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
             <TabsTrigger key={t.id} value={t.id}>
               {t.name}
               {!t.sprintsEnabled && (
-                <span className='ml-2 text-xs text-muted-foreground'>
+                <span className='ml-2 text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'sprints.teamSelector.disabled' })}
                 </span>
               )}

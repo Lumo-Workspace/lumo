@@ -12,7 +12,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DatePickerField, startOfDay } from './DatePickerField'
+import {
+  DatePickerField,
+  startOfDay,
+} from '../../components/fields/DatePickerField'
 
 export interface CreateSprintInput {
   name?: string
@@ -102,7 +105,7 @@ export function CreateSprintDialog({
             </div>
           </div>
           {!valid && (
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.create.invalidRange' })}
             </p>
           )}

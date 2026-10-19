@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
@@ -20,8 +20,16 @@ import {
   type StepFiles,
 } from '@/lib/test-cases/step-evidence'
 import { EVIDENCE_ALLOWED_TYPES } from '@/lib/validation/test-case'
+import { Label } from '@/components/ui/label'
 import { StepResultPicker } from './StepResultPicker'
 import { StepEvidenceInput } from './StepEvidenceInput'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
 const CAUSES = [
@@ -49,6 +57,9 @@ interface RecordRunDialogProps {
 const fieldClass =
   'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
+/** Radix Select can't hold an item with value "" — "no PR" maps to this. */
+const NO_PR = 'none'
+
 /**
  * LUM-801: 记一次执行。
  *
@@ -67,6 +78,7 @@ export function RecordRunDialog({
   onClose,
 }: RecordRunDialogProps) {
   const intl = useIntl()
+  const fieldId = useId()
   const [result, setResult] = useState<(typeof RESULTS)[number]>('PASS')
   const [environment, setEnvironment] = useState<
     '' | (typeof ENVIRONMENTS)[number]
@@ -283,63 +295,84 @@ export function RecordRunDialog({
         {intl.formatMessage({ id: 'testCases.dialog.title' })}
       </p>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.result' })}
-        <select
-          className={fieldClass}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-result`}>
+          {intl.formatMessage({ id: 'testCases.field.result' })}
+        </Label>
+        <Select
           value={result}
-          onChange={e =>
-            changeResult(e.target.value as (typeof RESULTS)[number])
-          }
+          onValueChange={v => changeResult(v as (typeof RESULTS)[number])}
         >
-          {RESULTS.map(r => (
-            <option key={r} value={r}>
-              {intl.formatMessage({ id: `testCases.result.${r}` })}
-            </option>
-          ))}
-        </select>
-      </label>
+          <SelectTrigger id={`${fieldId}-result`} className='text-foreground'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {RESULTS.map(r => (
+              <SelectItem key={r} value={r}>
+                {intl.formatMessage({ id: `testCases.result.${r}` })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.environment' })}
-        <select
-          className={fieldClass}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-environment`}>
+          {intl.formatMessage({ id: 'testCases.field.environment' })}
+        </Label>
+        {/* LUM-801: no default — '' shows the placeholder until someone picks. */}
+        <Select
           value={environment}
-          onChange={e =>
-            setEnvironment(e.target.value as (typeof ENVIRONMENTS)[number] | '')
+          onValueChange={v =>
+            setEnvironment(v as (typeof ENVIRONMENTS)[number])
           }
         >
-          <option value=''>
-            {intl.formatMessage({
-              id: 'testCases.field.environment.placeholder',
-            })}
-          </option>
-          {ENVIRONMENTS.map(env => (
-            <option key={env} value={env}>
-              {intl.formatMessage({ id: `testCases.env.${env}` })}
-            </option>
-          ))}
-        </select>
-      </label>
+          <SelectTrigger
+            id={`${fieldId}-environment`}
+            className='text-foreground'
+          >
+            <SelectValue
+              placeholder={intl.formatMessage({
+                id: 'testCases.field.environment.placeholder',
+              })}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {ENVIRONMENTS.map(env => (
+              <SelectItem key={env} value={env}>
+                {intl.formatMessage({ id: `testCases.env.${env}` })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {showPullRequests ? (
-        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.pullRequest' })}
-          <select
-            className={fieldClass}
-            value={prNumber}
-            onChange={e => setPrNumber(e.target.value)}
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-pr`}>
+            {intl.formatMessage({ id: 'testCases.field.pullRequest' })}
+          </Label>
+          <Select
+            value={prNumber || NO_PR}
+            onValueChange={v => setPrNumber(v === NO_PR ? '' : v)}
           >
-            <option value=''>
-              {intl.formatMessage({ id: 'testCases.field.pullRequest.none' })}
-            </option>
-            {pullRequests.map(pr => (
-              <option key={pr.id} value={String(pr.number)}>
-                #{pr.number} {pr.title}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger id={`${fieldId}-pr`} className='text-foreground'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PR}>
+                {intl.formatMessage({
+                  id: 'testCases.field.pullRequest.none',
+                })}
+              </SelectItem>
+              {pullRequests.map(pr => (
+                <SelectItem key={pr.id} value={String(pr.number)}>
+                  #{pr.number} {pr.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       ) : null}
 
       {result !== 'BLOCKED' &&
@@ -364,31 +397,39 @@ export function RecordRunDialog({
       ) : null}
 
       {result === 'FAIL' ? (
-        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.cause' })}
-          <select
-            className={fieldClass}
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-cause`}>
+            {intl.formatMessage({ id: 'testCases.field.cause' })}
+          </Label>
+          <Select
             value={cause}
-            onChange={e =>
-              setCause(e.target.value as '' | (typeof CAUSES)[number])
-            }
+            onValueChange={v => setCause(v as (typeof CAUSES)[number])}
           >
-            <option value=''>
-              {intl.formatMessage({ id: 'testCases.field.cause.placeholder' })}
-            </option>
-            {CAUSES.map(c => (
-              <option key={c} value={c}>
-                {intl.formatMessage({ id: `testCases.cause.${c}` })}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger id={`${fieldId}-cause`} className='text-foreground'>
+              <SelectValue
+                placeholder={intl.formatMessage({
+                  id: 'testCases.field.cause.placeholder',
+                })}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {CAUSES.map(c => (
+                <SelectItem key={c} value={c}>
+                  {intl.formatMessage({ id: `testCases.cause.${c}` })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       ) : null}
 
       {result === 'FAIL' ? (
-        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'testCases.field.actual' })}
+        <div className='flex flex-col gap-2'>
+          <Label htmlFor={`${fieldId}-actual`}>
+            {intl.formatMessage({ id: 'testCases.field.actual' })}
+          </Label>
           <textarea
+            id={`${fieldId}-actual`}
             className={fieldClass}
             value={actual}
             onChange={e => setActual(e.target.value)}
@@ -397,32 +438,39 @@ export function RecordRunDialog({
             })}
             rows={2}
           />
-        </label>
+        </div>
       ) : null}
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.note' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-note`}>
+          {intl.formatMessage({ id: 'testCases.field.note' })}
+        </Label>
         <textarea
+          id={`${fieldId}-note`}
           className={fieldClass}
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
         />
-      </label>
+      </div>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-evidence`}>
+          {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
+        </Label>
         <input
+          id={`${fieldId}-evidence`}
           type='file'
+          className='text-body text-muted-foreground'
           multiple
           accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
         />
-        <span className='text-[11px] text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}{' '}
           {intl.formatMessage({ id: 'testCases.field.stepEvidence.hint' })}
         </span>
-      </label>
+      </div>
 
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 

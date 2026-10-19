@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { enUS, zhCN, zhTW } from 'date-fns/locale'
 import type { Locale as DateFnsLocale } from 'date-fns'
@@ -49,26 +49,63 @@ export function DatePickerField({
   variant = 'outline',
 }: DatePickerFieldProps) {
   const intl = useIntl()
+  return (
+    <CalendarPopover
+      selected={value}
+      onSelect={d => {
+        if (d) onChange(startOfDay(d))
+      }}
+    >
+      <Button
+        id={id}
+        variant={variant}
+        className={cn(
+          variant === 'outline'
+            ? 'w-full justify-start text-left font-normal'
+            : 'h-auto px-1 py-0 font-normal',
+          !value && 'text-muted-foreground',
+          className
+        )}
+      >
+        {variant === 'outline' && <CalendarDays className='mr-2 size-4' />}
+        {formatDate(value, intl.locale)}
+      </Button>
+    </CalendarPopover>
+  )
+}
+
+interface CalendarPopoverProps {
+  /** The trigger — rendered through `PopoverTrigger asChild`. */
+  children: ReactElement
+  selected: Date | undefined
+  /** `undefined` when the selected day is clicked again (deselect). */
+  onSelect: (d: Date | undefined) => void
+  /** Days outside [min, max] cannot be picked. */
+  min?: Date | undefined
+  max?: Date | undefined
+}
+
+/**
+ * The one Calendar-in-Popover every date field uses: a single-day calendar
+ * stretched to the popover width, in the app's language. Closes on pick.
+ */
+export function CalendarPopover({
+  children,
+  selected,
+  onSelect,
+  min,
+  max,
+}: CalendarPopoverProps) {
+  const intl = useIntl()
   const locale = CALENDAR_LOCALES[intl.locale] ?? enUS
   const [open, setOpen] = useState(false)
+  const disabled = [
+    ...(min ? [{ before: min }] : []),
+    ...(max ? [{ after: max }] : []),
+  ]
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          variant={variant}
-          className={cn(
-            variant === 'outline'
-              ? 'w-full justify-start text-left font-normal'
-              : 'h-auto px-1 py-0 font-normal',
-            !value && 'text-muted-foreground',
-            className
-          )}
-        >
-          {variant === 'outline' && <CalendarDays className='mr-2 size-4' />}
-          {formatDate(value, intl.locale)}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className='w-[320px] p-0' align='start'>
         <Calendar
           mode='single'
@@ -77,13 +114,12 @@ export function DatePickerField({
           // instead of collapsing to --cell-size.
           className='w-full [&_[data-slot=calendar]]:w-full'
           style={{ '--cell-size': '2.5rem' } as React.CSSProperties}
-          selected={value}
-          defaultMonth={value}
+          selected={selected}
+          {...(selected ? { defaultMonth: selected } : {})}
+          {...(disabled.length > 0 ? { disabled } : {})}
           onSelect={d => {
-            if (d) {
-              onChange(startOfDay(d))
-              setOpen(false)
-            }
+            onSelect(d)
+            setOpen(false)
           }}
           locale={locale}
         />

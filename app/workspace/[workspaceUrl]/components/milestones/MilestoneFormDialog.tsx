@@ -2,6 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { CalendarDays } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Dialog,
@@ -10,13 +11,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { Spinner } from '@/components/ui/spinner'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { formatCalendarDate } from '@/lib/datetime/format'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { useMentionSources } from '../../hooks/useMentionSources'
 import { useMembers } from '../../hooks/useMembers'
+import { CalendarDayPopover } from '../fields/CalendarDayPicker'
 
 interface Props {
   projectId: string
@@ -135,7 +139,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         }}
       >
         <DialogHeader className='mb-5'>
-          <DialogTitle className='text-xl font-bold'>
+          <DialogTitle className='text-title'>
             {label(editing ? 'milestone.edit' : 'milestone.new')}
           </DialogTitle>
         </DialogHeader>
@@ -155,7 +159,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             onChange={e => setName(e.target.value)}
             placeholder={label('milestone.dialog.name.placeholder')}
             aria-label={label('milestone.field.name')}
-            className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-xl font-semibold leading-[1.4] text-foreground outline-none placeholder:font-semibold placeholder:text-muted-foreground/50'
+            className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-heading text-foreground outline-none placeholder:text-muted-foreground/50'
           />
 
           {/* The same editor a task description gets — rich text, @-mentions,
@@ -180,15 +184,17 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
               label={label('milestone.dates.start')}
               ariaLabel={label('milestone.field.startDate')}
               value={startDate}
+              placeholder={label('milestone.hero.notSet')}
               onChange={setStartDate}
             />
-            <span aria-hidden className='text-[13px] text-muted-foreground/60'>
+            <span aria-hidden className='text-body text-muted-foreground/60'>
               →
             </span>
             <DatePill
               label={label('milestone.dates.target')}
               ariaLabel={label('milestone.field.targetDate')}
               value={targetDate}
+              placeholder={label('milestone.hero.notSet')}
               onChange={setTargetDate}
             />
           </div>
@@ -197,7 +203,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             <p
               role='alert'
               aria-live='polite'
-              className='mt-4 text-sm text-danger-text'
+              className='mt-4 text-body text-danger-text'
             >
               {label('milestone.save.error')}
             </p>
@@ -213,9 +219,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             {busy
               ? label(editing ? 'common.saving' : 'common.creating')
               : label(editing ? 'common.save' : 'common.create')}
-            <kbd className='rounded-sm bg-primary-foreground/15 px-1.5 py-px text-[11px] font-normal text-primary-foreground/70'>
-              {submitModLabel}↵
-            </kbd>
+            <Kbd variant='solid'>{submitModLabel}↵</Kbd>
           </Button>
         </div>
       </DialogContent>
@@ -223,29 +227,36 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   )
 }
 
-/** A date as a chip: a muted word plus a bare native date input. Clicking
- *  anywhere on the chip opens the picker, since the whole thing is one label. */
+/** A date as a chip: a muted word plus the picked day. The whole chip is the
+ *  trigger of the shared calendar picker; clicking the picked day again
+ *  clears it. */
 function DatePill({
   label,
   ariaLabel,
   value,
+  placeholder,
   onChange,
 }: {
   label: string
   ariaLabel: string
   value: string
+  placeholder: string
   onChange: (value: string) => void
 }): ReactNode {
+  const intl = useIntl()
   return (
-    <label className='flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[13px] transition-colors hover:bg-muted/60'>
-      <span className='text-muted-foreground'>{label}</span>
-      <input
-        type='date'
-        value={value}
-        onChange={e => onChange(e.target.value)}
+    <CalendarDayPopover value={value} onChange={onChange} clearable>
+      <button
+        type='button'
         aria-label={ariaLabel}
-        className='cursor-pointer bg-transparent text-[13px] text-foreground outline-none'
-      />
-    </label>
+        className='flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-body transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+      >
+        <span className='text-muted-foreground'>{label}</span>
+        <span className={value ? 'text-foreground' : 'text-muted-foreground'}>
+          {value ? formatCalendarDate(value, intl.locale) : placeholder}
+        </span>
+        <CalendarDays className='size-4 text-muted-foreground' />
+      </button>
+    </CalendarDayPopover>
   )
 }

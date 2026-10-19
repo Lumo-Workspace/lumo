@@ -1,7 +1,8 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { Trash2, Plus, Key, Loader2 } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { Trash2, Plus, Key } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -16,6 +17,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useApiKeys } from '../../hooks/useApiKeys'
 import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
+import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
 export function ApiKeysPage() {
   const intl = useIntl()
@@ -41,10 +44,10 @@ export function ApiKeysPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'apiKeys.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'apiKeys.subtitle' })}
         </p>
 
@@ -62,7 +65,7 @@ export function ApiKeysPage() {
             disabled={creating || !label.trim()}
           >
             {creating ? (
-              <Loader2 size={14} className='animate-spin mr-1.5' />
+              <Spinner className='size-3.5 mr-1.5' />
             ) : (
               <Plus size={14} className='mr-1.5' />
             )}
@@ -71,10 +74,10 @@ export function ApiKeysPage() {
         </div>
 
         <div className='mb-8 rounded-md border border-border p-4'>
-          <p className='text-sm font-medium text-foreground'>
+          <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'apiKeys.ingest.title' })}
           </p>
-          <p className='mt-1 text-sm text-muted-foreground'>
+          <p className='mt-1 text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'apiKeys.ingest.description' })}
           </p>
           <Button
@@ -84,7 +87,7 @@ export function ApiKeysPage() {
             disabled={creatingIngest}
           >
             {creatingIngest ? (
-              <Loader2 size={14} className='animate-spin mr-1.5' />
+              <Spinner className='size-3.5 mr-1.5' />
             ) : (
               <Plus size={14} className='mr-1.5' />
             )}
@@ -94,56 +97,66 @@ export function ApiKeysPage() {
 
         {/* Key list */}
         {loading ? (
-          <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-            <Loader2 size={14} className='animate-spin' />
+          <div className='flex items-center gap-2 text-body text-muted-foreground'>
+            <Spinner className='size-3.5' />
             {intl.formatMessage({ id: 'common.loading' })}
           </div>
         ) : keys.length === 0 ? (
           <div className='flex flex-col items-center gap-2 py-12 text-muted-foreground'>
             <Key size={28} />
-            <p className='text-sm'>
+            <p className='text-body'>
               {intl.formatMessage({ id: 'apiKeys.empty' })}
             </p>
           </div>
         ) : (
           <ul className='space-y-2'>
             {keys.map(k => (
-              <li
+              <Card
                 key={k.id}
-                className='flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card'
+                asChild
+                className='flex items-center justify-between px-4 py-3'
               >
-                <div>
-                  <p className='text-sm font-medium text-foreground'>
-                    {k.label}
-                    {k.scope === 'security:ingest' && (
-                      <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground'>
-                        {intl.formatMessage({
-                          id: 'apiKeys.scope.securityIngest',
-                        })}
-                      </span>
-                    )}
-                  </p>
-                  <p className='text-xs text-muted-foreground font-mono mt-0.5'>
-                    {k.keyPrefix}…
-                    {k.lastUsedAt && (
-                      <span className='font-sans ml-3'>
-                        {intl.formatMessage(
-                          { id: 'apiKeys.lastUsed' },
-                          { date: new Date(k.lastUsedAt).toLocaleDateString() }
-                        )}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='text-muted-foreground hover:text-destructive'
-                  onClick={() => setRevokeTarget(k)}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </li>
+                <li>
+                  <div>
+                    <p className='text-body-strong text-foreground'>
+                      {k.label}
+                      {k.scope === 'security:ingest' && (
+                        <Badge
+                          variant='outline-muted'
+                          size='xs'
+                          shape='square'
+                          className='ml-2 uppercase'
+                        >
+                          {intl.formatMessage({
+                            id: 'apiKeys.scope.securityIngest',
+                          })}
+                        </Badge>
+                      )}
+                    </p>
+                    <p className='text-caption text-muted-foreground font-mono mt-0.5'>
+                      {k.keyPrefix}…
+                      {k.lastUsedAt && (
+                        <span className='font-sans ml-3'>
+                          {intl.formatMessage(
+                            { id: 'apiKeys.lastUsed' },
+                            {
+                              date: new Date(k.lastUsedAt).toLocaleDateString(),
+                            }
+                          )}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    className='text-muted-foreground hover:text-destructive'
+                    onClick={() => setRevokeTarget(k)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </li>
+              </Card>
             ))}
           </ul>
         )}
@@ -180,7 +193,7 @@ export function ApiKeysPage() {
                 disabled={revoking}
               >
                 {revoking ? (
-                  <Loader2 size={14} className='animate-spin' />
+                  <Spinner className='size-3.5' />
                 ) : (
                   intl.formatMessage({ id: 'common.revoke' })
                 )}

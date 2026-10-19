@@ -20,25 +20,32 @@ interface DocumentTocProps {
 
 /**
  * Per-tier typography so the outline conveys hierarchy through size + weight,
- * not indentation alone. Size is always applied; weight/colour only when the
- * item is inactive (the active branch sets its own emphasis, see below).
+ * not indentation alone. The size tier is always applied; colour only when the
+ * item is inactive, and the active branch upgrades the weight (TIER_ACTIVE).
  */
 const TIER_SIZE: Record<TocLevelTier, string> = {
-  root: 'text-[13px]',
-  section: 'text-[13px]',
-  sub: 'text-[12px]',
+  root: 'text-body-strong',
+  section: 'text-body',
+  sub: 'text-caption font-normal',
 }
 const TIER_REST: Record<TocLevelTier, string> = {
-  root: 'font-semibold text-foreground',
-  section: 'font-medium text-foreground',
-  sub: 'font-normal text-muted-foreground',
+  root: 'text-foreground',
+  section: 'text-foreground',
+  sub: 'text-muted-foreground',
+}
+// Active emphasis per tier: the strong variant of the tier's own size, so the
+// active item never changes size (only weight).
+const TIER_ACTIVE: Record<TocLevelTier, string> = {
+  root: 'text-body-strong',
+  section: 'text-body-strong',
+  sub: 'font-semibold',
 }
 
 // Active = reading-position highlight. Monochrome on purpose (brand --primary is
 // near-black, and hierarchy here is carried by type, not colour): a left bar +
 // semibold + a solid accent background, distinct from the plain accent hover.
 const TOC_ACTIVE =
-  'font-semibold text-foreground bg-accent ' +
+  'text-foreground bg-accent ' +
   'before:absolute before:left-0 before:top-1 before:bottom-1 ' +
   'before:w-[2.5px] before:rounded-full before:bg-foreground'
 
@@ -110,10 +117,10 @@ export function DocumentToc({
                   onClick={() => handleClick(item.id)}
                   style={{ paddingLeft: `${(item.level - 1) * 12 + 10}px` }}
                   className={cn(
-                    'relative block w-full text-left leading-[1.45] py-1 pr-2 truncate rounded-sm transition-colors',
+                    'relative block w-full text-left py-1 pr-2 truncate rounded-sm transition-colors',
                     TIER_SIZE[tier],
                     item.isActive
-                      ? TOC_ACTIVE
+                      ? cn(TOC_ACTIVE, TIER_ACTIVE[tier])
                       : cn(
                           TIER_REST[tier],
                           'hover:text-foreground hover:bg-accent'

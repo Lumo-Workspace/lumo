@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { slugify } from '@/lib/utils/slugify'
 import { statusLabel } from '../utils/taskStatus'
 
@@ -25,8 +26,8 @@ const PRIORITY_LABEL: Record<string, string> = {
 }
 
 function scoreBadgeClass(score: number): string {
-  if (score >= 0.8) return 'text-red-600 dark:text-red-400'
-  if (score >= 0.6) return 'text-amber-600 dark:text-amber-400'
+  if (score >= 0.8) return 'text-danger-text'
+  if (score >= 0.6) return 'text-warning-text'
   return 'text-muted-foreground'
 }
 
@@ -51,15 +52,15 @@ export function DuplicateConfirm({
   return (
     <div className='space-y-4'>
       {/* Warning banner */}
-      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-700 dark:text-amber-400'>
-        <AlertTriangle className='size-4 shrink-0' />
-        <span>
+      <Alert variant='warning'>
+        <AlertTriangle />
+        <AlertDescription>
           {intl.formatMessage(
             { id: 'duplicate.confirmMessage' },
             { count: matches.length }
           )}
-        </span>
-      </div>
+        </AlertDescription>
+      </Alert>
 
       {/* Match list */}
       <div className='space-y-2'>
@@ -75,18 +76,18 @@ export function DuplicateConfirm({
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-2 mb-1'>
                   <span
-                    className={`text-xs font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
+                    className={`text-caption font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
                   >
                     {intl.formatMessage(
                       { id: 'duplicate.match' },
                       { score: Math.round(match.score * 100) }
                     )}
                   </span>
-                  <span className='text-sm font-medium text-foreground truncate'>
+                  <span className='text-body-strong text-foreground truncate'>
                     {match.title}
                   </span>
                 </div>
-                <div className='flex items-center gap-1 text-xs text-muted-foreground'>
+                <div className='flex items-center gap-1 text-caption text-muted-foreground'>
                   <span>{identifier}</span>
                   <span>·</span>
                   <span>{statusLabel(intl, match.status)}</span>

@@ -1,36 +1,29 @@
-import { Bot } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AgentAvatar, MemberAvatar } from '@/components/MemberAvatar'
 
 interface CommentAvatarProps {
   isAgent: boolean
+  name: string
   imageUrl: string | undefined
-  initials: string
   size?: 'sm' | 'md'
 }
 
+/** Comment / activity author avatar: agent glyph or member avatar (LUM-1269).
+ *  Decorative: every caller prints the author's name beside it. */
 export function CommentAvatar({
   isAgent,
+  name,
   imageUrl,
-  initials,
   size = 'md',
 }: CommentAvatarProps) {
-  const sizeClass = size === 'sm' ? 'size-6' : 'size-7'
-  const iconSize = size === 'sm' ? 'size-3' : 'size-3.5'
-
-  if (isAgent) {
-    return (
-      <div
-        className={`${sizeClass} shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center`}
-      >
-        <Bot className={`${iconSize} text-violet-600 dark:text-violet-400`} />
-      </div>
-    )
-  }
-
-  return (
-    <Avatar className={`${sizeClass} shrink-0 mt-0.5`}>
-      <AvatarImage src={imageUrl} />
-      <AvatarFallback className='text-[10px]'>{initials}</AvatarFallback>
-    </Avatar>
+  return isAgent ? (
+    <AgentAvatar name={name} size={size} className='mt-0.5' decorative />
+  ) : (
+    <MemberAvatar
+      name={name}
+      imageUrl={imageUrl}
+      size={size}
+      className='mt-0.5'
+      decorative
+    />
   )
 }

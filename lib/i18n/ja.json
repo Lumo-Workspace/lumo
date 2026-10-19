@@ -346,6 +346,7 @@
   "slack.connected": "接続済み",
   "slack.connectedTo": "ワークスペースに接続済み: {teamName}",
   "slack.channelNote": "チャンネル通知はプロジェクトごとに設定されます。",
+  "slack.channelUnavailable": "（利用不可）",
   "slack.disconnectTitle": "Slackを切断しますか？",
   "slack.disconnectDesc": "すべてのチャンネルサブスクリプションが削除されます。いつでも再接続できます。",
   "slack.connectSuccess": "Slackが正常に接続されました",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "リスト",
   "sprints.view.timeline": "タイムライン",
   "sprints.filter.all": "すべて",
+  "sprints.statusFilter.label": "ステータスでスプリントを絞り込む",
   "sprints.metric.completed": "完了",
   "sprints.metric.remaining": "残り",
   "sprints.metric.timeLeft": "残り時間",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "チーム規模",
   "waitlist.teamSize.select": "選択…",
   "waitlist.teamSize.justMe": "自分のみ",
+  "waitlist.teamSize.preferNotToSay": "回答しない",
   "waitlist.teamSize.2to5": "2〜5 人",
   "waitlist.teamSize.6to15": "6〜15 人",
   "waitlist.teamSize.16to50": "16〜50 人",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "全員",
   "settings.auditLog.filter.since": "開始日",
   "settings.auditLog.filter.until": "終了日",
+  "settings.auditLog.filter.anyDate": "指定なし",
   "settings.auditLog.filter.reset": "リセット",
   "settings.auditLog.export": "CSV をエクスポート",
   "settings.auditLog.exportHint": "条件に一致する最新のイベントを最大 {max} 件ダウンロードします。",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "ステップに添付したファイルも同じ上限に含まれます。",
   "testCases.field.evidenceFiles.tooManyTotal": "ステップに添付したファイルを含めると、この実行のファイルは {count} 件になります。最大 {max} 件です。",
   "testCases.field.evidenceFiles.badType": "「{filename}」は対応していない形式です。PNG、JPEG、WebP、GIF、テキスト、JSON を使用してください。",
-  "testCases.report.state.skipped": "スキップ"
+  "testCases.report.state.skipped": "スキップ",
+  "formDialog.collapse": "折りたたむ",
+  "formDialog.expand": "展開"
 }

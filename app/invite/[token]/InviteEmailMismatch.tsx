@@ -23,10 +23,10 @@ export function InviteEmailMismatch({
   const intl = useIntl()
   return (
     <>
-      <h2 className='text-lg font-semibold'>
+      <h2 className='text-title'>
         {intl.formatMessage({ id: 'invite.mismatch.title' })}
       </h2>
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage(
           { id: 'invite.mismatch.body' },
           { email: maskedEmail, workspaceName }

@@ -4,7 +4,15 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { workspacesClient } from '@/lib/api-client'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   PUBLIC_LOCALES,
   PUBLIC_LOCALE_NAMES,
@@ -61,30 +69,32 @@ export function DefaultLanguageRow({
   return (
     <div className='flex items-center justify-between gap-4 px-5 py-4'>
       <div className='min-w-0'>
-        <label
+        <Label
           htmlFor='workspace-default-locale'
-          className='text-sm font-medium text-foreground'
+          className='text-body-strong text-foreground'
         >
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguage' })}
-        </label>
-        <p className='text-xs text-muted-foreground mt-0.5'>
+        </Label>
+        <p className='text-caption text-muted-foreground mt-0.5'>
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguageDesc' })}
         </p>
       </div>
       <div className='flex items-center gap-2 shrink-0'>
-        <select
-          id='workspace-default-locale'
-          value={selected}
-          onChange={e => setSelected(e.target.value)}
-          disabled={saving}
-          className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
-        >
-          {PUBLIC_LOCALES.map((locale: PublicLocale) => (
-            <option key={locale} value={locale}>
-              {PUBLIC_LOCALE_NAMES[locale]}
-            </option>
-          ))}
-        </select>
+        <Select value={selected} onValueChange={setSelected} disabled={saving}>
+          <SelectTrigger
+            id='workspace-default-locale'
+            className='h-8 w-auto gap-2 text-foreground'
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PUBLIC_LOCALES.map((locale: PublicLocale) => (
+              <SelectItem key={locale} value={locale} lang={locale}>
+                {PUBLIC_LOCALE_NAMES[locale]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {selected !== value && (
           <Button size='sm' onClick={handleSave} disabled={saving}>
             {saving

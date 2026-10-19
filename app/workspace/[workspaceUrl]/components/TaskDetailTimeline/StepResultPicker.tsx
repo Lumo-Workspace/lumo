@@ -2,7 +2,9 @@
 
 import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 interface StepResultPickerProps {
   steps: string[]
@@ -30,8 +32,8 @@ export function StepResultPicker({
   renderMarkedStep,
 }: StepResultPickerProps) {
   const intl = useIntl()
-  // LUM-1185: radio 的 name 按实例加前缀。裸用 `STEPS:0` 时，同一页面上的两个
-  // 选择器会被浏览器当成同一组单选，后渲染的那个把前一个的选中状态抢走。
+  // LUM-1185: 每组单选的 id 按实例加前缀。裸用 `STEPS:0` 时，同一页面上的两个
+  // 选择器会互相串组，后渲染的那个把前一个的选中状态抢走。
   const groupId = useId()
   const items = [
     ...steps.map((text, index) => ({
@@ -64,7 +66,7 @@ export function StepResultPicker({
       <legend>
         {intl.formatMessage({ id: 'testCases.field.stepResults' })}
       </legend>
-      <p className='text-[11px]'>
+      <p className='text-caption'>
         {intl.formatMessage({ id: 'testCases.field.stepResults.hint' })}
       </p>
       {items.map(item => {
@@ -78,20 +80,29 @@ export function StepResultPicker({
         return (
           <div key={item.key} className='flex flex-col gap-1'>
             <span className='text-foreground'>{item.label}</span>
-            <div className='flex gap-3'>
-              {statuses.map(s => (
-                <label key={s} className='flex items-center gap-1'>
-                  <input
-                    type='radio'
-                    name={`${groupId}-${item.key}`}
-                    checked={entry?.status === s}
-                    onChange={() => set(item.key, s)}
-                  />
-                  {intl.formatMessage({
-                    id: `testCases.field.stepResults.${s.toLowerCase()}`,
-                  })}
-                </label>
-              ))}
+            <div className='flex items-center gap-3'>
+              <RadioGroup
+                className='flex gap-3'
+                aria-label={item.label}
+                value={entry?.status ?? ''}
+                onValueChange={next =>
+                  set(item.key, next as (typeof statuses)[number])
+                }
+              >
+                {statuses.map(s => {
+                  const id = `${groupId}-${item.key}-${s}`
+                  return (
+                    <div key={s} className='flex items-center gap-1'>
+                      <RadioGroupItem id={id} value={s} />
+                      <Label htmlFor={id} className='text-body'>
+                        {intl.formatMessage({
+                          id: `testCases.field.stepResults.${s.toLowerCase()}`,
+                        })}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </RadioGroup>
               {entry ? (
                 <button
                   type='button'

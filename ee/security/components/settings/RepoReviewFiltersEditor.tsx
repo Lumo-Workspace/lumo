@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -91,27 +92,27 @@ export function RepoReviewFiltersEditor({
 
   const field = (name: ListField, hint?: string) => (
     <div className='flex flex-col gap-1'>
-      <label
+      <Label
         htmlFor={`${idBase}-${name}`}
-        className='text-xs font-medium text-foreground'
+        className='text-caption text-foreground'
       >
         {t(name)}
-      </label>
+      </Label>
       <Textarea
         id={`${idBase}-${name}`}
         value={draft[name]}
         rows={2}
         disabled={disabled}
-        className='text-xs font-mono'
+        className='text-caption font-mono'
         onChange={e => setDraft(d => ({ ...d, [name]: e.target.value }))}
       />
-      {hint && <p className='text-xs text-muted-foreground'>{hint}</p>}
+      {hint && <p className='text-caption text-muted-foreground'>{hint}</p>}
     </div>
   )
 
   return (
     <div className='flex flex-col gap-3 pt-3'>
-      <p className='text-xs text-muted-foreground'>{t('precedence')}</p>
+      <p className='text-caption text-muted-foreground'>{t('precedence')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         {field(
           'baseBranches',
@@ -126,22 +127,22 @@ export function RepoReviewFiltersEditor({
         {field('ignoreUsernames')}
         {field('pathFilters', t('pathFiltersHint'))}
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-descriptionKeyword`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('descriptionKeyword')}
-          </label>
+          </Label>
           <Input
             id={`${idBase}-descriptionKeyword`}
             value={draft.descriptionKeyword}
             disabled={disabled}
-            className='text-xs font-mono'
+            className='text-caption font-mono'
             onChange={e =>
               setDraft(d => ({ ...d, descriptionKeyword: e.target.value }))
             }
           />
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t('descriptionKeywordHint')}
           </p>
         </div>

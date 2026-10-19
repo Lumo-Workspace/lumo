@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { SlackIcon } from './SlackIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
@@ -17,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useSlackIntegration } from '../hooks/useSlackIntegration'
+import { Spinner } from '@/components/ui/spinner'
 
 export function SlackIntegrationCard({
   isOwner,
@@ -43,7 +43,7 @@ export function SlackIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : status?.connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'slack.connected' })} />
   ) : isOwner ? (
@@ -70,12 +70,12 @@ export function SlackIntegrationCard({
       >
         {status?.connected ? (
           <>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'slack.connectedTo' },
                 {
                   teamName: (
-                    <span className='font-medium text-foreground'>
+                    <span className='text-foreground'>
                       {status.slackTeamName}
                     </span>
                   ),
@@ -83,7 +83,7 @@ export function SlackIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'slack.channelNote' })}
             </p>
           </>
@@ -111,7 +111,7 @@ export function SlackIntegrationCard({
               disabled={disconnecting}
             >
               {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
               )}

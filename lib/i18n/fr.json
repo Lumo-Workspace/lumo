@@ -346,6 +346,7 @@
   "slack.connected": "Connecté",
   "slack.connectedTo": "Connecté à l'espace de travail : {teamName}",
   "slack.channelNote": "Les notifications de canal sont configurées par projet.",
+  "slack.channelUnavailable": "(indisponible)",
   "slack.disconnectTitle": "Déconnecter Slack ?",
   "slack.disconnectDesc": "Toutes les abonnements aux canaux seront supprimés. Vous pouvez vous reconnecter à tout moment.",
   "slack.connectSuccess": "Slack connecté avec succès",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Liste",
   "sprints.view.timeline": "Chronologie",
   "sprints.filter.all": "Tous",
+  "sprints.statusFilter.label": "Filtrer les sprints par statut",
   "sprints.metric.completed": "Terminé",
   "sprints.metric.remaining": "Restant",
   "sprints.metric.timeLeft": "Temps restant",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Taille de l'équipe",
   "waitlist.teamSize.select": "Sélectionner…",
   "waitlist.teamSize.justMe": "Juste moi",
+  "waitlist.teamSize.preferNotToSay": "Je préfère ne pas répondre",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Tout le monde",
   "settings.auditLog.filter.since": "Du",
   "settings.auditLog.filter.until": "Au",
+  "settings.auditLog.filter.anyDate": "N’importe quelle date",
   "settings.auditLog.filter.reset": "Réinitialiser",
   "settings.auditLog.export": "Exporter en CSV",
   "settings.auditLog.exportHint": "Télécharge jusqu'à {max} des événements les plus récents correspondant aux filtres.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Les fichiers joints aux étapes comptent dans la même limite.",
   "testCases.field.evidenceFiles.tooManyTotal": "Avec les fichiers joints aux étapes, cette exécution compterait {count} fichiers — {max} au maximum.",
   "testCases.field.evidenceFiles.badType": "« {filename} » n’est pas d’un type pris en charge — utilisez PNG, JPEG, WebP, GIF, texte ou JSON.",
-  "testCases.report.state.skipped": "Ignorée"
+  "testCases.report.state.skipped": "Ignorée",
+  "formDialog.collapse": "Réduire",
+  "formDialog.expand": "Agrandir"
 }

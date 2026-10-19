@@ -294,14 +294,18 @@ describe('MemberFilterTabs', () => {
         onChange={onChange}
       />
     )
-    const all = screen.getByRole('button', { name: /All/ })
-    expect(all.getAttribute('aria-pressed')).toBe('true')
+    const all = screen.getByRole('radio', { name: /All/ })
+    expect(all.getAttribute('aria-checked')).toBe('true')
     expect(all.textContent).toBe('All4')
     expect(
-      screen.getByRole('button', { name: /Not connected/ }).textContent
+      screen.getByRole('radio', { name: /Not connected/ }).textContent
     ).toBe('Not connected')
-    fireEvent.click(screen.getByRole('button', { name: /Needs update/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /Needs update/ }))
     expect(onChange).toHaveBeenCalledWith('needsUpdate')
+    // Single-select: re-clicking the active chip never clears the filter.
+    onChange.mockClear()
+    fireEvent.click(all)
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
 

@@ -9,7 +9,6 @@
  */
 import { useEffect, useState, type FormEvent } from 'react'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +21,7 @@ import {
   changePasswordErrorMessageId,
   errorMessageId,
 } from './sign-in-helpers'
+import { Spinner } from '@/components/ui/spinner'
 
 /** Better Auth's provider id of an email + password account. */
 const CREDENTIAL_PROVIDER_ID = 'credential'
@@ -158,7 +158,7 @@ function ChangePasswordCard() {
               disabled={saving || hasPassword === null}
             >
               {saving ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 t('profile.password.submit')
               )}

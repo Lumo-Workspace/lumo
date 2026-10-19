@@ -95,7 +95,7 @@ export function TaskDependencyField({
 
   return (
     <>
-      <div className='flex flex-wrap items-center gap-1 px-2 py-1 text-xs min-h-7'>
+      <div className='flex flex-wrap items-center gap-1 px-2 py-1 text-caption min-h-7'>
         {loading && edges.length === 0 ? (
           <FieldValueSkeleton />
         ) : isEmpty ? (

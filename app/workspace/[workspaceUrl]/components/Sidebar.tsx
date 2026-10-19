@@ -24,6 +24,7 @@ import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
 import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import {
   Sidebar,
   SidebarContent,
@@ -88,7 +89,6 @@ export function AppSidebar({
   const workspaceName = workspace?.name ?? ''
   const workspaceLogoUrl = workspace?.logoUrl ?? null
 
-  const initials = user?.initials ?? '?'
   const displayName = user?.displayName ?? ''
 
   return (
@@ -111,23 +111,19 @@ export function AppSidebar({
                       alt={workspaceName}
                       className='size-8 rounded-sm object-contain shrink-0'
                     />
-                  ) : user?.imageUrl ? (
-                    <img
-                      src={user.imageUrl}
-                      className='size-8 rounded-full object-cover shrink-0'
-                      alt='avatar'
-                      referrerPolicy='no-referrer'
-                    />
                   ) : (
-                    <div className='size-8 rounded-full bg-sidebar-accent flex items-center justify-center text-[11px] font-bold shrink-0'>
-                      {initials}
-                    </div>
+                    <MemberAvatar
+                      decorative
+                      name={displayName}
+                      imageUrl={user?.imageUrl}
+                      size='lg'
+                    />
                   )}
                   <div className='flex-1 min-w-0 text-left leading-tight'>
-                    <p className='text-sm font-semibold truncate'>
+                    <p className='text-body-strong truncate'>
                       {workspaceName || 'Workspace'}
                     </p>
-                    <p className='text-xs text-sidebar-foreground/60 truncate'>
+                    <p className='text-caption text-sidebar-foreground/60 truncate'>
                       {displayName}
                     </p>
                   </div>
@@ -157,7 +153,7 @@ export function AppSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className='text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer'
+                  className='text-danger-text focus:text-danger-text focus:bg-danger-subtle cursor-pointer'
                   onClick={() => {
                     clearCache()
                     signOut({ redirectUrl: '/signin' })
@@ -228,7 +224,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.inbox' })}
                     </span>
                     {unreadCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-caption font-semibold bg-info hover:bg-info text-info-foreground rounded-full justify-center'>
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </Badge>
                     )}
@@ -253,7 +249,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.drafts' })}
                     </span>
                     {draftCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-muted-foreground hover:bg-muted-foreground text-white rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-caption font-semibold bg-muted-foreground hover:bg-muted-foreground text-white rounded-full justify-center'>
                         {draftCount > 99 ? '99+' : draftCount}
                       </Badge>
                     )}

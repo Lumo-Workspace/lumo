@@ -27,44 +27,7 @@ import type {
   WorkspaceMemberInfo,
 } from '../../types'
 import { documentsClient } from '@/lib/api-client'
-
-// ─── Helper: avatar with image or initials fallback ─────────────────────────
-
-function MemberAvatar({
-  name,
-  imageUrl,
-  size = 32,
-}: {
-  name: string
-  imageUrl: string | null
-  size?: number
-}) {
-  const initials = (name || '?')
-    .split(' ')
-    .map(p => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt={name}
-        className='rounded-full object-cover shrink-0'
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <div
-      className='rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0'
-      style={{ width: size, height: size }}
-    >
-      {initials}
-    </div>
-  )
-}
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +280,7 @@ export function ShareDialog({
       <DialogContent className='sm:max-w-md !grid-rows-[auto_1fr] max-h-[85vh]'>
         <DialogHeader>
           <DialogTitle>{intl.formatMessage({ id: 'share.title' })}</DialogTitle>
-          <p className='flex items-center gap-1 text-sm text-muted-foreground'>
+          <p className='flex items-center gap-1 text-body text-muted-foreground'>
             {documentEmoji && <span>{documentEmoji}</span>}
             {documentTitle ||
               intl.formatMessage({
@@ -363,23 +326,24 @@ export function ShareDialog({
                   <button
                     key={m.id}
                     type='button'
-                    className='flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left'
+                    className='flex items-center gap-2 w-full px-3 py-2 text-body hover:bg-accent text-left'
                     onClick={() => handleInvite(m)}
                   >
                     <MemberAvatar
+                      decorative
                       name={m.name}
                       imageUrl={m.imageUrl}
-                      size={24}
+                      size='sm'
                     />
                     <div className='flex-1 min-w-0'>
-                      <div className='truncate font-medium'>{m.name}</div>
+                      <div className='truncate text-body-strong'>{m.name}</div>
                       {m.email && (
-                        <div className='truncate text-xs text-muted-foreground'>
+                        <div className='truncate text-caption text-muted-foreground'>
                           {m.email}
                         </div>
                       )}
                     </div>
-                    <span className='text-xs text-muted-foreground shrink-0'>
+                    <span className='text-caption text-muted-foreground shrink-0'>
                       {intl.formatMessage({ id: 'share.invite' })}
                     </span>
                   </button>
@@ -390,21 +354,22 @@ export function ShareDialog({
 
           {/* ── Current shares ─────────────────────────────────────────── */}
           <div className='space-y-1'>
-            <div className='text-xs font-medium text-muted-foreground px-1 mb-2'>
+            <div className='text-caption text-muted-foreground px-1 mb-2'>
               {intl.formatMessage({ id: 'share.sharedWith' })}
             </div>
 
             {/* Owner row */}
             <div className='flex items-center gap-2 px-1 py-1.5'>
               <MemberAvatar
+                decorative
                 name={owner.name}
                 imageUrl={owner.imageUrl}
-                size={28}
+                size='md'
               />
               <div className='flex-1 min-w-0'>
-                <div className='text-sm truncate'>{owner.name}</div>
+                <div className='text-body truncate'>{owner.name}</div>
               </div>
-              <span className='text-xs text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: 'share.owner' })}
               </span>
             </div>
@@ -416,12 +381,13 @@ export function ShareDialog({
                 className='flex items-center gap-2 px-1 py-1.5'
               >
                 <MemberAvatar
+                  decorative
                   name={share.member.name}
                   imageUrl={share.member.imageUrl}
-                  size={28}
+                  size='md'
                 />
                 <div className='flex-1 min-w-0'>
-                  <div className='text-sm truncate'>{share.member.name}</div>
+                  <div className='text-body truncate'>{share.member.name}</div>
                 </div>
                 <Select
                   value={share.role}
@@ -433,7 +399,7 @@ export function ShareDialog({
                     }
                   }}
                 >
-                  <SelectTrigger className='w-[120px] h-8 text-xs'>
+                  <SelectTrigger className='w-[120px] h-8 text-caption'>
                     <SelectValue>{roleLabel(share.role)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -462,10 +428,10 @@ export function ShareDialog({
               <div className='flex items-center gap-2'>
                 <Globe className='h-4 w-4 text-muted-foreground' />
                 <div>
-                  <div className='text-sm font-medium'>
+                  <div className='text-body-strong'>
                     {intl.formatMessage({ id: 'share.publicLink' })}
                   </div>
-                  <div className='text-xs text-muted-foreground'>
+                  <div className='text-caption text-muted-foreground'>
                     {intl.formatMessage({ id: 'share.publicLinkDesc' })}
                   </div>
                 </div>
@@ -478,7 +444,7 @@ export function ShareDialog({
 
             {publicToken && (
               <div className='flex items-center gap-2 mt-3'>
-                <div className='flex-1 flex items-center gap-2 bg-muted rounded-md px-3 py-1.5 text-xs text-muted-foreground truncate'>
+                <div className='flex-1 flex items-center gap-2 bg-muted rounded-md px-3 py-1.5 text-caption text-muted-foreground truncate'>
                   <Link2 className='h-3 w-3 shrink-0' />
                   <span className='truncate'>
                     {window.location.origin}/share/{publicToken}

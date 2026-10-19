@@ -27,7 +27,7 @@ export function DocumentBreadcrumb({
   })
 
   return (
-    <nav className='flex items-center gap-1 text-xs text-muted-foreground'>
+    <nav className='flex items-center gap-1 text-caption text-muted-foreground'>
       <button
         type='button'
         className='hover:text-foreground transition-colors'

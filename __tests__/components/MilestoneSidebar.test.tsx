@@ -7,6 +7,7 @@ const en: Record<string, string> = {
   'milestone.state.active': 'Active',
   'milestone.state.completed': 'Completed',
   'milestone.state.archived': 'Archived',
+  'milestone.hero.notSet': 'Not set',
 }
 
 jest.mock('react-intl', () => ({
@@ -52,38 +53,49 @@ test('a completed milestone reads "Completed"', () => {
   expect(screen.getByText('Completed')).toBeInTheDocument()
 })
 
-test('editing start date calls onUpdate with { startDate }', () => {
+/** Open the shared calendar picker behind `trigger` and click `day` (a
+ *  local-midnight Date, which is what the calendar itself hands back). */
+function pickDay(trigger: HTMLElement, day: Date) {
+  fireEvent.click(trigger)
+  const cell = document.querySelector(
+    `button[data-day="${day.toLocaleDateString()}"]`
+  )
+  if (!cell) throw new Error(`no calendar cell for ${day.toDateString()}`)
+  fireEvent.click(cell)
+}
+
+test('picking a start date calls onUpdate with the calendar day { startDate }', () => {
   const { onUpdate } = setup()
-  fireEvent.change(screen.getByLabelText('Start date'), {
-    target: { value: '2026-07-01' },
-  })
-  expect(onUpdate).toHaveBeenCalledWith({ startDate: '2026-07-01' })
+  // The calendar opens on the current value's month (June 2026).
+  pickDay(screen.getByLabelText('Start date'), new Date(2026, 5, 17))
+  expect(onUpdate).toHaveBeenCalledWith({ startDate: '2026-06-17' })
 })
 
-test('clearing target date calls onUpdate with { targetDate: null }', () => {
+test('clicking the picked target day again clears it: { targetDate: null }', () => {
   const { onUpdate } = setup()
-  fireEvent.change(screen.getByLabelText('Target date'), {
-    target: { value: '' },
-  })
+  pickDay(screen.getByLabelText('Target date'), new Date(2026, 7, 31))
   expect(onUpdate).toHaveBeenCalledWith({ targetDate: null })
 })
 
-test('date inputs prefill from ISO values (sliced to yyyy-mm-dd)', () => {
+test('date pickers show the stored calendar day and mark it selected', () => {
   setup()
-  expect((screen.getByLabelText('Start date') as HTMLInputElement).value).toBe(
-    '2026-06-01'
+  expect(screen.getByLabelText('Start date')).toHaveTextContent('Jun 1, 2026')
+  expect(screen.getByLabelText('Target date')).toHaveTextContent('Aug 31, 2026')
+  fireEvent.click(screen.getByLabelText('Start date'))
+  const selected = document.querySelector('button[data-selected-single="true"]')
+  expect(selected).toHaveAttribute(
+    'data-day',
+    new Date(2026, 5, 1).toLocaleDateString()
   )
-  expect((screen.getByLabelText('Target date') as HTMLInputElement).value).toBe(
-    '2026-08-31'
-  )
+})
+
+test('an empty date shows the placeholder', () => {
+  setup({ targetDate: null })
+  expect(screen.getByLabelText('Target date')).toHaveTextContent('Not set')
 })
 
 test('archived disables the date controls', () => {
   setup({ archived: true, state: 'archived' })
-  expect(
-    (screen.getByLabelText('Start date') as HTMLInputElement).disabled
-  ).toBe(true)
-  expect(
-    (screen.getByLabelText('Target date') as HTMLInputElement).disabled
-  ).toBe(true)
+  expect(screen.getByLabelText('Start date')).toBeDisabled()
+  expect(screen.getByLabelText('Target date')).toBeDisabled()
 })

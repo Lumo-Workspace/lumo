@@ -93,7 +93,7 @@ export function MemoryListItem({
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
-              className='text-red-600'
+              className='text-danger-text'
               onClick={() => setConfirmOpen(true)}
             >
               {intl.formatMessage({ id: 'memory.action.delete' })}
@@ -117,7 +117,7 @@ export function MemoryListItem({
               {intl.formatMessage({ id: 'memory.dialog.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700'
+              variant='destructive'
               onClick={() => {
                 setConfirmOpen(false)
                 onDelete(memory)

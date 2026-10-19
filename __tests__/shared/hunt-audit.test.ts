@@ -2,6 +2,7 @@
 import {
   formatHuntTaskDetail,
   formatShellDetail,
+  readHuntSubmission,
 } from '../../shared/src/hunt-audit'
 
 /**
@@ -194,5 +195,71 @@ describe('shared/src/hunt-audit', () => {
       6
     )
     expect(lines).toContain('    cache: read 0 / write 0 of 2900 input')
+  })
+
+  it('LUM-1226 prints a task’s candidate submission line after its stop and wrap-up', () => {
+    const lines = formatHuntTaskDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'done',
+          stop: { by: 'submitted', spent: 9000, budget: 30000, steps: 4 },
+          wrapUp: { ran: false, skipped: 'submitted' },
+          submission: {
+            calls: 1,
+            submitted: 3,
+            kept: 2,
+            dropped: 1,
+            reasons: ['cwe', 'call_chain.from'],
+          },
+        },
+        {
+          taskId: 't2',
+          stopped: 'done',
+          submission: { calls: 2, submitted: 0, kept: 0, dropped: 0 },
+        },
+        // An older row without the field prints exactly as before.
+        { taskId: 't3', stopped: 'done' },
+      ],
+      6
+    )
+    expect(lines).toEqual([
+      't1 done · no shell commands',
+      '    stop: submitted · spent 9000/30000 · reserve 0 · last step ? · 4 steps',
+      '    wrap-up: not made (submitted)',
+      '    candidates: submitted 3 · kept 2 · dropped 1 (reasons: cwe, call_chain.from)',
+      't2 done · no shell commands',
+      '    candidates: submitted 0 · kept 0 · dropped 0 · 2 calls',
+      't3 done · no shell commands',
+    ])
+  })
+
+  it('LUM-1226 readHuntSubmission keeps numbers and field-name reasons only', () => {
+    expect(readHuntSubmission(undefined)).toBeUndefined()
+    expect(readHuntSubmission('x')).toBeUndefined()
+    expect(readHuntSubmission({ kept: 'lots' })).toBeUndefined()
+    expect(
+      readHuntSubmission({
+        calls: 1,
+        submitted: 2,
+        kept: 2,
+        dropped: 0,
+        reasons: [],
+        extra: 'free text',
+      })
+    ).toEqual({ calls: 1, submitted: 2, kept: 2, dropped: 0 })
+    expect(
+      readHuntSubmission({
+        submitted: 1,
+        kept: 0,
+        dropped: 1,
+        reasons: ['limit', 'a b', 7, 'x'.repeat(65), 'precondition'],
+      })
+    ).toEqual({
+      submitted: 1,
+      kept: 0,
+      dropped: 1,
+      reasons: ['limit', 'precondition'],
+    })
   })
 })
