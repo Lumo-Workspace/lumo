@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# boucle} other {# boucles}}",
   "task.edited": "modifié",
+  "comment.unknownAuthor": "Inconnu",
   "task.copyCommentLink": "Copier le lien",
   "task.reply": "Répondre",
   "task.comment": "Commenter",

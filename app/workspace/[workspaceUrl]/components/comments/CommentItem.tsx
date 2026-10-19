@@ -49,7 +49,12 @@ export function CommentItem({
   const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
 
-  const ca = resolveCommentAuthor(comment, members, agentActors)
+  const ca = resolveCommentAuthor(
+    comment,
+    members,
+    agentActors,
+    intl.formatMessage({ id: 'comment.unknownAuthor' })
+  )
   const isAuthor = !ca.isAgent && comment.authorActorId === currentActorId
   const isEditing = tc.editingCommentId === comment.id
   const isDeleting = tc.deletingCommentId === comment.id

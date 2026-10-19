@@ -139,4 +139,44 @@ describe('commentService.getCommentsWithAuthors', () => {
     const out = await commentService.getCommentsWithAuthors('task-1', 'ws1')
     expect(out[0]!.authorName).toBeNull()
   })
+
+  it('LUM-1238: a failed Clerk lookup keeps agent and GitHub names', async () => {
+    mockComments.findByTaskId.mockResolvedValue([
+      {
+        id: 'c1',
+        authorActorId: 'a_member',
+        body: 'hi',
+        replies: [{ id: 'c2', authorActorId: 'a_gh', body: 'r' }],
+      },
+      { id: 'c3', authorActorId: 'a_agent', body: 'x', replies: [] },
+    ])
+    mockActors.findLabelFieldsByIds.mockResolvedValue([
+      {
+        id: 'a_member',
+        type: 'MEMBER',
+        externalIdentity: null,
+        member: { clerkId: 'u1' },
+        agent: null,
+      },
+      {
+        id: 'a_gh',
+        type: 'GITHUB_USER',
+        externalIdentity: 'github:uselumo[bot]',
+        member: null,
+        agent: null,
+      },
+      {
+        id: 'a_agent',
+        type: 'AGENT',
+        externalIdentity: null,
+        member: null,
+        agent: { name: 'Lumo AI' },
+      },
+    ])
+    mockProfiles.mockRejectedValue(new Error('clerk down'))
+    const out = await commentService.getCommentsWithAuthors('task-1', 'ws1')
+    expect(out[0]!.authorName).toBeNull()
+    expect(out[0]!.replies[0]!.authorName).toBe('@uselumo[bot]')
+    expect(out[1]!.authorName).toBe('Lumo AI')
+  })
 })

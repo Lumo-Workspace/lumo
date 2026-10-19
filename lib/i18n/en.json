@@ -1956,6 +1956,7 @@
   "task.editCommentPlaceholder": "Edit comment…",
   "task.editReplyPlaceholder": "Edit reply…",
   "task.edited": "edited",
+  "comment.unknownAuthor": "Unknown",
   "task.empty.description": "Tasks assigned to you will appear here.",
   "task.empty.title": "No tasks yet",
   "task.field.milestone": "Milestone",

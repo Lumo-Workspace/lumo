@@ -917,6 +917,7 @@
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
   "task.edited": "bearbeitet",
+  "comment.unknownAuthor": "Unbekannt",
   "task.copyCommentLink": "Link kopieren",
   "task.reply": "Antworten",
   "task.comment": "Kommentar",

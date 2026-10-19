@@ -17,9 +17,7 @@ import { waitUntil } from '@/lib/runtime/wait-until'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 import { htmlToQuote } from '@/lib/utils/htmlToPreview'
 import { githubCommentProvenance } from '@/lib/context/reviewer-trust'
-import { actorRepository } from '@/lib/repositories/actor.repository'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
-import { logger } from '@/lib/logger'
+import { withAuthorNames } from '@/lib/services/comment-author-names'
 
 /** Threads with at most this many comments are rendered inline (full text),
  *  so they never need an LLM summary. Beyond it, we cache a short summary. */
@@ -72,59 +70,10 @@ interface NotifyMentionsParams {
   waitUntil: (promise: Promise<unknown>) => void
 }
 
-/** The fields {@link actorLabel} reads (one row of `findLabelFieldsByIds`). */
-export interface ActorLabelFields {
-  type: string
-  externalIdentity: string | null
-  member: { clerkId: string } | null
-  agent: { name: string } | null
-}
-
-/**
- * LUM-1232 G2: an actor's display name — the agent's name, `@login` for a
- * GitHub pseudo-actor, or the member's Clerk name. Null when none is known.
- */
-export function actorLabel(
-  a: ActorLabelFields,
-  memberNames: Map<string, string>
-): string | null {
-  if (a.agent?.name) return a.agent.name
-  if (a.externalIdentity?.startsWith('github:'))
-    return `@${a.externalIdentity.slice('github:'.length)}`
-  if (a.member) return memberNames.get(a.member.clerkId) ?? null
-  return null
-}
-
-/** Actor id → display name for the given ids in one workspace (best effort). */
-async function actorDisplayNames(
-  workspaceId: string,
-  actorIds: string[]
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>()
-  if (actorIds.length === 0) return out
-  try {
-    const rows = await actorRepository.findLabelFieldsByIds(
-      workspaceId,
-      actorIds
-    )
-    const clerkIds = rows.flatMap(r => (r.member ? [r.member.clerkId] : []))
-    const memberNames = new Map<string, string>()
-    if (clerkIds.length > 0) {
-      for (const [id, p] of await lookupClerkProfiles(clerkIds)) {
-        if (p.name) memberNames.set(id, p.name)
-      }
-    }
-    for (const r of rows) {
-      const label = actorLabel(r, memberNames)
-      if (label) out.set(r.id, label)
-    }
-  } catch (error) {
-    logger.warn('[comments] author name lookup failed', {
-      error: (error as Error)?.message ?? String(error),
-    })
-  }
-  return out
-}
+// LUM-1238: author-name resolution lives in comment-author-names so the
+// timeline can share it without pulling in this service's integrations.
+export { actorLabel } from '@/lib/services/comment-author-names'
+export type { ActorLabelFields } from '@/lib/services/comment-author-names'
 
 export const commentService = {
   /** Get all top-level comments with replies for a task. */
@@ -140,23 +89,7 @@ export const commentService = {
    */
   async getCommentsWithAuthors(taskId: string, workspaceId: string) {
     const comments = await commentRepository.findByTaskId(taskId)
-    const ids = [
-      ...new Set(
-        comments
-          .flatMap(c => [c, ...(c.replies ?? [])])
-          .map(c => c.authorActorId)
-          .filter((id): id is string => typeof id === 'string')
-      ),
-    ]
-    const names = await actorDisplayNames(workspaceId, ids)
-    const withName = <T extends { authorActorId: string | null }>(c: T) => ({
-      ...c,
-      authorName: c.authorActorId ? (names.get(c.authorActorId) ?? null) : null,
-    })
-    return comments.map(c => ({
-      ...withName(c),
-      replies: (c.replies ?? []).map(withName),
-    }))
+    return withAuthorNames(comments, workspaceId)
   },
 
   /** Create a comment or reply with validation. Throws on validation errors. */
