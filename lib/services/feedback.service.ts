@@ -9,6 +9,7 @@ import { taskRepository } from '@/lib/repositories'
 import { privateFileService } from '@/lib/services/private-file.service'
 import { redactForStorage, scanSecrets } from '@/lib/security-scan/scan-secrets'
 import {
+  FEEDBACK_EVIDENCE_ATTACH_WINDOW_MS,
   FEEDBACK_EVIDENCE_ALLOWED_TYPES,
   FEEDBACK_EVIDENCE_MAX_BYTES,
   FEEDBACK_LIMITS,
@@ -163,7 +164,10 @@ export function validateEvidenceFiles(files: readonly File[]): void {
         400
       )
     if (f.size > FEEDBACK_EVIDENCE_MAX_BYTES)
-      fail(`"${f.name}" is larger than 10 MB`, 400)
+      fail(
+        `"${f.name}" is larger than ${FEEDBACK_EVIDENCE_MAX_BYTES / (1024 * 1024)} MB`,
+        400
+      )
   }
 }
 
@@ -453,6 +457,59 @@ export const feedbackService = {
           ? String(page[page.length - 1]!.number)
           : null,
     }
+  },
+
+  /**
+   * Attach one evidence file to a report just submitted (one file per request
+   * keeps every upload under the platform's request-body limit). Only the
+   * submitter, only within FEEDBACK_EVIDENCE_ATTACH_WINDOW_MS of submitting,
+   * at most MAX_FEEDBACK_EVIDENCE_FILES in total. Another workspace's report
+   * is a 404; someone else's report in the same workspace a 403.
+   */
+  async attachEvidence(
+    ctx: Pick<CreateFeedbackContext, 'workspaceId' | 'memberId' | 'origin'>,
+    number: number,
+    file: File,
+    now: Date = new Date()
+  ): Promise<{ feedback: FeedbackView; replies: FeedbackReplyView[] }> {
+    const row = await feedbackRepository.findByNumber(ctx.workspaceId, number)
+    if (!row) fail(`feedback ${feedbackRef(number)} not found`, 404)
+    if (row.submittedByMemberId !== ctx.memberId)
+      fail('only the member who sent this report can attach evidence', 403)
+    if (
+      now.getTime() - row.createdAt.getTime() >
+      FEEDBACK_EVIDENCE_ATTACH_WINDOW_MS
+    )
+      fail(
+        'evidence can only be attached within 15 minutes of sending the report',
+        409
+      )
+    const count = Array.isArray(row.evidence) ? row.evidence.length : 0
+    if (count >= MAX_FEEDBACK_EVIDENCE_FILES)
+      fail(`At most ${MAX_FEEDBACK_EVIDENCE_FILES} evidence files`, 400)
+    validateEvidenceFiles([file])
+
+    const stored = await storeEvidence(
+      { ...ctx, submittedVia: 'API', sessionId: null },
+      [file]
+    )
+    let updated: FeedbackRow | null
+    try {
+      updated = await feedbackRepository.appendEvidence(
+        ctx.workspaceId,
+        number,
+        stored.entries[0]! as unknown as Prisma.InputJsonObject,
+        stored.redacted
+      )
+    } catch (error) {
+      await privateFileService.deletePrivatePathnames(stored.pathnames)
+      throw error
+    }
+    if (!updated) {
+      await privateFileService.deletePrivatePathnames(stored.pathnames)
+      fail(`feedback ${feedbackRef(number)} not found`, 404)
+    }
+    return toView(updated, await nameOf([ctx.memberId]))
   },
 
   /** One report of the caller's workspace; 404 for anything else. */

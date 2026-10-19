@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import {
   EVIDENCE_ALLOWED_TYPES,
-  EVIDENCE_MAX_BYTES,
   MAX_EVIDENCE_FILES,
 } from '@/lib/validation/test-case'
 
@@ -30,10 +29,20 @@ export const MAX_FEEDBACK_STEPS = 30
 export const MAX_FEEDBACK_STEP_LEN = 500
 export const MAX_FEEDBACK_TEXT_LEN = 2000
 
-/** Evidence: the test-case rules, reused so the two cannot drift. */
+/** Evidence types and count: the test-case rules, reused so they cannot drift. */
 export const FEEDBACK_EVIDENCE_ALLOWED_TYPES = EVIDENCE_ALLOWED_TYPES
-export const FEEDBACK_EVIDENCE_MAX_BYTES = EVIDENCE_MAX_BYTES
 export const MAX_FEEDBACK_EVIDENCE_FILES = MAX_EVIDENCE_FILES
+/**
+ * Per-file size: 4 MB, not the test-case 10 MB. Measured on a preview
+ * deployment (2026-10-19): a 4 MB multipart body reaches the function, a
+ * 6.3 MB one is refused by the platform with 413 FUNCTION_PAYLOAD_TOO_LARGE
+ * (the request-body limit is ~4.5 MB). Each file is uploaded in its own
+ * request (`POST /api/feedback/[ref]/evidence`), so 4 MB leaves room for the
+ * multipart overhead and the CLI can refuse a bigger file locally.
+ */
+export const FEEDBACK_EVIDENCE_MAX_BYTES = 4 * 1024 * 1024
+/** Evidence can be attached only shortly after submitting, by the submitter. */
+export const FEEDBACK_EVIDENCE_ATTACH_WINDOW_MS = 15 * 60_000
 
 /**
  * Submission limits (user ruling 2026-10-19, RFC Q8). Counted from the

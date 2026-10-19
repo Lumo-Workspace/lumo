@@ -20,17 +20,17 @@
 
 ### `lumo feedback create --title <title> [flags]`
 
-| Flag                     | Meaning                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `--title <title>`        | Required, ≤ 200 characters                                                                                    |
-| `--kind <kind>`          | `bug` (default), `idea` or `question`, case-insensitive                                                       |
-| `--step <text>`          | One step to reproduce; repeatable, kept in order; 0–30, each ≤ 500 characters                                 |
-| `--expected <text>`      | What you expected (≤ 2000)                                                                                    |
-| `--actual <text>`        | What happened — quote the error line (≤ 2000)                                                                 |
-| `--evidence-file <path>` | Screenshot or log: png / jpeg / webp / gif / txt / log / json, ≤ 10 MB each, at most 5; repeatable            |
-| `--task <ref>`           | A related task (`LUM-42`). Only the ref is sent; it must be a task of this workspace. Never filled in for you |
-| `--no-env`               | Send no environment block and no session id                                                                   |
-| `--json`                 | Print `{ version, feedback, replies }`                                                                        |
+| Flag                     | Meaning                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--title <title>`        | Required, ≤ 200 characters                                                                                                      |
+| `--kind <kind>`          | `bug` (default), `idea` or `question`, case-insensitive                                                                         |
+| `--step <text>`          | One step to reproduce; repeatable, kept in order; 0–30, each ≤ 500 characters                                                   |
+| `--expected <text>`      | What you expected (≤ 2000)                                                                                                      |
+| `--actual <text>`        | What happened — quote the error line (≤ 2000)                                                                                   |
+| `--evidence-file <path>` | Screenshot or log: png / jpeg / webp / gif / txt / log / json, ≤ 4 MB each (each file is its own upload), at most 5; repeatable |
+| `--task <ref>`           | A related task (`LUM-42`). Only the ref is sent; it must be a task of this workspace. Never filled in for you                   |
+| `--no-env`               | Send no environment block and no session id                                                                                     |
+| `--json`                 | Print `{ version, feedback, replies }`                                                                                          |
 
 ```bash
 lumo feedback create --title "task testcase run: evidence upload fails with HTTP 413" \
@@ -64,7 +64,7 @@ Error: feedback limit reached for this workspace (50 per 24 h); you can send mor
 Hint: add details to an existing report instead (`lumo feedback list --mine`); if this is urgent, tell the Lumo team directly.
 ```
 
-Exit codes: 0 sent · 1 not sent (limit, auth, server, unreadable evidence file, task ref not in this workspace) · 2 invalid flag (kind, lengths, more than 5 files, file type, file over 10 MB).
+Exit codes: 0 sent · 1 not sent (limit, auth, server, unreadable evidence file, task ref not in this workspace), or sent but an evidence file could not be attached (the error names the `FB-<n>`; do not send it again) · 2 invalid flag (kind, lengths, more than 5 files, file type, file over 4 MB).
 
 ### `lumo feedback list [flags]`
 

@@ -143,6 +143,35 @@ export const feedbackRepository = {
     })
   },
 
+  /**
+   * Append one evidence entry to a report of `workspaceId`, under a row lock
+   * so two concurrent uploads cannot overwrite each other. Returns null when
+   * the report is not in the workspace.
+   */
+  async appendEvidence(
+    workspaceId: string,
+    number: number,
+    entry: Prisma.InputJsonObject,
+    redacted: number
+  ): Promise<FeedbackRow | null> {
+    return prisma.$transaction(async tx => {
+      const row = await tx.feedback.findUnique({
+        where: { workspaceId_number: { workspaceId, number } },
+        select: { evidence: true },
+      })
+      if (!row) return null
+      const current = Array.isArray(row.evidence) ? row.evidence : []
+      return tx.feedback.update({
+        where: { workspaceId_number: { workspaceId, number } },
+        data: {
+          evidence: [...current, entry] as Prisma.InputJsonArray,
+          secretsRedacted: { increment: redacted },
+        },
+        select: SELECT,
+      })
+    })
+  },
+
   /** Newest first. */
   async list(filter: FeedbackListFilter): Promise<FeedbackListRow[]> {
     return prisma.feedback.findMany({

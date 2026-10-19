@@ -72,6 +72,25 @@ const fakePrisma = {
             r.number === where.workspaceId_number.number
         ) ?? null
     ),
+    update: jest.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { workspaceId_number: { workspaceId: string; number: number } }
+        data: { evidence: unknown; secretsRedacted: { increment: number } }
+      }) => {
+        const row = db.rows.find(
+          r =>
+            r.workspaceId === where.workspaceId_number.workspaceId &&
+            r.number === where.workspaceId_number.number
+        )!
+        row.evidence = data.evidence
+        row.secretsRedacted =
+          Number(row.secretsRedacted ?? 0) + data.secretsRedacted.increment
+        return row
+      }
+    ),
     findMany: jest.fn(
       async ({
         where,
@@ -139,6 +158,7 @@ jest.mock('@/lib/blob/storage', () => ({
 
 import { GET as LIST, POST } from '@/app/api/feedback/route'
 import { GET as SHOW } from '@/app/api/feedback/[ref]/route'
+import { POST as ATTACH } from '@/app/api/feedback/[ref]/evidence/route'
 
 // Built at runtime so this file holds no credential-shaped literal.
 const AWS_KEY = 'AKIA' + 'Q7M2Z4LW9KP2XC8V'
@@ -433,5 +453,70 @@ describe('submission limits', () => {
     const res = await POST(post({ title: 't' }))
     expect(res.status).toBe(503)
     expect(db.rows).toHaveLength(0)
+  })
+})
+
+describe('POST /api/feedback/[ref]/evidence (one file per request)', () => {
+  function attach(ref: string, file: File) {
+    const fd = new FormData()
+    fd.append('file', file)
+    return ATTACH(
+      new NextRequest(`http://lumo.test/api/feedback/${ref}/evidence`, {
+        method: 'POST',
+        body: fd,
+      }),
+      { params: Promise.resolve({ ref }) }
+    )
+  }
+  const png = (name = 'shot.png', bytes = 4) =>
+    new File([new Uint8Array(bytes)], name, { type: 'image/png' })
+
+  it('the submitter attaches files one by one; text is stored redacted', async () => {
+    await POST(post({ title: 'with files' }))
+    expect((await attach('FB-1', png())).status).toBe(200)
+    const log = new File([`key ${AWS_KEY}`], 'run.log', { type: 'text/plain' })
+    const res = await attach('FB-1', log)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      feedback: {
+        evidence: Array<{ filename: string }>
+        secretsRedacted: number
+      }
+    }
+    expect(body.feedback.evidence.map(e => e.filename)).toEqual([
+      'shot.png',
+      'run.log',
+    ])
+    expect(body.feedback.secretsRedacted).toBe(1)
+    const [, stored] = putPrivateFile.mock.calls[1]! as [string, Buffer]
+    expect(stored.toString('utf8')).not.toContain(AWS_KEY)
+  })
+
+  it('another workspace gets 404; another member of the workspace 403', async () => {
+    await POST(post({ title: 'mine' }))
+    requireIdentity.mockResolvedValue(identity('w-2', 'm-9'))
+    expect((await attach('FB-1', png())).status).toBe(404)
+    requireIdentity.mockResolvedValue(identity('w-1', 'm-2'))
+    expect((await attach('FB-1', png())).status).toBe(403)
+    expect(putPrivateFile).not.toHaveBeenCalled()
+  })
+
+  it('refuses after the 15-minute window, past 5 files, over 4 MB, or a bad type', async () => {
+    await POST(post({ title: 'mine' }))
+    for (let i = 0; i < 5; i++)
+      expect((await attach('FB-1', png(`${i}.png`))).status).toBe(200)
+    expect((await attach('FB-1', png('6.png'))).status).toBe(400)
+
+    await POST(post({ title: 'second' }))
+    expect(
+      (await attach('FB-2', png('big.png', 4 * 1024 * 1024 + 1))).status
+    ).toBe(400)
+    const pdf = new File([new Uint8Array(2)], 'a.pdf', {
+      type: 'application/pdf',
+    })
+    expect((await attach('FB-2', pdf)).status).toBe(400)
+
+    db.rows[1]!.createdAt = new Date(Date.now() - 16 * 60_000)
+    expect((await attach('FB-2', png())).status).toBe(409)
   })
 })

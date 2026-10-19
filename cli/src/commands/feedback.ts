@@ -43,7 +43,8 @@ export const MAX_STEPS = 30
 export const MAX_STEP = 500
 export const MAX_TEXT = 2000
 export const MAX_FILES = 5
-export const MAX_FILE_BYTES = 10 * 1024 * 1024
+/** 4 MB: each file goes up in its own request, under the ~4.5 MB body limit. */
+export const MAX_FILE_BYTES = 4 * 1024 * 1024
 
 export const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -297,7 +298,7 @@ export async function feedbackCreate(
       return EXIT_ERROR
     }
     if (size > MAX_FILE_BYTES) {
-      console.error(`Error: evidence file "${p}" is larger than 10 MB`)
+      console.error(`Error: evidence file "${p}" is larger than 4 MB`)
       return EXIT_USAGE
     }
     let bytes: Buffer
@@ -332,14 +333,10 @@ export async function feedbackCreate(
     if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
   }
 
+  // The report first, then each file in its own request: one request per
+  // file stays under the platform's ~4.5 MB request-body limit.
   const fd = new FormData()
   fd.append('payload', JSON.stringify(buildPayload(o, environment)))
-  for (const f of files)
-    fd.append(
-      'file',
-      new Blob([new Uint8Array(f.bytes)], { type: f.type }),
-      basename(f.path)
-    )
 
   let res: Response
   try {
@@ -365,15 +362,71 @@ export async function feedbackCreate(
     return EXIT_ERROR
   }
 
+  let latest: DetailResponse = body
+  const failed: string[] = []
+  for (const f of files) {
+    const up = await uploadEvidence(ctx, body.feedback.ref, f)
+    if (up.ok) latest = up.data
+    else failed.push(`${basename(f.path)} (${up.error})`)
+  }
+
   if (o.json) {
     emitJson(
-      detailEnvelope('feedback', body.feedback, { replies: body.replies })
+      detailEnvelope('feedback', latest.feedback, { replies: latest.replies })
     )
-    return
+  } else {
+    console.log(
+      formatCreated(latest.feedback, environment, {
+        hints: !nextStepsSilenced() && failed.length === 0,
+      })
+    )
   }
-  console.log(
-    formatCreated(body.feedback, environment, { hints: !nextStepsSilenced() })
+  if (failed.length > 0) {
+    console.error(
+      `Error: feedback ${body.feedback.ref} was sent, but ${failed.length} evidence file${failed.length === 1 ? '' : 's'} could not be attached: ${failed.join('; ')}`
+    )
+    console.error(hint('do not send the report again.'))
+    return EXIT_ERROR
+  }
+}
+
+/** One evidence file → `POST /api/feedback/<ref>/evidence`. */
+async function uploadEvidence(
+  ctx: Ctx,
+  ref: string,
+  f: { path: string; bytes: Buffer; type: string }
+): Promise<{ ok: true; data: DetailResponse } | { ok: false; error: string }> {
+  const fd = new FormData()
+  fd.append(
+    'file',
+    new Blob([new Uint8Array(f.bytes)], { type: f.type }),
+    basename(f.path)
   )
+  try {
+    const res = await fetch(
+      `${ctx.base}/api/feedback/${encodeURIComponent(ref)}/evidence`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${ctx.token}` },
+        body: fd,
+      }
+    )
+    const body = (await res.json().catch(() => null)) as
+      | (DetailResponse & ErrorBody)
+      | null
+    if (res.ok && body?.feedback) return { ok: true, data: body }
+    if (res.status === 413)
+      return { ok: false, error: 'too large for one request (HTTP 413)' }
+    return {
+      ok: false,
+      error: sanitizeField(body?.error ?? `HTTP ${res.status}`),
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
 }
 
 // ── list ────────────────────────────────────────────────────────────────

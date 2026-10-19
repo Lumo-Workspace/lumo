@@ -195,15 +195,56 @@ describe('lumo feedback create', () => {
     expect(buildPayload({ title: 't' }, null)).not.toHaveProperty('environment')
   })
 
-  it('uploads evidence files as file parts with their type', async () => {
+  it('sends the report first, then each evidence file in its own request', async () => {
+    const f1 = path.join(tmp, 'log.txt')
+    const f2 = path.join(tmp, 'shot.png')
+    fs.writeFileSync(f1, 'boom')
+    fs.writeFileSync(f2, 'png')
+    serve(detail, 201)
+    expect(
+      await feedbackCreate({ title: 't', evidenceFile: [f1, f2], env: false })
+    ).toBeUndefined()
+    expect(calls.map(c => c.url)).toEqual([
+      'https://api.lumo.test/api/feedback',
+      'https://api.lumo.test/api/feedback/FB-3/evidence',
+      'https://api.lumo.test/api/feedback/FB-3/evidence',
+    ])
+    expect((calls[0]!.init?.body as FormData).getAll('file')).toHaveLength(0)
+    const first = (calls[1]!.init?.body as FormData).getAll('file') as File[]
+    expect(first.map(f => [f.name, f.type])).toEqual([
+      ['log.txt', 'text/plain'],
+    ])
+    const second = (calls[2]!.init?.body as FormData).getAll('file') as File[]
+    expect(second.map(f => [f.name, f.type])).toEqual([
+      ['shot.png', 'image/png'],
+    ])
+  })
+
+  it('a file over 4 MB is refused locally (exit 2)', async () => {
+    const big = path.join(tmp, 'big.png')
+    fs.writeFileSync(big, Buffer.alloc(4 * 1024 * 1024 + 1))
+    serve(detail, 201)
+    expect(await feedbackCreate({ title: 't', evidenceFile: [big] })).toBe(2)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('a failed evidence upload: the report stays sent, exit 1 names it', async () => {
     const f = path.join(tmp, 'log.txt')
     fs.writeFileSync(f, 'boom')
-    serve(detail, 201)
-    await feedbackCreate({ title: 't', evidenceFile: [f], env: false })
-    const fd = calls[0]!.init?.body as FormData
-    const file = fd.getAll('file')[0] as File
-    expect(file.name).toBe('log.txt')
-    expect(file.type).toBe('text/plain')
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return String(url).endsWith('/evidence')
+        ? new Response('<html>too large</html>', { status: 413 })
+        : new Response(JSON.stringify(detail), { status: 201 })
+    }) as unknown as typeof fetch
+    expect(
+      await feedbackCreate({ title: 't', evidenceFile: [f], env: false })
+    ).toBe(1)
+    expect(out).toContain('Created feedback FB-3')
+    expect(err).toContain(
+      'Error: feedback FB-3 was sent, but 1 evidence file could not be attached: log.txt (too large for one request (HTTP 413))'
+    )
+    expect(err).toContain('Hint: do not send the report again.')
   })
 
   it('an unreadable evidence file exits 1 before any request', async () => {
