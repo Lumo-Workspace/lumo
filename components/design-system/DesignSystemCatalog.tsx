@@ -61,9 +61,7 @@ export function DesignSystemCatalog() {
       </nav>
       <main className='min-w-0 flex-1'>
         <header className='mb-6 flex items-center justify-between'>
-          <h1 className='text-display font-semibold text-foreground'>
-            Design System
-          </h1>
+          <h1 className='text-display text-foreground'>Design System</h1>
           <ThemeToggle />
         </header>
         <ColorTokens />

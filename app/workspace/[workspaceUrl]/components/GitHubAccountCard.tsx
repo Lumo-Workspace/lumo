@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -18,6 +17,7 @@ import {
 import { GitHubIcon } from './GitHubIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
+import { Spinner } from '@/components/ui/spinner'
 
 /**
  * A member's own GitHub link — a PERSONAL card, like Figma.
@@ -51,7 +51,7 @@ export function GitHubAccountCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot
       label={intl.formatMessage({ id: 'githubAccount.connected' })}
@@ -77,7 +77,7 @@ export function GitHubAccountCard({
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {connected ? (
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'githubAccount.connectedAs' })}{' '}
             <span className='font-mono text-foreground'>
               @{status?.githubLogin}
@@ -106,7 +106,7 @@ export function GitHubAccountCard({
               disabled={disconnecting}
             >
               {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
               )}

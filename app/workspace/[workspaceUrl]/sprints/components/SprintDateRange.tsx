@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import type { Sprint } from '@prisma/client'
 import { sprintsClient } from '@/lib/api-client'
-import { DatePickerField, startOfDay } from './DatePickerField'
+import {
+  DatePickerField,
+  startOfDay,
+} from '../../components/fields/DatePickerField'
 
 interface SprintDateRangeProps {
   sprint: Sprint

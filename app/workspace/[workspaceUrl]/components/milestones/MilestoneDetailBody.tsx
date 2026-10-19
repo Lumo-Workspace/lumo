@@ -12,7 +12,7 @@ import { MilestoneTasksWorkspace } from './MilestoneTasksWorkspace'
 import { MilestoneTestCasesSection } from './MilestoneTestCasesSection'
 
 const SECTION_LABEL =
-  'text-caption font-bold uppercase tracking-[0.07em] text-muted-foreground'
+  'text-caption font-semibold uppercase text-muted-foreground'
 
 interface MilestoneDetailBodyProps {
   milestone: ApiMilestone

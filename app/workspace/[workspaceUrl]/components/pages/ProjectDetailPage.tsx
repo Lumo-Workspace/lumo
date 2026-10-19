@@ -1,15 +1,6 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { useIntl } from 'react-intl'
-import {
-  Brain,
-  Flag,
-  LayoutDashboard,
-  ListChecks,
-  type LucideIcon,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
 import { buildSignalView } from '@/lib/summaries/signal-view'
 import { resolveLocale } from '@/lib/i18n/locales'
@@ -30,24 +21,13 @@ import { usePreferences } from '../../hooks/usePreferences'
 import type { Preferences } from '../../hooks/usePreferences'
 import { ProjectHeader } from './project-detail/ProjectHeader'
 import { ProjectTab } from './project-detail/ProjectTab'
+import {
+  ProjectDetailTabs,
+  type ProjectTabKey,
+} from './project-detail/ProjectDetailTabs'
 import { ProjectTasksTab } from './project-detail/ProjectTasksTab'
 import { ProjectMilestonesTab } from '../milestones/ProjectMilestonesTab'
 import { MemoryTab } from '../memory/MemoryTab'
-
-const TABS = ['project', 'milestones', 'tasks', 'memory'] as const
-type ProjectTabKey = (typeof TABS)[number]
-
-/**
- * One icon per tab, picked to stay clear of the vocabulary the workspace nav
- * already spends: `File`/`FileEdit` are Documents and Drafts. `Brain` is reused deliberately — it is already
- * the Memory surface's own icon.
- */
-const TAB_ICONS: Record<ProjectTabKey, LucideIcon> = {
-  project: LayoutDashboard,
-  milestones: Flag,
-  tasks: ListChecks,
-  memory: Brain,
-}
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -109,7 +89,6 @@ export function ProjectDetailPage({
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<ProjectTabKey>('project')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
-  const intl = useIntl()
 
   // The header's language switcher is a shortcut to the same personal
   // preference the Preferences page writes — not a project-scoped setting.
@@ -203,38 +182,7 @@ export function ProjectDetailPage({
         onLocaleChange={handleLocaleChange}
       />
 
-      {/* Tab nav — a segmented control: one recessed track with the current tab
-          raised out of it. The four tabs are a closed set of views onto the same
-          project, and a track says "pick one of these" in a way four loose
-          buttons don't. */}
-      <div className='mt-4 shrink-0 px-4 md:px-8'>
-        <div
-          role='tablist'
-          className='inline-flex items-center gap-1 rounded-lg bg-muted p-1'
-        >
-          {TABS.map(t => {
-            const Icon = TAB_ICONS[t]
-            const selected = tab === t
-            return (
-              <button
-                key={t}
-                role='tab'
-                aria-selected={selected}
-                onClick={() => setTab(t)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
-                  selected
-                    ? 'bg-background text-foreground shadow-elevation-1'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Icon className='size-3.5 shrink-0' aria-hidden />
-                {intl.formatMessage({ id: `project.tab.${t}` })}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <ProjectDetailTabs value={tab} onValueChange={setTab} />
 
       {/* ── Project tab ── */}
       {tab === 'project' && (

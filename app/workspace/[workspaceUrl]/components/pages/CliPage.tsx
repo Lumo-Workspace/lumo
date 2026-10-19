@@ -11,10 +11,10 @@ export function CliPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'settings.cli' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'cli.subtitle' })}
         </p>
 

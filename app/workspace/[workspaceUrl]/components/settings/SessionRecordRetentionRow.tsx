@@ -81,7 +81,7 @@ export function SessionRecordRetentionRow({
       notes={
         <p
           data-testid='retention-hint-session-record'
-          className='text-xs text-muted-foreground mt-1'
+          className='text-caption text-muted-foreground mt-1'
         >
           {hint}
         </p>

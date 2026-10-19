@@ -11,6 +11,8 @@ import {
   isArchivedIncomplete,
   milestoneDot,
 } from './milestoneDisplay'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 interface Props {
   milestone: ApiMilestone
@@ -83,9 +85,14 @@ export function MilestoneRow({
           {milestone.name}
         </Link>
         {stale && (
-          <span className='shrink-0 rounded-sm border border-warning-border bg-warning-subtle px-1.5 py-0.5 text-caption text-foreground'>
+          <Badge
+            variant='warning'
+            size='xs'
+            shape='square'
+            className='shrink-0'
+          >
             {intl.formatMessage({ id: 'milestone.list.incomplete' })}
-          </span>
+          </Badge>
         )}
       </div>
 
@@ -101,23 +108,19 @@ export function MilestoneRow({
       </div>
 
       <div className='flex w-40 shrink-0 items-center gap-2'>
-        <div className='h-1 flex-1 overflow-hidden rounded-full bg-muted'>
-          <div
-            className={cn(
-              'h-full rounded-full',
-              complete
-                ? 'bg-success-text'
-                : stale
-                  ? 'bg-muted-foreground/40'
-                  : 'bg-info'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        <Progress
+          value={pct}
+          tone={complete ? 'success' : stale ? 'muted' : 'info'}
+          size='xs'
+          className='flex-1'
+          aria-hidden
+        />
         <span
           className={cn(
             'w-11 shrink-0 text-right text-caption tabular-nums',
-            complete ? 'font-semibold text-foreground' : 'text-muted-foreground'
+            complete
+              ? 'text-caption font-semibold text-foreground'
+              : 'text-muted-foreground'
           )}
         >
           {done}/{total}

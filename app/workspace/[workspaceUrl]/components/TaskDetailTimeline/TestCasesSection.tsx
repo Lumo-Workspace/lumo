@@ -8,6 +8,7 @@ import { TestCaseCard } from './TestCaseCard'
 import { TestCaseForm } from './TestCaseForm'
 import { RecordRunDialog } from './RecordRunDialog'
 import { runAnchorId } from './taskTabs'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 import type {
   CreateTestCaseBody,
   RecordRunBody,
@@ -57,6 +58,8 @@ export function TestCasesSection({
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [linkedRunId, setLinkedRunId] = useState<string | null>(null)
+  // Test case number awaiting the remove confirmation, or null when closed.
+  const [pendingRemove, setPendingRemove] = useState<number | null>(null)
 
   // 深链（`…/record#run-<id>`，旧的 `…/tests#run-<id>` 也重定向到这里）：
   // 展开那条 run 所属的用例，再把它滚进视野。hash 挂载后才读得到、列表又是
@@ -137,12 +140,10 @@ export function TestCasesSection({
     )
   }
 
-  async function handleRemove(number: number) {
-    if (
-      !window.confirm(intl.formatMessage({ id: 'testCases.removeConfirm' }))
-    ) {
-      return
-    }
+  async function handleRemove() {
+    if (pendingRemove === null) return
+    const number = pendingRemove
+    setPendingRemove(null)
     await remove(String(number))
   }
 
@@ -189,7 +190,7 @@ export function TestCasesSection({
               members={members}
               onRecordRun={() => setMode({ kind: 'run', caseId: c.id })}
               onEdit={() => setMode({ kind: 'edit', caseId: c.id })}
-              onRemove={() => void handleRemove(c.number)}
+              onRemove={() => setPendingRemove(c.number)}
             />
           )}
           {mode.kind === 'run' && mode.caseId === c.id && active ? (
@@ -213,11 +214,22 @@ export function TestCasesSection({
         <button
           type='button'
           onClick={() => setMode({ kind: 'create' })}
-          className='self-start text-[11px] text-muted-foreground hover:text-foreground'
+          className='self-start text-caption text-muted-foreground hover:text-foreground'
         >
           + {intl.formatMessage({ id: 'testCases.add' })}
         </button>
       )}
+
+      <ConfirmActionDialog
+        open={pendingRemove !== null}
+        onOpenChange={open => {
+          if (!open) setPendingRemove(null)
+        }}
+        title={intl.formatMessage({ id: 'testCases.removeConfirm' })}
+        confirmLabel={intl.formatMessage({ id: 'testCases.action.remove' })}
+        destructive
+        onConfirm={() => void handleRemove()}
+      />
     </div>
   )
 }

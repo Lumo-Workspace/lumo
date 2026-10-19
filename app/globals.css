@@ -509,7 +509,7 @@ a.mention {
      same hue family as --info). */
   --focus-ring: oklch(0.6231 0.188 259.813); /* #3b82f6 */
   --ring: var(--focus-ring);
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
   /* Elevation — semantic shadow tiers (LUM-261). Exposed as
      shadow-elevation-1/2/3 utilities (registered in the theme layer below).
@@ -651,9 +651,6 @@ a.mention {
   --hljs-title: #6f42c1;
   --hljs-attribute: #e36209;
   --hljs-deletion: #b31d28;
-
-  --font-inter: 'Inter', sans-serif;
-  --font-source-code-pro: 'Source Code Pro', monospace;
 }
 
 .dark {
@@ -771,8 +768,8 @@ a.mention {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 8px);
-  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
@@ -891,7 +888,7 @@ a.mention {
 
   --text-body-strong: 0.875rem;
   --text-body-strong--line-height: 1.5;
-  --text-body-strong--font-weight: 600;
+  --text-body-strong--font-weight: 500;
 
   --text-title: 1rem;
   --text-title--line-height: 1.4;
@@ -1313,7 +1310,7 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
 .mermaid-source {
   width: 100%;
   min-height: 6rem;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   padding: 0.5rem;
   border: 1px solid var(--border);

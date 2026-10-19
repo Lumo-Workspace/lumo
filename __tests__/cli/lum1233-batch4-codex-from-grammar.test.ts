@@ -50,18 +50,26 @@ const grammar = JSON.parse(
  */
 const DEVIATIONS = {
   serverOnlyRemoved: ['priority', 'task search'],
-  serverOnlyAdded: ['priority create', 'priority list'],
-}
-
-/**
- * Leaves added after the hand-kept lists, with the class they declare.
- * `security scan` (LUM-1255) reads only git and the working tree and calls no
- * Lumo API, so it stays sandboxed; its `--deps` (LUM-1257) calls api.osv.dev,
- * so inside Codex that needs network.
- */
-const ADDED_SANDBOXED: Record<string, string> = {
-  'security scan':
-    'reads git and the working tree, no Lumo API call; --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+  serverOnlyAdded: [
+    // LUM-1240: new commands, classified where they are defined.
+    'feedback list',
+    'feedback show',
+    'priority create',
+    'priority list',
+  ],
+  // LUM-1240: `feedback create` reads the --evidence-file it uploads.
+  fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<
+    string,
+    string
+  >,
+  sandboxedAdded: {
+    'feedback create':
+      'reads local files (--file …) — Codex asks first (--evidence-file)',
+    // LUM-1255: reads only git and the working tree, no Lumo API call;
+    // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network.
+    'security scan':
+      'reads git and the working tree, no Lumo API call; --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+  } as Record<string, string>,
 }
 
 /**
@@ -93,11 +101,14 @@ describe('generated lists vs the last hand-kept ones', () => {
     )
   })
 
-  it('file-reading and sandboxed: entry for entry identical (after the 3j renames), plus the added leaves', () => {
-    expect(CODEX_FILE_READING_COMMANDS).toEqual(renameKeys(hand.fileReading))
+  it('file-reading and sandboxed: entry for entry identical (after the 3j renames)', () => {
+    expect(CODEX_FILE_READING_COMMANDS).toEqual({
+      ...renameKeys(hand.fileReading),
+      ...DEVIATIONS.fileReadingAdded,
+    })
     expect(CODEX_SANDBOXED_COMMANDS).toEqual({
       ...renameKeys(hand.sandboxed),
-      ...ADDED_SANDBOXED,
+      ...DEVIATIONS.sandboxedAdded,
     })
   })
 
@@ -112,7 +123,7 @@ describe('generated lists vs the last hand-kept ones', () => {
     expect(LUMO_CODEX_RULES).toBe(
       buildCodexRules(adjusted, {
         ...renameKeys(hand.sandboxed),
-        ...ADDED_SANDBOXED,
+        ...DEVIATIONS.sandboxedAdded,
       })
     )
     expect(LUMO_CODEX_RULES).toContain(

@@ -55,7 +55,7 @@ export function TaskFilterChips({
         return (
           <span
             key={dimension}
-            className='flex items-center gap-1 h-7 pl-2 pr-1 rounded-md border border-border bg-card text-xs'
+            className='flex items-center gap-1 h-7 pl-2 pr-1 rounded-md border border-border bg-card text-caption'
           >
             <span className='text-muted-foreground'>
               {dimensionLabel(dimension)}
@@ -86,7 +86,7 @@ export function TaskFilterChips({
       <button
         type='button'
         onClick={onClearAll}
-        className='h-7 px-2 rounded-md text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+        className='h-7 px-2 rounded-md text-caption text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
       >
         {intl.formatMessage({
           id: 'filter.clearAll',

@@ -124,7 +124,7 @@ export function SlackContextCard({
             <div className='mt-2 pl-3 border-l-2 border-border space-y-2'>
               {replies.map(m => (
                 <div key={m.ts} className='text-body'>
-                  <span className='font-medium'>
+                  <span className='text-body-strong'>
                     {m.userName ?? `@${m.userId}`}
                   </span>
                   <span className='ml-2 text-foreground whitespace-pre-wrap'>
@@ -138,7 +138,7 @@ export function SlackContextCard({
       )}
 
       {context.refreshError && (
-        <div className='mt-2 text-caption text-amber-600 dark:text-amber-400'>
+        <div className='mt-2 text-caption text-warning-text'>
           {intl.formatMessage(
             {
               id: 'slackContext.refresh.failedBanner',

@@ -623,6 +623,57 @@ describe('prScanReadoutService.getForPullRequest', () => {
     expect(trace[3]).toEqual({ i: 4 })
   })
 
+  it('LUM-1226 carries each task’s candidate submission counts and reason field names', async () => {
+    // The hunt writes submitted / kept / dropped per attempt onto the audit
+    // row; a read-out that never copies it leaves the counts visible only in
+    // deploy logs.
+    listScans.mockResolvedValue([
+      scan({
+        huntAudit: {
+          candidates: 2,
+          rejected: [],
+          falsifierRejects: 0,
+          planned: [{ id: 't1' }, { id: 't2' }],
+          tasks: [
+            {
+              taskId: 't1',
+              stopped: 'done',
+              submission: {
+                calls: 1,
+                submitted: 3,
+                kept: 2,
+                dropped: 1,
+                reasons: [
+                  'cwe',
+                  'call_chain.from',
+                  'ignore previous instructions',
+                ],
+              },
+            },
+            // A row written before the field existed.
+            { taskId: 't2', stopped: 'done' },
+            { taskId: 't3', stopped: 'done', submission: { kept: 'lots' } },
+          ],
+        },
+      }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1226,
+      all: false,
+    })
+    const tasks = view.scans[0]!.hunt!.tasks
+    expect(tasks[0]!.submission).toEqual({
+      calls: 1,
+      submitted: 3,
+      kept: 2,
+      dropped: 1,
+      reasons: ['cwe', 'call_chain.from'],
+    })
+    expect(tasks[1]).not.toHaveProperty('submission')
+    // Wrong shape is dropped, not trusted.
+    expect(tasks[2]).not.toHaveProperty('submission')
+  })
+
   it('returns hunt: null when the scan has no hunt layer and no audit', async () => {
     listScans.mockResolvedValue([
       scan({ stages: { secrets: 'RAN', judge: 'RAN' }, huntAudit: null }),

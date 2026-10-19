@@ -19,7 +19,7 @@ export function CodeBlock({ lines }: CodeBlockProps) {
   }
 
   return (
-    <div className='rounded-md border bg-muted font-mono text-xs overflow-hidden'>
+    <div className='rounded-md border bg-muted font-mono text-caption overflow-hidden'>
       {lines.map((line, index) => {
         const isCopied = copiedIndex === index
         return (

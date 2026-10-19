@@ -110,14 +110,17 @@ function WorkspaceStep({
             priority
           />
         </div>
-        <CardTitle className='text-sm font-normal text-foreground'>
+        <CardTitle className='text-body font-normal text-foreground'>
           {intl.formatMessage({ id: 'onboarding.workspace.title' })}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className='space-y-4'>
           <div className='space-y-1.5'>
-            <Label htmlFor='ws-name' className='text-xs text-muted-foreground'>
+            <Label
+              htmlFor='ws-name'
+              className='text-caption text-muted-foreground'
+            >
               {intl.formatMessage({ id: 'onboarding.workspace.nameLabel' })}
             </Label>
             <Input
@@ -133,11 +136,14 @@ function WorkspaceStep({
             />
           </div>
           <div className='space-y-1.5'>
-            <Label htmlFor='ws-url' className='text-xs text-muted-foreground'>
+            <Label
+              htmlFor='ws-url'
+              className='text-caption text-muted-foreground'
+            >
               {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
-            <div className='flex items-center border border-border rounded-md overflow-hidden bg-transparent dark:bg-input/30 shadow-elevation-1 transition-[color,box-shadow] focus-within:ring-2 focus-within:ring-ring'>
-              <span className='pl-3 text-sm text-muted-foreground h-9 flex items-center shrink-0 select-none'>
+            <div className='flex items-center border border-border rounded-md overflow-hidden bg-transparent dark:bg-input/30 transition-[color,box-shadow] focus-within:ring-2 focus-within:ring-ring'>
+              <span className='pl-3 text-body text-muted-foreground h-9 flex items-center shrink-0 select-none'>
                 {workspaceUrlPrefix}
               </span>
               <input
@@ -150,11 +156,11 @@ function WorkspaceStep({
                 })}
                 disabled={isSubmitting}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                className='flex-1 min-w-0 h-9 pl-0 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none bg-transparent'
+                className='flex-1 min-w-0 h-9 pl-0 pr-3 text-body text-foreground placeholder:text-muted-foreground outline-none bg-transparent'
               />
             </div>
           </div>
-          {error && <p className='text-xs text-red-600'>{error}</p>}
+          {error && <p className='text-caption text-danger-text'>{error}</p>}
           <Button
             type='button'
             disabled={isSubmitting || !isValid}
@@ -240,10 +246,10 @@ function InviteStep({
           />
         </div>
         <div>
-          <CardTitle className='text-sm font-normal text-foreground'>
+          <CardTitle className='text-body font-normal text-foreground'>
             {intl.formatMessage({ id: 'onboarding.invite.title' })}
           </CardTitle>
-          <p className='text-xs text-muted-foreground mt-1'>
+          <p className='text-caption text-muted-foreground mt-1'>
             {intl.formatMessage({ id: 'onboarding.invite.subtitle' })}
           </p>
         </div>
@@ -287,14 +293,14 @@ function InviteStep({
             <button
               onClick={addEmail}
               disabled={isSending}
-              className='flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors'
+              className='flex items-center gap-1.5 text-caption text-muted-foreground hover:text-foreground transition-colors'
             >
               <Plus size={12} />
               {intl.formatMessage({ id: 'onboarding.invite.addAnother' })}
             </button>
           )}
 
-          {error && <p className='text-xs text-red-600'>{error}</p>}
+          {error && <p className='text-caption text-danger-text'>{error}</p>}
 
           <Button
             disabled={isSending || !allValid}
@@ -309,7 +315,7 @@ function InviteStep({
           <button
             onClick={handleSkip}
             disabled={isSending}
-            className='w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1'
+            className='w-full text-center text-caption text-muted-foreground hover:text-foreground transition-colors py-1'
           >
             {intl.formatMessage({ id: 'onboarding.invite.skip' })}
           </button>

@@ -88,8 +88,9 @@ describe('AgentRunCard — run-header attribution (LUM-308)', () => {
     render(<AgentRunCard run={baseRun()} />)
     expect(screen.getByTestId('run-member')).toBeInTheDocument()
     expect(screen.getByText('Chao Li')).toBeInTheDocument()
-    // Avatar fallback initials.
-    expect(screen.getByText('CL')).toBeInTheDocument()
+    // Shared MemberAvatar: decorative (name printed beside it), xs shows one initial.
+    expect(screen.queryByRole('img', { name: 'Chao Li' })).toBeNull()
+    expect(screen.getByText('C').closest('[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('omits the member chip for an orphan run with no member', () => {
@@ -409,7 +410,7 @@ describe('AgentRunCard — neutral decoration (LUM-966)', () => {
     render(<AgentRunCard run={baseRun({ memoryCount: 2 })} />)
     const count = screen.getByTestId('run-memory-count')
     expect(count).toHaveTextContent('+2 memories')
-    expect(count).toHaveClass('font-medium', 'text-foreground')
+    expect(count).toHaveClass('font-semibold', 'text-foreground')
     expect(count.className).not.toMatch(hueClass)
   })
 

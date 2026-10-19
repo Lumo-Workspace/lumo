@@ -346,6 +346,7 @@
   "slack.connected": "Conectado",
   "slack.connectedTo": "Conectado al espacio de trabajo: {teamName}",
   "slack.channelNote": "Las notificaciones de canal se configuran por proyecto.",
+  "slack.channelUnavailable": "(no disponible)",
   "slack.disconnectTitle": "¿Desconectar Slack?",
   "slack.disconnectDesc": "Todas las suscripciones a canales serán eliminadas. Puedes volver a conectarte en cualquier momento.",
   "slack.connectSuccess": "Slack conectado correctamente",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Lista",
   "sprints.view.timeline": "Cronología",
   "sprints.filter.all": "Todos",
+  "sprints.statusFilter.label": "Filtrar sprints por estado",
   "sprints.metric.completed": "Completado",
   "sprints.metric.remaining": "Restante",
   "sprints.metric.timeLeft": "Tiempo restante",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Tamaño del equipo",
   "waitlist.teamSize.select": "Selecciona…",
   "waitlist.teamSize.justMe": "Solo yo",
+  "waitlist.teamSize.preferNotToSay": "Prefiero no decirlo",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Todos",
   "settings.auditLog.filter.since": "Desde",
   "settings.auditLog.filter.until": "Hasta",
+  "settings.auditLog.filter.anyDate": "Cualquier fecha",
   "settings.auditLog.filter.reset": "Restablecer",
   "settings.auditLog.export": "Exportar CSV",
   "settings.auditLog.exportHint": "Descarga hasta {max} de los eventos más recientes que coinciden con los filtros.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Los archivos adjuntos a los pasos cuentan para el mismo límite.",
   "testCases.field.evidenceFiles.tooManyTotal": "Con los archivos adjuntos a los pasos, esta ejecución tendría {count} archivos; el máximo es {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” no es de un tipo compatible: usa PNG, JPEG, WebP, GIF, texto o JSON.",
-  "testCases.report.state.skipped": "Omitido"
+  "testCases.report.state.skipped": "Omitido",
+  "formDialog.collapse": "Contraer",
+  "formDialog.expand": "Expandir"
 }

@@ -1,8 +1,9 @@
 'use client'
 
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { Plus, MoreHorizontal, Trash2, Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -157,7 +158,7 @@ export function DocumentsPage({
             {intl.formatMessage({ id: 'documents.copyLink' })}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className='text-red-500'
+            className='text-danger-text'
             onClick={e => {
               e.stopPropagation()
               setDeleteId(doc.id)
@@ -180,53 +181,38 @@ export function DocumentsPage({
             className='flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group'
             onClick={() => onSelectDocument(doc)}
           >
-            <span className='text-lg shrink-0'>{doc.emoji ?? '📄'}</span>
+            <span className='text-title shrink-0'>{doc.emoji ?? '📄'}</span>
             <div className='min-w-0 flex-1'>
-              <div className='font-medium text-sm truncate'>
+              <div className='text-body-strong truncate'>
                 {doc.title ||
                   intl.formatMessage({
                     id: 'documents.untitled',
                     defaultMessage: 'Untitled',
                   })}
               </div>
-              <div className='text-xs text-muted-foreground truncate'>
+              <div className='text-caption text-muted-foreground truncate'>
                 {getSubtitle(doc)}
               </div>
             </div>
             {/* Creator */}
             <span className='flex items-center gap-1.5 shrink-0 hidden sm:flex'>
-              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='w-full h-full object-cover'
-                  />
-                ) : (
-                  <span className='text-[8px] font-medium text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
-              <span className='text-xs text-muted-foreground'>
+              <MemberAvatar
+                decorative
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
+              <span className='text-caption text-muted-foreground'>
                 {doc.createdBy.name}
               </span>
             </span>
             {/* Creator avatar only on mobile */}
             <span className='shrink-0 sm:hidden'>
-              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='w-full h-full object-cover'
-                  />
-                ) : (
-                  <span className='text-[8px] font-medium text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
+              <MemberAvatar
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
             </span>
             {doc.docTags && doc.docTags.length > 0 ? (
               <div className='shrink-0 hidden sm:block'>
@@ -239,10 +225,10 @@ export function DocumentsPage({
             ) : null}
             {doc.editors && doc.editors.length > 0 && (
               <div className='shrink-0 hidden sm:block'>
-                <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
+                <CollaboratorAvatars editors={doc.editors} max={3} />
               </div>
             )}
-            <span className='text-xs text-muted-foreground w-16 text-right shrink-0'>
+            <span className='text-caption text-muted-foreground w-16 text-right shrink-0'>
               {formatRelativeTime(doc.updatedAt, intl.locale)}
             </span>
             {renderRowMenu(doc)}
@@ -256,15 +242,15 @@ export function DocumentsPage({
     return (
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-4'>
         {sorted.map(doc => (
-          <div
+          <Card
             key={doc.id}
-            className='group flex h-64 cursor-pointer flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/50'
+            className='group flex h-64 cursor-pointer flex-col p-4 transition-colors hover:bg-muted/50'
             onClick={() => onSelectDocument(doc)}
           >
             <div className='flex items-start justify-between gap-2'>
               <div className='flex min-w-0 items-center gap-2'>
-                <span className='shrink-0 text-base'>{doc.emoji ?? '📄'}</span>
-                <span className='truncate text-sm font-medium'>
+                <span className='shrink-0 text-title'>{doc.emoji ?? '📄'}</span>
+                <span className='truncate text-body-strong'>
                   {doc.title ||
                     intl.formatMessage({
                       id: 'documents.untitled',
@@ -274,31 +260,23 @@ export function DocumentsPage({
               </div>
               {renderRowMenu(doc)}
             </div>
-            <div className='mt-3 flex-1 overflow-hidden text-xs leading-relaxed text-muted-foreground whitespace-pre-line line-clamp-6'>
+            <div className='mt-3 flex-1 overflow-hidden text-caption text-muted-foreground whitespace-pre-line line-clamp-6'>
               {doc.preview ?? ''}
             </div>
             <div className='mt-3 flex items-center gap-2'>
-              <span className='flex size-[20px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='h-full w-full object-cover'
-                  />
-                ) : (
-                  <span className='text-[9px] font-medium text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
-              <span className='truncate text-xs text-muted-foreground'>
+              <MemberAvatar
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
+              <span className='truncate text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'documents.editedAt' },
                   { time: formatRelativeTime(doc.updatedAt, intl.locale) }
                 )}
               </span>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     )
@@ -331,7 +309,7 @@ export function DocumentsPage({
             key={f.key}
             type='button'
             className={cn(
-              'px-3 py-1 text-xs rounded-md transition-colors',
+              'px-3 py-1 text-caption rounded-md transition-colors',
               filter === f.key
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:text-foreground'
@@ -347,7 +325,7 @@ export function DocumentsPage({
             value={sortBy}
             onValueChange={(v: string) => handleSetSortBy(v as SortKey)}
           >
-            <SelectTrigger className='h-8 w-36 text-xs'>
+            <SelectTrigger className='h-8 w-36 text-caption'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -372,7 +350,7 @@ export function DocumentsPage({
           onRetry={onRetry}
           empty={sorted.length === 0}
           emptyState={
-            <div className='text-center text-muted-foreground text-sm py-12'>
+            <div className='text-center text-muted-foreground text-body py-12'>
               {intl.formatMessage({
                 id:
                   search || filter !== 'ALL'

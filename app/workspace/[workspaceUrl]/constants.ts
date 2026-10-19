@@ -261,4 +261,4 @@ export const DND_ACTIVATION_DISTANCE = 8
 // ─── Idea / draft badge ───────────────────────────────────────────────────────
 
 export const IDEA_BADGE_CLS =
-  'text-[10px] px-1.5 py-0.5 rounded-sm font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+  'text-caption px-1.5 py-0.5 rounded-sm bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'

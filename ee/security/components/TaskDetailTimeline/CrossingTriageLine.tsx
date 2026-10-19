@@ -57,7 +57,7 @@ export function CrossingTriageLine({
   return (
     <p
       data-testid={`boundary-triage-${crossingId}`}
-      className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
+      className='mt-1.5 flex items-start gap-1.5 text-caption text-muted-foreground'
     >
       <Sparkles className='mt-0.5 size-3.5 shrink-0' aria-hidden />
       <span>{text}</span>

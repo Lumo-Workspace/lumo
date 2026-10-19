@@ -28,6 +28,8 @@ import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
 import { milestoneState } from '@/lib/summaries/milestone-state'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface MilestoneDetailPageProps {
   /** Open the global task drawer for a clicked task in the milestone board. */
@@ -113,6 +115,7 @@ export function MilestoneDetailPage({
   // is global across milestones (mirrors the sprint detail page) so users don't
   // re-toggle on every visit.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   useEffect(() => {
     const cached = readCache<boolean>(CACHE_KEY.milestoneSidebarCollapsed)
     if (cached !== null) setSidebarCollapsed(cached)
@@ -129,15 +132,15 @@ export function MilestoneDetailPage({
     return (
       <DetailLayout
         breadcrumb={
-          <span className='text-sm text-muted-foreground'>
+          <span className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.tab.title' })}
           </span>
         }
       >
         <div className='flex-1 space-y-6 p-4 md:p-8' aria-busy='true'>
-          <div className='h-8 w-1/3 animate-pulse rounded-sm bg-muted/50' />
-          <div className='h-4 w-1/4 animate-pulse rounded-sm bg-muted/50' />
-          <div className='h-40 animate-pulse rounded-lg border border-border bg-muted/50' />
+          <Skeleton className='h-8 w-1/3 rounded-sm' />
+          <Skeleton className='h-4 w-1/4 rounded-sm' />
+          <Skeleton className='h-40 rounded-lg border border-border' />
         </div>
       </DetailLayout>
     )
@@ -147,13 +150,13 @@ export function MilestoneDetailPage({
     return (
       <DetailLayout
         breadcrumb={
-          <span className='text-sm text-muted-foreground'>
+          <span className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.tab.title' })}
           </span>
         }
       >
         <div className='flex-1 p-4 md:p-8'>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.notFound' })}
           </p>
         </div>
@@ -188,14 +191,21 @@ export function MilestoneDetailPage({
         onArchiveToggle={() =>
           archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
         }
-        onDelete={() => {
-          const ok = window.confirm(
-            intl.formatMessage(
-              { id: 'milestone.delete.confirm' },
-              { name: milestone.name }
-            )
-          )
-          if (ok) deleteMutation.mutate()
+        onDelete={() => setConfirmDeleteOpen(true)}
+      />
+      <ConfirmActionDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={intl.formatMessage({ id: 'milestone.delete' })}
+        description={intl.formatMessage(
+          { id: 'milestone.delete.confirm' },
+          { name: milestone.name }
+        )}
+        confirmLabel={intl.formatMessage({ id: 'common.delete' })}
+        destructive
+        onConfirm={() => {
+          setConfirmDeleteOpen(false)
+          deleteMutation.mutate()
         }}
       />
     </div>

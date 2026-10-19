@@ -37,7 +37,7 @@ export function AgentRunEventRow({ event }: AgentRunEventRowProps) {
         {time}
       </span>
       <span
-        className={`shrink-0 px-1.5 py-px rounded-sm text-[10px] font-medium uppercase tracking-wide ${style.pill}`}
+        className={`shrink-0 px-1.5 py-px rounded-sm text-caption uppercase ${style.pill}`}
       >
         {label}
       </span>

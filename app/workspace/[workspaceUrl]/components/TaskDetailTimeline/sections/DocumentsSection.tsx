@@ -104,7 +104,7 @@ export function DocumentsSection({
       count={documents.length}
       addSlot={addSlot}
     >
-      <p className='mb-2 text-[11px] text-muted-foreground'>
+      <p className='mb-2 text-caption text-muted-foreground'>
         {intl.formatMessage({ id: 'taskArtifact.docsRefOnly' })}
       </p>
       {sorted.length === 0 ? (
@@ -132,7 +132,7 @@ export function DocumentsSection({
               >
                 {doc.title}
               </Link>
-              <span className='shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted'>
+              <span className='shrink-0 rounded-sm px-1 py-0.5 text-caption text-muted-foreground bg-muted'>
                 {doc.source === 'CONTENT'
                   ? intl.formatMessage({
                       id: 'task.context.documents.source.content',

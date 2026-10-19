@@ -346,6 +346,7 @@
   "slack.connected": "कनेक्टेड",
   "slack.connectedTo": "कार्यक्षेत्र से कनेक्टेड: {teamName}",
   "slack.channelNote": "चैनल सूचनाएं प्रति प्रोजेक्ट कॉन्फ़िगर की जाती हैं।",
+  "slack.channelUnavailable": "(उपलब्ध नहीं)",
   "slack.disconnectTitle": "Slack डिस्कनेक्ट करें?",
   "slack.disconnectDesc": "सभी चैनल सदस्यताएं हटा दी जाएंगी। आप कभी भी पुनः कनेक्ट कर सकते हैं।",
   "slack.connectSuccess": "Slack सफलतापूर्वक कनेक्ट हुआ",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "सूची",
   "sprints.view.timeline": "टाइमलाइन",
   "sprints.filter.all": "सभी",
+  "sprints.statusFilter.label": "स्प्रिंट को स्थिति के अनुसार फ़िल्टर करें",
   "sprints.metric.completed": "पूर्ण",
   "sprints.metric.remaining": "शेष",
   "sprints.metric.timeLeft": "शेष समय",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "टीम का आकार",
   "waitlist.teamSize.select": "चुनें…",
   "waitlist.teamSize.justMe": "केवल मैं",
+  "waitlist.teamSize.preferNotToSay": "बताना नहीं चाहते",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "सभी",
   "settings.auditLog.filter.since": "से",
   "settings.auditLog.filter.until": "तक",
+  "settings.auditLog.filter.anyDate": "कोई भी तारीख",
   "settings.auditLog.filter.reset": "रीसेट करें",
   "settings.auditLog.export": "CSV निर्यात करें",
   "settings.auditLog.exportHint": "फ़िल्टर से मेल खाने वाले सबसे नए {max} इवेंट तक डाउनलोड करता है।",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "चरणों में जोड़ी गई फ़ाइलें भी इसी सीमा में गिनी जाती हैं।",
   "testCases.field.evidenceFiles.tooManyTotal": "चरणों में जोड़ी गई फ़ाइलों सहित इस रन में {count} फ़ाइलें होंगी — अधिकतम {max}।",
   "testCases.field.evidenceFiles.badType": "“{filename}” समर्थित प्रकार नहीं है — PNG, JPEG, WebP, GIF, टेक्स्ट या JSON का उपयोग करें।",
-  "testCases.report.state.skipped": "छोड़ा गया"
+  "testCases.report.state.skipped": "छोड़ा गया",
+  "formDialog.collapse": "संक्षिप्त करें",
+  "formDialog.expand": "विस्तार करें"
 }

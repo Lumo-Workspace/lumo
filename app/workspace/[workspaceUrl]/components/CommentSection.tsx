@@ -2,8 +2,9 @@
 
 import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ import { CommentItem } from './comments/CommentItem'
 import { ReplyItem } from './comments/ReplyItem'
 import { ReplyInput } from './comments/ReplyInput'
 import { useMentionSources } from '../hooks/useMentionSources'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export interface CommentSectionProps {
   workspaceUrl: string
@@ -33,7 +35,7 @@ export interface CommentSectionProps {
     | { actorId: string; name: string; avatarColor: string }[]
     | undefined
   currentActorId: string | null | undefined
-  user: { imageUrl?: string; initials?: string } | null | undefined
+  user: { imageUrl?: string; displayName?: string } | null | undefined
   tc: ReturnType<typeof import('../hooks/useTaskComments').useTaskComments>
 }
 
@@ -56,7 +58,7 @@ export function CommentSection({
   return (
     <>
       <div className='mt-8 pt-6'>
-        <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4'>
+        <p className='text-caption font-semibold text-muted-foreground uppercase mb-4'>
           {intl.formatMessage({
             id: 'task.comments',
             defaultMessage: 'Comments',
@@ -67,10 +69,10 @@ export function CommentSection({
           <div className='space-y-3'>
             {[1, 2].map(i => (
               <div key={i} className='flex gap-2.5'>
-                <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
+                <Skeleton className='size-7 shrink-0 rounded-full' />
                 <div className='flex-1 space-y-1.5 pt-0.5'>
-                  <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/3' />
-                  <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
+                  <Skeleton className='h-2.5 w-1/3 rounded-sm' />
+                  <Skeleton className='h-2.5 w-2/3 rounded-sm' />
                 </div>
               </div>
             ))}
@@ -128,12 +130,12 @@ export function CommentSection({
 
         {/* New comment input */}
         <div className='mt-5 flex gap-2.5'>
-          <Avatar className='size-7 shrink-0 mt-0.5'>
-            <AvatarImage src={user?.imageUrl} />
-            <AvatarFallback className='text-[10px]'>
-              {user?.initials ?? '?'}
-            </AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            name={user?.displayName ?? ''}
+            imageUrl={user?.imageUrl}
+            size='md'
+            className='mt-0.5'
+          />
           <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
             <CommentEditor
               onCommit={html => tc.setCommentBody(html)}
@@ -144,7 +146,7 @@ export function CommentSection({
             <div className='flex justify-end px-2 pb-2'>
               <Button
                 size='sm'
-                className='h-7 text-xs gap-1.5'
+                className='h-7 text-caption gap-1.5'
                 disabled={!tc.commentBody?.trim() || tc.submitting}
                 onClick={tc.submitComment}
               >
@@ -153,9 +155,9 @@ export function CommentSection({
                   id: 'task.commentSubmit',
                   defaultMessage: 'Comment',
                 })}
-                <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                <Kbd variant='solid' className='ml-0.5'>
                   {isMac ? '⌘↵' : 'Ctrl+↵'}
-                </kbd>
+                </Kbd>
               </Button>
             </div>
           </div>
@@ -192,14 +194,16 @@ export function CommentSection({
               {intl.formatMessage({ id: 'common.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
               onClick={() => {
                 if (tc.confirmDeleteId) tc.deleteComment(tc.confirmDeleteId)
                 tc.setConfirmDeleteId(null)
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+              <Kbd variant='solid' className='ml-1.5'>
+                ↵
+              </Kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -15,6 +15,7 @@ import {
   SCAN_EVIDENCE_HARD_CAP_DAYS,
   isScanEvidenceRetentionDays,
 } from '@/lib/retention/scan-evidence'
+import { readHuntSubmission } from '@/shared/src/hunt-audit'
 
 // LUM-1060 — the tiers, the hard cap and the sweep cutoff live in the core
 // (`@/lib/retention/scan-evidence`); re-exported so every existing importer
@@ -216,6 +217,10 @@ export function redactHuntAuditToCounts(raw: unknown): Json | null {
       if (Array.isArray(row.wrapUpWarnings)) {
         kept.wrapUpWarnings = row.wrapUpWarnings.map(() => REDACTED)
       }
+      // LUM-1226 — submission counts and the schema field names dropped
+      // candidates failed on: no code, so a scrubbed scan keeps them.
+      const submission = readHuntSubmission(row.submission)
+      if (submission) kept.submission = submission
       return kept
     })
   }

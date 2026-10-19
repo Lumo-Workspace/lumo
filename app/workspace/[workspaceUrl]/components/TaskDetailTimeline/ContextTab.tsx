@@ -68,7 +68,7 @@ export function ContextTab({
     <div>
       <SpecArtifactGroup taskId={taskId} />
 
-      <p className='text-xs font-semibold tracking-wide text-muted-foreground mb-3'>
+      <p className='text-caption font-semibold text-muted-foreground mb-3'>
         {intl.formatMessage({
           id: 'context.group.reference',
           defaultMessage: 'References',

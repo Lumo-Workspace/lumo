@@ -46,14 +46,14 @@ function Tile({
       data-testid={testId}
       className='rounded-md border border-border px-3 py-2'
     >
-      <div className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+      <div className='text-caption uppercase text-muted-foreground'>
         {label}
       </div>
       <div
         className={
           measured
             ? 'mt-1 text-heading text-foreground'
-            : 'mt-1 text-[11px] italic leading-snug text-muted-foreground'
+            : 'mt-1 text-caption italic text-muted-foreground'
         }
       >
         {value}

@@ -3,14 +3,13 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Users, Cpu } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type { AgentRunMemberStat, ModelCost } from '../../types'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import {
   foldMembersToCostRows,
   type MemberCostRow,
 } from './fold-members-to-cost'
-import { initialsOf } from '../initials'
 
 interface TokenUsageBreakdownProps {
   totals: { runCount: number; loopCount: number; byModel: ModelCost[] }
@@ -19,7 +18,7 @@ interface TokenUsageBreakdownProps {
 
 function GroupLabel({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <div className='mt-3 mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground first:mt-0'>
+    <div className='mt-3 mb-1 flex items-center gap-1.5 text-caption text-muted-foreground first:mt-0'>
       {icon}
       {label}
     </div>
@@ -30,12 +29,7 @@ function memberHeader(m: ModelCost) {
   const r = m as MemberCostRow
   return (
     <span className='flex items-center gap-1.5 text-caption font-semibold'>
-      <Avatar className='size-4 shrink-0'>
-        <AvatarImage src={r.imageUrl || undefined} />
-        <AvatarFallback className='text-[8px]'>
-          {initialsOf(r.name)}
-        </AvatarFallback>
-      </Avatar>
+      <MemberAvatar decorative name={r.name} imageUrl={r.imageUrl} size='xs' />
       {r.name}
     </span>
   )

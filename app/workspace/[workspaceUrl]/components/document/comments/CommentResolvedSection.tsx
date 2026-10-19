@@ -2,6 +2,11 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 import { DocumentCommentThread } from './DocumentCommentThread'
@@ -32,23 +37,24 @@ export function CommentResolvedSection(props: CommentResolvedSectionProps) {
   if (resolved.length === 0) return null
 
   return (
-    <div className='mt-2 border-t pt-2'>
-      <button
-        type='button'
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className='mt-2 border-t pt-2'
+    >
+      <CollapsibleTrigger
         data-testid='resolved-section-toggle'
-        aria-expanded={expanded}
-        onClick={() => setExpanded(v => !v)}
-        className='flex w-full items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground'
+        className='flex w-full items-center gap-1.5 text-caption text-muted-foreground transition-colors hover:text-foreground'
       >
-        <ChevronRight
-          className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-        />
+        <ChevronRight className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90' />
         <span>
           {intl.formatMessage({ id: 'document.showResolved' })} (
           {resolved.length})
         </span>
-      </button>
-      {expanded && (
+      </CollapsibleTrigger>
+      {/* -mx-1/px-1: room for the active thread's ring, which the content's
+          overflow-hidden would otherwise clip at the edges. */}
+      <CollapsibleContent className='-mx-1 px-1'>
         <div className='mt-2 flex flex-col gap-2'>
           {resolved.map(c => (
             <DocumentCommentThread
@@ -66,7 +72,7 @@ export function CommentResolvedSection(props: CommentResolvedSectionProps) {
             />
           ))}
         </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

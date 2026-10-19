@@ -70,13 +70,18 @@ export function AssigneeSelect({
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
             {resolvedAgent ? (
-              <div className='flex items-center gap-1.5 text-violet-500'>
+              <div className='flex items-center gap-1.5 text-info-text'>
                 <Bot size={14} />
                 <span>{resolvedAgent.name}</span>
               </div>
             ) : assigneeMember ? (
               <div className='flex items-center gap-1.5'>
-                <MemberAvatar member={assigneeMember} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={assigneeMember.name}
+                  imageUrl={assigneeMember.imageUrl}
+                  size='xs'
+                />
                 <span>{assigneeMember.name}</span>
               </div>
             ) : (
@@ -116,7 +121,12 @@ export function AssigneeSelect({
           .map(m => (
             <SelectItem key={m.actorId} value={m.actorId}>
               <div className='flex items-center gap-2'>
-                <MemberAvatar member={m} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={m.name}
+                  imageUrl={m.imageUrl}
+                  size='xs'
+                />
                 {m.name}
               </div>
             </SelectItem>

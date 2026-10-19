@@ -48,7 +48,7 @@ export function CommentEditMode({
   return (
     <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
       <div
-        className='px-3 pt-2 pb-1 text-sm'
+        className='px-3 pt-2 pb-1 text-body'
         onKeyDown={e => {
           if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault()
@@ -72,14 +72,14 @@ export function CommentEditMode({
         <Button
           size='sm'
           variant='ghost'
-          className='h-7 text-xs'
+          className='h-7 text-caption'
           onClick={onCancel}
         >
           {intl.formatMessage({ id: 'common.cancel' })}
         </Button>
         <Button
           size='sm'
-          className='h-7 text-xs'
+          className='h-7 text-caption'
           disabled={!draftBody?.trim() || saving}
           onClick={onSave}
         >

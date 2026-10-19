@@ -346,6 +346,7 @@
   "slack.connected": "Connected",
   "slack.connectedTo": "Connected to workspace: {teamName}",
   "slack.channelNote": "Channel notifications are configured per project.",
+  "slack.channelUnavailable": "(not available)",
   "slack.disconnectTitle": "Disconnect Slack?",
   "slack.disconnectDesc": "All channel subscriptions will be removed. You can reconnect at any time.",
   "slack.connectSuccess": "Slack connected successfully",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "List",
   "sprints.view.timeline": "Timeline",
   "sprints.filter.all": "All",
+  "sprints.statusFilter.label": "Filter sprints by status",
   "sprints.metric.completed": "Completed",
   "sprints.metric.remaining": "Remaining",
   "sprints.metric.timeLeft": "Time left",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Team size",
   "waitlist.teamSize.select": "Select…",
   "waitlist.teamSize.justMe": "Just me",
+  "waitlist.teamSize.preferNotToSay": "Prefer not to say",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Everyone",
   "settings.auditLog.filter.since": "From",
   "settings.auditLog.filter.until": "To",
+  "settings.auditLog.filter.anyDate": "Any date",
   "settings.auditLog.filter.reset": "Reset",
   "settings.auditLog.export": "Export CSV",
   "settings.auditLog.exportHint": "Downloads up to {max} of the newest events that match the filters.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Files attached to steps count toward the same limit.",
   "testCases.field.evidenceFiles.tooManyTotal": "That makes {count} files for this run, counting files attached to steps — at most {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” is not a supported type — use PNG, JPEG, WebP, GIF, text or JSON.",
-  "testCases.report.state.skipped": "Skipped"
+  "testCases.report.state.skipped": "Skipped",
+  "formDialog.collapse": "Collapse",
+  "formDialog.expand": "Expand"
 }

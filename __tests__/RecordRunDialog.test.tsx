@@ -8,6 +8,9 @@
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { installRadixSelectShims, pickOption } from './helpers/radix-select'
+
+installRadixSelectShims()
 
 jest.mock('react-intl', () => {
   const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
@@ -76,8 +79,10 @@ const setup = (onSubmit = jest.fn()) => {
 describe('environment has no default', () => {
   it('starts with no environment selected', () => {
     setup()
-    const select = screen.getByLabelText(/environment/i) as HTMLSelectElement
-    expect(select.value).toBe('')
+    // LUM-1265: Radix Select shows its placeholder while the value is ''.
+    expect(screen.getByLabelText(/environment/i)).toHaveTextContent(
+      'Choose the environment…'
+    )
   })
 
   it('blocks submit until an environment is chosen', async () => {
@@ -95,7 +100,7 @@ describe('per-step picker', () => {
   it('is hidden unless the result is PASS or FAIL', async () => {
     setup()
     expect(screen.getByText('Result of each step')).toBeInTheDocument()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'BLOCKED')
+    await pickOption(screen.getByLabelText(/result/i), 'Blocked')
     expect(screen.queryByText('Result of each step')).not.toBeInTheDocument()
   })
 
@@ -110,10 +115,7 @@ describe('per-step picker', () => {
 
   it('refuses to submit until every step is marked, naming what is missing', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).not.toHaveBeenCalled()
     expect(
@@ -123,10 +125,7 @@ describe('per-step picker', () => {
 
   it('refuses a skip without a reason', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await markRest()
     await userEvent.click(screen.getAllByRole('radio', { name: 'Skipped' })[0]!)
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
@@ -136,10 +135,7 @@ describe('per-step picker', () => {
 
   it('submits every step, a skip carrying its reason', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await markRest()
     await userEvent.click(screen.getAllByRole('radio', { name: 'Skipped' })[2]!)
     await userEvent.type(
@@ -170,26 +166,17 @@ describe('per-step picker', () => {
 
   it('refuses to submit a FAIL with no cause picked', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/result/i), 'Fail')
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('a FAIL needs a step marked failed', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
-    await userEvent.selectOptions(
-      screen.getByLabelText(/whose fault/i),
-      'UNKNOWN'
-    )
+    await pickOption(screen.getByLabelText(/result/i), 'Fail')
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
+    await pickOption(screen.getByLabelText(/whose fault/i), 'Could not tell')
     await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).not.toHaveBeenCalled()
@@ -202,16 +189,10 @@ describe('per-step picker', () => {
 
   it('submits the steps up to the one marked failed', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/result/i), 'Fail')
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     // LUM-808: 一条 FAIL 必须说清是谁的锅；选举证责任最轻的那个。
-    await userEvent.selectOptions(
-      screen.getByLabelText(/whose fault/i),
-      'UNKNOWN'
-    )
+    await pickOption(screen.getByLabelText(/whose fault/i), 'Could not tell')
     await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
     await userEvent.click(screen.getAllByRole('radio', { name: 'Failed' })[1]!)
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
@@ -296,10 +277,7 @@ describe('evidence file guards', () => {
   it('never submits files it rejected', async () => {
     const onSubmit = setup()
     attach(sixFiles())
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(expect.anything(), [])
@@ -318,17 +296,15 @@ describe('evidence file guards', () => {
 describe('pull request', () => {
   it('starts with no PR selected', () => {
     setup()
-    const select = screen.getByLabelText(/pull request/i) as HTMLSelectElement
-    expect(select.value).toBe('')
+    expect(screen.getByLabelText(/pull request/i)).toHaveTextContent(
+      'Not tied to a PR'
+    )
   })
 
   it('submits the PR number, not its cuid', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'PREVIEW'
-    )
-    await userEvent.selectOptions(screen.getByLabelText(/pull request/i), '123')
+    await pickOption(screen.getByLabelText(/environment/i), 'Preview')
+    await pickOption(screen.getByLabelText(/pull request/i), /#123/)
     await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(
@@ -339,10 +315,7 @@ describe('pull request', () => {
 
   it('never claims a clean worktree — commitDirty stays null from the web', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByLabelText(/environment/i),
-      'LOCAL'
-    )
+    await pickOption(screen.getByLabelText(/environment/i), 'Local')
     await markRest()
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
     expect(onSubmit).toHaveBeenCalledWith(

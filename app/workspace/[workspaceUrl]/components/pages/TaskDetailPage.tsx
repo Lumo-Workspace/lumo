@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Kbd } from '@/components/ui/kbd'
 import { TaskDetail, Page } from '../../types'
 import { pageToPath } from '../../utils'
 import { tasksClient } from '@/lib/api-client'
@@ -272,7 +273,7 @@ export function TaskDetailPage({
                   e.currentTarget.blur()
                 }
               }}
-              className='text-heading font-bold text-foreground outline-none cursor-text mb-6 leading-tight'
+              className='text-heading text-foreground outline-none cursor-text mb-6'
             >
               {task.title}
             </h1>
@@ -379,14 +380,16 @@ export function TaskDetailPage({
               {intl.formatMessage({ id: 'common.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
               onClick={() => {
                 if (tc.confirmDeleteId) tc.deleteComment(tc.confirmDeleteId)
                 tc.setConfirmDeleteId(null)
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+              <Kbd variant='solid' className='ml-1.5'>
+                ↵
+              </Kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

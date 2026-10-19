@@ -346,6 +346,7 @@
   "slack.connected": "已连接",
   "slack.connectedTo": "已连接到工作区：{teamName}",
   "slack.channelNote": "频道通知按项目配置。",
+  "slack.channelUnavailable": "（不可用）",
   "slack.disconnectTitle": "断开 Slack？",
   "slack.disconnectDesc": "所有频道订阅将被移除。你可以随时重新连接。",
   "slack.connectSuccess": "Slack 连接成功",
@@ -1358,6 +1359,7 @@
   "sprints.view.list": "列表",
   "sprints.view.timeline": "时间线",
   "sprints.filter.all": "全部",
+  "sprints.statusFilter.label": "按状态筛选冲刺",
   "sprints.metric.completed": "已完成",
   "sprints.metric.remaining": "剩余",
   "sprints.metric.timeLeft": "剩余时间",
@@ -1568,6 +1570,7 @@
   "waitlist.field.teamSize": "团队规模",
   "waitlist.teamSize.select": "请选择…",
   "waitlist.teamSize.justMe": "仅自己",
+  "waitlist.teamSize.preferNotToSay": "不便透露",
   "waitlist.teamSize.2to5": "2–5 人",
   "waitlist.teamSize.6to15": "6–15 人",
   "waitlist.teamSize.16to50": "16–50 人",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "所有人",
   "settings.auditLog.filter.since": "开始日期",
   "settings.auditLog.filter.until": "结束日期",
+  "settings.auditLog.filter.anyDate": "任意日期",
   "settings.auditLog.filter.reset": "重置",
   "settings.auditLog.export": "导出 CSV",
   "settings.auditLog.exportHint": "下载符合筛选条件的最新事件，最多 {max} 条。",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "挂在步骤上的文件也计入同一上限。",
   "testCases.field.evidenceFiles.tooManyTotal": "这次执行加上挂在步骤上的文件共 {count} 个——最多 {max} 个。",
   "testCases.field.evidenceFiles.badType": "“{filename}”的类型不受支持——请用 PNG、JPEG、WebP、GIF、文本或 JSON。",
-  "testCases.report.state.skipped": "已跳过"
+  "testCases.report.state.skipped": "已跳过",
+  "formDialog.collapse": "收起",
+  "formDialog.expand": "展开"
 }

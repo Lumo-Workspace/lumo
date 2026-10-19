@@ -1,6 +1,7 @@
 'use client'
 
 import { TAG_BADGE_COLORS as TAG_COLORS } from './tag-colors'
+import { Badge } from '@/components/ui/badge'
 
 function getTagColor(tag: string): { bg: string; text: string } {
   const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
@@ -14,12 +15,14 @@ interface TagBadgeProps {
 export function TagBadge({ tag }: TagBadgeProps) {
   const color = getTagColor(tag)
   return (
-    <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap'
+    <Badge
+      variant='plain'
+      size='xs'
+      shape='square'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {tag}
-    </span>
+    </Badge>
   )
 }
 
@@ -39,7 +42,7 @@ export function TagList({ tags, max = 3 }: TagListProps) {
         <TagBadge key={tag} tag={tag} />
       ))}
       {overflow > 0 && (
-        <span className='text-[10px] text-muted-foreground'>+{overflow}</span>
+        <span className='text-caption text-muted-foreground'>+{overflow}</span>
       )}
     </div>
   )

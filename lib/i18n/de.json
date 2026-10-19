@@ -346,6 +346,7 @@
   "slack.connected": "Verbunden",
   "slack.connectedTo": "Verbunden mit Arbeitsbereich: {teamName}",
   "slack.channelNote": "Kanalbenachrichtigungen werden pro Projekt konfiguriert.",
+  "slack.channelUnavailable": "(nicht verfügbar)",
   "slack.disconnectTitle": "Slack trennen?",
   "slack.disconnectDesc": "Alle Kanalabonnements werden entfernt. Sie können jederzeit erneut eine Verbindung herstellen.",
   "slack.connectSuccess": "Slack erfolgreich verbunden",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Liste",
   "sprints.view.timeline": "Zeitleiste",
   "sprints.filter.all": "Alle",
+  "sprints.statusFilter.label": "Sprints nach Status filtern",
   "sprints.metric.completed": "Abgeschlossen",
   "sprints.metric.remaining": "Verbleibend",
   "sprints.metric.timeLeft": "Restzeit",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Teamgröße",
   "waitlist.teamSize.select": "Auswählen…",
   "waitlist.teamSize.justMe": "Nur ich",
+  "waitlist.teamSize.preferNotToSay": "Keine Angabe",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Alle",
   "settings.auditLog.filter.since": "Von",
   "settings.auditLog.filter.until": "Bis",
+  "settings.auditLog.filter.anyDate": "Beliebiges Datum",
   "settings.auditLog.filter.reset": "Zurücksetzen",
   "settings.auditLog.export": "CSV exportieren",
   "settings.auditLog.exportHint": "Lädt bis zu {max} der neuesten Ereignisse herunter, die den Filtern entsprechen.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Dateien an Schritten zählen zum selben Limit.",
   "testCases.field.evidenceFiles.tooManyTotal": "Mit den Dateien an Schritten wären es {count} Dateien für diesen Lauf – höchstens {max}.",
   "testCases.field.evidenceFiles.badType": "„{filename}“ hat keinen unterstützten Typ – verwende PNG, JPEG, WebP, GIF, Text oder JSON.",
-  "testCases.report.state.skipped": "Übersprungen"
+  "testCases.report.state.skipped": "Übersprungen",
+  "formDialog.collapse": "Einklappen",
+  "formDialog.expand": "Erweitern"
 }

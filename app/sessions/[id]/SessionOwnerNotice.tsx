@@ -1,6 +1,8 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { Info } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SESSION_MESSAGES as M } from '../messages'
 
 /**
@@ -14,13 +16,13 @@ export function SessionOwnerNotice({
 }) {
   const intl = useIntl()
   return (
-    <p
-      role='note'
-      className='mb-8 rounded-md border border-info-border bg-info-subtle px-4 py-3 text-sm text-foreground'
-    >
-      {ownerName
-        ? intl.formatMessage(M['detail.otherMember'], { name: ownerName })
-        : intl.formatMessage(M['detail.otherMemberUnknown'])}
-    </p>
+    <Alert variant='info' role='note' className='mb-8'>
+      <Info />
+      <AlertDescription>
+        {ownerName
+          ? intl.formatMessage(M['detail.otherMember'], { name: ownerName })
+          : intl.formatMessage(M['detail.otherMemberUnknown'])}
+      </AlertDescription>
+    </Alert>
   )
 }

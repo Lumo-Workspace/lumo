@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { RepoReviewFiltersEditor } from './RepoReviewFiltersEditor'
@@ -41,7 +42,7 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
   return (
     <div className='px-5 py-3 border-b border-border last:border-b-0'>
       <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
-        <p className='text-sm font-medium text-foreground break-all'>
+        <p className='text-body-strong text-foreground break-all'>
           {setting.repo}
         </p>
         <div className='flex items-center gap-4'>
@@ -75,9 +76,9 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
           >
             {t('style.toggle')}
           </Button>
-          <label
+          <Label
             htmlFor={`${id}-auto`}
-            className='flex items-center gap-2 text-xs text-muted-foreground'
+            className='flex items-center gap-2 text-caption text-muted-foreground'
           >
             {t('autoReview')}
             <Switch
@@ -89,10 +90,10 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
                 onChange({ repo: setting.repo, autoReview: next })
               }
             />
-          </label>
-          <label
+          </Label>
+          <Label
             htmlFor={`${id}-drafts`}
-            className='flex items-center gap-2 text-xs text-muted-foreground'
+            className='flex items-center gap-2 text-caption text-muted-foreground'
           >
             {t('drafts')}
             <Switch
@@ -104,7 +105,7 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
                 onChange({ repo: setting.repo, reviewDrafts: next })
               }
             />
-          </label>
+          </Label>
         </div>
       </div>
       {showFilters && (
@@ -166,17 +167,21 @@ export function RepoReviewSettingsCard() {
   let body: React.ReactNode
   if (isLoading) {
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>{t('loading')}</p>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
+        {t('loading')}
+      </p>
     )
   } else if (isError || !data) {
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
         {t('loadFailed')}
       </p>
     )
   } else if (data.repositories.length === 0) {
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>{t('empty')}</p>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
+        {t('empty')}
+      </p>
     )
   } else {
     body = data.repositories.map(r => (
@@ -193,12 +198,14 @@ export function RepoReviewSettingsCard() {
   return (
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
       <div className='px-5 py-3 border-b border-border'>
-        <p className='text-sm font-semibold text-foreground'>{t('title')}</p>
-        <p className='text-xs text-muted-foreground mt-0.5'>
+        <p className='text-body-strong text-foreground'>{t('title')}</p>
+        <p className='text-caption text-muted-foreground mt-0.5'>
           {t('description')}
         </p>
         {data && !data.canEdit && (
-          <p className='text-xs text-muted-foreground mt-1'>{t('ownerOnly')}</p>
+          <p className='text-caption text-muted-foreground mt-1'>
+            {t('ownerOnly')}
+          </p>
         )}
       </div>
       {body}

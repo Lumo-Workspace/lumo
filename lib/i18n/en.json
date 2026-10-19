@@ -1659,6 +1659,7 @@
   "signal.viewAllInTasks": "View all {count} in Tasks →",
   "slack.channelCreated": "#{name} created and selected",
   "slack.channelNote": "Channel notifications are configured per project.",
+  "slack.channelUnavailable": "(not available)",
   "slack.configRefreshed": "Configuration refreshed from server",
   "slack.connectFailed": "Failed to connect Slack",
   "slack.reconnect": "Reconnect Slack",
@@ -1749,6 +1750,7 @@
   "sprints.detail.startSprint": "Start sprint",
   "sprints.detail.viewRetro": "View retro",
   "sprints.filter.all": "All",
+  "sprints.statusFilter.label": "Filter sprints by status",
   "sprints.landing.active": "Current",
   "sprints.landing.behind": "Behind",
   "sprints.landing.clearSearch": "Clear search",
@@ -2149,6 +2151,7 @@
   "waitlist.teamSize.50plus": "50+",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.justMe": "Just me",
+  "waitlist.teamSize.preferNotToSay": "Prefer not to say",
   "waitlist.teamSize.select": "Select…",
   "workspaceSettings.dangerZone": "Danger zone",
   "workspaceSettings.deleteConfirmDesc": "{name} and all its projects, tasks and members will be permanently deleted in 48 hours. Every owner is emailed and any of them can cancel until then.",
@@ -2507,6 +2510,7 @@
   "settings.auditLog.filter.allActors": "Everyone",
   "settings.auditLog.filter.since": "From",
   "settings.auditLog.filter.until": "To",
+  "settings.auditLog.filter.anyDate": "Any date",
   "settings.auditLog.filter.reset": "Reset",
   "settings.auditLog.export": "Export CSV",
   "settings.auditLog.exportHint": "Downloads up to {max} of the newest events that match the filters.",
@@ -2910,5 +2914,7 @@
   "securityScan.stageState.IGNORED": "skipped — the PR description asks Lumo to ignore this PR",
   "securityScan.stageReason.IGNORED": "The PR description contains the ignore directive, so automatic AI checks were skipped on this commit. Secret, scanner and dependency checks are not affected. Remove the directive from the description to have the next push reviewed, or request a review now.",
   "securityScan.review.roundsNoLimit": "Automatic AI review: {rounds} commits reviewed · never pauses",
-  "language.switcher.label": "Language"
+  "language.switcher.label": "Language",
+  "formDialog.collapse": "Collapse",
+  "formDialog.expand": "Expand"
 }

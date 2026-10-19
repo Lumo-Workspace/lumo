@@ -4,11 +4,13 @@
 import { useRef, useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { PasswordSettings, useUser } from '@/lib/auth/client'
-import { Loader2, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usersClient } from '@/lib/api-client'
+import { Spinner } from '@/components/ui/spinner'
+import { MemberAvatar } from '@/components/MemberAvatar'
 
 export function ProfilePage() {
   const intl = useIntl()
@@ -78,19 +80,17 @@ export function ProfilePage() {
     }
   }
 
-  const initials =
-    [user?.firstName?.[0], user?.lastName?.[0]]
-      .filter(Boolean)
-      .join('')
-      .toUpperCase() || '?'
+  const displayName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'profile.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'profile.subtitle' })}
         </p>
 
@@ -98,22 +98,16 @@ export function ProfilePage() {
           {/* Avatar row */}
           <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-3'>
-              {isLoaded && user?.imageUrl ? (
-                <img
-                  src={user.imageUrl}
-                  alt={intl.formatMessage({ id: 'profile.avatar' })}
-                  className='w-9 h-9 rounded-full object-cover'
-                />
-              ) : (
-                <div className='w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-semibold'>
-                  {initials}
-                </div>
-              )}
+              <MemberAvatar
+                name={displayName}
+                imageUrl={isLoaded ? user?.imageUrl : null}
+                size='xl'
+              />
               <div>
-                <p className='text-sm font-medium text-foreground'>
+                <p className='text-body-strong text-foreground'>
                   {intl.formatMessage({ id: 'profile.avatar' })}
                 </p>
-                <p className='text-xs text-muted-foreground'>
+                <p className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'profile.avatarHint' })}
                 </p>
               </div>
@@ -132,7 +126,7 @@ export function ProfilePage() {
               disabled={uploading || !isLoaded}
             >
               {uploading ? (
-                <Loader2 size={14} className='animate-spin mr-1.5' />
+                <Spinner className='size-3.5 mr-1.5' />
               ) : (
                 <Upload size={14} className='mr-1.5' />
               )}
@@ -142,7 +136,7 @@ export function ProfilePage() {
 
           {/* Name row */}
           <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
-            <p className='text-sm font-medium text-foreground shrink-0 mr-4'>
+            <p className='text-body-strong text-foreground shrink-0 mr-4'>
               {intl.formatMessage({ id: 'profile.name' })}
             </p>
             <div className='flex items-center gap-2'>
@@ -150,14 +144,14 @@ export function ProfilePage() {
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
                 placeholder={intl.formatMessage({ id: 'profile.firstName' })}
-                className='w-28 h-8 text-sm'
+                className='w-28 h-8 text-body'
                 disabled={savingName || !isLoaded}
               />
               <Input
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
                 placeholder={intl.formatMessage({ id: 'profile.lastName' })}
-                className='w-28 h-8 text-sm'
+                className='w-28 h-8 text-body'
                 disabled={savingName || !isLoaded}
               />
               <Button
@@ -166,7 +160,7 @@ export function ProfilePage() {
                 disabled={savingName || !isLoaded}
               >
                 {savingName ? (
-                  <Loader2 size={14} className='animate-spin' />
+                  <Spinner className='size-3.5' />
                 ) : (
                   intl.formatMessage({ id: 'common.save' })
                 )}
@@ -176,10 +170,10 @@ export function ProfilePage() {
 
           {/* Email row (read-only) */}
           <div className='flex items-center justify-between px-4 py-3'>
-            <p className='text-sm font-medium text-foreground'>
+            <p className='text-body-strong text-foreground'>
               {intl.formatMessage({ id: 'profile.email' })}
             </p>
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-body text-muted-foreground'>
               {isLoaded ? (user?.emailAddresses[0]?.emailAddress ?? '—') : '…'}
             </p>
           </div>

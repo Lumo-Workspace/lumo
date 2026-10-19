@@ -24,16 +24,14 @@ export function SessionsList({ rows }: SessionsListProps) {
   return (
     <div className='mx-auto max-w-4xl px-6 py-10'>
       <header className='mb-6 flex items-baseline justify-between'>
-        <h1 className='text-2xl font-semibold'>
-          {intl.formatMessage(M['list.title'])}
-        </h1>
-        <span className='text-sm text-muted-foreground'>
+        <h1 className='text-heading'>{intl.formatMessage(M['list.title'])}</h1>
+        <span className='text-body text-muted-foreground'>
           {intl.formatMessage(M['list.recent'], { count: rows.length })}
         </span>
       </header>
 
       {rows.length === 0 ? (
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage(M['list.empty'])}
         </p>
       ) : (
@@ -45,10 +43,10 @@ export function SessionsList({ rows }: SessionsListProps) {
                 className='flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/40'
               >
                 <div className='min-w-0 flex-1'>
-                  <div className='truncate font-mono text-xs text-muted-foreground'>
+                  <div className='truncate font-mono text-caption text-muted-foreground'>
                     {s.id}
                   </div>
-                  <div className='truncate text-sm'>
+                  <div className='truncate text-body'>
                     {s.cwd ?? (
                       <span className='italic'>
                         {intl.formatMessage(M['list.noCwd'])}
@@ -56,7 +54,7 @@ export function SessionsList({ rows }: SessionsListProps) {
                     )}
                   </div>
                   {(s.subagentCount > 0 || s.taskCount > 0) && (
-                    <div className='truncate text-xs text-muted-foreground'>
+                    <div className='truncate text-caption text-muted-foreground'>
                       {intl.formatMessage(M['list.familySummary'], {
                         subagents: s.subagentCount,
                         tasks: s.taskCount,
@@ -64,7 +62,7 @@ export function SessionsList({ rows }: SessionsListProps) {
                     </div>
                   )}
                 </div>
-                <div className='shrink-0 text-right text-xs text-muted-foreground'>
+                <div className='shrink-0 text-right text-caption text-muted-foreground'>
                   <LastActivity iso={s.lastActivityAt} locale={intl.locale} />
                   <div>
                     {intl.formatMessage(M['list.events'], {

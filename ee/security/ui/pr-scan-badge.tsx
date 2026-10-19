@@ -6,7 +6,6 @@
  * slot).
  */
 import {
-  Loader2,
   ShieldCheck,
   ShieldAlert,
   ShieldOff,
@@ -15,6 +14,7 @@ import {
 import { useIntl } from 'react-intl'
 import { isOverSizeLimitOnly } from '@/ee/security/components/TaskDetailTimeline/security-summary'
 import type { SecurityScanView } from '@/ee/security/services/pr-security-scan.service'
+import { Spinner } from '@/components/ui/spinner'
 
 const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
   HIGH: 'text-danger-text',
@@ -60,7 +60,7 @@ export function SecurityScanBadge({
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.none' })
   } else if (scan.status === 'PENDING' || scan.status === 'RUNNING') {
-    icon = <Loader2 size={12} className='animate-spin' />
+    icon = <Spinner className='size-3' />
     label = intl.formatMessage({ id: `securityScan.status.${scan.status}` })
     state = 'scanning'
   } else if (scan.prTooLarge) {
@@ -77,7 +77,7 @@ export function SecurityScanBadge({
   } else if (scan.findings.length === 0 && scan.stages.external === 'PENDING') {
     // LUM-735: CI has pushed SARIF before but not for this sha yet — the
     // scan is still effectively in progress, not merely "incomplete".
-    icon = <Loader2 size={12} className='animate-spin' />
+    icon = <Spinner className='size-3' />
     label = intl.formatMessage({ id: 'securityScan.status.pendingExternal' })
     state = 'scanning'
   } else if (scan.findings.length === 0 && isOverSizeLimitOnly(scan)) {
@@ -137,7 +137,7 @@ function SecurityBadgeShell({
     <span
       data-testid='security-scan-badge'
       data-state={state}
-      className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone}`}
+      className={`inline-flex items-center gap-1 text-caption ${tone}`}
     >
       {children}
     </span>

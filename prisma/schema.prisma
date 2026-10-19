@@ -336,6 +336,8 @@ model Workspace {
   // LUM-1059: per-workspace counter for BoundaryCrossing.number (the
   // human-readable `<TEAM>-X<n>` ref). Same allocation pattern as documentSeq.
   crossingSeq Int      @default(0)
+  // LUM-1240: per-workspace counter for Feedback.number (the `FB-<n>` ref).
+  feedbackSeq Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -495,6 +497,7 @@ model Workspace {
   auditEvents         AuditEvent[]
   subprocessorNotices SubprocessorNoticeDelivery[]
   llmSpend            WorkspaceLlmSpend[]
+  feedback            Feedback[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -771,6 +774,7 @@ model WorkspaceMember {
   googleDriveIntegrations GoogleDriveIntegration[]
   taskFigmaLinks          TaskFigmaLink[]          @relation("TaskFigmaLinkCreator")
   documentRevisions       DocumentRevision[]
+  submittedFeedback       Feedback[]               @relation("FeedbackSubmitter")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -4469,4 +4473,92 @@ model WorkspaceLlmSpend {
 
   @@unique([workspaceId, feature, month])
   @@map("workspace_llm_spend")
+}
+
+// ─── Feedback to the Lumo team (LUM-1240) ───────────────────────────────────
+// A customer (person or agent) reports a bug, idea or question to the Lumo
+// team. Kept apart from the task system: no task is created in any workspace.
+// Design: docs/rfc/2026-10-19-LUM-1240-feedback.md.
+
+enum FeedbackKind {
+  BUG
+  IDEA
+  QUESTION
+}
+
+enum FeedbackStatus {
+  NEW
+  TRIAGED
+  RESOLVED
+  WONTFIX
+}
+
+enum FeedbackSource {
+  CLI
+  WEB
+  API
+}
+
+model Feedback {
+  id                  String         @id @default(cuid())
+  /// Global sequence, for the Lumo team's cross-workspace handle (`#<seq>`).
+  /// Never sent to customers (it would leak the total volume).
+  seq                 Int            @unique @default(autoincrement())
+  workspaceId         String
+  /// 1-based within the workspace; the customer handle is `FB-<number>`.
+  /// Allocated from Workspace.feedbackSeq inside the create transaction.
+  number              Int
+  kind                FeedbackKind   @default(BUG)
+  /// title / steps / expected / actual are stored credential-redacted.
+  title               String
+  steps               String[]       @default([])
+  expected            String?
+  actual              String?
+  /// [{ type: 'file', url, filename, contentType, size }] — same shape as
+  /// TestCaseRun.evidence. Files live under workspaces/<workspaceId>/feedback/.
+  evidence            Json           @default("[]")
+  /// Whitelisted client environment (lib/validation/feedback.ts). null = the
+  /// submitter turned it off (--no-env), not "unknown".
+  environment         Json?
+  /// Task ref text only (e.g. LUM-1185) — no FK, no task content.
+  taskRef             String?
+  /// X-Lumo-Session-Id, a provenance pointer without FK (as TestCaseRun.sourceSessionId).
+  sessionId           String?
+  submittedByMemberId String?
+  submittedVia        FeedbackSource
+  /// Suspected credentials redacted before saving (text fields + text evidence).
+  secretsRedacted     Int            @default(0)
+  status              FeedbackStatus @default(NEW)
+  statusChangedAt     DateTime?
+  /// Staff WorkspaceMember id (another workspace) — no FK on purpose.
+  statusChangedById   String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  submittedBy WorkspaceMember? @relation("FeedbackSubmitter", fields: [submittedByMemberId], references: [id], onDelete: SetNull)
+  replies     FeedbackReply[]
+
+  @@unique([workspaceId, number])
+  @@index([workspaceId, createdAt])
+  @@index([submittedByMemberId, createdAt])
+  @@index([status, createdAt])
+  @@map("feedback")
+}
+
+/// Lumo team replies to a Feedback. Append-only: never updated or deleted.
+model FeedbackReply {
+  id             String   @id @default(cuid())
+  feedbackId     String
+  /// Stored credential-redacted.
+  body           String
+  /// Staff WorkspaceMember id (another workspace) — no FK on purpose.
+  /// Customers see the author as "Lumo team".
+  authorMemberId String
+  createdAt      DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@index([feedbackId, createdAt])
+  @@map("feedback_replies")
 }

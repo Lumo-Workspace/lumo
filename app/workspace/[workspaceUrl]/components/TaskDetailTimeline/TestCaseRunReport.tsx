@@ -10,6 +10,11 @@ import {
   SkipForward,
   X,
 } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { TestCaseRunView } from '@/lib/api-client/test-cases'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import type { CeilingEnvironment } from '@/lib/test-cases/provability'
@@ -131,11 +136,11 @@ function StepRow({
           data-testid='step-expected-actual'
           className='grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-3 pb-2.5 text-body [overflow-wrap:anywhere] pl-[3.875rem]'
         >
-          <dt className='text-caption uppercase tracking-wide text-muted-foreground'>
+          <dt className='text-caption uppercase text-muted-foreground'>
             {intl.formatMessage({ id: 'testCases.report.expected' })}
           </dt>
           <dd className='text-foreground'>{expected}</dd>
-          <dt className='text-caption uppercase tracking-wide text-muted-foreground'>
+          <dt className='text-caption uppercase text-muted-foreground'>
             {intl.formatMessage({ id: 'testCases.report.actual' })}
           </dt>
           <dd className={actual ? 'text-danger-text' : 'text-muted-foreground'}>
@@ -241,7 +246,9 @@ export function TestCaseRunReport({
   )
 
   return (
-    <div
+    <Collapsible
+      open={showBody}
+      onOpenChange={() => onToggle?.()}
       id={runAnchorId(run.id)}
       data-testid='run-report'
       className={`overflow-hidden rounded-md border border-border ${highlighted ? 'outline outline-1 outline-offset-4 outline-border' : ''}`}
@@ -255,19 +262,16 @@ export function TestCaseRunReport({
         }`}
       >
         {onToggle ? (
-          <button
-            type='button'
-            aria-expanded={open}
+          <CollapsibleTrigger
             data-testid='run-report-toggle'
-            onClick={onToggle}
             className='-my-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-sm py-1 text-left'
           >
             <ChevronRight
-              className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+              className='size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90'
               aria-hidden
             />
             {verdictLine}
-          </button>
+          </CollapsibleTrigger>
         ) : (
           verdictLine
         )}
@@ -279,52 +283,52 @@ export function TestCaseRunReport({
         <CodeCoordinate run={run} pullRequests={pullRequests} />
       </div>
 
-      {showBody ? (
-        <>
-          {groups.map(group => (
-            <section
-              key={group.phase}
-              data-testid='step-group'
-              className='border-t border-border first:border-t-0'
-            >
-              {/* 只有步骤时不画组标题；有复验段时两组各带标题、各自从 1 编号——
+      {/* The wrapper carries the header's bottom rule, so the first group
+          drops its own (first:border-t-0). */}
+      <CollapsibleContent className='border-t border-border'>
+        {groups.map(group => (
+          <section
+            key={group.phase}
+            data-testid='step-group'
+            className='border-t border-border first:border-t-0'
+          >
+            {/* 只有步骤时不画组标题；有复验段时两组各带标题、各自从 1 编号——
               与 CLI 的 s<n> / v<n> 及「断在复验第 n 步」同一套编号。 */}
-              {showGroupTitles ? (
-                <p className='px-3 pb-1 pt-2 text-caption text-muted-foreground'>
-                  {intl.formatMessage({ id: group.titleId })}
-                </p>
-              ) : null}
-              <ol aria-label={intl.formatMessage({ id: group.titleId })}>
-                {group.rows.map(row => (
-                  <StepRow
-                    key={`${row.phase}-${row.index}`}
-                    row={row}
-                    evidence={run.evidence}
-                    expected={expected}
-                    actual={run.actual}
-                  />
-                ))}
-              </ol>
-            </section>
-          ))}
+            {showGroupTitles ? (
+              <p className='px-3 pb-1 pt-2 text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: group.titleId })}
+              </p>
+            ) : null}
+            <ol aria-label={intl.formatMessage({ id: group.titleId })}>
+              {group.rows.map(row => (
+                <StepRow
+                  key={`${row.phase}-${row.index}`}
+                  row={row}
+                  evidence={run.evidence}
+                  expected={expected}
+                  actual={run.actual}
+                />
+              ))}
+            </ol>
+          </section>
+        ))}
 
-          {!report.hasStepResults && run.result !== 'BLOCKED' ? (
-            <p className='border-t border-border px-3 py-2 text-caption text-muted-foreground'>
-              {intl.formatMessage({ id: 'testCases.report.noStepResults' })}
-            </p>
-          ) : null}
+        {!report.hasStepResults && run.result !== 'BLOCKED' ? (
+          <p className='border-t border-border px-3 py-2 text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'testCases.report.noStepResults' })}
+          </p>
+        ) : null}
 
-          {run.note || stepEvidence.length < countRaw(run.evidence) ? (
-            <div className='flex flex-col gap-2 border-t border-border px-3 py-2.5 text-caption'>
-              {run.note ? (
-                <p className='text-muted-foreground'>{run.note}</p>
-              ) : null}
-              <EvidenceStrip evidence={run.evidence} exclude={stepEvidence} />
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </div>
+        {run.note || stepEvidence.length < countRaw(run.evidence) ? (
+          <div className='flex flex-col gap-2 border-t border-border px-3 py-2.5 text-caption'>
+            {run.note ? (
+              <p className='text-muted-foreground'>{run.note}</p>
+            ) : null}
+            <EvidenceStrip evidence={run.evidence} exclude={stepEvidence} />
+          </div>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 

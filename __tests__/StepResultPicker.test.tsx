@@ -103,12 +103,15 @@ it('keeps two pickers on one page from sharing radio groups', () => {
       />
     </>
   )
-  const passed = screen.getAllByRole('radio', {
-    name: 'Passed',
-  }) as HTMLInputElement[]
+  // LUM-1265: Radix radios carry no `name`; each picker's items get
+  // instance-scoped ids, and both stay checked (neither steals the other).
+  const passed = screen.getAllByRole('radio', { name: 'Passed' })
   expect(passed).toHaveLength(2)
-  expect(passed[0]!.name).not.toBe(passed[1]!.name)
-  expect(passed.map(r => r.checked)).toEqual([true, true])
+  expect(passed[0]!.id).not.toBe(passed[1]!.id)
+  expect(passed.map(r => r.getAttribute('aria-checked'))).toEqual([
+    'true',
+    'true',
+  ])
 })
 
 it('shows a step whose status this result cannot pick as unmarked', () => {
@@ -124,8 +127,30 @@ it('shows a step whose status this result cannot pick as unmarked', () => {
     />
   )
   expect(
-    (screen.getAllByRole('radio') as HTMLInputElement[]).some(r => r.checked)
+    screen
+      .getAllByRole('radio')
+      .some(r => r.getAttribute('aria-checked') === 'true')
   ).toBe(false)
   expect(screen.queryByRole('button', { name: /Clear the result/ })).toBeNull()
   expect(renderMarkedStep).not.toHaveBeenCalled()
+})
+
+// LUM-1265: the shadcn RadioGroup keeps the native single-choice contract —
+// clicking a label picks that status, and each step is one labelled group.
+it('picks a status by its label and names each group after its step', () => {
+  const onChange = jest.fn()
+  render(
+    <StepResultPicker
+      steps={['a']}
+      verification={[]}
+      result='FAIL'
+      value={{ 'STEPS:0': { status: 'PASS', reason: '' } }}
+      onChange={onChange}
+    />
+  )
+  fireEvent.click(screen.getByText('Failed'))
+  expect(onChange).toHaveBeenLastCalledWith({
+    'STEPS:0': { status: 'FAIL', reason: '' },
+  })
+  expect(screen.getByRole('radiogroup', { name: '1. a' })).toBeInTheDocument()
 })

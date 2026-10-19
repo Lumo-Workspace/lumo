@@ -66,7 +66,10 @@ import type {
 import { redactPromptLine } from '@/lib/security-scan/inject-guard'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
-import type { ShellDetailTask } from '@/shared/src/hunt-audit'
+import {
+  readHuntSubmission,
+  type ShellDetailTask,
+} from '@/shared/src/hunt-audit'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import {
@@ -477,6 +480,10 @@ function readHuntTasks(
       if (error !== undefined) wrapUp.error = error
       task.wrapUp = wrapUp
     }
+    // LUM-1226 — submitted / kept / dropped and the field names the dropped
+    // ones failed on; counts and names only, never candidate text.
+    const submission = readHuntSubmission(r.submission)
+    if (submission) task.submission = submission
     out.push(task)
   }
   return out

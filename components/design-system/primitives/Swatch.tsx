@@ -38,7 +38,10 @@ export function Swatch({ name }: { name: string }) {
     <div className='flex flex-col gap-1.5'>
       <div
         ref={ref}
-        className={cn('size-16 rounded-md border border-border', isBorder && 'bg-card')}
+        className={cn(
+          'size-16 rounded-md border border-border',
+          isBorder && 'bg-card'
+        )}
         style={
           isBorder
             ? { borderWidth: 2, borderColor: cssVar }
@@ -47,7 +50,7 @@ export function Swatch({ name }: { name: string }) {
       >
         {isForeground ? (
           <span
-            className='flex size-full items-center justify-center text-lg'
+            className='flex size-full items-center justify-center text-title'
             style={{ color: cssVar }}
           >
             Aa

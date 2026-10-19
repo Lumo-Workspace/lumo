@@ -346,6 +346,7 @@
   "slack.connected": "Disambung",
   "slack.connectedTo": "Disambung ke ruang kerja: {teamName}",
   "slack.channelNote": "Pemberitahuan saluran dikonfigurasi mengikut projek.",
+  "slack.channelUnavailable": "(tidak tersedia)",
   "slack.disconnectTitle": "Putuskan sambungan Slack?",
   "slack.disconnectDesc": "Semua langganan saluran akan dibuang. Anda boleh menyambung semula pada bila-bila masa.",
   "slack.connectSuccess": "Slack berjaya disambung",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Senarai",
   "sprints.view.timeline": "Garis Masa",
   "sprints.filter.all": "Semua",
+  "sprints.statusFilter.label": "Tapis sprint mengikut status",
   "sprints.metric.completed": "Selesai",
   "sprints.metric.remaining": "Baki",
   "sprints.metric.timeLeft": "Masa berbaki",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Saiz pasukan",
   "waitlist.teamSize.select": "Pilih…",
   "waitlist.teamSize.justMe": "Hanya saya",
+  "waitlist.teamSize.preferNotToSay": "Memilih untuk tidak menyatakan",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Semua orang",
   "settings.auditLog.filter.since": "Dari",
   "settings.auditLog.filter.until": "Hingga",
+  "settings.auditLog.filter.anyDate": "Sebarang tarikh",
   "settings.auditLog.filter.reset": "Set semula",
   "settings.auditLog.export": "Eksport CSV",
   "settings.auditLog.exportHint": "Memuat turun sehingga {max} peristiwa terkini yang sepadan dengan penapis.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Fail yang dilampirkan pada langkah dikira dalam had yang sama.",
   "testCases.field.evidenceFiles.tooManyTotal": "Termasuk fail yang dilampirkan pada langkah, larian ini ada {count} fail — maksimum {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang disokong — gunakan PNG, JPEG, WebP, GIF, teks atau JSON.",
-  "testCases.report.state.skipped": "Dilangkau"
+  "testCases.report.state.skipped": "Dilangkau",
+  "formDialog.collapse": "Kuncupkan",
+  "formDialog.expand": "Kembangkan"
 }

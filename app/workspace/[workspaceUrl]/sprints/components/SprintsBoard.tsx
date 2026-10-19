@@ -9,7 +9,9 @@ import { Search, Plus, X } from 'lucide-react'
 import type { Sprint } from '@prisma/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { sprintsClient } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
@@ -20,8 +22,9 @@ import {
   type CreateSprintInput,
 } from './CreateSprintDialog'
 import { SprintActionsMenu } from './SprintActionsMenu'
-import { formatDate } from './DatePickerField'
+import { formatDate } from '../../components/fields/DatePickerField'
 import { daysFromNow, partitionSprints } from './sprintLandingUtils'
+import { Progress } from '@/components/ui/progress'
 
 type ViewTab = 'list' | 'timeline'
 type StatusFilter = 'all' | 'active' | 'upcoming' | 'completed'
@@ -38,36 +41,28 @@ function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className='inline-flex gap-0.5 rounded-lg bg-muted p-1'>
-      {options.map(o => (
-        <button
-          key={o.value}
-          type='button'
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'h-7 rounded-md px-3 text-[13px] font-medium transition-colors',
-            value === o.value
-              ? 'bg-card text-foreground shadow-elevation-1'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Tabs value={value} onValueChange={v => onChange(v as T)}>
+      <TabsList className='h-auto flex-wrap justify-start'>
+        {options.map(o => (
+          <TabsTrigger key={o.value} value={o.value}>
+            {o.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }
 
 function SectionLabel({ label, count }: { label: string; count?: string }) {
   return (
     <div className='mb-3 flex items-center gap-2.5'>
-      <span className='text-xs font-semibold text-muted-foreground'>
+      <span className='text-caption font-semibold text-muted-foreground'>
         {label}
       </span>
       {count && (
         <>
-          <span className='text-xs text-muted-foreground/60'>·</span>
-          <span className='text-xs text-muted-foreground/80'>{count}</span>
+          <span className='text-caption text-muted-foreground/60'>·</span>
+          <span className='text-caption text-muted-foreground/80'>{count}</span>
         </>
       )}
     </div>
@@ -92,19 +87,19 @@ function UpcomingCard({
   const href = `/workspace/${workspaceUrl}/sprints/${sprint.number}`
 
   return (
-    <div className='rounded-xl border border-border bg-card p-5 shadow-elevation-1 transition-colors hover:border-muted-foreground/30'>
+    <Card className='rounded-xl p-5 transition-colors hover:border-muted-foreground/30'>
       <div className='flex items-start justify-between gap-3'>
         <div className='min-w-0'>
           <Link href={href} className='hover:underline'>
-            <h3 className='truncate text-base font-semibold'>{sprint.name}</h3>
+            <h3 className='truncate text-title'>{sprint.name}</h3>
           </Link>
-          <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
+          <p className='mt-1.5 font-mono text-caption text-muted-foreground'>
             {formatDate(sprint.startDate, intl.locale)} –{' '}
             {formatDate(sprint.endDate, intl.locale)}
           </p>
         </div>
         <div className='flex shrink-0 items-center gap-1'>
-          <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-[11.5px] font-medium text-muted-foreground'>
+          <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-caption text-muted-foreground'>
             {intl.formatMessage({
               id:
                 sprint.status === 'DRAFT'
@@ -117,7 +112,7 @@ function UpcomingCard({
       </div>
       <div className='my-4 h-1.5 rounded-full bg-muted' aria-hidden />
       <div className='flex items-center justify-between'>
-        <span className='text-xs text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.landing.startsIn' },
             { count: Math.max(0, startsIn) }
@@ -125,12 +120,12 @@ function UpcomingCard({
         </span>
         <Link
           href={href}
-          className='inline-flex h-[30px] items-center rounded-md border border-border bg-card px-3 text-xs font-medium transition-colors hover:bg-muted'
+          className='inline-flex h-[30px] items-center rounded-md border border-border bg-card px-3 text-caption transition-colors hover:bg-muted'
         >
           {intl.formatMessage({ id: 'sprints.landing.plan' })} →
         </Link>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -152,33 +147,28 @@ function CompletedRow({
 
   return (
     <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] items-center gap-4 border-b border-border/60 px-5 py-3.5 last:border-0 hover:bg-muted/40'>
-      <Link
-        href={href}
-        className='truncate text-sm font-semibold hover:underline'
-      >
+      <Link href={href} className='truncate text-body-strong hover:underline'>
         {sprint.name}
       </Link>
-      <span className='font-mono text-[13px] text-muted-foreground'>
+      <span className='font-mono text-body text-muted-foreground'>
         {formatDate(sprint.startDate, intl.locale)} –{' '}
         {formatDate(sprint.endDate, intl.locale)}
       </span>
       <div className='flex items-center gap-2.5'>
-        <div className='h-1.5 flex-1 overflow-hidden rounded-full bg-muted'>
-          <div
-            className={cn(
-              'h-full rounded-full',
-              pct >= 100 ? 'bg-success-text' : 'bg-muted-foreground/50'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className='whitespace-nowrap font-mono text-xs text-muted-foreground tabular-nums'>
+        <Progress
+          value={pct}
+          tone={pct >= 100 ? 'success' : 'muted'}
+          size='sm'
+          className='flex-1'
+          aria-hidden
+        />
+        <span className='whitespace-nowrap font-mono text-caption text-muted-foreground tabular-nums'>
           {done}/{total}
         </span>
       </div>
       <Link
         href={href}
-        className='inline-flex h-[30px] items-center justify-self-end rounded-md border border-border bg-card px-3 text-xs font-medium transition-colors hover:bg-muted'
+        className='inline-flex h-[30px] items-center justify-self-end rounded-md border border-border bg-card px-3 text-caption transition-colors hover:bg-muted'
       >
         {intl.formatMessage({ id: 'sprints.landing.viewRetro' })}
       </Link>
@@ -195,8 +185,8 @@ function CompletedTable({
 }) {
   const intl = useIntl()
   return (
-    <div className='overflow-hidden rounded-xl border border-border bg-card shadow-elevation-1'>
-      <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] gap-4 border-b border-border px-5 py-2.5 text-xs font-medium text-muted-foreground'>
+    <Card className='overflow-hidden rounded-xl'>
+      <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] gap-4 border-b border-border px-5 py-2.5 text-caption text-muted-foreground'>
         <span>{intl.formatMessage({ id: 'sprints.table.sprint' })}</span>
         <span>{intl.formatMessage({ id: 'sprints.table.dates' })}</span>
         <span>{intl.formatMessage({ id: 'sprints.table.completion' })}</span>
@@ -207,7 +197,7 @@ function CompletedTable({
       {sprints.map(s => (
         <CompletedRow key={s.id} sprint={s} workspaceUrl={workspaceUrl} />
       ))}
-    </div>
+    </Card>
   )
 }
 
@@ -315,7 +305,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
     <div className='mx-auto w-full max-w-[1680px]'>
       {/* Header: subtitle + actions */}
       <div className='flex flex-wrap items-start justify-between gap-3'>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.landing.subtitle' })}
         </p>
         <div className='flex items-center gap-2'>
@@ -379,24 +369,25 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
               </button>
             )}
           </div>
-          <div className='flex gap-1.5'>
+          <ToggleGroup
+            type='single'
+            variant='chip'
+            value={statusFilter}
+            onValueChange={v => {
+              // Single-select: ignore the '' Radix sends on re-click.
+              if (v) setStatusFilter(v as StatusFilter)
+            }}
+            aria-label={intl.formatMessage({
+              id: 'sprints.statusFilter.label',
+            })}
+          >
             {statusChips.map(c => (
-              <button
-                key={c.value}
-                type='button'
-                onClick={() => setStatusFilter(c.value)}
-                className={cn(
-                  'h-8 rounded-md px-3 text-xs font-medium transition-colors',
-                  statusFilter === c.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border bg-card text-muted-foreground hover:bg-muted'
-                )}
-              >
+              <ToggleGroupItem key={c.value} value={c.value}>
                 {c.label}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
-          <span className='ml-auto font-mono text-xs text-muted-foreground'>
+          </ToggleGroup>
+          <span className='ml-auto font-mono text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'sprints.landing.resultCount' },
               { count: resultCount }
@@ -408,7 +399,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
       {/* Empty state — no sprints at all */}
       {isEmpty ? (
         <div className='mt-10 flex flex-col items-center gap-3 py-12 text-center'>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.landing.empty' })}
           </p>
           <Button onClick={() => setCreateOpen(true)} size='sm'>
@@ -430,10 +421,10 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
         <div className='mt-6 space-y-9'>
           {noResults && (
             <div className='py-16 text-center'>
-              <div className='text-sm font-semibold text-muted-foreground'>
+              <div className='text-body-strong text-muted-foreground'>
                 {intl.formatMessage({ id: 'sprints.landing.noResults' })}
               </div>
-              <div className='mt-1 text-xs text-muted-foreground/70'>
+              <div className='mt-1 text-caption text-muted-foreground/70'>
                 {intl.formatMessage({ id: 'sprints.landing.noResultsHint' })}
               </div>
             </div>

@@ -27,6 +27,7 @@ export const CORE_WORKSPACE_COLUMNS: readonly string[] = [
   'logoUrl',
   'documentSeq',
   'crossingSeq',
+  'feedbackSeq',
   'createdAt',
   'updatedAt',
   'summaryFrequency',

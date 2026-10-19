@@ -185,7 +185,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   delete process.env.LUMO_SECURITY_HUNT
   delete process.env.LUMO_MANAGED_SCAN
-  process.env.LUMO_REWARD_HACK = 'on'
+  process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w1'
   switches({})
   colRepo.findSecurityPolicy.mockResolvedValue(null)
   prRepo.findById.mockResolvedValue(PR as never)
@@ -224,7 +224,7 @@ beforeEach(() => {
 })
 
 afterAll(() => {
-  delete process.env.LUMO_REWARD_HACK
+  delete process.env.LUMO_DOGFOOD_WORKSPACE_IDS
   delete process.env.LUMO_SECURITY_HUNT
   delete process.env.LUMO_MANAGED_SCAN
 })
@@ -313,8 +313,8 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
     expect(runner).not.toHaveBeenCalled()
   })
 
-  it('platform switch off: no layer at all (no key), no runner, and the scan still reads as checked', async () => {
-    delete process.env.LUMO_REWARD_HACK
+  it('not rolled out to the workspace: no layer at all (no key), no runner, and the scan still reads as checked', async () => {
+    delete process.env.LUMO_DOGFOOD_WORKSPACE_IDS
     await runStageA()
     const stages = persisted().stages
     expect(stages).not.toHaveProperty('rewardHack')
@@ -355,12 +355,12 @@ describe('LUM-1234 reward-hack layer in stage A', () => {
 
   it('a PR too large to scan: no layer when the platform does not offer it (R10), else skipped', async () => {
     ;(gh.fetchPrChangedFiles as jest.Mock).mockResolvedValue(5000)
-    delete process.env.LUMO_REWARD_HACK
+    delete process.env.LUMO_DOGFOOD_WORKSPACE_IDS
     await runStageA()
     expect(repo.finalize.mock.calls[0]![1].stages).not.toHaveProperty(
       'rewardHack'
     )
-    process.env.LUMO_REWARD_HACK = 'on'
+    process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w1'
     await runStageA()
     expect(repo.finalize.mock.calls[1]![1].stages.rewardHack).toBe('SKIPPED')
     expect(runner).not.toHaveBeenCalled()

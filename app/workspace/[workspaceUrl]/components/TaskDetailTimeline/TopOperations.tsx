@@ -3,12 +3,24 @@
 import { Fragment, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { useIntl } from 'react-intl'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import type { LineageResponse } from '../../types'
 
 type Operation = LineageResponse['totals']['topOperations'][number]
 
 /** Most commands shown under an expanded row; the full list is in `lumo usage show`. */
 const MAX_COMMANDS = 8
+
+/** Dense breakdown: the Table primitive's rhythm, at caption size. */
+const HEAD = 'h-auto px-0 py-1 text-caption'
+const NUM = 'py-1 pl-2 pr-0 text-right tabular-nums text-muted-foreground'
 
 export function TopOperations({
   operations,
@@ -35,78 +47,75 @@ export function TopOperations({
     >
   ) => (
     <>
-      <td className='py-1 text-right tabular-nums text-muted-foreground'>
-        {intl.formatNumber(row.output)}
-      </td>
-      <td className='py-1 text-right tabular-nums text-muted-foreground'>
-        {intl.formatNumber(row.input)}
-      </td>
-      <td className='py-1 text-right tabular-nums text-muted-foreground'>
+      <TableCell className={NUM}>{intl.formatNumber(row.output)}</TableCell>
+      <TableCell className={NUM}>{intl.formatNumber(row.input)}</TableCell>
+      <TableCell className={NUM}>
         {intl.formatNumber(row.cacheCreation)}
-      </td>
-      <td className='py-1 text-right tabular-nums text-muted-foreground'>
-        {intl.formatNumber(row.cacheRead)}
-      </td>
+      </TableCell>
+      <TableCell className={NUM}>{intl.formatNumber(row.cacheRead)}</TableCell>
     </>
   )
 
   return (
     <div className='border-b border-border px-3 py-3'>
-      <div className='mb-2 text-caption font-medium text-muted-foreground'>
+      <div className='mb-2 text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'lineage.operations.title',
           defaultMessage: 'Top operations · 按 token 成本',
         })}
       </div>
-      <table className='w-full text-[11px]'>
-        <thead>
-          <tr className='text-muted-foreground'>
-            <th className='py-1 text-left font-medium'>
+      <Table className='text-caption'>
+        <TableHeader>
+          <TableRow className='hover:bg-transparent'>
+            <TableHead className={HEAD}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.tool',
                 defaultMessage: '工具',
               })}
-            </th>
-            <th className='py-1 text-right font-medium'>
+            </TableHead>
+            <TableHead className={`${HEAD} text-right`}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.output',
                 defaultMessage: '输出',
               })}
-            </th>
-            <th className='py-1 text-right font-medium'>
+            </TableHead>
+            <TableHead className={`${HEAD} text-right`}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.input',
                 defaultMessage: '输入',
               })}
-            </th>
-            <th className='py-1 text-right font-medium'>
+            </TableHead>
+            <TableHead className={`${HEAD} text-right`}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.cacheCreate',
                 defaultMessage: '缓存创建',
               })}
-            </th>
-            <th className='py-1 text-right font-medium'>
+            </TableHead>
+            <TableHead className={`${HEAD} text-right`}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.cacheRead',
                 defaultMessage: '缓存读取',
               })}
-            </th>
-            <th className='py-1 text-right font-medium'>
+            </TableHead>
+            <TableHead className={`${HEAD} text-right`}>
               {intl.formatMessage({
                 id: 'lineage.operations.col.total',
                 defaultMessage: '合计',
               })}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {operations.map(op => {
             const commands = op.commands ?? []
             const isOpen = expanded.has(op.tool)
+            const shown = commands.slice(0, MAX_COMMANDS)
             return (
               <Fragment key={op.tool}>
-                <tr className='border-t border-border/60'>
-                  <td className='py-1 font-mono text-foreground'>
+                {/* One rule per group: an open row hands its bottom rule to
+                    its last command row. */}
+                <TableRow className={isOpen ? 'border-0' : undefined}>
+                  <TableCell className='px-0 py-1 font-mono text-foreground'>
                     {commands.length > 0 ? (
                       <button
                         type='button'
@@ -123,31 +132,36 @@ export function TopOperations({
                     ) : (
                       op.tool
                     )}
-                  </td>
+                  </TableCell>
                   {cells(op)}
-                  <td className='py-1 text-right font-medium tabular-nums text-foreground'>
+                  <TableCell className={`${NUM} text-foreground`}>
                     {intl.formatNumber(op.total)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
                 {isOpen
-                  ? commands.slice(0, MAX_COMMANDS).map(c => (
-                      <tr key={`${op.tool}:${c.command}`}>
-                        <td className='py-0.5 pl-4 font-mono text-muted-foreground'>
+                  ? shown.map((c, i) => (
+                      <TableRow
+                        key={`${op.tool}:${c.command}`}
+                        className={
+                          i < shown.length - 1 ? 'border-0' : undefined
+                        }
+                      >
+                        <TableCell className='py-0.5 pl-4 pr-0 font-mono text-muted-foreground'>
                           ↳ {c.command}
-                        </td>
+                        </TableCell>
                         {cells(c)}
-                        <td className='py-0.5 text-right tabular-nums text-muted-foreground'>
+                        <TableCell className={NUM}>
                           {intl.formatNumber(c.total)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   : null}
               </Fragment>
             )
           })}
-        </tbody>
-      </table>
-      <p className='mt-2 text-[10px] leading-relaxed text-muted-foreground'>
+        </TableBody>
+      </Table>
+      <p className='mt-2 text-caption text-muted-foreground'>
         {intl.formatMessage(
           {
             id: 'lineage.operations.footnote',

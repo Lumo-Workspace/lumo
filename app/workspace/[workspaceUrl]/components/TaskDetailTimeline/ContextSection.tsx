@@ -48,7 +48,7 @@ export function ContextSection({
           <span className='flex items-center gap-2'>
             <ChevronRight className='ctx-chevron size-3.5 shrink-0 text-muted-foreground transition-transform duration-200' />
             {icon}
-            <span className='font-medium'>{label}</span>
+            <span className='text-body-strong'>{label}</span>
             <span
               className='text-caption text-muted-foreground tabular-nums'
               aria-label={`${count} items`}

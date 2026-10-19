@@ -51,12 +51,22 @@ export function OwnerSelect({
           <SelectTrigger className={triggerClassName}>
             {owner ? (
               <div className='flex items-center gap-1.5'>
-                <MemberAvatar member={owner} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={owner.name}
+                  imageUrl={owner.imageUrl}
+                  size='xs'
+                />
                 <span>{owner.name}</span>
               </div>
             ) : inherited ? (
               <div className='flex items-center gap-1.5 text-muted-foreground'>
-                <MemberAvatar member={inherited} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={inherited.name}
+                  imageUrl={inherited.imageUrl}
+                  size='xs'
+                />
                 <span className='italic'>{inherited.name}</span>
               </div>
             ) : (
@@ -81,7 +91,12 @@ export function OwnerSelect({
           .map(m => (
             <SelectItem key={m.actorId} value={m.actorId}>
               <div className='flex items-center gap-2'>
-                <MemberAvatar member={m} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={m.name}
+                  imageUrl={m.imageUrl}
+                  size='xs'
+                />
                 {m.name}
               </div>
             </SelectItem>
