@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Fail yang dilampirkan pada langkah dikira dalam had yang sama.",
   "testCases.field.evidenceFiles.tooManyTotal": "Termasuk fail yang dilampirkan pada langkah, larian ini ada {count} fail — maksimum {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang disokong — gunakan PNG, JPEG, WebP, GIF, teks atau JSON.",
-  "testCases.report.state.skipped": "Dilangkau"
+  "testCases.report.state.skipped": "Dilangkau",
+  "formDialog.collapse": "Kuncupkan",
+  "formDialog.expand": "Kembangkan"
 }

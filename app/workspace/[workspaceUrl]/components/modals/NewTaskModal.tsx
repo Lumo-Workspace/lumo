@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useIntl } from 'react-intl'
-import { AnimatePresence } from 'motion/react'
 import { useParams } from 'next/navigation'
-import { Modal } from '../Modal'
+import { FormDialog } from '../FormDialog'
 import {
   ApiProject,
   ApiTask,
@@ -114,6 +113,7 @@ export function NewTaskModal({
   const intl = useIntl()
   const mentionSources = useMentionSources(members)
   const [title, setTitle] = useState(preFill?.title ?? '')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const descriptionRef = useRef<string | null>(preFill?.description ?? null)
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
     preFill?.description ?? null
@@ -376,159 +376,158 @@ export function NewTaskModal({
   const triggerClass = FIELD_TRIGGER_CLS
 
   return (
-    <AnimatePresence>
-      <Modal
-        isOpen={isOpen}
-        onClose={handleClose}
-        title={intl.formatMessage({ id: 'newTask.title' })}
-        footer={
-          phase === 'confirming' ? undefined : (
-            <div className='flex items-center gap-3 ml-auto'>
-              {onSaveDraft && (
-                <Button variant='ghost' onClick={handleSaveDraft}>
-                  {intl.formatMessage({ id: 'drafts.saveDraft' })}
-                </Button>
+    <FormDialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      initialFocusRef={titleInputRef}
+      title={intl.formatMessage({ id: 'newTask.title' })}
+      footer={
+        phase === 'confirming' ? undefined : (
+          <div className='flex flex-wrap items-center justify-end gap-3 ml-auto'>
+            {onSaveDraft && (
+              <Button variant='ghost' onClick={handleSaveDraft}>
+                {intl.formatMessage({ id: 'drafts.saveDraft' })}
+              </Button>
+            )}
+            <Button variant='ghost' onClick={handleClose}>
+              {intl.formatMessage({ id: 'newTask.cancel' })}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit || phase === 'checking'}
+            >
+              {phase === 'checking' ? (
+                <>
+                  <Loader2 className='size-4 animate-spin mr-1' />
+                  {intl.formatMessage({ id: 'newTask.checking' })}
+                </>
+              ) : (
+                <>
+                  {intl.formatMessage({ id: 'newTask.create' })}{' '}
+                  {submitModLabel}↵
+                </>
               )}
-              <Button variant='ghost' onClick={handleClose}>
-                {intl.formatMessage({ id: 'newTask.cancel' })}
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!canSubmit || phase === 'checking'}
-              >
-                {phase === 'checking' ? (
-                  <>
-                    <Loader2 className='size-4 animate-spin mr-1' />
-                    {intl.formatMessage({ id: 'newTask.checking' })}
-                  </>
-                ) : (
-                  <>
-                    {intl.formatMessage({ id: 'newTask.create' })}{' '}
-                    {submitModLabel}↵
-                  </>
-                )}
-              </Button>
-            </div>
-          )
-        }
-      >
-        {expanded =>
-          phase === 'confirming' ? (
-            <DuplicateConfirm
-              matches={aiMatches}
-              projectName={projectName}
-              workspaceUrl={workspaceUrl}
-              onConfirm={doCreate}
-              onCancel={() => setPhase('editing')}
+            </Button>
+          </div>
+        )
+      }
+    >
+      {expanded =>
+        phase === 'confirming' ? (
+          <DuplicateConfirm
+            matches={aiMatches}
+            projectName={projectName}
+            workspaceUrl={workspaceUrl}
+            onConfirm={doCreate}
+            onCancel={() => setPhase('editing')}
+          />
+        ) : (
+          <div className='space-y-4 h-full flex flex-col'>
+            {recovery.recovered && (
+              <FormRecoveryBanner
+                onRestore={handleRestore}
+                onDiscard={recovery.discardRecovery}
+              />
+            )}
+            <input
+              ref={titleInputRef}
+              className='w-full bg-transparent border-none p-0 text-xl font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
+              placeholder={intl.formatMessage({
+                id: 'newTask.titlePlaceholder',
+              })}
+              type='text'
+              value={title}
+              onChange={e => {
+                setTitle(e.target.value)
+                onTitleChangePriority(e.target.value)
+              }}
+              onKeyDown={e => {
+                if (isSubmitShortcut(e)) handleSubmit()
+              }}
             />
-          ) : (
-            <div className='space-y-4 h-full flex flex-col'>
-              {recovery.recovered && (
-                <FormRecoveryBanner
-                  onRestore={handleRestore}
-                  onDiscard={recovery.discardRecovery}
-                />
-              )}
-              <input
-                autoFocus
-                className='w-full bg-transparent border-none p-0 text-xl font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
-                placeholder={intl.formatMessage({
-                  id: 'newTask.titlePlaceholder',
-                })}
-                type='text'
-                value={title}
-                onChange={e => {
-                  setTitle(e.target.value)
-                  onTitleChangePriority(e.target.value)
+            <DuplicateWarning
+              matches={clientMatches}
+              workspaceUrl={workspaceUrl}
+              projects={projects}
+            />
+            <AiDescriptionPrompt
+              title={title}
+              projectId={projectId || defaultProjectId || ''}
+              workspaceUrl={workspaceUrl}
+              existingDescription={descriptionValue}
+              onAccept={html => {
+                descriptionRef.current = html
+                setDescriptionValue(html)
+              }}
+              onProjectSuggested={suggested => {
+                if (!projectId && !defaultProjectId) {
+                  setProjectId(suggested.id)
+                }
+              }}
+            />
+            <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
+              <DescriptionEditor
+                value={descriptionValue}
+                onCommit={html => {
+                  descriptionRef.current = html
                 }}
-                onKeyDown={e => {
-                  if (isSubmitShortcut(e)) handleSubmit()
-                }}
-              />
-              <DuplicateWarning
-                matches={clientMatches}
-                workspaceUrl={workspaceUrl}
-                projects={projects}
-              />
-              <AiDescriptionPrompt
-                title={title}
-                projectId={projectId || defaultProjectId || ''}
-                workspaceUrl={workspaceUrl}
-                existingDescription={descriptionValue}
-                onAccept={html => {
+                onChange={html => {
                   descriptionRef.current = html
                   setDescriptionValue(html)
+                  onDescriptionChangePriority(title, html ?? '')
                 }}
-                onProjectSuggested={suggested => {
-                  if (!projectId && !defaultProjectId) {
-                    setProjectId(suggested.id)
-                  }
-                }}
+                placeholder={intl.formatMessage({
+                  id: 'newTask.descriptionPlaceholder',
+                })}
+                mentionSources={mentionSources}
               />
-              <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
-                <DescriptionEditor
-                  value={descriptionValue}
-                  onCommit={html => {
-                    descriptionRef.current = html
-                  }}
-                  onChange={html => {
-                    descriptionRef.current = html
-                    setDescriptionValue(html)
-                    onDescriptionChangePriority(title, html ?? '')
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: 'newTask.descriptionPlaceholder',
-                  })}
-                  mentionSources={mentionSources}
-                />
-              </div>
-              <div className='flex flex-wrap items-center gap-2 pt-1'>
-                <StatusSelect
-                  value={status}
-                  onChange={setStatus}
-                  triggerClassName={triggerClass}
-                />
-                <ProjectSelect
-                  value={projectId || defaultProjectId || ''}
-                  onChange={setProjectId}
-                  projects={projects}
-                  triggerClassName={triggerClass}
-                />
-                <AssigneeSelect
-                  value={assigneeId || null}
-                  onChange={v => setAssigneeId(v ?? '')}
-                  members={members.filter(
-                    (m): m is WorkspaceMemberInfo & { actorId: string } =>
-                      m.actorId !== null
-                  )}
-                  triggerClassName={triggerClass}
-                />
-                <AiPrioritySelect
-                  value={priority}
-                  onChange={handlePriorityChange}
-                  triggerClassName={triggerClass}
-                  suggestion={prioritySuggestion}
-                  isLoadingSuggestion={isPriorityLoading}
-                  overrideRecorded={overrideRecorded}
-                />
-                <DueDatePicker
-                  value={dueDate}
-                  onChange={setDueDate}
-                  triggerClassName={triggerClass}
-                />
-                {sprintTeamId && (
-                  <SprintSelect
-                    teamId={sprintTeamId}
-                    value={sprintId}
-                    onChange={setSprintId}
-                    triggerClassName={triggerClass}
-                  />
-                )}
-              </div>
             </div>
-          )
-        }
-      </Modal>
-    </AnimatePresence>
+            <div className='flex flex-wrap items-center gap-2 pt-1'>
+              <StatusSelect
+                value={status}
+                onChange={setStatus}
+                triggerClassName={triggerClass}
+              />
+              <ProjectSelect
+                value={projectId || defaultProjectId || ''}
+                onChange={setProjectId}
+                projects={projects}
+                triggerClassName={triggerClass}
+              />
+              <AssigneeSelect
+                value={assigneeId || null}
+                onChange={v => setAssigneeId(v ?? '')}
+                members={members.filter(
+                  (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                    m.actorId !== null
+                )}
+                triggerClassName={triggerClass}
+              />
+              <AiPrioritySelect
+                value={priority}
+                onChange={handlePriorityChange}
+                triggerClassName={triggerClass}
+                suggestion={prioritySuggestion}
+                isLoadingSuggestion={isPriorityLoading}
+                overrideRecorded={overrideRecorded}
+              />
+              <DueDatePicker
+                value={dueDate}
+                onChange={setDueDate}
+                triggerClassName={triggerClass}
+              />
+              {sprintTeamId && (
+                <SprintSelect
+                  teamId={sprintTeamId}
+                  value={sprintId}
+                  onChange={setSprintId}
+                  triggerClassName={triggerClass}
+                />
+              )}
+            </div>
+          </div>
+        )
+      }
+    </FormDialog>
   )
 }

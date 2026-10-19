@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Dateien an Schritten zählen zum selben Limit.",
   "testCases.field.evidenceFiles.tooManyTotal": "Mit den Dateien an Schritten wären es {count} Dateien für diesen Lauf – höchstens {max}.",
   "testCases.field.evidenceFiles.badType": "„{filename}“ hat keinen unterstützten Typ – verwende PNG, JPEG, WebP, GIF, Text oder JSON.",
-  "testCases.report.state.skipped": "Übersprungen"
+  "testCases.report.state.skipped": "Übersprungen",
+  "formDialog.collapse": "Einklappen",
+  "formDialog.expand": "Erweitern"
 }
