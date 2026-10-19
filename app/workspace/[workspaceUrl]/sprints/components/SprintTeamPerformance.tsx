@@ -13,6 +13,7 @@ import type {
 import type { WorkspaceMemberInfo } from '../../types'
 import { MemberAvatar } from '../../components/fields/shared'
 import { TokenCostBreakdown } from '../../components/TokenCostBreakdown'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /** Compact token count, e.g. `12.7M` — mirrors the CLI / milestone reading. */
 const TOKEN_FMT = new Intl.NumberFormat('en-US', {
@@ -29,9 +30,7 @@ export function SprintTeamPerformance({ sprintId, members }: Props) {
   const { performance, isLoading } = useSprintTeamPerformance(sprintId)
 
   if (isLoading) {
-    return (
-      <div className='h-24 animate-pulse rounded-lg border border-border' />
-    )
+    return <Skeleton className='h-24 rounded-lg border border-border' />
   }
   if (!performance || performance.rows.length === 0) return null
 

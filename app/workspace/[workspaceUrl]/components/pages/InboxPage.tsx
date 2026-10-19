@@ -31,6 +31,7 @@ import { PageBreadcrumb } from '../PageBreadcrumb'
 import { TaskDetailPanel } from '../TaskDetailPanel'
 import { NotificationItem, isPendingAction } from './inbox/NotificationItem'
 import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── InboxPage ────────────────────────────────────────────────────────────────
 
@@ -286,10 +287,10 @@ export function InboxPage({
                   key={i}
                   className='flex gap-3 px-4 py-3 border-b border-border'
                 >
-                  <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
+                  <Skeleton className='size-7 shrink-0 rounded-full' />
                   <div className='flex-1 space-y-1.5'>
-                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-3/4' />
-                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/2' />
+                    <Skeleton className='h-2.5 w-3/4 rounded-sm' />
+                    <Skeleton className='h-2.5 w-1/2 rounded-sm' />
                   </div>
                 </div>
               ))}

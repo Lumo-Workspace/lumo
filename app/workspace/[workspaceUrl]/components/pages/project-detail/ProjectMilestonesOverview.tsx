@@ -8,6 +8,7 @@ import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
 import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -83,10 +84,7 @@ export function ProjectMilestonesOverview({
       {loading ? (
         <div className='space-y-1' aria-busy='true'>
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className='h-11 animate-pulse rounded-md bg-muted/50'
-            />
+            <Skeleton key={i} className='h-11' />
           ))}
         </div>
       ) : milestones.length === 0 ? (
