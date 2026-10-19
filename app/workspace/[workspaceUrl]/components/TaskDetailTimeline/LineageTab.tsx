@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import type {
@@ -155,7 +156,7 @@ export function LineageTab({
   const visibleFragments = showAllFragments ? fragments : []
 
   return (
-    <div className='rounded-lg border border-border text-caption'>
+    <Card className='text-caption'>
       {/* Summary row */}
       <div className='px-3 py-2 border-b border-border text-muted-foreground'>
         {intl.formatMessage(
@@ -273,6 +274,6 @@ export function LineageTab({
           </button>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

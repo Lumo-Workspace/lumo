@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
 import { MemberAvatar } from '@/components/MemberAvatar'
+import { Card } from '@/components/ui/card'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { deriveRunDigest } from './derive-run-digest'
@@ -45,7 +46,7 @@ export function AgentRunCard({
   })
 
   return (
-    <div className='border border-border rounded-lg bg-card'>
+    <Card>
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
@@ -244,6 +245,6 @@ export function AgentRunCard({
           {run.sessionId && <RunRawRecordDelete sessionId={run.sessionId} />}
         </div>
       )}
-    </div>
+    </Card>
   )
 }

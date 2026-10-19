@@ -3,6 +3,7 @@
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { TestCase } from '@prisma/client'
@@ -290,7 +291,7 @@ export function RecordRunDialog({
   }
 
   return (
-    <div className='flex flex-col gap-3 rounded-md border border-border px-3 py-3'>
+    <Card className='flex flex-col gap-3 rounded-md px-3 py-3'>
       <p className='text-body-strong text-foreground'>
         {intl.formatMessage({ id: 'testCases.dialog.title' })}
       </p>
@@ -480,6 +481,6 @@ export function RecordRunDialog({
           {intl.formatMessage({ id: 'testCases.action.cancel' })}
         </Button>
       </div>
-    </div>
+    </Card>
   )
 }

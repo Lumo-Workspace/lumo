@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import {
   Collapsible,
+  CollapsibleCard,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
@@ -442,12 +443,12 @@ export function BoundaryCrossingsPanel({
       {/* LUM-496 prep (Task 5): keeps an old deep link (e.g. #boundary-crossings)
       landing on the panel even after the id it targets moves to legacyAnchorId. */}
       {legacyAnchorId && <span id={legacyAnchorId} />}
-      <Collapsible
+      <CollapsibleCard
         open={expanded}
         onOpenChange={setExpanded}
         id={anchorId}
         ref={panelRef}
-        className={`overflow-hidden rounded-lg border ${
+        className={`overflow-hidden ${
           blockingCount > 0 ? 'border-danger-border' : 'border-border'
         }`}
       >
@@ -569,11 +570,11 @@ export function BoundaryCrossingsPanel({
           affordance below is unchanged. */}
             <div className='space-y-2'>
               {groups.map(g => (
-                <Collapsible
+                <CollapsibleCard
                   key={g.category}
                   open={isGroupOpen(g)}
                   onOpenChange={() => toggleGroup(g)}
-                  className='overflow-hidden rounded-md border border-border'
+                  className='overflow-hidden rounded-md'
                 >
                   <CollapsibleTrigger
                     data-testid={`crossing-group-${g.category}`}
@@ -671,7 +672,7 @@ export function BoundaryCrossingsPanel({
                       ))}
                     </div>
                   </CollapsibleContent>
-                </Collapsible>
+                </CollapsibleCard>
               ))}
             </div>
 
@@ -696,7 +697,7 @@ export function BoundaryCrossingsPanel({
             </p>
           </div>
         </CollapsibleContent>
-      </Collapsible>
+      </CollapsibleCard>
     </>
   )
 }
@@ -780,10 +781,10 @@ function CrossingRow({
     c.disposition === 'CONFIRMED' ? 'FALSE_POSITIVE' : 'CONFIRMED'
 
   return (
-    <Collapsible
+    <CollapsibleCard
       open={!collapsed}
       onOpenChange={o => setCollapsed(!o)}
-      className='rounded-md border border-border bg-background px-3 py-2.5'
+      className='rounded-md bg-background px-3 py-2.5'
     >
       {/* A div, not a button: the header holds InfoTooltip buttons, which
           can't nest inside one — so Enter/Space are wired by hand. */}
@@ -1570,7 +1571,7 @@ function CrossingRow({
           </div>
         )}
       </CollapsibleContent>
-    </Collapsible>
+    </CollapsibleCard>
   )
 }
 

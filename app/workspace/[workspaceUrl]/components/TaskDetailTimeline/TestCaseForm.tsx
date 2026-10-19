@@ -3,6 +3,7 @@
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -176,7 +177,7 @@ export function TestCaseForm({
   }
 
   return (
-    <div className='flex flex-col gap-3 rounded-md border border-border px-3 py-3'>
+    <Card className='flex flex-col gap-3 rounded-md px-3 py-3'>
       <div className='flex flex-col gap-2'>
         <Label htmlFor={`${fieldId}-title`}>
           {intl.formatMessage({ id: 'testCases.form.title' })}
@@ -278,6 +279,6 @@ export function TestCaseForm({
           {intl.formatMessage({ id: 'testCases.action.cancel' })}
         </Button>
       </div>
-    </div>
+    </Card>
   )
 }

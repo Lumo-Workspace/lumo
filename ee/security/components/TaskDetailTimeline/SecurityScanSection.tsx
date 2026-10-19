@@ -63,6 +63,7 @@ import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
 import {
   Collapsible,
+  CollapsibleCard,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
@@ -71,6 +72,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 
 /** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
@@ -111,9 +113,9 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
   const blocking = blockingFindings(data?.prs ?? [])
   if (blocking.length === 0) return null
   return (
-    <div
+    <Card
       data-testid='security-blocking-findings'
-      className='overflow-hidden rounded-lg border border-danger-border'
+      className='overflow-hidden border-danger-border'
     >
       <div className='flex flex-wrap items-center gap-2 bg-danger-subtle px-4 py-2.5'>
         <span className='text-body-strong text-foreground'>
@@ -136,7 +138,7 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -1178,14 +1180,14 @@ function FindingRow({
       : 'text-muted-foreground'
 
   return (
-    <Collapsible
+    <CollapsibleCard
       open={open}
       onOpenChange={setOpen}
       data-testid={`security-finding-${finding.id}`}
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
       data-queue-exit={finding.queueExit ?? undefined}
-      className={`rounded-md border border-border bg-background px-2.5 py-2${
+      className={`rounded-md bg-background px-2.5 py-2${
         muted && !open ? ' opacity-60' : ''
       }`}
     >
@@ -1517,7 +1519,7 @@ function FindingRow({
           {error}
         </p>
       )}
-    </Collapsible>
+    </CollapsibleCard>
   )
 }
 
