@@ -253,7 +253,7 @@ export function BubbleMenuBar({
             }
           }}
           placeholder='https://'
-          className='w-52 text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground'
+          className='w-52 text-caption bg-transparent outline-none text-foreground placeholder:text-muted-foreground'
         />
         <button
           type='button'
@@ -261,7 +261,7 @@ export function BubbleMenuBar({
             e.preventDefault()
             applyLink()
           }}
-          className='text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-1'
+          className='text-caption text-muted-foreground hover:text-foreground transition-colors px-1'
         >
           {intl.formatMessage({ id: 'editor.link.apply' })}
         </button>
@@ -372,7 +372,7 @@ export function BubbleMenuBar({
                 e.preventDefault()
                 setStyleOpen(o => !o)
               }}
-              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
+              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-caption text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
             >
               {intl.formatMessage({ id: activeStyle.id })}
               <ChevronDown size={12} />
@@ -398,7 +398,7 @@ export function BubbleMenuBar({
                   setStyleOpen(false)
                 }}
                 className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs transition-colors',
+                  'w-full text-left px-3 py-1.5 text-caption transition-colors',
                   activeFlags[i]
                     ? 'bg-accent text-accent-foreground font-semibold'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -544,7 +544,7 @@ export function BubbleMenuBar({
                     setListOpen(false)
                   }}
                   className={cn(
-                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors',
+                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-caption transition-colors',
                     active
                       ? 'bg-accent text-accent-foreground font-semibold'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

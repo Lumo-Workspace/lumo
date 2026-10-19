@@ -67,7 +67,7 @@ export function ColorPicker({
           className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-dropdown w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-elevation-3 p-2'
         >
           {/* Font colors */}
-          <div className='text-[10px] font-medium text-muted-foreground mb-1'>
+          <div className='text-caption text-muted-foreground mb-1'>
             Font color
           </div>
           <div className='flex gap-1 mb-2'>
@@ -86,7 +86,7 @@ export function ColorPicker({
                   setOpen(false)
                 }}
                 className={cn(
-                  'flex items-center justify-center size-5 rounded-sm text-[11px] font-bold border transition-colors',
+                  'flex items-center justify-center size-5 rounded-sm text-caption font-semibold border transition-colors',
                   currentColor === c.value || (!currentColor && !c.value)
                     ? 'border-ring'
                     : 'border-transparent hover:border-muted-foreground'
@@ -100,7 +100,7 @@ export function ColorPicker({
           </div>
 
           {/* Background colors */}
-          <div className='text-[10px] font-medium text-muted-foreground mb-1'>
+          <div className='text-caption text-muted-foreground mb-1'>
             Background
           </div>
           <div className='flex gap-1 mb-1'>
@@ -134,7 +134,7 @@ export function ColorPicker({
               >
                 {!c.value && (
                   <span className='block w-full h-full relative'>
-                    <span className='absolute inset-0 flex items-center justify-center text-[8px] text-muted-foreground'>
+                    <span className='absolute inset-0 flex items-center justify-center text-caption text-muted-foreground'>
                       ∅
                     </span>
                   </span>
@@ -174,7 +174,7 @@ export function ColorPicker({
               editor.chain().focus().unsetColor().unsetHighlight().run()
               setOpen(false)
             }}
-            className='w-full text-center text-[11px] text-muted-foreground hover:text-foreground py-1 border-t border-border transition-colors'
+            className='w-full text-center text-caption text-muted-foreground hover:text-foreground py-1 border-t border-border transition-colors'
           >
             Reset to default
           </button>

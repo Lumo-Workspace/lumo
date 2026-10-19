@@ -150,15 +150,13 @@ export function ProjectTaskCard({
         {task.number === 0 ? (
           <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-muted-foreground'>
+          <span className='text-caption font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
         <PriorityBadge priority={task.priority} />
       </div>
-      <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
-        {task.title}
-      </h4>
+      <h4 className='text-body-strong mb-4 line-clamp-2'>{task.title}</h4>
       <div className='flex justify-between items-center'>
         {/* ── Left: avatar ── */}
         {assignee ? (
@@ -182,14 +180,16 @@ export function ProjectTaskCard({
                     src={assignee.imageUrl ?? undefined}
                     alt={assignee.name}
                   />
-                  <AvatarFallback className='text-xs font-semibold'>
+                  <AvatarFallback className='text-caption font-semibold'>
                     {getInitials(assignee.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className='flex flex-col min-w-0'>
-                  <span className='text-xs font-semibold'>{assignee.name}</span>
+                  <span className='text-caption font-semibold'>
+                    {assignee.name}
+                  </span>
                   {assignee.email && (
-                    <span className='text-[11px] text-muted-foreground'>
+                    <span className='text-caption text-muted-foreground'>
                       {assignee.email}
                     </span>
                   )}
@@ -204,9 +204,9 @@ export function ProjectTaskCard({
         {/* ── Right: date ── */}
         <span
           className={cn(
-            'text-[10px]',
+            'text-caption',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-danger-text font-medium'
+              ? 'text-danger-text'
               : 'text-muted-foreground'
           )}
         >
@@ -236,24 +236,22 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         {task.number === 0 ? (
           <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-muted-foreground'>
+          <span className='text-caption font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
         <PriorityBadge priority={task.priority} />
       </div>
-      <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
-        {task.title}
-      </h4>
+      <h4 className='text-body-strong mb-4 line-clamp-2'>{task.title}</h4>
       <div className='flex justify-between items-center'>
-        <span className='text-[10px] text-muted-foreground truncate max-w-[140px]'>
+        <span className='text-caption text-muted-foreground truncate max-w-[140px]'>
           {projectName}
         </span>
         <span
           className={cn(
-            'text-[10px]',
+            'text-caption',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-danger-text font-medium'
+              ? 'text-danger-text'
               : 'text-muted-foreground'
           )}
         >

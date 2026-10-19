@@ -203,10 +203,10 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
               <div className='flex items-center justify-between px-1 mb-3 shrink-0'>
                 <div className='flex items-center gap-2'>
                   {column.icon}
-                  <span className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+                  <span className='text-caption font-semibold text-muted-foreground uppercase'>
                     {column.label}
                   </span>
-                  <span className='bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold'>
+                  <span className='bg-muted text-muted-foreground text-caption px-1.5 py-0.5 rounded-full font-semibold'>
                     {col.length}
                   </span>
                 </div>
@@ -224,7 +224,7 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                       variant='ghost'
                       size='sm'
                       onClick={() => onAddTask(column.id)}
-                      className='w-full justify-start gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground h-auto px-2 py-1.5'
+                      className='w-full justify-start gap-1.5 text-caption text-muted-foreground hover:text-foreground h-auto px-2 py-1.5'
                     >
                       <Plus size={16} />
                       {intl.formatMessage({

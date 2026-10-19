@@ -138,7 +138,7 @@ export function DataTable<TData, TValue>({
     <div
       ref={scrollRef}
       role='table'
-      className={cn('text-sm', !flow && 'flex-1 min-h-0 overflow-auto')}
+      className={cn('text-body', !flow && 'flex-1 min-h-0 overflow-auto')}
     >
       {/* ── Sticky header ────────────────────────────────────────────────── */}
       <div role='rowgroup'>

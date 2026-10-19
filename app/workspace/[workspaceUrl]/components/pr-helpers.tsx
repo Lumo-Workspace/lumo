@@ -14,27 +14,27 @@ import {
 export function PrStateBadge({ state }: { state: string }) {
   if (state === 'draft') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground'>
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-muted text-muted-foreground'>
         Draft
       </span>
     )
   }
   if (state === 'merged') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-status-in-review-subtle text-status-in-review-text'>
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-status-in-review-subtle text-status-in-review-text'>
         Merged
       </span>
     )
   }
   if (state === 'closed') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-danger-subtle text-danger-text'>
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-danger-subtle text-danger-text'>
         Closed
       </span>
     )
   }
   return (
-    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-success-subtle text-success-text'>
+    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-success-subtle text-success-text'>
       Open
     </span>
   )

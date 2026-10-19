@@ -38,8 +38,8 @@ export function AiPrioritySelect({
   const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
 
   const tooltipContent = suggestion ? (
-    <div className='space-y-1.5 text-xs max-w-64'>
-      <div className='font-medium'>
+    <div className='space-y-1.5 text-caption max-w-64'>
+      <div>
         {intl.formatMessage(
           { id: 'priority.recommended' },
           {
@@ -111,7 +111,7 @@ export function AiPrioritySelect({
       {!isLoadingSuggestion && suggestion && !overrideRecorded && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className='inline-flex items-center gap-0.5 text-[10px] text-info-text cursor-default'>
+            <span className='inline-flex items-center gap-0.5 text-caption text-info-text cursor-default'>
               <Sparkles className='size-3' />
               {intl.formatMessage({ id: 'priority.aiRecommended' })}
             </span>
@@ -123,7 +123,7 @@ export function AiPrioritySelect({
       )}
 
       {overrideRecorded && (
-        <span className='text-[10px] text-success-text animate-fade-out'>
+        <span className='text-caption text-success-text animate-fade-out'>
           {intl.formatMessage({ id: 'priority.preferenceRecorded' })}
         </span>
       )}

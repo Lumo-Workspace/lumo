@@ -92,7 +92,7 @@ function SortableColHeader({
       variant='ghost'
       onClick={onClick}
       className={cn(
-        'h-auto px-0 gap-1 text-[11px] font-medium uppercase tracking-wider select-none hover:bg-transparent',
+        'h-auto px-0 gap-1 text-caption uppercase select-none hover:bg-transparent',
         sorted
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'
@@ -178,7 +178,7 @@ function TitleCell({
   return (
     <div className='flex items-center gap-2 group/title'>
       <span
-        className='font-medium group-hover:text-info-text transition-colors cursor-text flex-1 min-w-0 truncate'
+        className='text-body-strong group-hover:text-info-text transition-colors cursor-text flex-1 min-w-0 truncate'
         title={task.title}
         onClick={e => {
           e.stopPropagation()
@@ -670,7 +670,7 @@ export function createTaskColumns(
                 GHOST_TRIGGER,
                 'text-caption',
                 !dueDate && 'text-muted-foreground',
-                dueDate && isOverdue(dueDate) && 'text-danger-text font-medium'
+                dueDate && isOverdue(dueDate) && 'text-danger-text'
               )}
             />
           )
@@ -682,9 +682,7 @@ export function createTaskColumns(
           <span
             className={cn(
               'text-caption',
-              isOverdue(dueDate)
-                ? 'text-danger-text font-medium'
-                : 'text-muted-foreground'
+              isOverdue(dueDate) ? 'text-danger-text' : 'text-muted-foreground'
             )}
           >
             {formatDueDate(dueDate)}

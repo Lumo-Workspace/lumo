@@ -85,10 +85,10 @@ export function ReplyItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
-          <span className='text-xs font-semibold text-foreground'>
+          <span className='text-caption font-semibold text-foreground'>
             {ra.name}
           </span>
-          <span className='text-[11px] text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {fmtTimestamp(reply.createdAt)}
             {rWasEdited &&
               ` · ${intl.formatMessage({ id: 'comment.edited', defaultMessage: 'edited' })}`}

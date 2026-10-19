@@ -56,7 +56,7 @@ export function CommentSection({
   return (
     <>
       <div className='mt-8 pt-6'>
-        <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4'>
+        <p className='text-caption font-semibold text-muted-foreground uppercase mb-4'>
           {intl.formatMessage({
             id: 'task.comments',
             defaultMessage: 'Comments',
@@ -130,7 +130,7 @@ export function CommentSection({
         <div className='mt-5 flex gap-2.5'>
           <Avatar className='size-7 shrink-0 mt-0.5'>
             <AvatarImage src={user?.imageUrl} />
-            <AvatarFallback className='text-[10px]'>
+            <AvatarFallback className='text-caption'>
               {user?.initials ?? '?'}
             </AvatarFallback>
           </Avatar>
@@ -144,7 +144,7 @@ export function CommentSection({
             <div className='flex justify-end px-2 pb-2'>
               <Button
                 size='sm'
-                className='h-7 text-xs gap-1.5'
+                className='h-7 text-caption gap-1.5'
                 disabled={!tc.commentBody?.trim() || tc.submitting}
                 onClick={tc.submitComment}
               >
@@ -153,7 +153,7 @@ export function CommentSection({
                   id: 'task.commentSubmit',
                   defaultMessage: 'Comment',
                 })}
-                <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
                   {isMac ? '⌘↵' : 'Ctrl+↵'}
                 </kbd>
               </Button>
@@ -199,7 +199,7 @@ export function CommentSection({
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+              <kbd className='ml-1.5 text-caption opacity-60 font-sans'>↵</kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

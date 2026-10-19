@@ -43,7 +43,7 @@ export function NewApiKeyDialog({
         </AlertDialogHeader>
 
         <div className='flex items-center gap-2 my-2'>
-          <code className='flex-1 text-xs bg-muted rounded-sm px-3 py-2 break-all font-mono'>
+          <code className='flex-1 text-caption bg-muted rounded-sm px-3 py-2 break-all font-mono'>
             {keyValue}
           </code>
           <Button

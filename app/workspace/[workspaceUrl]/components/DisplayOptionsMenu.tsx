@@ -161,7 +161,7 @@ export function DisplayOptionsMenu({
       </PopoverTrigger>
       <PopoverContent align='end' className='w-56 p-2'>
         <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
+          <p className='text-caption text-muted-foreground uppercase'>
             {intl.formatMessage({
               id: 'display.section.ordering',
               defaultMessage: 'Ordering',
@@ -184,7 +184,7 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onOrderingChange(opt)}
-                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
+                className='flex items-center justify-between w-full px-2 py-1.5 text-body rounded-md hover:bg-muted transition-colors'
               >
                 <span className='text-foreground'>{orderingLabels[opt]}</span>
                 {ordering === opt && (
@@ -199,7 +199,7 @@ export function DisplayOptionsMenu({
         <div className='my-1.5 border-t border-border' />
 
         <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
+          <p className='text-caption text-muted-foreground uppercase'>
             {intl.formatMessage({
               id: 'display.section.completed',
               defaultMessage: 'Completed issues',
@@ -222,7 +222,7 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onCompletedFilterChange(opt)}
-                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
+                className='flex items-center justify-between w-full px-2 py-1.5 text-body rounded-md hover:bg-muted transition-colors'
               >
                 <span className='text-foreground'>
                   {completedFilterLabels[opt]}

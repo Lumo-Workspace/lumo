@@ -251,7 +251,7 @@ export function DueDatePicker({
               <>
                 <button
                   type='button'
-                  className='flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors'
+                  className='flex items-center gap-2 px-3 py-1.5 text-caption hover:bg-muted transition-colors'
                   onClick={() => {
                     onChange(null)
                     setOpen(false)
@@ -265,7 +265,7 @@ export function DueDatePicker({
             )}
             <button
               type='button'
-              className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted transition-colors'
+              className='flex items-center justify-between px-3 py-1.5 text-caption hover:bg-muted transition-colors'
               onClick={openDialog}
             >
               <span className='flex items-center gap-2'>
@@ -281,7 +281,7 @@ export function DueDatePicker({
                   <button
                     key={key}
                     type='button'
-                    className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted transition-colors'
+                    className='flex items-center justify-between px-3 py-1.5 text-caption hover:bg-muted transition-colors'
                     onClick={() => pickDate(d)}
                   >
                     <span>{intl.formatMessage({ id: msgId })}</span>
@@ -312,7 +312,7 @@ export function DueDatePicker({
               value={dateInput}
               onChange={handleDateInputChange}
               placeholder='MM/DD/YYYY'
-              className='w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
+              className='w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-ring'
             />
           </div>
           <div>

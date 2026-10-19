@@ -223,7 +223,7 @@ export function MentionInput({
           placeholder={placeholder}
           disabled={disabled}
           autoFocus={autoFocus}
-          className='w-full bg-transparent border-none p-0 text-lg font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
+          className='w-full bg-transparent border-none p-0 text-title text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
         />
       </PopoverAnchor>
       <PopoverContent
@@ -253,7 +253,7 @@ export function MentionInput({
                       <Icon className='mr-2 h-4 w-4 shrink-0 text-muted-foreground' />
                       <span className='truncate'>{candidate.label}</span>
                       {candidate.sublabel && (
-                        <span className='ml-auto text-xs text-muted-foreground truncate'>
+                        <span className='ml-auto text-caption text-muted-foreground truncate'>
                           {candidate.sublabel}
                         </span>
                       )}
@@ -278,7 +278,7 @@ export function MentionInput({
                       <Icon className='mr-2 h-4 w-4 shrink-0 text-muted-foreground' />
                       <span className='truncate'>{candidate.label}</span>
                       {candidate.sublabel && (
-                        <span className='ml-auto text-xs text-muted-foreground truncate'>
+                        <span className='ml-auto text-caption text-muted-foreground truncate'>
                           {candidate.sublabel}
                         </span>
                       )}
@@ -303,7 +303,7 @@ export function MentionInput({
                       <Icon className='mr-2 h-4 w-4 shrink-0 text-muted-foreground' />
                       <span className='truncate'>{candidate.label}</span>
                       {candidate.sublabel && (
-                        <span className='ml-auto text-xs text-muted-foreground truncate'>
+                        <span className='ml-auto text-caption text-muted-foreground truncate'>
                           {candidate.sublabel}
                         </span>
                       )}

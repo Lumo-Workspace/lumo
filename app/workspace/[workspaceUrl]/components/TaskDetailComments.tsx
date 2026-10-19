@@ -129,10 +129,10 @@ export function TaskDetailComments({
                   />
                   <div className='flex-1 min-w-0'>
                     <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
-                      <span className='text-xs font-semibold text-foreground'>
+                      <span className='text-caption font-semibold text-foreground'>
                         {ca.name}
                       </span>
-                      <span className='text-[11px] text-muted-foreground'>
+                      <span className='text-caption text-muted-foreground'>
                         {fmtTimestamp(comment.createdAt)}
                         {wasEdited &&
                           ` · ${intl.formatMessage({ id: 'task.edited' })}`}
@@ -142,7 +142,7 @@ export function TaskDetailComments({
                     {isEditing ? (
                       <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                         <div
-                          className='px-3 pt-2 pb-1 text-sm'
+                          className='px-3 pt-2 pb-1 text-body'
                           onKeyDown={e => {
                             if (
                               (isMac ? e.metaKey : e.ctrlKey) &&
@@ -171,14 +171,14 @@ export function TaskDetailComments({
                           <Button
                             size='sm'
                             variant='ghost'
-                            className='h-7 text-xs'
+                            className='h-7 text-caption'
                             onClick={() => tc.cancelEditing()}
                           >
                             {intl.formatMessage({ id: 'common.cancel' })}
                           </Button>
                           <Button
                             size='sm'
-                            className='h-7 text-xs'
+                            className='h-7 text-caption'
                             disabled={
                               !tc.editCommentBody?.trim() || tc.savingComment
                             }
@@ -308,10 +308,10 @@ export function TaskDetailComments({
                           />
                           <div className='flex-1 min-w-0'>
                             <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
-                              <span className='text-xs font-semibold text-foreground'>
+                              <span className='text-caption font-semibold text-foreground'>
                                 {ra.name}
                               </span>
-                              <span className='text-[11px] text-muted-foreground'>
+                              <span className='text-caption text-muted-foreground'>
                                 {fmtTimestamp(reply.createdAt)}
                                 {rWasEdited &&
                                   ` · ${intl.formatMessage({ id: 'task.edited' })}`}
@@ -320,7 +320,7 @@ export function TaskDetailComments({
                             {rIsEditing ? (
                               <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                                 <div
-                                  className='px-3 pt-2 pb-1 text-sm'
+                                  className='px-3 pt-2 pb-1 text-body'
                                   onKeyDown={e => {
                                     if (
                                       (isMac ? e.metaKey : e.ctrlKey) &&
@@ -353,7 +353,7 @@ export function TaskDetailComments({
                                   <Button
                                     size='sm'
                                     variant='ghost'
-                                    className='h-7 text-xs'
+                                    className='h-7 text-caption'
                                     onClick={() => tc.cancelEditing()}
                                   >
                                     {intl.formatMessage({
@@ -362,7 +362,7 @@ export function TaskDetailComments({
                                   </Button>
                                   <Button
                                     size='sm'
-                                    className='h-7 text-xs'
+                                    className='h-7 text-caption'
                                     disabled={
                                       !tc.editCommentBody?.trim() ||
                                       tc.savingComment
@@ -404,10 +404,10 @@ export function TaskDetailComments({
                                         }
                                         className='mb-1.5 w-full text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
                                       >
-                                        <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
+                                        <p className='text-caption font-semibold text-muted-foreground mb-0.5'>
                                           {qName}
                                         </p>
-                                        <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
+                                        <p className='text-caption text-muted-foreground line-clamp-2'>
                                           {qText}
                                         </p>
                                       </button>
@@ -514,7 +514,7 @@ export function TaskDetailComments({
                   <div className='ml-9 mt-3 flex gap-2'>
                     <Avatar className='size-5 shrink-0 mt-0.5'>
                       <AvatarImage src={user?.imageUrl} />
-                      <AvatarFallback className='text-[9px]'>
+                      <AvatarFallback className='text-caption'>
                         {user?.initials ?? '?'}
                       </AvatarFallback>
                     </Avatar>
@@ -527,16 +527,16 @@ export function TaskDetailComments({
                           }
                           className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
                         >
-                          <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
+                          <p className='text-caption font-semibold text-muted-foreground mb-0.5'>
                             {tc.replyingToComment.authorName}
                           </p>
-                          <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
+                          <p className='text-caption text-muted-foreground line-clamp-2'>
                             {previewCommentText(tc.replyingToComment.body)}
                           </p>
                         </button>
                       )}
                       <div
-                        className='px-3 pt-2 pb-1 text-sm'
+                        className='px-3 pt-2 pb-1 text-body'
                         onKeyDown={e => {
                           if (
                             (isMac ? e.metaKey : e.ctrlKey) &&
@@ -560,20 +560,20 @@ export function TaskDetailComments({
                       </div>
                       <div className='flex items-center justify-between px-2 pb-2'>
                         <button
-                          className='text-[11px] text-muted-foreground hover:text-foreground transition-colors'
+                          className='text-caption text-muted-foreground hover:text-foreground transition-colors'
                           onClick={() => tc.cancelReply()}
                         >
                           {intl.formatMessage({ id: 'common.cancel' })}
                         </button>
                         <Button
                           size='sm'
-                          className='h-7 text-xs gap-1.5'
+                          className='h-7 text-caption gap-1.5'
                           disabled={!tc.replyBody?.trim() || tc.submittingReply}
                           onClick={() => tc.submitReply(comment.id)}
                         >
                           <Send size={12} />
                           {intl.formatMessage({ id: 'task.reply' })}
-                          <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                          <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
                             {isMac ? '⌘↵' : 'Ctrl+↵'}
                           </kbd>
                         </Button>
@@ -591,13 +591,13 @@ export function TaskDetailComments({
       <div className='mt-5 flex gap-2.5'>
         <Avatar className='size-7 shrink-0 mt-0.5'>
           <AvatarImage src={user?.imageUrl} />
-          <AvatarFallback className='text-[10px]'>
+          <AvatarFallback className='text-caption'>
             {user?.initials ?? '?'}
           </AvatarFallback>
         </Avatar>
         <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
           <div
-            className='px-3 pt-2 pb-1 text-sm'
+            className='px-3 pt-2 pb-1 text-body'
             onKeyDown={e => {
               if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault()
@@ -619,13 +619,13 @@ export function TaskDetailComments({
           <div className='flex justify-end px-2 pb-2'>
             <Button
               size='sm'
-              className='h-7 text-xs gap-1.5'
+              className='h-7 text-caption gap-1.5'
               disabled={!tc.commentBody?.trim() || tc.submitting}
               onClick={tc.submitComment}
             >
               <Send size={12} />
               {intl.formatMessage({ id: 'task.comment' })}
-              <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+              <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
                 {isMac ? '⌘↵' : 'Ctrl+↵'}
               </kbd>
             </Button>

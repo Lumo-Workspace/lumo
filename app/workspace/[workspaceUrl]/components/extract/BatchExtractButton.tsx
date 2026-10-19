@@ -85,7 +85,7 @@ export function BatchExtractButton({ editor }: { editor: Editor }) {
       <button
         type='button'
         onClick={() => setConfirming(true)}
-        className='inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-sm'
+        className='inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-body'
       >
         {batchLabel}
       </button>
@@ -128,14 +128,14 @@ function ConfirmDialog({
       className='fixed inset-0 z-modal flex items-center justify-center bg-black/30'
     >
       <div className='w-96 rounded-sm bg-background p-4 shadow-elevation-3'>
-        <h2 className='mb-2 text-lg font-semibold'>{title}</h2>
-        <p className='mb-4 text-sm text-muted-foreground'>{message}</p>
+        <h2 className='mb-2 text-title'>{title}</h2>
+        <p className='mb-4 text-body text-muted-foreground'>{message}</p>
         <div className='flex justify-end gap-2'>
           <button
             type='button'
             onClick={onCancel}
             disabled={pending}
-            className='rounded-sm border px-3 py-1 text-sm'
+            className='rounded-sm border px-3 py-1 text-body'
           >
             {cancelLabel}
           </button>
@@ -143,7 +143,7 @@ function ConfirmDialog({
             type='button'
             onClick={onConfirm}
             disabled={pending}
-            className='rounded-sm bg-primary px-3 py-1 text-sm text-primary-foreground'
+            className='rounded-sm bg-primary px-3 py-1 text-body text-primary-foreground'
           >
             {cta}
           </button>

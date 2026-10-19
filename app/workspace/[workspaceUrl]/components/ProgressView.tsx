@@ -18,7 +18,7 @@ function OverPill({ metric }: { metric: ProgressMetric }) {
   if (metric.band !== 'over' || metric.deltaPct === null) return null
   const sign = metric.deltaPct > 0 ? '+' : ''
   return (
-    <span className='inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-caption font-medium text-warning-text'>
+    <span className='inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-caption text-warning-text'>
       {sign}
       {metric.deltaPct}% · {intl.formatMessage({ id: 'progress.over' })}
     </span>
@@ -56,7 +56,7 @@ export function ProgressView({
             {intl.formatMessage({ id: 'progress.title' })}
           </p>
           {running && (
-            <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full bg-info-subtle px-2.5 py-0.5 text-caption font-medium text-info-text'>
+            <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full bg-info-subtle px-2.5 py-0.5 text-caption text-info-text'>
               <span className='size-1.5 rounded-full bg-info' aria-hidden />
               {intl.formatMessage({ id: 'progress.agentRunning' })}
             </span>

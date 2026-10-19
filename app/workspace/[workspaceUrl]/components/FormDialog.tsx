@@ -134,7 +134,7 @@ export function FormDialog({
       >
         {/* Header */}
         <div className='px-6 py-4 flex items-center justify-between border-b border-border shrink-0'>
-          <DialogTitle className='text-lg font-semibold leading-7 tracking-normal text-foreground'>
+          <DialogTitle className='text-title text-foreground'>
             {title}
           </DialogTitle>
           <div className='flex items-center gap-1'>

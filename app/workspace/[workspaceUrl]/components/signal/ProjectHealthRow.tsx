@@ -139,7 +139,7 @@ export function ProjectHealthRow({
               </>
             )
             const skin = cn(
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-caption font-medium text-foreground',
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-caption text-foreground',
               TONE_PILL[card.tone]
             )
 

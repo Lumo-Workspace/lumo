@@ -35,7 +35,7 @@ export function ReplyInput({
     <div className='ml-9 mt-3 flex gap-2'>
       <Avatar className='size-5 shrink-0 mt-0.5'>
         <AvatarImage src={user?.imageUrl} />
-        <AvatarFallback className='text-[9px]'>
+        <AvatarFallback className='text-caption'>
           {user?.initials ?? '?'}
         </AvatarFallback>
       </Avatar>
@@ -56,20 +56,20 @@ export function ReplyInput({
         />
         <div className='flex items-center justify-between px-2 pb-2'>
           <button
-            className='text-[11px] text-muted-foreground hover:text-foreground transition-colors'
+            className='text-caption text-muted-foreground hover:text-foreground transition-colors'
             onClick={() => tc.cancelReply()}
           >
             {intl.formatMessage({ id: 'common.cancel' })}
           </button>
           <Button
             size='sm'
-            className='h-7 text-xs gap-1.5'
+            className='h-7 text-caption gap-1.5'
             disabled={!tc.replyBody?.trim() || tc.submittingReply}
             onClick={() => tc.submitReply(parentCommentId)}
           >
             <Send size={12} />
             Reply
-            <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+            <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
               {isMac ? '⌘↵' : 'Ctrl+↵'}
             </kbd>
           </Button>

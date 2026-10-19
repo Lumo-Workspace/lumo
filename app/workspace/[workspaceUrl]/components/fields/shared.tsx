@@ -45,7 +45,7 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
 
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
-  'h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+  'h-7 text-caption border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
 
 // ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
 
@@ -122,18 +122,17 @@ function memberColor(name: string) {
 
 export function MemberAvatar({
   member,
-  size = 'sm',
 }: {
   member: WorkspaceMemberInfo
+  /** Kept for call-site compatibility: both sizes render at size-5 since
+   *  12px caption initials don't fit a 16px circle (LUM-1244). */
   size?: 'sm' | 'xs'
 }) {
-  const dim = size === 'xs' ? 'size-4' : 'size-5'
-  const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
   return (
-    <Avatar className={`${dim} shrink-0`}>
+    <Avatar className='size-5 shrink-0'>
       <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
       <AvatarFallback
-        className={`${memberColor(member.name)} ${textSize} font-semibold`}
+        className={`${memberColor(member.name)} text-caption font-semibold`}
       >
         {getInitials(member.name)}
       </AvatarFallback>
