@@ -73,4 +73,36 @@ describe('SummaryCard', () => {
       screen.getByRole('button', { name: 'Regenerate' })
     ).toBeInTheDocument()
   })
+
+  it('shows review severity with an icon + label in a neutral card, not a coloured stripe (LUM-1249)', () => {
+    const { container } = render(
+      <SummaryCard
+        {...base}
+        initialSummaryType='review'
+        initialSummary={{
+          type: 'review',
+          reviewScope: 'scope',
+          findings: [],
+          severity: {
+            critical: ['crit item'],
+            improvements: ['improve item'],
+            notes: [],
+          },
+          recommendations: [],
+        }}
+      />
+    )
+    for (const [label, iconTone] of [
+      ['Critical', 'text-danger-text'],
+      ['Improvements', 'text-warning-text'],
+    ] as const) {
+      const heading = screen.getByText(label)
+      const icon = heading.querySelector('svg')
+      expect(icon).not.toBeNull()
+      expect(icon!.getAttribute('class')).toContain(iconTone)
+      const card = heading.parentElement!
+      expect(card.className).toMatch(/\bborder\b/)
+    }
+    expect(container.innerHTML).not.toMatch(/border-l-\d/)
+  })
 })

@@ -158,13 +158,10 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             </span>
           </button>
           {expanded && (
-            <div
-              className={
-                hasMemory
-                  ? 'mt-2 ml-4 pl-3 border-l-2 border-violet-200 dark:border-violet-900/60'
-                  : 'mt-2 ml-4 pl-3 border-l-2 border-border'
-              }
-            >
+            // Neutral structural indent for the disclosed event list; the
+            // memory/silent distinction is already carried by the toggle's
+            // ArrowUp icon and label above (LUM-1249).
+            <div className='mt-2 ml-4 pl-3 border-l-2 border-border'>
               {turn.events.map(ev => (
                 <AgentRunEventRow key={ev.id} event={ev} />
               ))}
