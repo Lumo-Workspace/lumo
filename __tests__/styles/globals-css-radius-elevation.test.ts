@@ -4,16 +4,16 @@ import { join } from 'node:path'
 const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
 
 describe('radius tokens (LUM-261)', () => {
-  it('--radius base stays 0.75rem', () => {
-    expect(css).toMatch(/--radius:\s*0\.75rem;/)
+  it('--radius base is the 0.625rem default (LUM-1251)', () => {
+    expect(css).toMatch(/--radius:\s*0\.625rem;/)
   })
 
-  // 4px steps: sm=-8px(0.25), md=-4px(0.5), lg=base(0.75), xl=+4px(1)
-  it('--radius-sm = calc(var(--radius) - 8px)', () => {
-    expect(css).toMatch(/--radius-sm:\s*calc\(var\(--radius\)\s*-\s*8px\);/)
+  // Default derivation: sm=-4px(6px), md=-2px(8px), lg=base(10px), xl=+4px(14px)
+  it('--radius-sm = calc(var(--radius) - 4px)', () => {
+    expect(css).toMatch(/--radius-sm:\s*calc\(var\(--radius\)\s*-\s*4px\);/)
   })
-  it('--radius-md = calc(var(--radius) - 4px)', () => {
-    expect(css).toMatch(/--radius-md:\s*calc\(var\(--radius\)\s*-\s*4px\);/)
+  it('--radius-md = calc(var(--radius) - 2px)', () => {
+    expect(css).toMatch(/--radius-md:\s*calc\(var\(--radius\)\s*-\s*2px\);/)
   })
   it('--radius-lg = var(--radius)', () => {
     expect(css).toMatch(/--radius-lg:\s*var\(--radius\);/)
