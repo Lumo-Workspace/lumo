@@ -8,6 +8,8 @@ export { SprintSelect } from './SprintSelect'
 export { DueDatePicker } from './DueDatePicker'
 export {
   FIELD_TRIGGER_CLS,
+  fieldTriggerProps,
+  type FieldVariant,
   FieldValueSkeleton,
   SeparatorDot,
   PriorityDot,

@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "“{filename}”은(는) 지원되지 않는 형식입니다. PNG, JPEG, WebP, GIF, 텍스트 또는 JSON을 사용하세요.",
   "testCases.report.state.skipped": "건너뜀",
   "formDialog.collapse": "접기",
-  "formDialog.expand": "펼치기"
+  "formDialog.expand": "펼치기",
+  "task.section.planning": "계획",
+  "task.section.relations": "관계",
+  "task.showProperties": "속성 보기"
 }

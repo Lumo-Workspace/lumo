@@ -12,13 +12,13 @@ import {
   AssigneeSelect,
   ProjectSelect,
   PrioritySelect,
-  FIELD_TRIGGER_CLS,
 } from './fields'
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import { TaskMilestoneField } from './milestones/TaskMilestoneField'
 import { TaskDependencyField } from './TaskDependencyField'
-import React from 'react'
+import type { ReactNode } from 'react'
+import { Separator } from '@/components/ui/separator'
 
 interface TaskDetailSidebarProps {
   task: TaskDetail
@@ -47,133 +47,134 @@ export function TaskDetailSidebar({
   onCreateTag,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
+  const t = (id: string) => intl.formatMessage({ id })
 
   return (
-    <div className='w-72 shrink-0 border-l border-border overflow-y-auto px-5 py-6 bg-muted/50'>
-      {/* Properties */}
-      <p className='text-caption font-semibold text-muted-foreground uppercase mb-3'>
-        {intl.formatMessage({ id: 'task.properties' })}
-      </p>
-      <div className='flex flex-col gap-0.5 mb-8'>
-        {(
-          [
-            {
-              label: intl.formatMessage({ id: 'task.status' }),
-              node: (
-                <StatusSelect
-                  value={task.status}
-                  onChange={v => onPatch({ status: v })}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            {
-              label: intl.formatMessage({ id: 'task.assignee' }),
-              node: (
-                <AssigneeSelect
-                  value={task.assigneeActorId ?? null}
-                  onChange={v => onPatch({ assigneeActorId: v })}
-                  members={members.filter(
-                    (m): m is WorkspaceMemberInfo & { actorId: string } =>
-                      m.actorId !== null
-                  )}
-                  agentActors={[]}
-                  assignee={task.assignee}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            {
-              label: intl.formatMessage({ id: 'common.project' }),
-              node: (
-                <ProjectSelect
-                  value={task.projectId}
-                  onChange={v => onPatch({ projectId: v })}
-                  projects={projects}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            {
-              label: intl.formatMessage({ id: 'task.priority' }),
-              node: (
-                <PrioritySelect
-                  value={task.priority}
-                  onChange={v => onPatch({ priority: v })}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            {
-              label: intl.formatMessage({
-                id: 'task.dependencies.field.label',
-              }),
-              node: (
-                <TaskDependencyField
-                  taskIdentifier={`${task.teamIdentifier}-${task.number}`}
-                  workspaceUrl={workspaceUrl}
-                />
-              ),
-            },
-            ...(task.sprintsEnabled && task.teamId
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'sprints.taskField.label',
-                    }),
-                    node: (
-                      <TaskSprintField
-                        task={{
-                          id: task.id,
-                          teamId: task.teamId,
-                          sprintId: task.sprintId ?? null,
-                          sprint: task.sprint ?? null,
-                        }}
-                        onChange={v => onPatch({ sprintId: v })}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                ]
-              : []),
-            {
-              label: intl.formatMessage({ id: 'task.field.milestone' }),
-              node: (
-                <TaskMilestoneField
-                  projectId={task.projectId}
-                  value={task.milestoneId ?? null}
-                  milestone={task.milestone ?? null}
-                  onChange={v => onPatch({ milestoneId: v })}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            ...(allTags && onTagsChange
-              ? [
-                  {
-                    label: intl.formatMessage({ id: 'task.tags' }),
-                    node: (
-                      <TagPicker
-                        selectedTags={task.tags ?? []}
-                        allTags={allTags}
-                        onChange={onTagsChange}
-                        onCreateTag={onCreateTag}
-                        triggerClassName='min-h-7 px-2 rounded-md hover:bg-muted'
-                      />
-                    ),
-                  },
-                ]
-              : []),
-          ] as { label: string; node: React.ReactNode }[]
-        ).map(({ label, node }) => (
-          <div key={label} className='flex items-center gap-2 -ml-2'>
-            <span className='w-16 shrink-0 text-caption text-muted-foreground pl-2'>
-              {label}
-            </span>
-            <div className='flex-1 min-w-0'>{node}</div>
-          </div>
-        ))}
-      </div>
+    <div className='flex flex-col gap-4'>
+      <PropertySection title={t('task.properties')}>
+        <PropertyRow label={t('task.status')}>
+          <StatusSelect
+            variant='ghost'
+            value={task.status}
+            onChange={v => onPatch({ status: v })}
+          />
+        </PropertyRow>
+        <PropertyRow label={t('task.priority')}>
+          <PrioritySelect
+            variant='ghost'
+            value={task.priority}
+            onChange={v => onPatch({ priority: v })}
+          />
+        </PropertyRow>
+        <PropertyRow label={t('task.assignee')}>
+          <AssigneeSelect
+            variant='ghost'
+            value={task.assigneeActorId ?? null}
+            onChange={v => onPatch({ assigneeActorId: v })}
+            members={members.filter(
+              (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                m.actorId !== null
+            )}
+            agentActors={[]}
+            assignee={task.assignee}
+          />
+        </PropertyRow>
+      </PropertySection>
+
+      <Separator />
+
+      <PropertySection title={t('task.section.planning')}>
+        <PropertyRow label={t('common.project')}>
+          <ProjectSelect
+            variant='ghost'
+            value={task.projectId}
+            onChange={v => onPatch({ projectId: v })}
+            projects={projects}
+          />
+        </PropertyRow>
+        {task.sprintsEnabled && task.teamId ? (
+          <PropertyRow label={t('sprints.taskField.label')}>
+            <TaskSprintField
+              variant='ghost'
+              task={{
+                id: task.id,
+                teamId: task.teamId,
+                sprintId: task.sprintId ?? null,
+                sprint: task.sprint ?? null,
+              }}
+              onChange={v => onPatch({ sprintId: v })}
+            />
+          </PropertyRow>
+        ) : null}
+        <PropertyRow label={t('task.field.milestone')}>
+          <TaskMilestoneField
+            variant='ghost'
+            projectId={task.projectId}
+            value={task.milestoneId ?? null}
+            milestone={task.milestone ?? null}
+            onChange={v => onPatch({ milestoneId: v })}
+          />
+        </PropertyRow>
+      </PropertySection>
+
+      <Separator />
+
+      <PropertySection title={t('task.section.relations')}>
+        <PropertyRow label={t('task.dependencies.field.label')}>
+          <TaskDependencyField
+            taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+            workspaceUrl={workspaceUrl}
+          />
+        </PropertyRow>
+        {allTags && onTagsChange ? (
+          <PropertyRow label={t('task.tags')}>
+            <TagPicker
+              selectedTags={task.tags ?? []}
+              allTags={allTags}
+              onChange={onTagsChange}
+              onCreateTag={onCreateTag}
+              triggerClassName='min-h-control-sm rounded-md px-2 py-1 transition-colors hover:bg-accent'
+            />
+          </PropertyRow>
+        ) : null}
+      </PropertySection>
+    </div>
+  )
+}
+
+/** A titled group of property rows (sentence-case muted caption heading). */
+function PropertySection({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section className='flex flex-col gap-1'>
+      <h3 className='px-2 pb-1 text-caption text-muted-foreground'>{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * One label/value row. Every row shares the control-sm height and the same
+ * label column, so ghost values line up on one left edge.
+ */
+function PropertyRow({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className='grid min-h-control-sm grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-1'>
+      <span className='truncate px-2 text-body text-muted-foreground'>
+        {label}
+      </span>
+      <div className='min-w-0'>{children}</div>
     </div>
   )
 }

@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang didukung — gunakan PNG, JPEG, WebP, GIF, teks, atau JSON.",
   "testCases.report.state.skipped": "Dilewati",
   "formDialog.collapse": "Ciutkan",
-  "formDialog.expand": "Perluas"
+  "formDialog.expand": "Perluas",
+  "task.section.planning": "Perencanaan",
+  "task.section.relations": "Relasi",
+  "task.showProperties": "Tampilkan properti"
 }

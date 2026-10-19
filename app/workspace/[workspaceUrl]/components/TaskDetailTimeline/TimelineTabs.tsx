@@ -11,6 +11,7 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { TaskDossier } from './TaskDossier'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { TaskDetail } from '../../types'
 
 interface PullRequestSummary {
@@ -46,6 +47,9 @@ interface TimelineTabsProps {
   onUnlinkPr: (prId: string) => void
   /** SSR presence seed; the probes below reconcile it once they resolve. */
   initialTimelinePresence?: TimelinePresence | undefined
+  /** Comment count (incl. replies) shown as a quiet number on the Comments
+   *  tab; omitted or 0 shows no number. */
+  commentCount?: number | undefined
 }
 
 export function TimelineTabs({
@@ -61,6 +65,7 @@ export function TimelineTabs({
   onLinkPr,
   onUnlinkPr,
   initialTimelinePresence,
+  commentCount,
 }: TimelineTabsProps) {
   const intl = useIntl()
   const router = useRouter()
@@ -148,55 +153,63 @@ export function TimelineTabs({
     [commentsProps.members]
   )
 
-  const tabClass = (active: boolean) =>
-    `pb-2 text-caption font-semibold uppercase transition-colors ${
-      active
-        ? 'text-foreground border-b-2 border-foreground'
-        : 'text-muted-foreground hover:text-foreground'
-    }`
+  const tabs: { value: TabValue; label: string; count?: number | undefined }[] =
+    [
+      {
+        value: 'comments',
+        label: intl.formatMessage({
+          id: 'task.comments',
+          defaultMessage: 'Comments',
+        }),
+        count: commentCount,
+      },
+      {
+        value: 'activity',
+        label: intl.formatMessage({
+          id: 'task.activity',
+          defaultMessage: 'Activity',
+        }),
+      },
+      {
+        value: 'context',
+        label: intl.formatMessage({
+          id: 'task.context.tab',
+          defaultMessage: 'Context',
+        }),
+      },
+      {
+        value: 'dossier',
+        label: intl.formatMessage({
+          id: 'task.dossier',
+          defaultMessage: 'Record',
+        }),
+      },
+    ]
 
+  // LUM-1274: the shared Tabs primitive (roving focus + arrow keys). The
+  // active value stays URL-driven: a change goes through selectTab, which
+  // pushes the tab's path segment. Radix mounts only the active panel, exactly
+  // as the old conditional render did, so inactive tabs never fetch.
   return (
-    <div className='mt-8'>
-      <div className='flex gap-4 mb-4'>
-        <button
-          className={tabClass(activeTab === 'comments')}
-          onClick={() => selectTab('comments')}
-        >
-          {intl.formatMessage({
-            id: 'task.comments',
-            defaultMessage: 'Comments',
-          })}
-        </button>
-        <button
-          className={tabClass(activeTab === 'activity')}
-          onClick={() => selectTab('activity')}
-        >
-          {intl.formatMessage({
-            id: 'task.activity',
-            defaultMessage: 'Activity',
-          })}
-        </button>
-        <button
-          className={tabClass(activeTab === 'context')}
-          onClick={() => selectTab('context')}
-        >
-          {intl.formatMessage({
-            id: 'task.context.tab',
-            defaultMessage: 'Context',
-          })}
-        </button>
-        <button
-          className={tabClass(activeTab === 'dossier')}
-          onClick={() => selectTab('dossier')}
-        >
-          {intl.formatMessage({
-            id: 'task.dossier',
-            defaultMessage: 'Record',
-          })}
-        </button>
-      </div>
+    <Tabs
+      value={activeTab}
+      onValueChange={v => selectTab(v as TabValue)}
+      className='mt-10'
+    >
+      <TabsList>
+        {tabs.map(tab => (
+          <TabsTrigger key={tab.value} value={tab.value} className='gap-1.5'>
+            {tab.label}
+            {tab.count ? (
+              <span className='text-caption tabular-nums text-muted-foreground'>
+                {tab.count}
+              </span>
+            ) : null}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      {activeTab === 'activity' && (
+      <TabsContent value='activity' className='mt-6'>
         <ActivityTimeline
           entries={timeline.entries}
           loading={timeline.loading}
@@ -206,9 +219,11 @@ export function TimelineTabs({
           members={commentsProps.members}
           agentActors={commentsProps.agentActors}
         />
-      )}
-      {activeTab === 'comments' && <TaskDetailComments {...commentsProps} />}
-      {activeTab === 'context' && (
+      </TabsContent>
+      <TabsContent value='comments' className='mt-6'>
+        <TaskDetailComments {...commentsProps} />
+      </TabsContent>
+      <TabsContent value='context' className='mt-6'>
         <ContextTab
           taskId={taskId}
           workspaceId={workspaceId}
@@ -219,8 +234,8 @@ export function TimelineTabs({
           onUnlinkPr={onUnlinkPr}
           enabled={activeTab === 'context'}
         />
-      )}
-      {activeTab === 'dossier' && (
+      </TabsContent>
+      <TabsContent value='dossier' className='mt-6'>
         <TaskDossier
           taskId={taskId}
           taskIdentifier={taskIdentifier}
@@ -235,7 +250,7 @@ export function TimelineTabs({
           hasMemories={hasMemories}
           targetSection={dossierTargetSection}
         />
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   )
 }

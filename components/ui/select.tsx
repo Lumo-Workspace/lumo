@@ -4,6 +4,8 @@ import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 
+import { cva, type VariantProps } from 'class-variance-authority'
+
 import { cn } from '@/lib/utils'
 
 const Select = SelectPrimitive.Root
@@ -12,21 +14,47 @@ const SelectGroup = SelectPrimitive.Group
 
 const SelectValue = SelectPrimitive.Value
 
+/**
+ * `default` is the bordered form control. `ghost` (LUM-1274) reads as plain
+ * text until hovered — for inline property values (e.g. the task detail
+ * panel): borderless and flat, a full-width hover fill, and the chevron only
+ * shows on hover / while open. `size='sm'` is the compact control-sm row.
+ */
+const selectTriggerVariants = cva(
+  'flex w-full items-center justify-between whitespace-nowrap rounded-md text-body ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
+  {
+    variants: {
+      variant: {
+        default:
+          'border border-border bg-transparent shadow-elevation-1 focus:border-ring data-[state=open]:border-ring',
+        ghost:
+          'border border-transparent bg-transparent shadow-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=open]:bg-accent [&>svg:last-child]:opacity-0 hover:[&>svg:last-child]:opacity-50 focus-visible:[&>svg:last-child]:opacity-50 data-[state=open]:[&>svg:last-child]:opacity-50',
+      },
+      size: {
+        default: 'h-9 px-3 py-2',
+        sm: 'h-control-sm gap-1.5 px-2',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  }
+)
+
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> &
+    VariantProps<typeof selectTriggerVariants>
+>(({ className, children, variant, size, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
-    className={cn(
-      'flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-border bg-transparent px-3 py-2 text-body shadow-elevation-1 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:border-ring data-[state=open]:border-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
-      className
-    )}
+    className={cn(selectTriggerVariants({ variant, size }), className)}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className='h-4 w-4 opacity-50' />
+      <ChevronDown className='h-4 w-4 shrink-0 opacity-50' />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))
@@ -150,6 +178,7 @@ export {
   SelectGroup,
   SelectValue,
   SelectTrigger,
+  selectTriggerVariants,
   SelectContent,
   SelectLabel,
   SelectItem,

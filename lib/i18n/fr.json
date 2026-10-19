@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "« {filename} » n’est pas d’un type pris en charge — utilisez PNG, JPEG, WebP, GIF, texte ou JSON.",
   "testCases.report.state.skipped": "Ignorée",
   "formDialog.collapse": "Réduire",
-  "formDialog.expand": "Agrandir"
+  "formDialog.expand": "Agrandir",
+  "task.section.planning": "Planification",
+  "task.section.relations": "Relations",
+  "task.showProperties": "Afficher les propriétés"
 }

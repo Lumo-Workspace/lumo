@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang disokong — gunakan PNG, JPEG, WebP, GIF, teks atau JSON.",
   "testCases.report.state.skipped": "Dilangkau",
   "formDialog.collapse": "Kuncupkan",
-  "formDialog.expand": "Kembangkan"
+  "formDialog.expand": "Kembangkan",
+  "task.section.planning": "Perancangan",
+  "task.section.relations": "Hubungan",
+  "task.showProperties": "Tunjukkan sifat"
 }

@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "“{filename}” समर्थित प्रकार नहीं है — PNG, JPEG, WebP, GIF, टेक्स्ट या JSON का उपयोग करें।",
   "testCases.report.state.skipped": "छोड़ा गया",
   "formDialog.collapse": "संक्षिप्त करें",
-  "formDialog.expand": "विस्तार करें"
+  "formDialog.expand": "विस्तार करें",
+  "task.section.planning": "योजना",
+  "task.section.relations": "संबंध",
+  "task.showProperties": "गुण दिखाएँ"
 }

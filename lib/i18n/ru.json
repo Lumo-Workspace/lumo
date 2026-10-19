@@ -2916,5 +2916,8 @@
   "testCases.field.evidenceFiles.badType": "«{filename}» — неподдерживаемый тип. Используйте PNG, JPEG, WebP, GIF, текст или JSON.",
   "testCases.report.state.skipped": "Пропущен",
   "formDialog.collapse": "Свернуть",
-  "formDialog.expand": "Развернуть"
+  "formDialog.expand": "Развернуть",
+  "task.section.planning": "Планирование",
+  "task.section.relations": "Связи",
+  "task.showProperties": "Показать свойства"
 }
