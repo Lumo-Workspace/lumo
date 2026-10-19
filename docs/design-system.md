@@ -203,7 +203,7 @@ in `app/globals.css`; each bundles size, line-height, weight and tracking
 | ------------------ | ------------- | ---------------------------------------- |
 | `text-caption`     | 12px · 500    | metadata, timestamps, labels, badges     |
 | `text-body`        | 14px · 400    | default body text, table cells           |
-| `text-body-strong` | 14px · 600    | emphasized body, row titles, form labels |
+| `text-body-strong` | 14px · 500    | emphasized body, row titles, form labels |
 | `text-title`       | 16px · 600    | card / dialog / section titles           |
 | `text-heading`     | 20px · 600    | page / panel headings                    |
 | `text-display`     | 30px · 700    | hero, large empty states (rare)          |

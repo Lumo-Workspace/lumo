@@ -9,7 +9,7 @@ letter-spacing. **Color is orthogonal** — apply `text-muted-foreground` /
 | ------------------ | ---- | -------------- | ----------- | -------------- | ----------------------------------------------------- |
 | `text-caption`     | 12px | medium (500)   | 1.4         | —              | metadata, timestamps, labels, secondary table columns |
 | `text-body`        | 14px | normal (400)   | 1.5         | —              | default body — table cells, descriptions, most text   |
-| `text-body-strong` | 14px | semibold (600) | 1.5         | —              | emphasized body, row titles, form labels              |
+| `text-body-strong` | 14px | medium (500)   | 1.5         | —              | emphasized body, row titles, form labels              |
 | `text-title`       | 16px | semibold (600) | 1.4         | -0.01em        | card titles, section titles                           |
 | `text-heading`     | 20px | semibold (600) | 1.3         | -0.01em        | page / panel main heading                             |
 | `text-display`     | 30px | bold (700)     | 1.2         | -0.02em        | hero, large empty-state copy (low frequency)          |
@@ -37,9 +37,10 @@ letter-spacing. **Color is orthogonal** — apply `text-muted-foreground` /
 
 **Note on weight:** the tiers bundle a deliberate, consistent weight. Because raw
 `text-xs`/`text-sm` carried no weight class (rendering at the inherited ~400),
-migration intentionally unifies weights — captions settle at 500 and emphasized
-body at 600. This is a small, intentional hierarchy normalization, not a
-pixel-for-pixel preservation of the old rendering.
+migration intentionally unifies weights — captions and emphasized body settle at
+500 (body-strong matches shadcn's `font-medium` on buttons, tabs and labels;
+user ruling in LUM-1244). This is a small, intentional hierarchy normalization,
+not a pixel-for-pixel preservation of the old rendering.
 
 ## tailwind-merge
 

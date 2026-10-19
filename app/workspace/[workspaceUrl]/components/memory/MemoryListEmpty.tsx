@@ -54,8 +54,8 @@ export function MemoryListEmpty({
             {noResults ? <SearchX /> : <Brain />}
           </EmptyMedia>
           {/* `text-body-strong` replaces EmptyTitle's default `text-title` (cn
-              merges the two tiers); the semibold weight is kept explicit. */}
-          <EmptyTitle className='text-body-strong font-semibold'>
+              merges the two tiers), so the title takes the tier's weight. */}
+          <EmptyTitle className='text-body-strong'>
             {intl.formatMessage({
               id: noResults
                 ? 'memory.list.empty.noResults.title'

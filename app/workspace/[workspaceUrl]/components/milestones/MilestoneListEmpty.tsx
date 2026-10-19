@@ -58,8 +58,8 @@ export function MilestoneListEmpty({ tab, onCreate }: Props) {
           {/* Sized to the dense rows this replaces, not to a full-page empty
               state — the list lives inside a project tab. `text-body-strong`
               replaces EmptyTitle's default `text-title` (cn merges the two
-              tiers); the semibold weight is kept explicit. */}
-          <EmptyTitle className='text-body-strong font-semibold'>
+              tiers), so the title takes the tier's weight. */}
+          <EmptyTitle className='text-body-strong'>
             {intl.formatMessage({ id: copy.title })}
           </EmptyTitle>
           <EmptyDescription>
