@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -153,9 +154,9 @@ export function CommentSection({
                   id: 'task.commentSubmit',
                   defaultMessage: 'Comment',
                 })}
-                <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
+                <Kbd variant='solid' className='ml-0.5'>
                   {isMac ? '⌘↵' : 'Ctrl+↵'}
-                </kbd>
+                </Kbd>
               </Button>
             </div>
           </div>
@@ -199,7 +200,9 @@ export function CommentSection({
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-caption opacity-60 font-sans'>↵</kbd>
+              <Kbd variant='solid' className='ml-1.5'>
+                ↵
+              </Kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
