@@ -120,7 +120,7 @@ export function TaskDetailComments({
                 {/* ── Top-level comment ── */}
                 <div
                   id={`comment-${comment.id}`}
-                  className={`group flex gap-2.5 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                  className={`group flex gap-2.5 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === comment.id ? 'bg-warning-subtle' : ''}`}
                 >
                   <CommentAvatar
                     isAgent={ca.isAgent}
@@ -253,7 +253,7 @@ export function TaskDetailComments({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
+                                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-danger-text transition-colors disabled:opacity-40'
                                 disabled={isDeleting}
                                 onClick={() =>
                                   tc.setConfirmDeleteId(comment.id)
@@ -298,7 +298,7 @@ export function TaskDetailComments({
                         <div
                           key={reply.id}
                           id={`comment-${reply.id}`}
-                          className={`group flex gap-2 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                          className={`group flex gap-2 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === reply.id ? 'bg-warning-subtle' : ''}`}
                         >
                           <CommentAvatar
                             isAgent={ra.isAgent}
@@ -480,7 +480,7 @@ export function TaskDetailComments({
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
-                                        className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
+                                        className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-danger-text transition-colors disabled:opacity-40'
                                         disabled={rIsDeleting}
                                         onClick={() =>
                                           tc.setConfirmDeleteId(reply.id)

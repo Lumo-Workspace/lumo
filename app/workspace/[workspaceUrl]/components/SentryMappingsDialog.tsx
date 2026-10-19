@@ -81,7 +81,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
                   <span>{projectName(m.projectId)}</span>
                 </div>
                 <button
-                  className='text-red-500 hover:bg-red-500/10 p-1 rounded-sm'
+                  className='text-danger-text hover:bg-danger-subtle p-1 rounded-sm'
                   onClick={() => removeMapping(m.id)}
                   aria-label={intl.formatMessage({
                     id: 'sentry.mappingsRemoveAriaLabel',

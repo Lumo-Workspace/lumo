@@ -47,8 +47,8 @@ const STATUS_ICON: Record<DerivedSprintState, typeof Circle> = {
 }
 
 const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
-  CURRENT: 'text-emerald-500',
-  UPCOMING: 'text-sky-500',
+  CURRENT: 'text-success-text',
+  UPCOMING: 'text-info-text',
   COMPLETED: 'text-muted-foreground',
 }
 

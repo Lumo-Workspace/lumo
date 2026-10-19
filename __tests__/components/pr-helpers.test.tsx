@@ -16,7 +16,11 @@ jest.mock('@/components/ui/tooltip', () => ({
 }))
 
 import { render } from '@testing-library/react'
-import { CiIcon } from '@/app/workspace/[workspaceUrl]/components/pr-helpers'
+import {
+  CiIcon,
+  PrStateBadge,
+} from '@/app/workspace/[workspaceUrl]/components/pr-helpers'
+import { PrBadge } from '@/app/workspace/[workspaceUrl]/components/PrBadge'
 
 describe('CiIcon', () => {
   it.each([
@@ -46,4 +50,34 @@ describe('CiIcon', () => {
       expect(getByTestId('tooltip-content').textContent).toBe('task.ciUnknown')
     }
   )
+})
+
+// LUM-1245: GitHub's PR state colours expressed with semantic tokens.
+describe('PR state colours', () => {
+  it.each([
+    ['open', 'Open', ['bg-success-subtle', 'text-success-text']],
+    [
+      'merged',
+      'Merged',
+      ['bg-status-in-review-subtle', 'text-status-in-review-text'],
+    ],
+    ['closed', 'Closed', ['bg-danger-subtle', 'text-danger-text']],
+    ['draft', 'Draft', ['bg-muted', 'text-muted-foreground']],
+  ])(
+    'PrStateBadge state=%s uses the GitHub colour token',
+    (state, label, cls) => {
+      const { getByText } = render(<PrStateBadge state={state} />)
+      const badge = getByText(label)
+      for (const c of cls) expect(badge.className).toContain(c)
+    }
+  )
+
+  it.each([
+    ['open', 'text-success-text'],
+    ['merged', 'text-status-in-review-text'],
+  ] as const)('PrBadge state=%s matches PrStateBadge', (state, cls) => {
+    const { container } = render(<PrBadge state={state} />)
+    const el = container.querySelector(`[data-pr-state='${state}']`)
+    expect(el?.className).toContain(cls)
+  })
 })

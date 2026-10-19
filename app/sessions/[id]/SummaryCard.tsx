@@ -552,9 +552,9 @@ function StatusChip({ status }: { status: DebugStatus }) {
   const intl = useIntl()
   const className =
     status === 'fixed'
-      ? 'bg-green-100 text-green-900 border-green-300'
+      ? 'bg-success-subtle text-success-text border-success-border'
       : status === 'partial'
-        ? 'bg-amber-100 text-amber-900 border-amber-300'
+        ? 'bg-warning-subtle text-warning-text border-warning-border'
         : 'bg-danger-subtle text-danger-text border-danger-border'
   return (
     <span

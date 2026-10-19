@@ -147,7 +147,9 @@ export function MemoryTab({
   }
 
   if (error) {
-    return <div className='py-8 text-center text-xs text-red-500'>{error}</div>
+    return (
+      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+    )
   }
 
   // While loading, the chrome stays and only the list body is a placeholder —

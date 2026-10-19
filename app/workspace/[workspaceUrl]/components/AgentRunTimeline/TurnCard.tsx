@@ -30,7 +30,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
         <span
           className={
             hasMemory
-              ? 'text-caption font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300'
+              ? 'text-caption font-semibold uppercase tracking-wide text-info-text'
               : 'text-caption font-medium uppercase tracking-wide text-muted-foreground'
           }
         >
@@ -43,7 +43,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           {timeRange}
         </span>
         {!turn.terminated && (
-          <span className='text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 px-1.5 py-px rounded-sm bg-amber-50 dark:bg-amber-950/40'>
+          <span className='text-[10px] uppercase tracking-wide text-warning-text px-1.5 py-px rounded-sm bg-warning-subtle'>
             {intl.formatMessage({
               id: 'agentRun.unterminatedTurn',
               defaultMessage: '未终止',
@@ -116,7 +116,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             onClick={() => setExpanded(v => !v)}
             className={
               hasMemory
-                ? 'flex items-center gap-1 text-caption text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors'
+                ? 'flex items-center gap-1 text-caption text-info-text hover:text-foreground transition-colors'
                 : 'flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors'
             }
           >

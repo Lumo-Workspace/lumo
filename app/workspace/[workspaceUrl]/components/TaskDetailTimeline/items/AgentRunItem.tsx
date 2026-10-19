@@ -19,7 +19,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
   > = {
     AGENT_RUN_STARTED: {
       icon: Bot,
-      color: 'text-blue-500',
+      color: 'text-info-text',
       label: intl.formatMessage(
         {
           id: 'activity.agentRunStarted',
@@ -30,7 +30,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
     },
     AGENT_RUN_COMPLETED: {
       icon: CheckCircle2,
-      color: 'text-green-500',
+      color: 'text-success-text',
       label: intl.formatMessage(
         {
           id: 'activity.agentRunCompleted',
@@ -41,7 +41,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
     },
     AGENT_RUN_FAILED: {
       icon: XCircle,
-      color: 'text-red-500',
+      color: 'text-danger-text',
       label: intl.formatMessage(
         {
           id: 'activity.agentRunFailed',
@@ -52,7 +52,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
     },
     AGENT_INPUT_REQUIRED: {
       icon: MessageCircleQuestion,
-      color: 'text-amber-500',
+      color: 'text-warning-text',
       label: intl.formatMessage(
         {
           id: 'activity.agentInputRequired',
@@ -76,12 +76,12 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
       <div className='flex-1 min-w-0'>
         <p className='text-caption text-foreground'>{c.label}</p>
         {payload.errorCode != null && (
-          <p className='text-[11px] text-red-500 mt-0.5'>
+          <p className='text-[11px] text-danger-text mt-0.5'>
             {String(payload.errorCode)}
           </p>
         )}
         {payload.reason != null && (
-          <p className='text-[11px] text-amber-600 dark:text-amber-400 mt-0.5'>
+          <p className='text-[11px] text-warning-text mt-0.5'>
             {String(payload.reason)}
           </p>
         )}

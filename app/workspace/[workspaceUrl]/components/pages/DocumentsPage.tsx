@@ -158,7 +158,7 @@ export function DocumentsPage({
             {intl.formatMessage({ id: 'documents.copyLink' })}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className='text-red-500'
+            className='text-danger-text'
             onClick={e => {
               e.stopPropagation()
               setDeleteId(doc.id)

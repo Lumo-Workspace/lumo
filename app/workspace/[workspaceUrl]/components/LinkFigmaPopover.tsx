@@ -143,15 +143,12 @@ export function LinkFigmaPopover({
                   id: 'task.figma.urlPlaceholder',
                   defaultMessage: 'Paste a Figma URL…',
                 })}
-                className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
+                className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
                 autoFocus
               />
             </div>
             {error && (
-              <p
-                role='alert'
-                className='px-3 py-2 text-xs text-red-500 dark:text-red-400'
-              >
+              <p role='alert' className='px-3 py-2 text-xs text-danger-text'>
                 {error}
               </p>
             )}

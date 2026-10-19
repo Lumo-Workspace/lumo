@@ -148,7 +148,7 @@ export function FigmaLinkCard({
           </div>
 
           {!link.loading && link.lastSyncError && (
-            <p className='mt-0.5 text-caption text-amber-600 dark:text-amber-400'>
+            <p className='mt-0.5 text-caption text-warning-text'>
               {link.lastSyncError}
             </p>
           )}

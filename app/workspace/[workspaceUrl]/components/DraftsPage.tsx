@@ -150,7 +150,7 @@ export function DraftsPage({
                         <p className='text-sm font-medium text-foreground truncate'>
                           {project.name}
                         </p>
-                        <p className='text-xs text-amber-600 dark:text-amber-400 mt-0.5'>
+                        <p className='text-xs text-warning-text mt-0.5'>
                           {intl.formatMessage({ id: 'drafts.ideaProject' })}
                         </p>
                       </div>
@@ -191,10 +191,7 @@ export function DraftsPage({
                 defaultMessage: 'Cancel',
               })}
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
-            >
+            <AlertDialogAction onClick={confirmDelete} variant='destructive'>
               {intl.formatMessage({
                 id: 'common.delete',
                 defaultMessage: 'Delete',
@@ -246,7 +243,7 @@ function DraftCard({
         <Button
           variant='ghost'
           size='sm'
-          className='h-7 w-7 p-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
+          className='h-7 w-7 p-0 text-muted-foreground hover:text-danger-text hover:bg-danger-subtle'
           onClick={e => {
             e.stopPropagation()
             onDelete()
