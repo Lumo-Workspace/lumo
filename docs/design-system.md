@@ -44,7 +44,7 @@ in components — add or extend a token.
 | `--destructive-foreground` | `#ffffff` | `#ffffff` | Text on destructive                                     |
 | `--border`                 | `#e2e8f0` | `#2a2a2a` | Default border, dividers, scrollbar thumb               |
 | `--input`                  | `#ffffff` | `#1a1a1a` | Form input background                                   |
-| `--ring`                   | `#a1a1aa` | `#71717a` | Focus ring (see [Focus rings](#focus-rings))            |
+| `--ring`                   | `#3b82f6` | `#3b82f6` | Focus ring (see [Focus rings](#focus-rings))            |
 
 ### Semantic status tokens
 
@@ -221,9 +221,10 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 ## Focus rings
 
-- Token: `--ring` (= `#a1a1aa` light, `#71717a` dark).
-- Base style is set globally: `outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent)`.
-- For component focus, prefer Tailwind `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` (shadcn pattern) — never roll a hard-coded ring color.
+- Token: `--ring: var(--focus-ring)`, where `--focus-ring` = `oklch(0.6231 0.188 259.813)` (`#3b82f6`, blue). Defined once in `:root` with no `.dark` override, so it is identical in light and dark (LUM-262). `--sidebar-ring` derives from `--focus-ring` too.
+- Base style is set globally in `@layer base`: `* { @apply border-border outline-ring/50; }` — this only sets the outline **colour** (`--ring` at 50%); it doesn't draw an outline by itself.
+- Primitives (`Button`, `Badge`, `Textarea`) use `focus-visible:ring-[3px] focus-visible:ring-ring/50` plus `focus-visible:border-ring`. `Input` and `Select` only switch the border to `border-ring` (no ring shadow). Never roll a hard-coded ring colour.
+- Borderless document-style fields (title / description inputs in create modals, inline table edits, the memory and milestone dialogs) deliberately get no ring (`focus:ring-0 outline-none`) — focus reads from the caret, not a box.
 
 ## Motion
 
