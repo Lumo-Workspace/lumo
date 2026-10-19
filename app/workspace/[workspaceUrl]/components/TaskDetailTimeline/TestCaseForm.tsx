@@ -2,6 +2,10 @@
 
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { TestCase } from '@prisma/client'
 import type { CreateTestCaseBody } from '@/lib/validation/test-case'
@@ -19,9 +23,6 @@ interface TestCaseFormProps {
   onSubmit: (body: CreateTestCaseBody) => Promise<void> | void
   onCancel: () => void
 }
-
-const fieldClass =
-  'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
 /** Radix Select can't hold an item with value "" — "any environment" maps to this. */
 const ANY_ENV = 'ANY'
@@ -54,8 +55,8 @@ function StepList({
           <span className='w-4 tabular-nums text-caption text-muted-foreground/70'>
             {i + 1}
           </span>
-          <input
-            className={`${fieldClass} flex-1`}
+          <Input
+            className='flex-1'
             value={value}
             onChange={e => {
               const next = [...items]
@@ -71,39 +72,47 @@ function StepList({
               )
             }
           />
-          <button
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveUp' })}
             onClick={() => move(i, i - 1)}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground'
           >
             ↑
-          </button>
-          <button
+          </Button>
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveDown' })}
             onClick={() => move(i, i + 1)}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground'
           >
             ↓
-          </button>
-          <button
+          </Button>
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.removeStep' })}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground'
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
-      <button
+      <Button
         type='button'
+        variant='ghost'
+        size='sm'
         onClick={() => onChange([...items, ''])}
-        className='self-start text-caption text-muted-foreground hover:text-foreground'
+        className='self-start text-muted-foreground'
       >
         + {addLabel}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -168,14 +177,13 @@ export function TestCaseForm({
   }
 
   return (
-    <div className='flex flex-col gap-3 rounded-md border border-border px-3 py-3'>
+    <Card className='flex flex-col gap-3 rounded-md px-3 py-3'>
       <div className='flex flex-col gap-2'>
         <Label htmlFor={`${fieldId}-title`}>
           {intl.formatMessage({ id: 'testCases.form.title' })}
         </Label>
-        <input
+        <Input
           id={`${fieldId}-title`}
-          className={fieldClass}
           value={title}
           onChange={e => setTitle(e.target.value)}
           onFocus={e =>
@@ -191,9 +199,8 @@ export function TestCaseForm({
         <Label htmlFor={`${fieldId}-setup`}>
           {intl.formatMessage({ id: 'testCases.form.setup' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-setup`}
-          className={fieldClass}
           rows={2}
           value={setup}
           onChange={e => setSetup(e.target.value)}
@@ -218,9 +225,8 @@ export function TestCaseForm({
         <Label htmlFor={`${fieldId}-expected`}>
           {intl.formatMessage({ id: 'testCases.form.expected' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-expected`}
-          className={fieldClass}
           rows={2}
           value={expected}
           onChange={e => setExpected(e.target.value)}
@@ -264,24 +270,15 @@ export function TestCaseForm({
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       <div className='flex gap-2'>
-        <button
-          type='button'
-          onClick={submit}
-          disabled={busy}
-          className='rounded-sm border border-foreground px-2 py-1 text-body text-foreground disabled:opacity-50'
-        >
+        <Button type='button' size='sm' onClick={submit} disabled={busy}>
           {intl.formatMessage({
             id: initial ? 'testCases.action.save' : 'testCases.action.create',
           })}
-        </button>
-        <button
-          type='button'
-          onClick={onCancel}
-          className='px-2 py-1 text-body text-muted-foreground hover:text-foreground'
-        >
+        </Button>
+        <Button type='button' variant='ghost' size='sm' onClick={onCancel}>
           {intl.formatMessage({ id: 'testCases.action.cancel' })}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl, type IntlShape } from 'react-intl'
+import { Badge } from '@/components/ui/badge'
 import {
   dedupeEvidence,
   groupSubagents,
@@ -43,20 +44,26 @@ export function RunAttributionBadge({
   }
   return (
     <>
-      <span
+      <Badge
         data-testid='run-attribution-badge'
-        className='px-2 py-0.5 rounded-md border border-border text-caption text-muted-foreground shrink-0'
+        variant='outline-muted'
+        size='sm'
+        shape='square'
+        className='shrink-0'
       >
         {text}
-      </span>
+      </Badge>
       {attribution.approximate && (
-        <span
+        <Badge
           data-testid='run-approximate'
           title={intl.formatMessage(APPROXIMATE_NOTICE)}
-          className='px-2 py-0.5 rounded-md border border-border text-caption text-warning-text shrink-0'
+          variant='outline-muted'
+          size='sm'
+          shape='square'
+          className='shrink-0 text-warning-text'
         >
           {intl.formatMessage(APPROXIMATE_LABEL)}
-        </span>
+        </Badge>
       )}
     </>
   )

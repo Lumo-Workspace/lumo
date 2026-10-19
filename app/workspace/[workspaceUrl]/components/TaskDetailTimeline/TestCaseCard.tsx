@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
 import { Check, ChevronRight, CircleDashed, Minus, X } from 'lucide-react'
 import type {
   TestCaseRunView,
@@ -278,27 +279,33 @@ export function TestCaseCard({
             ) : null}
 
             <footer className='flex gap-3 text-caption'>
-              <button
+              <Button
                 type='button'
+                variant='link'
                 onClick={onRecordRun}
-                className='text-foreground underline-offset-2 hover:underline'
+                size='inline'
+                className='text-caption text-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.recordRun' })}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='link'
                 onClick={onEdit}
-                className='text-muted-foreground hover:text-foreground'
+                size='inline'
+                className='text-caption text-muted-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.edit' })}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='link'
                 onClick={onRemove}
-                className='text-muted-foreground hover:text-foreground'
+                size='inline'
+                className='text-caption text-muted-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.remove' })}
-              </button>
+              </Button>
             </footer>
           </div>
         </CollapsibleContent>

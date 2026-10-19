@@ -4,6 +4,7 @@ import * as React from 'react'
 import * as CollapsiblePrimitive from '@radix-ui/react-collapsible'
 
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 
 const Collapsible = CollapsiblePrimitive.Root
 
@@ -44,4 +45,24 @@ const CollapsibleContent = React.forwardRef<
 CollapsibleContent.displayName =
   CollapsiblePrimitive.CollapsibleContent.displayName
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent }
+/**
+ * A disclosure whose root is a Card surface: the Collapsible root renders the
+ * Card surface instead of a bare div. Takes the
+ * same props as `Collapsible`; `className` adjusts the card.
+ */
+const CollapsibleCard = React.forwardRef<
+  HTMLDivElement,
+  Omit<
+    React.ComponentPropsWithoutRef<typeof CollapsiblePrimitive.Root>,
+    'asChild'
+  >
+>(({ className, children, ...props }, ref) => (
+  <CollapsiblePrimitive.Root asChild {...props}>
+    <Card ref={ref} className={className}>
+      {children}
+    </Card>
+  </CollapsiblePrimitive.Root>
+))
+CollapsibleCard.displayName = 'CollapsibleCard'
+
+export { Collapsible, CollapsibleCard, CollapsibleTrigger, CollapsibleContent }

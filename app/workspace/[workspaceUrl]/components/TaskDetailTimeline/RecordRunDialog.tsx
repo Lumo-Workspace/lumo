@@ -2,6 +2,10 @@
 
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
@@ -53,9 +57,6 @@ interface RecordRunDialogProps {
   onSubmit: (body: RecordRunBody, files: File[]) => Promise<void> | void
   onClose: () => void
 }
-
-const fieldClass =
-  'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
 /** Radix Select can't hold an item with value "" — "no PR" maps to this. */
 const NO_PR = 'none'
@@ -290,7 +291,7 @@ export function RecordRunDialog({
   }
 
   return (
-    <div className='flex flex-col gap-3 rounded-md border border-border px-3 py-3'>
+    <Card className='flex flex-col gap-3 rounded-md px-3 py-3'>
       <p className='text-body-strong text-foreground'>
         {intl.formatMessage({ id: 'testCases.dialog.title' })}
       </p>
@@ -428,9 +429,8 @@ export function RecordRunDialog({
           <Label htmlFor={`${fieldId}-actual`}>
             {intl.formatMessage({ id: 'testCases.field.actual' })}
           </Label>
-          <textarea
+          <Textarea
             id={`${fieldId}-actual`}
-            className={fieldClass}
             value={actual}
             onChange={e => setActual(e.target.value)}
             placeholder={intl.formatMessage({
@@ -445,9 +445,8 @@ export function RecordRunDialog({
         <Label htmlFor={`${fieldId}-note`}>
           {intl.formatMessage({ id: 'testCases.field.note' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-note`}
-          className={fieldClass}
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
@@ -458,10 +457,10 @@ export function RecordRunDialog({
         <Label htmlFor={`${fieldId}-evidence`}>
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
         </Label>
-        <input
+        <Input
           id={`${fieldId}-evidence`}
           type='file'
-          className='text-body text-muted-foreground'
+          className='text-muted-foreground'
           multiple
           accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
@@ -475,22 +474,13 @@ export function RecordRunDialog({
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       <div className='flex gap-2'>
-        <button
-          type='button'
-          onClick={submit}
-          disabled={busy}
-          className='rounded-sm border border-foreground px-2 py-1 text-body text-foreground disabled:opacity-50'
-        >
+        <Button type='button' size='sm' onClick={submit} disabled={busy}>
           {intl.formatMessage({ id: 'testCases.action.record' })}
-        </button>
-        <button
-          type='button'
-          onClick={onClose}
-          className='px-2 py-1 text-body text-muted-foreground hover:text-foreground'
-        >
+        </Button>
+        <Button type='button' variant='ghost' size='sm' onClick={onClose}>
           {intl.formatMessage({ id: 'testCases.action.cancel' })}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }

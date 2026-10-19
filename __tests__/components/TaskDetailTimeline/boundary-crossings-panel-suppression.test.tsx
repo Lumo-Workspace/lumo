@@ -137,6 +137,10 @@ describe('LUM-751 — repository suppression rules in the panel', () => {
     // no human-disposition buttons on a system-dispositioned row
     expect(screen.queryByTestId('boundary-false-positive-bc-s')).toBeNull()
 
+    // LUM-1272: still reads as an always-underlined inline link.
+    expect(screen.getByTestId('boundary-revoke-rule-bc-s')).toHaveClass(
+      'underline'
+    )
     fireEvent.click(screen.getByTestId('boundary-revoke-rule-bc-s'))
     await waitFor(() =>
       expect(mockRevoke).toHaveBeenCalledWith('LUM-751', 'rule-1abcdef')
