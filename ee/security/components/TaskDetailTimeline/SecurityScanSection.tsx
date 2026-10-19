@@ -66,6 +66,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
@@ -964,11 +965,14 @@ function JudgePartialNotice({
   const named = partial.skippedPaths.slice(0, JUDGE_PARTIAL_MAX_NAMED)
   const rest = partial.skippedPaths.length - named.length
   return (
-    <div
+    <Alert
+      variant='warning'
+      size='sm'
+      role='note'
       data-testid='scan-judge-partial'
-      className='space-y-1 rounded-md border border-warning-border bg-warning-subtle px-3 py-2'
+      className='gap-y-1'
     >
-      <p className='text-caption text-foreground/80'>
+      <p>
         {intl.formatMessage(
           { id: 'securityScan.judgePartial' },
           {
@@ -994,7 +998,7 @@ function JudgePartialNotice({
           </li>
         )}
       </ul>
-    </div>
+    </Alert>
   )
 }
 
@@ -1025,12 +1029,14 @@ function PrTooLargeNotice({
         : intl.formatMessage({ id: 'securityScan.prTooLarge.diffRefused' })
   if (files === null || files <= tooLarge.capFiles)
     return (
-      <p
+      <Alert
+        variant='warning'
+        size='sm'
+        role='note'
         data-testid='scan-pr-too-large'
-        className='rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-caption text-foreground/80'
       >
-        {message}
-      </p>
+        <p>{message}</p>
+      </Alert>
     )
   return (
     <OverCapNotice
@@ -1061,11 +1067,14 @@ function OverCapNotice({
 }) {
   const capAt = size > 0 ? Math.min(100, (cap / size) * 100) : 100
   return (
-    <div
+    <Alert
+      variant='warning'
+      size='sm'
+      role='note'
       data-testid={testId}
-      className='space-y-2 rounded-md border border-warning-border bg-warning-subtle px-3 py-2'
+      className='gap-y-2'
     >
-      <p className='text-caption text-foreground/80'>{children}</p>
+      <p>{children}</p>
       <div
         aria-hidden
         className='relative h-1.5 overflow-visible rounded-full bg-warning-border'
@@ -1075,7 +1084,7 @@ function OverCapNotice({
           style={{ left: `${capAt}%` }}
         />
       </div>
-    </div>
+    </Alert>
   )
 }
 

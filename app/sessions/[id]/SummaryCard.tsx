@@ -15,6 +15,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
@@ -179,9 +180,10 @@ export function SummaryCard({
       </header>
 
       {error && (
-        <p className='mb-3 rounded-sm border border-danger-border bg-danger-subtle px-3 py-2 text-body text-danger-text'>
-          {error}
-        </p>
+        <Alert variant='danger' size='sm' className='mb-3'>
+          <CircleAlert />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {hasSummary ? (

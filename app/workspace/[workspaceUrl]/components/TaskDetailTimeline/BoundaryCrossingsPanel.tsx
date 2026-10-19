@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/collapsible'
 import { tasksClient } from '@/lib/api-client'
 import { PluginSlot } from '@/lib/plugins/client'
+import { Checkbox } from '@/components/ui/checkbox'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -1309,12 +1310,11 @@ function CrossingRow({
               HIGH classes (the server refuses those with 422 anyway). */}
             {c.suppressible && (
               <label className='flex items-center gap-2 text-caption text-muted-foreground'>
-                <input
-                  type='checkbox'
+                <Checkbox
                   data-testid={`boundary-suppress-similar-${c.id}`}
                   checked={suppress}
                   disabled={pending}
-                  onChange={e => onSuppressChange(e.target.checked)}
+                  onCheckedChange={v => onSuppressChange(v === true)}
                 />
                 {intl.formatMessage({
                   id: 'boundary.panel.suppressSimilar',
@@ -1328,15 +1328,12 @@ function CrossingRow({
               (the server computes `suppressionDirectory` and refuses others). */}
             {c.suppressible && suppress && c.suppressionDirectory && (
               <label className='flex items-center gap-2 pl-5 text-caption text-muted-foreground'>
-                <input
-                  type='checkbox'
+                <Checkbox
                   data-testid={`boundary-suppress-directory-${c.id}`}
                   checked={suppressScope === 'directory'}
                   disabled={pending}
-                  onChange={e =>
-                    onSuppressScopeChange(
-                      e.target.checked ? 'directory' : 'exact'
-                    )
+                  onCheckedChange={v =>
+                    onSuppressScopeChange(v === true ? 'directory' : 'exact')
                   }
                 />
                 {intl.formatMessage(

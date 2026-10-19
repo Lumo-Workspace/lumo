@@ -1,9 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { TestCase } from '@prisma/client'
 import type { CreateTestCaseBody } from '@/lib/validation/test-case'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface TestCaseFormProps {
   /** 存在即编辑模式。 */
@@ -14,6 +21,9 @@ interface TestCaseFormProps {
 
 const fieldClass =
   'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
+
+/** Radix Select can't hold an item with value "" — "any environment" maps to this. */
+const ANY_ENV = 'ANY'
 
 /** 一段有序的动态列表（增 / 删 / 上移 / 下移）。 */
 function StepList({
@@ -109,6 +119,7 @@ export function TestCaseForm({
   onCancel,
 }: TestCaseFormProps) {
   const intl = useIntl()
+  const fieldId = useId()
   const [title, setTitle] = useState(initial?.title ?? '')
   const [setup, setSetup] = useState(initial?.setup ?? '')
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [''])
@@ -206,30 +217,39 @@ export function TestCaseForm({
         />
       </label>
 
-      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.form.requiresEnv' })}
-        <select
-          className={fieldClass}
-          value={requiredEnvironment}
-          onChange={e =>
+      <div className='flex flex-col gap-1 text-body text-muted-foreground'>
+        <label htmlFor={`${fieldId}-requires-env`}>
+          {intl.formatMessage({ id: 'testCases.form.requiresEnv' })}
+        </label>
+        <Select
+          value={requiredEnvironment || ANY_ENV}
+          onValueChange={v =>
             setRequiredEnvironment(
-              e.target.value as '' | 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
+              v === ANY_ENV ? '' : (v as 'LOCAL' | 'PREVIEW' | 'PRODUCTION')
             )
           }
         >
-          <option value=''>
-            {intl.formatMessage({ id: 'testCases.form.requiresEnv.any' })}
-          </option>
-          {(['LOCAL', 'PREVIEW', 'PRODUCTION'] as const).map(env => (
-            <option key={env} value={env}>
-              {intl.formatMessage({ id: `testCases.env.${env}` })}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            id={`${fieldId}-requires-env`}
+            className='text-foreground'
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY_ENV}>
+              {intl.formatMessage({ id: 'testCases.form.requiresEnv.any' })}
+            </SelectItem>
+            {(['LOCAL', 'PREVIEW', 'PRODUCTION'] as const).map(env => (
+              <SelectItem key={env} value={env}>
+                {intl.formatMessage({ id: `testCases.env.${env}` })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className='text-caption'>
           {intl.formatMessage({ id: 'testCases.form.requiresEnv.hint' })}
         </span>
-      </label>
+      </div>
 
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
