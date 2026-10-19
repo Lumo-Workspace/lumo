@@ -175,23 +175,61 @@ unset state.
 Source of truth: `components/ui/typography.tsx`. Use these components in
 preference to raw `<h1>` … `<h6>` so the scale stays consistent.
 
-| Component                                      | Element            | Size · Weight                                    | Notes                                                                                                                                                                           |
-| ---------------------------------------------- | ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<TypographyH1>`                               | `<h1>`             | `text-4xl` · `font-extrabold` · `tracking-tight` | Props: `align` (`left` default, `center`, `right`), `balance` (default off). Default is the conservative app-heading idiom; pass `align="center" balance` for marketing heroes. |
-| `<TypographyH2>`                               | `<h2>`             | `text-3xl` · `font-semibold` · bottom border     | `first:mt-0` so it sits flush at top of section.                                                                                                                                |
-| `<TypographyH3>`                               | `<h3>`             | `text-2xl` · `font-semibold`                     |                                                                                                                                                                                 |
-| `<TypographyH4>`                               | `<h4>`             | `text-xl` · `font-semibold`                      |                                                                                                                                                                                 |
-| `<TypographyH5>`                               | `<h5>`             | `text-lg` · `font-semibold`                      |                                                                                                                                                                                 |
-| `<TypographyH6>`                               | `<h6>`             | `text-base` · `font-semibold`                    |                                                                                                                                                                                 |
-| `<TypographyP>`                                | `<p>`              | `leading-7` + top margin after siblings          |                                                                                                                                                                                 |
-| `<TypographyLead>`                             | `<p>`              | `text-xl text-muted-foreground`                  | Sub-heading callouts                                                                                                                                                            |
-| `<TypographyLarge>`                            | `<div>`            | `text-lg font-semibold`                          |                                                                                                                                                                                 |
-| `<TypographySmall>`                            | `<small>`          | `text-sm leading-none font-medium`               |                                                                                                                                                                                 |
-| `<TypographyMuted>`                            | `<p>`              | `text-sm text-muted-foreground`                  |                                                                                                                                                                                 |
-| `<TypographyBlockquote>`                       | `<blockquote>`     | left-border + italic                             |                                                                                                                                                                                 |
-| `<TypographyList>` / `<TypographyOrderedList>` | `<ul>` / `<ol>`    | `list-disc` / `list-decimal` with item spacing   |                                                                                                                                                                                 |
-| `<TypographyInlineCode>` / `<TypographyCode>`  | `<code>` / `<pre>` | Mono, tokenized via `--muted` / `--foreground`   |                                                                                                                                                                                 |
-| `<TypographyTable*>`                           | `<table>` family   | Tokenized via `--border` / `--muted`             |                                                                                                                                                                                 |
+| Component                                      | Element            | Size · Weight                                  | Notes                                                                                                                                                                           |
+| ---------------------------------------------- | ------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<TypographyH1>`                               | `<h1>`             | `text-display` · `tracking-tight`              | Props: `align` (`left` default, `center`, `right`), `balance` (default off). Default is the conservative app-heading idiom; pass `align="center" balance` for marketing heroes. |
+| `<TypographyH2>`                               | `<h2>`             | `text-heading` · bottom border                 | `first:mt-0` so it sits flush at top of section.                                                                                                                                |
+| `<TypographyH3>`                               | `<h3>`             | `text-heading`                                 |                                                                                                                                                                                 |
+| `<TypographyH4>`                               | `<h4>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyH5>`                               | `<h5>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyH6>`                               | `<h6>`             | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographyP>`                                | `<p>`              | `text-body` + top margin after siblings        |                                                                                                                                                                                 |
+| `<TypographyLead>`                             | `<p>`              | `text-heading text-muted-foreground`           | Sub-heading callouts                                                                                                                                                            |
+| `<TypographyLarge>`                            | `<div>`            | `text-title`                                   |                                                                                                                                                                                 |
+| `<TypographySmall>`                            | `<small>`          | `text-caption leading-none`                    |                                                                                                                                                                                 |
+| `<TypographyMuted>`                            | `<p>`              | `text-caption text-muted-foreground`           |                                                                                                                                                                                 |
+| `<TypographyBlockquote>`                       | `<blockquote>`     | left-border + italic                           |                                                                                                                                                                                 |
+| `<TypographyList>` / `<TypographyOrderedList>` | `<ul>` / `<ol>`    | `list-disc` / `list-decimal` with item spacing |                                                                                                                                                                                 |
+| `<TypographyInlineCode>` / `<TypographyCode>`  | `<code>` / `<pre>` | Mono, tokenized via `--muted` / `--foreground` |                                                                                                                                                                                 |
+| `<TypographyTable*>`                           | `<table>` family   | Tokenized via `--border` / `--muted`           |                                                                                                                                                                                 |
+
+### Semantic tiers (app UI)
+
+App UI sizes text with six tiers only, defined as Tailwind v4 font-size tokens
+in `app/globals.css`; each bundles size, line-height, weight and tracking
+(full reference: [`docs/design-system/typography-scale.md`](design-system/typography-scale.md)).
+
+| Tier               | Size · weight | Use                                      |
+| ------------------ | ------------- | ---------------------------------------- |
+| `text-caption`     | 12px · 500    | metadata, timestamps, labels, badges     |
+| `text-body`        | 14px · 400    | default body text, table cells           |
+| `text-body-strong` | 14px · 500    | emphasized body, row titles, form labels |
+| `text-title`       | 16px · 600    | card / dialog / section titles           |
+| `text-heading`     | 20px · 600    | page / panel headings                    |
+| `text-display`     | 30px · 700    | hero, large empty states (rare)          |
+
+Mapping from raw utilities (LUM-1244):
+
+| Found                                                     | Use                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `text-xs`, `text-[8px]`…`text-[11.5px]`, `text-[0.75rem]` | `text-caption` (may add `font-normal` / `font-semibold`)                |
+| `text-sm`, `text-[13px]`                                  | `text-body`                                                             |
+| `text-sm` + `font-medium` / `font-semibold` / `font-bold` | `text-body-strong`                                                      |
+| `text-base` / `text-lg` title                             | `text-title`                                                            |
+| `text-xl` / `text-2xl` heading                            | `text-heading`                                                          |
+| `text-3xl` and up                                         | `text-display`                                                          |
+| bare `font-medium` / `font-bold`                          | the tier that carries the weight, or `font-semibold` for state emphasis |
+
+**Enforced by `lint:tokens`** (rule `type-scale`, see
+[Token-discipline lint](#token-discipline-lint)) on `.ts` / `.tsx` under `app/`,
+`components/`, `ee/`: it flags `text-xs|sm|lg|xl…9xl`, arbitrary
+`text-[<n>px|rem|em]`, and `font-medium|bold|extrabold|black`, with or without a
+variant prefix. Allowed: the tiers, `font-semibold` / `font-normal` layered on a
+tier, and `text-base` only when the same class string also sets an `md:` tier
+(the iOS zoom guard on inputs: `text-base md:text-body`). Exempt: the landing
+fork, `app/page.tsx`, `components/ui/typography.tsx`. The few intentional
+leftovers are grandfathered in the baseline and listed in the rule's comment in
+`scripts/lint-tokens.ts`.
 
 **Fonts** (registered via `@theme inline` → Tailwind utilities `font-sans` /
 `font-mono`):
@@ -418,7 +456,7 @@ class string for headings makes the scale drift.
 ## Token-discipline lint
 
 `scripts/lint-tokens.ts` enforces the no-hex / no-neutral-palette rules
-above. It runs:
+and the semantic type scale above. It runs:
 
 - on every staged commit via `lint-staged` (the husky pre-commit hook)
 - when you run `npm run lint`

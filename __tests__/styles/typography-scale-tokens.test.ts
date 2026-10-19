@@ -35,4 +35,11 @@ describe('app/globals.css typography scale tokens', () => {
       expect(css).toMatch(new RegExp(`--text-${tier}--font-weight:`))
     }
   })
+
+  // LUM-1244 ruling: emphasized body matches shadcn's `font-medium` (buttons,
+  // tabs, labels), so body-strong is 500, one step above body's 400.
+  it('pins the body-strong weight to 500 (shadcn medium)', () => {
+    expect(css).toMatch(/--text-body-strong--font-weight:\s*500;/)
+    expect(css).toMatch(/--text-body--font-weight:\s*400;/)
+  })
 })

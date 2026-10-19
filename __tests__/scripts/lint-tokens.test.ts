@@ -3,6 +3,7 @@ import {
   detectViolations,
   findRegressions,
   isAllowed,
+  isTypeScaleScoped,
 } from '@/scripts/lint-tokens'
 
 describe('lint-tokens / detectViolations', () => {
@@ -282,6 +283,128 @@ describe('lint-tokens zindex rule', () => {
         x => x.rule === 'zindex'
       )
     ).toHaveLength(0)
+  })
+})
+
+describe('lint-tokens type-scale rule (LUM-1244)', () => {
+  const typeHits = (path: string, src: string) =>
+    detectViolations(path, src)
+      .filter(x => x.rule === 'type-scale')
+      .map(x => x.match)
+
+  it('flags the Tailwind size scale', () => {
+    expect(
+      typeHits(
+        'components/foo.tsx',
+        `<div className="text-xs text-sm text-lg text-xl text-2xl text-3xl text-4xl text-9xl" />`
+      )
+    ).toEqual([
+      'text-xs',
+      'text-sm',
+      'text-lg',
+      'text-xl',
+      'text-2xl',
+      'text-3xl',
+      'text-4xl',
+      'text-9xl',
+    ])
+  })
+
+  it('flags arbitrary px / rem / em sizes', () => {
+    expect(
+      typeHits(
+        'app/foo.tsx',
+        `<span className="text-[11px] text-[10.5px] text-[0.75rem] text-[1.2em]" />`
+      )
+    ).toEqual([
+      'text-[11px]',
+      'text-[10.5px]',
+      'text-[0.75rem]',
+      'text-[1.2em]',
+    ])
+  })
+
+  it('flags font-medium / font-bold / font-extrabold / font-black', () => {
+    expect(
+      typeHits(
+        'ee/security/foo.tsx',
+        `<b className="font-medium font-bold font-extrabold font-black" />`
+      )
+    ).toEqual(['font-medium', 'font-bold', 'font-extrabold', 'font-black'])
+  })
+
+  it('flags classes behind variant prefixes and in .ts class-string constants', () => {
+    expect(
+      typeHits(
+        'components/ui/menu.tsx',
+        `'md:text-sm hover:font-bold data-[active=true]:font-medium sm:text-[13px]'`
+      ).sort()
+    ).toEqual(['font-bold', 'font-medium', 'text-[13px]', 'text-sm'])
+    expect(
+      typeHits('app/workspace/constants.ts', `export const C = 'text-xs'`)
+    ).toEqual(['text-xs'])
+  })
+
+  it('flags bare text-base, but allows it next to an md: semantic tier', () => {
+    expect(
+      typeHits('app/foo.tsx', `<Button className="h-12 text-base" />`)
+    ).toEqual(['text-base'])
+    // iOS zoom guard on form fields: 16px on phones, body tier from md up.
+    expect(
+      typeHits('components/ui/input.tsx', `'px-3 text-base md:text-body'`)
+    ).toEqual([])
+    // An md: raw size is not a tier — both classes are flagged.
+    expect(
+      typeHits('components/ui/input.tsx', `'text-base md:text-sm'`)
+    ).toEqual(['text-sm', 'text-base'])
+  })
+
+  it('allows the semantic tiers, font-semibold, font-normal and font-mono', () => {
+    expect(
+      typeHits(
+        'components/foo.tsx',
+        `<div className="text-caption font-semibold text-body text-body-strong text-title text-heading text-display font-normal font-mono md:text-body" />`
+      )
+    ).toEqual([])
+  })
+
+  it('does not flag colour / alignment utilities or look-alike names', () => {
+    expect(
+      typeHits(
+        'components/foo.tsx',
+        `<div className="text-muted-foreground text-left text-sm-foo text-[var(--chart-1)] text-balance font-medium-ish prose-sm" />`
+      )
+    ).toEqual([])
+  })
+
+  it('only applies to app/, components/, ee/ and skips the prose / marketing exemptions', () => {
+    expect(isTypeScaleScoped('app/foo.tsx')).toBe(true)
+    expect(isTypeScaleScoped('components/foo/bar.ts')).toBe(true)
+    expect(isTypeScaleScoped('ee/security/x.tsx')).toBe(true)
+    expect(isTypeScaleScoped('lib/editor/link-class.ts')).toBe(false)
+    expect(
+      isTypeScaleScoped('lib/integrations/email/templates/invite.tsx')
+    ).toBe(false)
+    expect(isTypeScaleScoped('app/globals.css')).toBe(false)
+    expect(isTypeScaleScoped('app/page.tsx')).toBe(false)
+    expect(isTypeScaleScoped('components/ui/typography.tsx')).toBe(false)
+    expect(
+      typeHits('components/ui/typography.tsx', `'text-4xl font-bold'`)
+    ).toEqual([])
+    expect(
+      typeHits('components/landing/Hero.tsx', `'text-4xl font-bold'`)
+    ).toEqual([])
+    expect(typeHits('lib/foo.ts', `'text-sm font-medium'`)).toEqual([])
+    expect(typeHits('app/foo.test.tsx', `'text-sm'`)).toEqual([])
+  })
+
+  it('a bare text-sm in a new file is a baseline regression', () => {
+    const current = countByFile(
+      detectViolations('app/new-page.tsx', `<p className="text-sm">x</p>`)
+    )
+    expect(findRegressions(current, {})).toEqual([
+      { file: 'app/new-page.tsx', current: 1, baseline: 0 },
+    ])
   })
 })
 
