@@ -305,9 +305,15 @@ export function formatStaffFeedbackList(
   )
 }
 
+/** A member display name for `--json`, guarded like the text view's cell. */
+function nameJson(v: { name: string } | null): { name: string } | null {
+  return v ? { name: guardJsonInline(v.name) } : null
+}
+
 function listItemJson(i: StaffFeedbackListItem): StaffFeedbackListItem {
   return {
     ...i,
+    submittedBy: nameJson(i.submittedBy),
     title: guardedLine(i.title),
     workspace: { ...i.workspace, name: guardJsonInline(i.workspace.name) },
   }
@@ -366,7 +372,7 @@ export function customerBlock(f: StaffFeedbackDetail): string {
   const body: string[] = []
   if (f.steps.length > 0) {
     body.push('Steps')
-    f.steps.forEach((s, i) => body.push(`  ${i + 1}. ${s}`))
+    f.steps.forEach((s, i) => body.push(`  ${i + 1}. ${oneCell(s)}`))
   }
   for (const [label, text] of [
     ['Expected', f.expected],
@@ -374,7 +380,7 @@ export function customerBlock(f: StaffFeedbackDetail): string {
   ] as const) {
     if (!text) continue
     if (body.length > 0) body.push('')
-    body.push(label, ...indentLines(text, 2))
+    body.push(label, ...indentLines(sanitizeField(text), 2))
   }
   if (f.evidence.length > 0) {
     if (body.length > 0) body.push('')
@@ -461,8 +467,18 @@ export function staffDetailJson(
         filename: guardedLine(e.filename),
       })),
       workspace: { ...f.workspace, name: guardJsonInline(f.workspace.name) },
+      task: guardJsonInline(f.task),
+      sessionId: guardJsonInline(f.sessionId),
+      submittedBy: nameJson(f.submittedBy),
+      statusChangedBy: nameJson(f.statusChangedBy),
+      contentNotices: f.contentNotices.map(n => sanitizeField(n)),
     },
-    { replies: d.replies }
+    {
+      replies: d.replies.map(r => ({
+        ...r,
+        author: guardJsonInline(r.author),
+      })),
+    }
   )
 }
 

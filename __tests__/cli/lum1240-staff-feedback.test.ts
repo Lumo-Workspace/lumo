@@ -305,3 +305,32 @@ describe('server-guarded one-line text', () => {
     expect(guardedLine('bell\u0007')).toBe('bell')
   })
 })
+
+describe('control characters in customer and member text', () => {
+  const ESC = String.fromCharCode(27)
+  const dirty: StaffDetailResponse = {
+    ...detail,
+    feedback: {
+      ...detail.feedback,
+      steps: [`step ${ESC}[2Kone`],
+      actual: `bad ${ESC}[31mred`,
+      submittedBy: { name: `Ada${ESC}[2K` },
+      sessionId: `sess${ESC}[1m`,
+    },
+    replies: [{ ...detail.replies[0]!, author: `Chao${ESC}[0m` }],
+  }
+
+  it('the text view strips them inside the fence', () => {
+    expect(formatStaffFeedbackDetail(dirty, { tty: false })).not.toContain(ESC)
+  })
+
+  it('--json strips them from names, session and replies too', async () => {
+    serve({ body: dirty })
+    await staffFeedbackShow('7', { json: true })
+    expect(out).not.toMatch(/\\u001b/i)
+    const json = JSON.parse(out)
+    expect(json.feedback.submittedBy.name).not.toContain(ESC)
+    expect(json.replies[0].author).not.toContain(ESC)
+    expect(json.feedback.sessionId).not.toContain(ESC)
+  })
+})
