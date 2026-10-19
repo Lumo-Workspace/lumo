@@ -14,13 +14,13 @@ jest.mock('@/ee/private/llm/offline-eval-client', () => ({
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { main } from '../scripts/crossing-eval'
-import { traceCacheFile } from '../scripts/analysis/lum1234-trace/source'
+import { main } from '../../../scripts/crossing-eval'
+import { traceCacheFile } from '../../../scripts/analysis/lum1234-trace/source'
 import {
   CAPS,
   buildRewardHackPrompt,
   renderTranscript,
-} from '../scripts/analysis/lum1234-trace/judge-prompt'
+} from '../../../scripts/analysis/lum1234-trace/judge-prompt'
 import {
   VARIANT,
   doneIds,
@@ -31,7 +31,7 @@ import {
   parseJudgeRecords,
   wouldExceedBudget,
   type TraceJudgeRecord,
-} from '../scripts/analysis/lum1234-trace/judge'
+} from '../../../scripts/analysis/lum1234-trace/judge'
 
 const CONV = [
   { role: 'user', content: 'please make the parser tests pass' },
