@@ -50,7 +50,22 @@ const grammar = JSON.parse(
  */
 const DEVIATIONS = {
   serverOnlyRemoved: ['priority', 'task search'],
-  serverOnlyAdded: ['priority create', 'priority list'],
+  serverOnlyAdded: [
+    // LUM-1240: new commands, classified where they are defined.
+    'feedback list',
+    'feedback show',
+    'priority create',
+    'priority list',
+  ],
+  // LUM-1240: `feedback create` reads the --evidence-file it uploads.
+  fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<
+    string,
+    string
+  >,
+  sandboxedAdded: {
+    'feedback create':
+      'reads local files (--file …) — Codex asks first (--evidence-file)',
+  } as Record<string, string>,
 }
 
 /**
@@ -83,8 +98,14 @@ describe('generated lists vs the last hand-kept ones', () => {
   })
 
   it('file-reading and sandboxed: entry for entry identical (after the 3j renames)', () => {
-    expect(CODEX_FILE_READING_COMMANDS).toEqual(renameKeys(hand.fileReading))
-    expect(CODEX_SANDBOXED_COMMANDS).toEqual(renameKeys(hand.sandboxed))
+    expect(CODEX_FILE_READING_COMMANDS).toEqual({
+      ...renameKeys(hand.fileReading),
+      ...DEVIATIONS.fileReadingAdded,
+    })
+    expect(CODEX_SANDBOXED_COMMANDS).toEqual({
+      ...renameKeys(hand.sandboxed),
+      ...DEVIATIONS.sandboxedAdded,
+    })
   })
 
   it('the rules file is the hand-kept one, except the priority rule and the 3j names', () => {
@@ -96,7 +117,10 @@ describe('generated lists vs the last hand-kept ones', () => {
       ...DEVIATIONS.serverOnlyAdded,
     ]
     expect(LUMO_CODEX_RULES).toBe(
-      buildCodexRules(adjusted, renameKeys(hand.sandboxed))
+      buildCodexRules(adjusted, {
+        ...renameKeys(hand.sandboxed),
+        ...DEVIATIONS.sandboxedAdded,
+      })
     )
     expect(LUMO_CODEX_RULES).toContain(
       'pattern = ["lumo", "priority", ["create", "list"]]'

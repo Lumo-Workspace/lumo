@@ -43,6 +43,13 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
     localFiles: 'none',
     detail: 'local-only diagnosis, no Lumo API call (runs fine sandboxed)',
   },
+  'feedback create': {
+    serverOnly: false,
+    localFiles: 'reads',
+    detail: '--evidence-file',
+  },
+  'feedback list': { serverOnly: true, localFiles: 'none' },
+  'feedback show': { serverOnly: true, localFiles: 'none' },
   'finding disposition': {
     serverOnly: false,
     localFiles: 'none',

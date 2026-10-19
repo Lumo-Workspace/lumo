@@ -1011,7 +1011,7 @@ With `--json`, a failure prints nothing on stdout and exactly one JSON object on
 }
 ```
 
-`code` is one of `USAGE`, `NOT_FOUND`, `AUTH`, `FORBIDDEN`, `CONFLICT`, `SERVER`, `NETWORK`, `UNKNOWN`; `exitCode` repeats the process exit code, and any other stderr line (a warning, the `Usage:` line of a usage error) rides in `details`. The exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error keep their current shape and stream (stdout) — they are not errors in this sense.
+`code` is one of `USAGE`, `COMMAND_REMOVED`, `NOT_FOUND`, `AUTH`, `FORBIDDEN`, `CONFLICT`, `RATE_LIMITED` (a submission limit, e.g. `feedback create`; added by LUM-1240), `SERVER`, `NETWORK`, `UNKNOWN`; `exitCode` repeats the process exit code, and any other stderr line (a warning, the `Usage:` line of a usage error) rides in `details`. The exit-4 confirmation envelope and the exit-5 `DONE_BLOCKED` error keep their current shape and stream (stdout) — they are not errors in this sense.
 
 Helper: `installErrorOutput()` / `finalizeErrorOutput()` / `buildErrorJson()` in `error-output.ts` (batch E), installed by `cli/src/index.ts` and finalised in `exitWith()`.
 

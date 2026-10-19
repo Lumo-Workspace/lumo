@@ -139,4 +139,16 @@ export const STOCK_TABLES: readonly StockTable[] = [
     fields: ['payload', 'lastError'],
     workspaceField: 'workspaceId',
   },
+  {
+    // LUM-1240: written redacted (STORAGE_REDACTED_FIELDS.feedback).
+    label: 'Feedback',
+    delegate: 'feedback',
+    fields: ['title', 'steps', 'expected', 'actual'],
+    workspaceField: 'workspaceId',
+  },
+  {
+    label: 'FeedbackReply',
+    delegate: 'feedbackReply',
+    fields: ['body'],
+  },
 ]
