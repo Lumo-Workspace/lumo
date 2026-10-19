@@ -18,6 +18,7 @@ import { MilestoneListEmpty } from './MilestoneListEmpty'
 import { MilestoneListSkeleton } from './MilestoneListSkeleton'
 import { MilestoneArchiveConfirm } from './MilestoneArchiveConfirm'
 import { MilestoneFormDialog } from './MilestoneFormDialog'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface Props {
   projectId: string
@@ -54,6 +55,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const [confirmArchive, setConfirmArchive] = useState<ApiMilestone | null>(
     null
   )
+  const [confirmDelete, setConfirmDelete] = useState<ApiMilestone | null>(null)
 
   const { rows, counts } = useMemo(() => {
     const active = milestones.filter(m => !m.archivedAt)
@@ -144,15 +146,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
                 onArchiveToggle={() => onArchiveToggle(m)}
                 onCopyLink={() => copyLink(`${window.location.origin}${href}`)}
-                onDelete={() => {
-                  const ok = window.confirm(
-                    intl.formatMessage(
-                      { id: 'milestone.delete.confirm' },
-                      { name: m.name }
-                    )
-                  )
-                  if (ok) deleteMutation.mutate(m)
-                }}
+                onDelete={() => setConfirmDelete(m)}
               />
             )
           })}
@@ -173,6 +167,24 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
           }}
         />
       )}
+
+      <ConfirmActionDialog
+        open={confirmDelete !== null}
+        onOpenChange={open => {
+          if (!open) setConfirmDelete(null)
+        }}
+        title={intl.formatMessage({ id: 'milestone.delete' })}
+        description={intl.formatMessage(
+          { id: 'milestone.delete.confirm' },
+          { name: confirmDelete?.name ?? '' }
+        )}
+        confirmLabel={intl.formatMessage({ id: 'common.delete' })}
+        destructive
+        onConfirm={() => {
+          if (confirmDelete) deleteMutation.mutate(confirmDelete)
+          setConfirmDelete(null)
+        }}
+      />
 
       {dialog && (
         <MilestoneFormDialog
