@@ -34,7 +34,8 @@ function walkV1(deps: unknown, out: Map<string, NpmPackage>): void {
   for (const [name, raw] of Object.entries(rec(deps) ?? {})) {
     const d = rec(raw)
     const version = str(d?.['version'])
-    if (version && !d?.['bundled']) {
+    // Bundled dependencies ship inside their parent's tarball: still installed code.
+    if (version) {
       out.set(`${name}@${version}`, { name, version })
     }
     walkV1(d?.['dependencies'], out)

@@ -128,16 +128,24 @@ describe('npm lockfile delta', () => {
     ])
   })
 
-  it('reads lockfile v1 nested dependencies', () => {
+  it('reads lockfile v1 nested dependencies, bundled ones included', () => {
     const v1 = JSON.stringify({
       lockfileVersion: 1,
       dependencies: {
-        a: { version: '1.0.0', dependencies: { b: { version: '2.0.0' } } },
+        a: {
+          version: '1.0.0',
+          dependencies: {
+            b: { version: '2.0.0' },
+            // Bundled inside a's tarball: installed code all the same.
+            c: { version: '3.0.0', bundled: true },
+          },
+        },
       },
     })
     expect([...parseNpmLockfile(v1).keys()].sort()).toEqual([
       'a@1.0.0',
       'b@2.0.0',
+      'c@3.0.0',
     ])
   })
 

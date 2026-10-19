@@ -134,18 +134,29 @@ export async function fetchVulns(
 ): Promise<Map<string, OsvVuln>> {
   const out = new Map<string, OsvVuln>()
   const queue = [...new Set(ids)]
+  // One failed fetch fails the lookup: the other workers stop taking ids.
+  let failed = false
   const worker = async () => {
-    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-      const body = (await request(
-        `${OSV_API}/v1/vulns/${encodeURIComponent(id)}`,
-        fetchImpl
-      )) as OsvVuln | null
-      if (!body || typeof body.id !== 'string') {
-        throw new OsvUnavailableError(
-          'api.osv.dev returned a malformed response'
-        )
+    for (
+      let id = queue.shift();
+      id !== undefined && !failed;
+      id = queue.shift()
+    ) {
+      try {
+        const body = (await request(
+          `${OSV_API}/v1/vulns/${encodeURIComponent(id)}`,
+          fetchImpl
+        )) as OsvVuln | null
+        if (!body || typeof body.id !== 'string') {
+          throw new OsvUnavailableError(
+            'api.osv.dev returned a malformed response'
+          )
+        }
+        out.set(id, body)
+      } catch (e) {
+        failed = true
+        throw e
       }
-      out.set(id, body)
     }
   }
   await Promise.all(

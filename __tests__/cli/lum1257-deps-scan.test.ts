@@ -113,6 +113,16 @@ describe('osv-api', () => {
       /HTTP 404/
     )
   })
+
+  it('stops fetching records once one fetch fails', async () => {
+    const osv = fakeOsv({}, [])
+    const ids = Array.from({ length: 40 }, (_, i) => `GHSA-${i}`)
+    await expect(fetchVulns(ids, osv.fetch)).rejects.toBeInstanceOf(
+      OsvUnavailableError
+    )
+    // At most one in-flight fetch per worker; the queue is not drained.
+    expect(osv.calls.length).toBeLessThanOrEqual(8)
+  })
 })
 
 describe('parseScannerJson', () => {
