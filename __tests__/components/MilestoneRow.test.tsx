@@ -86,8 +86,8 @@ describe('MilestoneRow', () => {
 
     expect(screen.getByText('2/8')).toBeInTheDocument()
     // 2 of 8 done — the bar is filled to the same fraction the count states.
-    const bar = container.querySelector('[style*="width"]')
-    expect(bar).toHaveStyle({ width: '25%' })
+    const bar = container.querySelector('[data-slot="progress-indicator"]')
+    expect(bar).toHaveStyle({ transform: 'translateX(-75%)' })
 
     expect(screen.getByText('Aug 31, 2026')).toBeInTheDocument()
 

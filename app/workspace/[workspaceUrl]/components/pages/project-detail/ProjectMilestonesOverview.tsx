@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
-import { Flag, Loader2, Plus } from 'lucide-react'
+import { Flag, Plus } from 'lucide-react'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Progress } from '@/components/ui/progress'
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -82,10 +85,7 @@ export function ProjectMilestonesOverview({
       {loading ? (
         <div className='space-y-1' aria-busy='true'>
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className='h-11 animate-pulse rounded-md bg-muted/50'
-            />
+            <Skeleton key={i} className='h-11' />
           ))}
         </div>
       ) : milestones.length === 0 ? (
@@ -116,19 +116,13 @@ export function ProjectMilestonesOverview({
                   <span className='min-w-0 flex-1 truncate text-body-strong text-foreground'>
                     {m.name}
                   </span>
-                  <span
-                    className='h-1.5 w-[110px] shrink-0 overflow-hidden rounded-full bg-muted'
-                    role='progressbar'
-                    aria-valuenow={pct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
+                  <Progress
+                    value={pct}
+                    tone='foreground'
+                    size='sm'
+                    className='w-[110px] shrink-0'
                     aria-label={m.name}
-                  >
-                    <span
-                      className='block h-full rounded-full bg-foreground'
-                      style={{ width: `${pct}%` }}
-                    />
-                  </span>
+                  />
                   <span className='w-14 shrink-0 text-right text-caption tabular-nums text-muted-foreground'>
                     {done}/{total}
                   </span>
@@ -146,7 +140,7 @@ export function ProjectMilestonesOverview({
         (composing ? (
           <div className='-mx-2.5 flex items-center gap-3.5 rounded-md bg-muted/60 px-2.5 py-3'>
             {create.isPending ? (
-              <Loader2 className='size-4 shrink-0 animate-spin text-warning-text' />
+              <Spinner className='shrink-0 text-warning-text' />
             ) : (
               // Dashed while it is still a draft — same flag, not yet planted.
               <Flag className='size-4 shrink-0 text-warning-text [stroke-dasharray:3_2]' />

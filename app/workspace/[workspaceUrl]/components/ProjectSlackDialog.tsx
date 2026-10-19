@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
@@ -22,6 +22,7 @@ import {
   SlackEventType,
   SLACK_RECONNECT_REQUIRED,
 } from '@/lib/integrations/slack/types'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ProjectSlackDialogProps {
   isOpen: boolean
@@ -313,7 +314,7 @@ export function ProjectSlackDialog({
 
         {loadState.phase === 'loading' && (
           <div className='flex items-center justify-center py-8'>
-            <Loader2 size={20} className='animate-spin text-muted-foreground' />
+            <Spinner className='size-5 text-muted-foreground' />
           </div>
         )}
 
@@ -433,7 +434,7 @@ export function ProjectSlackDialog({
                             disabled={creating || !newChannelName.trim()}
                           >
                             {creating ? (
-                              <Loader2 size={12} className='animate-spin' />
+                              <Spinner className='size-3' />
                             ) : (
                               intl.formatMessage({ id: 'common.create' })
                             )}
@@ -533,9 +534,7 @@ export function ProjectSlackDialog({
                   onClick={() => handleSave(loadState.savedChannel)}
                   disabled={isSaveDisabled(loadState.savedChannel)}
                 >
-                  {saving ? (
-                    <Loader2 size={14} className='animate-spin mr-2' />
-                  ) : null}
+                  {saving ? <Spinner className='size-3.5 mr-2' /> : null}
                   {saving
                     ? intl.formatMessage({ id: 'common.saving' })
                     : intl.formatMessage({ id: 'common.save' })}

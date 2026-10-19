@@ -28,6 +28,7 @@ import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
 import { milestoneState } from '@/lib/summaries/milestone-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface MilestoneDetailPageProps {
@@ -137,9 +138,9 @@ export function MilestoneDetailPage({
         }
       >
         <div className='flex-1 space-y-6 p-4 md:p-8' aria-busy='true'>
-          <div className='h-8 w-1/3 animate-pulse rounded-sm bg-muted/50' />
-          <div className='h-4 w-1/4 animate-pulse rounded-sm bg-muted/50' />
-          <div className='h-40 animate-pulse rounded-lg border border-border bg-muted/50' />
+          <Skeleton className='h-8 w-1/3 rounded-sm' />
+          <Skeleton className='h-4 w-1/4 rounded-sm' />
+          <Skeleton className='h-40 rounded-lg border border-border' />
         </div>
       </DetailLayout>
     )

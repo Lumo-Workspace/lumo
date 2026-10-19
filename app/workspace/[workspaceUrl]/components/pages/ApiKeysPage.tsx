@@ -2,7 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
-import { Trash2, Plus, Key, Loader2 } from 'lucide-react'
+import { Trash2, Plus, Key } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useApiKeys } from '../../hooks/useApiKeys'
 import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
+import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
 export function ApiKeysPage() {
   const intl = useIntl()
@@ -63,7 +65,7 @@ export function ApiKeysPage() {
             disabled={creating || !label.trim()}
           >
             {creating ? (
-              <Loader2 size={14} className='animate-spin mr-1.5' />
+              <Spinner className='size-3.5 mr-1.5' />
             ) : (
               <Plus size={14} className='mr-1.5' />
             )}
@@ -85,7 +87,7 @@ export function ApiKeysPage() {
             disabled={creatingIngest}
           >
             {creatingIngest ? (
-              <Loader2 size={14} className='animate-spin mr-1.5' />
+              <Spinner className='size-3.5 mr-1.5' />
             ) : (
               <Plus size={14} className='mr-1.5' />
             )}
@@ -96,7 +98,7 @@ export function ApiKeysPage() {
         {/* Key list */}
         {loading ? (
           <div className='flex items-center gap-2 text-body text-muted-foreground'>
-            <Loader2 size={14} className='animate-spin' />
+            <Spinner className='size-3.5' />
             {intl.formatMessage({ id: 'common.loading' })}
           </div>
         ) : keys.length === 0 ? (
@@ -119,11 +121,16 @@ export function ApiKeysPage() {
                     <p className='text-body-strong text-foreground'>
                       {k.label}
                       {k.scope === 'security:ingest' && (
-                        <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
+                        <Badge
+                          variant='outline-muted'
+                          size='xs'
+                          shape='square'
+                          className='ml-2 uppercase'
+                        >
                           {intl.formatMessage({
                             id: 'apiKeys.scope.securityIngest',
                           })}
-                        </span>
+                        </Badge>
                       )}
                     </p>
                     <p className='text-caption text-muted-foreground font-mono mt-0.5'>
@@ -186,7 +193,7 @@ export function ApiKeysPage() {
                 disabled={revoking}
               >
                 {revoking ? (
-                  <Loader2 size={14} className='animate-spin' />
+                  <Spinner className='size-3.5' />
                 ) : (
                   intl.formatMessage({ id: 'common.revoke' })
                 )}
