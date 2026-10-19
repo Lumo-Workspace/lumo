@@ -1,15 +1,14 @@
 /**
  * @jest-environment node
  *
- * LUM-1256 — how a local finding is labelled from the server context, that
- * "would block DONE" is the server's own policy predicate (a parity test
- * against `isBlockingUnderPolicy` over every input), and the `--pr`
- * comparison of local findings with the PR's latest server scan.
+ * LUM-1256 — how a local finding is labelled from the server context and
+ * the `--pr` comparison of local findings with the PR's latest server scan.
+ * The policy predicate's parity with the server lives with the plugin tests
+ * (__tests__/ee/security/lum1256-policy-parity.test.ts).
  */
 import {
   comparePrFindings,
   describeLabel,
-  isBlockingUnderPolicy as cliPredicate,
   labelFinding,
   type ServerPrFinding,
 } from '../../cli/src/lib/scan-labels'
@@ -20,7 +19,6 @@ import {
   type LocalFinding,
   type LocalScanResult,
 } from '../../cli/src/lib/local-scan-report'
-import { isBlockingUnderPolicy as serverPredicate } from '@/ee/security/security-scan/policy'
 
 const ctx = (over: Partial<ScanContext> = {}): ScanContext => ({
   version: 1,
@@ -44,7 +42,7 @@ const finding = {
 
 const ruling = (
   pullRequest: number,
-  disposition = 'FALSE_POSITIVE' as const
+  disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK' = 'FALSE_POSITIVE'
 ) => ({
   fingerprint: 'fp1',
   ruleId: finding.ruleId,
@@ -186,38 +184,12 @@ describe('labelFinding', () => {
   })
 })
 
-describe('isBlockingUnderPolicy parity with the server', () => {
-  const provenances = ['DETERMINISTIC', 'LLM_JUDGE', 'EXTERNAL_TOOL'] as const
-  const severities = ['LOW', 'MEDIUM', 'HIGH'] as const
-  const dispositions = [null, 'FALSE_POSITIVE', 'ACCEPTED_RISK'] as const
-  const policies = [
-    { block: [] },
-    {
-      block: [
-        { provenance: 'DETERMINISTIC' as const, severity: 'HIGH' as const },
-      ],
-    },
-    {
-      block: [
-        { provenance: 'EXTERNAL_TOOL' as const, severity: 'LOW' as const },
-        { provenance: 'DETERMINISTIC' as const, severity: 'MEDIUM' as const },
-      ],
-    },
-  ]
-  it('agrees on every provenance × severity × disposition × persisting × policy', () => {
-    let n = 0
-    for (const provenance of provenances)
-      for (const severity of severities)
-        for (const disposition of dispositions)
-          for (const persisting of [false, true, undefined])
-            for (const policy of policies) {
-              const f = { provenance, severity, disposition, persisting }
-              expect(cliPredicate(f, policy)).toBe(serverPredicate(f, policy))
-              n++
-            }
-    expect(n).toBe(243)
-  })
-})
+/** A server finding as an older server sends it: no `fingerprint`. */
+function withoutFingerprint(f: ServerPrFinding): ServerPrFinding {
+  const { fingerprint: _omit, ...rest } = f
+  void _omit
+  return rest
+}
 
 describe('comparePrFindings', () => {
   const server = (over: Partial<ServerPrFinding>): ServerPrFinding => ({
@@ -286,10 +258,7 @@ describe('comparePrFindings', () => {
 
   it('matches on rule + path + line when an older server sends no fingerprint', () => {
     const c = comparePrFindings(
-      [
-        server({ fingerprint: undefined }),
-        server({ fingerprint: undefined, line: 7 }),
-      ],
+      [withoutFingerprint(server({})), withoutFingerprint(server({ line: 7 }))],
       local,
       ['SECRETS']
     )
@@ -321,7 +290,7 @@ describe('report with server context', () => {
     skipped: [],
     elapsedMs: 3,
     findings,
-    server,
+    ...(server ? { server } : {}),
   })
 
   it('labels each finding and keeps the parseable first line', () => {

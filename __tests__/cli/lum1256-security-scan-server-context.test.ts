@@ -264,6 +264,60 @@ describe('lumo security scan with server context', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('a fetch the Codex sandbox blocks falls back to the cache, or to no context — exit 0, never 1', async () => {
+    const blocked = jest.fn().mockRejectedValue(new TypeError('fetch failed'))
+    const cold = await run({}, blocked)
+    expect(cold.result).toBe(0)
+    expect(cold.out.split('\n')[0]).toBe(
+      'scan: 1 finding (1 high, 0 medium, 0 low)'
+    )
+    expect(cold.out).toContain(
+      'Server: no context — could not reach Lumo (fetch failed)'
+    )
+
+    await run({}, api(context()))
+    const warm = await run({ json: true }, blocked)
+    expect(warm.result).toBe(0)
+    const json = JSON.parse(warm.out)
+    expect(json.serverContext.source).toBe('cache')
+    expect(json.serverContext.note).toMatch(
+      /^could not reach Lumo \(fetch failed\) — using the context cached /
+    )
+    expect(json.findings[0].server.status).toBe('FALSE_POSITIVE')
+
+    // --pr cannot read the PR offline either: still exit 0.
+    const pr = await run({ pr: true }, blocked)
+    expect(pr.result).toBe(0)
+    expect(pr.out).toContain('PR #12')
+    expect(pr.out).toContain('no live server context')
+  })
+
+  it('sends only the repository, the branch and (with --pr) the PR number — no paths, fingerprints or evidence', async () => {
+    const fetch = api(context())
+    await run({ pr: true }, fetch)
+    const calls = fetch.mock.calls as unknown as Array<[string, RequestInit]>
+    expect(calls).toHaveLength(2)
+    const [ctxUrl, ctxInit] = calls[0]!
+    const [prUrl, prInit] = calls[1]!
+    const c = new URL(ctxUrl)
+    expect(c.pathname).toBe('/api/workspaces/me/security-scan/context')
+    expect([...c.searchParams.keys()]).toEqual(['repo', 'branch'])
+    expect(Object.fromEntries(c.searchParams)).toEqual({
+      repo: 'acme/app',
+      branch: 'feature',
+    })
+    const p = new URL(prUrl)
+    expect(p.pathname).toBe('/api/pull-requests/12/scans')
+    expect([...p.searchParams.keys()]).toEqual(['repo'])
+    for (const init of [ctxInit, prInit]) {
+      expect(init.method ?? 'GET').toBe('GET')
+      expect(init.body).toBeUndefined()
+    }
+    const sent = JSON.stringify(calls)
+    for (const local of ['config.ts', fingerprint, key])
+      expect(sent).not.toContain(local)
+  })
+
   it('--repo overrides the origin remote', async () => {
     const fetch = api(context({ repo: 'acme/fork' }))
     await run({ repo: 'acme/fork' }, fetch)

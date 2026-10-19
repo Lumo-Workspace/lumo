@@ -36,6 +36,8 @@ Run it from anywhere inside the repository; paths are repo-relative. Untracked f
 
 Each run asks the Lumo server what it already knows about this repository (`GET /api/workspaces/me/security-scan/context`, any workspace member): the default branch's **baseline** fingerprints, human **rulings** (false positive / accepted risk — who, when, on which PR), the active **review learnings** in the workspace's learnings scope, the workspace **security policy**, and the branch's open PR. Fingerprints, rule ids and statuses only — never code or evidence. It is cached by ETag under `~/.lumo/cache/scan-context/`; `--offline` reads only the cache, and an unreachable server falls back to it.
 
+**What it sends:** two read-only `GET`s with no body. The context request carries only the repository (`owner/name`, from `origin` or `--repo`) and the checked-out branch name. With `--pr`, a second request carries that repository and the PR number the server returned (the `lumo pr show` read). No file path, line, fingerprint, evidence or file content leaves the machine; labelling happens locally. Inside Codex's no-network sandbox the requests fail fast, and the scan falls back to the cache, or to no context, with exit 0.
+
 Each finding then gets a `Server:` label:
 
 | Label                                                           | Meaning                                                                                                                                                                       |
