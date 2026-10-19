@@ -18,6 +18,7 @@ import {
 import { useApiKeys } from '../../hooks/useApiKeys'
 import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
 import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
 export function ApiKeysPage() {
   const intl = useIntl()
@@ -120,11 +121,16 @@ export function ApiKeysPage() {
                     <p className='text-body-strong text-foreground'>
                       {k.label}
                       {k.scope === 'security:ingest' && (
-                        <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
+                        <Badge
+                          variant='outline-muted'
+                          size='xs'
+                          shape='square'
+                          className='ml-2 uppercase'
+                        >
                           {intl.formatMessage({
                             id: 'apiKeys.scope.securityIngest',
                           })}
-                        </span>
+                        </Badge>
                       )}
                     </p>
                     <p className='text-caption text-muted-foreground font-mono mt-0.5'>

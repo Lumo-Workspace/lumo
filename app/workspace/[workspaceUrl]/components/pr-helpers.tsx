@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
 // GitHub's PR state colours (user ruling, LUM-1245): open → success (green),
 // merged → status-in-review (the only purple/magenta token family; reused here
@@ -15,29 +16,33 @@ import { Spinner } from '@/components/ui/spinner'
 export function PrStateBadge({ state }: { state: string }) {
   if (state === 'draft') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-muted text-muted-foreground'>
+      <Badge variant='muted' size='sm'>
         Draft
-      </span>
+      </Badge>
     )
   }
   if (state === 'merged') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-status-in-review-subtle text-status-in-review-text'>
+      <Badge
+        variant='plain'
+        size='sm'
+        className='bg-status-in-review-subtle text-status-in-review-text'
+      >
         Merged
-      </span>
+      </Badge>
     )
   }
   if (state === 'closed') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-danger-subtle text-danger-text'>
+      <Badge variant='danger' size='sm'>
         Closed
-      </span>
+      </Badge>
     )
   }
   return (
-    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption bg-success-subtle text-success-text'>
+    <Badge variant='success' size='sm'>
       Open
-    </span>
+    </Badge>
   )
 }
 

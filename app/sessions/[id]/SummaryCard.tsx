@@ -20,6 +20,7 @@ import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { SESSION_MESSAGES as M } from '../messages'
 import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
+import { Badge } from '@/components/ui/badge'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -215,7 +216,12 @@ function TypeBadge({ type }: { type: string }) {
     ? TYPE_MESSAGES[type]
     : undefined
   return (
-    <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-caption normal-case text-foreground'>
+    <Badge
+      variant='muted'
+      size='xs'
+      shape='square'
+      className='ml-2 font-mono normal-case text-foreground'
+    >
       {Icon && (
         <Icon
           aria-hidden
@@ -224,7 +230,7 @@ function TypeBadge({ type }: { type: string }) {
         />
       )}
       {label ? intl.formatMessage(label) : type}
-    </span>
+    </Badge>
   )
 }
 
@@ -576,18 +582,17 @@ const STATUS_MESSAGES: Record<DebugStatus, MessageDescriptor> = {
 
 function StatusChip({ status }: { status: DebugStatus }) {
   const intl = useIntl()
-  const className =
-    status === 'fixed'
-      ? 'bg-success-subtle text-success-text border-success-border'
-      : status === 'partial'
-        ? 'bg-warning-subtle text-warning-text border-warning-border'
-        : 'bg-danger-subtle text-danger-text border-danger-border'
+  const variant =
+    status === 'fixed' ? 'success' : status === 'partial' ? 'warning' : 'danger'
   return (
-    <span
-      className={`shrink-0 rounded-sm border px-2 py-0.5 text-caption font-semibold uppercase ${className}`}
+    <Badge
+      variant={variant}
+      size='sm'
+      shape='square'
+      className='shrink-0 font-semibold uppercase'
     >
       {intl.formatMessage(STATUS_MESSAGES[status])}
-    </span>
+    </Badge>
   )
 }
 

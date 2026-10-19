@@ -63,6 +63,7 @@ import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
+import { Badge } from '@/components/ui/badge'
 
 /** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
@@ -664,17 +665,14 @@ function ScanResult({ scan }: { scan: SecurityScanView | null }) {
       f => f.verifierVerdict === 'REJECTED' && f.disposition === null
     ).length
     return (
-      <span
-        data-testid='scan-result-quiet'
-        className='inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-caption text-muted-foreground'
-      >
+      <Badge data-testid='scan-result-quiet' variant='muted' size='sm'>
         {dismissed > 0
           ? intl.formatMessage(
               { id: 'securityScan.result.verifierDismissed' },
               { count: dismissed }
             )
           : intl.formatMessage({ id: 'securityScan.result.noOpen' })}
-      </span>
+      </Badge>
     )
   }
   return <SecurityScanBadge scan={scan} />

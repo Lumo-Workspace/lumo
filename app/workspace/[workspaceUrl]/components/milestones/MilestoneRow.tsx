@@ -12,6 +12,7 @@ import {
   milestoneDot,
 } from './milestoneDisplay'
 import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 interface Props {
   milestone: ApiMilestone
@@ -84,9 +85,14 @@ export function MilestoneRow({
           {milestone.name}
         </Link>
         {stale && (
-          <span className='shrink-0 rounded-sm border border-warning-border bg-warning-subtle px-1.5 py-0.5 text-caption text-foreground'>
+          <Badge
+            variant='warning'
+            size='xs'
+            shape='square'
+            className='shrink-0'
+          >
             {intl.formatMessage({ id: 'milestone.list.incomplete' })}
-          </span>
+          </Badge>
         )}
       </div>
 
