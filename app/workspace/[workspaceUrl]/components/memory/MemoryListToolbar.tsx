@@ -7,7 +7,6 @@ import {
   type MemoryCategoryFilter,
   type MemorySortKey,
 } from '@/lib/memory/list-view'
-import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -15,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import { SearchInput } from '../SearchInput'
 
 interface MemoryListToolbarProps {
@@ -49,7 +53,7 @@ const SORT_LABEL: Record<MemorySortKey, string> = {
  * Search + sort + category chips above a project's memory list.
  *
  * Two rows, in the order you narrow: a full-width query with the sort control
- * pinned right, then the single-select category chips underneath. The chips
+ * pinned right, then the single-select category tabs underneath. The tabs
  * carry their counts because the count is the reason you'd click one — "31
  * conventions" tells you the pool is worth filtering to.
  *
@@ -116,45 +120,33 @@ export function MemoryListToolbar({
         </Select>
       </div>
 
-      <div
-        className='flex flex-wrap gap-1.5'
-        role='group'
+      {/* Single-select with no "nothing" state: re-clicking the active chip
+          (Radix reports '') keeps the current filter. */}
+      <ToggleGroup
+        type='single'
+        variant='chip'
+        value={category}
+        onValueChange={value => {
+          if (value) onCategoryChange(value as MemoryCategoryFilter)
+        }}
         aria-label={intl.formatMessage({ id: 'memory.list.filter.label' })}
         data-testid='memory-category-filter'
       >
-        {chips.map(chip => {
-          const active = category === chip.key
-          return (
-            <button
-              key={chip.key}
-              type='button'
-              onClick={() => onCategoryChange(chip.key)}
-              aria-pressed={active}
-              data-testid={`memory-category-chip-${chip.key}`}
-              className={cn(
-                'rounded-full border px-3 py-0.5 text-caption transition-colors duration-fast ease-standard',
-                active
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:bg-muted'
-              )}
-            >
-              {chip.label}
-              {/* The count is secondary to the name — one gray step down,
-                  never its own chip. */}
-              {!pending && (
-                <span
-                  className={cn(
-                    'ml-1.5',
-                    active ? 'opacity-70' : 'text-muted-foreground/70'
-                  )}
-                >
-                  {chip.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+        {chips.map(chip => (
+          <ToggleGroupItem
+            key={chip.key}
+            value={chip.key}
+            data-testid={`memory-category-chip-${chip.key}`}
+          >
+            {chip.label}
+            {/* The count is secondary to the name — one step quieter,
+                never its own chip. */}
+            {!pending && (
+              <ToggleGroupItemCount>{chip.count}</ToggleGroupItemCount>
+            )}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
     </div>
   )
 }

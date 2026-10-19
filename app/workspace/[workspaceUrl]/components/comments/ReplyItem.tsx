@@ -80,7 +80,7 @@ export function ReplyItem({
       <CommentAvatar
         isAgent={ra.isAgent}
         imageUrl={ra.imageUrl}
-        initials={ra.initials}
+        name={ra.name}
         size='sm'
       />
       <div className='flex-1 min-w-0'>

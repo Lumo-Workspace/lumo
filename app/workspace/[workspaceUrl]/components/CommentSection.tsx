@@ -2,8 +2,9 @@
 
 import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,7 @@ export interface CommentSectionProps {
     | { actorId: string; name: string; avatarColor: string }[]
     | undefined
   currentActorId: string | null | undefined
-  user: { imageUrl?: string; initials?: string } | null | undefined
+  user: { imageUrl?: string; displayName?: string } | null | undefined
   tc: ReturnType<typeof import('../hooks/useTaskComments').useTaskComments>
 }
 
@@ -129,12 +130,12 @@ export function CommentSection({
 
         {/* New comment input */}
         <div className='mt-5 flex gap-2.5'>
-          <Avatar className='size-7 shrink-0 mt-0.5'>
-            <AvatarImage src={user?.imageUrl} />
-            <AvatarFallback className='text-caption'>
-              {user?.initials ?? '?'}
-            </AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            name={user?.displayName ?? ''}
+            imageUrl={user?.imageUrl}
+            size='md'
+            className='mt-0.5'
+          />
           <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
             <CommentEditor
               onCommit={html => tc.setCommentBody(html)}
@@ -154,9 +155,9 @@ export function CommentSection({
                   id: 'task.commentSubmit',
                   defaultMessage: 'Comment',
                 })}
-                <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
+                <Kbd variant='solid' className='ml-0.5'>
                   {isMac ? '⌘↵' : 'Ctrl+↵'}
-                </kbd>
+                </Kbd>
               </Button>
             </div>
           </div>
@@ -200,7 +201,9 @@ export function CommentSection({
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-caption opacity-60 font-sans'>↵</kbd>
+              <Kbd variant='solid' className='ml-1.5'>
+                ↵
+              </Kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { Spinner } from '@/components/ui/spinner'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -218,9 +219,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             {busy
               ? label(editing ? 'common.saving' : 'common.creating')
               : label(editing ? 'common.save' : 'common.create')}
-            <kbd className='rounded-sm bg-primary-foreground/15 px-1.5 py-px text-caption font-normal text-primary-foreground/70'>
-              {submitModLabel}↵
-            </kbd>
+            <Kbd variant='solid'>{submitModLabel}↵</Kbd>
           </Button>
         </div>
       </DialogContent>

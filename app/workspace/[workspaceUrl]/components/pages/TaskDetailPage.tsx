@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Kbd } from '@/components/ui/kbd'
 import { TaskDetail, Page } from '../../types'
 import { pageToPath } from '../../utils'
 import { tasksClient } from '@/lib/api-client'
@@ -386,7 +387,9 @@ export function TaskDetailPage({
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-caption opacity-60 font-sans'>↵</kbd>
+              <Kbd variant='solid' className='ml-1.5'>
+                ↵
+              </Kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

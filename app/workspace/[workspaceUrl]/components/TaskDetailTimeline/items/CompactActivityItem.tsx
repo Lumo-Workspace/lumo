@@ -32,7 +32,6 @@ interface ActorInfo {
   name: string
   isAgent: boolean
   imageUrl: string | undefined
-  initials: string
 }
 
 export function resolveActor(
@@ -45,7 +44,6 @@ export function resolveActor(
       name: 'System',
       isAgent: false,
       imageUrl: undefined,
-      initials: 'S',
     }
   }
   if (entry.actor?.type === 'AGENT') {
@@ -54,22 +52,14 @@ export function resolveActor(
       name,
       isAgent: true,
       imageUrl: undefined,
-      initials: name.charAt(0),
     }
   }
   const member = members.find(m => m.actorId === entry.actorId)
   if (member) {
-    const initials = member.name
-      .split(' ')
-      .map(w => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase()
     return {
       name: member.name,
       isAgent: false,
       imageUrl: member.imageUrl ?? undefined,
-      initials,
     }
   }
   // Fallback: check agentActors list
@@ -79,10 +69,9 @@ export function resolveActor(
       name: agent.name,
       isAgent: true,
       imageUrl: undefined,
-      initials: agent.name.charAt(0),
     }
   }
-  return { name: 'Unknown', isAgent: false, imageUrl: undefined, initials: '?' }
+  return { name: 'Unknown', isAgent: false, imageUrl: undefined }
 }
 
 function InlineTagBadge({ name }: { name: string }) {
@@ -599,7 +588,7 @@ export function CompactActivityItem({
       <CommentAvatar
         isAgent={actor.isAgent}
         imageUrl={actor.imageUrl}
-        initials={actor.initials}
+        name={actor.name}
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2'>

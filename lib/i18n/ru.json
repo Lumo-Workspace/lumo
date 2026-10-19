@@ -1357,6 +1357,7 @@
   "sprints.view.list": "Список",
   "sprints.view.timeline": "Хронология",
   "sprints.filter.all": "Все",
+  "sprints.statusFilter.label": "Фильтр спринтов по статусу",
   "sprints.metric.completed": "Завершено",
   "sprints.metric.remaining": "Осталось",
   "sprints.metric.timeLeft": "Осталось времени",

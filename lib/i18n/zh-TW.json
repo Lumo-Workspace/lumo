@@ -1357,6 +1357,7 @@
   "sprints.view.list": "清單",
   "sprints.view.timeline": "時間軸",
   "sprints.filter.all": "全部",
+  "sprints.statusFilter.label": "依狀態篩選衝刺",
   "sprints.metric.completed": "已完成",
   "sprints.metric.remaining": "剩餘",
   "sprints.metric.timeLeft": "剩餘時間",

@@ -1750,6 +1750,7 @@
   "sprints.detail.startSprint": "Start sprint",
   "sprints.detail.viewRetro": "View retro",
   "sprints.filter.all": "All",
+  "sprints.statusFilter.label": "Filter sprints by status",
   "sprints.landing.active": "Current",
   "sprints.landing.behind": "Behind",
   "sprints.landing.clearSearch": "Clear search",

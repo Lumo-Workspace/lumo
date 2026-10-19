@@ -1,6 +1,6 @@
 'use client'
 
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
@@ -196,38 +196,23 @@ export function DocumentsPage({
             </div>
             {/* Creator */}
             <span className='flex items-center gap-1.5 shrink-0 hidden sm:flex'>
-              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='w-full h-full object-cover'
-                  />
-                ) : (
-                  <span className='text-caption text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
+              <MemberAvatar
+                decorative
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
               <span className='text-caption text-muted-foreground'>
                 {doc.createdBy.name}
               </span>
             </span>
             {/* Creator avatar only on mobile */}
             <span className='shrink-0 sm:hidden'>
-              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='w-full h-full object-cover'
-                  />
-                ) : (
-                  <span className='text-caption text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
+              <MemberAvatar
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
             </span>
             {doc.docTags && doc.docTags.length > 0 ? (
               <div className='shrink-0 hidden sm:block'>
@@ -240,7 +225,7 @@ export function DocumentsPage({
             ) : null}
             {doc.editors && doc.editors.length > 0 && (
               <div className='shrink-0 hidden sm:block'>
-                <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
+                <CollaboratorAvatars editors={doc.editors} max={3} />
               </div>
             )}
             <span className='text-caption text-muted-foreground w-16 text-right shrink-0'>
@@ -279,19 +264,11 @@ export function DocumentsPage({
               {doc.preview ?? ''}
             </div>
             <div className='mt-3 flex items-center gap-2'>
-              <span className='flex size-[20px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='h-full w-full object-cover'
-                  />
-                ) : (
-                  <span className='text-caption text-muted-foreground'>
-                    {getInitials(doc.createdBy.name)}
-                  </span>
-                )}
-              </span>
+              <MemberAvatar
+                name={doc.createdBy.name}
+                imageUrl={doc.createdBy.imageUrl}
+                size='xs'
+              />
               <span className='truncate text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'documents.editedAt' },

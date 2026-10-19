@@ -1357,6 +1357,7 @@
   "sprints.view.list": "Daftar",
   "sprints.view.timeline": "Linimasa",
   "sprints.filter.all": "Semua",
+  "sprints.statusFilter.label": "Filter sprint berdasarkan status",
   "sprints.metric.completed": "Selesai",
   "sprints.metric.remaining": "Tersisa",
   "sprints.metric.timeLeft": "Sisa waktu",

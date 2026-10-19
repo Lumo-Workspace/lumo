@@ -71,7 +71,7 @@ jest.mock('sonner', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
 }))
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProjectDetailPage } from '@/app/workspace/[workspaceUrl]/components/pages/ProjectDetailPage'
 import type { ApiProject } from '@/app/workspace/[workspaceUrl]/types'
@@ -245,14 +245,31 @@ describe('project detail tabs', () => {
   it('switches bodies when another tab is picked', () => {
     setup(makeStats())
 
-    fireEvent.click(screen.getByText('Tasks'))
+    fireEvent.mouseDown(screen.getByText('Tasks'))
     expect(screen.getByTestId('body-tasks')).toBeInTheDocument()
     expect(screen.queryByTestId('body-project')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Milestones'))
+    fireEvent.mouseDown(screen.getByText('Milestones'))
     expect(screen.getByTestId('body-milestones')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Memory'))
+    fireEvent.mouseDown(screen.getByText('Memory'))
     expect(screen.getByTestId('body-memory')).toBeInTheDocument()
+  })
+
+  it('moves between tabs with the arrow keys (LUM-1267)', async () => {
+    setup(makeStats())
+
+    const project = screen.getByRole('tab', { name: 'Project' })
+    project.focus()
+    fireEvent.keyDown(project, { key: 'ArrowRight' })
+    const milestones = screen.getByRole('tab', { name: 'Milestones' })
+    // Radix moves roving focus on the next tick; focus then selects the tab.
+    await waitFor(() => expect(milestones).toHaveFocus())
+    expect(milestones).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('body-milestones')).toBeInTheDocument()
+
+    fireEvent.keyDown(milestones, { key: 'ArrowLeft' })
+    await waitFor(() => expect(project).toHaveFocus())
+    expect(screen.getByTestId('body-project')).toBeInTheDocument()
   })
 })
