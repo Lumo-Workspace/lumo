@@ -11,6 +11,7 @@ import {
   isArchivedIncomplete,
   milestoneDot,
 } from './milestoneDisplay'
+import { Progress } from '@/components/ui/progress'
 
 interface Props {
   milestone: ApiMilestone
@@ -101,19 +102,13 @@ export function MilestoneRow({
       </div>
 
       <div className='flex w-40 shrink-0 items-center gap-2'>
-        <div className='h-1 flex-1 overflow-hidden rounded-full bg-muted'>
-          <div
-            className={cn(
-              'h-full rounded-full',
-              complete
-                ? 'bg-success-text'
-                : stale
-                  ? 'bg-muted-foreground/40'
-                  : 'bg-info'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        <Progress
+          value={pct}
+          tone={complete ? 'success' : stale ? 'muted' : 'info'}
+          size='xs'
+          className='flex-1'
+          aria-hidden
+        />
         <span
           className={cn(
             'w-11 shrink-0 text-right text-caption tabular-nums',

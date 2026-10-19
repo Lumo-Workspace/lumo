@@ -9,6 +9,7 @@ import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
 import { Spinner } from '@/components/ui/spinner'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Progress } from '@/components/ui/progress'
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -115,19 +116,13 @@ export function ProjectMilestonesOverview({
                   <span className='min-w-0 flex-1 truncate text-body-strong text-foreground'>
                     {m.name}
                   </span>
-                  <span
-                    className='h-1.5 w-[110px] shrink-0 overflow-hidden rounded-full bg-muted'
-                    role='progressbar'
-                    aria-valuenow={pct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
+                  <Progress
+                    value={pct}
+                    tone='foreground'
+                    size='sm'
+                    className='w-[110px] shrink-0'
                     aria-label={m.name}
-                  >
-                    <span
-                      className='block h-full rounded-full bg-foreground'
-                      style={{ width: `${pct}%` }}
-                    />
-                  </span>
+                  />
                   <span className='w-14 shrink-0 text-right text-caption tabular-nums text-muted-foreground'>
                     {done}/{total}
                   </span>

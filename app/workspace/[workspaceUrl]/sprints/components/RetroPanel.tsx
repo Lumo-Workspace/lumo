@@ -145,7 +145,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
             </span>
             <span className='tabular-nums'>{donePct}%</span>
           </div>
-          <Progress value={donePct} className='h-1.5' />
+          <Progress value={donePct} size='sm' />
         </div>
 
         {stuck > 0 && (
