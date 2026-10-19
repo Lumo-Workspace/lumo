@@ -2,8 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
-import { AnimatePresence } from 'motion/react'
-import { Modal } from '../Modal'
+import { FormDialog } from '../FormDialog'
 import { MentionInput } from '../MentionInput'
 import type { MentionCandidate } from '../MentionInput'
 import type { Mention } from '@/lib/quick-dispatch/types'
@@ -62,27 +61,25 @@ export function QuickDispatchModal({
   }, [onClose])
 
   return (
-    <AnimatePresence>
-      <Modal
-        isOpen={isOpen}
-        onClose={handleClose}
-        title={intl.formatMessage({ id: 'quickDispatch.title' })}
-        expandable={false}
-      >
-        {() => (
-          <MentionInput
-            value={input}
-            onChange={setInput}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            candidates={candidates}
-            placeholder={intl.formatMessage({
-              id: 'quickDispatch.placeholder',
-            })}
-            autoFocus
-          />
-        )}
-      </Modal>
-    </AnimatePresence>
+    <FormDialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={intl.formatMessage({ id: 'quickDispatch.title' })}
+      expandable={false}
+    >
+      {() => (
+        <MentionInput
+          value={input}
+          onChange={setInput}
+          mentions={mentions}
+          onMentionsChange={setMentions}
+          candidates={candidates}
+          placeholder={intl.formatMessage({
+            id: 'quickDispatch.placeholder',
+          })}
+          autoFocus
+        />
+      )}
+    </FormDialog>
   )
 }

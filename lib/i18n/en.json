@@ -2910,5 +2910,7 @@
   "securityScan.stageState.IGNORED": "skipped — the PR description asks Lumo to ignore this PR",
   "securityScan.stageReason.IGNORED": "The PR description contains the ignore directive, so automatic AI checks were skipped on this commit. Secret, scanner and dependency checks are not affected. Remove the directive from the description to have the next push reviewed, or request a review now.",
   "securityScan.review.roundsNoLimit": "Automatic AI review: {rounds} commits reviewed · never pauses",
-  "language.switcher.label": "Language"
+  "language.switcher.label": "Language",
+  "formDialog.collapse": "Collapse",
+  "formDialog.expand": "Expand"
 }

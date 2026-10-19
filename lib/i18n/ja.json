@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "ステップに添付したファイルも同じ上限に含まれます。",
   "testCases.field.evidenceFiles.tooManyTotal": "ステップに添付したファイルを含めると、この実行のファイルは {count} 件になります。最大 {max} 件です。",
   "testCases.field.evidenceFiles.badType": "「{filename}」は対応していない形式です。PNG、JPEG、WebP、GIF、テキスト、JSON を使用してください。",
-  "testCases.report.state.skipped": "スキップ"
+  "testCases.report.state.skipped": "スキップ",
+  "formDialog.collapse": "折りたたむ",
+  "formDialog.expand": "展開"
 }

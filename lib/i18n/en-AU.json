@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Files attached to steps count toward the same limit.",
   "testCases.field.evidenceFiles.tooManyTotal": "That makes {count} files for this run, counting files attached to steps — at most {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” is not a supported type — use PNG, JPEG, WebP, GIF, text or JSON.",
-  "testCases.report.state.skipped": "Skipped"
+  "testCases.report.state.skipped": "Skipped",
+  "formDialog.collapse": "Collapse",
+  "formDialog.expand": "Expand"
 }

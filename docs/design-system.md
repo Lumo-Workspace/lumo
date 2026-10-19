@@ -271,9 +271,17 @@ Avoid arbitrary `z-[1]` etc. — pick a tier above.
 
 ### Overlay (scrim)
 
-Every modal surface — Dialog, AlertDialog, Sheet and the workspace `Modal` —
-uses the same scrim: `bg-black/50`, **no** `backdrop-blur`, in both themes.
-Don't hand-roll a different tint or blur on a new overlay.
+Every modal surface — Dialog, AlertDialog and Sheet — uses the same scrim:
+`bg-black/50`, **no** `backdrop-blur`, in both themes. Don't hand-roll a
+different tint or blur on a new overlay.
+
+There is no hand-rolled modal any more (LUM-1248 removed the workspace
+`Modal`): build modals on `components/ui/dialog.tsx`. The workspace create
+forms (new task / project, quick dispatch) share `FormDialog`, a header +
+scrolling body + footer layout composed on `DialogContent`
+(`showCloseButton={false}` because the header renders its own close). Width:
+pass an **unprefixed** `max-w-[…]` — a `sm:max-w-*` loses to the built-in
+`max-w-lg`.
 
 ## Shadows / Elevation
 

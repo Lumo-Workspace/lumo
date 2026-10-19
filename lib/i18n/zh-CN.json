@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "挂在步骤上的文件也计入同一上限。",
   "testCases.field.evidenceFiles.tooManyTotal": "这次执行加上挂在步骤上的文件共 {count} 个——最多 {max} 个。",
   "testCases.field.evidenceFiles.badType": "“{filename}”的类型不受支持——请用 PNG、JPEG、WebP、GIF、文本或 JSON。",
-  "testCases.report.state.skipped": "已跳过"
+  "testCases.report.state.skipped": "已跳过",
+  "formDialog.collapse": "收起",
+  "formDialog.expand": "展开"
 }

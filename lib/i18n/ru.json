@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Файлы, прикреплённые к шагам, входят в тот же лимит.",
   "testCases.field.evidenceFiles.tooManyTotal": "С учётом файлов, прикреплённых к шагам, в этом запуске будет {count} файлов — максимум {max}.",
   "testCases.field.evidenceFiles.badType": "«{filename}» — неподдерживаемый тип. Используйте PNG, JPEG, WebP, GIF, текст или JSON.",
-  "testCases.report.state.skipped": "Пропущен"
+  "testCases.report.state.skipped": "Пропущен",
+  "formDialog.collapse": "Свернуть",
+  "formDialog.expand": "Развернуть"
 }

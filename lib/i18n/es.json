@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Los archivos adjuntos a los pasos cuentan para el mismo límite.",
   "testCases.field.evidenceFiles.tooManyTotal": "Con los archivos adjuntos a los pasos, esta ejecución tendría {count} archivos; el máximo es {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” no es de un tipo admitido: usa PNG, JPEG, WebP, GIF, texto o JSON.",
-  "testCases.report.state.skipped": "Omitido"
+  "testCases.report.state.skipped": "Omitido",
+  "formDialog.collapse": "Contraer",
+  "formDialog.expand": "Expandir"
 }

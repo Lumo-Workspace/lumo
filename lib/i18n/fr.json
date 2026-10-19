@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "Les fichiers joints aux étapes comptent dans la même limite.",
   "testCases.field.evidenceFiles.tooManyTotal": "Avec les fichiers joints aux étapes, cette exécution compterait {count} fichiers — {max} au maximum.",
   "testCases.field.evidenceFiles.badType": "« {filename} » n’est pas d’un type pris en charge — utilisez PNG, JPEG, WebP, GIF, texte ou JSON.",
-  "testCases.report.state.skipped": "Ignorée"
+  "testCases.report.state.skipped": "Ignorée",
+  "formDialog.collapse": "Réduire",
+  "formDialog.expand": "Agrandir"
 }

@@ -2910,5 +2910,7 @@
   "testCases.field.stepEvidence.hint": "File yang dilampirkan ke langkah ikut dihitung dalam batas yang sama.",
   "testCases.field.evidenceFiles.tooManyTotal": "Dengan file yang dilampirkan ke langkah, eksekusi ini berisi {count} file — maksimal {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang didukung — gunakan PNG, JPEG, WebP, GIF, teks, atau JSON.",
-  "testCases.report.state.skipped": "Dilewati"
+  "testCases.report.state.skipped": "Dilewati",
+  "formDialog.collapse": "Ciutkan",
+  "formDialog.expand": "Perluas"
 }
