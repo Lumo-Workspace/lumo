@@ -49,6 +49,12 @@ describe('elevation tokens (LUM-261)', () => {
     }
   })
 
+  it('--elevation-1 is a single hairline layer (LUM-1241)', () => {
+    const [light, dark] = defs('elevation-1')
+    expect(light).toBe('0 1px 2px 0 rgb(0 0 0 / 0.05)')
+    expect(dark).toBe('0 1px 2px 0 rgb(0 0 0 / 0.3)')
+  })
+
   it.each(['1', '2', '3'])(
     '@theme registers --shadow-elevation-%s -> utility',
     n => {

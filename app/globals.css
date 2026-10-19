@@ -515,7 +515,9 @@ a.mention {
      shadow-elevation-1/2/3 utilities (registered in the theme layer below).
      ev1 resting raised (card/panel), ev2 anchored overlay
      (popover/dropdown), ev3 top floating (dialog/sheet/toast). */
-  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  /* ev1 is a single hairline layer (= shadcn shadow-xs) so resting controls
+     read flat (LUM-1241). */
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --elevation-2:
     0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12);
   --elevation-3:
@@ -687,7 +689,7 @@ a.mention {
   --sidebar-border: var(--gray-9);
 
   /* Elevation — stronger on dark, where shadows barely register (LUM-261). */
-  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --elevation-2:
     0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55);
   --elevation-3:

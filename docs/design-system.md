@@ -275,11 +275,15 @@ Avoid arbitrary `z-[1]` etc. — pick a tier above.
 Tailwind 内置 `shadow` / `shadow-xs…2xl` 或硬编码 `shadow-[..]`(由 `lint:tokens`
 拦截);`shadow-none` 允许;`drop-shadow-*`(filter)不受此规则约束。
 
-| 工具类               | 用途     | 组件                                                           |
-| -------------------- | -------- | -------------------------------------------------------------- |
-| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          |
-| `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu |
-| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          |
+| 工具类               | 用途     | 组件                                                           | 亮色值                                                                  | 暗色值                                                                  |
+| -------------------- | -------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          | `0 1px 2px 0 rgb(0 0 0 / 0.05)`(单层发丝阴影,同 shadcn `shadow-xs`)     | `0 1px 2px 0 rgb(0 0 0 / 0.3)`                                          |
+| `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu | `0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12)`    | `0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55)`    |
+| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          | `0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18)` | `0 8px 16px -4px rgb(0 0 0 / 0.55), 0 12px 24px -6px rgb(0 0 0 / 0.65)` |
+
+elevation-1 刻意只有一层很淡的阴影,让静态控件读起来是平的(LUM-1241);层次主要靠
+1px 边框。因此控件本身必须不依赖阴影也能看清 —— 例如 Switch 未选中轨道用 `bg-border`
+而不是 `bg-input`(亮色 `--input` 是白色输入框底色)。
 
 底层值在 `app/globals.css` 的 `--elevation-1/2/3`(`:root`/`.dark`)。调整观感改
 那里即可,组件不碰。landing 专用的 `--shadow-mockup` 仍在 `landing.css`。
