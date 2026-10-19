@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { Separator } from '@/components/ui/separator'
 import type { TimelineEntry, WorkspaceMemberInfo } from '../../types'
 import {
   TimelineEntryRenderer,
@@ -313,7 +314,7 @@ export function ActivityTimeline({
               <span className='text-caption text-muted-foreground whitespace-nowrap'>
                 {formatDateHeader(group.dateKey, intl)}
               </span>
-              <div className='flex-1 h-px bg-border' />
+              <Separator className='flex-1' />
             </div>
             {/* Entries with left timeline line */}
             <div className='space-y-0.5'>

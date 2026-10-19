@@ -21,6 +21,7 @@ import { readCache, writeCache } from '../../cache'
 import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { ItemGroup } from '@/components/ui/item'
+import { Separator } from '@/components/ui/separator'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -365,7 +366,10 @@ export function InboxPage({
         onMouseDown={handleDividerMouseDown}
       >
         <div className='absolute inset-y-0 -left-1 -right-1 z-sticky' />
-        <div className='h-full w-px bg-muted group-hover:bg-muted-foreground transition-colors' />
+        <Separator
+          orientation='vertical'
+          className='group-hover:bg-muted-foreground transition-colors'
+        />
       </div>
 
       {/* ── Right column: task detail panel ── */}
