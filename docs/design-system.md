@@ -132,6 +132,10 @@ text and icons `text-*-text`; selection/drop indicators use `ring` /
 `border-ring`; destructive confirm buttons use `variant='destructive'`. The
 tokens already re-resolve in `.dark`, so no `dark:` colour override is needed.
 A fixed-dark surface (signup) puts `dark` on its root and uses the same tokens.
+PR state indicators (`PrStateBadge`, `PrBadge`, `PrItem`) keep GitHub's colours
+through tokens: open → `success`, merged → `status-in-review` (the only
+purple/magenta family), closed → `danger`, draft → `muted` /
+`muted-foreground`.
 Survivors with a recorded reason: `RevisionDiffView` (diff ins/del colours — no
 diff token yet), `TurnCard` memory left border (owned by LUM-1249), and the
 vendored `components/ui/shadcn-io/aurora-background`.

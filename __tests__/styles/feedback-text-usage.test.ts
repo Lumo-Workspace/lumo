@@ -60,10 +60,6 @@ const NON_TEXT_ALLOWANCE: Record<Family, Allowance> = {
     },
   },
   info: {
-    [`${W}/PrBadge.tsx`]: {
-      max: 1,
-      why: 'open-PR glyph svg (icon only, label is aria-label / title)',
-    },
     [`${W}/RangeBand.tsx`]: {
       max: 1,
       why: 'overflow caret svg on the range band',

@@ -8,10 +8,20 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
+// GitHub's PR state colours (user ruling, LUM-1245): open → success (green),
+// merged → status-in-review (the only purple/magenta token family; reused here
+// as GitHub's merged purple), closed → danger (red), draft → muted (grey).
 export function PrStateBadge({ state }: { state: string }) {
+  if (state === 'draft') {
+    return (
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground'>
+        Draft
+      </span>
+    )
+  }
   if (state === 'merged') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-success-subtle text-success-text'>
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-status-in-review-subtle text-status-in-review-text'>
         Merged
       </span>
     )
@@ -24,7 +34,7 @@ export function PrStateBadge({ state }: { state: string }) {
     )
   }
   return (
-    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-info-subtle text-info-text'>
+    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-success-subtle text-success-text'>
       Open
     </span>
   )

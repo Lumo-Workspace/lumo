@@ -21,7 +21,7 @@ export function PrItem({ entry }: PrItemProps) {
   > = {
     PR_CREATED: {
       icon: GitPullRequest,
-      color: 'text-info-text',
+      color: 'text-success-text',
       label: intl.formatMessage(
         { id: 'activity.prCreated', defaultMessage: 'PR #{n} created' },
         { n: prNumber }
@@ -29,7 +29,8 @@ export function PrItem({ entry }: PrItemProps) {
     },
     PR_MERGED: {
       icon: GitMerge,
-      color: 'text-success-text',
+      // GitHub merged purple: status-in-review is the only purple token family.
+      color: 'text-status-in-review-text',
       label: intl.formatMessage(
         { id: 'activity.prMerged', defaultMessage: 'PR #{n} merged' },
         { n: prNumber }
