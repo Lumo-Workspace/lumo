@@ -12,6 +12,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+/**
+ * Team size is optional: Radix Select can't hold an item with value "", so
+ * "prefer not to say" maps to this and back to an empty team size.
+ */
+const NO_TEAM_SIZE = 'none'
+
 const TEAM_SIZES = [
   { value: '1', labelId: 'waitlist.teamSize.justMe' },
   { value: '2-5', labelId: 'waitlist.teamSize.2to5' },
@@ -161,8 +167,10 @@ export default function WaitlistPage() {
               >
                 {intl.formatMessage({ id: 'waitlist.field.teamSize' })}
               </label>
-              {/* Optional field — '' shows the placeholder (Radix Select has no "" item). */}
-              <Select value={teamSize} onValueChange={setTeamSize}>
+              <Select
+                value={teamSize}
+                onValueChange={v => setTeamSize(v === NO_TEAM_SIZE ? '' : v)}
+              >
                 <SelectTrigger
                   id='teamSize'
                   className='h-auto rounded-lg bg-input py-2.5 text-foreground shadow-none focus:ring-1 focus:ring-ring'
@@ -174,6 +182,11 @@ export default function WaitlistPage() {
                   />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_TEAM_SIZE}>
+                    {intl.formatMessage({
+                      id: 'waitlist.teamSize.preferNotToSay',
+                    })}
+                  </SelectItem>
                   {TEAM_SIZES.map(({ value, labelId }) => (
                     <SelectItem key={value} value={value}>
                       {intl.formatMessage({ id: labelId })}

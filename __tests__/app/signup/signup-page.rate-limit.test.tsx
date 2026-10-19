@@ -7,6 +7,9 @@
  */
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { installRadixSelectShims, pickOption } from '../../helpers/radix-select'
+
+installRadixSelectShims()
 
 const enMessages = jest.requireActual('@/lib/i18n/en.json') as Record<
   string,
@@ -92,5 +95,28 @@ describe('/signup — 429 from the waitlist API', () => {
     expect(icon).toHaveAttribute('aria-hidden', 'true')
     expect(icon).toHaveClass('text-muted-foreground')
     expect(card.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+})
+
+// LUM-1265: team size is optional, so a picked size can be taken back.
+describe('/signup — team size can be cleared', () => {
+  it('submits an empty team size after picking a size and then "Prefer not to say"', async () => {
+    respond(201, { message: 'ok' })
+    render(<WaitlistPage />)
+    fireEvent.change(screen.getByLabelText(/Work email/), {
+      target: { value: 'carol@example.com' },
+    })
+    const teamSize = screen.getByLabelText('Team size')
+    await pickOption(teamSize, '2–5')
+    expect(teamSize).toHaveTextContent('2–5')
+    await pickOption(teamSize, 'Prefer not to say')
+    expect(teamSize).toHaveTextContent('Select…')
+    fireEvent.click(screen.getByRole('button', { name: 'Join Waitlist' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      email: 'carol@example.com',
+      teamSize: '',
+    })
   })
 })

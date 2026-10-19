@@ -1566,6 +1566,7 @@
   "waitlist.field.teamSize": "팀 규모",
   "waitlist.teamSize.select": "선택…",
   "waitlist.teamSize.justMe": "나 혼자",
+  "waitlist.teamSize.preferNotToSay": "응답하지 않음",
   "waitlist.teamSize.2to5": "2–5 명",
   "waitlist.teamSize.6to15": "6–15 명",
   "waitlist.teamSize.16to50": "16–50 명",

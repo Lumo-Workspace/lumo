@@ -416,6 +416,9 @@ export function ProjectSlackDialog({
                       <div className='space-y-2'>
                         <div className='flex gap-2'>
                           <Input
+                            // The Channel label points here while creating,
+                            // and at the select otherwise — one target always.
+                            id={`${fieldId}-channel`}
                             ref={createInputRef}
                             value={newChannelName}
                             onChange={e =>

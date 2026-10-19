@@ -1566,6 +1566,7 @@
   "waitlist.field.teamSize": "團隊規模",
   "waitlist.teamSize.select": "請選擇…",
   "waitlist.teamSize.justMe": "只有自己",
+  "waitlist.teamSize.preferNotToSay": "不便透露",
   "waitlist.teamSize.2to5": "2–5 人",
   "waitlist.teamSize.6to15": "6–15 人",
   "waitlist.teamSize.16to50": "16–50 人",

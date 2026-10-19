@@ -1566,6 +1566,7 @@
   "waitlist.field.teamSize": "Teamgröße",
   "waitlist.teamSize.select": "Auswählen…",
   "waitlist.teamSize.justMe": "Nur ich",
+  "waitlist.teamSize.preferNotToSay": "Keine Angabe",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
