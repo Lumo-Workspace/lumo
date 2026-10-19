@@ -137,7 +137,7 @@ function SecurityBadgeShell({
     <span
       data-testid='security-scan-badge'
       data-state={state}
-      className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone}`}
+      className={`inline-flex items-center gap-1 text-caption ${tone}`}
     >
       {children}
     </span>

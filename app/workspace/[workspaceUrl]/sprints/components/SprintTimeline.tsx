@@ -97,7 +97,7 @@ function TimelineRow({
         <div className='min-w-0'>
           <div
             className={cn(
-              'truncate text-[13.5px] font-semibold leading-tight',
+              'truncate text-body-strong',
               bucket === 'completed'
                 ? 'text-muted-foreground'
                 : 'text-foreground'
@@ -105,7 +105,7 @@ function TimelineRow({
           >
             {sprint.name}
           </div>
-          <div className='truncate font-mono text-[10.5px] text-muted-foreground'>
+          <div className='truncate font-mono text-caption text-muted-foreground'>
             {formatDate(sprint.startDate, intl.locale)} –{' '}
             {formatDate(sprint.endDate, intl.locale)}
           </div>
@@ -139,7 +139,7 @@ function TimelineRow({
           )}
           <span
             className={cn(
-              'relative whitespace-nowrap px-2.5 font-mono text-[11px] font-semibold',
+              'relative whitespace-nowrap px-2.5 font-mono text-caption font-semibold',
               bucket === 'completed' && 'text-muted-foreground',
               bucket === 'active' && 'text-success-text',
               bucket === 'planned' && 'text-muted-foreground'
@@ -181,7 +181,7 @@ export function SprintTimeline({
   if (sprints.length === 0) {
     return (
       <Card className='rounded-xl py-16 text-center'>
-        <div className='text-sm font-semibold text-muted-foreground'>
+        <div className='text-body-strong text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.landing.noResults' })}
         </div>
       </Card>
@@ -216,17 +216,17 @@ export function SprintTimeline({
   return (
     <div>
       <div className='mb-3.5 flex flex-wrap items-center gap-2.5'>
-        <span className='text-xs font-semibold text-muted-foreground'>
+        <span className='text-caption font-semibold text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.view.timeline' })}
         </span>
-        <span className='text-xs text-muted-foreground'>·</span>
-        <span className='text-xs text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>·</span>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.timeline.count' },
             { count: ordered.length }
           )}
         </span>
-        <div className='ml-auto flex flex-wrap items-center gap-3.5 text-[11.5px] text-muted-foreground'>
+        <div className='ml-auto flex flex-wrap items-center gap-3.5 text-caption text-muted-foreground'>
           <LegendDot
             className='bg-muted-foreground/40'
             label={intl.formatMessage({ id: 'sprints.state.completed' })}
@@ -250,7 +250,7 @@ export function SprintTimeline({
             {months.map((m, i) => (
               <span
                 key={i}
-                className='absolute top-0 border-l border-border pl-1.5 text-[11.5px] font-medium text-muted-foreground'
+                className='absolute top-0 border-l border-border pl-1.5 text-caption text-muted-foreground'
                 style={{ left: `${m.pos}%` }}
               >
                 {m.label}
@@ -290,7 +290,7 @@ export function SprintTimeline({
                 className='absolute -top-0.5 bottom-2 border-l-2 border-dashed border-primary'
                 style={{ left: `${todayPos}%` }}
               >
-                <span className='absolute -top-1 left-1.5 whitespace-nowrap rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground'>
+                <span className='absolute -top-1 left-1.5 whitespace-nowrap rounded-sm bg-primary px-1.5 py-0.5 text-caption font-semibold text-primary-foreground'>
                   {intl.formatMessage({ id: 'sprints.timeline.today' })}
                 </span>
               </div>

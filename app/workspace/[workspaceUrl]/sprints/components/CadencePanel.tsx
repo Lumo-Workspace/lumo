@@ -76,7 +76,7 @@ export function CadencePanel({ team }: { team: Team }) {
   return (
     <section className='flex flex-col gap-4 rounded-sm border p-4'>
       <header className='flex items-center justify-between'>
-        <h3 className='font-semibold'>{team.name}</h3>
+        <h3 className='text-title'>{team.name}</h3>
       </header>
 
       <div className='flex items-center gap-2'>
@@ -90,13 +90,13 @@ export function CadencePanel({ team }: { team: Team }) {
         </Label>
       </div>
 
-      <p className='text-xs text-muted-foreground'>
+      <p className='text-caption text-muted-foreground'>
         {intl.formatMessage({ id: 'sprints.settings.enableHint' })}
       </p>
 
       <div className='flex flex-col gap-3'>
         <div className='flex items-center justify-between gap-4'>
-          <Label htmlFor={`duration-${team.id}`} className='text-sm'>
+          <Label htmlFor={`duration-${team.id}`}>
             {intl.formatMessage({ id: 'sprints.settings.duration' })}
           </Label>
           <Select
@@ -121,7 +121,7 @@ export function CadencePanel({ team }: { team: Team }) {
         </div>
 
         <div className='flex items-center justify-between gap-4'>
-          <Label htmlFor={`cooldown-${team.id}`} className='text-sm'>
+          <Label htmlFor={`cooldown-${team.id}`}>
             {intl.formatMessage({ id: 'sprints.settings.cooldown' })}
           </Label>
           <Select
@@ -149,7 +149,7 @@ export function CadencePanel({ team }: { team: Team }) {
         </div>
 
         <div className='flex items-center justify-between gap-4'>
-          <Label htmlFor={`weekday-${team.id}`} className='text-sm'>
+          <Label htmlFor={`weekday-${team.id}`}>
             {intl.formatMessage({ id: 'sprints.settings.startWeekday' })}
           </Label>
           <Select
@@ -171,7 +171,7 @@ export function CadencePanel({ team }: { team: Team }) {
         </div>
 
         <div className='flex items-center justify-between gap-4'>
-          <Label htmlFor={`autocreate-${team.id}`} className='text-sm'>
+          <Label htmlFor={`autocreate-${team.id}`}>
             {intl.formatMessage({ id: 'sprints.settings.autoCreate' })}
           </Label>
           <Select
@@ -201,7 +201,7 @@ export function CadencePanel({ team }: { team: Team }) {
 
         <div className='flex flex-col gap-1'>
           <div className='flex items-center justify-between gap-4'>
-            <Label htmlFor={`autoadd-${team.id}`} className='text-sm'>
+            <Label htmlFor={`autoadd-${team.id}`}>
               {intl.formatMessage({ id: 'sprints.settings.autoAddCompleted' })}
             </Label>
             <Switch
@@ -211,7 +211,7 @@ export function CadencePanel({ team }: { team: Team }) {
               disabled={disabled}
             />
           </div>
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({
               id: 'sprints.settings.autoAddCompleted.hint',
             })}

@@ -18,7 +18,7 @@ import {
 } from '@/lib/legal/subprocessors'
 
 function SubHeading({ children }: { children: React.ReactNode }) {
-  return <h3 className='mt-8 mb-2 text-base font-semibold'>{children}</h3>
+  return <h3 className='mt-8 mb-2 text-title'>{children}</h3>
 }
 
 interface SubprocessorTablesProps {
@@ -56,7 +56,7 @@ export function SubprocessorTables({
         <TableBody>
           {infrastructure.map(s => (
             <TableRow key={s.id}>
-              <TableCell className='font-medium'>{s.product}</TableCell>
+              <TableCell className='text-body-strong'>{s.product}</TableCell>
               <TableCell>{s.entity}</TableCell>
               <TableCell>
                 {t(`security.subprocessors.purpose.${s.id}`)}
@@ -68,7 +68,7 @@ export function SubprocessorTables({
       </Table>
 
       <SubHeading>{t('security.subprocessors.ai.heading')}</SubHeading>
-      <p className='mb-2 text-sm text-muted-foreground'>
+      <p className='mb-2 text-body text-muted-foreground'>
         {t('security.subprocessors.ai.intro')}
       </p>
       <Table>
@@ -83,7 +83,7 @@ export function SubprocessorTables({
         <TableBody>
           {aiHosts.map(h => (
             <TableRow key={h.gatewaySlug}>
-              <TableCell className='font-medium'>{h.entity}</TableCell>
+              <TableCell className='text-body-strong'>{h.entity}</TableCell>
               <TableCell>{location(h.location)}</TableCell>
             </TableRow>
           ))}
@@ -93,7 +93,7 @@ export function SubprocessorTables({
       <SubHeading>
         {t('security.subprocessors.integrations.heading')}
       </SubHeading>
-      <p className='mb-2 text-sm text-muted-foreground'>
+      <p className='mb-2 text-body text-muted-foreground'>
         {t('security.subprocessors.integrations.intro')}
       </p>
       <Table>
@@ -107,7 +107,7 @@ export function SubprocessorTables({
         <TableBody>
           {CUSTOMER_INTEGRATIONS.map(i => (
             <TableRow key={i.id}>
-              <TableCell className='font-medium'>{i.product}</TableCell>
+              <TableCell className='text-body-strong'>{i.product}</TableCell>
               <TableCell>{i.provider}</TableCell>
               <TableCell>
                 {t(`security.subprocessors.access.${i.id}`)}

@@ -11,8 +11,8 @@ function RuleRow({ rule }: { rule: UncheckedRule }) {
   const intl = useIntl()
   return (
     <li className='py-2'>
-      <p className='text-sm text-foreground break-words'>{rule.text}</p>
-      <p className='text-xs text-muted-foreground mt-0.5'>
+      <p className='text-body text-foreground break-words'>{rule.text}</p>
+      <p className='text-caption text-muted-foreground mt-0.5'>
         {intl.formatMessage({
           id: `workspaceSettings.policyCoverage.reason.${rule.reason}`,
         })}
@@ -36,10 +36,8 @@ function ProjectBlock({ project }: { project: ProjectPolicyCoverage }) {
           })
   return (
     <div className='px-5 py-4 border-b border-border last:border-b-0'>
-      <p className='text-sm font-medium text-foreground'>
-        {project.projectName}
-      </p>
-      <p className='text-xs text-muted-foreground mt-0.5'>{summary}</p>
+      <p className='text-body-strong text-foreground'>{project.projectName}</p>
+      <p className='text-caption text-muted-foreground mt-0.5'>{summary}</p>
       {project.unchecked.length > 0 && (
         <ul className='mt-2 divide-y divide-border'>
           {project.unchecked.map(rule => (
@@ -65,18 +63,20 @@ export function PolicyCoverageCard() {
   let body: React.ReactNode
   if (isLoading) {
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>{t('loading')}</p>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
+        {t('loading')}
+      </p>
     )
   } else if (isError || !data) {
     // Never "all checked" when we could not find out.
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
         {t('loadFailed')}
       </p>
     )
   } else if (data.projects.length === 0) {
     body = (
-      <p className='px-5 py-4 text-xs text-muted-foreground'>
+      <p className='px-5 py-4 text-caption text-muted-foreground'>
         {t('noProjects')}
       </p>
     )
@@ -89,8 +89,8 @@ export function PolicyCoverageCard() {
   return (
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
       <div className='px-5 py-3 border-b border-border'>
-        <p className='text-sm font-semibold text-foreground'>{t('title')}</p>
-        <p className='text-xs text-muted-foreground mt-0.5'>
+        <p className='text-body-strong text-foreground'>{t('title')}</p>
+        <p className='text-caption text-muted-foreground mt-0.5'>
           {t('description')}
         </p>
       </div>

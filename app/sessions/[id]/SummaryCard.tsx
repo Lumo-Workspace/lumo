@@ -151,11 +151,11 @@ export function SummaryCard({
   return (
     <section className='mb-8 rounded-md border bg-muted/20 p-4'>
       <header className='mb-3 flex items-center justify-between gap-4'>
-        <h2 className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+        <h2 className='text-body-strong uppercase text-muted-foreground'>
           {intl.formatMessage(M['summary.title'])}
           {summaryType && <TypeBadge type={summaryType} />}
         </h2>
-        <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+        <div className='flex items-center gap-3 text-caption text-muted-foreground'>
           {generatedAt && now != null && (
             <span>
               {intl.formatMessage(M['summary.generated'], {
@@ -170,7 +170,7 @@ export function SummaryCard({
             type='button'
             onClick={regenerate}
             disabled={loading}
-            className='rounded-sm border border-border bg-background px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50'
+            className='rounded-sm border border-border bg-background px-3 py-1 text-caption hover:bg-muted disabled:opacity-50'
           >
             {buttonLabel}
           </button>
@@ -178,7 +178,7 @@ export function SummaryCard({
       </header>
 
       {error && (
-        <p className='mb-3 rounded-sm border border-danger-border bg-danger-subtle px-3 py-2 text-sm text-danger-text'>
+        <p className='mb-3 rounded-sm border border-danger-border bg-danger-subtle px-3 py-2 text-body text-danger-text'>
           {error}
         </p>
       )}
@@ -186,7 +186,7 @@ export function SummaryCard({
       {hasSummary ? (
         <SummaryBody summary={summary} />
       ) : (
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage(M['summary.empty'], {
             strong: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
           })}
@@ -215,7 +215,7 @@ function TypeBadge({ type }: { type: string }) {
     ? TYPE_MESSAGES[type]
     : undefined
   return (
-    <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
+    <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-caption normal-case text-foreground'>
       {Icon && (
         <Icon
           aria-hidden
@@ -242,7 +242,7 @@ function SummaryBody({ summary }: { summary: unknown }) {
   const shape = coerceShape(summary)
   if (!shape) {
     return (
-      <pre className='overflow-x-auto rounded-sm bg-muted/40 p-3 text-xs'>
+      <pre className='overflow-x-auto rounded-sm bg-muted/40 p-3 text-caption'>
         {JSON.stringify(summary, null, 2)}
       </pre>
     )
@@ -289,7 +289,7 @@ function coerceShape(summary: unknown): SummaryShape | null {
 function ExplorationView({ s }: { s: ExplorationShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.whatExplored'])}>
         <p>
           {s.whatExplored || (
@@ -309,7 +309,7 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
           <ul className='space-y-1'>
             {s.filesExamined.map((f, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
-                <code className='font-mono text-xs'>{f.file}</code>
+                <code className='font-mono text-caption'>{f.file}</code>
                 <span>— {f.reason}</span>
               </li>
             ))}
@@ -328,7 +328,7 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
 function ImplementationView({ s }: { s: ImplementationShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.goal'])}>
         <p>
           {s.goal || (
@@ -360,7 +360,7 @@ function ImplementationView({ s }: { s: ImplementationShape }) {
 function DebugView({ s }: { s: DebugShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <div className='flex items-start justify-between gap-4'>
         <Section title={intl.formatMessage(M['summary.problem'])}>
           <p>
@@ -395,7 +395,7 @@ function DebugView({ s }: { s: DebugShape }) {
 function RefactorView({ s }: { s: RefactorShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.refactorGoal'])}>
         <p>
           {s.refactorGoal || (
@@ -410,7 +410,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
           <ul className='space-y-1'>
             {s.changes.map((c, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
-                <code className='font-mono text-xs'>{c.file}</code>
+                <code className='font-mono text-caption'>{c.file}</code>
                 <span>— {c.description}</span>
               </li>
             ))}
@@ -418,7 +418,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
         </Section>
       )}
       <Section title={intl.formatMessage(M['summary.scope'])}>
-        <p className='font-mono text-xs text-muted-foreground'>
+        <p className='font-mono text-caption text-muted-foreground'>
           {intl.formatMessage(M['summary.scopeLine'], {
             count: s.scope.filesCount,
             added: s.scope.linesAdded,
@@ -443,7 +443,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
 function ReviewView({ s }: { s: ReviewShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.reviewScope'])}>
         <p>
           {s.reviewScope || (
@@ -499,7 +499,7 @@ function ReviewView({ s }: { s: ReviewShape }) {
 function MixedView({ s }: { s: MixedShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.overview'])}>
         <p>{s.overview}</p>
       </Section>
@@ -528,7 +528,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+      <h3 className='mb-1 text-caption font-semibold uppercase text-muted-foreground'>
         {title}
       </h3>
       {children}
@@ -555,9 +555,9 @@ function FileChangeList({
     <ul className='space-y-1'>
       {items.map((c, i) => (
         <li key={i} className='flex flex-wrap gap-x-2'>
-          <code className='font-mono text-xs'>{c.file}</code>
+          <code className='font-mono text-caption'>{c.file}</code>
           {c.delta && (
-            <span className='font-mono text-xs text-muted-foreground'>
+            <span className='font-mono text-caption text-muted-foreground'>
               {c.delta}
             </span>
           )}
@@ -584,7 +584,7 @@ function StatusChip({ status }: { status: DebugStatus }) {
         : 'bg-danger-subtle text-danger-text border-danger-border'
   return (
     <span
-      className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
+      className={`shrink-0 rounded-sm border px-2 py-0.5 text-caption font-semibold uppercase ${className}`}
     >
       {intl.formatMessage(STATUS_MESSAGES[status])}
     </span>
@@ -611,7 +611,7 @@ function SeverityGroup({
   const { Icon, className } = SEVERITY_ICONS[tone]
   return (
     <Card className='rounded-md p-3 shadow-none'>
-      <p className='mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+      <p className='mb-1 flex items-center gap-1.5 text-caption font-semibold uppercase text-muted-foreground'>
         <Icon aria-hidden className={`size-3.5 shrink-0 ${className}`} />
         {label}
       </p>

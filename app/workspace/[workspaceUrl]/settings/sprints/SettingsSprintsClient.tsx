@@ -14,10 +14,10 @@ export function SettingsSprintsClient() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <h2 className='text-xl font-semibold'>
+      <h2 className='text-heading'>
         {intl.formatMessage({ id: 'sprints.settings.title' })}
       </h2>
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'sprints.settings.intro' })}
       </p>
       {teams?.map(team => (

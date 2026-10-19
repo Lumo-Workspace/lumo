@@ -42,7 +42,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
   if (isLoading) {
     return (
       <aside className='flex flex-col gap-2 border-l pl-4'>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.retro.loading' })}
         </p>
       </aside>
@@ -53,10 +53,10 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
   if (!summary) {
     return (
       <aside className='flex flex-col gap-3 border-l pl-4'>
-        <h3 className='font-semibold'>
+        <h3 className='text-title'>
           {intl.formatMessage({ id: 'sprints.retro.title' })}
         </h3>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {error
             ? error.message
             : intl.formatMessage({ id: 'sprints.retro.generating' })}
@@ -96,10 +96,10 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
   return (
     <aside className='flex flex-col gap-3 overflow-y-auto border-l pl-4 pr-2'>
       <header>
-        <h3 className='font-semibold'>
+        <h3 className='text-title'>
           {intl.formatMessage({ id: 'sprints.retro.title' })}
         </h3>
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.retro.generatedAt' },
             { date: generatedAt.toLocaleString(intl.locale) }
@@ -108,38 +108,38 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
       </header>
 
       <section className='rounded-sm border bg-muted/30 p-3'>
-        <p className='text-sm font-medium'>{tldrText}</p>
+        <p className='text-body-strong'>{tldrText}</p>
       </section>
 
       {/* Stats card */}
       <section className='rounded-sm border p-3 flex flex-col gap-3'>
         <div className='grid grid-cols-3 gap-3 text-center'>
           <div>
-            <p className='text-xl font-bold tabular-nums'>{total}</p>
-            <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>
+            <p className='text-heading tabular-nums'>{total}</p>
+            <p className='text-caption uppercase text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.retro.stats.planned' })}
             </p>
           </div>
           <div>
-            <p className='text-xl font-bold tabular-nums text-success-text'>
+            <p className='text-heading tabular-nums text-success-text'>
               {done}
             </p>
-            <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>
+            <p className='text-caption uppercase text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.retro.stats.done' })}
             </p>
           </div>
           <div>
-            <p className='text-xl font-bold tabular-nums text-warning-text'>
+            <p className='text-heading tabular-nums text-warning-text'>
               {spillover}
             </p>
-            <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>
+            <p className='text-caption uppercase text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.retro.stats.spillover' })}
             </p>
           </div>
         </div>
 
         <div className='space-y-1'>
-          <div className='flex justify-between text-xs text-muted-foreground'>
+          <div className='flex justify-between text-caption text-muted-foreground'>
             <span>
               {intl.formatMessage({ id: 'sprints.retro.stats.completion' })}
             </span>
@@ -149,7 +149,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
         </div>
 
         {stuck > 0 && (
-          <p className='text-[11px] text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'sprints.retro.stats.stuckNote' },
               { count: stuck }
@@ -161,7 +161,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
       <section>
         {/* marked.parse returns synchronously when no async tokens */}
         <RichHtml
-          className='prose prose-sm max-w-none text-sm'
+          className='prose prose-sm max-w-none text-body'
           html={reportHtml}
         />
       </section>

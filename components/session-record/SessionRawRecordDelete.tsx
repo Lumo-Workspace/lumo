@@ -76,16 +76,16 @@ export function SessionRawRecordDelete({
     >
       <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
         <div className='min-w-0 sm:flex-1'>
-          <p className='text-sm font-medium text-foreground'>
+          <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'sessionRecord.delete.title' })}
           </p>
-          <p className='mt-0.5 text-xs text-muted-foreground'>
+          <p className='mt-0.5 text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'sessionRecord.delete.description' })}
           </p>
           {status.deleted > 0 && lastAt && (
             <p
               data-testid='session-raw-record-deleted'
-              className='mt-1 text-xs text-muted-foreground'
+              className='mt-1 text-caption text-muted-foreground'
             >
               {last?.byName
                 ? intl.formatMessage(
@@ -101,7 +101,7 @@ export function SessionRawRecordDelete({
           {status.keptForCrossings > 0 && (
             <p
               data-testid='session-raw-record-kept'
-              className='mt-1 text-xs text-warning-text'
+              className='mt-1 text-caption text-warning-text'
             >
               {intl.formatMessage(
                 { id: 'sessionRecord.delete.keptNotice' },
@@ -143,7 +143,7 @@ export function SessionRawRecordDelete({
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className='space-y-2 text-sm text-muted-foreground'>
+          <div className='space-y-2 text-body text-muted-foreground'>
             {status.keptForCrossings > 0 && (
               <p
                 data-testid='session-raw-record-confirm-kept'

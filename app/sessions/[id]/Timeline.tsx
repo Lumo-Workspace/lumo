@@ -90,7 +90,7 @@ export function Timeline({ items }: TimelineProps) {
   const intl = useIntl()
   if (items.length === 0) {
     return (
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage(M['timeline.empty'])}
       </p>
     )
@@ -116,7 +116,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
 
   const statusClass =
     item.kind === 'user-prompt'
-      ? 'text-info-text font-medium'
+      ? 'text-info-text font-semibold'
       : item.status === 'error'
         ? 'text-danger-text'
         : item.status === 'pending'
@@ -136,7 +136,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         type='button'
         onClick={() => canExpand && setOpen(!open)}
         disabled={!canExpand}
-        className='flex w-full items-start gap-3 px-3 py-2 text-left font-mono text-xs hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent'
+        className='flex w-full items-start gap-3 px-3 py-2 text-left font-mono text-caption hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent'
       >
         <span className='w-5 shrink-0 text-muted-foreground'>
           {canExpand ? (open ? '▾' : '▸') : ' '}
@@ -156,7 +156,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         </span>
         {item.badge && (
           <span
-            className={`shrink-0 rounded-sm px-1.5 text-[10px] ${
+            className={`shrink-0 rounded-sm px-1.5 text-caption ${
               item.status === 'error'
                 ? 'bg-danger-subtle text-danger-text'
                 : 'bg-muted text-muted-foreground'
@@ -193,8 +193,8 @@ function RedactedBlockView({
 }) {
   const intl = useIntl()
   return (
-    <div className='text-xs'>
-      <div className='mb-1 text-[10px] uppercase tracking-wide text-muted-foreground'>
+    <div className='text-caption'>
+      <div className='mb-1 text-caption uppercase text-muted-foreground'>
         {label}
       </div>
       <p className='rounded-sm border border-dashed p-2 text-muted-foreground'>
@@ -230,8 +230,8 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
         : 'border-border bg-background'
 
   return (
-    <div className='text-xs'>
-      <div className='mb-1 text-[10px] uppercase tracking-wide text-muted-foreground'>
+    <div className='text-caption'>
+      <div className='mb-1 text-caption uppercase text-muted-foreground'>
         {intl.formatMessage(BLOCK_LABELS[block.labelKey])}
         {block.truncated && (
           <span className='ml-2 normal-case text-muted-foreground'>
@@ -243,7 +243,7 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
         )}
       </div>
       <pre
-        className={`overflow-x-auto whitespace-pre-wrap break-words rounded-sm border p-2 font-mono text-xs leading-relaxed ${variantClass}`}
+        className={`overflow-x-auto whitespace-pre-wrap break-words rounded-sm border p-2 font-mono text-caption ${variantClass}`}
       >
         {block.textKey
           ? intl.formatMessage(M['timeline.badge.interrupted'])

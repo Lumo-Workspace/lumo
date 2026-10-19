@@ -30,7 +30,7 @@ function Group({
   if (edges.length === 0) return null
   return (
     <div className='mt-3'>
-      <p className='text-xs font-medium text-muted-foreground mb-1'>
+      <p className='text-caption text-muted-foreground mb-1'>
         {intl.formatMessage({ id: titleId })}
       </p>
       {edges.map(e => (
@@ -81,7 +81,7 @@ export function DependenciesSection({
         }`}
       >
         {!embedded && (
-          <h3 className='text-sm font-medium flex items-center gap-1.5'>
+          <h3 className='text-body-strong flex items-center gap-1.5'>
             <GitFork className='h-4 w-4' />
             {intl.formatMessage({ id: 'task.dependencies.title' })}
           </h3>
@@ -95,7 +95,7 @@ export function DependenciesSection({
       </div>
 
       {liveBlockers.length > 0 && (
-        <div className='flex items-center gap-2 rounded-md bg-destructive/10 text-danger-text px-3 py-2 text-sm mb-2'>
+        <div className='flex items-center gap-2 rounded-md bg-destructive/10 text-danger-text px-3 py-2 text-body mb-2'>
           <AlertTriangle className='h-4 w-4' />
           {intl.formatMessage(
             { id: 'task.dependencies.blockedAlert' },
@@ -108,20 +108,20 @@ export function DependenciesSection({
       )}
 
       {mutationError !== null && (
-        <p className='text-xs text-danger-text mt-1'>
+        <p className='text-caption text-danger-text mt-1'>
           {mutationError ||
             intl.formatMessage({ id: 'task.dependencies.actionFailed' })}
         </p>
       )}
 
       {loading && (
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'task.dependencies.loading' })}
         </p>
       )}
 
       {!loading && isEmpty && (
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'task.dependencies.empty' })}
         </p>
       )}
@@ -147,7 +147,7 @@ export function DependenciesSection({
 
       {grouped.suggested.length > 0 && (
         <div className='mt-3 rounded-md bg-muted/50 p-2'>
-          <p className='text-xs font-medium text-muted-foreground mb-1'>
+          <p className='text-caption text-muted-foreground mb-1'>
             {intl.formatMessage(
               { id: 'task.dependencies.suggested' },
               { count: grouped.suggested.length }

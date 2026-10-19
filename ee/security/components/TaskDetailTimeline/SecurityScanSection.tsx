@@ -237,7 +237,7 @@ function SecurityScanPanel({
                           )
                         : undefined
                     }
-                    className='min-w-0 flex-1 truncate text-caption font-medium text-foreground hover:underline'
+                    className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
                   >
                     <span className='font-mono font-normal text-muted-foreground'>
                       #{pr.number}
@@ -880,7 +880,7 @@ function ScanDetails({
           }
           className='space-y-1.5 pt-1'
         >
-          <p className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+          <p className='text-caption uppercase text-muted-foreground'>
             {`${groupHeading(intl, group)} · ${group.findings.length}`}
           </p>
           {group.findings.map(f => (
@@ -1314,7 +1314,7 @@ function FindingRow({
               data-testid='finding-verifier-reason'
               className='mt-1.5 rounded-sm bg-muted px-2 py-1.5 text-caption'
             >
-              <span className='block text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+              <span className='block text-caption uppercase text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'securityScan.verifier.reasonLabel',
                 })}
@@ -1470,7 +1470,7 @@ function FindingRow({
                     type='button'
                     disabled={submitting}
                     onClick={submit}
-                    className='text-caption font-medium text-foreground'
+                    className='text-caption text-foreground'
                   >
                     {intl.formatMessage({ id: 'securityScan.action.confirm' })}
                   </button>
@@ -1518,7 +1518,7 @@ function FindingHeadline({
   const intl = useIntl()
   return (
     <>
-      <span className={`font-medium uppercase ${tone}`}>
+      <span className={`uppercase ${tone}`}>
         {intl.formatMessage({
           id: `securityScan.severity.${finding.severity}`,
         })}

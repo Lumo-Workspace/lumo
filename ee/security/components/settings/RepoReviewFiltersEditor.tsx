@@ -93,7 +93,7 @@ export function RepoReviewFiltersEditor({
     <div className='flex flex-col gap-1'>
       <label
         htmlFor={`${idBase}-${name}`}
-        className='text-xs font-medium text-foreground'
+        className='text-caption text-foreground'
       >
         {t(name)}
       </label>
@@ -102,16 +102,16 @@ export function RepoReviewFiltersEditor({
         value={draft[name]}
         rows={2}
         disabled={disabled}
-        className='text-xs font-mono'
+        className='text-caption font-mono'
         onChange={e => setDraft(d => ({ ...d, [name]: e.target.value }))}
       />
-      {hint && <p className='text-xs text-muted-foreground'>{hint}</p>}
+      {hint && <p className='text-caption text-muted-foreground'>{hint}</p>}
     </div>
   )
 
   return (
     <div className='flex flex-col gap-3 pt-3'>
-      <p className='text-xs text-muted-foreground'>{t('precedence')}</p>
+      <p className='text-caption text-muted-foreground'>{t('precedence')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         {field(
           'baseBranches',
@@ -128,7 +128,7 @@ export function RepoReviewFiltersEditor({
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-descriptionKeyword`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('descriptionKeyword')}
           </label>
@@ -136,12 +136,12 @@ export function RepoReviewFiltersEditor({
             id={`${idBase}-descriptionKeyword`}
             value={draft.descriptionKeyword}
             disabled={disabled}
-            className='text-xs font-mono'
+            className='text-caption font-mono'
             onChange={e =>
               setDraft(d => ({ ...d, descriptionKeyword: e.target.value }))
             }
           />
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t('descriptionKeywordHint')}
           </p>
         </div>

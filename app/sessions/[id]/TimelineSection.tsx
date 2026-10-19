@@ -9,7 +9,7 @@ export function TimelineSection({ items }: { items: TimelineItem[] }) {
   const intl = useIntl()
   return (
     <section>
-      <h2 className='mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+      <h2 className='mb-3 text-body-strong uppercase text-muted-foreground'>
         {intl.formatMessage(M['timeline.heading'])}
       </h2>
       <Timeline items={items} />

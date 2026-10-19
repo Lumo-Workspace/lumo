@@ -48,34 +48,36 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
       data-testid='session-attribution'
       className='mb-8 rounded-md border p-4'
     >
-      <h2 className='mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+      <h2 className='mb-3 text-body-strong uppercase text-muted-foreground'>
         {intl.formatMessage(M['attribution.title'])}
       </h2>
 
       {view.approximate && (
         <p
           data-testid='session-attribution-approximate'
-          className='mb-3 rounded-sm border border-border px-3 py-2 text-xs text-warning-text'
+          className='mb-3 rounded-sm border border-border px-3 py-2 text-caption text-warning-text'
         >
           {intl.formatMessage(APPROXIMATE_NOTICE)}
         </p>
       )}
 
       {view.unattributed && (
-        <p className='mb-3 text-sm text-muted-foreground'>
+        <p className='mb-3 text-body text-muted-foreground'>
           {intl.formatMessage(M['attribution.unattributed'])}
         </p>
       )}
 
       {view.segments.length > 0 && (
-        <ul className='mb-3 space-y-2 text-sm'>
+        <ul className='mb-3 space-y-2 text-body'>
           {view.segments.map((seg, i) => (
             <li
               key={`${seg.taskIdentifier}-${seg.fromTurn}-${i}`}
               data-testid='session-attribution-segment'
             >
               <div>
-                <span className='font-mono text-xs'>{seg.taskIdentifier}</span>
+                <span className='font-mono text-caption'>
+                  {seg.taskIdentifier}
+                </span>
                 {' · '}
                 {seg.fromTurn === seg.toTurn
                   ? intl.formatMessage(TURN_MESSAGE, { n: seg.fromTurn + 1 })
@@ -91,7 +93,7 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
               {dedupeEvidence(seg.evidence).map(e => (
                 <div
                   key={`${e.kind}-${e.identifier}`}
-                  className='pl-3 text-xs text-muted-foreground'
+                  className='pl-3 text-caption text-muted-foreground'
                 >
                   {e.count > 1
                     ? intl.formatMessage(EVIDENCE_COUNT, {
@@ -108,10 +110,10 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
 
       {view.subagents.length > 0 && (
         <div>
-          <h3 className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+          <h3 className='mb-1 text-caption font-semibold uppercase text-muted-foreground'>
             {intl.formatMessage(M['attribution.subagents'])}
           </h3>
-          <ul className='space-y-1 text-sm'>
+          <ul className='space-y-1 text-body'>
             {groupSubagents(view.subagents).map(({ sub, count }) => (
               <li
                 key={sub.sessionId}
@@ -136,7 +138,7 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
                   sub.tasks.map((t, i) => (
                     <span key={`${t.taskIdentifier}-${i}`}>
                       {i > 0 && ', '}
-                      <span className='font-mono text-xs'>
+                      <span className='font-mono text-caption'>
                         {t.taskIdentifier}
                       </span>
                       {' ('}

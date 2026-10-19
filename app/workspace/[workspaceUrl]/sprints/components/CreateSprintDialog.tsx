@@ -102,7 +102,7 @@ export function CreateSprintDialog({
             </div>
           </div>
           {!valid && (
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.create.invalidRange' })}
             </p>
           )}

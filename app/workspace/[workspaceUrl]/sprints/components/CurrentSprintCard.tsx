@@ -81,8 +81,8 @@ function Metric({
 }) {
   return (
     <div className='rounded-lg border border-border p-3.5'>
-      <div className='text-xs text-muted-foreground'>{label}</div>
-      <div className='mt-1 text-xl font-semibold tabular-nums'>{children}</div>
+      <div className='text-caption text-muted-foreground'>{label}</div>
+      <div className='mt-1 text-heading tabular-nums'>{children}</div>
     </div>
   )
 }
@@ -135,21 +135,19 @@ export function CurrentSprintCard({
           <div className='min-w-0'>
             <div className='flex flex-wrap items-center gap-2'>
               <Link href={href} className='hover:underline'>
-                <h2 className='text-lg font-semibold tracking-tight'>
-                  {detail?.name ?? sprint.name}
-                </h2>
+                <h2 className='text-title'>{detail?.name ?? sprint.name}</h2>
               </Link>
-              <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-[11.5px] font-semibold text-success-text'>
+              <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-caption font-semibold text-success-text'>
                 <span className='size-1.5 rounded-full bg-success-text' />
                 {intl.formatMessage({ id: 'sprints.status.active' })}
               </span>
               {finishedEarly && (
-                <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-[11.5px] font-medium text-muted-foreground'>
+                <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'sprints.landing.finishedEarly' })}
                 </span>
               )}
             </div>
-            <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
+            <p className='mt-1.5 font-mono text-caption text-muted-foreground'>
               {formatDate(sprint.startDate, intl.locale)} –{' '}
               {formatDate(sprint.endDate, intl.locale)} ·{' '}
               {intl.formatMessage(
@@ -165,14 +163,14 @@ export function CurrentSprintCard({
         <div className='px-6 pb-6 pt-3.5'>
           <div className='mb-2.5 flex items-end justify-between gap-4'>
             <div className='flex items-baseline gap-2'>
-              <span className='text-[28px] font-semibold tracking-tight tabular-nums'>
+              <span className='text-display tabular-nums'>
                 {done}
-                <span className='font-medium text-muted-foreground'>
+                <span className='font-normal text-muted-foreground'>
                   {' '}
                   / {total}
                 </span>
               </span>
-              <span className='text-sm text-muted-foreground'>
+              <span className='text-body text-muted-foreground'>
                 {intl.formatMessage({ id: 'sprints.landing.tasksComplete' })}
               </span>
             </div>
@@ -220,12 +218,12 @@ export function CurrentSprintCard({
               label={intl.formatMessage({ id: 'sprints.metric.timeLeft' })}
             >
               {daysLeft}
-              <span className='ml-1 text-xs font-medium text-muted-foreground'>
+              <span className='ml-1 text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: 'sprints.metric.days' })}
               </span>
             </Metric>
             <div className='flex flex-col justify-between rounded-lg border border-border p-3.5'>
-              <div className='text-xs text-muted-foreground'>
+              <div className='text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: 'sprints.metric.burndown' })}
               </div>
               <BurndownSpark sprintId={sprint.id} />
@@ -234,7 +232,7 @@ export function CurrentSprintCard({
 
           <div className='flex items-center justify-between gap-4'>
             {contributors > 0 ? (
-              <span className='text-sm text-muted-foreground'>
+              <span className='text-body text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'sprints.landing.contributors' },
                   { count: contributors }
@@ -245,7 +243,7 @@ export function CurrentSprintCard({
             )}
             <span
               className={cn(
-                'text-sm font-medium',
+                'text-body-strong',
                 onTrack ? 'text-success-text' : 'text-muted-foreground'
               )}
             >
@@ -261,7 +259,7 @@ export function CurrentSprintCard({
         {/* Finished-early banner */}
         {finishedEarly && (
           <div className='flex items-center justify-between gap-4 border-t border-border bg-muted/40 px-6 py-3.5'>
-            <span className='text-sm text-muted-foreground'>
+            <span className='text-body text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'sprints.landing.finishedEarlyBanner' },
                 { count: daysLeft }
@@ -269,7 +267,7 @@ export function CurrentSprintCard({
             </span>
             <Link
               href={href}
-              className='inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90'
+              className='inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-body-strong text-primary-foreground transition-colors hover:bg-primary/90'
             >
               {intl.formatMessage({ id: 'sprints.detail.closeSprint' })}
             </Link>

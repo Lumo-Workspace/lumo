@@ -20,7 +20,7 @@ function Block({
 }) {
   return (
     <div data-testid={testId} className='mt-2 min-w-0'>
-      <span className='block text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+      <span className='block text-caption uppercase text-muted-foreground'>
         {label}
       </span>
       {children}

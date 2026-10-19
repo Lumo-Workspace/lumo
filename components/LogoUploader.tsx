@@ -179,7 +179,7 @@ export function LogoUploader({
               className='size-full object-contain'
             />
           ) : (
-            <div className='size-full bg-muted-foreground flex items-center justify-center text-sm font-bold text-white'>
+            <div className='size-full bg-muted-foreground flex items-center justify-center text-body-strong text-white'>
               {initials || '?'}
             </div>
           )}
@@ -187,7 +187,9 @@ export function LogoUploader({
             <Camera size={16} className='text-white' />
           </div>
         </button>
-        {sizeError && <p className='text-xs text-danger-text'>{sizeError}</p>}
+        {sizeError && (
+          <p className='text-caption text-danger-text'>{sizeError}</p>
+        )}
       </div>
 
       <Dialog

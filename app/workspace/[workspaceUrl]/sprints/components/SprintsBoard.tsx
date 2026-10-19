@@ -46,7 +46,7 @@ function Segmented<T extends string>({
           type='button'
           onClick={() => onChange(o.value)}
           className={cn(
-            'h-7 rounded-md px-3 text-[13px] font-medium transition-colors',
+            'h-7 rounded-md px-3 text-body-strong transition-colors',
             value === o.value
               ? 'bg-card text-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -62,13 +62,13 @@ function Segmented<T extends string>({
 function SectionLabel({ label, count }: { label: string; count?: string }) {
   return (
     <div className='mb-3 flex items-center gap-2.5'>
-      <span className='text-xs font-semibold text-muted-foreground'>
+      <span className='text-caption font-semibold text-muted-foreground'>
         {label}
       </span>
       {count && (
         <>
-          <span className='text-xs text-muted-foreground/60'>·</span>
-          <span className='text-xs text-muted-foreground/80'>{count}</span>
+          <span className='text-caption text-muted-foreground/60'>·</span>
+          <span className='text-caption text-muted-foreground/80'>{count}</span>
         </>
       )}
     </div>
@@ -97,15 +97,15 @@ function UpcomingCard({
       <div className='flex items-start justify-between gap-3'>
         <div className='min-w-0'>
           <Link href={href} className='hover:underline'>
-            <h3 className='truncate text-base font-semibold'>{sprint.name}</h3>
+            <h3 className='truncate text-title'>{sprint.name}</h3>
           </Link>
-          <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
+          <p className='mt-1.5 font-mono text-caption text-muted-foreground'>
             {formatDate(sprint.startDate, intl.locale)} –{' '}
             {formatDate(sprint.endDate, intl.locale)}
           </p>
         </div>
         <div className='flex shrink-0 items-center gap-1'>
-          <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-[11.5px] font-medium text-muted-foreground'>
+          <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-caption text-muted-foreground'>
             {intl.formatMessage({
               id:
                 sprint.status === 'DRAFT'
@@ -118,7 +118,7 @@ function UpcomingCard({
       </div>
       <div className='my-4 h-1.5 rounded-full bg-muted' aria-hidden />
       <div className='flex items-center justify-between'>
-        <span className='text-xs text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.landing.startsIn' },
             { count: Math.max(0, startsIn) }
@@ -126,7 +126,7 @@ function UpcomingCard({
         </span>
         <Link
           href={href}
-          className='inline-flex h-[30px] items-center rounded-md border border-border bg-card px-3 text-xs font-medium transition-colors hover:bg-muted'
+          className='inline-flex h-[30px] items-center rounded-md border border-border bg-card px-3 text-caption transition-colors hover:bg-muted'
         >
           {intl.formatMessage({ id: 'sprints.landing.plan' })} →
         </Link>
@@ -153,13 +153,10 @@ function CompletedRow({
 
   return (
     <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] items-center gap-4 border-b border-border/60 px-5 py-3.5 last:border-0 hover:bg-muted/40'>
-      <Link
-        href={href}
-        className='truncate text-sm font-semibold hover:underline'
-      >
+      <Link href={href} className='truncate text-body-strong hover:underline'>
         {sprint.name}
       </Link>
-      <span className='font-mono text-[13px] text-muted-foreground'>
+      <span className='font-mono text-body text-muted-foreground'>
         {formatDate(sprint.startDate, intl.locale)} –{' '}
         {formatDate(sprint.endDate, intl.locale)}
       </span>
@@ -173,13 +170,13 @@ function CompletedRow({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className='whitespace-nowrap font-mono text-xs text-muted-foreground tabular-nums'>
+        <span className='whitespace-nowrap font-mono text-caption text-muted-foreground tabular-nums'>
           {done}/{total}
         </span>
       </div>
       <Link
         href={href}
-        className='inline-flex h-[30px] items-center justify-self-end rounded-md border border-border bg-card px-3 text-xs font-medium transition-colors hover:bg-muted'
+        className='inline-flex h-[30px] items-center justify-self-end rounded-md border border-border bg-card px-3 text-caption transition-colors hover:bg-muted'
       >
         {intl.formatMessage({ id: 'sprints.landing.viewRetro' })}
       </Link>
@@ -197,7 +194,7 @@ function CompletedTable({
   const intl = useIntl()
   return (
     <Card className='overflow-hidden rounded-xl'>
-      <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] gap-4 border-b border-border px-5 py-2.5 text-xs font-medium text-muted-foreground'>
+      <div className='grid grid-cols-[1.2fr_1.4fr_1.6fr_auto] gap-4 border-b border-border px-5 py-2.5 text-caption text-muted-foreground'>
         <span>{intl.formatMessage({ id: 'sprints.table.sprint' })}</span>
         <span>{intl.formatMessage({ id: 'sprints.table.dates' })}</span>
         <span>{intl.formatMessage({ id: 'sprints.table.completion' })}</span>
@@ -316,7 +313,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
     <div className='mx-auto w-full max-w-[1680px]'>
       {/* Header: subtitle + actions */}
       <div className='flex flex-wrap items-start justify-between gap-3'>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.landing.subtitle' })}
         </p>
         <div className='flex items-center gap-2'>
@@ -387,7 +384,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
                 type='button'
                 onClick={() => setStatusFilter(c.value)}
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs font-medium transition-colors',
+                  'h-8 rounded-md px-3 text-caption transition-colors',
                   statusFilter === c.value
                     ? 'bg-primary text-primary-foreground'
                     : 'border border-border bg-card text-muted-foreground hover:bg-muted'
@@ -397,7 +394,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
               </button>
             ))}
           </div>
-          <span className='ml-auto font-mono text-xs text-muted-foreground'>
+          <span className='ml-auto font-mono text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'sprints.landing.resultCount' },
               { count: resultCount }
@@ -409,7 +406,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
       {/* Empty state — no sprints at all */}
       {isEmpty ? (
         <div className='mt-10 flex flex-col items-center gap-3 py-12 text-center'>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.landing.empty' })}
           </p>
           <Button onClick={() => setCreateOpen(true)} size='sm'>
@@ -431,10 +428,10 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
         <div className='mt-6 space-y-9'>
           {noResults && (
             <div className='py-16 text-center'>
-              <div className='text-sm font-semibold text-muted-foreground'>
+              <div className='text-body-strong text-muted-foreground'>
                 {intl.formatMessage({ id: 'sprints.landing.noResults' })}
               </div>
-              <div className='mt-1 text-xs text-muted-foreground/70'>
+              <div className='mt-1 text-caption text-muted-foreground/70'>
                 {intl.formatMessage({ id: 'sprints.landing.noResultsHint' })}
               </div>
             </div>
