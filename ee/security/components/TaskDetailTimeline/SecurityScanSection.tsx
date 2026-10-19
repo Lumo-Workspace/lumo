@@ -68,6 +68,7 @@ import {
 } from '@/components/ui/collapsible'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
 
@@ -1470,7 +1471,7 @@ function FindingRow({
                     })}
                   </span>
                 ) : (
-                  <input
+                  <Input
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder={intl.formatMessage({
@@ -1479,7 +1480,7 @@ function FindingRow({
                     aria-label={intl.formatMessage({
                       id: 'securityScan.action.notePlaceholder',
                     })}
-                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                    className='h-control-sm min-w-[12rem] flex-1 text-caption md:text-caption'
                   />
                 )}
                 <Button

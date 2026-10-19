@@ -3,6 +3,8 @@
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { TestCase } from '@prisma/client'
 import type { CreateTestCaseBody } from '@/lib/validation/test-case'
@@ -20,9 +22,6 @@ interface TestCaseFormProps {
   onSubmit: (body: CreateTestCaseBody) => Promise<void> | void
   onCancel: () => void
 }
-
-const fieldClass =
-  'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
 /** Radix Select can't hold an item with value "" — "any environment" maps to this. */
 const ANY_ENV = 'ANY'
@@ -55,8 +54,8 @@ function StepList({
           <span className='w-4 tabular-nums text-caption text-muted-foreground/70'>
             {i + 1}
           </span>
-          <input
-            className={`${fieldClass} flex-1`}
+          <Input
+            className='flex-1'
             value={value}
             onChange={e => {
               const next = [...items]
@@ -182,9 +181,8 @@ export function TestCaseForm({
         <Label htmlFor={`${fieldId}-title`}>
           {intl.formatMessage({ id: 'testCases.form.title' })}
         </Label>
-        <input
+        <Input
           id={`${fieldId}-title`}
-          className={fieldClass}
           value={title}
           onChange={e => setTitle(e.target.value)}
           onFocus={e =>
@@ -200,9 +198,8 @@ export function TestCaseForm({
         <Label htmlFor={`${fieldId}-setup`}>
           {intl.formatMessage({ id: 'testCases.form.setup' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-setup`}
-          className={fieldClass}
           rows={2}
           value={setup}
           onChange={e => setSetup(e.target.value)}
@@ -227,9 +224,8 @@ export function TestCaseForm({
         <Label htmlFor={`${fieldId}-expected`}>
           {intl.formatMessage({ id: 'testCases.form.expected' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-expected`}
-          className={fieldClass}
           rows={2}
           value={expected}
           onChange={e => setExpected(e.target.value)}

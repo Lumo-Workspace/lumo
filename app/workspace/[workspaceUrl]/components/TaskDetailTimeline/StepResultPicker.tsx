@@ -3,6 +3,7 @@
 import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -19,9 +20,6 @@ interface StepResultPickerProps {
    */
   renderMarkedStep?: (key: string, entry: PickerEntry) => ReactNode
 }
-
-const fieldClass =
-  'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
 /** LUM-1211: 每一步一行：通过 / 失败（仅 FAIL）/ 跳过（附原因）。只渲染，不判完整性。 */
 export function StepResultPicker({
@@ -122,8 +120,7 @@ export function StepResultPicker({
               ) : null}
             </div>
             {entry?.status === 'SKIP' ? (
-              <input
-                className={fieldClass}
+              <Input
                 maxLength={200}
                 value={entry.reason}
                 placeholder={intl.formatMessage({

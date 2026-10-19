@@ -32,6 +32,7 @@ import { PluginSlot } from '@/lib/plugins/client'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -1306,7 +1307,7 @@ function CrossingRow({
 
         {open && (
           <div className='mt-2.5 space-y-2'>
-            <input
+            <Input
               type='text'
               value={note}
               disabled={pending}
@@ -1315,7 +1316,7 @@ function CrossingRow({
                 id: 'boundary.panel.notePlaceholder',
                 defaultMessage: 'Disposition note (optional)',
               })}
-              className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              className='h-control-sm text-caption md:text-caption'
             />
             {/* LUM-751: per-repository auto-handle opt-in — only for a
               suppressible category with a coalescing target; never on the
@@ -1391,7 +1392,7 @@ function CrossingRow({
                 </p>
               )}
             {c.suppressible && suppress && (
-              <input
+              <Input
                 type='text'
                 data-testid={`boundary-suppress-reason-${c.id}`}
                 value={suppressReason}
@@ -1402,7 +1403,7 @@ function CrossingRow({
                   defaultMessage:
                     'Why this is never a real crossing here (optional)',
                 })}
-                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                className='h-control-sm text-caption md:text-caption'
               />
             )}
             <div className='flex items-center gap-2'>
@@ -1441,7 +1442,7 @@ function CrossingRow({
           undispositioned, which re-blocks Done). Same human-only write path. */}
         {!open && (
           <div className='mt-2.5 space-y-2'>
-            <input
+            <Input
               type='text'
               value={note}
               disabled={pending}
@@ -1450,7 +1451,7 @@ function CrossingRow({
                 id: 'boundary.panel.redispositionNotePlaceholder',
                 defaultMessage: 'Reason for the change (optional)',
               })}
-              className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              className='h-control-sm text-caption md:text-caption'
             />
             <div className='flex flex-wrap items-center gap-2'>
               <Button

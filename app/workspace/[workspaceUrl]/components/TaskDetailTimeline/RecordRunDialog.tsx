@@ -3,6 +3,8 @@
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
@@ -54,9 +56,6 @@ interface RecordRunDialogProps {
   onSubmit: (body: RecordRunBody, files: File[]) => Promise<void> | void
   onClose: () => void
 }
-
-const fieldClass =
-  'rounded-sm border border-border bg-background px-2 py-1 text-body text-foreground'
 
 /** Radix Select can't hold an item with value "" — "no PR" maps to this. */
 const NO_PR = 'none'
@@ -429,9 +428,8 @@ export function RecordRunDialog({
           <Label htmlFor={`${fieldId}-actual`}>
             {intl.formatMessage({ id: 'testCases.field.actual' })}
           </Label>
-          <textarea
+          <Textarea
             id={`${fieldId}-actual`}
-            className={fieldClass}
             value={actual}
             onChange={e => setActual(e.target.value)}
             placeholder={intl.formatMessage({
@@ -446,9 +444,8 @@ export function RecordRunDialog({
         <Label htmlFor={`${fieldId}-note`}>
           {intl.formatMessage({ id: 'testCases.field.note' })}
         </Label>
-        <textarea
+        <Textarea
           id={`${fieldId}-note`}
-          className={fieldClass}
           value={note}
           onChange={e => setNote(e.target.value)}
           rows={3}
@@ -459,10 +456,10 @@ export function RecordRunDialog({
         <Label htmlFor={`${fieldId}-evidence`}>
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles' })}
         </Label>
-        <input
+        <Input
           id={`${fieldId}-evidence`}
           type='file'
-          className='text-body text-muted-foreground'
+          className='text-muted-foreground'
           multiple
           accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
