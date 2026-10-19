@@ -29,6 +29,7 @@ import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
 import { milestoneState } from '@/lib/summaries/milestone-state'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface MilestoneDetailPageProps {
   /** Open the global task drawer for a clicked task in the milestone board. */
@@ -114,6 +115,7 @@ export function MilestoneDetailPage({
   // is global across milestones (mirrors the sprint detail page) so users don't
   // re-toggle on every visit.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   useEffect(() => {
     const cached = readCache<boolean>(CACHE_KEY.milestoneSidebarCollapsed)
     if (cached !== null) setSidebarCollapsed(cached)
@@ -189,14 +191,21 @@ export function MilestoneDetailPage({
         onArchiveToggle={() =>
           archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
         }
-        onDelete={() => {
-          const ok = window.confirm(
-            intl.formatMessage(
-              { id: 'milestone.delete.confirm' },
-              { name: milestone.name }
-            )
-          )
-          if (ok) deleteMutation.mutate()
+        onDelete={() => setConfirmDeleteOpen(true)}
+      />
+      <ConfirmActionDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={intl.formatMessage({ id: 'milestone.delete' })}
+        description={intl.formatMessage(
+          { id: 'milestone.delete.confirm' },
+          { name: milestone.name }
+        )}
+        confirmLabel={intl.formatMessage({ id: 'common.delete' })}
+        destructive
+        onConfirm={() => {
+          setConfirmDeleteOpen(false)
+          deleteMutation.mutate()
         }}
       />
     </div>

@@ -8,6 +8,7 @@ import {
   type RevisionListItem,
 } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentRevisions'
 import { RevisionDiffView } from './RevisionDiffView'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 interface DocumentHistoryModalProps {
   open: boolean
@@ -44,8 +45,6 @@ export function DocumentHistoryModal({
     }
   }, [selectedId, getRevision])
 
-  if (!open) return null
-
   const onRestore = async () => {
     if (!selectedId) return
     setRestoring(true)
@@ -59,24 +58,25 @@ export function DocumentHistoryModal({
   }
 
   return (
-    <div
-      className='fixed inset-0 z-modal flex items-center justify-center bg-black/40 p-6'
-      role='dialog'
-      aria-modal='true'
-      aria-label={intl.formatMessage({
-        id: 'documentHistory.title',
-        defaultMessage: 'Version history',
-      })}
+    <Dialog
+      open={open}
+      onOpenChange={next => {
+        if (!next) onClose()
+      }}
     >
-      <div className='flex h-[80vh] w-full max-w-5xl overflow-hidden rounded-lg bg-background shadow-elevation-3'>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className='flex h-[80vh] w-[calc(100%-3rem)] max-w-5xl gap-0 overflow-hidden rounded-lg p-0'
+      >
         {/* Left: timeline */}
         <aside className='w-72 shrink-0 overflow-y-auto border-r border-border p-2'>
-          <h2 className='px-2 py-2 text-body-strong'>
+          <DialogTitle className='px-2 py-2 text-body-strong'>
             {intl.formatMessage({
               id: 'documentHistory.title',
               defaultMessage: 'Version history',
             })}
-          </h2>
+          </DialogTitle>
           {loading && (
             <p className='px-2 text-caption text-muted-foreground'>
               {intl.formatMessage({
@@ -161,7 +161,7 @@ export function DocumentHistoryModal({
             )}
           </div>
         </section>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

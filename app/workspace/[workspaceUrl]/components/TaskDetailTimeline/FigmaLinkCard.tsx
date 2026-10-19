@@ -8,6 +8,7 @@ import type { OptimisticFigmaLink } from '../../hooks/useFigmaLinks'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface Props {
   link: OptimisticFigmaLink
@@ -27,6 +28,7 @@ export function FigmaLinkCard({
   const intl = useIntl()
   const now = useNow()
   const [busy, setBusy] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const safeHref = isSafeUrl(link.url) ? link.url : undefined
   const safeThumbnail =
@@ -52,13 +54,7 @@ export function FigmaLinkCard({
   }
 
   const handleRemove = async () => {
-    const confirmed = window.confirm(
-      intl.formatMessage({
-        id: 'task.figma.confirmDelete',
-        defaultMessage: 'Remove this Figma design?',
-      })
-    )
-    if (!confirmed) return
+    setConfirmOpen(false)
     setBusy(true)
     try {
       await onRemove(link.id)
@@ -133,7 +129,7 @@ export function FigmaLinkCard({
                 <button
                   onClick={e => {
                     e.preventDefault()
-                    void handleRemove()
+                    setConfirmOpen(true)
                   }}
                   disabled={busy}
                   title={intl.formatMessage({
@@ -175,19 +171,44 @@ export function FigmaLinkCard({
     </div>
   )
 
+  const confirmDialog = (
+    <ConfirmActionDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title={intl.formatMessage({
+        id: 'task.figma.confirmDelete',
+        defaultMessage: 'Remove this Figma design?',
+      })}
+      confirmLabel={intl.formatMessage({
+        id: 'task.figma.card.delete',
+        defaultMessage: 'Remove',
+      })}
+      destructive
+      onConfirm={() => void handleRemove()}
+    />
+  )
+
   if (safeHref && !link.loading) {
     return (
-      <a
-        href={safeHref}
-        target='_blank'
-        rel='noopener noreferrer'
-        referrerPolicy='no-referrer'
-        className='block'
-      >
-        {cardInner}
-      </a>
+      <>
+        <a
+          href={safeHref}
+          target='_blank'
+          rel='noopener noreferrer'
+          referrerPolicy='no-referrer'
+          className='block'
+        >
+          {cardInner}
+        </a>
+        {confirmDialog}
+      </>
     )
   }
 
-  return <div>{cardInner}</div>
+  return (
+    <>
+      <div>{cardInner}</div>
+      {confirmDialog}
+    </>
+  )
 }
