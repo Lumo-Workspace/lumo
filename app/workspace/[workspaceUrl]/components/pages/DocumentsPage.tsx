@@ -197,6 +197,7 @@ export function DocumentsPage({
             {/* Creator */}
             <span className='flex items-center gap-1.5 shrink-0 hidden sm:flex'>
               <MemberAvatar
+                decorative
                 name={doc.createdBy.name}
                 imageUrl={doc.createdBy.imageUrl}
                 size='xs'

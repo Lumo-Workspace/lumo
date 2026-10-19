@@ -611,6 +611,7 @@ export function DocumentEditorPage({
                   {/* Creator */}
                   <span className='flex items-center gap-1 shrink-0'>
                     <MemberAvatar
+                      decorative
                       name={doc.createdBy.name}
                       imageUrl={doc.createdBy.imageUrl}
                       size='xs'

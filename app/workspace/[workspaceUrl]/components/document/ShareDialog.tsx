@@ -330,6 +330,7 @@ export function ShareDialog({
                     onClick={() => handleInvite(m)}
                   >
                     <MemberAvatar
+                      decorative
                       name={m.name}
                       imageUrl={m.imageUrl}
                       size='sm'
@@ -360,6 +361,7 @@ export function ShareDialog({
             {/* Owner row */}
             <div className='flex items-center gap-2 px-1 py-1.5'>
               <MemberAvatar
+                decorative
                 name={owner.name}
                 imageUrl={owner.imageUrl}
                 size='md'
@@ -379,6 +381,7 @@ export function ShareDialog({
                 className='flex items-center gap-2 px-1 py-1.5'
               >
                 <MemberAvatar
+                  decorative
                   name={share.member.name}
                   imageUrl={share.member.imageUrl}
                   size='md'

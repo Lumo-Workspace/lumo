@@ -33,9 +33,14 @@ export function ActorMention({
       <HoverCardContent className='w-56 p-3' side='top'>
         <div className='flex gap-2.5'>
           {isAgent ? (
-            <AgentAvatar name={name} size='lg' />
+            <AgentAvatar decorative name={name} size='lg' />
           ) : (
-            <MemberAvatar name={name} imageUrl={imageUrl} size='lg' />
+            <MemberAvatar
+              decorative
+              name={name}
+              imageUrl={imageUrl}
+              size='lg'
+            />
           )}
           <div className='min-w-0'>
             <span className='block text-body-strong text-foreground truncate'>

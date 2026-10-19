@@ -156,6 +156,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
         return (
           <button key={`user-${item.id}`} {...common}>
             <MemberAvatar
+              decorative
               name={item.label}
               imageUrl={item.imageUrl}
               size='xs'

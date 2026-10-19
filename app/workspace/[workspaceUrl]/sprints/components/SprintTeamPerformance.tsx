@@ -155,6 +155,7 @@ function MemberCard({
         />
         {member ? (
           <MemberAvatar
+            decorative
             name={member.name}
             imageUrl={member.imageUrl}
             size='xs'

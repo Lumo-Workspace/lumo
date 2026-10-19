@@ -77,6 +77,7 @@ export function AssigneeSelect({
             ) : assigneeMember ? (
               <div className='flex items-center gap-1.5'>
                 <MemberAvatar
+                  decorative
                   name={assigneeMember.name}
                   imageUrl={assigneeMember.imageUrl}
                   size='xs'
@@ -120,7 +121,12 @@ export function AssigneeSelect({
           .map(m => (
             <SelectItem key={m.actorId} value={m.actorId}>
               <div className='flex items-center gap-2'>
-                <MemberAvatar name={m.name} imageUrl={m.imageUrl} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={m.name}
+                  imageUrl={m.imageUrl}
+                  size='xs'
+                />
                 {m.name}
               </div>
             </SelectItem>

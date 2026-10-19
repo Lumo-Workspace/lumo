@@ -69,6 +69,16 @@ export interface MemberAvatarProps {
   className?: string
   /** e.g. stacking order in an overlapping group. */
   style?: CSSProperties
+  /** Set where the person's name is already printed next to the avatar: the
+   *  avatar is hidden from assistive tech so the name isn't read twice.
+   *  Default: exposed as an image labelled with the name. */
+  decorative?: boolean
+}
+
+function a11yProps(name: string, decorative: boolean | undefined) {
+  return decorative
+    ? ({ 'aria-hidden': true } as const)
+    : ({ role: 'img', 'aria-label': name } as const)
 }
 
 export function MemberAvatar({
@@ -77,12 +87,12 @@ export function MemberAvatar({
   size = 'sm',
   className,
   style,
+  decorative,
 }: MemberAvatarProps) {
   const src = imageUrl || undefined
   return (
     <Avatar
-      role='img'
-      aria-label={name}
+      {...a11yProps(name, decorative)}
       className={cn(AVATAR_SIZE_CLASS[size], 'shrink-0', className)}
       style={style}
     >
@@ -109,11 +119,11 @@ export function AgentAvatar({
   name,
   size = 'sm',
   className,
+  decorative,
 }: Omit<MemberAvatarProps, 'imageUrl' | 'style'>) {
   return (
     <span
-      role='img'
-      aria-label={name}
+      {...a11yProps(name, decorative)}
       className={cn(
         AVATAR_SIZE_CLASS[size],
         'flex shrink-0 items-center justify-center rounded-full bg-info-subtle',

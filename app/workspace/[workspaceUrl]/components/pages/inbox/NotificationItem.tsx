@@ -212,6 +212,7 @@ export function NotificationItem({
           <ItemMedia className='self-start'>
             {actor ? (
               <MemberAvatar
+                decorative
                 name={actor.name}
                 imageUrl={actor.imageUrl}
                 size='xl'

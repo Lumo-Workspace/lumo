@@ -23,6 +23,7 @@ export function MemberHoverChip({ member }: { member: WorkspaceMemberInfo }) {
           className='inline-flex cursor-default items-center gap-1.5 rounded-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring'
         >
           <MemberAvatar
+            decorative
             name={member.name}
             imageUrl={member.imageUrl}
             size='xs'
@@ -33,6 +34,7 @@ export function MemberHoverChip({ member }: { member: WorkspaceMemberInfo }) {
       <HoverCardContent side='top' align='start' className='w-60 p-3'>
         <div className='flex items-center gap-3'>
           <MemberAvatar
+            decorative
             name={member.name}
             imageUrl={member.imageUrl}
             size='lg'

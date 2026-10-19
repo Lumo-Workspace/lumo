@@ -367,6 +367,7 @@ export function MembersPage() {
                         {/* Member — avatar, name, email */}
                         <div className='flex items-center gap-3 min-w-0'>
                           <MemberAvatar
+                            decorative
                             name={m.name}
                             imageUrl={m.imageUrl}
                             size='xl'

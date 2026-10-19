@@ -153,7 +153,12 @@ export function BulkAssigneePicker({
                 }}
                 className='gap-2'
               >
-                <MemberAvatar name={m.name} imageUrl={m.imageUrl} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={m.name}
+                  imageUrl={m.imageUrl}
+                  size='xs'
+                />
                 {m.name}
               </CommandItem>
             ))}

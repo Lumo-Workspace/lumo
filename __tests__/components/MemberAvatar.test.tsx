@@ -87,3 +87,31 @@ describe('AgentAvatar', () => {
     )
   })
 })
+
+describe('decorative avatars (name already printed beside them)', () => {
+  it('default MemberAvatar is an image labelled with the name', () => {
+    render(<MemberAvatar name='Ada Lovelace' />)
+    expect(
+      screen.getByRole('img', { name: 'Ada Lovelace' })
+    ).toBeInTheDocument()
+  })
+
+  it('decorative MemberAvatar is aria-hidden with no role or label', () => {
+    const { container } = render(
+      <MemberAvatar name='Ada Lovelace' decorative />
+    )
+    expect(screen.queryByRole('img')).toBeNull()
+    const root = container.firstElementChild!
+    expect(root).toHaveAttribute('aria-hidden', 'true')
+    expect(root).not.toHaveAttribute('role')
+    expect(root).not.toHaveAttribute('aria-label')
+  })
+
+  it('decorative AgentAvatar is aria-hidden with no role or label', () => {
+    const { container } = render(<AgentAvatar name='Claude Code' decorative />)
+    expect(screen.queryByRole('img')).toBeNull()
+    const root = container.firstElementChild!
+    expect(root).toHaveAttribute('aria-hidden', 'true')
+    expect(root).not.toHaveAttribute('aria-label')
+  })
+})

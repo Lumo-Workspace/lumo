@@ -29,7 +29,7 @@ function memberHeader(m: ModelCost) {
   const r = m as MemberCostRow
   return (
     <span className='flex items-center gap-1.5 text-caption font-semibold'>
-      <MemberAvatar name={r.name} imageUrl={r.imageUrl} size='xs' />
+      <MemberAvatar decorative name={r.name} imageUrl={r.imageUrl} size='xs' />
       {r.name}
     </span>
   )

@@ -113,6 +113,7 @@ export function AppSidebar({
                     />
                   ) : (
                     <MemberAvatar
+                      decorative
                       name={displayName}
                       imageUrl={user?.imageUrl}
                       size='lg'

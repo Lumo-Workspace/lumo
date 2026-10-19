@@ -178,6 +178,7 @@ export function ProjectTaskCard({
             >
               <div className='flex items-center gap-3'>
                 <MemberAvatar
+                  decorative
                   name={assignee.name}
                   imageUrl={assignee.imageUrl}
                   size='lg'

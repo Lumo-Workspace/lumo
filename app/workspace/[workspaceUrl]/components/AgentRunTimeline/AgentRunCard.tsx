@@ -75,6 +75,7 @@ export function AgentRunCard({
             data-testid='run-member'
           >
             <MemberAvatar
+              decorative
               name={run.member.name}
               imageUrl={run.member.imageUrl}
               size='xs'

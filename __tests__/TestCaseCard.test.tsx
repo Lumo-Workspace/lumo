@@ -281,10 +281,11 @@ describe('runner', () => {
     })
     const chip = screen.getByTestId('member-chip')
     expect(chip).toHaveTextContent('Ada Lovelace')
-    // xs member avatar: labelled with the name, one initial (LUM-1269).
+    // xs member avatar: decorative beside the name, one initial (LUM-1269).
+    expect(within(chip).queryByRole('img')).toBeNull()
     expect(
-      within(chip).getByRole('img', { name: 'Ada Lovelace' })
-    ).toHaveTextContent('A')
+      within(chip).getByText('A').closest('[aria-hidden="true"]')
+    ).not.toBeNull()
   })
 
   it('falls back to the name label when the runner is not a current member', () => {

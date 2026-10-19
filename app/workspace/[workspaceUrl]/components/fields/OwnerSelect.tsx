@@ -52,6 +52,7 @@ export function OwnerSelect({
             {owner ? (
               <div className='flex items-center gap-1.5'>
                 <MemberAvatar
+                  decorative
                   name={owner.name}
                   imageUrl={owner.imageUrl}
                   size='xs'
@@ -61,6 +62,7 @@ export function OwnerSelect({
             ) : inherited ? (
               <div className='flex items-center gap-1.5 text-muted-foreground'>
                 <MemberAvatar
+                  decorative
                   name={inherited.name}
                   imageUrl={inherited.imageUrl}
                   size='xs'
@@ -89,7 +91,12 @@ export function OwnerSelect({
           .map(m => (
             <SelectItem key={m.actorId} value={m.actorId}>
               <div className='flex items-center gap-2'>
-                <MemberAvatar name={m.name} imageUrl={m.imageUrl} size='xs' />
+                <MemberAvatar
+                  decorative
+                  name={m.name}
+                  imageUrl={m.imageUrl}
+                  size='xs'
+                />
                 {m.name}
               </div>
             </SelectItem>
