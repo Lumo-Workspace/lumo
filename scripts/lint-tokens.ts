@@ -14,6 +14,9 @@
  *      surfaces (icons, illustrations, landing, tag palettes) are carried
  *      by the ALLOWLIST; the existing brand-color backlog is frozen in the
  *      baseline so the rule only blocks NEW leaks.
+ *   4. Free-form type classes in app UI (LUM-1244) — see TYPE_SCALE_* below.
+ *      App UI uses only the six semantic tiers (text-caption / text-body /
+ *      text-body-strong / text-title / text-heading / text-display).
  *
  * Baseline gate
  *   The repo carries ~2 000 pre-existing violations. A strict gate
@@ -33,7 +36,14 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 
-export type Rule = 'hex' | 'palette' | 'brand' | 'radius' | 'shadow' | 'zindex'
+export type Rule =
+  | 'hex'
+  | 'palette'
+  | 'brand'
+  | 'radius'
+  | 'shadow'
+  | 'zindex'
+  | 'type-scale'
 
 export type Violation = {
   file: string
@@ -160,6 +170,59 @@ const SHADOW_RE =
 // allowed; only the arbitrary escape hatch bypasses the semantic z scale.
 const Z_ARBITRARY_RE = /\bz-\[[^\]]+\]/g
 
+// ─── Type scale (LUM-1244) ────────────────────────────────────────────────────
+// App UI sizes text with the six semantic tiers only. Flagged, with or without
+// a variant prefix (md:, hover:, data-[state=open]:, ...):
+//   - Tailwind size scale: text-xs, text-sm, text-lg, text-xl … text-9xl
+//   - arbitrary sizes: text-[11px], text-[0.75rem], text-[1.2em]
+//   - weights the tiers already carry or that sit outside them: font-medium,
+//     font-bold, font-extrabold, font-black
+//   - text-base, UNLESS the same line also sets an md: semantic tier. That is
+//     the iOS zoom guard on form fields (`text-base md:text-body`): inputs must
+//     render at 16px on phones or Safari zooms on focus. Requiring the md: tier
+//     on the same class string keeps the exemption self-describing and stops a
+//     stray `text-base` title from slipping through.
+// Allowed: the tiers themselves, font-semibold / font-normal (state emphasis
+// layered on a tier, e.g. the active menu item or `text-caption font-semibold`
+// labels), font-mono, and text-<colour> utilities.
+//
+// Scope: .ts/.tsx under app/, components/, ee/ — constants modules hold shared
+// class strings too. Out of scope: the landing fork (already in ALLOWLIST),
+// app/page.tsx (marketing home), components/ui/typography.tsx (prose scale),
+// and email templates (they live under lib/, which this rule doesn't scan).
+//
+// Grandfathered in the baseline (each one intentional, reviewed in LUM-1244):
+//   app/onboarding/OnboardingClient.tsx ×2 — 48px full-width choice buttons
+//     use text-base on purpose (larger tap-target label).
+//   components/ui/sidebar/menu.tsx ×1 — vendored shadcn sidebar's
+//     data-[active=true]:font-medium (state emphasis on the active item).
+//   components/security/SecurityPage.tsx ×1 — font-medium inline link inside
+//     16px body copy (emphasis on a link, not a size tier).
+//   app/workspace/[workspaceUrl]/constants.ts ×2 — IDEA_BADGE_CLS
+//     (text-[10px] font-medium); missed by the area PRs, left for a follow-up
+//     because moving it to text-caption is a visible size change.
+// Like every rule here the scan is line-based and doesn't parse comments:
+// write prose as "the medium weight", not the class name.
+const TYPE_SCALE_SCOPE_RE = /^(?:app|components|ee)\/.+\.tsx?$/
+const TYPE_SCALE_EXEMPT: ReadonlyArray<RegExp> = [
+  /^app\/page\.tsx$/,
+  /^components\/ui\/typography\.tsx$/,
+]
+const TYPE_SIZE_RE =
+  /(?<![-\w])(?:text-(?:xs|sm|lg|[2-9]?xl)(?![-\w])|text-\[\d*\.?\d+(?:px|rem|em)\])/g
+const TYPE_WEIGHT_RE =
+  /(?<![-\w])font-(?:medium|bold|extrabold|black)(?![-\w])/g
+const TEXT_BASE_RE = /(?<![-\w])text-base(?![-\w])/g
+const MD_TIER_RE =
+  /(?<![-\w])md:text-(?:caption|body|body-strong|title|heading|display)(?![-\w])/
+
+export function isTypeScaleScoped(relPath: string): boolean {
+  const p = normalizePath(relPath)
+  return (
+    TYPE_SCALE_SCOPE_RE.test(p) && !TYPE_SCALE_EXEMPT.some(re => re.test(p))
+  )
+}
+
 const BASELINE_FILE = 'scripts/lint-tokens.baseline.json'
 
 function normalizePath(p: string): string {
@@ -183,6 +246,7 @@ export function detectViolations(
   // Skip co-located test files (routinely contain test-data colors).
   if (/\.test\.[tj]sx?$/.test(relPath)) return []
   const out: Violation[] = []
+  const typeScale = isTypeScaleScoped(relPath)
   const lines = content.split('\n')
   for (let i = 0; i < lines.length; i++) {
     // tsconfig's noUncheckedIndexedAccess types lines[i] as string|undefined
@@ -249,6 +313,23 @@ export function detectViolations(
         rule: 'zindex',
       })
     }
+    if (typeScale) {
+      const res = MD_TIER_RE.test(line)
+        ? [TYPE_SIZE_RE, TYPE_WEIGHT_RE]
+        : [TYPE_SIZE_RE, TYPE_WEIGHT_RE, TEXT_BASE_RE]
+      for (const re of res) {
+        re.lastIndex = 0
+        while ((m = re.exec(line)) !== null) {
+          out.push({
+            file: relPath,
+            line: i + 1,
+            col: m.index + 1,
+            match: m[0],
+            rule: 'type-scale',
+          })
+        }
+      }
+    }
   }
   return out
 }
@@ -260,6 +341,7 @@ const RULE_LABELS: Record<Rule, string> = {
   radius: 'bare rounded ',
   shadow: 'raw shadow   ',
   zindex: 'arbitrary z  ',
+  'type-scale': 'type scale   ',
 }
 
 export function countByFile(violations: Violation[]): Baseline {
@@ -416,6 +498,13 @@ function main(): void {
   process.stderr.write(
     '  run `npm run lint:tokens -- --update` and commit the baseline.\n'
   )
+  process.stderr.write(
+    '  Type-scale hits: use a semantic tier (text-caption / text-body /\n'
+  )
+  process.stderr.write(
+    '  text-body-strong / text-title / text-heading / text-display) — see\n'
+  )
+  process.stderr.write('  docs/design-system/typography-scale.md.\n')
   process.exit(1)
 }
 

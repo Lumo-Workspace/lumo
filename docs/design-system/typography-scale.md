@@ -5,14 +5,14 @@ Each `text-{tier}` utility bundles font-size + line-height + font-weight +
 letter-spacing. **Color is orthogonal** — apply `text-muted-foreground` /
 `text-foreground` separately.
 
-| Utility            | size  | weight        | line-height | letter-spacing | Use                                                       |
-| ------------------ | ----- | ------------- | ----------- | -------------- | --------------------------------------------------------- |
-| `text-caption`     | 12px  | medium (500)  | 1.4         | —              | metadata, timestamps, labels, secondary table columns     |
-| `text-body`        | 14px  | normal (400)  | 1.5         | —              | default body — table cells, descriptions, most text       |
-| `text-body-strong` | 14px  | semibold (600)| 1.5         | —              | emphasized body, row titles, form labels                  |
-| `text-title`       | 16px  | semibold (600)| 1.4         | -0.01em        | card titles, section titles                               |
-| `text-heading`     | 20px  | semibold (600)| 1.3         | -0.01em        | page / panel main heading                                 |
-| `text-display`     | 30px  | bold (700)    | 1.2         | -0.02em        | hero, large empty-state copy (low frequency)              |
+| Utility            | size | weight         | line-height | letter-spacing | Use                                                   |
+| ------------------ | ---- | -------------- | ----------- | -------------- | ----------------------------------------------------- |
+| `text-caption`     | 12px | medium (500)   | 1.4         | —              | metadata, timestamps, labels, secondary table columns |
+| `text-body`        | 14px | normal (400)   | 1.5         | —              | default body — table cells, descriptions, most text   |
+| `text-body-strong` | 14px | semibold (600) | 1.5         | —              | emphasized body, row titles, form labels              |
+| `text-title`       | 16px | semibold (600) | 1.4         | -0.01em        | card titles, section titles                           |
+| `text-heading`     | 20px | semibold (600) | 1.3         | -0.01em        | page / panel main heading                             |
+| `text-display`     | 30px | bold (700)     | 1.2         | -0.02em        | hero, large empty-state copy (low frequency)          |
 
 ## When to use which
 
@@ -25,15 +25,15 @@ letter-spacing. **Color is orthogonal** — apply `text-muted-foreground` /
 
 ## Migration mapping (from raw utilities)
 
-| Old                                       | New                |
-| ----------------------------------------- | ------------------ |
-| `text-xs`                                 | `text-caption`     |
-| `text-xs font-medium`                     | `text-caption` (caption already carries 500) |
-| `text-sm` (body)                          | `text-body`        |
-| `text-sm font-medium` / `font-semibold`   | `text-body-strong` |
-| `text-base` / `text-lg` title             | `text-title`       |
-| `text-xl` / `text-2xl` heading            | `text-heading`     |
-| `text-3xl`+ display                       | `text-display`     |
+| Old                                     | New                                          |
+| --------------------------------------- | -------------------------------------------- |
+| `text-xs`                               | `text-caption`                               |
+| `text-xs font-medium`                   | `text-caption` (caption already carries 500) |
+| `text-sm` (body)                        | `text-body`                                  |
+| `text-sm font-medium` / `font-semibold` | `text-body-strong`                           |
+| `text-base` / `text-lg` title           | `text-title`                                 |
+| `text-xl` / `text-2xl` heading          | `text-heading`                               |
+| `text-3xl`+ display                     | `text-display`                               |
 
 **Note on weight:** the tiers bundle a deliberate, consistent weight. Because raw
 `text-xs`/`text-sm` carried no weight class (rendering at the inherited ~400),
@@ -58,7 +58,8 @@ regression test guards this: `__tests__/lib/cn-typography-tiers.test.ts`.
 
 ## Status
 
-Established in LUM-260. Core pages migrated: task list (`task-columns.tsx`), task
-detail (`TaskDetailPage` + the `TaskDetailTimeline` tree). Remaining pages
-(settings, landing, doc editor) and a lint rule forbidding raw `text-xs/sm` are
-deferred to later Design-System-Rework tasks.
+Established in LUM-260. LUM-1244 migrated the rest of the app UI (landing and
+`components/ui/typography.tsx` excepted) and added the `type-scale` rule to
+`lint:tokens`, which flags raw `text-xs|sm|lg|xl…`, arbitrary `text-[<n>px|rem]`
+and `font-medium|bold` in new code — see `docs/design-system.md` → Typography
+scale.

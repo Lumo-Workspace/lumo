@@ -56,9 +56,9 @@ export function MilestoneListEmpty({ tab, onCreate }: Props) {
             <Flag />
           </EmptyMedia>
           {/* Sized to the dense rows this replaces, not to a full-page empty
-              state — the list lives inside a project tab. `font-semibold` is
-              not redundant with the token: EmptyTitle's own `font-medium`
-              survives the merge and would otherwise win. */}
+              state — the list lives inside a project tab. `text-body-strong`
+              replaces EmptyTitle's default `text-title` (cn merges the two
+              tiers); the semibold weight is kept explicit. */}
           <EmptyTitle className='text-body-strong font-semibold'>
             {intl.formatMessage({ id: copy.title })}
           </EmptyTitle>
