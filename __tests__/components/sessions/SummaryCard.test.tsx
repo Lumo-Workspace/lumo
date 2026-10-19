@@ -95,6 +95,18 @@ describe('SummaryCard', () => {
     expect(heading.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 
+  it('treats a prototype key as an unknown summary type', () => {
+    const { container } = render(
+      <SummaryCard
+        {...base}
+        initialSummaryType='toString'
+        initialSummary={null}
+      />
+    )
+    expect(container.querySelector('[data-summary-type-icon]')).toBeNull()
+    expect(screen.getByText('toString')).toBeInTheDocument()
+  })
+
   it('renders no icon for an unknown summary type', () => {
     const { container } = render(
       <SummaryCard {...base} initialSummaryType='other' initialSummary={null} />

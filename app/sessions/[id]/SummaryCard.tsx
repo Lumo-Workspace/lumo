@@ -207,7 +207,13 @@ const TYPE_MESSAGES: Record<string, MessageDescriptor> = {
 
 function TypeBadge({ type }: { type: string }) {
   const intl = useIntl()
-  const Icon = TYPE_ICONS[type]
+  // Own keys only: a server-sent type like 'toString' must not hit Object.prototype.
+  const Icon = Object.prototype.hasOwnProperty.call(TYPE_ICONS, type)
+    ? TYPE_ICONS[type]
+    : undefined
+  const label = Object.prototype.hasOwnProperty.call(TYPE_MESSAGES, type)
+    ? TYPE_MESSAGES[type]
+    : undefined
   return (
     <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
       {Icon && (
@@ -217,7 +223,7 @@ function TypeBadge({ type }: { type: string }) {
           className='size-3 shrink-0 text-muted-foreground'
         />
       )}
-      {TYPE_MESSAGES[type] ? intl.formatMessage(TYPE_MESSAGES[type]) : type}
+      {label ? intl.formatMessage(label) : type}
     </span>
   )
 }
