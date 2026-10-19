@@ -1,6 +1,8 @@
 import type { FeedbackSource, Prisma } from '@prisma/client'
 import {
   feedbackRepository,
+  type AppendEvidenceResult,
+  type FeedbackCounter,
   type FeedbackListRow,
   type FeedbackRow,
 } from '@/lib/repositories/feedback.repository'
@@ -30,7 +32,10 @@ import { logger } from '@/lib/logger'
  * - Limits are counted from the Feedback table (per member and per
  *   workspace, a 10-minute burst and a rolling day). A count that fails
  *   refuses the submission: an agent can file without confirmation, so the
- *   limit must not silently disappear.
+ *   limit must not silently disappear. The check runs twice: once up front
+ *   (so an over-limit caller uploads nothing) and again inside the insert
+ *   transaction under the workspace counter lock, which is the one that
+ *   holds against concurrent submissions.
  * - Every read is scoped to the caller's workspace; another workspace's
  *   report is indistinguishable from a missing one (404).
  */
@@ -179,11 +184,16 @@ function limitMessage(limit: FeedbackLimit): string {
 
 /**
  * Throws FeedbackRateLimitError when the caller is at any limit; throws a 503
- * when the count itself fails (fail closed).
+ * when the count itself fails (fail closed). `counter` is the repository by
+ * default, or the insert transaction's counter for the serialized re-check.
+ * The member limit counts by the caller's member id — every submitter,
+ * Clerk or API key, has one (requireIdentity refuses a key whose member is
+ * gone).
  */
 export async function assertWithinFeedbackLimits(
   caller: FeedbackCaller,
-  now: Date = new Date()
+  now: Date = new Date(),
+  counter: FeedbackCounter = feedbackRepository
 ): Promise<void> {
   for (const limit of FEEDBACK_LIMITS) {
     const since = new Date(now.getTime() - limit.windowMs)
@@ -198,15 +208,12 @@ export async function assertWithinFeedbackLimits(
     try {
       used =
         limit.scope === 'member'
-          ? await feedbackRepository.countByMemberSince(
+          ? await counter.countByMemberSince(
               caller.workspaceId,
               caller.memberId,
               since
             )
-          : await feedbackRepository.countByWorkspaceSince(
-              caller.workspaceId,
-              since
-            )
+          : await counter.countByWorkspaceSince(caller.workspaceId, since)
     } catch (error) {
       logger.warn('[feedback] limit check failed; refusing the submission', {
         scope: limit.scope,
@@ -216,9 +223,7 @@ export async function assertWithinFeedbackLimits(
       fail('could not check the feedback limit; try again later', 503)
     }
     if (used < limit.max) continue
-    const oldest = await feedbackRepository
-      .oldestSince(where, since)
-      .catch(() => null)
+    const oldest = await counter.oldestSince(where, since).catch(() => null)
     const retryAt = new Date(
       (oldest ?? now).getTime() + limit.windowMs
     ).toISOString()
@@ -368,6 +373,8 @@ export const feedbackService = {
   ): Promise<{ feedback: FeedbackView; replies: FeedbackReplyView[] }> {
     validateEvidenceFiles(files)
     const taskRef = await resolveTaskRef(ctx.workspaceId, payload.task)
+    // Early refusal, before any evidence is stored. Not race-free on its
+    // own — the re-check inside the insert transaction below is.
     await assertWithinFeedbackLimits(ctx)
 
     let redacted = 0
@@ -390,22 +397,25 @@ export const feedbackService = {
 
     let row: FeedbackRow
     try {
-      row = await feedbackRepository.create({
-        workspaceId: ctx.workspaceId,
-        kind: payload.kind,
-        title,
-        steps,
-        expected,
-        actual,
-        evidence: evidence.entries as unknown as Prisma.InputJsonValue,
-        environment: (payload.environment ??
-          null) as Prisma.InputJsonValue | null,
-        taskRef,
-        sessionId: ctx.sessionId,
-        submittedByMemberId: ctx.memberId,
-        submittedVia: ctx.submittedVia,
-        secretsRedacted: redacted,
-      })
+      row = await feedbackRepository.create(
+        {
+          workspaceId: ctx.workspaceId,
+          kind: payload.kind,
+          title,
+          steps,
+          expected,
+          actual,
+          evidence: evidence.entries as unknown as Prisma.InputJsonValue,
+          environment: (payload.environment ??
+            null) as Prisma.InputJsonValue | null,
+          taskRef,
+          sessionId: ctx.sessionId,
+          submittedByMemberId: ctx.memberId,
+          submittedVia: ctx.submittedVia,
+          secretsRedacted: redacted,
+        },
+        counter => assertWithinFeedbackLimits(ctx, new Date(), counter)
+      )
     } catch (error) {
       await privateFileService.deletePrivatePathnames(evidence.pathnames)
       throw error
@@ -484,6 +494,8 @@ export const feedbackService = {
         'evidence can only be attached within 15 minutes of sending the report',
         409
       )
+    // Early refusal before storing the file; appendEvidence re-checks the
+    // cap atomically.
     const count = Array.isArray(row.evidence) ? row.evidence.length : 0
     if (count >= MAX_FEEDBACK_EVIDENCE_FILES)
       fail(`At most ${MAX_FEEDBACK_EVIDENCE_FILES} evidence files`, 400)
@@ -493,22 +505,28 @@ export const feedbackService = {
       { ...ctx, submittedVia: 'API', sessionId: null },
       [file]
     )
-    let updated: FeedbackRow | null
+    let result: AppendEvidenceResult
     try {
-      updated = await feedbackRepository.appendEvidence(
+      result = await feedbackRepository.appendEvidence(
         ctx.workspaceId,
         number,
         stored.entries[0]! as unknown as Prisma.InputJsonObject,
-        stored.redacted
+        stored.redacted,
+        MAX_FEEDBACK_EVIDENCE_FILES
       )
     } catch (error) {
       await privateFileService.deletePrivatePathnames(stored.pathnames)
       throw error
     }
-    if (!updated) {
+    if (result.status !== 'appended') {
       await privateFileService.deletePrivatePathnames(stored.pathnames)
+      if (result.status === 'full')
+        fail(`At most ${MAX_FEEDBACK_EVIDENCE_FILES} evidence files`, 400)
+      if (result.status === 'conflict')
+        fail('evidence is being attached concurrently; try again', 409)
       fail(`feedback ${feedbackRef(number)} not found`, 404)
     }
+    const updated = result.row
     return toView(updated, await nameOf([ctx.memberId]))
   },
 

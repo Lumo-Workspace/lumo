@@ -1937,7 +1937,7 @@ feedbackCmd
   .option('--actual <text>', 'What actually happened (quote the error line)')
   .option(
     '--evidence-file <path>',
-    'Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each, 5 files (repeatable)',
+    'Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each for now (request-size limit), 5 files (repeatable)',
     collect,
     [] as string[]
   )

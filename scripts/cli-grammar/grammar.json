@@ -904,7 +904,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each, 5 files (repeatable)"
+          "description": "Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each for now (request-size limit), 5 files (repeatable)"
         },
         "--expected": {
           "long": "--expected",

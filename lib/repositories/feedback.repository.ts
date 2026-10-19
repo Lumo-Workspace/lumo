@@ -86,13 +86,79 @@ export interface FeedbackListFilter {
   take: number
 }
 
+/** Lost compare-and-set races tolerated before appendEvidence gives up. */
+export const APPEND_ATTEMPTS = 5
+
+export type AppendEvidenceResult =
+  | { status: 'appended'; row: FeedbackRow }
+  | { status: 'not_found' }
+  | { status: 'full' }
+  | { status: 'conflict' }
+
+/** Window counts used by the submission limits. */
+export interface FeedbackCounter {
+  /**
+   * Rows `memberId` submitted since `since`. A row whose submitter was
+   * deleted (submittedByMemberId set to NULL) belongs to no live member and
+   * is counted by the workspace limit only.
+   */
+  countByMemberSince(
+    workspaceId: string,
+    memberId: string,
+    since: Date
+  ): Promise<number>
+  countByWorkspaceSince(workspaceId: string, since: Date): Promise<number>
+  oldestSince(
+    where: { workspaceId: string; submittedByMemberId?: string },
+    since: Date
+  ): Promise<Date | null>
+}
+
+type FeedbackClient = Pick<Prisma.TransactionClient, 'feedback'>
+
+function counterFor(client: FeedbackClient): FeedbackCounter {
+  return {
+    countByMemberSince: (workspaceId, memberId, since) =>
+      client.feedback.count({
+        where: {
+          workspaceId,
+          submittedByMemberId: memberId,
+          createdAt: { gte: since },
+        },
+      }),
+    countByWorkspaceSince: (workspaceId, since) =>
+      client.feedback.count({
+        where: { workspaceId, createdAt: { gte: since } },
+      }),
+    oldestSince: async (where, since) => {
+      const row = await client.feedback.findFirst({
+        where: { ...where, createdAt: { gte: since } },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      })
+      return row?.createdAt ?? null
+    },
+  }
+}
+
 export const feedbackRepository = {
   /**
    * Insert one row, allocating `number` from Workspace.feedbackSeq in the
    * same transaction — the counter row lock serialises concurrent inserts
    * (as crossingSeq / documentSeq do).
+   *
+   * `beforeInsert` runs inside that transaction right after the counter
+   * update, i.e. while this transaction holds the workspace row lock: every
+   * other insert into the same workspace waits for it, and under READ
+   * COMMITTED each statement sees rows committed before it started. Counts
+   * taken through the given counter therefore include every earlier
+   * submission, so a limit check there cannot be raced past. A throw rolls
+   * the whole insert (and the counter bump) back.
    */
-  async create(input: CreateFeedbackRow): Promise<FeedbackRow> {
+  async create(
+    input: CreateFeedbackRow,
+    beforeInsert?: (counter: FeedbackCounter) => Promise<void>
+  ): Promise<FeedbackRow> {
     // Belt and braces: the service already redacted and counted; the stored
     // form is the same either way (LUM-898 storage redaction).
     const stored = redactStoredFields(
@@ -110,6 +176,7 @@ export const feedbackRepository = {
         data: { feedbackSeq: { increment: 1 } },
         select: { feedbackSeq: true },
       })
+      if (beforeInsert) await beforeInsert(counterFor(tx))
       return tx.feedback.create({
         data: {
           workspaceId: input.workspaceId,
@@ -144,32 +211,51 @@ export const feedbackRepository = {
   },
 
   /**
-   * Append one evidence entry to a report of `workspaceId`, under a row lock
-   * so two concurrent uploads cannot overwrite each other. Returns null when
-   * the report is not in the workspace.
+   * Append one evidence entry to a report of `workspaceId`, keeping at most
+   * `maxEntries`. Compare-and-set, no lock: the write only lands when
+   * `evidence` still equals what was read (jsonb equality; the array only
+   * ever grows, so it is its own version). A concurrent append makes the
+   * write match nothing — re-read and try again, re-checking the cap — so no
+   * entry is lost and the cap holds. `conflict` after APPEND_ATTEMPTS lost
+   * races in a row.
    */
   async appendEvidence(
     workspaceId: string,
     number: number,
     entry: Prisma.InputJsonObject,
-    redacted: number
-  ): Promise<FeedbackRow | null> {
-    return prisma.$transaction(async tx => {
-      const row = await tx.feedback.findUnique({
-        where: { workspaceId_number: { workspaceId, number } },
+    redacted: number,
+    maxEntries: number
+  ): Promise<AppendEvidenceResult> {
+    const key = { workspaceId_number: { workspaceId, number } }
+    for (let attempt = 0; attempt < APPEND_ATTEMPTS; attempt++) {
+      const row = await prisma.feedback.findUnique({
+        where: key,
         select: { evidence: true },
       })
-      if (!row) return null
+      if (!row) return { status: 'not_found' }
       const current = Array.isArray(row.evidence) ? row.evidence : []
-      return tx.feedback.update({
-        where: { workspaceId_number: { workspaceId, number } },
+      if (current.length >= maxEntries) return { status: 'full' }
+      const { count } = await prisma.feedback.updateMany({
+        where: {
+          workspaceId,
+          number,
+          evidence: { equals: row.evidence as Prisma.InputJsonValue },
+        },
         data: {
           evidence: [...current, entry] as Prisma.InputJsonArray,
           secretsRedacted: { increment: redacted },
         },
+      })
+      if (count === 0) continue
+      const updated = await prisma.feedback.findUnique({
+        where: key,
         select: SELECT,
       })
-    })
+      return updated
+        ? { status: 'appended', row: updated }
+        : { status: 'not_found' }
+    }
+    return { status: 'conflict' }
   },
 
   /** Newest first. */
@@ -205,40 +291,20 @@ export const feedbackRepository = {
   },
 
   /** Submissions by one member since `since` (rate limit). */
-  async countByMemberSince(
-    workspaceId: string,
-    memberId: string,
-    since: Date
-  ): Promise<number> {
-    return prisma.feedback.count({
-      where: {
-        workspaceId,
-        submittedByMemberId: memberId,
-        createdAt: { gte: since },
-      },
-    })
+  countByMemberSince(workspaceId: string, memberId: string, since: Date) {
+    return counterFor(prisma).countByMemberSince(workspaceId, memberId, since)
   },
 
   /** Submissions in one workspace since `since` (rate limit). */
-  async countByWorkspaceSince(
-    workspaceId: string,
-    since: Date
-  ): Promise<number> {
-    return prisma.feedback.count({
-      where: { workspaceId, createdAt: { gte: since } },
-    })
+  countByWorkspaceSince(workspaceId: string, since: Date) {
+    return counterFor(prisma).countByWorkspaceSince(workspaceId, since)
   },
 
   /** Oldest submission inside the window — when the next slot frees up. */
-  async oldestSince(
+  oldestSince(
     where: { workspaceId: string; submittedByMemberId?: string },
     since: Date
-  ): Promise<Date | null> {
-    const row = await prisma.feedback.findFirst({
-      where: { ...where, createdAt: { gte: since } },
-      orderBy: { createdAt: 'asc' },
-      select: { createdAt: true },
-    })
-    return row?.createdAt ?? null
+  ) {
+    return counterFor(prisma).oldestSince(where, since)
   },
 }

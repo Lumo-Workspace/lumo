@@ -20,17 +20,17 @@
 
 ### `lumo feedback create --title <title> [flags]`
 
-| Flag                     | Meaning                                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `--title <title>`        | Required, ≤ 200 characters                                                                                                      |
-| `--kind <kind>`          | `bug` (default), `idea` or `question`, case-insensitive                                                                         |
-| `--step <text>`          | One step to reproduce; repeatable, kept in order; 0–30, each ≤ 500 characters                                                   |
-| `--expected <text>`      | What you expected (≤ 2000)                                                                                                      |
-| `--actual <text>`        | What happened — quote the error line (≤ 2000)                                                                                   |
-| `--evidence-file <path>` | Screenshot or log: png / jpeg / webp / gif / txt / log / json, ≤ 4 MB each (each file is its own upload), at most 5; repeatable |
-| `--task <ref>`           | A related task (`LUM-42`). Only the ref is sent; it must be a task of this workspace. Never filled in for you                   |
-| `--no-env`               | Send no environment block and no session id                                                                                     |
-| `--json`                 | Print `{ version, feedback, replies }`                                                                                          |
+| Flag                     | Meaning                                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--title <title>`        | Required, ≤ 200 characters                                                                                                                                 |
+| `--kind <kind>`          | `bug` (default), `idea` or `question`, case-insensitive                                                                                                    |
+| `--step <text>`          | One step to reproduce; repeatable, kept in order; 0–30, each ≤ 500 characters                                                                              |
+| `--expected <text>`      | What you expected (≤ 2000)                                                                                                                                 |
+| `--actual <text>`        | What happened — quote the error line (≤ 2000)                                                                                                              |
+| `--evidence-file <path>` | Screenshot or log: png / jpeg / webp / gif / txt / log / json, ≤ 4 MB each (each file is its own upload), at most 5; repeatable. See **Known limit** below |
+| `--task <ref>`           | A related task (`LUM-42`). Only the ref is sent; it must be a task of this workspace. Never filled in for you                                              |
+| `--no-env`               | Send no environment block and no session id                                                                                                                |
+| `--json`                 | Print `{ version, feedback, replies }`                                                                                                                     |
 
 ```bash
 lumo feedback create --title "task testcase run: evidence upload fails with HTTP 413" \
@@ -56,6 +56,8 @@ Task:     LUM-42
 Sent env: cli 1.126.0 · darwin 24.2.0 arm64 · node 22.11.0 · claude-code · last: task testcase run (exit 1)
 Hint: the Lumo team's replies show up in `lumo feedback show FB-12`.
 ```
+
+**Known limit — 4 MB per evidence file.** Each file goes up through the API in its own request, and the hosting platform refuses request bodies much over 4 MB, so larger files are rejected (exit 2) before anything is sent. This is a current limit, not a policy: it will be raised once evidence uploads go straight to storage. Until then, crop or compress a screenshot, or trim a log to the relevant lines.
 
 **Limits** (per member: 5 per 10 minutes, 20 per rolling 24 h; per workspace: 20 per 10 minutes, 50 per rolling 24 h). Over a limit: exit 1,
 

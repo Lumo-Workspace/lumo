@@ -8,6 +8,7 @@
  * four submission limits (counted from the table; a failed count refuses).
  */
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 
 // ── in-memory Prisma for the feedback tables ───────────────────────────────
 
@@ -24,6 +25,26 @@ const db = {
   rows: [] as Row[],
   seq: new Map<string, number>(),
   failCount: false,
+  /** Runs once, between an evidence read and its write (a racing request). */
+  afterEvidenceRead: null as null | (() => void),
+}
+
+/**
+ * Transactions run one at a time — the workspace counter row lock that
+ * `feedbackRepository.create` takes first holds every other insert into the
+ * workspace until commit. Plain statements outside a transaction are not
+ * serialised.
+ */
+let txTail: Promise<unknown> = Promise.resolve()
+
+function byKey(where: {
+  workspaceId_number: { workspaceId: string; number: number }
+}): Row | undefined {
+  return db.rows.find(
+    r =>
+      r.workspaceId === where.workspaceId_number.workspaceId &&
+      r.number === where.workspaceId_number.number
+  )
 }
 
 function matches(r: Row, where: Record<string, unknown> = {}): boolean {
@@ -50,6 +71,9 @@ const fakePrisma = {
     create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
       const row = {
         ...data,
+        // Postgres stores Prisma.DbNull as SQL NULL, read back as null.
+        environment:
+          data.environment === Prisma.DbNull ? null : data.environment,
         id: `cfb${db.rows.length + 1}`,
         status: 'NEW',
         createdAt: new Date(),
@@ -63,32 +87,48 @@ const fakePrisma = {
     findUnique: jest.fn(
       async ({
         where,
+        select,
       }: {
         where: { workspaceId_number: { workspaceId: string; number: number } }
-      }) =>
-        db.rows.find(
-          r =>
-            r.workspaceId === where.workspaceId_number.workspaceId &&
-            r.number === where.workspaceId_number.number
-        ) ?? null
+        select: Record<string, unknown>
+      }) => {
+        const row = byKey(where)
+        if (!row) return null
+        // Snapshot like a real read, so a later write does not show through.
+        const snap = { ...row, evidence: row.evidence }
+        // Only the evidence-only read inside appendEvidence races.
+        if (Object.keys(select).length === 1 && select.evidence) {
+          const hook = db.afterEvidenceRead
+          db.afterEvidenceRead = null
+          hook?.()
+        }
+        return snap
+      }
     ),
-    update: jest.fn(
+    updateMany: jest.fn(
       async ({
         where,
         data,
       }: {
-        where: { workspaceId_number: { workspaceId: string; number: number } }
+        where: {
+          workspaceId: string
+          number: number
+          evidence: { equals: unknown }
+        }
         data: { evidence: unknown; secretsRedacted: { increment: number } }
       }) => {
         const row = db.rows.find(
           r =>
-            r.workspaceId === where.workspaceId_number.workspaceId &&
-            r.number === where.workspaceId_number.number
-        )!
+            r.workspaceId === where.workspaceId &&
+            r.number === where.number &&
+            JSON.stringify(r.evidence ?? []) ===
+              JSON.stringify(where.evidence.equals)
+        )
+        if (!row) return { count: 0 }
         row.evidence = data.evidence
         row.secretsRedacted =
           Number(row.secretsRedacted ?? 0) + data.secretsRedacted.increment
-        return row
+        return { count: 1 }
       }
     ),
     findMany: jest.fn(
@@ -119,7 +159,11 @@ const fakePrisma = {
     ),
   },
   $transaction: jest.fn(
-    async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(fakePrisma)
+    async (fn: (tx: unknown) => unknown): Promise<unknown> => {
+      const run = txTail.then(() => fn(fakePrisma))
+      txTail = run.catch(() => undefined)
+      return run
+    }
   ),
 }
 jest.mock('@/lib/db/prisma', () => ({
@@ -206,7 +250,11 @@ const env = {
 
 function seed(
   n: number,
-  opts: { workspaceId: string; member?: (i: number) => string; ageMs: number }
+  opts: {
+    workspaceId: string
+    member?: (i: number) => string | null
+    ageMs: number
+  }
 ) {
   for (let i = 0; i < n; i++)
     db.rows.push({
@@ -223,6 +271,8 @@ beforeEach(() => {
   db.rows = []
   db.seq.clear()
   db.failCount = false
+  db.afterEvidenceRead = null
+  txTail = Promise.resolve()
   jest.clearAllMocks()
   requireIdentity.mockResolvedValue(identity('w-1', 'm-1'))
 })
@@ -284,7 +334,17 @@ describe('POST /api/feedback', () => {
     const res = await POST(post({ title: 'idea', kind: 'IDEA' }))
     expect(res.status).toBe(201)
     expect(db.rows[0]).toMatchObject({ kind: 'IDEA', submittedVia: 'API' })
-    expect(db.rows[0]!.environment).not.toEqual(env)
+    // Written as SQL NULL (DbNull), not a JSON value and not `{}`.
+    expect(fakePrisma.feedback.create.mock.calls[0]![0].data.environment).toBe(
+      Prisma.DbNull
+    )
+    expect(db.rows[0]!.environment).toBeNull()
+    expect(db.rows[0]!.sessionId).toBeNull()
+    const json = (await res.json()) as {
+      feedback: { environment: unknown; sessionId: unknown }
+    }
+    expect(json.feedback.environment).toBeNull()
+    expect(json.feedback.sessionId).toBeNull()
   })
 
   it('rejects an environment with an extra key or a command carrying a value (strict whitelist)', async () => {
@@ -448,6 +508,45 @@ describe('submission limits', () => {
     expect((await POST(post({ title: 'fine' }))).status).toBe(201)
   })
 
+  it('concurrent submissions cannot both slip under the member limit', async () => {
+    seed(4, { workspaceId: 'w-1', ageMs: 60_000 })
+    const statuses = (
+      await Promise.all([
+        POST(post({ title: 'a' })),
+        POST(post({ title: 'b' })),
+        POST(post({ title: 'c' })),
+      ])
+    ).map(r => r.status)
+    expect(statuses.sort()).toEqual([201, 429, 429])
+    expect(db.rows.filter(r => r.submittedByMemberId === 'm-1')).toHaveLength(5)
+    // The refused inserts rolled their counter bump back with them.
+    expect(db.rows.filter(r => r.title !== undefined)).toHaveLength(1)
+  })
+
+  it('the limit is re-checked inside the insert transaction', async () => {
+    seed(4, { workspaceId: 'w-1', ageMs: 60_000 })
+    // Another request commits its row after this one's early check passed.
+    const realTx = fakePrisma.$transaction.getMockImplementation()!
+    fakePrisma.$transaction.mockImplementationOnce(async fn => {
+      seed(1, { workspaceId: 'w-1', ageMs: 0 })
+      return realTx(fn)
+    })
+    const body = await over()
+    expect(body).toMatchObject({ scope: 'member', window: 'burst' })
+    expect(fakePrisma.feedback.create).not.toHaveBeenCalled()
+  })
+
+  it('rows of a deleted member (submitter NULL) count for the workspace only', async () => {
+    seed(20, { workspaceId: 'w-1', member: () => null, ageMs: 2 * 3_600_000 })
+    expect((await POST(post({ title: 'still mine to send' }))).status).toBe(201)
+    seed(29, { workspaceId: 'w-1', member: () => null, ageMs: 2 * 3_600_000 })
+    expect(await over()).toMatchObject({
+      scope: 'workspace',
+      window: 'daily',
+      limit: 50,
+    })
+  })
+
   it('fails closed: a failed count refuses the submission', async () => {
     db.failCount = true
     const res = await POST(post({ title: 't' }))
@@ -518,5 +617,58 @@ describe('POST /api/feedback/[ref]/evidence (one file per request)', () => {
 
     db.rows[1]!.createdAt = new Date(Date.now() - 16 * 60_000)
     expect((await attach('FB-2', png())).status).toBe(409)
+  })
+
+  const racer = (row: Row, filename: string) => () => {
+    row.evidence = [
+      ...((row.evidence as unknown[]) ?? []),
+      { type: 'file', filename },
+    ]
+  }
+
+  it('an upload racing another one between read and write loses neither', async () => {
+    await POST(post({ title: 'race' }))
+    expect((await attach('FB-1', png('first.png'))).status).toBe(200)
+    db.afterEvidenceRead = racer(db.rows[0]!, 'racer.png')
+    const res = await attach('FB-1', png('mine.png'))
+    expect(res.status).toBe(200)
+    const names = (db.rows[0]!.evidence as Array<{ filename: string }>).map(
+      e => e.filename
+    )
+    expect(names).toEqual(['first.png', 'racer.png', 'mine.png'])
+    // The compare-and-set missed once, then landed on the fresh read.
+    expect(fakePrisma.feedback.updateMany).toHaveBeenCalledTimes(3)
+  })
+
+  it('a racing upload that fills the last slot makes this one a 400, cap kept', async () => {
+    await POST(post({ title: 'full' }))
+    for (let i = 0; i < 4; i++)
+      expect((await attach('FB-1', png(`${i}.png`))).status).toBe(200)
+    db.afterEvidenceRead = racer(db.rows[0]!, 'racer.png')
+    expect((await attach('FB-1', png('sixth.png'))).status).toBe(400)
+    const evidence = db.rows[0]!.evidence as Array<{ filename: string }>
+    expect(evidence).toHaveLength(5)
+    expect(evidence.map(e => e.filename)).not.toContain('sixth.png')
+  })
+
+  it('parallel uploads keep every entry and stop at 5', async () => {
+    await POST(post({ title: 'parallel' }))
+    for (let i = 0; i < 3; i++)
+      expect((await attach('FB-1', png(`${i}.png`))).status).toBe(200)
+    const statuses = (
+      await Promise.all(
+        ['a', 'b', 'c'].map(n => attach('FB-1', png(`${n}.png`)))
+      )
+    ).map(r => r.status)
+    expect(statuses.sort()).toEqual([200, 200, 400])
+    expect(db.rows[0]!.evidence as unknown[]).toHaveLength(5)
+  })
+
+  it('gives up with 409 after repeatedly losing the race', async () => {
+    await POST(post({ title: 'busy' }))
+    for (let i = 0; i < 5; i++)
+      fakePrisma.feedback.updateMany.mockResolvedValueOnce({ count: 0 })
+    expect((await attach('FB-1', png())).status).toBe(409)
+    expect(fakePrisma.feedback.updateMany).toHaveBeenCalledTimes(5)
   })
 })
