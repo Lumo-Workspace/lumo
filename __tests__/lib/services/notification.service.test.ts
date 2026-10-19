@@ -74,7 +74,17 @@ describe('notificationService', () => {
 
       expect(result[0]!.id).toBe('n2') // actionable first
       expect(result[1]!.id).toBe('n1')
-      expect(mockFindByRecipient).toHaveBeenCalledWith('actor-1', 'ws-1')
+      expect(mockFindByRecipient).toHaveBeenCalledWith('actor-1', 'ws-1', {})
+    })
+
+    it('LUM-1233: passes unreadOnly through to the repository', async () => {
+      mockFindByRecipient.mockResolvedValue([])
+      await notificationService.getNotifications('actor-1', 'ws-1', {
+        unreadOnly: true,
+      })
+      expect(mockFindByRecipient).toHaveBeenCalledWith('actor-1', 'ws-1', {
+        unreadOnly: true,
+      })
     })
 
     it('returns empty array when no notifications', async () => {

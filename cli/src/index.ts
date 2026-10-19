@@ -725,12 +725,13 @@ program
   .command('status')
   .codex(SERVER_ONLY)
   .description(
-    'Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.'
+    'Me across the workspace: the team priority, my unread inbox (--all: read too), my drafts and next tasks. --inbox / --drafts / --next print only those. Read-only; for one task: `lumo task status`.'
   )
   .option(
     '--inbox',
-    'My notifications: pending responses first, then the rest; • marks unread'
+    'My unread notifications: pending responses first, then the rest'
   )
+  .option('--all', 'Inbox: include read notifications too (• marks unread)')
   .option('--drafts', 'My unsent task / project drafts from the web composer')
   .option(
     '--next',

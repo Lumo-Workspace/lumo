@@ -102,20 +102,41 @@ function itemLines(n: InboxNotification, tty?: boolean): string[] {
 }
 
 /**
+ * What the inbox shows (LUM-1233): `unread` — the default of `lumo status` —
+ * or `all` (`--all`), read ones included.
+ */
+export type InboxFilter = 'unread' | 'all'
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** The first line of the inbox: how many rows, how many unread. Pure. */
+function inboxSummary(data: InboxResponse, filter: InboxFilter): string {
+  const n = data.notifications.length
+  if (filter === 'all')
+    return `${plural(n, 'notification')}, ${data.unreadCount} unread`
+  // At the cap older unread ones may exist: say the count is a floor.
+  return n >= INBOX_SERVER_CAP
+    ? `${n}+ unread notifications (newest ${n} shown)`
+    : `${data.unreadCount} unread notification${data.unreadCount === 1 ? '' : 's'}`
+}
+
+/**
  * The inbox as text, in the web's order and sections: "Needs your response"
  * (pending actions) first, then "Other". `•` marks unread. The server already
- * sorted the rows; this only splits them.
+ * sorted (and, for `unread`, filtered) the rows; this only splits them.
  */
 export function formatInbox(
   data: InboxResponse,
-  opts: LayoutOptions = {}
+  opts: LayoutOptions = {},
+  filter: InboxFilter = 'all'
 ): string {
-  if (data.notifications.length === 0) return emptyState('notifications')
+  if (data.notifications.length === 0)
+    return filter === 'unread'
+      ? emptyState('unread notifications')
+      : emptyState('notifications')
   const pending = data.notifications.filter(isPendingAction)
   const other = data.notifications.filter(n => !isPendingAction(n))
-  const lines = [
-    `${data.notifications.length} notification${data.notifications.length === 1 ? '' : 's'}, ${data.unreadCount} unread`,
-  ]
+  const lines = [inboxSummary(data, filter)]
   if (pending.length > 0) {
     lines.push(...sectionHeading('Needs your response', opts))
     for (const n of pending) lines.push(...itemLines(n, opts.tty))
@@ -143,4 +164,26 @@ export function inboxPage(data: InboxResponse): {
 } {
   const n = data.notifications.length
   return { total: n < INBOX_SERVER_CAP ? n : null, nextCursor: null }
+}
+
+/**
+ * The inbox a `lumo status` section shows (LUM-1233). `unread` keeps only the
+ * unread rows: the CLI asks the server for `unread=1`, and a server that
+ * predates the parameter returns read rows too — they are dropped here, not
+ * reported as an error. `total` is the row count shown, or null when the
+ * server returned its cap and older rows may exist. Pure.
+ */
+export function inboxView(
+  raw: InboxResponse,
+  filter: InboxFilter
+): { data: InboxResponse; total: number | null } {
+  const notifications =
+    filter === 'unread'
+      ? raw.notifications.filter(n => !n.read)
+      : raw.notifications
+  const capped = inboxPage(raw).total === null
+  return {
+    data: { ...raw, notifications },
+    total: capped ? null : notifications.length,
+  }
 }

@@ -77,6 +77,7 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
     'lumo status --next --limit 5',
     'lumo status --next --claimable',
     'lumo status --inbox --json',
+    'lumo status --inbox --all',
   ],
   'priority create': [
     'lumo priority create "Ship the billing MVP before the launch."',

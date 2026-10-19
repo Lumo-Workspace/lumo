@@ -319,13 +319,14 @@ describe('overview formatting', () => {
 describe('commands (GET only, Bearer)', () => {
   it('status --inbox → GET /api/notifications; --json is the payload in the envelope', async () => {
     const payload = { notifications: [base], unreadCount: 1 }
-    serve({ '/api/notifications': payload })
+    serve({ '/api/notifications?unread=1': payload })
     await status({ inbox: true, json: true })
     expect(JSON.parse(out)).toEqual({
       version: 1,
       ...payload,
       total: 1,
       nextCursor: null,
+      filter: 'unread',
     })
     expect(calls).toHaveLength(1)
     expect(calls[0]!.init?.method).toBeUndefined()

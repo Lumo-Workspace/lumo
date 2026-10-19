@@ -25,10 +25,21 @@ const RESPOND_SELECT = {
 } as const
 
 export const notificationRepository = {
-  /** Find notifications for a recipient in a workspace, sorted by createdAt desc. */
-  async findByRecipient(actorId: string, workspaceId: string) {
+  /**
+   * Find notifications for a recipient in a workspace, sorted by createdAt
+   * desc (newest 50). `unreadOnly` filters in the query, before the cap.
+   */
+  async findByRecipient(
+    actorId: string,
+    workspaceId: string,
+    opts: { unreadOnly?: boolean } = {}
+  ) {
     return prisma.notification.findMany({
-      where: { workspaceId, recipientActorId: actorId },
+      where: {
+        workspaceId,
+        recipientActorId: actorId,
+        ...(opts.unreadOnly ? { read: false } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: TRIGGER_INCLUDE,
