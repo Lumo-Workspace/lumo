@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -19,6 +18,7 @@ import { FigmaIcon } from './FigmaIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { API } from '../constants'
 import { useFigmaIntegration } from '../hooks/useFigmaIntegration'
+import { Spinner } from '@/components/ui/spinner'
 
 export function FigmaIntegrationCard({
   onConnectedChange,
@@ -43,7 +43,7 @@ export function FigmaIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'figma.connected' })} />
   ) : (
@@ -122,7 +122,7 @@ export function FigmaIntegrationCard({
               disabled={disconnecting}
             >
               {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
               )}

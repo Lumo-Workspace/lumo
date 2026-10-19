@@ -12,6 +12,7 @@ import {
 } from '@/lib/services/sprint-date'
 import { useSprint } from '../../hooks/useSprints'
 import { formatDate } from './DatePickerField'
+import { Badge } from '@/components/ui/badge'
 
 interface Domain {
   min: number
@@ -290,9 +291,13 @@ export function SprintTimeline({
                 className='absolute -top-0.5 bottom-2 border-l-2 border-dashed border-primary'
                 style={{ left: `${todayPos}%` }}
               >
-                <span className='absolute -top-1 left-1.5 whitespace-nowrap rounded-sm bg-primary px-1.5 py-0.5 text-caption font-semibold text-primary-foreground'>
+                <Badge
+                  size='xs'
+                  shape='square'
+                  className='absolute -top-1 left-1.5'
+                >
                   {intl.formatMessage({ id: 'sprints.timeline.today' })}
-                </span>
+                </Badge>
               </div>
             </div>
           )}

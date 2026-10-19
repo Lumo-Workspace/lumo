@@ -13,6 +13,7 @@ import { ProjectHealthRow } from '../../signal/ProjectHealthRow'
 import { ProjectPropertyRows } from './ProjectPropertyRows'
 import { PropertyRow } from './PropertyRow'
 import { ProjectMilestonesOverview } from './ProjectMilestonesOverview'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface ProjectTabProps {
   project: ApiProject
@@ -130,10 +131,7 @@ export function ProjectTab({
           <div className='mt-4'>
             {statsLoading && !view ? (
               <PropertyRow label={healthLabel}>
-                <div
-                  className='h-6 w-56 animate-pulse rounded-full bg-muted'
-                  aria-busy='true'
-                />
+                <Skeleton className='h-6 w-56 rounded-full' aria-busy='true' />
               </PropertyRow>
             ) : !view ? (
               <PropertyRow label={healthLabel}>

@@ -13,6 +13,8 @@ import type {
 import type { WorkspaceMemberInfo } from '../../types'
 import { MemberAvatar } from '../../components/fields/shared'
 import { TokenCostBreakdown } from '../../components/TokenCostBreakdown'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Progress } from '@/components/ui/progress'
 
 /** Compact token count, e.g. `12.7M` — mirrors the CLI / milestone reading. */
 const TOKEN_FMT = new Intl.NumberFormat('en-US', {
@@ -29,9 +31,7 @@ export function SprintTeamPerformance({ sprintId, members }: Props) {
   const { performance, isLoading } = useSprintTeamPerformance(sprintId)
 
   if (isLoading) {
-    return (
-      <div className='h-24 animate-pulse rounded-lg border border-border' />
-    )
+    return <Skeleton className='h-24 rounded-lg border border-border' />
   }
   if (!performance || performance.rows.length === 0) return null
 
@@ -173,15 +173,7 @@ function MemberCard({
 
       {/* Token share of the sprint total — the percentage above is the reading;
           the bar is its decoration, so it stays out of the a11y tree. */}
-      <span
-        aria-hidden
-        className='block h-1.5 w-full overflow-hidden rounded-full bg-muted'
-      >
-        <span
-          className='block h-full rounded-full bg-chart-1'
-          style={{ width: `${sharePct}%` }}
-        />
-      </span>
+      <Progress value={sharePct} tone='chart' size='sm' aria-hidden />
 
       {/* The three numbers the columns used to carry, as one meta line — each
           phrase names its own unit, standing in for the dropped column header. */}

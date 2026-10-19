@@ -15,6 +15,7 @@ import {
 import { deriveStepReport } from '@/lib/test-cases/step-report'
 import { TestCaseRunReport } from './TestCaseRunReport'
 import type { WorkspaceMemberInfo } from '../../types'
+import { Badge } from '@/components/ui/badge'
 
 interface TestCaseCardProps {
   testCase: TestCaseWithRuns
@@ -198,7 +199,12 @@ export function TestCaseCard({
         {testCase.requiredEnvironment ? (
           // LUM-808: 这条用例只有在该环境跑才证明得了东西。放在标题行是因为
           // 它约束的是**整条用例**，不是某一次执行。
-          <span className='rounded-sm border border-dashed border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
+          <Badge
+            variant='outline-muted'
+            size='xs'
+            shape='square'
+            className='border-dashed uppercase'
+          >
             {intl.formatMessage(
               { id: 'testCases.requiresEnv.badge' },
               {
@@ -207,7 +213,7 @@ export function TestCaseCard({
                 }),
               }
             )}
-          </span>
+          </Badge>
         ) : null}
         <span className='ml-auto text-caption text-muted-foreground'>
           {collapsedSummary}

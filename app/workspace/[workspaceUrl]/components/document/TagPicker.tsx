@@ -6,6 +6,7 @@ import { X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
 import { TAG_PICKER_COLORS } from './tag-colors'
+import { Badge } from '@/components/ui/badge'
 
 // ── Tag color helpers ─────────────────────────────────────────────────────
 
@@ -29,12 +30,14 @@ interface TagBadgeNewProps {
 export function TagBadgeNew({ tag }: TagBadgeNewProps) {
   const color = getTagColor(tag)
   return (
-    <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-caption whitespace-nowrap'
+    <Badge
+      variant='plain'
+      size='xs'
+      shape='square'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {tag.name}
-    </span>
+    </Badge>
   )
 }
 
