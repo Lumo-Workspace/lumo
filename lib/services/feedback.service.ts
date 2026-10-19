@@ -237,15 +237,30 @@ export async function assertWithinFeedbackLimits(
   }
 }
 
-async function nameOf(memberIds: string[]): Promise<Map<string, string>> {
-  return memberRepository.labelsByIds([...new Set(memberIds)])
+/**
+ * Shown when a submitter's name and email cannot be resolved (directory
+ * outage, a user with neither). Never the member id: that is an internal
+ * key, not a name, and the Lumo team reads these across workspaces.
+ */
+export const UNKNOWN_MEMBER = 'Unknown member'
+
+/** Names / emails only — unresolved ids are left out (see UNKNOWN_MEMBER). */
+export async function memberNames(
+  memberIds: readonly string[]
+): Promise<Map<string, string>> {
+  return memberRepository.labelsByIds([...new Set(memberIds)], {
+    unresolved: 'omit',
+  })
 }
 
-function submitter(
+const nameOf = memberNames
+
+/** `{ name }` for a member id; null when the submitter row is gone. */
+export function submitter(
   memberId: string | null,
   names: Map<string, string>
 ): { name: string } | null {
-  return memberId ? { name: names.get(memberId) ?? memberId } : null
+  return memberId ? { name: names.get(memberId) ?? UNKNOWN_MEMBER } : null
 }
 
 function toView(

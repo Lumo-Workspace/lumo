@@ -112,13 +112,22 @@ export const privateFileService = {
    *   owns the file.
    * - `shareToken` (anyone, signed in or not): an image referenced by the
    *   body of a publicly shared document in the owning workspace.
+   * - `viewerIsStaff` (LUM-1240 batch 2): Lumo staff read feedback evidence
+   *   of every workspace — and only that kind; a staff caller gets no other
+   *   workspace's test evidence or images.
    *
    * A "no" never says whether the file exists — the route answers 404.
    */
   async canRead(
     file: PrivateFile,
-    access: { viewerWorkspaceId: string | null; shareToken: string | null }
+    access: {
+      viewerWorkspaceId: string | null
+      shareToken: string | null
+      viewerIsStaff?: boolean
+    }
   ): Promise<boolean> {
+    if (file.kind === 'feedback-evidence' && access.viewerIsStaff === true)
+      return true
     const owner =
       file.kind === 'image' || file.kind === 'feedback-evidence'
         ? file.workspaceId

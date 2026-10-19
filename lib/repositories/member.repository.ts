@@ -233,9 +233,18 @@ export const memberRepository = {
    * the email local-part, then the raw clerkId, then the member id, so every
    * requested id gets *some* label and callers never see an empty cell. Never
    * throws — Clerk failures degrade to the member-id label.
+   *
+   * `unresolved: 'omit'` (LUM-1240): only a real name or email makes it into
+   * the map — no raw clerkId, no member id — for surfaces that show the
+   * label to someone outside the workspace and must never print an internal
+   * id; the caller picks its own placeholder for a missing entry.
    */
-  async labelsByIds(ids: string[]): Promise<Map<string, string>> {
+  async labelsByIds(
+    ids: string[],
+    opts: { unresolved?: 'id' | 'omit' } = {}
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map()
+    const omit = opts.unresolved === 'omit'
 
     const members = await prisma.workspaceMember.findMany({
       where: { id: { in: ids } },
@@ -243,7 +252,9 @@ export const memberRepository = {
     })
 
     // Default every id to itself so unresolved ids still render.
-    const labels = new Map<string, string>(members.map(m => [m.id, m.id]))
+    const labels = new Map<string, string>(
+      omit ? [] : members.map(m => [m.id, m.id])
+    )
 
     const clerkIds = [...new Set(members.map(m => m.clerkId))]
     if (clerkIds.length === 0) return labels
@@ -264,8 +275,9 @@ export const memberRepository = {
           .filter(Boolean)
           .join(' ')
           .trim()
-        const display = fullName || email.split('@')[0] || email || u.id
-        labelByClerkId.set(u.id, display)
+        const display =
+          fullName || email.split('@')[0] || email || (omit ? '' : u.id)
+        if (display) labelByClerkId.set(u.id, display)
       }
 
       for (const m of members) {

@@ -45,6 +45,8 @@ const HTTP_METHODS = new Set([
 const AUTH_GUARDS = new Set([
   'lib/auth#requireIdentity',
   'lib/auth/identity#requireIdentity',
+  // LUM-1240: requireIdentity, then the Lumo-staff check (403 otherwise).
+  'lib/auth/staff#requireStaff',
   'lib/auth#requireAuth',
   'lib/auth#verifyBearer',
   'lib/auth/bearer#verifyBearer',

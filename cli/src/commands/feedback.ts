@@ -556,10 +556,44 @@ export interface FeedbackShowOptions {
   json?: boolean
 }
 
-function fmtSize(bytes: number): string {
+export function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** The `Environment` section (whitelisted fields only; shared with staff show). */
+export function environmentSection(
+  env: FeedbackEnv | null,
+  tty: boolean
+): string[] {
+  const out = [...sectionHeading('Environment')]
+  if (!env) {
+    out.push('  - (not sent: --no-env)')
+    return out
+  }
+  const last = env.lastCommand
+  out.push(
+    kvBlock(
+      [
+        ['CLI', env.cliVersion ?? NONE],
+        [
+          'OS',
+          [env.os, env.osRelease, env.arch].filter(Boolean).join(' ') || NONE,
+        ],
+        ['Node', env.nodeVersion ?? NONE],
+        ['Agent', env.agentHost ? fmtEnum(env.agentHost) : NONE],
+        [
+          'Last command',
+          last
+            ? `${last.command}${last.flags.length ? ` (flags: ${last.flags.join(' ')})` : ''} → exit ${last.exitCode} at ${fmtInstant(last.at, { tty })}`
+            : NONE,
+        ],
+      ],
+      { indent: 2, color: false }
+    )
+  )
+  return out
 }
 
 export function formatFeedbackDetail(
@@ -606,33 +640,7 @@ export function formatFeedbackDetail(
         `  ${oneCell(e.filename)}  ${e.contentType}  ${fmtSize(e.size)}  ${sanitizeField(e.url)}`
       )
   }
-  out.push(...sectionHeading('Environment'))
-  const env = f.environment
-  if (!env) {
-    out.push('  - (not sent: --no-env)')
-  } else {
-    const last = env.lastCommand
-    out.push(
-      kvBlock(
-        [
-          ['CLI', env.cliVersion ?? NONE],
-          [
-            'OS',
-            [env.os, env.osRelease, env.arch].filter(Boolean).join(' ') || NONE,
-          ],
-          ['Node', env.nodeVersion ?? NONE],
-          ['Agent', env.agentHost ? fmtEnum(env.agentHost) : NONE],
-          [
-            'Last command',
-            last
-              ? `${last.command}${last.flags.length ? ` (flags: ${last.flags.join(' ')})` : ''} → exit ${last.exitCode} at ${fmtInstant(last.at, { tty })}`
-              : NONE,
-          ],
-        ],
-        { indent: 2, color: false }
-      )
-    )
-  }
+  out.push(...environmentSection(f.environment, tty))
   out.push(...sectionHeading('Replies'))
   if (d.replies.length === 0) out.push('  -')
   for (const r of d.replies) {

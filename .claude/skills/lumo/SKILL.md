@@ -29,6 +29,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
 | `audit list` (OWNER only)                                            | [audit.md](references/audit.md)                           |
 | `feedback create/list/show` — report a Lumo problem to the Lumo team | [feedback.md](references/feedback.md)                     |
+| `staff feedback list/show/update` — Lumo team only: triage, reply    | [staff-feedback.md](references/staff-feedback.md)         |
 | `workspace security-scan show/update` (update: OWNER)                | [workspace-settings.md](references/workspace-settings.md) |
 | `status` (priority, inbox, drafts, next), `project show`             | [overview.md](references/overview.md)                     |
 | `task dep *` (dependency edges)                                      | [task-deps.md](references/task-deps.md)                   |
@@ -91,6 +92,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Feedback to the Lumo team — see [feedback.md](references/feedback.md)
 
 - `lumo feedback create --title <t> [--kind bug|idea|question] [--step …] [--expected] [--actual] [--evidence-file …] [--task] [--no-env]` / `feedback list [--mine]` / `feedback show FB-<n>` — report a Lumo bug, idea or question (agents may file without asking; say so), read status + Lumo team replies
+- `lumo staff feedback list` / `show <n>` / `update <n> [--status] [--reply … --confirm]` — **Lumo team only** (403 for everyone else): every workspace's feedback; a reply exits 4 until the user approves; see [staff-feedback.md](references/staff-feedback.md)
 
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 

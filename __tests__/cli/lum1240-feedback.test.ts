@@ -367,6 +367,51 @@ describe('last-command record', () => {
     const raw = fs.readFileSync(path.join(tmp, 'last-command.json'), 'utf8')
     expect(raw).not.toMatch(/LUM-|secret/)
   })
+
+  it('a later successful command does not hide the one that failed', () => {
+    const t0 = new Date()
+    const t1 = new Date(t0.getTime() + 60_000)
+    recordLastCommand(
+      buildLastCommand('task testcase run', ['--evidence-file'], 1, t0)
+    )
+    recordLastCommand(buildLastCommand('task show', ['--full'], 0, t1))
+    expect(readLastCommand(process.env, t1)).toMatchObject({
+      command: 'task testcase run',
+      exitCode: 1,
+    })
+    // A newer failure replaces it.
+    recordLastCommand(buildLastCommand('doc show', [], 2, t1))
+    expect(readLastCommand(process.env, t1)?.command).toBe('doc show')
+    // Once the failure is over an hour old, the last command is reported.
+    const t2 = new Date(t0.getTime() + 61 * 60_000)
+    recordLastCommand(
+      buildLastCommand('task list', [], 0, new Date(t2.getTime() - 1000))
+    )
+    expect(
+      readLastCommand(process.env, new Date(t1.getTime() + 61 * 60_000))
+    ).toMatchObject({ command: 'task list', exitCode: 0 })
+  })
+
+  it('staff commands are not recorded; a pre-split file still reads', () => {
+    expect(
+      buildLastCommand('staff feedback list', [], 0, new Date())
+    ).toBeNull()
+    const now = new Date()
+    fs.writeFileSync(
+      path.join(tmp, 'last-command.json'),
+      JSON.stringify({
+        'cc-session': {
+          command: 'task show',
+          flags: [],
+          exitCode: 1,
+          at: now.toISOString(),
+        },
+      })
+    )
+    expect(readLastCommand(process.env, now)?.command).toBe('task show')
+    recordLastCommand(buildLastCommand('task list', [], 0, now))
+    expect(readLastCommand(process.env, now)?.command).toBe('task show')
+  })
 })
 
 describe('lumo feedback list / show', () => {

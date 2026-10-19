@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
+import { isLumoStaff } from '@/lib/auth/staff'
 import { parsePrivateFilePath } from '@/lib/files/private-file-path'
 import { privateFileService } from '@/lib/services/private-file.service'
 
@@ -30,7 +31,7 @@ const notFound = () =>
  * GET /api/files/<blob pathname> — LUM-916. Streams a private upload (test
  * evidence, editor image) to a member of the workspace that owns it, or an
  * image to anyone presenting `?share=<token>` of a public document that
- * embeds it. Anonymous without a share token → 401; anything else the
+ * embeds it, or feedback evidence to Lumo staff (LUM-1240). Anonymous without a share token → 401; anything else the
  * caller may not read → 404 (no existence oracle).
  */
 export async function GET(request: NextRequest, { params }: Params) {
@@ -46,9 +47,15 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // LUM-1240: Lumo staff may read feedback evidence of any workspace.
+  const viewerIsStaff =
+    file.kind === 'feedback-evidence' && !(identity instanceof NextResponse)
+      ? await isLumoStaff(identity)
+      : false
   const allowed = await privateFileService.canRead(file, {
     viewerWorkspaceId,
     shareToken,
+    viewerIsStaff,
   })
   if (!allowed) return notFound()
 

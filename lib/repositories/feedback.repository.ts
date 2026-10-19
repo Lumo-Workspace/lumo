@@ -4,7 +4,7 @@ import {
   type FeedbackSource,
   type FeedbackStatus,
 } from '@prisma/client'
-import { scopedPrisma as prisma } from '@/lib/db/workspace-scope'
+import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import {
   redactStoredFields,
   STORAGE_REDACTED_FIELDS,
@@ -55,10 +55,57 @@ const LIST_SELECT = {
   _count: { select: { replies: true } },
 } satisfies Prisma.FeedbackSelect
 
+/**
+ * LUM-1240 batch 2 — the Lumo team's triage queue reads every workspace by
+ * design. The staff check (`isLumoStaff`) runs in the route before any of
+ * these is reached.
+ */
+const STAFF_SCOPE = 'LUM-1240 staff feedback triage: cross-workspace by design'
+
+const STAFF_SELECT = {
+  ...SELECT,
+  seq: true,
+  workspaceId: true,
+  statusChangedById: true,
+  workspace: { select: { name: true, slug: true } },
+  replies: {
+    select: { body: true, createdAt: true, authorMemberId: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
+} satisfies Prisma.FeedbackSelect
+
+const STAFF_LIST_SELECT = {
+  ...LIST_SELECT,
+  seq: true,
+  workspaceId: true,
+  workspace: { select: { name: true, slug: true } },
+} satisfies Prisma.FeedbackSelect
+
 export type FeedbackRow = Prisma.FeedbackGetPayload<{ select: typeof SELECT }>
 export type FeedbackListRow = Prisma.FeedbackGetPayload<{
   select: typeof LIST_SELECT
 }>
+
+export type StaffFeedbackRow = Prisma.FeedbackGetPayload<{
+  select: typeof STAFF_SELECT
+}>
+export type StaffFeedbackListRow = Prisma.FeedbackGetPayload<{
+  select: typeof STAFF_LIST_SELECT
+}>
+
+export interface StaffFeedbackListFilter {
+  status?: FeedbackStatus | undefined
+  kind?: FeedbackKind | undefined
+  workspaceId?: string | undefined
+  /** Only rows with a seq below this one (newest-first paging). */
+  beforeSeq?: number | undefined
+  take: number
+}
+
+export interface StaffFeedbackUpdate {
+  status?: { to: FeedbackStatus; byMemberId: string; at: Date } | undefined
+  reply?: { body: string; authorMemberId: string } | undefined
+}
 
 export interface CreateFeedbackRow {
   workspaceId: string
@@ -322,4 +369,89 @@ export const feedbackRepository = {
   ) {
     return counterFor(prisma).oldestSince(where, since)
   },
+
+  // ── Staff (cross-workspace; see STAFF_SCOPE) ──────────────────────────
+
+  /** Every workspace's reports (or one workspace's), newest first by seq. */
+  async staffList(
+    filter: StaffFeedbackListFilter
+  ): Promise<StaffFeedbackListRow[]> {
+    return unscoped(STAFF_SCOPE).feedback.findMany({
+      where: {
+        ...staffWhere(filter),
+        ...(filter.beforeSeq ? { seq: { lt: filter.beforeSeq } } : {}),
+      },
+      orderBy: { seq: 'desc' },
+      take: filter.take,
+      select: STAFF_LIST_SELECT,
+    })
+  },
+
+  async staffCount(
+    filter: Omit<StaffFeedbackListFilter, 'take' | 'beforeSeq'>
+  ): Promise<number> {
+    return unscoped(STAFF_SCOPE).feedback.count({ where: staffWhere(filter) })
+  },
+
+  /** One report by its global seq, with every reply and its author id. */
+  async staffFindBySeq(seq: number): Promise<StaffFeedbackRow | null> {
+    return unscoped(STAFF_SCOPE).feedback.findUnique({
+      where: { seq },
+      select: STAFF_SELECT,
+    })
+  },
+
+  /**
+   * Apply a status change and / or append a reply in one transaction, so a
+   * command that does both never lands half-done. The reply body is
+   * storage-redacted here too (LUM-898). Null when no row has `seq`.
+   */
+  async staffUpdate(
+    seq: number,
+    change: StaffFeedbackUpdate
+  ): Promise<StaffFeedbackRow | null> {
+    const client = unscoped(STAFF_SCOPE)
+    return client.$transaction(async tx => {
+      const row = await tx.feedback.findUnique({
+        where: { seq },
+        select: { id: true },
+      })
+      if (!row) return null
+      if (change.status)
+        await tx.feedback.update({
+          where: { seq },
+          data: {
+            status: change.status.to,
+            statusChangedAt: change.status.at,
+            statusChangedById: change.status.byMemberId,
+          },
+          select: { id: true },
+        })
+      if (change.reply) {
+        const { body } = redactStoredFields(
+          { body: change.reply.body },
+          STORAGE_REDACTED_FIELDS.feedbackReply
+        )
+        await tx.feedbackReply.create({
+          data: {
+            feedbackId: row.id,
+            body,
+            authorMemberId: change.reply.authorMemberId,
+          },
+          select: { id: true },
+        })
+      }
+      return tx.feedback.findUnique({ where: { seq }, select: STAFF_SELECT })
+    })
+  },
+}
+
+function staffWhere(
+  filter: Omit<StaffFeedbackListFilter, 'take' | 'beforeSeq'>
+): Prisma.FeedbackWhereInput {
+  return {
+    ...(filter.workspaceId ? { workspaceId: filter.workspaceId } : {}),
+    ...(filter.status ? { status: filter.status } : {}),
+    ...(filter.kind ? { kind: filter.kind } : {}),
+  }
 }
