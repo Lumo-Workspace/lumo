@@ -48,7 +48,7 @@ function Segmented<T extends string>({
           className={cn(
             'h-7 rounded-md px-3 text-[13px] font-medium transition-colors',
             value === o.value
-              ? 'bg-card text-foreground shadow-elevation-1'
+              ? 'bg-card text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
