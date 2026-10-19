@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -174,12 +175,12 @@ export function RepoPreMergeChecksEditor({
       <p className='text-caption text-muted-foreground'>{t('intro')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-title`}
             className='text-caption text-foreground'
           >
             {t('title')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-title`}
             value={draft.titleMode}
@@ -188,12 +189,12 @@ export function RepoPreMergeChecksEditor({
           />
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-description`}
             className='text-caption text-foreground'
           >
             {t('description')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-description`}
             value={draft.descriptionMode}
@@ -202,12 +203,12 @@ export function RepoPreMergeChecksEditor({
           />
         </div>
         <div className='flex flex-col gap-1'>
-          <label
+          <Label
             htmlFor={`${idBase}-issue`}
             className='text-caption text-foreground'
           >
             {t('issueAssessment')}
-          </label>
+          </Label>
           <ModeSelect
             id={`${idBase}-issue`}
             value={draft.issueMode}
@@ -218,7 +219,7 @@ export function RepoPreMergeChecksEditor({
             {t('issueAssessmentHint')}
           </p>
         </div>
-        <label
+        <Label
           htmlFor={`${idBase}-task-details`}
           className='flex items-center gap-2 self-start text-caption text-muted-foreground sm:pt-6'
         >
@@ -231,14 +232,14 @@ export function RepoPreMergeChecksEditor({
             }
           />
           {t('taskDetailsOnPublicRepos')}
-        </label>
+        </Label>
         <div className='flex flex-col gap-1 sm:col-span-2'>
-          <label
+          <Label
             htmlFor={`${idBase}-requirements`}
             className='text-caption text-foreground'
           >
             {t('titleRequirements')}
-          </label>
+          </Label>
           <Textarea
             id={`${idBase}-requirements`}
             value={draft.titleRequirements}
@@ -323,7 +324,7 @@ export function RepoPreMergeChecksEditor({
           </Button>
         </div>
       )}
-      <label
+      <Label
         htmlFor={`${idBase}-reviewers-only`}
         className='flex items-center gap-2 text-caption text-muted-foreground'
       >
@@ -336,7 +337,7 @@ export function RepoPreMergeChecksEditor({
           }
         />
         {t('reviewersOnly')}
-      </label>
+      </Label>
       {canEdit && (
         <div>
           <Button

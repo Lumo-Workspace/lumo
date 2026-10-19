@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { RepoReviewFiltersEditor } from './RepoReviewFiltersEditor'
@@ -75,7 +76,7 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
           >
             {t('style.toggle')}
           </Button>
-          <label
+          <Label
             htmlFor={`${id}-auto`}
             className='flex items-center gap-2 text-caption text-muted-foreground'
           >
@@ -89,8 +90,8 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
                 onChange({ repo: setting.repo, autoReview: next })
               }
             />
-          </label>
-          <label
+          </Label>
+          <Label
             htmlFor={`${id}-drafts`}
             className='flex items-center gap-2 text-caption text-muted-foreground'
           >
@@ -104,7 +105,7 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
                 onChange({ repo: setting.repo, reviewDrafts: next })
               }
             />
-          </label>
+          </Label>
         </div>
       </div>
       {showFilters && (

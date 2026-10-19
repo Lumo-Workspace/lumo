@@ -2618,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "所有人",
   "settings.auditLog.filter.since": "開始日期",
   "settings.auditLog.filter.until": "結束日期",
+  "settings.auditLog.filter.anyDate": "任意日期",
   "settings.auditLog.filter.reset": "重設",
   "settings.auditLog.export": "匯出 CSV",
   "settings.auditLog.exportHint": "下載符合篩選條件的最新事件，最多 {max} 筆。",

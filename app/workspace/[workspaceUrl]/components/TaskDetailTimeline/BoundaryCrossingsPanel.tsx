@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/collapsible'
 import { tasksClient } from '@/lib/api-client'
 import { PluginSlot } from '@/lib/plugins/client'
+import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
@@ -1309,7 +1310,7 @@ function CrossingRow({
               suppressible category with a coalescing target; never on the
               HIGH classes (the server refuses those with 422 anyway). */}
             {c.suppressible && (
-              <label className='flex items-center gap-2 text-caption text-muted-foreground'>
+              <Label className='flex items-center gap-2 text-caption text-muted-foreground'>
                 <Checkbox
                   data-testid={`boundary-suppress-similar-${c.id}`}
                   checked={suppress}
@@ -1321,13 +1322,13 @@ function CrossingRow({
                   defaultMessage:
                     'Auto-handle this kind in this repository from now on (false positive only)',
                 })}
-              </label>
+              </Label>
             )}
             {/* LUM-963: widen the rule to the whole directory — read-type
               crossings only, and never over /, ~ or a top-level directory
               (the server computes `suppressionDirectory` and refuses others). */}
             {c.suppressible && suppress && c.suppressionDirectory && (
-              <label className='flex items-center gap-2 pl-5 text-caption text-muted-foreground'>
+              <Label className='flex items-center gap-2 pl-5 text-caption text-muted-foreground'>
                 <Checkbox
                   data-testid={`boundary-suppress-directory-${c.id}`}
                   checked={suppressScope === 'directory'}
@@ -1344,7 +1345,7 @@ function CrossingRow({
                   },
                   { dir: c.suppressionDirectory }
                 )}
-              </label>
+              </Label>
             )}
             {/* LUM-759: the blast radius, before the ruling is committed —
               ticking the box will dispose this repository's existing alerts of

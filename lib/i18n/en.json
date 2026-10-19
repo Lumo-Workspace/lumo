@@ -2510,6 +2510,7 @@
   "settings.auditLog.filter.allActors": "Everyone",
   "settings.auditLog.filter.since": "From",
   "settings.auditLog.filter.until": "To",
+  "settings.auditLog.filter.anyDate": "Any date",
   "settings.auditLog.filter.reset": "Reset",
   "settings.auditLog.export": "Export CSV",
   "settings.auditLog.exportHint": "Downloads up to {max} of the newest events that match the filters.",

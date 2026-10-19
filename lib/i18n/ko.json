@@ -2618,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "모든 사람",
   "settings.auditLog.filter.since": "시작",
   "settings.auditLog.filter.until": "종료",
+  "settings.auditLog.filter.anyDate": "모든 날짜",
   "settings.auditLog.filter.reset": "초기화",
   "settings.auditLog.export": "CSV 내보내기",
   "settings.auditLog.exportHint": "필터와 일치하는 최신 이벤트를 최대 {max}개까지 다운로드합니다.",

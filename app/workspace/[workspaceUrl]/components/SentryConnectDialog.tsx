@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { useParams } from 'next/navigation'
 import { FormattedMessage, useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -25,6 +26,7 @@ export function SentryConnectDialog({
 }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
+  const fieldId = useId()
   const [orgSlug, setOrgSlug] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -93,30 +95,38 @@ export function SentryConnectDialog({
               {intl.formatMessage({ id: 'sentry.connectStep2Title' })}
             </p>
             <div className='mt-2 space-y-2'>
-              <label className='block'>
-                <span className='text-caption text-foreground'>
+              <div>
+                <Label
+                  htmlFor={`${fieldId}-org-slug`}
+                  className='text-caption text-foreground'
+                >
                   {intl.formatMessage({ id: 'sentry.connectOrgSlugLabel' })}
-                </span>
+                </Label>
                 <input
+                  id={`${fieldId}-org-slug`}
                   className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-body'
                   value={orgSlug}
                   onChange={e => setOrgSlug(e.target.value)}
                   placeholder='acme-inc'
                 />
-              </label>
-              <label className='block'>
-                <span className='text-caption text-foreground'>
+              </div>
+              <div>
+                <Label
+                  htmlFor={`${fieldId}-client-secret`}
+                  className='text-caption text-foreground'
+                >
                   {intl.formatMessage({
                     id: 'sentry.connectClientSecretLabel',
                   })}
-                </span>
+                </Label>
                 <input
+                  id={`${fieldId}-client-secret`}
                   type='password'
                   className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-body'
                   value={clientSecret}
                   onChange={e => setClientSecret(e.target.value)}
                 />
-              </label>
+              </div>
             </div>
           </div>
 

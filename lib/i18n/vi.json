@@ -2618,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Mọi người",
   "settings.auditLog.filter.since": "Từ",
   "settings.auditLog.filter.until": "Đến",
+  "settings.auditLog.filter.anyDate": "Bất kỳ ngày nào",
   "settings.auditLog.filter.reset": "Đặt lại",
   "settings.auditLog.export": "Xuất CSV",
   "settings.auditLog.exportHint": "Tải xuống tối đa {max} sự kiện mới nhất khớp với bộ lọc.",

@@ -2618,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Alle",
   "settings.auditLog.filter.since": "Von",
   "settings.auditLog.filter.until": "Bis",
+  "settings.auditLog.filter.anyDate": "Beliebiges Datum",
   "settings.auditLog.filter.reset": "Zurücksetzen",
   "settings.auditLog.export": "CSV exportieren",
   "settings.auditLog.exportHint": "Lädt bis zu {max} der neuesten Ereignisse herunter, die den Filtern entsprechen.",

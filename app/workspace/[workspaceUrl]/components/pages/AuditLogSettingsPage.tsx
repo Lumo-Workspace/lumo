@@ -1,10 +1,10 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useId, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Download, ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ import { AUDIT_EXPORT_MAX_ROWS, type AuditEventView } from '@/lib/audit/query'
 import { auditClient } from '@/lib/api-client/audit'
 import { useAuditEvents } from '../../hooks/useAuditEvents'
 import { useMembers } from '../../hooks/useMembers'
+import { CalendarDayPicker } from '../fields/CalendarDayPicker'
 
 /** Radix Select items cannot have an empty value. */
 const ALL = 'all'
@@ -140,18 +141,21 @@ function AuditFilters({
   exportHref: string
 }) {
   const intl = useIntl()
+  const fieldId = useId()
   const t = (id: string) => intl.formatMessage({ id })
   return (
     <div className='mb-4 flex flex-wrap items-end gap-3'>
-      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
-        {t('settings.auditLog.filter.action')}
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-action`}>
+          {t('settings.auditLog.filter.action')}
+        </Label>
         <Select
           value={filters.action || ALL}
           onValueChange={v => onChange('action', v)}
         >
           <SelectTrigger
+            id={`${fieldId}-action`}
             className='h-8 w-56 text-body'
-            aria-label={t('settings.auditLog.filter.action')}
           >
             <SelectValue />
           </SelectTrigger>
@@ -166,17 +170,16 @@ function AuditFilters({
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
-        {t('settings.auditLog.filter.actor')}
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-actor`}>
+          {t('settings.auditLog.filter.actor')}
+        </Label>
         <Select
           value={filters.actor || ALL}
           onValueChange={v => onChange('actor', v)}
         >
-          <SelectTrigger
-            className='h-8 w-44 text-body'
-            aria-label={t('settings.auditLog.filter.actor')}
-          >
+          <SelectTrigger id={`${fieldId}-actor`} className='h-8 w-44 text-body'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -190,27 +193,35 @@ function AuditFilters({
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
-        {t('settings.auditLog.filter.since')}
-        <Input
-          type='date'
-          className='h-8 w-36 text-body'
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-since`}>
+          {t('settings.auditLog.filter.since')}
+        </Label>
+        <CalendarDayPicker
+          id={`${fieldId}-since`}
+          className='h-8 w-40'
           value={filters.since}
           max={filters.until || undefined}
-          onChange={e => onChange('since', e.target.value)}
+          placeholder={t('settings.auditLog.filter.anyDate')}
+          clearable
+          onChange={v => onChange('since', v)}
         />
-      </label>
-      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
-        {t('settings.auditLog.filter.until')}
-        <Input
-          type='date'
-          className='h-8 w-36 text-body'
+      </div>
+      <div className='flex flex-col gap-2'>
+        <Label htmlFor={`${fieldId}-until`}>
+          {t('settings.auditLog.filter.until')}
+        </Label>
+        <CalendarDayPicker
+          id={`${fieldId}-until`}
+          className='h-8 w-40'
           value={filters.until}
           min={filters.since || undefined}
-          onChange={e => onChange('until', e.target.value)}
+          placeholder={t('settings.auditLog.filter.anyDate')}
+          clearable
+          onChange={v => onChange('until', v)}
         />
-      </label>
+      </div>
       <Button variant='ghost' size='sm' onClick={onReset}>
         {t('settings.auditLog.filter.reset')}
       </Button>

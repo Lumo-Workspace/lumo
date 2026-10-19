@@ -2618,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "सभी",
   "settings.auditLog.filter.since": "से",
   "settings.auditLog.filter.until": "तक",
+  "settings.auditLog.filter.anyDate": "कोई भी तारीख",
   "settings.auditLog.filter.reset": "रीसेट करें",
   "settings.auditLog.export": "CSV निर्यात करें",
   "settings.auditLog.exportHint": "फ़िल्टर से मेल खाने वाले सबसे नए {max} इवेंट तक डाउनलोड करता है।",

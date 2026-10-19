@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -121,7 +122,7 @@ export function AiDerivedContentDeleteRow({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className='px-1 pb-2'>
-            <label
+            <Label
               htmlFor='ai-derived-confirm-name'
               className='block text-caption text-muted-foreground mb-1.5'
             >
@@ -129,7 +130,7 @@ export function AiDerivedContentDeleteRow({
                 { id: 'workspaceSettings.deleteTypePrompt' },
                 { name: workspaceName }
               )}
-            </label>
+            </Label>
             <input
               id='ai-derived-confirm-name'
               type='text'

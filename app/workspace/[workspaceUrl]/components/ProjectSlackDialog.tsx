@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
@@ -378,12 +379,12 @@ export function ProjectSlackDialog({
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
                     <div className='flex items-center justify-between'>
-                      <label
+                      <Label
                         htmlFor={`${fieldId}-channel`}
                         className='text-caption text-muted-foreground'
                       >
                         Channel
-                      </label>
+                      </Label>
                       {!showCreate && (
                         <button
                           type='button'
@@ -547,14 +548,14 @@ export function ProjectSlackDialog({
                           checked={selectedEvents.includes(event)}
                           onCheckedChange={() => toggleEvent(event)}
                         />
-                        <label
+                        <Label
                           htmlFor={`${fieldId}-event-${event}`}
                           className='cursor-pointer text-body text-foreground'
                         >
                           {intl.formatMessage({
                             id: SLACK_EVENT_LABEL_KEYS[event],
                           })}
-                        </label>
+                        </Label>
                       </div>
                     ))}
                   </div>

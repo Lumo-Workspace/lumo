@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { PartyPopper } from 'lucide-react'
 import { waitlistClient, ApiClientError } from '@/lib/api-client'
 import {
@@ -102,13 +103,13 @@ export default function WaitlistPage() {
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='email'
                 className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.email' })}{' '}
                 <span className='text-danger-text'>*</span>
-              </label>
+              </Label>
               <input
                 id='email'
                 type='email'
@@ -123,12 +124,12 @@ export default function WaitlistPage() {
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='name'
                 className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.name' })}
-              </label>
+              </Label>
               <input
                 id='name'
                 type='text'
@@ -142,12 +143,12 @@ export default function WaitlistPage() {
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='company'
                 className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.company' })}
-              </label>
+              </Label>
               <input
                 id='company'
                 type='text'
@@ -161,12 +162,12 @@ export default function WaitlistPage() {
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='teamSize'
                 className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.teamSize' })}
-              </label>
+              </Label>
               <Select
                 value={teamSize}
                 onValueChange={v => setTeamSize(v === NO_TEAM_SIZE ? '' : v)}

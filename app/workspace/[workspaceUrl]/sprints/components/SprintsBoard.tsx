@@ -22,7 +22,7 @@ import {
   type CreateSprintInput,
 } from './CreateSprintDialog'
 import { SprintActionsMenu } from './SprintActionsMenu'
-import { formatDate } from './DatePickerField'
+import { formatDate } from '../../components/fields/DatePickerField'
 import { daysFromNow, partitionSprints } from './sprintLandingUtils'
 import { Progress } from '@/components/ui/progress'
 
