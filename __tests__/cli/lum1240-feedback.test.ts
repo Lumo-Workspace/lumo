@@ -411,6 +411,16 @@ describe('last-command record', () => {
     expect(readLastCommand(process.env, now)?.command).toBe('task show')
     recordLastCommand(buildLastCommand('task list', [], 0, now))
     expect(readLastCommand(process.env, now)?.command).toBe('task show')
+
+    // A legacy entry without an exit code is not taken for a failure.
+    fs.writeFileSync(
+      path.join(tmp, 'last-command.json'),
+      JSON.stringify({
+        'cc-session': { command: 'doc show', flags: [], at: now.toISOString() },
+      })
+    )
+    recordLastCommand(buildLastCommand('task list', [], 0, now))
+    expect(readLastCommand(process.env, now)?.command).toBe('task list')
   })
 })
 

@@ -110,7 +110,8 @@ function toRecord(v: unknown): SessionRecord | null {
   if (isObject(v.last)) return v as unknown as SessionRecord
   if (typeof v.command === 'string') {
     const entry = v as unknown as LastCommand
-    return entry.exitCode !== 0
+    // Only a recorded non-zero exit is a failure (a malformed entry is not).
+    return typeof entry.exitCode === 'number' && entry.exitCode !== 0
       ? { last: entry, failed: entry }
       : { last: entry }
   }

@@ -122,6 +122,11 @@ describe('local validation (exit 2, no request)', () => {
     expect(validateUpdateOptions({ status: 'open' })).toMatch(/--status/)
     expect(validateUpdateOptions({ reply: ' ' })).toMatch(/--reply/)
     expect(validateUpdateOptions({ status: 'wontfix' })).toBeNull()
+    // Length is checked on the trimmed text, as the server does.
+    expect(validateUpdateOptions({ reply: ` ${'x'.repeat(4000)} ` })).toBeNull()
+    expect(validateUpdateOptions({ reply: 'x'.repeat(4001) })).toMatch(
+      /--reply/
+    )
     serve({ body: {} })
     expect(await staffFeedbackShow('FB-3', {})).toBe(2)
     expect(await staffFeedbackUpdate('#7', {})).toBe(2)

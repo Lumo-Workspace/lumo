@@ -519,7 +519,10 @@ export function validateUpdateOptions(
     !(FEEDBACK_STATUSES as readonly string[]).includes(o.status.toLowerCase())
   )
     return `invalid --status "${o.status}" (allowed: ${FEEDBACK_STATUSES.join(', ')})`
-  if (o.reply !== undefined && (!o.reply.trim() || o.reply.length > MAX_REPLY))
+  if (
+    o.reply !== undefined &&
+    (!o.reply.trim() || o.reply.trim().length > MAX_REPLY)
+  )
     return `--reply must be 1-${MAX_REPLY} characters`
   return null
 }
