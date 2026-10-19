@@ -523,7 +523,7 @@ describe('submission limits', () => {
     ).map(r => r.status)
     expect(statuses.sort()).toEqual([201, 429, 429])
     expect(db.rows.filter(r => r.submittedByMemberId === 'm-1')).toHaveLength(5)
-    // The refused inserts rolled their counter bump back with them.
+    // Only one of the three requests inserted a row (seeded rows have no title).
     expect(db.rows.filter(r => r.title !== undefined)).toHaveLength(1)
   })
 
