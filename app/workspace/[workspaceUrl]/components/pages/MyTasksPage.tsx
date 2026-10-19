@@ -255,7 +255,7 @@ export function MyTasksPage({
                 <Button
                   variant={currentSprintOnly ? 'default' : 'outline'}
                   size='sm'
-                  className='gap-1.5 h-7 text-xs'
+                  className='gap-1.5 h-7 text-caption'
                   onClick={() => setCurrentSprintOnly(!currentSprintOnly)}
                 >
                   <CalendarClock className='h-3 w-3' />
@@ -265,7 +265,7 @@ export function MyTasksPage({
                   })}
                 </Button>
                 {currentSprintOnly && noActiveSprint && (
-                  <span className='text-xs text-muted-foreground'>
+                  <span className='text-caption text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'myTasks.noActiveSprint',
                       defaultMessage:

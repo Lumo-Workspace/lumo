@@ -191,10 +191,10 @@ export function IntegrationsPage({
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'integrations.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'integrations.description' })}
         </p>
 
@@ -206,10 +206,10 @@ export function IntegrationsPage({
             const sectionVisible = ids.some(id => isCardVisible(id))
             return (
               <section key={kind} hidden={!sectionVisible}>
-                <h2 className='text-sm font-medium text-foreground mb-1'>
+                <h2 className='text-body-strong text-foreground mb-1'>
                   {intl.formatMessage({ id: `integrations.${section}.title` })}
                 </h2>
-                <p className='text-sm text-muted-foreground mb-4'>
+                <p className='text-body text-muted-foreground mb-4'>
                   {intl.formatMessage({
                     id: `integrations.${section}.description`,
                   })}
@@ -234,7 +234,7 @@ export function IntegrationsPage({
         </div>
 
         {unavailableNames.length > 0 && (
-          <p className='text-xs text-muted-foreground mt-10'>
+          <p className='text-caption text-muted-foreground mt-10'>
             {intl.formatMessage(
               { id: 'integrations.notAvailable' },
               {

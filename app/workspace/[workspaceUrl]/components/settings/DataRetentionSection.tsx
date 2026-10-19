@@ -40,10 +40,10 @@ export function DataRetentionSection({
       className='rounded-lg border border-border overflow-hidden mb-8'
     >
       <div className='px-5 py-3 border-b border-border'>
-        <h2 className='text-sm font-semibold text-foreground'>
+        <h2 className='text-body-strong text-foreground'>
           {intl.formatMessage({ id: 'dataRetention.title' })}
         </h2>
-        <p className='text-xs text-muted-foreground mt-0.5'>
+        <p className='text-caption text-muted-foreground mt-0.5'>
           {intl.formatMessage({ id: 'dataRetention.description' })}
         </p>
       </div>

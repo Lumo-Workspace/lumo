@@ -42,10 +42,10 @@ export function ApiKeysPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'apiKeys.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'apiKeys.subtitle' })}
         </p>
 
@@ -72,10 +72,10 @@ export function ApiKeysPage() {
         </div>
 
         <div className='mb-8 rounded-md border border-border p-4'>
-          <p className='text-sm font-medium text-foreground'>
+          <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'apiKeys.ingest.title' })}
           </p>
-          <p className='mt-1 text-sm text-muted-foreground'>
+          <p className='mt-1 text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'apiKeys.ingest.description' })}
           </p>
           <Button
@@ -95,14 +95,14 @@ export function ApiKeysPage() {
 
         {/* Key list */}
         {loading ? (
-          <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+          <div className='flex items-center gap-2 text-body text-muted-foreground'>
             <Loader2 size={14} className='animate-spin' />
             {intl.formatMessage({ id: 'common.loading' })}
           </div>
         ) : keys.length === 0 ? (
           <div className='flex flex-col items-center gap-2 py-12 text-muted-foreground'>
             <Key size={28} />
-            <p className='text-sm'>
+            <p className='text-body'>
               {intl.formatMessage({ id: 'apiKeys.empty' })}
             </p>
           </div>
@@ -116,17 +116,17 @@ export function ApiKeysPage() {
               >
                 <li>
                   <div>
-                    <p className='text-sm font-medium text-foreground'>
+                    <p className='text-body-strong text-foreground'>
                       {k.label}
                       {k.scope === 'security:ingest' && (
-                        <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground'>
+                        <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
                           {intl.formatMessage({
                             id: 'apiKeys.scope.securityIngest',
                           })}
                         </span>
                       )}
                     </p>
-                    <p className='text-xs text-muted-foreground font-mono mt-0.5'>
+                    <p className='text-caption text-muted-foreground font-mono mt-0.5'>
                       {k.keyPrefix}…
                       {k.lastUsedAt && (
                         <span className='font-sans ml-3'>

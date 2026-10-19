@@ -192,7 +192,7 @@ export function WorkspaceSettingsPage() {
   if (loading) {
     return (
       <div className='h-full flex items-center justify-center'>
-        <span className='text-sm text-muted-foreground'>
+        <span className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'common.loading' })}
         </span>
       </div>
@@ -202,7 +202,7 @@ export function WorkspaceSettingsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-8'>
+        <h1 className='text-heading text-foreground mb-8'>
           {intl.formatMessage({ id: 'workspaceSettings.title' })}
         </h1>
 
@@ -211,10 +211,10 @@ export function WorkspaceSettingsPage() {
           {/* Logo row */}
           <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
             <div>
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'workspaceSettings.logo' })}
               </p>
-              <p className='text-xs text-muted-foreground mt-0.5'>
+              <p className='text-caption text-muted-foreground mt-0.5'>
                 {intl.formatMessage({ id: 'workspaceSettings.logoHint' })}
               </p>
             </div>
@@ -231,7 +231,7 @@ export function WorkspaceSettingsPage() {
 
           {/* Name row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-border'>
-            <label className='text-sm font-medium text-foreground shrink-0 w-16'>
+            <label className='text-body-strong text-foreground shrink-0 w-16'>
               {intl.formatMessage({ id: 'workspaceSettings.name' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
@@ -241,7 +241,7 @@ export function WorkspaceSettingsPage() {
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                 disabled={!isOwner || savingName}
-                className='h-8 w-64 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+                className='h-8 w-64 rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
               />
               {name !== workspace?.name && (
                 <Button
@@ -259,12 +259,12 @@ export function WorkspaceSettingsPage() {
 
           {/* URL row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4'>
-            <label className='text-sm font-medium text-foreground shrink-0 w-16'>
+            <label className='text-body-strong text-foreground shrink-0 w-16'>
               {intl.formatMessage({ id: 'workspaceSettings.url' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
               <div className='flex items-center h-8 rounded-md border border-border overflow-hidden w-64'>
-                <span className='px-2.5 text-xs text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
+                <span className='px-2.5 text-caption text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
                   /workspace/
                 </span>
                 <input
@@ -277,7 +277,7 @@ export function WorkspaceSettingsPage() {
                   }
                   onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
                   disabled={!isOwner || savingSlug}
-                  className='flex-1 px-2.5 text-sm text-foreground bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+                  className='flex-1 px-2.5 text-body text-foreground bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
                 />
               </div>
               {slug !== workspace?.slug && (

@@ -68,10 +68,10 @@ export function AiDerivedContentDeleteRow({
     >
       <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
         <div className='min-w-0 sm:flex-1'>
-          <p className='text-sm font-medium text-foreground'>
+          <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'dataRetention.aiDerivedDelete.label' })}
           </p>
-          <p className='text-xs text-muted-foreground mt-0.5'>
+          <p className='text-caption text-muted-foreground mt-0.5'>
             {intl.formatMessage({
               id: 'dataRetention.aiDerivedDelete.description',
             })}
@@ -79,7 +79,7 @@ export function AiDerivedContentDeleteRow({
           {counts && (
             <p
               data-testid='ai-derived-counts'
-              className='text-xs text-muted-foreground mt-1'
+              className='text-caption text-muted-foreground mt-1'
             >
               {intl.formatMessage(
                 { id: 'dataRetention.aiDerivedDelete.counts' },
@@ -123,7 +123,7 @@ export function AiDerivedContentDeleteRow({
           <div className='px-1 pb-2'>
             <label
               htmlFor='ai-derived-confirm-name'
-              className='block text-xs text-muted-foreground mb-1.5'
+              className='block text-caption text-muted-foreground mb-1.5'
             >
               {intl.formatMessage(
                 { id: 'workspaceSettings.deleteTypePrompt' },
@@ -136,7 +136,7 @@ export function AiDerivedContentDeleteRow({
               value={confirmName}
               onChange={e => setConfirmName(e.target.value)}
               placeholder={workspaceName}
-              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-danger'
+              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-body outline-none focus:ring-2 focus:ring-danger'
             />
           </div>
           <AlertDialogFooter>

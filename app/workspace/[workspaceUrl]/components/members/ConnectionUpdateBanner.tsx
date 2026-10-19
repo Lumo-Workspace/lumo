@@ -22,14 +22,14 @@ export function ConnectionUpdateBanner({
   return (
     <div
       role='status'
-      className='flex flex-wrap items-center gap-3 rounded-lg border border-warning-border bg-warning-subtle py-2 pl-4 pr-2 text-sm text-foreground'
+      className='flex flex-wrap items-center gap-3 rounded-lg border border-warning-border bg-warning-subtle py-2 pl-4 pr-2 text-body text-foreground'
     >
       <span
         aria-hidden
         className='size-2 shrink-0 rounded-full bg-warning-text'
       />
       <span className='min-w-60 flex-1'>
-        <span className='font-semibold'>
+        <span className='text-body-strong'>
           {intl.formatMessage({ id: 'members.banner.title' }, { count })}
         </span>{' '}
         {intl.formatMessage({ id: 'members.banner.body' })}

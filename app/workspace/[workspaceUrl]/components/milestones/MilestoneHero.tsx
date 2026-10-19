@@ -57,7 +57,7 @@ export function MilestoneHero({
   const pct = total > 0 ? Math.round((done / total) * 100) : null
 
   const statRow = (labelId: string, value: React.ReactNode) => (
-    <div className='flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2.5 text-sm'>
+    <div className='flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2.5 text-body'>
       <span className='text-muted-foreground'>
         {intl.formatMessage({ id: labelId })}
       </span>
@@ -105,9 +105,7 @@ export function MilestoneHero({
           <div className='absolute inset-0 flex flex-col items-center justify-center'>
             {total > 0 ? (
               <>
-                <span className='text-3xl font-extrabold tracking-tight tabular-nums'>
-                  {pct}%
-                </span>
+                <span className='text-display tabular-nums'>{pct}%</span>
                 <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage(
                     { id: 'milestone.progress' },
@@ -150,7 +148,7 @@ export function MilestoneHero({
               e.currentTarget.blur()
             }
           }}
-          className='cursor-text text-heading font-bold leading-snug tracking-tight outline-none focus:outline-none'
+          className='cursor-text text-heading outline-none focus:outline-none'
         >
           {name}
         </h1>
@@ -161,7 +159,7 @@ export function MilestoneHero({
         {statRow(
           'milestone.rollup.health',
           health ? (
-            <span className='inline-flex items-center gap-2 font-semibold'>
+            <span className='inline-flex items-center gap-2 text-body-strong'>
               <span
                 className={`h-[7px] w-[7px] shrink-0 rounded-full ${HEALTH_DOT[health]}`}
                 aria-hidden='true'
@@ -169,7 +167,7 @@ export function MilestoneHero({
               {intl.formatMessage({ id: `milestone.health.${health}` })}
             </span>
           ) : (
-            <span className='inline-flex items-center gap-2 font-semibold text-muted-foreground'>
+            <span className='inline-flex items-center gap-2 text-body-strong text-muted-foreground'>
               <span
                 className='h-[7px] w-[7px] shrink-0 rounded-full bg-warning-text'
                 aria-hidden='true'
@@ -183,14 +181,14 @@ export function MilestoneHero({
           startDate ? (
             // An explicitly set calendar date (stored at UTC midnight) —
             // format in UTC so the entered day never shifts.
-            <span className='font-medium tabular-nums'>
+            <span className='text-body-strong tabular-nums'>
               {fmtDate(startDate, DATE_OPTS)}
             </span>
           ) : derivedStartDate ? (
             // Activity-derived: when the first member task actually started
             // (a real timestamp — format in the viewer's zone, no UTC pin).
             <span
-              className='font-medium tabular-nums'
+              className='text-body-strong tabular-nums'
               title={intl.formatMessage({
                 id: 'milestone.hero.startDerivedHint',
               })}
@@ -202,7 +200,7 @@ export function MilestoneHero({
               })}
             </span>
           ) : (
-            <span className='font-medium text-muted-foreground'>
+            <span className='text-body-strong text-muted-foreground'>
               {intl.formatMessage({ id: 'milestone.hero.notSet' })}
             </span>
           )
@@ -210,18 +208,18 @@ export function MilestoneHero({
         {statRow(
           'milestone.field.targetDate',
           targetDate ? (
-            <span className='font-medium tabular-nums'>
+            <span className='text-body-strong tabular-nums'>
               {fmtDate(targetDate, DATE_OPTS)}
             </span>
           ) : archived ? (
-            <span className='font-medium text-muted-foreground'>
+            <span className='text-body-strong text-muted-foreground'>
               {intl.formatMessage({ id: 'milestone.hero.notSet' })}
             </span>
           ) : (
             <span className='relative'>
               <button
                 type='button'
-                className='font-semibold text-[var(--chart-1)] hover:underline'
+                className='text-body-strong text-[var(--chart-1)] hover:underline'
                 onClick={() => {
                   const input = dateInputRef.current
                   if (!input) return

@@ -29,10 +29,7 @@ export function CommentPreview({ body }: { body: string }) {
       {parts.map((part, i) => {
         if (part.startsWith('@[') && part.endsWith(']')) {
           return (
-            <mark
-              key={i}
-              className='bg-transparent text-info-text font-medium not-italic'
-            >
+            <mark key={i} className='bg-transparent text-info-text not-italic'>
               {`@${part.slice(2, -1)}`}
             </mark>
           )
@@ -217,15 +214,15 @@ export function NotificationItem({
               <AvatarImage
                 src={actor?.imageUrl ?? (!actor ? '/logo-dark.svg' : undefined)}
               />
-              <AvatarFallback className='text-[10px]'>
+              <AvatarFallback className='text-caption'>
                 {actor ? getInitials(actor.name) : 'LA'}
               </AvatarFallback>
             </Avatar>
           </ItemMedia>
 
           <ItemContent>
-            <p className='text-xs leading-snug text-foreground'>
-              <span className='font-semibold'>
+            <p className='text-caption text-foreground'>
+              <span className='text-caption font-semibold'>
                 {actor?.name ??
                   intlLocal.formatMessage({
                     id: 'notification.defaultActor',
@@ -234,7 +231,7 @@ export function NotificationItem({
               </span>{' '}
               {verb}{' '}
               {type === 'SPRINT_STARTED' || type === 'SPRINT_CLOSED' ? (
-                <span className='font-medium'>
+                <span>
                   {sprint?.name ??
                     intlLocal.formatMessage({
                       id: 'notification.unspecifiedSprint',
@@ -242,31 +239,22 @@ export function NotificationItem({
                     })}
                 </span>
               ) : type === 'PROJECT_MENTIONED' && project ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {project.name}
                 </a>
               ) : type === 'MILESTONE_MENTIONED' && milestone ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {milestone.name}
                 </a>
               ) : (type === 'DOCUMENT_MENTIONED' ||
                   type === 'DOCUMENT_COMMENT_MENTIONED') &&
                 document ? (
-                <a
-                  href={entityUrl ?? undefined}
-                  className='font-medium hover:underline'
-                >
+                <a href={entityUrl ?? undefined} className='hover:underline'>
                   {document.title}
                 </a>
               ) : (
                 <>
-                  <span className='font-medium'>
+                  <span>
                     {task
                       ? `${task.teamIdentifier}-${task.number}`
                       : intlLocal.formatMessage({
@@ -282,12 +270,12 @@ export function NotificationItem({
             </p>
 
             {commentPreview && type === 'TASK_MENTIONED' && (
-              <p className='text-xs text-muted-foreground line-clamp-2'>
+              <p className='text-caption text-muted-foreground line-clamp-2'>
                 <CommentPreview body={commentPreview} />
               </p>
             )}
 
-            <p className='text-[10px] text-muted-foreground'>{timeAgo}</p>
+            <p className='text-caption text-muted-foreground'>{timeAgo}</p>
 
             {/* Agent notification widgets hidden — agent features disabled for now */}
 
@@ -300,7 +288,7 @@ export function NotificationItem({
                 <Button
                   size='sm'
                   className={cn(
-                    'h-6 text-[11px] px-2',
+                    'h-6 text-caption px-2',
                     taskActionTaken === 'IN_PROGRESS' && 'opacity-40'
                   )}
                   onClick={() => {
@@ -319,7 +307,7 @@ export function NotificationItem({
                   size='sm'
                   variant='outline'
                   className={cn(
-                    'h-6 text-[11px] px-2',
+                    'h-6 text-caption px-2',
                     taskActionTaken === 'DONE' && 'opacity-40'
                   )}
                   onClick={() => {

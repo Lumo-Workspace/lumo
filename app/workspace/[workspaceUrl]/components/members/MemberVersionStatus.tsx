@@ -75,7 +75,7 @@ export function MemberVersionStatus({
   unknown: boolean
 }) {
   const intl = useIntl()
-  if (unknown) return <span className='text-sm text-muted-foreground'>—</span>
+  if (unknown) return <span className='text-body text-muted-foreground'>—</span>
   const status = memberVersionStatus(connections)
   const detail = statusDetail(
     status,
@@ -85,7 +85,7 @@ export function MemberVersionStatus({
   )
   return (
     <div className='flex min-w-0 flex-col gap-0.5' data-status={status}>
-      <span className='inline-flex items-center gap-2 text-sm font-medium text-foreground'>
+      <span className='inline-flex items-center gap-2 text-body-strong text-foreground'>
         <span
           aria-hidden
           className={cn('size-2 shrink-0 rounded-full', DOT[status])}
@@ -95,7 +95,7 @@ export function MemberVersionStatus({
       {detail && (
         <span
           title={detail}
-          className='truncate pl-4 text-xs text-muted-foreground'
+          className='truncate pl-4 text-caption text-muted-foreground'
         >
           {detail}
         </span>

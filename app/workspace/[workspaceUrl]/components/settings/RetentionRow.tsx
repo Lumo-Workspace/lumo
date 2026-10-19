@@ -52,11 +52,13 @@ export function RetentionRow({
         <div className='min-w-0 sm:flex-1'>
           <label
             htmlFor={`retention-${id}`}
-            className='text-sm font-medium text-foreground'
+            className='text-body-strong text-foreground'
           >
             {label}
           </label>
-          <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
+          <p className='text-caption text-muted-foreground mt-0.5'>
+            {description}
+          </p>
           {notes}
         </div>
         <div className='flex items-center gap-2 sm:shrink-0'>
@@ -65,7 +67,7 @@ export function RetentionRow({
             value={value}
             onChange={e => onChange(e.target.value)}
             disabled={saving}
-            className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+            className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
           >
             {options.map(o => (
               <option key={o.value} value={o.value}>
@@ -84,7 +86,7 @@ export function RetentionRow({
         <p
           role='alert'
           data-testid={`retention-warning-${id}`}
-          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-warning-text'
+          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-caption text-warning-text'
         >
           {warning}
         </p>

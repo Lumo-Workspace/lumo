@@ -222,7 +222,7 @@ export function ProjectDetailPage({
                 aria-selected={selected}
                 onClick={() => setTab(t)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body-strong transition-colors',
                   selected
                     ? 'bg-background text-foreground'
                     : 'text-muted-foreground hover:text-foreground'

@@ -43,7 +43,7 @@ export function AiDerivedContentRow({
       notes={
         <p
           data-testid='retention-hint-ai-derived'
-          className='text-xs text-muted-foreground mt-1'
+          className='text-caption text-muted-foreground mt-1'
         >
           {intl.formatMessage({ id: 'dataRetention.aiDerived.offImpact' })}
         </p>

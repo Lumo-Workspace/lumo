@@ -63,11 +63,11 @@ export function DefaultLanguageRow({
       <div className='min-w-0'>
         <label
           htmlFor='workspace-default-locale'
-          className='text-sm font-medium text-foreground'
+          className='text-body-strong text-foreground'
         >
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguage' })}
         </label>
-        <p className='text-xs text-muted-foreground mt-0.5'>
+        <p className='text-caption text-muted-foreground mt-0.5'>
           {intl.formatMessage({ id: 'workspaceSettings.defaultLanguageDesc' })}
         </p>
       </div>
@@ -77,7 +77,7 @@ export function DefaultLanguageRow({
           value={selected}
           onChange={e => setSelected(e.target.value)}
           disabled={saving}
-          className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+          className='h-8 rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
         >
           {PUBLIC_LOCALES.map((locale: PublicLocale) => (
             <option key={locale} value={locale}>

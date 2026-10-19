@@ -37,12 +37,12 @@ export function MilestoneSidebar({
   const intl = useIntl()
   const fieldId = useId()
   return (
-    <div className='flex flex-col gap-4 px-4 pb-6 text-sm lg:px-0'>
+    <div className='flex flex-col gap-4 px-4 pb-6 text-body lg:px-0'>
       <section>
-        <span className='text-xs font-medium text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'milestone.field.state' })}
         </span>
-        <p className='mt-1 text-xs text-foreground'>
+        <p className='mt-1 text-caption text-foreground'>
           {intl.formatMessage({ id: `milestone.state.${state}` })}
         </p>
       </section>
@@ -50,14 +50,14 @@ export function MilestoneSidebar({
       <section>
         <label
           htmlFor={`${fieldId}-start`}
-          className='text-xs font-medium text-muted-foreground'
+          className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({ id: 'milestone.field.startDate' })}
         </label>
         <Input
           id={`${fieldId}-start`}
           type='date'
-          className='mt-1 h-7 text-xs'
+          className='mt-1 h-7 text-caption'
           value={startDate?.slice(0, 10) ?? ''}
           disabled={archived}
           onChange={e => onUpdate({ startDate: e.target.value || null })}
@@ -67,20 +67,20 @@ export function MilestoneSidebar({
       <section>
         <label
           htmlFor={`${fieldId}-target`}
-          className='text-xs font-medium text-muted-foreground'
+          className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({ id: 'milestone.field.targetDate' })}
         </label>
         <Input
           id={`${fieldId}-target`}
           type='date'
-          className='mt-1 h-7 text-xs'
+          className='mt-1 h-7 text-caption'
           value={targetDate?.slice(0, 10) ?? ''}
           disabled={archived}
           onChange={e => onUpdate({ targetDate: e.target.value || null })}
         />
         {datesMissing ? (
-          <p className='mt-1 text-xs text-muted-foreground'>
+          <p className='mt-1 text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.staleness.datesMissing' })}
           </p>
         ) : null}

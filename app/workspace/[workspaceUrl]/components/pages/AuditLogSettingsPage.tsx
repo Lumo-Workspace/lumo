@@ -79,10 +79,10 @@ export function AuditLogSettingsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-5xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'settings.auditLog.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-6'>
+        <p className='text-body text-muted-foreground mb-6'>
           {intl.formatMessage(
             { id: 'settings.auditLog.description' },
             { days: AUDIT_RETENTION_DAYS }
@@ -90,7 +90,7 @@ export function AuditLogSettingsPage() {
         </p>
 
         {audit.forbidden ? (
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.auditLog.ownerOnly' })}
           </p>
         ) : (
@@ -143,14 +143,14 @@ function AuditFilters({
   const t = (id: string) => intl.formatMessage({ id })
   return (
     <div className='mb-4 flex flex-wrap items-end gap-3'>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
         {t('settings.auditLog.filter.action')}
         <Select
           value={filters.action || ALL}
           onValueChange={v => onChange('action', v)}
         >
           <SelectTrigger
-            className='h-8 w-56 text-sm'
+            className='h-8 w-56 text-body'
             aria-label={t('settings.auditLog.filter.action')}
           >
             <SelectValue />
@@ -160,21 +160,21 @@ function AuditFilters({
               {t('settings.auditLog.filter.allActions')}
             </SelectItem>
             {AUDIT_ACTIONS.map(a => (
-              <SelectItem key={a} value={a} className='font-mono text-xs'>
+              <SelectItem key={a} value={a} className='font-mono text-caption'>
                 {a}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
         {t('settings.auditLog.filter.actor')}
         <Select
           value={filters.actor || ALL}
           onValueChange={v => onChange('actor', v)}
         >
           <SelectTrigger
-            className='h-8 w-44 text-sm'
+            className='h-8 w-44 text-body'
             aria-label={t('settings.auditLog.filter.actor')}
           >
             <SelectValue />
@@ -191,21 +191,21 @@ function AuditFilters({
           </SelectContent>
         </Select>
       </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
         {t('settings.auditLog.filter.since')}
         <Input
           type='date'
-          className='h-8 w-36 text-sm'
+          className='h-8 w-36 text-body'
           value={filters.since}
           max={filters.until || undefined}
           onChange={e => onChange('since', e.target.value)}
         />
       </label>
-      <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+      <label className='flex flex-col gap-1 text-caption text-muted-foreground'>
         {t('settings.auditLog.filter.until')}
         <Input
           type='date'
-          className='h-8 w-36 text-sm'
+          className='h-8 w-36 text-body'
           value={filters.until}
           min={filters.since || undefined}
           onChange={e => onChange('until', e.target.value)}
@@ -245,14 +245,14 @@ function AuditEventsBody({
   const intl = useIntl()
   if (isLoading) {
     return (
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'common.loading' })}
       </p>
     )
   }
   if (isError) {
     return (
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'settings.auditLog.loadFailed' })}
       </p>
     )
@@ -261,7 +261,7 @@ function AuditEventsBody({
     return (
       <div className='text-center py-12'>
         <ScrollText size={32} className='mx-auto mb-3 text-muted-foreground' />
-        <p className='text-sm font-medium text-muted-foreground'>
+        <p className='text-body-strong text-muted-foreground'>
           {intl.formatMessage({ id: 'settings.auditLog.empty' })}
         </p>
       </div>
@@ -319,11 +319,11 @@ function AuditEventsTable({ events }: { events: AuditEventView[] }) {
                   <TableCell className='max-w-48 truncate'>
                     {actorLabel(e, t)}
                   </TableCell>
-                  <TableCell className='font-mono text-xs'>
+                  <TableCell className='font-mono text-caption'>
                     {e.action}
                   </TableCell>
                   <TableCell className='max-w-48 truncate text-muted-foreground'>
-                    <span className='font-mono text-xs'>
+                    <span className='font-mono text-caption'>
                       {e.targetType}
                       {e.targetId ? ` · ${e.targetId}` : ''}
                     </span>
@@ -331,7 +331,7 @@ function AuditEventsTable({ events }: { events: AuditEventView[] }) {
                   <TableCell className='text-muted-foreground'>
                     {t(`settings.auditLog.source.${e.source}`)}
                   </TableCell>
-                  <TableCell className='font-mono text-xs text-muted-foreground'>
+                  <TableCell className='font-mono text-caption text-muted-foreground'>
                     {e.ip ?? '—'}
                   </TableCell>
                 </TableRow>
@@ -364,7 +364,7 @@ function AuditEventDetails({ event }: { event: AuditEventView }) {
   const intl = useIntl()
   const t = (id: string) => intl.formatMessage({ id })
   return (
-    <dl className='grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs'>
+    <dl className='grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-caption'>
       {event.actorEmail && (
         <>
           <dt className='text-muted-foreground'>

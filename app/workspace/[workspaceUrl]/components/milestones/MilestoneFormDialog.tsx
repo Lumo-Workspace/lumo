@@ -135,7 +135,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         }}
       >
         <DialogHeader className='mb-5'>
-          <DialogTitle className='text-xl font-bold'>
+          <DialogTitle className='text-title'>
             {label(editing ? 'milestone.edit' : 'milestone.new')}
           </DialogTitle>
         </DialogHeader>
@@ -155,7 +155,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             onChange={e => setName(e.target.value)}
             placeholder={label('milestone.dialog.name.placeholder')}
             aria-label={label('milestone.field.name')}
-            className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-xl font-semibold leading-[1.4] text-foreground outline-none placeholder:font-semibold placeholder:text-muted-foreground/50'
+            className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-heading text-foreground outline-none placeholder:text-muted-foreground/50'
           />
 
           {/* The same editor a task description gets — rich text, @-mentions,
@@ -182,7 +182,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
               value={startDate}
               onChange={setStartDate}
             />
-            <span aria-hidden className='text-[13px] text-muted-foreground/60'>
+            <span aria-hidden className='text-body text-muted-foreground/60'>
               →
             </span>
             <DatePill
@@ -197,7 +197,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             <p
               role='alert'
               aria-live='polite'
-              className='mt-4 text-sm text-danger-text'
+              className='mt-4 text-body text-danger-text'
             >
               {label('milestone.save.error')}
             </p>
@@ -213,7 +213,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             {busy
               ? label(editing ? 'common.saving' : 'common.creating')
               : label(editing ? 'common.save' : 'common.create')}
-            <kbd className='rounded-sm bg-primary-foreground/15 px-1.5 py-px text-[11px] font-normal text-primary-foreground/70'>
+            <kbd className='rounded-sm bg-primary-foreground/15 px-1.5 py-px text-caption font-normal text-primary-foreground/70'>
               {submitModLabel}↵
             </kbd>
           </Button>
@@ -237,14 +237,14 @@ function DatePill({
   onChange: (value: string) => void
 }): ReactNode {
   return (
-    <label className='flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[13px] transition-colors hover:bg-muted/60'>
+    <label className='flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-body transition-colors hover:bg-muted/60'>
       <span className='text-muted-foreground'>{label}</span>
       <input
         type='date'
         value={value}
         onChange={e => onChange(e.target.value)}
         aria-label={ariaLabel}
-        className='cursor-pointer bg-transparent text-[13px] text-foreground outline-none'
+        className='cursor-pointer bg-transparent text-body text-foreground outline-none'
       />
     </label>
   )

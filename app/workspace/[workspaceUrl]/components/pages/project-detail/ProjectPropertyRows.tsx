@@ -87,7 +87,7 @@ export function ProjectPropertyRows({
             (m): m is WorkspaceMemberInfo & { actorId: string } =>
               m.actorId !== null
           )}
-          triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-7 text-xs')}
+          triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-7 text-caption')}
           unassignedLabel={intl.formatMessage({ id: 'project.noOwner' })}
           tooltipText={intl.formatMessage({ id: 'project.ownerTooltip' })}
         />
@@ -147,12 +147,12 @@ export function ProjectPropertyRows({
           </PopoverTrigger>
           <PopoverContent className='w-64 p-0' align='start' side='bottom'>
             {reposLoading ? (
-              <div className='flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground'>
+              <div className='flex items-center justify-center gap-2 py-6 text-caption text-muted-foreground'>
                 <Loader2 size={13} className='animate-spin' />
                 {intl.formatMessage({ id: 'project.loadingRepos' })}
               </div>
             ) : githubConnected === false ? (
-              <div className='space-y-1 px-3 py-4 text-center text-xs text-muted-foreground'>
+              <div className='space-y-1 px-3 py-4 text-center text-caption text-muted-foreground'>
                 <p>
                   {intl.formatMessage({ id: 'project.githubNotConnected' })}
                 </p>
@@ -173,10 +173,10 @@ export function ProjectPropertyRows({
                   placeholder={intl.formatMessage({
                     id: 'project.searchRepos',
                   })}
-                  className='h-8 text-xs'
+                  className='h-8 text-caption'
                 />
                 <CommandList>
-                  <CommandEmpty className='py-4 text-center text-xs text-muted-foreground'>
+                  <CommandEmpty className='py-4 text-center text-caption text-muted-foreground'>
                     {intl.formatMessage({ id: 'project.noReposFound' })}
                   </CommandEmpty>
                   <CommandGroup>
@@ -189,7 +189,7 @@ export function ProjectPropertyRows({
                           value={repo.fullName}
                           onSelect={() => handleAddRepo(repo.fullName)}
                           disabled={isLinked}
-                          className='flex items-center gap-2 text-xs'
+                          className='flex items-center gap-2 text-caption'
                         >
                           {isAdding ? (
                             <Loader2
@@ -208,7 +208,7 @@ export function ProjectPropertyRows({
                             />
                           )}
                           <div className='min-w-0 flex-1'>
-                            <div className='truncate font-medium'>
+                            <div className='truncate'>
                               {repo.fullName.split('/')[1]}
                             </div>
                             <div className='truncate font-mono text-muted-foreground'>
@@ -216,7 +216,7 @@ export function ProjectPropertyRows({
                             </div>
                           </div>
                           {repo.private && (
-                            <span className='shrink-0 text-[10px] text-muted-foreground'>
+                            <span className='shrink-0 text-caption text-muted-foreground'>
                               {intl.formatMessage({ id: 'project.private' })}
                             </span>
                           )}

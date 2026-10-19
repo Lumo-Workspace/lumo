@@ -39,9 +39,9 @@ export function MemberFilterTabs({
             aria-pressed={active}
             onClick={() => onChange(f)}
             className={cn(
-              '-mb-px h-10 shrink-0 whitespace-nowrap border-b-2 px-3 text-sm transition-colors',
+              '-mb-px h-10 shrink-0 whitespace-nowrap border-b-2 px-3 text-body transition-colors',
               active
-                ? 'border-foreground font-medium text-foreground'
+                ? 'border-foreground text-body-strong text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >

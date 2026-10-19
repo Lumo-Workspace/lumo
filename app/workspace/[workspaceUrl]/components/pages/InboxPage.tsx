@@ -260,7 +260,7 @@ export function InboxPage({
               variant='ghost'
               size='sm'
               onClick={onMarkAllRead}
-              className='h-7 text-xs gap-1.5 text-muted-foreground'
+              className='h-7 text-caption gap-1.5 text-muted-foreground'
             >
               <CheckCheck size={13} />
               {intl.formatMessage({
@@ -295,7 +295,7 @@ export function InboxPage({
             </div>
           ) : error ? (
             <div className='flex flex-col items-center justify-center h-full gap-3 text-muted-foreground p-4'>
-              <p className='text-sm text-center'>{error}</p>
+              <p className='text-body text-center'>{error}</p>
               <Button variant='outline' size='sm' onClick={onRetry}>
                 {intl.formatMessage({
                   id: 'common.retry',
@@ -310,7 +310,7 @@ export function InboxPage({
                 <div className='px-2 pt-2 pb-0'>
                   <div className='flex items-center gap-1.5 px-1 pb-1'>
                     <MessageSquare size={11} className='text-info-text' />
-                    <span className='text-[10px] font-medium text-info-text uppercase tracking-wide'>
+                    <span className='text-caption text-info-text uppercase'>
                       {intl.formatMessage({
                         id: 'inbox.section.actionable',
                         defaultMessage: 'Needs your response',
@@ -328,7 +328,7 @@ export function InboxPage({
                 <div className='px-2 pt-2 pb-1.5'>
                   {actionable.length > 0 && (
                     <div className='flex items-center gap-1.5 px-1 pb-1'>
-                      <span className='text-[10px] font-medium text-muted-foreground uppercase tracking-wide'>
+                      <span className='text-caption text-muted-foreground uppercase'>
                         {intl.formatMessage({
                           id: 'inbox.section.other',
                           defaultMessage: 'Other',
@@ -346,7 +346,7 @@ export function InboxPage({
               {notifications.length === 0 && (
                 <div className='flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground'>
                   <Inbox size={24} className='text-muted-foreground/30' />
-                  <p className='text-xs text-muted-foreground'>
+                  <p className='text-caption text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'inbox.empty.allCaughtUp',
                       defaultMessage: "You're all caught up",
@@ -420,7 +420,7 @@ export function InboxPage({
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center text-muted-foreground'
             >
-              <p className='text-sm'>
+              <p className='text-body'>
                 {intl.formatMessage({
                   id: 'inbox.noLinkedTask',
                   defaultMessage: 'No task linked to this notification.',
@@ -437,7 +437,7 @@ export function InboxPage({
               className='absolute inset-0 flex flex-col items-center justify-center gap-3 pb-16'
             >
               <Inbox size={32} className='text-muted-foreground/30' />
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-body text-muted-foreground'>
                 {unreadCount > 0
                   ? intl.formatMessage(
                       {

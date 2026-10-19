@@ -70,7 +70,9 @@ function ModelUsageBreakdown({
       {models.slice(0, 3).map(m => (
         <div key={m.model} data-testid='model-usage-row'>
           <div className='flex items-baseline justify-between gap-2 text-caption'>
-            <span className='min-w-0 truncate font-semibold'>{m.model}</span>
+            <span className='min-w-0 truncate text-caption font-semibold'>
+              {m.model}
+            </span>
             <span className='shrink-0 tabular-nums text-muted-foreground'>
               {fmtTokens(m.total)}
             </span>
@@ -138,7 +140,7 @@ type TaskRow = NonNullable<
 function ByTaskHeading() {
   const intl = useIntl()
   return (
-    <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
+    <p className='text-caption font-semibold uppercase text-muted-foreground'>
       {intl.formatMessage({ id: 'milestone.metrics.byTask' })}
     </p>
   )
@@ -293,7 +295,7 @@ export function MilestoneMetricStrip({
         <span className='text-muted-foreground'>
           {intl.formatMessage({ id: labelId })}
         </span>
-        <span className='font-semibold tabular-nums'>{value}</span>
+        <span className='text-body-strong tabular-nums'>{value}</span>
         {isOpen ? (
           <ChevronUp className='size-3 text-muted-foreground' />
         ) : (
@@ -354,7 +356,7 @@ export function MilestoneMetricStrip({
                     <li key={row.taskId} data-testid='metric-task-row'>
                       <div className='flex items-baseline gap-2 text-caption'>
                         <TaskRowLabel row={row} />
-                        <span className='shrink-0 font-semibold tabular-nums'>
+                        <span className='shrink-0 text-caption font-semibold tabular-nums'>
                           {fmtTokens(row.tokenCost ?? 0)}
                         </span>
                       </div>
@@ -419,7 +421,7 @@ export function MilestoneMetricStrip({
                           }}
                         />
                       </div>
-                      <span className='w-16 shrink-0 text-right font-semibold tabular-nums'>
+                      <span className='w-16 shrink-0 text-right text-caption font-semibold tabular-nums'>
                         {formatDurationSec(intl, row.activeTimeSec)}
                       </span>
                     </li>
@@ -451,20 +453,20 @@ export function MilestoneMetricStrip({
                       {row.multiPr && (
                         <span
                           data-testid='multi-pr-chip'
-                          className='shrink-0 rounded-full border border-[var(--warning-border)] bg-[var(--warning-subtle)] px-2 py-0.5 font-semibold'
+                          className='shrink-0 rounded-full border border-[var(--warning-border)] bg-[var(--warning-subtle)] px-2 py-0.5 text-caption font-semibold'
                         >
                           {intl.formatMessage({
                             id: 'milestone.metrics.multiPr',
                           })}
                         </span>
                       )}
-                      <span className='w-14 shrink-0 text-right font-semibold tabular-nums'>
+                      <span className='w-14 shrink-0 text-right text-caption font-semibold tabular-nums'>
                         {intl.formatMessage(
                           { id: 'milestone.memberDelivery.prCount' },
                           { count: row.prCount }
                         )}
                       </span>
-                      <span className='w-24 shrink-0 text-right font-semibold'>
+                      <span className='w-24 shrink-0 text-right text-caption font-semibold'>
                         {row.changeVolume ? (
                           <VolumeText
                             additions={row.changeVolume.additions}
