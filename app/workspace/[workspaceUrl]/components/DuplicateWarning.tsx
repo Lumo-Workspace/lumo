@@ -11,6 +11,7 @@ import {
 import { SimilarTaskMatch } from '@/lib/similarity'
 import { ApiTask } from '../types'
 import { slugify } from '@/lib/utils/slugify'
+import { Alert } from '@/components/ui/alert'
 
 interface DuplicateWarningProps {
   matches: SimilarTaskMatch<ApiTask>[]
@@ -29,13 +30,13 @@ export function DuplicateWarning({
   if (matches.length === 0) return null
 
   return (
-    <div className='rounded-md border border-warning-border bg-warning-subtle'>
+    <Alert variant='warning' size='sm' role='status'>
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
-        className='w-full flex items-center gap-2 px-3 py-2 text-body text-warning-text'
+        className='flex w-full items-center gap-2 text-left text-body'
       >
-        <AlertTriangle className='size-4 shrink-0' />
+        <AlertTriangle className='size-4 shrink-0 text-warning-text' />
         <span>
           {intl.formatMessage(
             { id: 'duplicate.similarFound' },
@@ -49,7 +50,7 @@ export function DuplicateWarning({
         )}
       </button>
       {expanded && (
-        <div className='px-3 pb-2 space-y-1'>
+        <div className='mt-1 space-y-1'>
           {matches.map(({ task, score }) => {
             const projectName =
               task.project?.name ??
@@ -79,6 +80,6 @@ export function DuplicateWarning({
           })}
         </div>
       )}
-    </div>
+    </Alert>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, Plus, X } from 'lucide-react'
+import { useState, useEffect, useCallback, useId, useRef } from 'react'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
@@ -14,6 +14,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { API } from '../constants'
 import { apiFetch, ApiClientError } from '@/lib/api-client'
 import {
@@ -22,6 +30,7 @@ import {
   SlackEventType,
   SLACK_RECONNECT_REQUIRED,
 } from '@/lib/integrations/slack/types'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ProjectSlackDialogProps {
   isOpen: boolean
@@ -61,6 +70,7 @@ export function ProjectSlackDialog({
   workspaceUrl,
 }: ProjectSlackDialogProps) {
   const intl = useIntl()
+  const fieldId = useId()
   const [loadState, setLoadState] = useState<LoadState>({ phase: 'loading' })
   const [enabled, setEnabled] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState('')
@@ -313,7 +323,7 @@ export function ProjectSlackDialog({
 
         {loadState.phase === 'loading' && (
           <div className='flex items-center justify-center py-8'>
-            <Loader2 size={20} className='animate-spin text-muted-foreground' />
+            <Spinner className='size-5 text-muted-foreground' />
           </div>
         )}
 
@@ -368,7 +378,10 @@ export function ProjectSlackDialog({
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
                     <div className='flex items-center justify-between'>
-                      <label className='text-caption text-muted-foreground'>
+                      <label
+                        htmlFor={`${fieldId}-channel`}
+                        className='text-caption text-muted-foreground'
+                      >
                         Channel
                       </label>
                       {!showCreate && (
@@ -404,6 +417,9 @@ export function ProjectSlackDialog({
                       <div className='space-y-2'>
                         <div className='flex gap-2'>
                           <Input
+                            // The Channel label points here while creating,
+                            // and at the select otherwise — one target always.
+                            id={`${fieldId}-channel`}
                             ref={createInputRef}
                             value={newChannelName}
                             onChange={e =>
@@ -433,7 +449,7 @@ export function ProjectSlackDialog({
                             disabled={creating || !newChannelName.trim()}
                           >
                             {creating ? (
-                              <Loader2 size={12} className='animate-spin' />
+                              <Spinner className='size-3' />
                             ) : (
                               intl.formatMessage({ id: 'common.create' })
                             )}
@@ -475,26 +491,47 @@ export function ProjectSlackDialog({
                         )}
                       </div>
                     ) : (
-                      <select
+                      <Select
                         value={selectedChannelId}
-                        onChange={e =>
-                          handleChannelSelect(
-                            e.target.value,
-                            loadState.availableChannels
-                          )
+                        onValueChange={v =>
+                          handleChannelSelect(v, loadState.availableChannels)
                         }
-                        className='w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
                       >
-                        <option value=''>
-                          {intl.formatMessage({ id: 'slack.selectChannel' })}
-                        </option>
-                        {loadState.availableChannels.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.private ? ' (private)' : ''}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger
+                          id={`${fieldId}-channel`}
+                          className='text-foreground'
+                        >
+                          <SelectValue
+                            placeholder={intl.formatMessage({
+                              id: 'slack.selectChannel',
+                            })}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {/* A saved channel missing from the fetched list
+                              (archived, bot not invited, list paged) still
+                              gets an item, so the trigger shows it. */}
+                          {selectedChannelId &&
+                          !loadState.availableChannels.some(
+                            c => c.id === selectedChannelId
+                          ) ? (
+                            <SelectItem value={selectedChannelId}>
+                              {selectedChannelName || selectedChannelId}{' '}
+                              <span className='text-muted-foreground'>
+                                {intl.formatMessage({
+                                  id: 'slack.channelUnavailable',
+                                })}
+                              </span>
+                            </SelectItem>
+                          ) : null}
+                          {loadState.availableChannels.map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                              {c.private ? ' (private)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
                   </div>
 
@@ -504,22 +541,21 @@ export function ProjectSlackDialog({
                       {intl.formatMessage({ id: 'slack.notifyOn' })}
                     </p>
                     {ALL_SLACK_EVENTS.map(event => (
-                      <label
-                        key={event}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
+                      <div key={event} className='flex items-center gap-2'>
+                        <Checkbox
+                          id={`${fieldId}-event-${event}`}
                           checked={selectedEvents.includes(event)}
-                          onChange={() => toggleEvent(event)}
-                          className='rounded-sm border-border text-foreground'
+                          onCheckedChange={() => toggleEvent(event)}
                         />
-                        <span className='text-body text-foreground'>
+                        <label
+                          htmlFor={`${fieldId}-event-${event}`}
+                          className='cursor-pointer text-body text-foreground'
+                        >
                           {intl.formatMessage({
                             id: SLACK_EVENT_LABEL_KEYS[event],
                           })}
-                        </span>
-                      </label>
+                        </label>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -533,9 +569,7 @@ export function ProjectSlackDialog({
                   onClick={() => handleSave(loadState.savedChannel)}
                   disabled={isSaveDisabled(loadState.savedChannel)}
                 >
-                  {saving ? (
-                    <Loader2 size={14} className='animate-spin mr-2' />
-                  ) : null}
+                  {saving ? <Spinner className='size-3.5 mr-2' /> : null}
                   {saving
                     ? intl.formatMessage({ id: 'common.saving' })
                     : intl.formatMessage({ id: 'common.save' })}

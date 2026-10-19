@@ -15,6 +15,7 @@ import { formatDate } from './DatePickerField'
 import { daysFromNow, timeElapsedPct } from './sprintLandingUtils'
 import { fromSample } from '@/lib/baseline/adapters'
 import { BaselineStatView } from '@/components/BaselineStat'
+import { Progress } from '@/components/ui/progress'
 
 /** Distinct-assignee count for the contributor row (real, not story points). */
 function contributorCount(tasks: unknown[] | undefined): number {
@@ -183,19 +184,7 @@ export function CurrentSprintCard({
           {/* Completion fill on the track; elapsed time is a tick that pokes
             past the track so it reads against the card, not the fill. */}
           <div className='relative mb-5'>
-            <div
-              className='relative h-2 w-full overflow-hidden rounded-full bg-muted'
-              role='progressbar'
-              aria-valuenow={pct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className='absolute inset-y-0 left-0 bg-success-text'
-                style={{ width: `${pct}%` }}
-                aria-hidden
-              />
-            </div>
+            <Progress value={pct} tone='success' />
             <div
               className='absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-sm bg-muted-foreground'
               style={{ left: `${timePct}%` }}

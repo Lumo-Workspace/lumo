@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
-  Loader2,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
@@ -30,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Tooltip,
   TooltipContent,
@@ -174,7 +174,7 @@ function TreeItemRow({
           }}
         >
           {node.isLoading ? (
-            <Loader2 size={12} className='animate-spin text-muted-foreground' />
+            <Spinner className='size-3 text-muted-foreground' />
           ) : (
             <>
               <span className='text-body transition-opacity group-hover:opacity-0'>

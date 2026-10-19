@@ -30,6 +30,7 @@ import {
 import { SprintActionsMenu } from './SprintActionsMenu'
 import { formatDate } from './DatePickerField'
 import { daysFromNow, partitionSprints } from './sprintLandingUtils'
+import { Progress } from '@/components/ui/progress'
 
 type ViewTab = 'list' | 'timeline'
 type StatusFilter = 'all' | 'active' | 'upcoming' | 'completed'
@@ -168,15 +169,13 @@ function CompletedRow({
         {formatDate(sprint.endDate, intl.locale)}
       </span>
       <div className='flex items-center gap-2.5'>
-        <div className='h-1.5 flex-1 overflow-hidden rounded-full bg-muted'>
-          <div
-            className={cn(
-              'h-full rounded-full',
-              pct >= 100 ? 'bg-success-text' : 'bg-muted-foreground/50'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        <Progress
+          value={pct}
+          tone={pct >= 100 ? 'success' : 'muted'}
+          size='sm'
+          className='flex-1'
+          aria-hidden
+        />
         <span className='whitespace-nowrap font-mono text-caption text-muted-foreground tabular-nums'>
           {done}/{total}
         </span>

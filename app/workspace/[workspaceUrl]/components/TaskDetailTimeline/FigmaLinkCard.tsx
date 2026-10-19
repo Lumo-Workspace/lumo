@@ -7,6 +7,7 @@ import { FigmaIcon } from '../FigmaIcon'
 import type { OptimisticFigmaLink } from '../../hooks/useFigmaLinks'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
 import {
   Tooltip,
@@ -72,7 +73,7 @@ export function FigmaLinkCard({
       <div className='flex gap-3 p-3'>
         {/* Thumbnail or placeholder */}
         {link.loading ? (
-          <div className='w-[120px] h-[72px] rounded-sm flex-shrink-0 bg-muted animate-pulse' />
+          <Skeleton className='h-[72px] w-[120px] shrink-0 rounded-sm' />
         ) : safeThumbnail ? (
           /* Figma CDN thumbnails — use <img> to avoid next.config changes */
           // eslint-disable-next-line @next/next/no-img-element

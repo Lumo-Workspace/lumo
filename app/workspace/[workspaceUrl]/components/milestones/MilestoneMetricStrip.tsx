@@ -7,6 +7,8 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
 import { formatDurationSec } from '@/lib/datetime/duration'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 // Same compact notation the CLI and the task-level cost card use (LUM-560),
 // so one number reads identically across surfaces.
@@ -197,15 +199,13 @@ function TokenBudgetLine({ budget }: { budget: ApiMilestone['budget'] }) {
           { percent: pct, budget: fmtTokens(budget.tokenBudget) }
         )}
       </p>
-      <div
+      <Progress
+        value={pct}
+        tone={budget.exceeded ? 'danger' : 'chart'}
+        size='xs'
+        className='mt-1'
         aria-hidden='true'
-        className='mt-1 flex h-1 overflow-hidden rounded-full bg-muted'
-      >
-        <span
-          className={budget.exceeded ? 'bg-[var(--danger)]' : 'bg-chart-1'}
-          style={{ width: `${Math.min(pct, 100)}%` }}
-        />
-      </div>
+      />
       {budget.exceeded && budget.overBy !== null && (
         <p
           data-testid='token-budget-over'
@@ -451,14 +451,16 @@ export function MilestoneMetricStrip({
                     >
                       <TaskRowLabel row={row} />
                       {row.multiPr && (
-                        <span
+                        <Badge
                           data-testid='multi-pr-chip'
-                          className='shrink-0 rounded-full border border-[var(--warning-border)] bg-[var(--warning-subtle)] px-2 py-0.5 text-caption font-semibold'
+                          variant='warning'
+                          size='sm'
+                          className='shrink-0 font-semibold'
                         >
                           {intl.formatMessage({
                             id: 'milestone.metrics.multiPr',
                           })}
-                        </span>
+                        </Badge>
                       )}
                       <span className='w-14 shrink-0 text-right text-caption font-semibold tabular-nums'>
                         {intl.formatMessage(

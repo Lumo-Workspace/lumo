@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -16,6 +16,7 @@ import { useIntl } from 'react-intl'
 import type { PrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import type { ApiPriority } from '../../types'
 import { PRIORITY_CONFIG, PriorityDot } from './shared'
+import { Spinner } from '@/components/ui/spinner'
 
 export interface AiPrioritySelectProps {
   value: ApiPriority
@@ -105,7 +106,7 @@ export function AiPrioritySelect({
       </Select>
 
       {isLoadingSuggestion && (
-        <Loader2 className='size-3 animate-spin text-muted-foreground' />
+        <Spinner className='size-3 text-muted-foreground' />
       )}
 
       {!isLoadingSuggestion && suggestion && !overrideRecorded && (

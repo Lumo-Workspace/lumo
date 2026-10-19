@@ -2,15 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import {
-  Plus,
-  GitBranch,
-  Star,
-  X,
-  Loader2,
-  Check,
-  ExternalLink,
-} from 'lucide-react'
+import { Plus, GitBranch, Star, X, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGithubRepos } from '../../../hooks/useGithubRepos'
 import { useProjectRepositories } from '../../../hooks/useProjectRepositories'
@@ -30,6 +22,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { PropertyRow } from './PropertyRow'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Tooltip,
   TooltipContent,
@@ -180,7 +173,7 @@ export function ProjectPropertyRows({
           <PopoverContent className='w-64 p-0' align='start' side='bottom'>
             {reposLoading ? (
               <div className='flex items-center justify-center gap-2 py-6 text-caption text-muted-foreground'>
-                <Loader2 size={13} className='animate-spin' />
+                <Spinner className='size-[13px]' />
                 {intl.formatMessage({ id: 'project.loadingRepos' })}
               </div>
             ) : githubConnected === false ? (
@@ -224,10 +217,7 @@ export function ProjectPropertyRows({
                           className='flex items-center gap-2 text-caption'
                         >
                           {isAdding ? (
-                            <Loader2
-                              size={12}
-                              className='shrink-0 animate-spin'
-                            />
+                            <Spinner className='size-3 shrink-0' />
                           ) : isLinked ? (
                             <Check
                               size={12}

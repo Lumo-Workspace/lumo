@@ -12,6 +12,13 @@ import {
 } from '@/components/ui/dialog'
 import { useSentryMappings } from '../hooks/useSentryMappings'
 import { useProjects } from '../hooks/useProjects'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface Props {
   open: boolean
@@ -110,23 +117,28 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
                 placeholder='frontend'
               />
             </label>
-            <label className='flex-1'>
+            <div className='flex-1'>
               <span className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}
               </span>
-              <select
-                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-caption'
-                value={newProjectId}
-                onChange={e => setNewProjectId(e.target.value)}
-              >
-                <option value=''>—</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select value={newProjectId} onValueChange={setNewProjectId}>
+                <SelectTrigger
+                  aria-label={intl.formatMessage({
+                    id: 'sentry.lumoProjectLabel',
+                  })}
+                  className='mt-1'
+                >
+                  <SelectValue placeholder='—' />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <button
               className='text-caption px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
               disabled={submitting || !newSlug || !newProjectId}

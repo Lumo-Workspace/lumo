@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { PluginSlot } from '@/lib/plugins/client'
+import { Checkbox } from '@/components/ui/checkbox'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -44,6 +45,7 @@ import {
 } from './boundary-format'
 import { systemExplainState } from './boundary-explain'
 import { groupCrossings, type CrossingGroup } from './crossing-groups'
+import { Badge as UiBadge, badgeVariants } from '@/components/ui/badge'
 export { systemExplainState } from './boundary-explain'
 
 /**
@@ -1027,7 +1029,11 @@ function CrossingRow({
                       )
                     : undefined
                 }
-                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-caption text-warning-text'
+                className={badgeVariants({
+                  variant: 'warning',
+                  size: 'sm',
+                  shape: 'square',
+                })}
               >
                 <Repeat className='size-3' aria-hidden />
                 {intl.formatMessage(
@@ -1301,12 +1307,11 @@ function CrossingRow({
               HIGH classes (the server refuses those with 422 anyway). */}
               {c.suppressible && (
                 <label className='flex items-center gap-2 text-caption text-muted-foreground'>
-                  <input
-                    type='checkbox'
+                  <Checkbox
                     data-testid={`boundary-suppress-similar-${c.id}`}
                     checked={suppress}
                     disabled={pending}
-                    onChange={e => onSuppressChange(e.target.checked)}
+                    onCheckedChange={v => onSuppressChange(v === true)}
                   />
                   {intl.formatMessage({
                     id: 'boundary.panel.suppressSimilar',
@@ -1320,15 +1325,12 @@ function CrossingRow({
               (the server computes `suppressionDirectory` and refuses others). */}
               {c.suppressible && suppress && c.suppressionDirectory && (
                 <label className='flex items-center gap-2 pl-5 text-caption text-muted-foreground'>
-                  <input
-                    type='checkbox'
+                  <Checkbox
                     data-testid={`boundary-suppress-directory-${c.id}`}
                     checked={suppressScope === 'directory'}
                     disabled={pending}
-                    onChange={e =>
-                      onSuppressScopeChange(
-                        e.target.checked ? 'directory' : 'exact'
-                      )
+                    onCheckedChange={v =>
+                      onSuppressScopeChange(v === true ? 'directory' : 'exact')
                     }
                   />
                   {intl.formatMessage(
@@ -1495,9 +1497,14 @@ function CrossingRow({
                   <span className='text-body-strong text-foreground'>
                     {rt.identifier}
                   </span>
-                  <span className='rounded-sm border border-border bg-background px-1.5 py-0.5 text-caption text-muted-foreground'>
+                  <UiBadge
+                    variant='outline-muted'
+                    size='xs'
+                    shape='square'
+                    className='bg-background'
+                  >
                     {rt.status}
-                  </span>
+                  </UiBadge>
                 </div>
                 <div className='truncate text-caption text-muted-foreground'>
                   {rt.title}
@@ -1847,17 +1854,9 @@ function Badge({
   tone: 'warning' | 'danger' | 'muted'
   children: React.ReactNode
 }) {
-  const cls =
-    tone === 'warning'
-      ? 'bg-warning-subtle text-warning-text'
-      : tone === 'danger'
-        ? 'bg-danger-subtle text-danger-text'
-        : 'bg-muted text-muted-foreground'
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-caption ${cls}`}
-    >
+    <UiBadge variant={tone} size='sm' shape='square'>
       {children}
-    </span>
+    </UiBadge>
   )
 }

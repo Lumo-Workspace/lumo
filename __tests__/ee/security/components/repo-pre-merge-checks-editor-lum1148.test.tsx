@@ -7,6 +7,11 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react'
 
+// LUM-1265: this suite is about the form's logic, not the dropdown — drive
+// the shadcn Select as a native <select> (see the helper for why).
+jest.mock('@/components/ui/select', () =>
+  require('../../../helpers/native-select-mock').nativeSelectMock()
+)
 jest.mock('react-intl', () => {
   const en = jest.requireActual('@/lib/i18n/en.json') as Record<string, string>
   return {
