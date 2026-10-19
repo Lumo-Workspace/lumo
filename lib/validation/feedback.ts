@@ -173,3 +173,45 @@ export function parseFeedbackRef(ref: string): number | null {
   const n = Number(m[1])
   return n >= 1 ? n : null
 }
+
+// ── Staff side (LUM-1240 batch 2) ───────────────────────────────────────
+
+/** A staff reply, as long as the RFC allows (FeedbackReply.body ≤ 4000). */
+export const MAX_FEEDBACK_REPLY_LEN = 4000
+
+/** `GET /api/staff/feedback` — every workspace, or one by id. */
+export const staffListFeedbackQuerySchema = z.object({
+  status: z.preprocess(upper, z.enum(FEEDBACK_STATUSES)).optional(),
+  kind: z.preprocess(upper, z.enum(FEEDBACK_KINDS)).optional(),
+  workspace: z.string().trim().min(1).max(64).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(50),
+  cursor: z.string().max(64).optional(),
+})
+
+export type StaffListFeedbackQuery = z.infer<
+  typeof staffListFeedbackQuerySchema
+>
+
+/**
+ * `PATCH /api/staff/feedback/<seq>` — a status change, a reply, or both in
+ * one transaction. At least one is required.
+ */
+export const staffUpdateFeedbackSchema = z
+  .object({
+    status: z.preprocess(upper, z.enum(FEEDBACK_STATUSES)).optional(),
+    reply: z.string().trim().min(1).max(MAX_FEEDBACK_REPLY_LEN).optional(),
+  })
+  .strict()
+  .refine(v => v.status !== undefined || v.reply !== undefined, {
+    message: 'Give a status, a reply, or both',
+  })
+
+export type StaffUpdateFeedback = z.infer<typeof staffUpdateFeedbackSchema>
+
+/** The staff handle `#12` or `12` → 12; anything else → null. */
+export function parseStaffFeedbackRef(ref: string): number | null {
+  const m = /^#?(\d{1,9})$/.exec(ref.trim())
+  if (!m) return null
+  const n = Number(m[1])
+  return n >= 1 ? n : null
+}

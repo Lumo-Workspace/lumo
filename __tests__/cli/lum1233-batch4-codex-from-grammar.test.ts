@@ -56,6 +56,10 @@ const DEVIATIONS = {
     'feedback show',
     'priority create',
     'priority list',
+    // LUM-1240 batch 2: the Lumo team's feedback triage commands.
+    'staff feedback list',
+    'staff feedback show',
+    'staff feedback update',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<

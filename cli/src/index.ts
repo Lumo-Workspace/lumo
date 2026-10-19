@@ -195,6 +195,13 @@ import {
   type FeedbackCreateOptions,
   type FeedbackListOptions,
 } from './commands/feedback'
+import {
+  staffFeedbackList,
+  staffFeedbackShow,
+  staffFeedbackUpdate,
+  type StaffFeedbackListOptions,
+  type StaffFeedbackUpdateOptions,
+} from './commands/staff-feedback'
 import { buildLastCommand, recordLastCommand } from './lib/last-command'
 
 // Introspection mode: tooling (CLI grammar extraction) imports
@@ -2018,6 +2025,70 @@ feedbackCmd
   .action(
     wrap((ref: unknown, options: unknown) =>
       feedbackShow(ref as string, options as { json?: boolean })
+    )
+  )
+
+// LUM-1240: the Lumo team's side of feedback (server answers staff only).
+const staffCmd = program
+  .command('staff')
+  .description('Lumo team only: triage customer feedback across workspaces')
+const staffFeedbackCmd = staffCmd
+  .command('feedback')
+  .description(
+    "Lumo team only: every workspace's feedback, status changes and replies"
+  )
+
+staffFeedbackCmd
+  .command('list')
+  .codex(SERVER_ONLY)
+  .description(
+    "Lumo team only: list every workspace's feedback, newest first (#<n> is the staff handle)."
+  )
+  .option(
+    '-s, --status <status>',
+    'new | triaged | resolved | wontfix (case-insensitive)'
+  )
+  .option('--kind <kind>', 'bug | idea | question (case-insensitive)')
+  .option('--workspace <id>', 'Only this workspace (its id)')
+  .option('-n, --limit <n>', 'Reports per page (1-500, default 50)')
+  .option('--cursor <cursor>', 'Continue from a previous page')
+  .option('--json', 'Print { version, feedback, total, nextCursor } as JSON')
+  .action(
+    wrap(options => staffFeedbackList(options as StaffFeedbackListOptions))
+  )
+
+staffFeedbackCmd
+  .command('show <ref>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Lumo team only: one report (#<n>) with its workspace, the customer text (fenced as untrusted), environment and every reply.'
+  )
+  .option('--json', 'Print { version, feedback, replies } as JSON')
+  .action(
+    wrap((ref: unknown, options: unknown) =>
+      staffFeedbackShow(ref as string, options as { json?: boolean })
+    )
+  )
+
+staffFeedbackCmd
+  .command('update <ref>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Lumo team only: change the status of a report (#<n>) and/or reply to the customer. A reply exits 4 with the full text until the user approves (--confirm).'
+  )
+  .option(
+    '-s, --status <status>',
+    'new | triaged | resolved | wontfix (case-insensitive)'
+  )
+  .option(
+    '--reply <text>',
+    'Reply the customer reads, signed "Lumo team" (needs --confirm)'
+  )
+  .option('--confirm', 'The user approved sending the reply')
+  .option('--json', 'Print { version, feedback, replies, changed } as JSON')
+  .action(
+    wrap((ref: unknown, options: unknown) =>
+      staffFeedbackUpdate(ref as string, options as StaffFeedbackUpdateOptions)
     )
   )
 

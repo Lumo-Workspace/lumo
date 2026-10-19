@@ -3417,6 +3417,135 @@
       "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
+    "staff": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Lumo team only: triage customer feedback across workspaces"
+    },
+    "staff feedback": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Lumo team only: every workspace's feedback, status changes and replies"
+    },
+    "staff feedback list": {
+      "arguments": [],
+      "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, total, nextCursor } as JSON"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": ["bug", "idea", "question"],
+          "enumCaseInsensitive": true,
+          "description": "bug | idea | question (case-insensitive)"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Reports per page (1-500, default 50)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": ["new", "triaged", "resolved", "wontfix"],
+          "enumCaseInsensitive": true,
+          "description": "new | triaged | resolved | wontfix (case-insensitive)"
+        },
+        "--workspace": {
+          "long": "--workspace",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only this workspace (its id)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Lumo team only: list every workspace's feedback, newest first (#<n> is the staff handle).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "staff feedback show": {
+      "arguments": [{ "name": "ref", "required": true, "variadic": false }],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, replies } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Lumo team only: one report (#<n>) with its workspace, the customer text (fenced as untrusted), environment and every reply.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "staff feedback update": {
+      "arguments": [{ "name": "ref", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved sending the reply"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, replies, changed } as JSON"
+        },
+        "--reply": {
+          "long": "--reply",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Reply the customer reads, signed \"Lumo team\" (needs --confirm)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": ["new", "triaged", "resolved", "wontfix"],
+          "enumCaseInsensitive": true,
+          "description": "new | triaged | resolved | wontfix (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Lumo team only: change the status of a report (#<n>) and/or reply to the customer. A reply exits 4 with the full text until the user approves (--confirm).",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "status": {
       "arguments": [],
       "flags": {

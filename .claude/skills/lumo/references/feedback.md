@@ -41,7 +41,7 @@ lumo feedback create --kind idea --title "feedback list: filter by task"
 lumo feedback create --title "doctor reports a stale hook" --no-env
 ```
 
-**Environment block** (sent unless `--no-env`; the output's `Sent env:` line shows exactly what went): CLI version, OS name / release / architecture, Node version, which agent runs the CLI (from the presence of its session variable), and the **last `lumo` command of this session** — its command path, the **names** of the flags given and its exit code (within the last hour). Never a flag value, an argument, the working directory, the repository, the host or user name. The session id goes along as a ref only.
+**Environment block** (sent unless `--no-env`; the output's `Sent env:` line shows exactly what went): CLI version, OS name / release / architecture, Node version, which agent runs the CLI (from the presence of its session variable), and the **last `lumo` command of this session** — its command path, the **names** of the flags given and its exit code. A command that failed within the last hour wins over later successful ones (so the `task show` you ran after a failure does not hide it); otherwise the last command of the hour. Never a flag value, an argument, the working directory, the repository, the host or user name. The session id goes along as a ref only.
 
 Text you write (title, steps, expected, actual) and text / JSON evidence files are scanned for credentials before saving; anything that looks like one is stored redacted and the output says `Note: N suspected secrets were redacted before saving.`
 
@@ -93,3 +93,5 @@ lumo feedback show FB-12
 ```
 
 Status values: `NEW` (not looked at yet), `TRIAGED` (the team has it), `RESOLVED`, `WONTFIX`.
+
+`lumo staff feedback …` is the Lumo team's side (triage and replies) and answers everyone else with 403 — see [staff-feedback.md](staff-feedback.md).
