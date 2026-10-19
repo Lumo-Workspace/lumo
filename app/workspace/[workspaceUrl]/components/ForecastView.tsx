@@ -10,6 +10,7 @@ import type {
   TaskForecast,
 } from '@/lib/forecast/types'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
+import { Badge } from '@/components/ui/badge'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
   return (
@@ -34,11 +35,11 @@ const CONFIDENCE_KEY: Record<ForecastConfidence, string> = {
 function ConfidenceBadge({ level }: { level: ForecastConfidence }) {
   const intl = useIntl()
   return (
-    <span className='shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-muted-foreground'>
+    <Badge variant='muted' size='sm' className='shrink-0'>
       {intl.formatMessage({ id: 'forecast.confidence' })}
       {' · '}
       {intl.formatMessage({ id: CONFIDENCE_KEY[level] })}
-    </span>
+    </Badge>
   )
 }
 

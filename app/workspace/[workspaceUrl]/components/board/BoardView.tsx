@@ -27,6 +27,7 @@ import {
   shouldVirtualize,
   BOARD_COLUMN_VIRTUALIZE_THRESHOLD,
 } from '@/lib/utils/shouldVirtualize'
+import { Badge } from '@/components/ui/badge'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -206,9 +207,9 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                   <span className='text-caption font-semibold text-muted-foreground uppercase'>
                     {column.label}
                   </span>
-                  <span className='bg-muted text-muted-foreground text-caption px-1.5 py-0.5 rounded-full font-semibold'>
+                  <Badge variant='muted' size='xs' className='font-semibold'>
                     {col.length}
-                  </span>
+                  </Badge>
                 </div>
               </div>
 

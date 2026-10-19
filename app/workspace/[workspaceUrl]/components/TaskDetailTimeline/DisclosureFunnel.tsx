@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { InfoTooltip } from './InfoTooltip'
 import type { LineageResponse } from '../../types'
+import { Badge } from '@/components/ui/badge'
 
 type Funnel = LineageResponse['totals']['funnel']
 
@@ -120,7 +121,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
       </div>
       {funnel.tokensSaved != null && (
         <div className='mt-2'>
-          <span className='inline-flex items-center gap-1 rounded-full bg-success-subtle px-2 py-0.5 text-caption text-success-text'>
+          <Badge variant='success' size='sm'>
             {intl.formatMessage(
               {
                 id: 'lineage.funnel.tokensSaved',
@@ -135,7 +136,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
                   '因为只给了「一句话目录」、没把全文塞进去，又一直没被点开，少花了大约这么多 token。没有用量数据时这一项不显示。',
               })}
             />
-          </span>
+          </Badge>
         </div>
       )}
     </div>

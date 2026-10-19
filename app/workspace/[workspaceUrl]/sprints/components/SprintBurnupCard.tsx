@@ -10,6 +10,7 @@ import {
   CHART_VB_H as VB_H,
   PLOT,
 } from './burnup-chart'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface Props {
   sprintId: string
@@ -102,7 +103,7 @@ export function SprintBurnupCard({
       </div>
 
       {isLoading ? (
-        <div className='mt-3 h-[150px] animate-pulse rounded-sm bg-muted' />
+        <Skeleton className='mt-3 h-[150px] rounded-sm' />
       ) : !geo?.hasData || !burnup ? (
         <p className='py-6 text-center text-caption text-muted-foreground'>
           {intl.formatMessage({

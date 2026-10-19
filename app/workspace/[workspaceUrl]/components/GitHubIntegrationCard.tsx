@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
+import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -20,6 +20,7 @@ import {
 import { GitHubPendingRepos } from './GitHubPendingRepos'
 import { GitHubAccessNotices } from './GitHubAccessNotices'
 import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
+import { Spinner } from '@/components/ui/spinner'
 
 interface GitHubIntegrationCardProps {
   workspaceUrl: string
@@ -69,7 +70,7 @@ export function GitHubIntegrationCard({
     : intl.formatMessage({ id: 'github.appInstalled' })
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : installed ? (
     <ConnectedDot label={installedLabel} />
   ) : missing && isOwner ? (
@@ -184,7 +185,7 @@ export function GitHubIntegrationCard({
               disabled={uninstalling}
             >
               {uninstalling ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'github.uninstallApp' })
               )}

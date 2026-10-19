@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
-import { Loader2, Link as LinkIcon } from 'lucide-react'
+import { Link as LinkIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Popover,
@@ -24,6 +24,7 @@ import { tasksClient } from '@/lib/api-client'
 import { ApiClientError } from '@/lib/api-client/base'
 import { PrStateBadge } from './pr-helpers'
 import { usePrSearch } from '../hooks/usePrSearch'
+import { Spinner } from '@/components/ui/spinner'
 
 const GITHUB_PR_URL_RE = /github\.com\/[^/]+\/[^/]+\/pull\/\d+/
 
@@ -158,10 +159,7 @@ export function LinkPrPopover({
                   {intl.formatMessage({ id: 'linkPr.linkFromUrl' })}
                 </span>
                 {linking && (
-                  <Loader2
-                    size={12}
-                    className='ml-auto animate-spin text-muted-foreground'
-                  />
+                  <Spinner className='size-3 ml-auto text-muted-foreground' />
                 )}
               </button>
             )}
@@ -169,10 +167,7 @@ export function LinkPrPopover({
             {/* Loading */}
             {loading && !isUrl && (
               <div className='flex items-center justify-center py-4'>
-                <Loader2
-                  size={14}
-                  className='animate-spin text-muted-foreground'
-                />
+                <Spinner className='size-3.5 text-muted-foreground' />
               </div>
             )}
 
