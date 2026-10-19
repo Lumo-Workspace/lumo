@@ -1,5 +1,6 @@
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
+import { withAuthorNames } from '@/lib/services/comment-author-names'
 
 export interface TimelineEntry {
   id: string
@@ -10,6 +11,8 @@ export interface TimelineEntry {
 
 interface TimelineOptions {
   limit: number
+  /** Workspace the comment author names are looked up in (LUM-1238). */
+  workspaceId: string
   cursor?:
     | { timestamp: string; id: string; source: 'activity' | 'comment' }
     | undefined
@@ -26,7 +29,7 @@ export const timelineService = {
     taskId: string,
     options: TimelineOptions
   ): Promise<TimelineResult> {
-    const { limit, cursor } = options
+    const { limit, cursor, workspaceId } = options
 
     // Build cursor filters per source
     const activityCursor =
@@ -42,9 +45,11 @@ export const timelineService = {
       cursor?: { timestamp: string; id: string }
     } = { limit }
     if (activityCursor) findOptions.cursor = activityCursor
+    const loadCommentsWithAuthors = async () =>
+      withAuthorNames(await commentRepository.findByTaskId(taskId), workspaceId)
     const [activities, comments] = await Promise.all([
       activityRepository.findByTaskId(taskId, findOptions),
-      commentRepository.findByTaskId(taskId),
+      loadCommentsWithAuthors(),
     ])
 
     // Convert to unified entries

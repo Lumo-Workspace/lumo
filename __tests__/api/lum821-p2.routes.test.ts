@@ -104,6 +104,7 @@ describe('GET /api/tasks/[id]/timeline', () => {
     expect(timelineService.getTimeline).toHaveBeenCalledWith('t1', {
       limit: 100,
       cursor: undefined,
+      workspaceId: 'ws1',
     })
   })
   it('another workspace’s task is 404', async () => {

@@ -461,6 +461,8 @@ export interface TimelineCommentEntry {
   kind: 'comment'
   body: string
   authorActorId: string | null
+  /** Member / agent / `@github-login` name from the API (LUM-1238). */
+  authorName?: string | null
   parentId: string | null
   quotedCommentId: string | null
   type: string

@@ -21,7 +21,7 @@ export function CommentTimelineItem({
   const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
   const ca = resolveCommentAuthor(
-    entry as any,
+    entry,
     members,
     agentActors,
     intl.formatMessage({ id: 'comment.unknownAuthor' })
