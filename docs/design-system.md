@@ -269,6 +269,12 @@ Observed convention (top of stack last):
 
 Avoid arbitrary `z-[1]` etc. — pick a tier above.
 
+### Overlay (scrim)
+
+Every modal surface — Dialog, AlertDialog, Sheet and the workspace `Modal` —
+uses the same scrim: `bg-black/50`, **no** `backdrop-blur`, in both themes.
+Don't hand-roll a different tint or blur on a new overlay.
+
 ## Shadows / Elevation
 
 阴影走 token 化的 elevation 分级 —— `:root` 与 `.dark` 各定义一组(暗色更强,

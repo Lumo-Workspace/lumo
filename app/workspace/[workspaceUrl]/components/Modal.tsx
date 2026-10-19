@@ -46,7 +46,7 @@ export function Modal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className='absolute inset-0 bg-black/40 backdrop-blur-sm'
+        className='absolute inset-0 bg-black/50'
       />
       {/* Container: no height animation — stays height:auto so footer is always naturally anchored */}
       <motion.div
