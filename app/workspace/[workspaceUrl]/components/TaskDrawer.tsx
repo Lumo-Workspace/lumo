@@ -114,19 +114,26 @@ export function TaskDrawer({
           {intl.formatMessage({ id: 'taskDrawer.title' })}
         </DrawerTitle>
         <div className='flex items-center justify-between px-5 pt-4 shrink-0'>
-          <Button
-            variant='ghost'
-            size='icon'
-            onClick={() => {
-              sessionStorage.setItem('lumo:taskSource', source)
-              onClose()
-              router.push(taskUrl(source))
-            }}
-            className='h-7 w-7 text-muted-foreground hover:text-foreground'
-            title={intl.formatMessage({ id: 'taskDrawer.openFull' })}
-          >
-            <SquareArrowOutUpRight size={14} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => {
+                  sessionStorage.setItem('lumo:taskSource', source)
+                  onClose()
+                  router.push(taskUrl(source))
+                }}
+                className='h-7 w-7 text-muted-foreground hover:text-foreground'
+                aria-label={intl.formatMessage({ id: 'taskDrawer.openFull' })}
+              >
+                <SquareArrowOutUpRight size={14} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({ id: 'taskDrawer.openFull' })}
+            </TooltipContent>
+          </Tooltip>
           <div className='flex items-center gap-1'>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -134,6 +141,7 @@ export function TaskDrawer({
                   variant='ghost'
                   size='icon'
                   onClick={handleCopyLink}
+                  aria-label={intl.formatMessage({ id: 'common.copyLink' })}
                   className='h-7 w-7 text-muted-foreground hover:text-foreground'
                 >
                   {copied ? <Check size={14} /> : <LinkIcon size={14} />}
@@ -147,6 +155,7 @@ export function TaskDrawer({
               variant='ghost'
               size='icon'
               onClick={onClose}
+              aria-label={intl.formatMessage({ id: 'common.close' })}
               className='h-7 w-7 text-muted-foreground hover:text-foreground'
             >
               <X size={14} />

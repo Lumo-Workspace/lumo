@@ -56,7 +56,7 @@ describe('FormDialog (LUM-1248)', () => {
     expect(
       screen.getAllByRole('button', { name: 'common.close' })
     ).toHaveLength(1)
-    expect(screen.getByTitle('formDialog.expand')).toBeTruthy()
+    expect(screen.getByLabelText('formDialog.expand')).toBeTruthy()
   })
 
   it('closes on Escape and returns focus to the trigger', async () => {

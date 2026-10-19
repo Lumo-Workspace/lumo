@@ -34,6 +34,11 @@ import { Page, ApiProject } from '../../types'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { projectsClient } from '@/lib/api-client'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const STORAGE_KEY = 'lumo:sidebarProjectsExpanded'
 
@@ -228,15 +233,21 @@ export function ProjectsSidebarGroup({
           />
         </button>
         {/* `+ New project` — shown on row-hover, never steals the row click. */}
-        <button
-          type='button'
-          onClick={handleNewProject}
-          aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
-          title={intl.formatMessage({ id: 'sidebar.newProject' })}
-          className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
-        >
-          <Plus size={14} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onClick={handleNewProject}
+              aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
+              className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
+            >
+              <Plus size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {intl.formatMessage({ id: 'sidebar.newProject' })}
+          </TooltipContent>
+        </Tooltip>
       </SidebarMenuItem>
 
       {expanded && (

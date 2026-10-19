@@ -40,6 +40,7 @@ export function ToolbarButton({
           type='button'
           disabled={disabled}
           data-testid={dataTestId}
+          aria-label={title}
           onMouseDown={e => {
             e.preventDefault() // prevent editor blur
             if (!disabled) onClick()

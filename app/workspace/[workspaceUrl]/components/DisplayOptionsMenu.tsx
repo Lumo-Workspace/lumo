@@ -148,17 +148,21 @@ export function DisplayOptionsMenu({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant='ghost'
-          size='sm'
-          title={triggerLabel}
-          aria-label={triggerLabel}
-          className='size-8 p-0 text-muted-foreground hover:text-foreground'
-        >
-          <SlidersHorizontal size={14} />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant='ghost'
+              size='sm'
+              aria-label={triggerLabel}
+              className='size-8 p-0 text-muted-foreground hover:text-foreground'
+            >
+              <SlidersHorizontal size={14} />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{triggerLabel}</TooltipContent>
+      </Tooltip>
       <PopoverContent align='end' className='w-56 p-2'>
         <div className='flex items-center gap-1 px-2 py-1.5'>
           <p className='text-caption text-muted-foreground uppercase'>

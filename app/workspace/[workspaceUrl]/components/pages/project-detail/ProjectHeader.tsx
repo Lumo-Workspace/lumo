@@ -37,6 +37,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { PageBreadcrumb } from '../../PageBreadcrumb'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ProjectHeaderProps {
   projectId: string
@@ -90,32 +95,52 @@ export function ProjectHeader({
             </BreadcrumbList>
           </Breadcrumb>
           {onSlack && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onSlack}
-              className='h-6 w-6 text-muted-foreground hover:text-foreground'
-              title={intl.formatMessage({
-                id: 'project.slackNotifications',
-                defaultMessage: 'Slack notifications',
-              })}
-            >
-              <MessageSquare size={14} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={onSlack}
+                  className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage({
+                    id: 'project.slackNotifications',
+                    defaultMessage: 'Slack notifications',
+                  })}
+                >
+                  <MessageSquare size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {intl.formatMessage({
+                  id: 'project.slackNotifications',
+                  defaultMessage: 'Slack notifications',
+                })}
+              </TooltipContent>
+            </Tooltip>
           )}
           {onCopyLink && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onCopyLink}
-              className='h-6 w-6 text-muted-foreground hover:text-foreground'
-              title={intl.formatMessage({
-                id: 'project.copyLink',
-                defaultMessage: 'Copy link',
-              })}
-            >
-              {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={onCopyLink}
+                  className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage({
+                    id: 'project.copyLink',
+                    defaultMessage: 'Copy link',
+                  })}
+                >
+                  {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {intl.formatMessage({
+                  id: 'project.copyLink',
+                  defaultMessage: 'Copy link',
+                })}
+              </TooltipContent>
+            </Tooltip>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -72,30 +72,34 @@ export function ColorPicker({
           </div>
           <div className='flex gap-1 mb-2'>
             {FONT_COLORS.map(c => (
-              <button
-                key={c.value || 'default'}
-                role='menuitem'
-                type='button'
-                onMouseDown={e => {
-                  e.preventDefault()
-                  if (c.value) {
-                    editor.chain().focus().setColor(c.value).run()
-                  } else {
-                    editor.chain().focus().unsetColor().run()
-                  }
-                  setOpen(false)
-                }}
-                className={cn(
-                  'flex items-center justify-center size-5 rounded-sm text-caption font-semibold border transition-colors',
-                  currentColor === c.value || (!currentColor && !c.value)
-                    ? 'border-ring'
-                    : 'border-transparent hover:border-muted-foreground'
-                )}
-                style={{ color: c.value || undefined }}
-                title={c.label}
-              >
-                A
-              </button>
+              <Tooltip key={c.value || 'default'}>
+                <TooltipTrigger asChild>
+                  <button
+                    role='menuitem'
+                    type='button'
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      if (c.value) {
+                        editor.chain().focus().setColor(c.value).run()
+                      } else {
+                        editor.chain().focus().unsetColor().run()
+                      }
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'flex items-center justify-center size-5 rounded-sm text-caption font-semibold border transition-colors',
+                      currentColor === c.value || (!currentColor && !c.value)
+                        ? 'border-ring'
+                        : 'border-transparent hover:border-muted-foreground'
+                    )}
+                    style={{ color: c.value || undefined }}
+                    aria-label={c.label}
+                  >
+                    A
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{c.label}</TooltipContent>
+              </Tooltip>
             ))}
           </div>
 
@@ -105,63 +109,75 @@ export function ColorPicker({
           </div>
           <div className='flex gap-1 mb-1'>
             {BG_COLORS_LIGHT.map(c => (
-              <button
-                key={c.value || 'none'}
-                role='menuitem'
-                type='button'
-                onMouseDown={e => {
-                  e.preventDefault()
-                  if (c.value) {
-                    editor
-                      .chain()
-                      .focus()
-                      .setHighlight({ color: c.value })
-                      .run()
-                  } else {
-                    editor.chain().focus().unsetHighlight().run()
-                  }
-                  setOpen(false)
-                }}
-                className={cn(
-                  'size-5 rounded-sm border transition-colors',
-                  currentHighlight === c.value ||
-                    (!currentHighlight && !c.value)
-                    ? 'border-ring'
-                    : 'border-border hover:border-muted-foreground'
-                )}
-                style={{ backgroundColor: c.value || 'transparent' }}
-                title={c.label}
-              >
-                {!c.value && (
-                  <span className='block w-full h-full relative'>
-                    <span className='absolute inset-0 flex items-center justify-center text-caption text-muted-foreground'>
-                      ∅
-                    </span>
-                  </span>
-                )}
-              </button>
+              <Tooltip key={c.value || 'none'}>
+                <TooltipTrigger asChild>
+                  <button
+                    role='menuitem'
+                    type='button'
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      if (c.value) {
+                        editor
+                          .chain()
+                          .focus()
+                          .setHighlight({ color: c.value })
+                          .run()
+                      } else {
+                        editor.chain().focus().unsetHighlight().run()
+                      }
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'size-5 rounded-sm border transition-colors',
+                      currentHighlight === c.value ||
+                        (!currentHighlight && !c.value)
+                        ? 'border-ring'
+                        : 'border-border hover:border-muted-foreground'
+                    )}
+                    style={{ backgroundColor: c.value || 'transparent' }}
+                    aria-label={c.label}
+                  >
+                    {!c.value && (
+                      <span className='block w-full h-full relative'>
+                        <span className='absolute inset-0 flex items-center justify-center text-caption text-muted-foreground'>
+                          ∅
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{c.label}</TooltipContent>
+              </Tooltip>
             ))}
           </div>
           <div className='flex gap-1 mb-2'>
             {BG_COLORS_DARK.map(c => (
-              <button
-                key={c.value}
-                role='menuitem'
-                type='button'
-                onMouseDown={e => {
-                  e.preventDefault()
-                  editor.chain().focus().setHighlight({ color: c.value }).run()
-                  setOpen(false)
-                }}
-                className={cn(
-                  'size-5 rounded-sm border transition-colors',
-                  currentHighlight === c.value
-                    ? 'border-ring'
-                    : 'border-border hover:border-muted-foreground'
-                )}
-                style={{ backgroundColor: c.value }}
-                title={c.label}
-              />
+              <Tooltip key={c.value}>
+                <TooltipTrigger asChild>
+                  <button
+                    role='menuitem'
+                    type='button'
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      editor
+                        .chain()
+                        .focus()
+                        .setHighlight({ color: c.value })
+                        .run()
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'size-5 rounded-sm border transition-colors',
+                      currentHighlight === c.value
+                        ? 'border-ring'
+                        : 'border-border hover:border-muted-foreground'
+                    )}
+                    style={{ backgroundColor: c.value }}
+                    aria-label={c.label}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>{c.label}</TooltipContent>
+              </Tooltip>
             ))}
           </div>
 

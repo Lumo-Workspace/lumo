@@ -29,6 +29,11 @@ import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
 import { milestoneState } from '@/lib/summaries/milestone-state'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface MilestoneDetailPageProps {
   /** Open the global task drawer for a clicked task in the milestone board. */
@@ -218,19 +223,23 @@ export function MilestoneDetailPage({
       : 'milestone.detail.collapseSidebar',
   })
   const actions = (
-    <button
-      type='button'
-      onClick={toggleSidebar}
-      title={sidebarLabel}
-      aria-label={sidebarLabel}
-      className='flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
-    >
-      {sidebarCollapsed ? (
-        <PanelRightOpen className='size-4' />
-      ) : (
-        <PanelRightClose className='size-4' />
-      )}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type='button'
+          onClick={toggleSidebar}
+          aria-label={sidebarLabel}
+          className='flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+        >
+          {sidebarCollapsed ? (
+            <PanelRightOpen className='size-4' />
+          ) : (
+            <PanelRightClose className='size-4' />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{sidebarLabel}</TooltipContent>
+    </Tooltip>
   )
 
   return (

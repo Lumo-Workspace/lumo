@@ -30,6 +30,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { PropertyRow } from './PropertyRow'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ProjectPropertyRowsProps {
   projectId: string
@@ -109,31 +114,58 @@ export function ProjectPropertyRows({
               </span>
             )}
             <span className='inline-flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100'>
-              <a
-                href={`https://github.com/${repo.fullName}`}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-muted-foreground hover:text-foreground'
-                title={intl.formatMessage({ id: 'project.openOnGithub' })}
-              >
-                <ExternalLink size={11} />
-              </a>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    href={`https://github.com/${repo.fullName}`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-muted-foreground hover:text-foreground'
+                    aria-label={intl.formatMessage({
+                      id: 'project.openOnGithub',
+                    })}
+                  >
+                    <ExternalLink size={11} />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({ id: 'project.openOnGithub' })}
+                </TooltipContent>
+              </Tooltip>
               {!repo.isDefault && (
-                <button
-                  onClick={() => setDefault(repo.id)}
-                  className='text-muted-foreground hover:text-foreground'
-                  title={intl.formatMessage({ id: 'project.setAsDefault' })}
-                >
-                  <Star size={11} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setDefault(repo.id)}
+                      className='text-muted-foreground hover:text-foreground'
+                      aria-label={intl.formatMessage({
+                        id: 'project.setAsDefault',
+                      })}
+                    >
+                      <Star size={11} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {intl.formatMessage({ id: 'project.setAsDefault' })}
+                  </TooltipContent>
+                </Tooltip>
               )}
-              <button
-                onClick={() => unlink(repo.id)}
-                className='text-muted-foreground hover:text-danger'
-                title={intl.formatMessage({ id: 'project.removeRepo' })}
-              >
-                <X size={11} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => unlink(repo.id)}
+                    className='text-muted-foreground hover:text-danger'
+                    aria-label={intl.formatMessage({
+                      id: 'project.removeRepo',
+                    })}
+                  >
+                    <X size={11} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({ id: 'project.removeRepo' })}
+                </TooltipContent>
+              </Tooltip>
             </span>
           </span>
         ))}
