@@ -101,6 +101,8 @@ export interface PrScanFinding {
   callChainOmitted?: number
   /** LUM-1189 — why the falsifier suggested its disposition; absent on an older server. */
   suggestedReason?: string | null
+  /** LUM-1256 — the finding's fingerprint; absent on an older server. */
+  fingerprint?: string
 }
 
 export interface PrScanHunt {

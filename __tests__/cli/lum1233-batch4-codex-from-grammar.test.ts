@@ -55,12 +55,13 @@ const DEVIATIONS = {
 
 /**
  * Leaves added after the hand-kept lists, with the class they declare.
- * `security scan` (LUM-1255) reads only git and the working tree and calls no
- * Lumo API, so it stays sandboxed (it runs fine there).
+ * `security scan` (LUM-1255) reads git and the working tree, so it stays
+ * sandboxed; since LUM-1256 it also reads server context from the Lumo API,
+ * which inside the sandbox falls back to the cache (or no context).
  */
 const ADDED_SANDBOXED: Record<string, string> = {
   'security scan':
-    'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+    'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
 }
 
 /**

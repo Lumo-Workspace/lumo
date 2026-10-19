@@ -2777,6 +2777,30 @@
           "enumCaseInsensitive": false,
           "description": "Emit the list envelope ({ version, findings[], summary, … })"
         },
+        "--offline": {
+          "long": "--offline",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Label findings from the cached server context only; no Lumo API call"
+        },
+        "--pr": {
+          "long": "--pr",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Merge in the branch's open PR scan: findings fixed locally since the last push vs still open"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The repository to read server context for, instead of origin's"
+        },
         "--secrets": {
           "long": "--secrets",
           "short": null,
@@ -2804,11 +2828,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints.",
+      "description": "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy.",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",
-        "detail": "local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)"
+        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)"
       }
     },
     "session": {

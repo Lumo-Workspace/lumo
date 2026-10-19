@@ -133,6 +133,11 @@ export interface FindingReadoutView {
   callChain: Array<{ from: string; to: string }> | null
   /** LUM-1189 — well-formed edges past the cap, not in `callChain`; 0 when none. */
   callChainOmitted: number
+  /**
+   * LUM-1256 — the finding's fingerprint (a truncated hash, never the value),
+   * so `lumo security scan --pr` can match its local findings to this scan.
+   */
+  fingerprint: string
   /** LUM-1189 — why the falsifier suggested `suggestedDisposition` (sanitized). */
   suggestedReason: string | null
 }
@@ -688,6 +693,7 @@ async function buildPullRequestReadout(
         reachability: f.reachability ?? null,
         callChain: chain.edges,
         callChainOmitted: chain.omitted,
+        fingerprint: f.fingerprint,
         suggestedReason:
           cleanText(f.suggestedReason, DETAIL_MAX, tally) ?? null,
       }
