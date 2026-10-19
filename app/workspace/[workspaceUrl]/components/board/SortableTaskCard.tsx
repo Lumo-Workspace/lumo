@@ -60,7 +60,7 @@ function CardShell({
       {...drag.listeners}
       onClick={onClick}
       className={cn(
-        'bg-card border border-border p-3 rounded-lg shadow-elevation-1 hover:shadow-elevation-2 transition-shadow',
+        'bg-card border border-border p-3 rounded-lg hover:border-muted-foreground/50 transition-colors',
         cursorClass,
         isOverlay &&
           'shadow-elevation-3 border-ring/50 rotate-2 cursor-grabbing',
