@@ -11,6 +11,7 @@ import {
 import { SimilarTaskMatch } from '@/lib/similarity'
 import { ApiTask } from '../types'
 import { slugify } from '@/lib/utils/slugify'
+import { Alert } from '@/components/ui/alert'
 
 interface DuplicateWarningProps {
   matches: SimilarTaskMatch<ApiTask>[]
@@ -29,13 +30,13 @@ export function DuplicateWarning({
   if (matches.length === 0) return null
 
   return (
-    <div className='rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30'>
+    <Alert variant='warning' size='sm' role='status'>
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
-        className='w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-700 dark:text-amber-400'
+        className='flex w-full items-center gap-2 text-left text-body'
       >
-        <AlertTriangle className='size-4 shrink-0' />
+        <AlertTriangle className='size-4 shrink-0 text-warning-text' />
         <span>
           {intl.formatMessage(
             { id: 'duplicate.similarFound' },
@@ -49,7 +50,7 @@ export function DuplicateWarning({
         )}
       </button>
       {expanded && (
-        <div className='px-3 pb-2 space-y-1'>
+        <div className='mt-1 space-y-1'>
           {matches.map(({ task, score }) => {
             const projectName =
               task.project?.name ??
@@ -64,9 +65,9 @@ export function DuplicateWarning({
                 key={task.id}
                 type='button'
                 onClick={() => window.open(url, '_blank')}
-                className='w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors'
+                className='w-full flex items-center gap-2 text-left text-caption px-2 py-1.5 rounded-sm hover:bg-warning/15 transition-colors'
               >
-                <span className='text-amber-600 dark:text-amber-500 font-medium tabular-nums shrink-0'>
+                <span className='text-warning-text tabular-nums shrink-0'>
                   {Math.round(score * 100)}%
                 </span>
                 <span className='truncate text-foreground'>{task.title}</span>
@@ -79,6 +80,6 @@ export function DuplicateWarning({
           })}
         </div>
       )}
-    </div>
+    </Alert>
   )
 }

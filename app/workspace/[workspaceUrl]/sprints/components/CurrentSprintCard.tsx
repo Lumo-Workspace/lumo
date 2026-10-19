@@ -4,16 +4,18 @@ import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 import {
   useSprint,
   useSprintBurnup,
   useSprintTasks,
 } from '../../hooks/useSprints'
 import { SprintActionsMenu } from './SprintActionsMenu'
-import { formatDate } from './DatePickerField'
+import { formatDate } from '../../components/fields/DatePickerField'
 import { daysFromNow, timeElapsedPct } from './sprintLandingUtils'
 import { fromSample } from '@/lib/baseline/adapters'
 import { BaselineStatView } from '@/components/BaselineStat'
+import { Progress } from '@/components/ui/progress'
 
 /** Distinct-assignee count for the contributor row (real, not story points). */
 function contributorCount(tasks: unknown[] | undefined): number {
@@ -80,8 +82,8 @@ function Metric({
 }) {
   return (
     <div className='rounded-lg border border-border p-3.5'>
-      <div className='text-xs text-muted-foreground'>{label}</div>
-      <div className='mt-1 text-xl font-semibold tabular-nums'>{children}</div>
+      <div className='text-caption text-muted-foreground'>{label}</div>
+      <div className='mt-1 text-heading tabular-nums'>{children}</div>
     </div>
   )
 }
@@ -127,150 +129,140 @@ export function CurrentSprintCard({
   const href = `/workspace/${workspaceUrl}/sprints/${sprint.number}`
 
   return (
-    <section className='overflow-hidden rounded-xl border border-border bg-card shadow-elevation-1'>
-      {/* Header */}
-      <div className='flex items-start justify-between gap-4 px-6 pb-1 pt-5'>
-        <div className='min-w-0'>
-          <div className='flex flex-wrap items-center gap-2'>
-            <Link href={href} className='hover:underline'>
-              <h2 className='text-lg font-semibold tracking-tight'>
-                {detail?.name ?? sprint.name}
-              </h2>
-            </Link>
-            <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-[11.5px] font-semibold text-success-text'>
-              <span className='size-1.5 rounded-full bg-success-text' />
-              {intl.formatMessage({ id: 'sprints.status.active' })}
-            </span>
-            {finishedEarly && (
-              <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-[11.5px] font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'sprints.landing.finishedEarly' })}
+    <Card asChild className='overflow-hidden rounded-xl'>
+      <section>
+        {/* Header */}
+        <div className='flex items-start justify-between gap-4 px-6 pb-1 pt-5'>
+          <div className='min-w-0'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <Link href={href} className='hover:underline'>
+                <h2 className='text-title'>{detail?.name ?? sprint.name}</h2>
+              </Link>
+              <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-caption font-semibold text-success-text'>
+                <span className='size-1.5 rounded-full bg-success-text' />
+                {intl.formatMessage({ id: 'sprints.status.active' })}
               </span>
-            )}
+              {finishedEarly && (
+                <span className='inline-flex h-[22px] items-center rounded-md border border-border bg-muted px-2 text-caption text-muted-foreground'>
+                  {intl.formatMessage({ id: 'sprints.landing.finishedEarly' })}
+                </span>
+              )}
+            </div>
+            <p className='mt-1.5 font-mono text-caption text-muted-foreground'>
+              {formatDate(sprint.startDate, intl.locale)} –{' '}
+              {formatDate(sprint.endDate, intl.locale)} ·{' '}
+              {intl.formatMessage(
+                { id: 'sprints.landing.daysLeft' },
+                { count: daysLeft }
+              )}
+            </p>
           </div>
-          <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
-            {formatDate(sprint.startDate, intl.locale)} –{' '}
-            {formatDate(sprint.endDate, intl.locale)} ·{' '}
-            {intl.formatMessage(
-              { id: 'sprints.landing.daysLeft' },
-              { count: daysLeft }
-            )}
-          </p>
+          <SprintActionsMenu sprint={sprint} onDeleted={onChanged} />
         </div>
-        <SprintActionsMenu sprint={sprint} onDeleted={onChanged} />
-      </div>
 
-      {/* Progress + metrics */}
-      <div className='px-6 pb-6 pt-3.5'>
-        <div className='mb-2.5 flex items-end justify-between gap-4'>
-          <div className='flex items-baseline gap-2'>
-            <span className='text-[28px] font-semibold tracking-tight tabular-nums'>
-              {done}
-              <span className='font-medium text-muted-foreground'>
-                {' '}
-                / {total}
+        {/* Progress + metrics */}
+        <div className='px-6 pb-6 pt-3.5'>
+          <div className='mb-2.5 flex items-end justify-between gap-4'>
+            <div className='flex items-baseline gap-2'>
+              <span className='text-display tabular-nums'>
+                {done}
+                <span className='font-normal text-muted-foreground'>
+                  {' '}
+                  / {total}
+                </span>
               </span>
-            </span>
-            <span className='text-sm text-muted-foreground'>
-              {intl.formatMessage({ id: 'sprints.landing.tasksComplete' })}
-            </span>
+              <span className='text-body text-muted-foreground'>
+                {intl.formatMessage({ id: 'sprints.landing.tasksComplete' })}
+              </span>
+            </div>
+            <BaselineStatView
+              stat={completionStat}
+              formatValue={n => `${n}%`}
+              baseLabel='baseline.history'
+            />
           </div>
-          <BaselineStatView
-            stat={completionStat}
-            formatValue={n => `${n}%`}
-            baseLabel='baseline.history'
-          />
-        </div>
-        {/* Completion fill on the track; elapsed time is a tick that pokes
+          {/* Completion fill on the track; elapsed time is a tick that pokes
             past the track so it reads against the card, not the fill. */}
-        <div className='relative mb-5'>
-          <div
-            className='relative h-2 w-full overflow-hidden rounded-full bg-muted'
-            role='progressbar'
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
+          <div className='relative mb-5'>
+            <Progress value={pct} tone='success' />
             <div
-              className='absolute inset-y-0 left-0 bg-success-text'
-              style={{ width: `${pct}%` }}
+              className='absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-sm bg-muted-foreground'
+              style={{ left: `${timePct}%` }}
               aria-hidden
             />
           </div>
-          <div
-            className='absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-sm bg-muted-foreground'
-            style={{ left: `${timePct}%` }}
-            aria-hidden
-          />
-        </div>
 
-        <div className='mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4'>
-          <Metric
-            label={intl.formatMessage({ id: 'sprints.metric.completed' })}
-          >
-            {done}
-          </Metric>
-          <Metric
-            label={intl.formatMessage({ id: 'sprints.metric.remaining' })}
-          >
-            {remaining}
-          </Metric>
-          <Metric label={intl.formatMessage({ id: 'sprints.metric.timeLeft' })}>
-            {daysLeft}
-            <span className='ml-1 text-xs font-medium text-muted-foreground'>
-              {intl.formatMessage({ id: 'sprints.metric.days' })}
-            </span>
-          </Metric>
-          <div className='flex flex-col justify-between rounded-lg border border-border p-3.5'>
-            <div className='text-xs text-muted-foreground'>
-              {intl.formatMessage({ id: 'sprints.metric.burndown' })}
+          <div className='mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4'>
+            <Metric
+              label={intl.formatMessage({ id: 'sprints.metric.completed' })}
+            >
+              {done}
+            </Metric>
+            <Metric
+              label={intl.formatMessage({ id: 'sprints.metric.remaining' })}
+            >
+              {remaining}
+            </Metric>
+            <Metric
+              label={intl.formatMessage({ id: 'sprints.metric.timeLeft' })}
+            >
+              {daysLeft}
+              <span className='ml-1 text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: 'sprints.metric.days' })}
+              </span>
+            </Metric>
+            <div className='flex flex-col justify-between rounded-lg border border-border p-3.5'>
+              <div className='text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: 'sprints.metric.burndown' })}
+              </div>
+              <BurndownSpark sprintId={sprint.id} />
             </div>
-            <BurndownSpark sprintId={sprint.id} />
+          </div>
+
+          <div className='flex items-center justify-between gap-4'>
+            {contributors > 0 ? (
+              <span className='text-body text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'sprints.landing.contributors' },
+                  { count: contributors }
+                )}
+              </span>
+            ) : (
+              <span />
+            )}
+            <span
+              className={cn(
+                'text-body-strong',
+                onTrack ? 'text-success-text' : 'text-muted-foreground'
+              )}
+            >
+              {intl.formatMessage({
+                id: onTrack
+                  ? 'sprints.landing.onTrack'
+                  : 'sprints.landing.behind',
+              })}
+            </span>
           </div>
         </div>
 
-        <div className='flex items-center justify-between gap-4'>
-          {contributors > 0 ? (
-            <span className='text-sm text-muted-foreground'>
+        {/* Finished-early banner */}
+        {finishedEarly && (
+          <div className='flex items-center justify-between gap-4 border-t border-border bg-muted/40 px-6 py-3.5'>
+            <span className='text-body text-muted-foreground'>
               {intl.formatMessage(
-                { id: 'sprints.landing.contributors' },
-                { count: contributors }
+                { id: 'sprints.landing.finishedEarlyBanner' },
+                { count: daysLeft }
               )}
             </span>
-          ) : (
-            <span />
-          )}
-          <span
-            className={cn(
-              'text-sm font-medium',
-              onTrack ? 'text-success-text' : 'text-muted-foreground'
-            )}
-          >
-            {intl.formatMessage({
-              id: onTrack
-                ? 'sprints.landing.onTrack'
-                : 'sprints.landing.behind',
-            })}
-          </span>
-        </div>
-      </div>
-
-      {/* Finished-early banner */}
-      {finishedEarly && (
-        <div className='flex items-center justify-between gap-4 border-t border-border bg-muted/40 px-6 py-3.5'>
-          <span className='text-sm text-muted-foreground'>
-            {intl.formatMessage(
-              { id: 'sprints.landing.finishedEarlyBanner' },
-              { count: daysLeft }
-            )}
-          </span>
-          <Link
-            href={href}
-            className='inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90'
-          >
-            {intl.formatMessage({ id: 'sprints.detail.closeSprint' })}
-          </Link>
-        </div>
-      )}
-    </section>
+            <Link
+              href={href}
+              className='inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-body-strong text-primary-foreground transition-colors hover:bg-primary/90'
+            >
+              {intl.formatMessage({ id: 'sprints.detail.closeSprint' })}
+            </Link>
+          </div>
+        )}
+      </section>
+    </Card>
   )
 }

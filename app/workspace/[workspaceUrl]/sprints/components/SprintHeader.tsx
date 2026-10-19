@@ -10,6 +10,7 @@ import {
 import { formatCalendarDayShort } from '@/lib/datetime/format'
 import { SprintBurnupCard } from './SprintBurnupCard'
 import { SprintDateRange } from './SprintDateRange'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
 
 interface SprintHeaderProps {
   sprint: Sprint
@@ -24,13 +25,15 @@ const STATE_I18N_KEY: Record<DerivedSprintState, string> = {
   COMPLETED: 'sprints.state.completed',
 }
 
-// Neutral text + a semantic subtle fill/border carries the state colour
-// (design-system rule: badge copy stays foreground-neutral, colour signals via
-// bg/border), so it survives lint:tokens and both light/dark modes.
-const STATE_BADGE: Record<DerivedSprintState, string> = {
-  UPCOMING: 'bg-muted text-muted-foreground',
-  CURRENT: 'border border-info-border bg-info-subtle text-foreground',
-  COMPLETED: 'border border-success-border bg-success-subtle text-foreground',
+// The state colour comes from the shared Badge's subtle feedback variants
+// (-subtle fill, -border edge, -text label), so it tracks both themes.
+const STATE_BADGE: Record<
+  DerivedSprintState,
+  NonNullable<BadgeProps['variant']>
+> = {
+  UPCOMING: 'muted',
+  CURRENT: 'info',
+  COMPLETED: 'success',
 }
 
 /**
@@ -63,15 +66,11 @@ export function SprintHeader({
           nowhere to go but wrap unevenly. */}
       <div className='flex flex-col gap-1'>
         <div className='flex flex-wrap items-center gap-x-2.5 gap-y-1'>
-          <span className='text-title font-semibold tracking-tight'>
-            {sprint.name}
-          </span>
+          <span className='text-title'>{sprint.name}</span>
           {state && (
-            <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-caption font-medium ${STATE_BADGE[state]}`}
-            >
+            <Badge variant={STATE_BADGE[state]} size='sm'>
               {intl.formatMessage({ id: STATE_I18N_KEY[state] })}
-            </span>
+            </Badge>
           )}
         </div>
         <SprintDateRange sprint={sprint} onRefresh={onRefresh} />

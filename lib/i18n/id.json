@@ -346,6 +346,7 @@
   "slack.connected": "Terhubung",
   "slack.connectedTo": "Terhubung ke ruang kerja: {teamName}",
   "slack.channelNote": "Notifikasi saluran dikonfigurasi per proyek.",
+  "slack.channelUnavailable": "(tidak tersedia)",
   "slack.disconnectTitle": "Putuskan Slack?",
   "slack.disconnectDesc": "Semua langganan saluran akan dihapus. Anda dapat terhubung kembali kapan saja.",
   "slack.connectSuccess": "Slack berhasil dihubungkan",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Daftar",
   "sprints.view.timeline": "Linimasa",
   "sprints.filter.all": "Semua",
+  "sprints.statusFilter.label": "Filter sprint berdasarkan status",
   "sprints.metric.completed": "Selesai",
   "sprints.metric.remaining": "Tersisa",
   "sprints.metric.timeLeft": "Sisa waktu",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Ukuran tim",
   "waitlist.teamSize.select": "Pilih…",
   "waitlist.teamSize.justMe": "Hanya saya",
+  "waitlist.teamSize.preferNotToSay": "Memilih tidak menjawab",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Semua orang",
   "settings.auditLog.filter.since": "Dari",
   "settings.auditLog.filter.until": "Sampai",
+  "settings.auditLog.filter.anyDate": "Tanggal apa pun",
   "settings.auditLog.filter.reset": "Atur ulang",
   "settings.auditLog.export": "Ekspor CSV",
   "settings.auditLog.exportHint": "Mengunduh hingga {max} peristiwa terbaru yang cocok dengan filter.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "File yang dilampirkan ke langkah ikut dihitung dalam batas yang sama.",
   "testCases.field.evidenceFiles.tooManyTotal": "Dengan file yang dilampirkan ke langkah, eksekusi ini berisi {count} file — maksimal {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” bukan jenis yang didukung — gunakan PNG, JPEG, WebP, GIF, teks, atau JSON.",
-  "testCases.report.state.skipped": "Dilewati"
+  "testCases.report.state.skipped": "Dilewati",
+  "formDialog.collapse": "Ciutkan",
+  "formDialog.expand": "Perluas"
 }

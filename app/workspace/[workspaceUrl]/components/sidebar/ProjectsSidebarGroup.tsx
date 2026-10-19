@@ -243,7 +243,7 @@ export function ProjectsSidebarGroup({
         <SidebarMenuSub className='mr-0 pr-0'>
           {visibleProjects.length === 0 ? (
             <SidebarMenuSubItem>
-              <span className='block px-2 py-1 text-xs text-sidebar-foreground/50'>
+              <span className='block px-2 py-1 text-caption text-sidebar-foreground/50'>
                 {intl.formatMessage({ id: 'sidebar.noProjects' })}
               </span>
             </SidebarMenuSubItem>

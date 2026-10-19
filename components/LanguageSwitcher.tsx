@@ -60,8 +60,8 @@ export function LanguageSwitcher({
         className={
           className ??
           (compact
-            ? 'h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:text-foreground focus:ring-0 focus:ring-offset-0'
-            : 'h-8 w-48 text-sm')
+            ? 'h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-caption text-muted-foreground shadow-none hover:text-foreground focus:ring-0 focus:ring-offset-0'
+            : 'h-8 w-48 text-body')
         }
       >
         {compact ? <Globe size={14} className='shrink-0' /> : null}

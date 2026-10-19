@@ -14,6 +14,8 @@
  *     (LUM-1135) — the milestone's project workspace
  *   - image:    `workspaces/<workspaceId>/images/<fileId>` — server-chosen
  *     prefix (LUM-862), swept with the workspace
+ *   - feedback-evidence: `workspaces/<workspaceId>/feedback/<fileId>`
+ *     (LUM-1240) — the submitting workspace; swept with the workspace
  *
  * Pathnames carry NO file extension on purpose: the Clerk middleware matcher
  * skips any path ending in `.png` / `.json` / `.txt` …, and without it the
@@ -33,6 +35,7 @@ export type PrivateFile =
       fileId: string
     }
   | { kind: 'image'; workspaceId: string; fileId: string }
+  | { kind: 'feedback-evidence'; workspaceId: string; fileId: string }
 
 export function evidencePathname(
   taskId: string,
@@ -55,12 +58,23 @@ export function imagePathname(workspaceId: string, fileId: string): string {
   return `workspaces/${workspaceId}/images/${fileId}`
 }
 
+/** LUM-1240: evidence attached to a feedback report, under the workspace folder. */
+export function feedbackEvidencePathname(
+  workspaceId: string,
+  fileId: string
+): string {
+  return `workspaces/${workspaceId}/feedback/${fileId}`
+}
+
 export function pathnameOf(file: PrivateFile): string {
   if (file.kind === 'evidence') {
     return evidencePathname(file.taskId, file.caseId, file.fileId)
   }
   if (file.kind === 'milestone-evidence') {
     return milestoneEvidencePathname(file.milestoneId, file.caseId, file.fileId)
+  }
+  if (file.kind === 'feedback-evidence') {
+    return feedbackEvidencePathname(file.workspaceId, file.fileId)
   }
   return imagePathname(file.workspaceId, file.fileId)
 }
@@ -83,6 +97,9 @@ export function parsePrivateFilePath(pathname: string): PrivateFile | null {
   }
   if (head === 'workspaces' && b === 'images' && ID.test(a) && ID.test(c)) {
     return { kind: 'image', workspaceId: a, fileId: c }
+  }
+  if (head === 'workspaces' && b === 'feedback' && ID.test(a) && ID.test(c)) {
+    return { kind: 'feedback-evidence', workspaceId: a, fileId: c }
   }
   return null
 }

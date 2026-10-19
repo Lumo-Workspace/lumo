@@ -40,6 +40,9 @@ const mkCase = (n: number, title: string) => ({
   number: n,
   title,
   steps: [],
+  // The card builds its (collapsed) body eagerly, so the fixture carries
+  // every field a real TestCase row has.
+  verification: [],
   expected: 'ok',
   runs: [],
 })

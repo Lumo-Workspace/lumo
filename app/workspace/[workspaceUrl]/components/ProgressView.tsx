@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import type {
   ProgressMetric,
   TaskProgress,
@@ -10,6 +11,7 @@ import { RangeBand } from './RangeBand'
 import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 import { noBaseline } from '@/lib/baseline/adapters'
+import { Badge } from '@/components/ui/badge'
 
 // over 预警 pill（warning token）。on-track 不渲染 —— 飞行途中偏低是正常进度。
 function OverPill({ metric }: { metric: ProgressMetric }) {
@@ -17,10 +19,10 @@ function OverPill({ metric }: { metric: ProgressMetric }) {
   if (metric.band !== 'over' || metric.deltaPct === null) return null
   const sign = metric.deltaPct > 0 ? '+' : ''
   return (
-    <span className='inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-caption font-medium text-warning-text'>
+    <Badge variant='warning' size='sm'>
       {sign}
       {metric.deltaPct}% · {intl.formatMessage({ id: 'progress.over' })}
-    </span>
+    </Badge>
   )
 }
 
@@ -48,97 +50,99 @@ export function ProgressView({
     !hasTokenBand && tokenCost.actual !== null && tokenCost.actual > 0
 
   return (
-    <section className='rounded-lg border border-border bg-card p-4'>
-      <div className='mb-3 flex items-center justify-between gap-2'>
-        <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
-          {intl.formatMessage({ id: 'progress.title' })}
-        </p>
-        {running && (
-          <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full bg-info-subtle px-2.5 py-0.5 text-caption font-medium text-info-text'>
-            <span className='size-1.5 rounded-full bg-info' aria-hidden />
-            {intl.formatMessage({ id: 'progress.agentRunning' })}
-          </span>
-        )}
-      </div>
-
-      {hasTokenBand && tokenCost.forecast && (
-        <div className='mb-4'>
-          <p className='mb-2 text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'progress.tokenUsage' })}
+    <Card asChild className='p-4'>
+      <section>
+        <div className='mb-3 flex items-center justify-between gap-2'>
+          <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
+            {intl.formatMessage({ id: 'progress.title' })}
           </p>
-          <div className='flex items-baseline justify-between gap-3'>
-            <span className='text-caption text-muted-foreground'>
-              {intl.formatMessage(
-                { id: 'progress.predictedMedian' },
-                { value: fmtCompact(intl, tokenCost.forecast.median) }
-              )}
-            </span>
-            <span className='text-right'>
+          {running && (
+            <Badge variant='info' size='sm' className='shrink-0'>
+              <span className='size-1.5 rounded-full bg-info' aria-hidden />
+              {intl.formatMessage({ id: 'progress.agentRunning' })}
+            </Badge>
+          )}
+        </div>
+
+        {hasTokenBand && tokenCost.forecast && (
+          <div className='mb-4'>
+            <p className='mb-2 text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: 'progress.tokenUsage' })}
+            </p>
+            <div className='flex items-baseline justify-between gap-3'>
+              <span className='text-caption text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'progress.predictedMedian' },
+                  { value: fmtCompact(intl, tokenCost.forecast.median) }
+                )}
+              </span>
+              <span className='text-right'>
+                <span className='mr-1.5 text-caption text-muted-foreground'>
+                  {intl.formatMessage({ id: 'progress.usedLabel' })}
+                </span>
+                <span
+                  className={`text-title-strong tabular-nums ${tokenOver ? 'text-warning-text' : 'text-foreground'}`}
+                >
+                  {fmtCompact(intl, tokenCost.actual as number)}
+                </span>
+              </span>
+            </div>
+            <OverPill metric={tokenCost} />
+            <RangeBand
+              forecast={tokenCost.forecast}
+              actual={tokenCost.actual as number}
+              tone={tokenOver ? 'warning' : 'info'}
+            />
+            {!tokenOver && (
+              <p className='text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: 'progress.onTrackNote' })}
+              </p>
+            )}
+            {preDedupe && (
+              <p
+                data-testid='usage-pre-dedupe'
+                className='mt-1 text-caption text-warning-text'
+              >
+                {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {showTokenUsedOnly && (
+          <div className='mb-4'>
+            <p className='mb-2 text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: 'progress.tokenUsage' })}
+            </p>
+            <div className='flex items-baseline justify-end gap-3'>
               <span className='mr-1.5 text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: 'progress.usedLabel' })}
               </span>
-              <span
-                className={`text-title-strong tabular-nums ${tokenOver ? 'text-warning-text' : 'text-foreground'}`}
-              >
+              <span className='text-title-strong text-foreground tabular-nums'>
                 {fmtCompact(intl, tokenCost.actual as number)}
               </span>
-            </span>
+            </div>
+            {preDedupe && (
+              <p
+                data-testid='usage-pre-dedupe'
+                className='mt-1 text-caption text-warning-text'
+              >
+                {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
+              </p>
+            )}
           </div>
-          <OverPill metric={tokenCost} />
-          <RangeBand
-            forecast={tokenCost.forecast}
-            actual={tokenCost.actual as number}
-            tone={tokenOver ? 'warning' : 'info'}
-          />
-          {!tokenOver && (
-            <p className='text-caption text-muted-foreground'>
-              {intl.formatMessage({ id: 'progress.onTrackNote' })}
-            </p>
-          )}
-          {preDedupe && (
-            <p
-              data-testid='usage-pre-dedupe'
-              className='mt-1 text-caption text-warning-text'
-            >
-              {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
-            </p>
-          )}
-        </div>
-      )}
+        )}
 
-      {showTokenUsedOnly && (
-        <div className='mb-4'>
-          <p className='mb-2 text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'progress.tokenUsage' })}
-          </p>
-          <div className='flex items-baseline justify-end gap-3'>
-            <span className='mr-1.5 text-caption text-muted-foreground'>
-              {intl.formatMessage({ id: 'progress.usedLabel' })}
-            </span>
-            <span className='text-title-strong text-foreground tabular-nums'>
-              {fmtCompact(intl, tokenCost.actual as number)}
-            </span>
-          </div>
-          {preDedupe && (
-            <p
-              data-testid='usage-pre-dedupe'
-              className='mt-1 text-caption text-warning-text'
-            >
-              {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
-            </p>
-          )}
-        </div>
-      )}
+        {footer}
 
-      {footer}
-
-      {/* KPI block sits last — after the per-model footer — to match the done
+        {/* KPI block sits last — after the per-model footer — to match the done
           card's order (token → per-model breakdown → 交付 KPIs). */}
-      <DeliveryKpis
-        runs={noBaseline(iterations.actual)}
-        interactionRounds={noBaseline(interactionRounds.actual)}
-        duration={noBaseline(totalDuration.actual)}
-      />
-    </section>
+        <DeliveryKpis
+          runs={noBaseline(iterations.actual)}
+          interactionRounds={noBaseline(interactionRounds.actual)}
+          duration={noBaseline(totalDuration.actual)}
+        />
+      </section>
+    </Card>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import type { BaselineBand, BaselineDeltaKind } from '@/lib/baseline/types'
+import { Badge } from '@/components/ui/badge'
 
 const BAND_KEY: Record<BaselineBand, string> = {
   within: 'retrospective.bandWithin',
@@ -24,19 +25,14 @@ export function VariancePill({
 }) {
   const intl = useIntl()
   if (band === null || deltaPct === null) return null
-  const tone =
-    band === 'within'
-      ? 'bg-success-subtle text-success-text'
-      : 'bg-warning-subtle text-warning-text'
+  const variant = band === 'within' ? 'success' : 'warning'
   const sign = deltaPct > 0 ? '+' : ''
   const unit = deltaKind === 'rate' ? 'pt' : '%'
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${tone}`}
-    >
+    <Badge variant={variant} size='sm'>
       {sign}
       {deltaPct}
       {unit} · {intl.formatMessage({ id: BAND_KEY[band] })}
-    </span>
+    </Badge>
   )
 }

@@ -76,6 +76,77 @@ export interface ShellDetailTask {
     finishReason?: string
     error?: string
   }
+  /** LUM-1226 — what `submit_candidates` was sent and kept; absent on older rows. */
+  submission?: HuntSubmissionReadout
+}
+
+/**
+ * LUM-1226 — a task's candidate submission as the read-out carries it: counts
+ * and the schema field names the dropped candidates failed on. Never free text.
+ */
+export interface HuntSubmissionReadout {
+  calls?: number
+  submitted?: number
+  kept?: number
+  dropped?: number
+  reasons?: string[]
+}
+
+const SUBMISSION_COUNTS = ['calls', 'submitted', 'kept', 'dropped'] as const
+/** A schema field path (`cwe`, `call_chain.from`) or `limit` — nothing else passes. */
+const SUBMISSION_REASON = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/
+const SUBMISSION_REASON_MAX_CHARS = 64
+const SUBMISSION_REASONS_MAX = 16
+
+/**
+ * LUM-1226 — the `submission` object off a raw `huntAudit.tasks[]` row, kept
+ * to finite non-negative counts and field-name-shaped reasons. Undefined when
+ * the row has none (written before the field existed) or no count survives.
+ * Shared by the scan read-out and the evidence-retention scrub so both keep
+ * exactly the same, code-free facts.
+ */
+export function readHuntSubmission(
+  raw: unknown
+): HuntSubmissionReadout | undefined {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw))
+    return undefined
+  const r = raw as Record<string, unknown>
+  const out: HuntSubmissionReadout = {}
+  let counted = false
+  for (const k of SUBMISSION_COUNTS) {
+    const v = r[k]
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+      out[k] = v
+      counted = true
+    }
+  }
+  if (!counted) return undefined
+  if (Array.isArray(r.reasons)) {
+    const reasons = r.reasons
+      .filter(
+        (x): x is string =>
+          typeof x === 'string' &&
+          x.length <= SUBMISSION_REASON_MAX_CHARS &&
+          SUBMISSION_REASON.test(x)
+      )
+      .slice(0, SUBMISSION_REASONS_MAX)
+    if (reasons.length > 0) out.reasons = reasons
+  }
+  return out
+}
+
+/**
+ * LUM-1226 — `    candidates: submitted N · kept K · dropped D (reasons: …)`,
+ * plus the call count when the tool was called more than once.
+ */
+function submissionLine(s: HuntSubmissionReadout): string {
+  const reasons =
+    s.reasons && s.reasons.length > 0
+      ? ` (reasons: ${s.reasons.join(', ')})`
+      : ''
+  const calls =
+    typeof s.calls === 'number' && s.calls > 1 ? ` · ${s.calls} calls` : ''
+  return `    candidates: submitted ${s.submitted ?? '?'} · kept ${s.kept ?? '?'} · dropped ${s.dropped ?? '?'}${reasons}${calls}`
 }
 
 /** One line of prose, flattened, for a fixed-width read-out. */
@@ -123,8 +194,8 @@ function traceCacheLine(
  * Lines per task: a header (`t1 done · <model> · 3 sites · 2 cmds (gate
  * refused …)`), one line per command (`✗` = the gate refused it, with its
  * reason), one line per trace step, the task's prompt-cache totals
- * (LUM-1224), then the stop arithmetic and the wrap-up outcome — each only
- * when the row carries it.
+ * (LUM-1224), the stop arithmetic, the wrap-up outcome, then the candidate
+ * submission counts (LUM-1226) — each only when the row carries it.
  */
 export function formatHuntTaskDetail(
   tasks: ShellDetailTask[],
@@ -176,6 +247,7 @@ export function formatHuntTaskDetail(
             : `    wrap-up: not made (${w.skipped ?? 'unknown'})`
       )
     }
+    if (t.submission) out.push(submissionLine(t.submission))
   }
   return out
 }

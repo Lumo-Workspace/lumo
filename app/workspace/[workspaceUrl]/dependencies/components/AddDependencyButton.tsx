@@ -102,14 +102,14 @@ export function AddDependencyButton({
         <button
           type='button'
           disabled={busy}
-          className='text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1'
+          className='text-body text-muted-foreground hover:text-foreground inline-flex items-center gap-1'
         >
           <Plus className='h-3.5 w-3.5' />
           {intl.formatMessage({ id: 'task.dependencies.addDependency' })}
         </button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-80 p-2'>
-        <div role='radiogroup' className='flex gap-1 mb-2 text-xs'>
+        <div role='radiogroup' className='flex gap-1 mb-2 text-caption'>
           {RELATIONS.map(r => (
             <button
               key={r}
@@ -133,7 +133,7 @@ export function AddDependencyButton({
           />
           <CommandList>
             {hintId && (
-              <p className='py-3 px-2 text-xs text-muted-foreground'>
+              <p className='py-3 px-2 text-caption text-muted-foreground'>
                 {intl.formatMessage({ id: hintId })}
               </p>
             )}
@@ -162,12 +162,12 @@ export function AddDependencyButton({
                         <StatusIcon status={item.status} size={12} />
                       </span>
                     )}
-                    <span className='font-mono text-xs mr-2 text-muted-foreground'>
+                    <span className='font-mono text-caption mr-2 text-muted-foreground'>
                       {item.label}
                     </span>
                     <span className='truncate'>{item.sublabel}</span>
                     {already && (
-                      <span className='ml-auto text-xs text-muted-foreground'>
+                      <span className='ml-auto text-caption text-muted-foreground'>
                         {intl.formatMessage({ id: 'task.dependencies.added' })}
                       </span>
                     )}

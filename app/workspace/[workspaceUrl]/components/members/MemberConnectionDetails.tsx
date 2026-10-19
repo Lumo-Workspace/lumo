@@ -24,7 +24,7 @@ function Tag({ tone, children }: { tone: Tone; children: string }) {
   return (
     <span
       className={cn(
-        'rounded-full border px-2 text-[11px] font-medium leading-5 text-foreground',
+        'rounded-full border px-2 text-caption text-foreground',
         TAG_TONE[tone]
       )}
     >
@@ -49,11 +49,9 @@ function ConnectionCard({
     <div className='flex flex-col gap-3 rounded-lg border border-border bg-background p-4'>
       <div className='flex items-center gap-2'>
         <AgentGlyph agent={c.agent} size={20} />
-        <span className='flex-1 text-sm font-semibold text-foreground'>
-          {label}
-        </span>
+        <span className='flex-1 text-body-strong text-foreground'>{label}</span>
         {now !== null && (
-          <span className='text-xs text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'members.details.lastSeen' },
               { ago: formatRelativeAgo(intl, c.lastSeenAt, now) }
@@ -61,9 +59,9 @@ function ConnectionCard({
           </span>
         )}
       </div>
-      <div className='flex flex-col gap-1.5 text-sm'>
+      <div className='flex flex-col gap-1.5 text-body'>
         <div className='flex flex-wrap items-center gap-2'>
-          <span className='font-mono text-xs text-foreground'>
+          <span className='font-mono text-caption text-foreground'>
             {c.cliVersion
               ? intl.formatMessage(
                   { id: 'members.connection.cli' },
@@ -85,14 +83,16 @@ function ConnectionCard({
         </div>
         {skill && (
           <div className='flex flex-wrap items-center gap-2'>
-            <span className='font-mono text-xs text-foreground'>{skill}</span>
+            <span className='font-mono text-caption text-foreground'>
+              {skill}
+            </span>
             {c.skillBehind && <Tag tone='warn'>{behind}</Tag>}
           </div>
         )}
       </div>
       {fix && (
         <div className='flex flex-col gap-1.5'>
-          <span className='text-xs text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'members.details.fixHint' })}
           </span>
           <CodeBlock lines={[fix]} />
@@ -117,7 +117,7 @@ export function MemberConnectionDetails({
   const intl = useIntl()
   if (!connections || connections.length === 0)
     return (
-      <div className='flex flex-col gap-2 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground'>
+      <div className='flex flex-col gap-2 rounded-lg border border-dashed border-border p-4 text-body text-muted-foreground'>
         <span>
           {intl.formatMessage({ id: 'members.details.notConnected' })}
         </span>

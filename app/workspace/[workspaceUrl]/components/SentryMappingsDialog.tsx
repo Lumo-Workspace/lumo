@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { useParams } from 'next/navigation'
 import { FormattedMessage, useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Trash2 } from 'lucide-react'
 import {
   Dialog,
@@ -12,6 +13,13 @@ import {
 } from '@/components/ui/dialog'
 import { useSentryMappings } from '../hooks/useSentryMappings'
 import { useProjects } from '../hooks/useProjects'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface Props {
   open: boolean
@@ -21,6 +29,7 @@ interface Props {
 export function SentryMappingsDialog({ open, onOpenChange }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
+  const fieldId = useId()
   // Mappings load (and stay cached) only while the dialog is open; projects
   // come from the workspace-level ProjectsProvider cache, so no extra fetch.
   const { mappings, loading, submitting, addMapping, removeMapping } =
@@ -51,7 +60,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             {intl.formatMessage({ id: 'sentry.mappingsTitle' })}
           </DialogTitle>
         </DialogHeader>
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           <FormattedMessage
             id='sentry.mappingsDesc'
             values={{
@@ -62,18 +71,18 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
 
         <div className='mt-3 space-y-2'>
           {loading ? (
-            <div className='text-xs text-muted-foreground'>
+            <div className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'common.loading' })}
             </div>
           ) : mappings.length === 0 ? (
-            <div className='text-xs text-muted-foreground'>
+            <div className='text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
             </div>
           ) : (
             mappings.map(m => (
               <div
                 key={m.id}
-                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs'
+                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-caption'
               >
                 <div>
                   <span className='font-mono'>{m.sentryProjectSlug}</span>
@@ -81,7 +90,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
                   <span>{projectName(m.projectId)}</span>
                 </div>
                 <button
-                  className='text-red-500 hover:bg-red-500/10 p-1 rounded-sm'
+                  className='text-danger-text hover:bg-danger-subtle p-1 rounded-sm'
                   onClick={() => removeMapping(m.id)}
                   aria-label={intl.formatMessage({
                     id: 'sentry.mappingsRemoveAriaLabel',
@@ -95,40 +104,49 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className='mt-4 border-t border-border pt-3'>
-          <p className='text-xs font-medium'>
+          <p className='text-caption'>
             {intl.formatMessage({ id: 'sentry.addMapping' })}
           </p>
           <div className='mt-2 flex items-end gap-2'>
-            <label className='flex-1'>
-              <span className='text-xs text-foreground'>
+            <div className='flex-1'>
+              <Label
+                htmlFor={`${fieldId}-slug`}
+                className='text-caption text-foreground'
+              >
                 {intl.formatMessage({ id: 'sentry.sentrySlugLabel' })}
-              </span>
+              </Label>
               <input
-                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs font-mono'
+                id={`${fieldId}-slug`}
+                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-caption font-mono'
                 value={newSlug}
                 onChange={e => setNewSlug(e.target.value)}
                 placeholder='frontend'
               />
-            </label>
-            <label className='flex-1'>
-              <span className='text-xs text-foreground'>
+            </div>
+            <div className='flex-1'>
+              <span className='text-caption text-foreground'>
                 {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}
               </span>
-              <select
-                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs'
-                value={newProjectId}
-                onChange={e => setNewProjectId(e.target.value)}
-              >
-                <option value=''>—</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select value={newProjectId} onValueChange={setNewProjectId}>
+                <SelectTrigger
+                  aria-label={intl.formatMessage({
+                    id: 'sentry.lumoProjectLabel',
+                  })}
+                  className='mt-1'
+                >
+                  <SelectValue placeholder='—' />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <button
-              className='text-xs px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
+              className='text-caption px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
               disabled={submitting || !newSlug || !newProjectId}
               onClick={handleAdd}
             >

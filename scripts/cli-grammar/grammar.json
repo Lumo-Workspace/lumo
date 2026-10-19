@@ -880,6 +880,172 @@
         "detail": "local-only diagnosis, no Lumo API call (runs fine sandboxed)"
       }
     },
+    "feedback": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Report a Lumo bug, idea or question to the Lumo team"
+    },
+    "feedback create": {
+      "arguments": [],
+      "flags": {
+        "--actual": {
+          "long": "--actual",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What actually happened (quote the error line)"
+        },
+        "--evidence-file": {
+          "long": "--evidence-file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Screenshot or log to attach: png/jpeg/webp/gif/txt/log/json, max 4 MB each for now (request-size limit), 5 files (repeatable)"
+        },
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What you expected"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, replies } as JSON"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": ["bug", "idea", "question"],
+          "enumCaseInsensitive": true,
+          "description": "bug | idea | question (case-insensitive; default bug)"
+        },
+        "--no-env": {
+          "long": "--no-env",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Do not send environment info or the session id"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One step to reproduce (repeatable, ordered)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Related task ref, e.g. LUM-42 (only the ref is sent)"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One line: what went wrong or what you want"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Send a report to the Lumo team. Agents may file directly. Environment info (CLI version, OS, last lumo command and exit code; never argument values) is sent unless --no-env.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "--evidence-file"
+      }
+    },
+    "feedback list": {
+      "arguments": [],
+      "flags": {
+        "--cursor": {
+          "long": "--cursor",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Continue from a previous page"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, total, nextCursor } as JSON"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": ["bug", "idea", "question"],
+          "enumCaseInsensitive": true,
+          "description": "bug | idea | question (case-insensitive)"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Reports per page (1-500, default 50)"
+        },
+        "--mine": {
+          "long": "--mine",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only reports you sent"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": ["new", "triaged", "resolved", "wontfix"],
+          "enumCaseInsensitive": true,
+          "description": "new | triaged | resolved | wontfix (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List this workspace's reports to the Lumo team with their status, newest first.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "feedback show": {
+      "arguments": [{ "name": "ref", "required": true, "variadic": false }],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print { version, feedback, replies } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show one report (FB-<n>) with its status, environment and the Lumo team's replies.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "finding": {
       "arguments": [],
       "flags": {},

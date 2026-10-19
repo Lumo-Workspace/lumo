@@ -1,11 +1,9 @@
 'use client'
 
 import type { ComponentProps } from 'react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getInitials } from '@/lib/utils/getInitials'
 import { cn } from '@/lib/utils'
-import type { ApiPriority, WorkspaceMemberInfo } from '../../types'
+import type { ApiPriority } from '../../types'
 
 // ─── Priority config ───────────────────────────────────────────────────────────
 
@@ -45,7 +43,7 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
 
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
-  'h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+  'h-7 text-caption border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
 
 // ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
 
@@ -107,37 +105,5 @@ export function PriorityDot({
 
 // ─── MemberAvatar ──────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = [
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
-]
-
-function memberColor(name: string) {
-  const code = name.charCodeAt(0) + (name.charCodeAt(1) ?? 0)
-  return AVATAR_COLORS[code % AVATAR_COLORS.length]
-}
-
-export function MemberAvatar({
-  member,
-  size = 'sm',
-}: {
-  member: WorkspaceMemberInfo
-  size?: 'sm' | 'xs'
-}) {
-  const dim = size === 'xs' ? 'size-4' : 'size-5'
-  const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
-  return (
-    <Avatar className={`${dim} shrink-0`}>
-      <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
-      <AvatarFallback
-        className={`${memberColor(member.name)} ${textSize} font-semibold`}
-      >
-        {getInitials(member.name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
+/** Re-exported so field pickers keep importing it from here (LUM-1269). */
+export { MemberAvatar } from '@/components/MemberAvatar'

@@ -41,13 +41,13 @@ export function FragmentTrustBadge({
       }`}
     >
       <span
-        className={`text-[11px] font-semibold tabular-nums ${
+        className={`text-caption font-semibold tabular-nums ${
           isWeak ? 'text-muted-foreground' : 'text-foreground'
         }`}
       >
         {verdict.usefulnessPct}%
       </span>
-      <span className='text-[10px] text-muted-foreground'>
+      <span className='text-caption text-muted-foreground'>
         {intl.formatMessage(
           {
             id: 'trust.badge.judgedUsed',

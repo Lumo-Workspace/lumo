@@ -3,10 +3,25 @@
 import { useState, useTransition } from 'react'
 import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { useRouter } from 'next/navigation'
+import {
+  Bug,
+  CircleAlert,
+  Code,
+  Eye,
+  Info,
+  Layers,
+  Search,
+  TriangleAlert,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card } from '@/components/ui/card'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { SESSION_MESSAGES as M } from '../messages'
 import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
+import { Badge } from '@/components/ui/badge'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -138,11 +153,11 @@ export function SummaryCard({
   return (
     <section className='mb-8 rounded-md border bg-muted/20 p-4'>
       <header className='mb-3 flex items-center justify-between gap-4'>
-        <h2 className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+        <h2 className='text-body-strong uppercase text-muted-foreground'>
           {intl.formatMessage(M['summary.title'])}
           {summaryType && <TypeBadge type={summaryType} />}
         </h2>
-        <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+        <div className='flex items-center gap-3 text-caption text-muted-foreground'>
           {generatedAt && now != null && (
             <span>
               {intl.formatMessage(M['summary.generated'], {
@@ -157,7 +172,7 @@ export function SummaryCard({
             type='button'
             onClick={regenerate}
             disabled={loading}
-            className='rounded-sm border border-border bg-background px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50'
+            className='rounded-sm border border-border bg-background px-3 py-1 text-caption hover:bg-muted disabled:opacity-50'
           >
             {buttonLabel}
           </button>
@@ -165,15 +180,16 @@ export function SummaryCard({
       </header>
 
       {error && (
-        <p className='mb-3 rounded-sm border border-danger-border bg-danger-subtle px-3 py-2 text-sm text-danger-text'>
-          {error}
-        </p>
+        <Alert variant='danger' size='sm' className='mb-3'>
+          <CircleAlert />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {hasSummary ? (
         <SummaryBody summary={summary} />
       ) : (
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage(M['summary.empty'], {
             strong: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
           })}
@@ -194,29 +210,47 @@ const TYPE_MESSAGES: Record<string, MessageDescriptor> = {
 
 function TypeBadge({ type }: { type: string }) {
   const intl = useIntl()
-  const icon = TYPE_ICONS[type] ?? '•'
+  // Own keys only: a server-sent type like 'toString' must not hit Object.prototype.
+  const Icon = Object.prototype.hasOwnProperty.call(TYPE_ICONS, type)
+    ? TYPE_ICONS[type]
+    : undefined
+  const label = Object.prototype.hasOwnProperty.call(TYPE_MESSAGES, type)
+    ? TYPE_MESSAGES[type]
+    : undefined
   return (
-    <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
-      <span aria-hidden>{icon}</span>
-      {TYPE_MESSAGES[type] ? intl.formatMessage(TYPE_MESSAGES[type]) : type}
-    </span>
+    <Badge
+      variant='muted'
+      size='xs'
+      shape='square'
+      className='ml-2 font-mono normal-case text-foreground'
+    >
+      {Icon && (
+        <Icon
+          aria-hidden
+          data-summary-type-icon={type}
+          className='size-3 shrink-0 text-muted-foreground'
+        />
+      )}
+      {label ? intl.formatMessage(label) : type}
+    </Badge>
   )
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  exploration: '🔍',
-  implementation: '🛠',
-  debug: '🐛',
-  refactor: '🔧',
-  review: '👁',
-  mixed: '≈',
+// Decorative: the adjacent type label carries the meaning (LUM-1250).
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  exploration: Search,
+  implementation: Code,
+  debug: Bug,
+  refactor: Wrench,
+  review: Eye,
+  mixed: Layers,
 }
 
 function SummaryBody({ summary }: { summary: unknown }) {
   const shape = coerceShape(summary)
   if (!shape) {
     return (
-      <pre className='overflow-x-auto rounded-sm bg-muted/40 p-3 text-xs'>
+      <pre className='overflow-x-auto rounded-sm bg-muted/40 p-3 text-caption'>
         {JSON.stringify(summary, null, 2)}
       </pre>
     )
@@ -263,7 +297,7 @@ function coerceShape(summary: unknown): SummaryShape | null {
 function ExplorationView({ s }: { s: ExplorationShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.whatExplored'])}>
         <p>
           {s.whatExplored || (
@@ -283,7 +317,7 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
           <ul className='space-y-1'>
             {s.filesExamined.map((f, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
-                <code className='font-mono text-xs'>{f.file}</code>
+                <code className='font-mono text-caption'>{f.file}</code>
                 <span>— {f.reason}</span>
               </li>
             ))}
@@ -302,7 +336,7 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
 function ImplementationView({ s }: { s: ImplementationShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.goal'])}>
         <p>
           {s.goal || (
@@ -334,7 +368,7 @@ function ImplementationView({ s }: { s: ImplementationShape }) {
 function DebugView({ s }: { s: DebugShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <div className='flex items-start justify-between gap-4'>
         <Section title={intl.formatMessage(M['summary.problem'])}>
           <p>
@@ -369,7 +403,7 @@ function DebugView({ s }: { s: DebugShape }) {
 function RefactorView({ s }: { s: RefactorShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.refactorGoal'])}>
         <p>
           {s.refactorGoal || (
@@ -384,7 +418,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
           <ul className='space-y-1'>
             {s.changes.map((c, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
-                <code className='font-mono text-xs'>{c.file}</code>
+                <code className='font-mono text-caption'>{c.file}</code>
                 <span>— {c.description}</span>
               </li>
             ))}
@@ -392,7 +426,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
         </Section>
       )}
       <Section title={intl.formatMessage(M['summary.scope'])}>
-        <p className='font-mono text-xs text-muted-foreground'>
+        <p className='font-mono text-caption text-muted-foreground'>
           {intl.formatMessage(M['summary.scopeLine'], {
             count: s.scope.filesCount,
             added: s.scope.linesAdded,
@@ -417,7 +451,7 @@ function RefactorView({ s }: { s: RefactorShape }) {
 function ReviewView({ s }: { s: ReviewShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.reviewScope'])}>
         <p>
           {s.reviewScope || (
@@ -473,7 +507,7 @@ function ReviewView({ s }: { s: ReviewShape }) {
 function MixedView({ s }: { s: MixedShape }) {
   const intl = useIntl()
   return (
-    <div className='space-y-4 text-sm leading-relaxed'>
+    <div className='space-y-4 text-body'>
       <Section title={intl.formatMessage(M['summary.overview'])}>
         <p>{s.overview}</p>
       </Section>
@@ -502,7 +536,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+      <h3 className='mb-1 text-caption font-semibold uppercase text-muted-foreground'>
         {title}
       </h3>
       {children}
@@ -529,9 +563,9 @@ function FileChangeList({
     <ul className='space-y-1'>
       {items.map((c, i) => (
         <li key={i} className='flex flex-wrap gap-x-2'>
-          <code className='font-mono text-xs'>{c.file}</code>
+          <code className='font-mono text-caption'>{c.file}</code>
           {c.delta && (
-            <span className='font-mono text-xs text-muted-foreground'>
+            <span className='font-mono text-caption text-muted-foreground'>
               {c.delta}
             </span>
           )}
@@ -550,20 +584,27 @@ const STATUS_MESSAGES: Record<DebugStatus, MessageDescriptor> = {
 
 function StatusChip({ status }: { status: DebugStatus }) {
   const intl = useIntl()
-  const className =
-    status === 'fixed'
-      ? 'bg-green-100 text-green-900 border-green-300'
-      : status === 'partial'
-        ? 'bg-amber-100 text-amber-900 border-amber-300'
-        : 'bg-danger-subtle text-danger-text border-danger-border'
+  const variant =
+    status === 'fixed' ? 'success' : status === 'partial' ? 'warning' : 'danger'
   return (
-    <span
-      className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
+    <Badge
+      variant={variant}
+      size='sm'
+      shape='square'
+      className='shrink-0 font-semibold uppercase'
     >
       {intl.formatMessage(STATUS_MESSAGES[status])}
-    </span>
+    </Badge>
   )
 }
+
+// Severity is carried by an icon + the group's label word inside a neutral
+// bordered card — never by a coloured stripe alone (LUM-1249).
+const SEVERITY_ICONS = {
+  critical: { Icon: CircleAlert, className: 'text-danger-text' },
+  improvements: { Icon: TriangleAlert, className: 'text-warning-text' },
+  notes: { Icon: Info, className: 'text-muted-foreground' },
+} as const
 
 function SeverityGroup({
   label,
@@ -574,19 +615,15 @@ function SeverityGroup({
   tone: 'critical' | 'improvements' | 'notes'
   items: string[]
 }) {
-  const toneClass =
-    tone === 'critical'
-      ? 'border-l-4 border-danger'
-      : tone === 'improvements'
-        ? 'border-l-4 border-warning-text'
-        : 'border-l-4 border-border'
+  const { Icon, className } = SEVERITY_ICONS[tone]
   return (
-    <div className={`pl-3 ${toneClass}`}>
-      <p className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+    <Card className='rounded-md p-3 shadow-none'>
+      <p className='mb-1 flex items-center gap-1.5 text-caption font-semibold uppercase text-muted-foreground'>
+        <Icon aria-hidden className={`size-3.5 shrink-0 ${className}`} />
         {label}
       </p>
       <BulletList items={items} />
-    </div>
+    </Card>
   )
 }
 

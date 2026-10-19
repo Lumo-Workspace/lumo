@@ -27,7 +27,7 @@ export function RevisionDiffView({ oldHtml, newHtml }: RevisionDiffViewProps) {
   return (
     <RichHtml
       data-testid='diff-inline'
-      className={`prose prose-sm max-w-none break-words text-sm leading-relaxed ${DIFF_MARK_CLASSES}`}
+      className={`prose prose-sm max-w-none break-words text-body ${DIFF_MARK_CLASSES}`}
       html={html}
     />
   )

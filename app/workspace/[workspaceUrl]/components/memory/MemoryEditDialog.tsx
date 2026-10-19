@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import {
@@ -141,7 +142,7 @@ export function MemoryEditDialog({
         }}
       >
         <DialogHeader className='mb-5'>
-          <DialogTitle className='text-xl font-bold'>
+          <DialogTitle className='text-title'>
             {intl.formatMessage({ id: titleId })}
           </DialogTitle>
         </DialogHeader>
@@ -172,7 +173,7 @@ export function MemoryEditDialog({
             aria-label={intl.formatMessage({
               id: 'memory.field.summary.label',
             })}
-            className='-mx-2 mb-6 w-[calc(100%+1rem)] bg-transparent px-2 text-[22px] font-bold leading-[1.4] text-foreground outline-none placeholder:font-bold placeholder:text-muted-foreground/50'
+            className='-mx-2 mb-6 w-[calc(100%+1rem)] bg-transparent px-2 text-heading text-foreground outline-none placeholder:text-muted-foreground/50'
           />
 
           {spec.fields.map(field => (
@@ -221,9 +222,9 @@ function CategoryPill({
   const spec = MEMORY_CATEGORY_SPECS[category]
   const label = intl.formatMessage({ id: spec.labelId })
   const skin = selected
-    ? 'bg-primary font-semibold text-primary-foreground'
-    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-  const shared = `flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] ${skin}`
+    ? 'bg-primary text-body-strong text-primary-foreground'
+    : 'bg-muted text-body text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+  const shared = `flex items-center gap-1.5 rounded-full px-3.5 py-1 ${skin}`
   // On the selected (primary) pill a ring keeps the dot >= 3:1 in both modes.
   const dotClass = selected
     ? 'size-[7px] rounded-full ring-1 ring-primary-foreground'
@@ -282,17 +283,17 @@ function FieldRow({
   // layout on every keystroke and depends on the reset landing before the read;
   // this has no such failure mode, and works identically under jsdom.
   const shared =
-    '[grid-area:1/1/2/2] px-2 py-0.5 text-[15px] leading-[1.75] whitespace-pre-wrap break-words'
+    '[grid-area:1/1/2/2] px-2 py-0.5 text-body whitespace-pre-wrap break-words'
 
   return (
     <div className='pb-4'>
-      <label
+      <Label
         htmlFor={`memory-field-${field.key}`}
-        className='mb-1.5 block text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
+        className='mb-1.5 block text-caption uppercase text-muted-foreground'
       >
         {label}
         {field.required && <span aria-hidden> *</span>}
-      </label>
+      </Label>
       <div className='-mx-2 grid w-[calc(100%+1rem)]'>
         <textarea
           id={`memory-field-${field.key}`}

@@ -9,6 +9,9 @@
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { installRadixSelectShims, pickOption } from './helpers/radix-select'
+
+installRadixSelectShims()
 
 jest.mock('react-intl', () => {
   const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
@@ -90,7 +93,7 @@ const runInput = () =>
   screen.getByLabelText(/^Evidence files/) as HTMLInputElement
 
 const chooseEnv = () =>
-  userEvent.selectOptions(screen.getByLabelText(/environment/i), 'LOCAL')
+  pickOption(screen.getByLabelText(/environment/i), 'Local')
 const markRest = () =>
   userEvent.click(screen.getByRole('button', { name: 'Mark the rest passed' }))
 const record = () =>
@@ -208,18 +211,15 @@ describe('per-step evidence in the record dialog', () => {
     await chooseEnv()
     await markRest()
     attach(stepInput('s1')!, [png('s1.png')])
-    await userEvent.selectOptions(
+    await pickOption(
       screen.getByRole('combobox', { name: 'Result' }),
-      'BLOCKED'
+      'Blocked'
     )
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Result' }),
-      'PASS'
-    )
+    await pickOption(screen.getByRole('combobox', { name: 'Result' }), 'Pass')
     expect(screen.queryByText('s1.png')).not.toBeInTheDocument()
-    await userEvent.selectOptions(
+    await pickOption(
       screen.getByRole('combobox', { name: 'Result' }),
-      'BLOCKED'
+      'Blocked'
     )
     await record()
     const [, files] = onSubmit.mock.calls[0] as [unknown, File[]]
@@ -239,14 +239,11 @@ describe('per-step evidence in the record dialog', () => {
 
   it('counts step files as evidence for an implementation defect', async () => {
     const onSubmit = setup()
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Result' }),
-      'FAIL'
-    )
+    await pickOption(screen.getByRole('combobox', { name: 'Result' }), 'Fail')
     await chooseEnv()
-    await userEvent.selectOptions(
+    await pickOption(
       screen.getByLabelText(/whose fault/i),
-      'IMPLEMENTATION_DEFECT'
+      'Implementation defect'
     )
     await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
     await userEvent.click(screen.getAllByRole('radio', { name: 'Failed' })[1]!)
@@ -272,7 +269,7 @@ describe('a step that shows no selected result', () => {
       return {
         checked: within(row)
           .getAllByRole('radio')
-          .some(x => (x as HTMLInputElement).checked),
+          .some(x => x.getAttribute('aria-checked') === 'true'),
         clear: within(row).queryByRole('button', { name: /^Clear the result/ }),
         upload: within(row).queryByLabelText(/^Attach files to step/),
       }
@@ -296,19 +293,13 @@ describe('a step that shows no selected result', () => {
 
   it('a step marked failed loses its controls and files when the run turns PASS', async () => {
     setup()
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Result' }),
-      'FAIL'
-    )
+    await pickOption(screen.getByRole('combobox', { name: 'Result' }), 'Fail')
     await userEvent.click(screen.getAllByRole('radio', { name: 'Passed' })[0]!)
     await userEvent.click(screen.getAllByRole('radio', { name: 'Failed' })[1]!)
     attach(stepInput('s2')!, [png('fail.png')])
     expect(screen.getByText('fail.png')).toBeInTheDocument()
 
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Result' }),
-      'PASS'
-    )
+    await pickOption(screen.getByRole('combobox', { name: 'Result' }), 'Pass')
     // PASS 模式没有「失败」单选：第 2 步显示为未标，不能留着「清除」和入口。
     expect(rows()[1]!.checked).toBe(false)
     expectNoOrphanControls()

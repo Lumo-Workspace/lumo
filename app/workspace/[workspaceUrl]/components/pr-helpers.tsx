@@ -1,32 +1,48 @@
 'use client'
 
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
+// GitHub's PR state colours (user ruling, LUM-1245): open → success (green),
+// merged → status-in-review (the only purple/magenta token family; reused here
+// as GitHub's merged purple), closed → danger (red), draft → muted (grey).
 export function PrStateBadge({ state }: { state: string }) {
+  if (state === 'draft') {
+    return (
+      <Badge variant='muted' size='sm'>
+        Draft
+      </Badge>
+    )
+  }
   if (state === 'merged') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'>
+      <Badge
+        variant='plain'
+        size='sm'
+        className='bg-status-in-review-subtle text-status-in-review-text'
+      >
         Merged
-      </span>
+      </Badge>
     )
   }
   if (state === 'closed') {
     return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'>
+      <Badge variant='danger' size='sm'>
         Closed
-      </span>
+      </Badge>
     )
   }
   return (
-    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'>
+    <Badge variant='success' size='sm'>
       Open
-    </span>
+    </Badge>
   )
 }
 
@@ -37,18 +53,13 @@ export function CiIcon({ status }: { status: string | null }) {
   let labelId: string
 
   if (status === 'success') {
-    trigger = <CheckCircle2 size={13} className='text-emerald-500 shrink-0' />
+    trigger = <CheckCircle2 size={13} className='text-success-text shrink-0' />
     labelId = 'task.ciSuccess'
   } else if (status === 'failure') {
-    trigger = <XCircle size={13} className='text-red-500 shrink-0' />
+    trigger = <XCircle size={13} className='text-danger-text shrink-0' />
     labelId = 'task.ciFailure'
   } else if (status === 'pending') {
-    trigger = (
-      <Loader2
-        size={13}
-        className='text-muted-foreground shrink-0 animate-spin'
-      />
-    )
+    trigger = <Spinner className='size-[13px] text-muted-foreground shrink-0' />
     labelId = 'task.ciPending'
   } else {
     trigger = (

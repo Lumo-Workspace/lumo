@@ -29,18 +29,18 @@ export function SessionHeader({
       <div className='mb-6'>
         <Link
           href='/sessions'
-          className='text-sm text-muted-foreground hover:text-foreground'
+          className='text-body text-muted-foreground hover:text-foreground'
         >
           {intl.formatMessage(M['detail.back'])}
         </Link>
       </div>
 
       <header className='mb-8 space-y-2'>
-        <h1 className='font-mono text-sm text-muted-foreground'>{id}</h1>
-        <p className='text-lg'>
+        <h1 className='font-mono text-body text-muted-foreground'>{id}</h1>
+        <p className='text-title'>
           {cwd ?? <em>{intl.formatMessage(M['list.noCwd'])}</em>}
         </p>
-        <dl className='grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-5'>
+        <dl className='grid grid-cols-2 gap-x-6 gap-y-1 text-body sm:grid-cols-5'>
           <div>
             <dt className='text-muted-foreground'>
               {intl.formatMessage(M['detail.started'])}

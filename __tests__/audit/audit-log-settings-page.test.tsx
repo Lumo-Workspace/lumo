@@ -57,6 +57,16 @@ jest.mock('motion/react', () => ({
   },
 }))
 
+/** Open the calendar behind `trigger` and click `day`. */
+function pickDay(trigger: HTMLElement, day: Date) {
+  fireEvent.click(trigger)
+  const cell = document.querySelector(
+    `button[data-day="${day.toLocaleDateString()}"]`
+  )
+  if (!cell) throw new Error(`no calendar cell for ${day.toDateString()}`)
+  fireEvent.click(cell)
+}
+
 import { AuditLogSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/AuditLogSettingsPage'
 import { SettingsShell } from '@/app/workspace/[workspaceUrl]/settings/SettingsShell'
 import type { AuditEventView } from '@/lib/audit/query'
@@ -147,23 +157,28 @@ describe('LUM-907 audit log settings page', () => {
 
   it('audit settings page: date filters re-query and flow into the CSV link', () => {
     mockUseAuditEvents.mockReturnValue(state())
-    const { container } = render(<AuditLogSettingsPage />)
+    render(<AuditLogSettingsPage />)
     const link = screen.getByRole('link', { name: /Export CSV/ })
     expect(link).toHaveAttribute(
       'href',
       '/api/workspaces/me/audit-events/export'
     )
-    const [from, to] = Array.from(
-      container.querySelectorAll('input[type="date"]')
-    ) as HTMLInputElement[]
-    fireEvent.change(from!, { target: { value: '2026-10-01' } })
-    fireEvent.change(to!, { target: { value: '2026-10-04' } })
+    // The shared calendar picker opens on the current month when empty; pick
+    // the 1st and the 4th of it (local midnight — what the calendar returns).
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const key = (d: number) =>
+      `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    pickDay(screen.getByLabelText('From'), new Date(y, m, 1))
+    pickDay(screen.getByLabelText('To'), new Date(y, m, 4))
+    expect(screen.getByLabelText('From')).not.toHaveTextContent('Any date')
     expect(link).toHaveAttribute(
       'href',
-      '/api/workspaces/me/audit-events/export?since=2026-10-01&until=2026-10-04'
+      `/api/workspaces/me/audit-events/export?since=${key(1)}&until=${key(4)}`
     )
     expect(mockUseAuditEvents).toHaveBeenLastCalledWith(
-      expect.objectContaining({ since: '2026-10-01', until: '2026-10-04' })
+      expect.objectContaining({ since: key(1), until: key(4) })
     )
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
     expect(link).toHaveAttribute(

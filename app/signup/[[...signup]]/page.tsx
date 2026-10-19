@@ -2,7 +2,30 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
+import { PartyPopper } from 'lucide-react'
 import { waitlistClient, ApiClientError } from '@/lib/api-client'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+/**
+ * Team size is optional: Radix Select can't hold an item with value "", so
+ * "prefer not to say" maps to this and back to an empty team size.
+ */
+const NO_TEAM_SIZE = 'none'
+
+const TEAM_SIZES = [
+  { value: '1', labelId: 'waitlist.teamSize.justMe' },
+  { value: '2-5', labelId: 'waitlist.teamSize.2to5' },
+  { value: '6-15', labelId: 'waitlist.teamSize.6to15' },
+  { value: '16-50', labelId: 'waitlist.teamSize.16to50' },
+  { value: '50+', labelId: 'waitlist.teamSize.50plus' },
+] as const
 
 export default function WaitlistPage() {
   const intl = useIntl()
@@ -43,46 +66,50 @@ export default function WaitlistPage() {
   }
 
   return (
-    <div className='flex min-h-screen items-center justify-center bg-[#0a0a0b] px-4'>
+    <div className='dark flex min-h-screen items-center justify-center bg-background px-4 text-foreground'>
       <div className='w-full max-w-md'>
         <div className='mb-8 flex items-center justify-center gap-3'>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src='/logo-dark.svg' alt='Lumo' className='h-10 w-auto' />
-          <span className='text-3xl font-bold text-white'>Lumo</span>
+          <span className='text-display text-foreground'>Lumo</span>
         </div>
 
         {status === 'success' ? (
-          <div className='rounded-2xl border border-white/10 bg-white/5 p-8 text-center'>
-            <div className='mb-4 text-4xl'>🎉</div>
-            <h2 className='mb-2 text-xl font-semibold text-white'>
+          <div className='rounded-2xl border border-border bg-card p-8 text-center'>
+            <PartyPopper
+              aria-hidden
+              className='mx-auto mb-4 size-10 text-muted-foreground'
+              strokeWidth={1.5}
+            />
+            <h2 className='mb-2 text-heading text-foreground'>
               {intl.formatMessage({ id: 'waitlist.success.title' })}
             </h2>
-            <p className='text-sm text-zinc-400'>
+            <p className='text-body text-muted-foreground'>
               {intl.formatMessage({ id: 'waitlist.success.body' })}
             </p>
           </div>
         ) : (
           <form
             onSubmit={handleSubmit}
-            className='flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/5 p-8'
+            className='flex flex-col gap-5 rounded-2xl border border-border bg-card p-8'
           >
             <div className='text-center'>
-              <h1 className='text-xl font-semibold text-white'>
+              <h1 className='text-heading text-foreground'>
                 {intl.formatMessage({ id: 'waitlist.heading' })}
               </h1>
-              <p className='mt-1 text-sm text-zinc-400'>
+              <p className='mt-1 text-body text-muted-foreground'>
                 {intl.formatMessage({ id: 'waitlist.subheading' })}
               </p>
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='email'
-                className='text-sm font-medium text-zinc-300'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.email' })}{' '}
-                <span className='text-red-400'>*</span>
-              </label>
+                <span className='text-danger-text'>*</span>
+              </Label>
               <input
                 id='email'
                 type='email'
@@ -92,17 +119,17 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.email',
                 })}
-                className='rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/25 focus:ring-1 focus:ring-white/25'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='name'
-                className='text-sm font-medium text-zinc-300'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.name' })}
-              </label>
+              </Label>
               <input
                 id='name'
                 type='text'
@@ -111,17 +138,17 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.name',
                 })}
-                className='rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/25 focus:ring-1 focus:ring-white/25'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='company'
-                className='text-sm font-medium text-zinc-300'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.company' })}
-              </label>
+              </Label>
               <input
                 id='company'
                 type='text'
@@ -130,47 +157,51 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.company',
                 })}
-                className='rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/25 focus:ring-1 focus:ring-white/25'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
-              <label
+              <Label
                 htmlFor='teamSize'
-                className='text-sm font-medium text-zinc-300'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.teamSize' })}
-              </label>
-              <select
-                id='teamSize'
+              </Label>
+              <Select
                 value={teamSize}
-                onChange={e => setTeamSize(e.target.value)}
-                className='rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:border-white/25 focus:ring-1 focus:ring-white/25'
+                onValueChange={v => setTeamSize(v === NO_TEAM_SIZE ? '' : v)}
               >
-                <option value='' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.select' })}
-                </option>
-                <option value='1' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.justMe' })}
-                </option>
-                <option value='2-5' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.2to5' })}
-                </option>
-                <option value='6-15' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.6to15' })}
-                </option>
-                <option value='16-50' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.16to50' })}
-                </option>
-                <option value='50+' className='bg-zinc-900'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.50plus' })}
-                </option>
-              </select>
+                <SelectTrigger
+                  id='teamSize'
+                  className='h-auto rounded-lg bg-input py-2.5 text-foreground shadow-none focus:ring-1 focus:ring-ring'
+                >
+                  <SelectValue
+                    placeholder={intl.formatMessage({
+                      id: 'waitlist.teamSize.select',
+                    })}
+                  />
+                </SelectTrigger>
+                {/* The page forces the dark theme on its wrapper; the menu is
+                    portalled to <body>, outside it, so it carries `dark` too. */}
+                <SelectContent className='dark'>
+                  <SelectItem value={NO_TEAM_SIZE}>
+                    {intl.formatMessage({
+                      id: 'waitlist.teamSize.preferNotToSay',
+                    })}
+                  </SelectItem>
+                  {TEAM_SIZES.map(({ value, labelId }) => (
+                    <SelectItem key={value} value={value}>
+                      {intl.formatMessage({ id: labelId })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {(status === 'error' || status === 'duplicate') && (
               <p
-                className={`text-sm ${status === 'error' ? 'text-red-400' : 'text-amber-400'}`}
+                className={`text-body ${status === 'error' ? 'text-danger-text' : 'text-warning-text'}`}
               >
                 {message}
               </p>
@@ -179,7 +210,7 @@ export default function WaitlistPage() {
             <button
               type='submit'
               disabled={status === 'loading'}
-              className='rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50'
+              className='rounded-lg bg-primary px-4 py-2.5 text-body-strong text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50'
             >
               {status === 'loading'
                 ? intl.formatMessage({ id: 'waitlist.button.submitting' })
@@ -188,7 +219,7 @@ export default function WaitlistPage() {
           </form>
         )}
 
-        <p className='mt-6 text-center text-xs text-zinc-500'>
+        <p className='mt-6 text-center text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'waitlist.footer' })}
         </p>
       </div>

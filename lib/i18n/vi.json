@@ -346,6 +346,7 @@
   "slack.connected": "Đã kết nối",
   "slack.connectedTo": "Đã kết nối với không gian làm việc: {teamName}",
   "slack.channelNote": "Thông báo kênh được cấu hình theo từng dự án.",
+  "slack.channelUnavailable": "(không khả dụng)",
   "slack.disconnectTitle": "Ngắt kết nối Slack?",
   "slack.disconnectDesc": "Tất cả các đăng ký kênh sẽ bị xóa. Bạn có thể kết nối lại bất cứ lúc nào.",
   "slack.connectSuccess": "Kết nối Slack thành công",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "Danh sách",
   "sprints.view.timeline": "Dòng thời gian",
   "sprints.filter.all": "Tất cả",
+  "sprints.statusFilter.label": "Lọc sprint theo trạng thái",
   "sprints.metric.completed": "Hoàn thành",
   "sprints.metric.remaining": "Còn lại",
   "sprints.metric.timeLeft": "Thời gian còn lại",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "Quy mô đội ngũ",
   "waitlist.teamSize.select": "Chọn…",
   "waitlist.teamSize.justMe": "Chỉ mình tôi",
+  "waitlist.teamSize.preferNotToSay": "Không muốn trả lời",
   "waitlist.teamSize.2to5": "2–5",
   "waitlist.teamSize.6to15": "6–15",
   "waitlist.teamSize.16to50": "16–50",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "Mọi người",
   "settings.auditLog.filter.since": "Từ",
   "settings.auditLog.filter.until": "Đến",
+  "settings.auditLog.filter.anyDate": "Bất kỳ ngày nào",
   "settings.auditLog.filter.reset": "Đặt lại",
   "settings.auditLog.export": "Xuất CSV",
   "settings.auditLog.exportHint": "Tải xuống tối đa {max} sự kiện mới nhất khớp với bộ lọc.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "Tệp đính kèm vào các bước cũng tính vào cùng giới hạn.",
   "testCases.field.evidenceFiles.tooManyTotal": "Tính cả tệp đính kèm vào các bước, lần chạy này có {count} tệp — tối đa {max}.",
   "testCases.field.evidenceFiles.badType": "“{filename}” không phải loại được hỗ trợ — hãy dùng PNG, JPEG, WebP, GIF, văn bản hoặc JSON.",
-  "testCases.report.state.skipped": "Bỏ qua"
+  "testCases.report.state.skipped": "Bỏ qua",
+  "formDialog.collapse": "Thu gọn",
+  "formDialog.expand": "Mở rộng"
 }

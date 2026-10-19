@@ -36,7 +36,7 @@ export function SortableHeader<K extends string>({
       variant='ghost'
       onClick={() => onToggle(col)}
       className={cn(
-        'h-auto px-0 gap-1 text-[11px] font-medium uppercase tracking-wider select-none hover:bg-transparent',
+        'h-auto px-0 gap-1 text-caption uppercase select-none hover:bg-transparent',
         active
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'

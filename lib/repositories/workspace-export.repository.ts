@@ -30,6 +30,7 @@ export const EXPORT_KINDS = [
   'tags',
   'memories',
   'audit-events',
+  'feedback',
 ] as const
 
 export type ExportKind = (typeof EXPORT_KINDS)[number]
@@ -304,6 +305,37 @@ async function pageRows(
           userAgent: true,
           metadata: true,
           createdAt: true,
+        },
+        ...page,
+      })
+    case 'feedback':
+      // LUM-1240: reports the workspace sent to the Lumo team, with the
+      // replies it received. Staff authors stay internal (customers see
+      // "Lumo team"), so a reply carries only its body and time.
+      return prisma.feedback.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          number: true,
+          kind: true,
+          status: true,
+          title: true,
+          steps: true,
+          expected: true,
+          actual: true,
+          evidence: true,
+          environment: true,
+          taskRef: true,
+          sessionId: true,
+          submittedByMemberId: true,
+          submittedVia: true,
+          secretsRedacted: true,
+          statusChangedAt: true,
+          replies: {
+            select: { body: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          },
+          ...ts,
         },
         ...page,
       })

@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 
-import { Inbox, CheckCheck, Loader2, MessageSquare } from 'lucide-react'
+import { Inbox, CheckCheck, MessageSquare } from 'lucide-react'
 import {
   ApiNotification,
   ApiStatus,
@@ -30,6 +30,8 @@ import {
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { TaskDetailPanel } from '../TaskDetailPanel'
 import { NotificationItem, isPendingAction } from './inbox/NotificationItem'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── InboxPage ────────────────────────────────────────────────────────────────
 
@@ -260,7 +262,7 @@ export function InboxPage({
               variant='ghost'
               size='sm'
               onClick={onMarkAllRead}
-              className='h-7 text-xs gap-1.5 text-muted-foreground'
+              className='h-7 text-caption gap-1.5 text-muted-foreground'
             >
               <CheckCheck size={13} />
               {intl.formatMessage({
@@ -285,17 +287,17 @@ export function InboxPage({
                   key={i}
                   className='flex gap-3 px-4 py-3 border-b border-border'
                 >
-                  <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
+                  <Skeleton className='size-7 shrink-0 rounded-full' />
                   <div className='flex-1 space-y-1.5'>
-                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-3/4' />
-                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/2' />
+                    <Skeleton className='h-2.5 w-3/4 rounded-sm' />
+                    <Skeleton className='h-2.5 w-1/2 rounded-sm' />
                   </div>
                 </div>
               ))}
             </div>
           ) : error ? (
             <div className='flex flex-col items-center justify-center h-full gap-3 text-muted-foreground p-4'>
-              <p className='text-sm text-center'>{error}</p>
+              <p className='text-body text-center'>{error}</p>
               <Button variant='outline' size='sm' onClick={onRetry}>
                 {intl.formatMessage({
                   id: 'common.retry',
@@ -309,8 +311,8 @@ export function InboxPage({
               {actionable.length > 0 && (
                 <div className='px-2 pt-2 pb-0'>
                   <div className='flex items-center gap-1.5 px-1 pb-1'>
-                    <MessageSquare size={11} className='text-blue-500' />
-                    <span className='text-[10px] font-medium text-blue-500 uppercase tracking-wide'>
+                    <MessageSquare size={11} className='text-info-text' />
+                    <span className='text-caption text-info-text uppercase'>
                       {intl.formatMessage({
                         id: 'inbox.section.actionable',
                         defaultMessage: 'Needs your response',
@@ -328,7 +330,7 @@ export function InboxPage({
                 <div className='px-2 pt-2 pb-1.5'>
                   {actionable.length > 0 && (
                     <div className='flex items-center gap-1.5 px-1 pb-1'>
-                      <span className='text-[10px] font-medium text-muted-foreground uppercase tracking-wide'>
+                      <span className='text-caption text-muted-foreground uppercase'>
                         {intl.formatMessage({
                           id: 'inbox.section.other',
                           defaultMessage: 'Other',
@@ -346,7 +348,7 @@ export function InboxPage({
               {notifications.length === 0 && (
                 <div className='flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground'>
                   <Inbox size={24} className='text-muted-foreground/30' />
-                  <p className='text-xs text-muted-foreground'>
+                  <p className='text-caption text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'inbox.empty.allCaughtUp',
                       defaultMessage: "You're all caught up",
@@ -380,10 +382,7 @@ export function InboxPage({
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center'
             >
-              <Loader2
-                size={20}
-                className='animate-spin text-muted-foreground'
-              />
+              <Spinner className='size-5 text-muted-foreground' />
             </motion.div>
           ) : panelTask ? (
             <motion.div
@@ -420,7 +419,7 @@ export function InboxPage({
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center text-muted-foreground'
             >
-              <p className='text-sm'>
+              <p className='text-body'>
                 {intl.formatMessage({
                   id: 'inbox.noLinkedTask',
                   defaultMessage: 'No task linked to this notification.',
@@ -437,7 +436,7 @@ export function InboxPage({
               className='absolute inset-0 flex flex-col items-center justify-center gap-3 pb-16'
             >
               <Inbox size={32} className='text-muted-foreground/30' />
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-body text-muted-foreground'>
                 {unreadCount > 0
                   ? intl.formatMessage(
                       {

@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -16,6 +16,7 @@ import { useIntl } from 'react-intl'
 import type { PrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import type { ApiPriority } from '../../types'
 import { PRIORITY_CONFIG, PriorityDot } from './shared'
+import { Spinner } from '@/components/ui/spinner'
 
 export interface AiPrioritySelectProps {
   value: ApiPriority
@@ -38,8 +39,8 @@ export function AiPrioritySelect({
   const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
 
   const tooltipContent = suggestion ? (
-    <div className='space-y-1.5 text-xs max-w-64'>
-      <div className='font-medium'>
+    <div className='space-y-1.5 text-caption max-w-64'>
+      <div>
         {intl.formatMessage(
           { id: 'priority.recommended' },
           {
@@ -105,13 +106,13 @@ export function AiPrioritySelect({
       </Select>
 
       {isLoadingSuggestion && (
-        <Loader2 className='size-3 animate-spin text-muted-foreground' />
+        <Spinner className='size-3 text-muted-foreground' />
       )}
 
       {!isLoadingSuggestion && suggestion && !overrideRecorded && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className='inline-flex items-center gap-0.5 text-[10px] text-violet-500 cursor-default'>
+            <span className='inline-flex items-center gap-0.5 text-caption text-info-text cursor-default'>
               <Sparkles className='size-3' />
               {intl.formatMessage({ id: 'priority.aiRecommended' })}
             </span>
@@ -123,7 +124,7 @@ export function AiPrioritySelect({
       )}
 
       {overrideRecorded && (
-        <span className='text-[10px] text-emerald-500 animate-fade-out'>
+        <span className='text-caption text-success-text animate-fade-out'>
           {intl.formatMessage({ id: 'priority.preferenceRecorded' })}
         </span>
       )}

@@ -129,7 +129,7 @@ function Section({
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className='mt-12'>
-      <h2 id={`${id}-heading`} className='mb-4 text-xl font-semibold'>
+      <h2 id={`${id}-heading`} className='mb-4 text-heading'>
         {title}
       </h2>
       <div className='space-y-3 leading-relaxed'>{children}</div>
@@ -173,14 +173,14 @@ export function SecurityPage({
     <main lang={locale} className='min-h-screen bg-background text-foreground'>
       <div className='mx-auto max-w-3xl px-4 py-10 sm:px-8 sm:py-16'>
         <header className='flex flex-wrap items-center justify-between gap-4'>
-          <Link href='/' className='text-lg font-semibold'>
+          <Link href='/' className='text-title'>
             Lumo
           </Link>
           <LanguageSwitcher locale={locale} path='/security' />
         </header>
 
-        <h1 className='mt-10 text-3xl font-bold'>{t('security.title')}</h1>
-        <p className='mt-2 text-sm text-muted-foreground'>
+        <h1 className='mt-10 text-display'>{t('security.title')}</h1>
+        <p className='mt-2 text-body text-muted-foreground'>
           {t('security.updated', { date: updated })}
         </p>
         <p className='mt-6 leading-relaxed'>{t('security.intro')}</p>
@@ -228,7 +228,7 @@ export function SecurityPage({
             {rich('security.report.securityTxt', {
               path: (
                 <a
-                  className='font-mono text-sm underline underline-offset-4'
+                  className='font-mono text-body underline underline-offset-4'
                   href={SECURITY_TXT_PATH}
                 >
                   {SECURITY_TXT_PATH}

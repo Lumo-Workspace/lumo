@@ -61,7 +61,7 @@ export function ScanEvidenceRetentionRow({
       })}
       notes={
         <>
-          <p className='text-xs text-muted-foreground mt-1'>
+          <p className='text-caption text-muted-foreground mt-1'>
             {intl.formatMessage(
               { id: 'workspaceSettings.scanEvidence.openCap' },
               { days: SCAN_EVIDENCE_HARD_CAP_DAYS }
@@ -70,7 +70,7 @@ export function ScanEvidenceRetentionRow({
           {days === 0 && (
             <p
               data-testid='scan-evidence-zero-hint'
-              className='text-xs text-muted-foreground mt-1'
+              className='text-caption text-muted-foreground mt-1'
             >
               {intl.formatMessage({
                 id: 'workspaceSettings.scanEvidence.zeroHint',

@@ -27,7 +27,7 @@ export function NewCommentPopover(props: NewCommentPopoverProps) {
       role='dialog'
       className='w-full rounded-md border bg-popover p-2 shadow-elevation-2'
     >
-      <div className='mb-1 line-clamp-2 text-xs text-muted-foreground'>
+      <div className='mb-1 line-clamp-2 text-caption text-muted-foreground'>
         &quot;{props.quotedText}&quot;
       </div>
       <CommentEditor

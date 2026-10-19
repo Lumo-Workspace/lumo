@@ -64,9 +64,9 @@ function AgentChip({
   const intl = useIntl()
   const label = useAgentLabel(c.agent)
   return (
-    <span className='inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background pl-1 pr-2.5 text-xs'>
+    <span className='inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background pl-1 pr-2.5 text-caption'>
       <AgentGlyph agent={c.agent} size={20} />
-      <span className='font-medium text-foreground'>{label}</span>
+      <span className='text-foreground'>{label}</span>
       {now !== null && (
         <span className='text-muted-foreground'>
           {formatRelativeAgo(intl, c.lastSeenAt, now)}
@@ -92,10 +92,10 @@ export function MemberConnectionsCell({
   now: number | null
 }) {
   const intl = useIntl()
-  if (unknown) return <span className='text-sm text-muted-foreground'>—</span>
+  if (unknown) return <span className='text-body text-muted-foreground'>—</span>
   if (!connections || connections.length === 0)
     return (
-      <span className='text-sm text-muted-foreground'>
+      <span className='text-body text-muted-foreground'>
         {intl.formatMessage({ id: 'members.connection.none' })}
       </span>
     )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { Label } from '@/components/ui/label'
 import { Paperclip, X } from 'lucide-react'
 import { EVIDENCE_ALLOWED_TYPES } from '@/lib/validation/test-case'
 
@@ -26,7 +27,7 @@ export function StepEvidenceInput({
   const intl = useIntl()
   return (
     <div className='flex flex-col gap-1 pl-4' data-testid='step-evidence'>
-      <label className='flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'>
+      <Label className='flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'>
         <Paperclip className='size-3' aria-hidden />
         <span>
           {intl.formatMessage({ id: 'testCases.field.stepEvidence.add' })}
@@ -47,7 +48,7 @@ export function StepEvidenceInput({
             if (picked.length > 0) onPick(picked)
           }}
         />
-      </label>
+      </Label>
       {files.length > 0 ? (
         <ul className='flex flex-col gap-0.5 text-caption text-foreground'>
           {files.map((f, i) => (

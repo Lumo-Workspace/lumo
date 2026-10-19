@@ -63,7 +63,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
       <PopoverTrigger asChild>
         <button
           type='button'
-          className='text-3xl hover:bg-muted rounded-md p-1 transition-colors'
+          className='text-display hover:bg-muted rounded-md p-1 transition-colors'
         >
           {value || '📄'}
         </button>
@@ -74,7 +74,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
             <button
               key={emoji}
               type='button'
-              className='text-xl p-1.5 rounded-sm hover:bg-muted transition-colors'
+              className='text-heading p-1.5 rounded-sm hover:bg-muted transition-colors'
               onClick={() => {
                 onChange(emoji)
                 setOpen(false)
@@ -87,7 +87,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
         {value && (
           <button
             type='button'
-            className='w-full mt-2 text-xs text-muted-foreground hover:text-foreground py-1'
+            className='w-full mt-2 text-caption text-muted-foreground hover:text-foreground py-1'
             onClick={() => {
               onChange(null)
               setOpen(false)

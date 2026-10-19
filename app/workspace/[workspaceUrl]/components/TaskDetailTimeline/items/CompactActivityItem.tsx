@@ -20,6 +20,7 @@ import { StatusIcon } from '../../StatusIcon'
 import { PRIORITY_CONFIG, PriorityDot } from '../../fields/shared'
 import type { ApiPriority } from '../../../types'
 import { buildActorMention } from '../ActorMention'
+import { Badge } from '@/components/ui/badge'
 
 interface CompactActivityItemProps {
   entry: TimelineActivityEntry
@@ -31,7 +32,6 @@ interface ActorInfo {
   name: string
   isAgent: boolean
   imageUrl: string | undefined
-  initials: string
 }
 
 export function resolveActor(
@@ -44,7 +44,6 @@ export function resolveActor(
       name: 'System',
       isAgent: false,
       imageUrl: undefined,
-      initials: 'S',
     }
   }
   if (entry.actor?.type === 'AGENT') {
@@ -53,22 +52,14 @@ export function resolveActor(
       name,
       isAgent: true,
       imageUrl: undefined,
-      initials: name.charAt(0),
     }
   }
   const member = members.find(m => m.actorId === entry.actorId)
   if (member) {
-    const initials = member.name
-      .split(' ')
-      .map(w => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase()
     return {
       name: member.name,
       isAgent: false,
       imageUrl: member.imageUrl ?? undefined,
-      initials,
     }
   }
   // Fallback: check agentActors list
@@ -78,22 +69,24 @@ export function resolveActor(
       name: agent.name,
       isAgent: true,
       imageUrl: undefined,
-      initials: agent.name.charAt(0),
     }
   }
-  return { name: 'Unknown', isAgent: false, imageUrl: undefined, initials: '?' }
+  return { name: 'Unknown', isAgent: false, imageUrl: undefined }
 }
 
 function InlineTagBadge({ name }: { name: string }) {
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
   const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
   return (
-    <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap align-middle'
+    <Badge
+      variant='plain'
+      size='xs'
+      shape='square'
+      className='align-middle'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {name}
-    </span>
+    </Badge>
   )
 }
 
@@ -341,7 +334,7 @@ function formatActivityText(
             })
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <AlertTriangle className='h-3.5 w-3.5 text-red-500' />
+          <AlertTriangle className='h-3.5 w-3.5 text-danger-text' />
           <span>{label}</span>
           {eventCount !== null ? (
             <span className='text-muted-foreground'>· {eventCount} events</span>
@@ -595,14 +588,14 @@ export function CompactActivityItem({
       <CommentAvatar
         isAgent={actor.isAgent}
         imageUrl={actor.imageUrl}
-        initials={actor.initials}
+        name={actor.name}
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2'>
-          <span className='font-medium text-foreground'>{actor.name}</span>
+          <span className='text-foreground'>{actor.name}</span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className='text-[11px] text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {formatTimeAgo(entry.createdAt, intl.locale)}
               </span>
             </TooltipTrigger>

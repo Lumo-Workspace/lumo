@@ -1,12 +1,10 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { getInitials } from '@/lib/utils/getInitials'
 import { MemberAvatar } from '../fields'
 import type { WorkspaceMemberInfo } from '../../types'
 
@@ -24,18 +22,23 @@ export function MemberHoverChip({ member }: { member: WorkspaceMemberInfo }) {
           tabIndex={0}
           className='inline-flex cursor-default items-center gap-1.5 rounded-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring'
         >
-          <MemberAvatar member={member} />
-          <span className='font-medium'>{member.name}</span>
+          <MemberAvatar
+            decorative
+            name={member.name}
+            imageUrl={member.imageUrl}
+            size='xs'
+          />
+          <span>{member.name}</span>
         </span>
       </HoverCardTrigger>
       <HoverCardContent side='top' align='start' className='w-60 p-3'>
         <div className='flex items-center gap-3'>
-          <Avatar className='size-8 shrink-0'>
-            <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
-            <AvatarFallback className='text-xs font-semibold'>
-              {getInitials(member.name)}
-            </AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            decorative
+            name={member.name}
+            imageUrl={member.imageUrl}
+            size='lg'
+          />
           <div className='flex min-w-0 flex-col'>
             <span className='truncate text-body-strong text-foreground'>
               {member.name}

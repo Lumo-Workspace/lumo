@@ -45,14 +45,14 @@ function ToggleSection({
   const intl = useIntl()
   return (
     <section aria-label={title}>
-      <h2 className='text-sm font-semibold text-foreground mb-2'>{title}</h2>
+      <h2 className='text-body-strong text-foreground mb-2'>{title}</h2>
       <div className='border border-border rounded-lg overflow-hidden bg-card mb-6'>
         {rows.map((row, i) => (
           <div
             key={row.prefKey}
             className={`flex items-center justify-between px-4 py-3 ${i < rows.length - 1 ? 'border-b border-border' : ''}`}
           >
-            <p className='text-sm text-foreground'>
+            <p className='text-body text-foreground'>
               {intl.formatMessage({ id: row.labelId })}
             </p>
             <Switch
@@ -76,10 +76,10 @@ export function NotificationsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'notifications.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'notifications.subtitle' })}
         </p>
 

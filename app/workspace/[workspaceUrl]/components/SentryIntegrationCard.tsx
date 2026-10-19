@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -19,6 +18,7 @@ import { SentryMappingsDialog } from './SentryMappingsDialog'
 import { SentryIcon } from './SentryIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { useSentryIntegration } from '../hooks/useSentryIntegration'
+import { Spinner } from '@/components/ui/spinner'
 
 export function SentryIntegrationCard({
   isOwner,
@@ -49,7 +49,7 @@ export function SentryIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    <Spinner className='text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'sentry.connected' })} />
   ) : isOwner ? (
@@ -78,12 +78,12 @@ export function SentryIntegrationCard({
       >
         {connected ? (
           <>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'sentry.connectedTo' },
                 {
                   orgSlug: (
-                    <span className='font-medium text-foreground font-mono'>
+                    <span className='text-foreground font-mono'>
                       {status?.orgSlug}
                     </span>
                   ),
@@ -91,7 +91,7 @@ export function SentryIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-caption text-muted-foreground'>
               {status?.lastWebhookAt
                 ? intl.formatMessage(
                     { id: 'sentry.lastWebhook' },
@@ -150,7 +150,7 @@ export function SentryIntegrationCard({
               disabled={disconnecting}
             >
               {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
+                <Spinner className='size-3.5' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
               )}

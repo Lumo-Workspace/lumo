@@ -47,8 +47,8 @@ const STATUS_ICON: Record<DerivedSprintState, typeof Circle> = {
 }
 
 const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
-  CURRENT: 'text-emerald-500',
-  UPCOMING: 'text-sky-500',
+  CURRENT: 'text-success-text',
+  UPCOMING: 'text-info-text',
   COMPLETED: 'text-muted-foreground',
 }
 
@@ -77,7 +77,7 @@ function formatCompactRange(s: Sprint, locale: string, now: Date): string {
 }
 
 const ITEM_CLS =
-  'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
+  'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-body outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
 
 export function TaskSprintField({
   task,
@@ -155,10 +155,10 @@ export function TaskSprintField({
           <span className='flex-1 truncate'>
             <SelectPrimitive.ItemText>{s.name}</SelectPrimitive.ItemText>
           </span>
-          <span className='w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
+          <span className='w-32 shrink-0 text-right text-caption tabular-nums text-muted-foreground'>
             {formatCompactRange(s, intl.locale, now)}
           </span>
-          <span className='w-16 shrink-0 text-xs text-muted-foreground/80'>
+          <span className='w-16 shrink-0 text-caption text-muted-foreground/80'>
             {intl.formatMessage({ id: STATUS_LABEL_KEY[state] })}
           </span>
         </span>

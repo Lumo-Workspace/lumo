@@ -6,7 +6,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import { copyLink } from '@/lib/utils/copyLink'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -18,6 +22,7 @@ import { MilestoneListEmpty } from './MilestoneListEmpty'
 import { MilestoneListSkeleton } from './MilestoneListSkeleton'
 import { MilestoneArchiveConfirm } from './MilestoneArchiveConfirm'
 import { MilestoneFormDialog } from './MilestoneFormDialog'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 interface Props {
   projectId: string
@@ -54,6 +59,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const [confirmArchive, setConfirmArchive] = useState<ApiMilestone | null>(
     null
   )
+  const [confirmDelete, setConfirmDelete] = useState<ApiMilestone | null>(null)
 
   const { rows, counts } = useMemo(() => {
     const active = milestones.filter(m => !m.archivedAt)
@@ -89,29 +95,23 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   }
 
   const filterBar = (
-    <div
-      className='flex flex-wrap items-center gap-2'
-      role='group'
+    <ToggleGroup
+      type='single'
+      variant='chip'
+      value={tab}
+      onValueChange={value => {
+        // Single-select: ignore the '' Radix sends when the active chip is re-clicked.
+        if (value) setTab(value as Tab)
+      }}
       aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
     >
       {TABS.map(t => (
-        <button
-          key={t.key}
-          type='button'
-          aria-pressed={tab === t.key}
-          onClick={() => setTab(t.key)}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-caption transition-colors',
-            tab === t.key
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background text-muted-foreground hover:text-foreground'
-          )}
-        >
+        <ToggleGroupItem key={t.key} value={t.key}>
           {intl.formatMessage({ id: t.labelId })}
-          <span className='tabular-nums opacity-70'>{counts[t.key]}</span>
-        </button>
+          <ToggleGroupItemCount>{counts[t.key]}</ToggleGroupItemCount>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 
   return (
@@ -144,15 +144,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
                 onArchiveToggle={() => onArchiveToggle(m)}
                 onCopyLink={() => copyLink(`${window.location.origin}${href}`)}
-                onDelete={() => {
-                  const ok = window.confirm(
-                    intl.formatMessage(
-                      { id: 'milestone.delete.confirm' },
-                      { name: m.name }
-                    )
-                  )
-                  if (ok) deleteMutation.mutate(m)
-                }}
+                onDelete={() => setConfirmDelete(m)}
               />
             )
           })}
@@ -173,6 +165,24 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
           }}
         />
       )}
+
+      <ConfirmActionDialog
+        open={confirmDelete !== null}
+        onOpenChange={open => {
+          if (!open) setConfirmDelete(null)
+        }}
+        title={intl.formatMessage({ id: 'milestone.delete' })}
+        description={intl.formatMessage(
+          { id: 'milestone.delete.confirm' },
+          { name: confirmDelete?.name ?? '' }
+        )}
+        confirmLabel={intl.formatMessage({ id: 'common.delete' })}
+        destructive
+        onConfirm={() => {
+          if (confirmDelete) deleteMutation.mutate(confirmDelete)
+          setConfirmDelete(null)
+        }}
+      />
 
       {dialog && (
         <MilestoneFormDialog

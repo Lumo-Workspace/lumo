@@ -10,7 +10,6 @@ export interface AgentActorInfo {
 export interface CommentAuthorInfo {
   isAgent: boolean
   name: string
-  initials: string
   imageUrl: string | undefined
 }
 
@@ -38,7 +37,6 @@ export function resolveCommentAuthor(
     return {
       isAgent: true,
       name: agentActor?.name ?? 'Coding Agent',
-      initials: 'CA',
       imageUrl: undefined,
     }
   }
@@ -48,12 +46,6 @@ export function resolveCommentAuthor(
   return {
     isAgent: false,
     name,
-    initials: name
-      .split(' ')
-      .map((n: string) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase(),
     imageUrl: author?.imageUrl ?? undefined,
   }
 }

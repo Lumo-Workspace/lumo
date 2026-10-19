@@ -4,13 +4,15 @@ import { useIntl } from 'react-intl'
 
 /** Open/merged PR indicator for a task-mention chip (LUM-411). `none` renders
  *  nothing upstream, so this only handles the two visible states. Color flows
- *  through the semantic feedback tokens (open → info, merged → success). */
+ *  GitHub's PR colours via tokens (LUM-1245): open → success (green), merged →
+ *  status-in-review (the only purple/magenta token family). */
 export function PrBadge({ state }: { state: 'open' | 'merged' }) {
   const intl = useIntl()
   const label = intl.formatMessage({
     id: state === 'merged' ? 'mention.pr.merged' : 'mention.pr.open',
   })
-  const colorClass = state === 'merged' ? 'text-success-text' : 'text-info'
+  const colorClass =
+    state === 'merged' ? 'text-status-in-review-text' : 'text-success-text'
 
   return (
     <span

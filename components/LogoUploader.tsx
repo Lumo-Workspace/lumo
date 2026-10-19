@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { getInitials } from '@/lib/utils/getInitials'
 
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 
@@ -54,12 +55,7 @@ export function LogoUploader({
   const [crop, setCrop] = useState<Crop>()
   const [uploading, setUploading] = useState(false)
 
-  const initials = workspaceName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('')
+  const initials = getInitials(workspaceName)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -179,15 +175,17 @@ export function LogoUploader({
               className='size-full object-contain'
             />
           ) : (
-            <div className='size-full bg-muted-foreground flex items-center justify-center text-sm font-bold text-white'>
-              {initials || '?'}
+            <div className='size-full bg-muted-foreground flex items-center justify-center text-body-strong text-white'>
+              {initials}
             </div>
           )}
           <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
             <Camera size={16} className='text-white' />
           </div>
         </button>
-        {sizeError && <p className='text-xs text-red-500'>{sizeError}</p>}
+        {sizeError && (
+          <p className='text-caption text-danger-text'>{sizeError}</p>
+        )}
       </div>
 
       <Dialog

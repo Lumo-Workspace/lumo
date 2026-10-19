@@ -105,7 +105,7 @@ export function LineageTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-xs text-muted-foreground'>
+      <div className='py-8 text-center text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'lineage.loading',
           defaultMessage: '加载中…',
@@ -116,7 +116,9 @@ export function LineageTab({
 
   if (error) {
     return (
-      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+      <div className='py-8 text-center text-caption text-danger-text'>
+        {error}
+      </div>
     )
   }
 
@@ -124,13 +126,13 @@ export function LineageTab({
     return (
       <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
         <GitBranch className='size-6' />
-        <p className='text-xs'>
+        <p className='text-caption'>
           {intl.formatMessage({
             id: 'lineage.empty',
             defaultMessage: '此任务暂无 lineage 记录',
           })}
         </p>
-        <p className='text-[11px] text-muted-foreground max-w-xs text-center'>
+        <p className='text-caption text-muted-foreground max-w-xs text-center'>
           {intl.formatMessage({
             id: 'lineage.emptyHint',
             defaultMessage:
@@ -153,7 +155,7 @@ export function LineageTab({
   const visibleFragments = showAllFragments ? fragments : []
 
   return (
-    <div className='rounded-lg border border-border text-xs'>
+    <div className='rounded-lg border border-border text-caption'>
       {/* Summary row */}
       <div className='px-3 py-2 border-b border-border text-muted-foreground'>
         {intl.formatMessage(
@@ -209,7 +211,7 @@ export function LineageTab({
             />
           ) : (
             <div className='px-3 py-3'>
-              <div className='mb-1 text-caption font-medium text-muted-foreground'>
+              <div className='mb-1 text-caption text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'lineage.cost.label',
                   defaultMessage: 'Cost',
@@ -234,17 +236,17 @@ export function LineageTab({
             className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
           >
             <span
-              className={`rounded-sm px-1 text-[9px] font-bold ${OUTCOME_BADGE[f.outcome]}`}
+              className={`rounded-sm px-1 text-caption font-semibold ${OUTCOME_BADGE[f.outcome]}`}
             >
               {f.outcome}
             </span>
             <span className='truncate'>
               {f.fragmentType} — {f.sourceLabel}
             </span>
-            <span className='ml-auto shrink-0 text-[10px] text-muted-foreground/80'>
+            <span className='ml-auto shrink-0 text-caption text-muted-foreground/80'>
               {disclosureLabel(intl, f.disclosure, f.pulled)}
             </span>
-            <span className='shrink-0 text-[10px] text-muted-foreground/80'>
+            <span className='shrink-0 text-caption text-muted-foreground/80'>
               {usedLabel(intl, f.used)}
             </span>
           </div>
@@ -254,7 +256,7 @@ export function LineageTab({
           <button
             type='button'
             onClick={() => setShowAllFragments(v => !v)}
-            className='w-full px-3 py-2 border-t border-border/60 text-left text-[11px] text-muted-foreground hover:text-foreground transition-colors'
+            className='w-full px-3 py-2 border-t border-border/60 text-left text-caption text-muted-foreground hover:text-foreground transition-colors'
           >
             {showAllFragments
               ? intl.formatMessage({

@@ -80,13 +80,13 @@ export function WorkspaceExportCard() {
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
       <div className='flex items-start justify-between gap-4 px-5 py-3 border-b border-border'>
         <div>
-          <p className='text-sm font-semibold text-foreground'>
+          <p className='text-body-strong text-foreground'>
             {intl.formatMessage({ id: 'workspaceSettings.export.title' })}
           </p>
-          <p className='text-xs text-muted-foreground mt-0.5'>
+          <p className='text-caption text-muted-foreground mt-0.5'>
             {intl.formatMessage({ id: 'workspaceSettings.export.description' })}
           </p>
-          <p className='text-xs text-muted-foreground mt-1'>
+          <p className='text-caption text-muted-foreground mt-1'>
             {intl.formatMessage(
               { id: 'workspaceSettings.export.ttlNote' },
               { days: EXPORT_TTL_DAYS }
@@ -109,7 +109,7 @@ export function WorkspaceExportCard() {
       </div>
 
       {exports !== null && exports.length === 0 && (
-        <p className='px-5 py-4 text-xs text-muted-foreground'>
+        <p className='px-5 py-4 text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'workspaceSettings.export.empty' })}
         </p>
       )}
@@ -120,17 +120,17 @@ export function WorkspaceExportCard() {
           className='flex items-center justify-between gap-4 px-5 py-3 border-b border-border last:border-b-0'
         >
           <div className='min-w-0'>
-            <p className='text-sm font-medium text-foreground'>
+            <p className='text-body-strong text-foreground'>
               {intl.formatMessage({
                 id: `workspaceSettings.export.status.${e.status}`,
               })}
               {e.sizeBytes !== null && e.status === 'READY' && (
-                <span className='ml-2 text-xs font-normal text-muted-foreground'>
+                <span className='ml-2 text-caption font-normal text-muted-foreground'>
                   {formatBytes(e.sizeBytes)}
                 </span>
               )}
             </p>
-            <p className='text-xs text-muted-foreground mt-0.5'>
+            <p className='text-caption text-muted-foreground mt-0.5'>
               {intl.formatMessage(
                 { id: 'workspaceSettings.export.requestedAt' },
                 { date: formatDate(e.createdAt) }
@@ -155,7 +155,7 @@ export function WorkspaceExportCard() {
               )}
             </p>
             {e.status === 'FAILED' && (
-              <p className='text-xs text-muted-foreground mt-0.5'>
+              <p className='text-caption text-muted-foreground mt-0.5'>
                 {intl.formatMessage({
                   id: 'workspaceSettings.export.failedHint',
                 })}

@@ -40,8 +40,8 @@ export function DependencyRow({
   const evidence = evidenceText(edge)
   const [confirming, setConfirming] = useState(false)
   return (
-    <div className='group flex min-w-0 items-center gap-2 py-1.5 text-sm border-b border-border/50 last:border-b-0'>
-      <span className='font-mono text-xs text-muted-foreground shrink-0 whitespace-nowrap'>
+    <div className='group flex min-w-0 items-center gap-2 py-1.5 text-body border-b border-border/50 last:border-b-0'>
+      <span className='font-mono text-caption text-muted-foreground shrink-0 whitespace-nowrap'>
         {edge.other.identifier}
       </span>
       <span className='min-w-0 flex-1 truncate'>{edge.other.title}</span>
@@ -59,7 +59,7 @@ export function DependencyRow({
                   onRemove?.()
                   setConfirming(false)
                 }}
-                className='text-xs font-medium text-danger-text hover:underline'
+                className='text-caption text-danger-text hover:underline'
               >
                 {intl.formatMessage({ id: 'common.remove' })}
               </button>
@@ -90,7 +90,7 @@ export function DependencyRow({
       {variant === 'suggested' && (
         <div className='flex items-center gap-1'>
           {evidence && (
-            <span className='text-xs text-muted-foreground mr-1'>
+            <span className='text-caption text-muted-foreground mr-1'>
               {evidence}
             </span>
           )}
@@ -99,7 +99,7 @@ export function DependencyRow({
             disabled={busy}
             onClick={() => onConfirm?.(false)}
             className={cn(
-              'text-xs px-2 py-0.5 rounded-md border border-border hover:bg-accent',
+              'text-caption px-2 py-0.5 rounded-md border border-border hover:bg-accent',
               'text-success-text'
             )}
           >
@@ -111,7 +111,7 @@ export function DependencyRow({
             aria-label={intl.formatMessage({ id: 'task.dependencies.reverse' })}
             disabled={busy}
             onClick={() => onConfirm?.(true)}
-            className='text-xs px-2 py-0.5 rounded-md border border-border hover:bg-accent text-muted-foreground'
+            className='text-caption px-2 py-0.5 rounded-md border border-border hover:bg-accent text-muted-foreground'
           >
             <ArrowLeftRight className='h-3 w-3' />
           </button>
@@ -120,7 +120,7 @@ export function DependencyRow({
             aria-label={intl.formatMessage({ id: 'task.dependencies.dismiss' })}
             disabled={busy}
             onClick={onDismiss}
-            className='text-xs px-2 py-0.5 rounded-md border border-border hover:bg-accent text-muted-foreground'
+            className='text-caption px-2 py-0.5 rounded-md border border-border hover:bg-accent text-muted-foreground'
           >
             <X className='h-3 w-3' />
           </button>

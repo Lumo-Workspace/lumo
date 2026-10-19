@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Plus, Pencil, Trash2, Tag as TagIcon } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -144,7 +145,7 @@ export function TagsSettingsPage() {
     <div className='max-w-2xl mx-auto px-8 py-10'>
       {/* Header */}
       <div className='flex items-center justify-between mb-1'>
-        <h1 className='text-xl font-semibold text-foreground'>
+        <h1 className='text-heading text-foreground'>
           {intl.formatMessage({ id: 'settings.tags.title' })}
         </h1>
         <Button size='sm' className='gap-1.5' onClick={openCreate}>
@@ -152,22 +153,22 @@ export function TagsSettingsPage() {
           {intl.formatMessage({ id: 'settings.tags.createTag' })}
         </Button>
       </div>
-      <p className='text-sm text-muted-foreground mb-6'>
+      <p className='text-body text-muted-foreground mb-6'>
         {intl.formatMessage({ id: 'settings.tags.description' })}
       </p>
 
       {/* List */}
       {loading ? (
-        <div className='text-sm text-muted-foreground'>
+        <div className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'common.loading' })}
         </div>
       ) : tags.length === 0 ? (
         <div className='text-center py-12'>
           <TagIcon size={32} className='mx-auto mb-3 text-muted-foreground' />
-          <p className='text-sm font-medium text-muted-foreground'>
+          <p className='text-body-strong text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.tags.empty' })}
           </p>
-          <p className='text-xs text-muted-foreground mt-1'>
+          <p className='text-caption text-muted-foreground mt-1'>
             {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
           </p>
         </div>
@@ -180,7 +181,7 @@ export function TagsSettingsPage() {
             >
               <TagBadgeNew tag={tag} />
               <span className='flex-1' />
-              <span className='text-xs text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {tag.taskCount === 0 && tag.documentCount === 0
                   ? intl.formatMessage({ id: 'settings.tags.unused' })
                   : `${intl.formatMessage(
@@ -199,7 +200,7 @@ export function TagsSettingsPage() {
               </button>
               <button
                 onClick={() => setDeleteTag(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-red-500 transition-all'
+                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-danger-text transition-all'
               >
                 <Trash2 size={14} />
               </button>
@@ -221,10 +222,14 @@ export function TagsSettingsPage() {
           <div className='space-y-4 py-2'>
             {/* Name */}
             <div>
-              <label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
+              <Label
+                htmlFor='tag-form-name'
+                className='text-caption text-muted-foreground mb-1.5 block'
+              >
                 {intl.formatMessage({ id: 'settings.tags.name' })}
-              </label>
+              </Label>
               <Input
+                id='tag-form-name'
                 value={form.name}
                 onChange={e => {
                   setForm(prev => ({ ...prev, name: e.target.value }))
@@ -242,15 +247,24 @@ export function TagsSettingsPage() {
                 }}
               />
               {formError && (
-                <p className='text-xs text-danger-text mt-1'>{formError}</p>
+                <p className='text-caption text-danger-text mt-1'>
+                  {formError}
+                </p>
               )}
             </div>
             {/* Color */}
             <div>
-              <label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
+              <p
+                id='tag-form-color'
+                className='text-caption text-muted-foreground mb-1.5'
+              >
                 {intl.formatMessage({ id: 'settings.tags.color' })}
-              </label>
-              <div className='flex items-center gap-2 flex-wrap'>
+              </p>
+              <div
+                role='group'
+                aria-labelledby='tag-form-color'
+                className='flex items-center gap-2 flex-wrap'
+              >
                 {/* No color (auto) */}
                 <button
                   onClick={() => setForm(prev => ({ ...prev, color: null }))}
@@ -277,7 +291,7 @@ export function TagsSettingsPage() {
               </div>
               {/* Custom hex input */}
               <div className='flex items-center gap-2 mt-2'>
-                <span className='text-xs text-muted-foreground'>
+                <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'settings.tags.custom' })}:
                 </span>
                 <Input
@@ -290,7 +304,7 @@ export function TagsSettingsPage() {
                     }))
                   }}
                   placeholder={CUSTOM_COLOR_PLACEHOLDER}
-                  className='w-28 h-7 text-xs font-mono'
+                  className='w-28 h-7 text-caption font-mono'
                   maxLength={7}
                 />
                 {form.color && (
@@ -346,7 +360,7 @@ export function TagsSettingsPage() {
               {intl.formatMessage({ id: 'common.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
               onClick={handleDelete}
               disabled={deleting}
             >

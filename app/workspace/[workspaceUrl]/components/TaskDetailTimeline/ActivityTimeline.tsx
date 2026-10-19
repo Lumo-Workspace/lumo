@@ -9,6 +9,7 @@ import {
   TimelineEntryRenderer,
   RETIRED_ACTIVITY_TYPES,
 } from './TimelineEntryRenderer'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ── Filter categories ────────────────────────────────────────────────────────
 
@@ -239,9 +240,9 @@ export function ActivityTimeline({
       <div className='space-y-3 py-4'>
         {[1, 2, 3].map(i => (
           <div key={i} className='flex gap-2.5'>
-            <div className='size-5 rounded-full bg-muted animate-pulse shrink-0' />
+            <Skeleton className='size-5 shrink-0 rounded-full' />
             <div className='flex-1 space-y-1.5 pt-0.5'>
-              <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
+              <Skeleton className='h-2.5 w-2/3 rounded-sm' />
             </div>
           </div>
         ))}
@@ -270,7 +271,7 @@ export function ActivityTimeline({
             <button
               key={cat.id}
               onClick={() => handleFilter(cat.id)}
-              className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+              className={`px-2 py-0.5 rounded-full text-caption transition-colors ${
                 isActive
                   ? 'bg-foreground text-background'
                   : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -310,7 +311,7 @@ export function ActivityTimeline({
           <div key={group.dateKey}>
             {/* Date header */}
             <div className='flex items-center gap-2 mb-1.5'>
-              <span className='text-[11px] font-medium text-muted-foreground whitespace-nowrap'>
+              <span className='text-caption text-muted-foreground whitespace-nowrap'>
                 {formatDateHeader(group.dateKey, intl)}
               </span>
               <div className='flex-1 h-px bg-border' />

@@ -49,6 +49,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 
 type ProjectSortKey =
   | 'name'
@@ -91,7 +92,7 @@ function StatusCell({
     <td className='py-4 px-6 border-b border-border'>
       <div className='flex items-center justify-center gap-2'>
         <div className={`size-2 rounded-full ${STATUS_DOT_CLS[status]}`} />
-        <span className='text-xs text-foreground'>{count}</span>
+        <span className='text-caption text-foreground'>{count}</span>
       </div>
     </td>
   )
@@ -254,7 +255,7 @@ export function ProjectsPage({
               {open && query.trim() && (
                 <div className='absolute top-full mt-1 w-full bg-card border border-border rounded-md shadow-elevation-3 z-dropdown overflow-hidden'>
                   {filtered.length === 0 ? (
-                    <p className='px-3 py-2.5 text-xs text-muted-foreground'>
+                    <p className='px-3 py-2.5 text-caption text-muted-foreground'>
                       {intl.formatMessage({ id: 'projects.searchNoMatch' })}
                     </p>
                   ) : (
@@ -262,14 +263,14 @@ export function ProjectsPage({
                       <Button
                         key={p.id}
                         variant='ghost'
-                        className='w-full justify-between h-auto px-3 py-2.5 text-xs text-foreground rounded-none font-normal gap-2'
+                        className='w-full justify-between h-auto px-3 py-2.5 text-caption font-normal text-foreground rounded-none gap-2'
                         onMouseDown={() => {
                           setQuery('')
                           setOpen(false)
                           onSelectProject(p)
                         }}
                       >
-                        <span className='font-medium truncate'>{p.name}</span>
+                        <span className='truncate'>{p.name}</span>
                         {p.isIdea && (
                           <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
                             {intl.formatMessage({ id: 'projects.draftBadge' })}
@@ -295,7 +296,7 @@ export function ProjectsPage({
       <div className='h-12 shrink-0 relative'>
         {selectedCount > 0 && (
           <div className='absolute inset-0 z-sticky flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
-            <span className='text-xs font-medium text-foreground'>
+            <span className='text-caption text-foreground'>
               {intl.formatMessage(
                 { id: 'common.selected' },
                 { count: selectedCount }
@@ -486,7 +487,7 @@ export function ProjectsPage({
                   </td>
                   <td className='py-4 px-6 border-b border-border'>
                     <div className='flex items-center justify-center gap-3'>
-                      <span className='font-medium text-foreground group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
+                      <span className='text-body-strong text-foreground group-hover:text-info-text transition-colors'>
                         {project.name}
                       </span>
                       {project.isIdea && (
@@ -497,9 +498,9 @@ export function ProjectsPage({
                     </div>
                   </td>
                   <td className='py-4 px-6 border-b border-border text-center'>
-                    <span className='px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-muted-foreground'>
+                    <Badge variant='muted' size='sm'>
                       {project._count.tasks}
-                    </span>
+                    </Badge>
                   </td>
                   <StatusCell count={project.todoCount} status='TODO' />
                   <StatusCell
@@ -511,10 +512,10 @@ export function ProjectsPage({
                     status='IN_REVIEW'
                   />
                   <StatusCell count={project.doneCount} status='DONE' />
-                  <td className='py-4 px-6 border-b border-border text-xs text-foreground text-center'>
+                  <td className='py-4 px-6 border-b border-border text-caption text-foreground text-center'>
                     {project.owner?.name ?? '—'}
                   </td>
-                  <td className='py-4 px-6 text-center text-muted-foreground text-xs border-b border-border'>
+                  <td className='py-4 px-6 text-center text-muted-foreground text-caption border-b border-border'>
                     <div className='flex items-center justify-center gap-2'>
                       <span>
                         {new Date(project.updatedAt).toLocaleDateString()}
@@ -572,7 +573,7 @@ export function ProjectsPage({
             <AlertDialogAction
               disabled={deleting}
               onClick={runBulkDelete}
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
             >
               {deleting
                 ? intl.formatMessage({ id: 'common.deleting' })

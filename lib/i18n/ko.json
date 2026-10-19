@@ -346,6 +346,7 @@
   "slack.connected": "연결됨",
   "slack.connectedTo": "워크스페이스에 연결됨: {teamName}",
   "slack.channelNote": "채널 알림은 프로젝트별로 설정됩니다.",
+  "slack.channelUnavailable": "(사용할 수 없음)",
   "slack.disconnectTitle": "Slack 연결을 해제하시겠습니까?",
   "slack.disconnectDesc": "모든 채널 구독이 제거됩니다. 언제든지 다시 연결할 수 있습니다.",
   "slack.connectSuccess": "Slack이 성공적으로 연결되었습니다",
@@ -1356,6 +1357,7 @@
   "sprints.view.list": "목록",
   "sprints.view.timeline": "타임라인",
   "sprints.filter.all": "전체",
+  "sprints.statusFilter.label": "상태별 스프린트 필터",
   "sprints.metric.completed": "완료",
   "sprints.metric.remaining": "남음",
   "sprints.metric.timeLeft": "남은 시간",
@@ -1566,6 +1568,7 @@
   "waitlist.field.teamSize": "팀 규모",
   "waitlist.teamSize.select": "선택…",
   "waitlist.teamSize.justMe": "나 혼자",
+  "waitlist.teamSize.preferNotToSay": "응답하지 않음",
   "waitlist.teamSize.2to5": "2–5 명",
   "waitlist.teamSize.6to15": "6–15 명",
   "waitlist.teamSize.16to50": "16–50 명",
@@ -2615,6 +2618,7 @@
   "settings.auditLog.filter.allActors": "모든 사람",
   "settings.auditLog.filter.since": "시작",
   "settings.auditLog.filter.until": "종료",
+  "settings.auditLog.filter.anyDate": "모든 날짜",
   "settings.auditLog.filter.reset": "초기화",
   "settings.auditLog.export": "CSV 내보내기",
   "settings.auditLog.exportHint": "필터와 일치하는 최신 이벤트를 최대 {max}개까지 다운로드합니다.",
@@ -2910,5 +2914,7 @@
   "testCases.field.stepEvidence.hint": "단계에 첨부한 파일도 같은 한도에 포함됩니다.",
   "testCases.field.evidenceFiles.tooManyTotal": "단계에 첨부한 파일을 포함하면 이번 실행의 파일은 {count}개입니다. 최대 {max}개까지 가능합니다.",
   "testCases.field.evidenceFiles.badType": "“{filename}”은(는) 지원되지 않는 형식입니다. PNG, JPEG, WebP, GIF, 텍스트 또는 JSON을 사용하세요.",
-  "testCases.report.state.skipped": "건너뜀"
+  "testCases.report.state.skipped": "건너뜀",
+  "formDialog.collapse": "접기",
+  "formDialog.expand": "펼치기"
 }

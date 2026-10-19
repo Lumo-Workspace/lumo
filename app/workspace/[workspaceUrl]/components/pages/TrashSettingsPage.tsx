@@ -61,25 +61,25 @@ export function TrashSettingsPage() {
 
   return (
     <div className='max-w-2xl mx-auto px-8 py-10'>
-      <h1 className='text-xl font-semibold text-foreground mb-1'>
+      <h1 className='text-heading text-foreground mb-1'>
         {intl.formatMessage({ id: 'settings.trash.title' })}
       </h1>
-      <p className='text-sm text-muted-foreground mb-6'>
+      <p className='text-body text-muted-foreground mb-6'>
         {intl.formatMessage({ id: 'settings.trash.description' })}
       </p>
 
       {isLoading ? (
-        <div className='text-sm text-muted-foreground'>
+        <div className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'common.loading' })}
         </div>
       ) : isError ? (
-        <div className='text-sm text-muted-foreground'>
+        <div className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'settings.trash.loadFailed' })}
         </div>
       ) : items.length === 0 ? (
         <div className='text-center py-12'>
           <Trash2 size={32} className='mx-auto mb-3 text-muted-foreground' />
-          <p className='text-sm font-medium text-muted-foreground'>
+          <p className='text-body-strong text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.trash.empty' })}
           </p>
         </div>
@@ -102,7 +102,7 @@ export function TrashSettingsPage() {
                 />
               )}
               <div className='min-w-0 flex-1'>
-                <p className='text-sm text-foreground truncate'>
+                <p className='text-body text-foreground truncate'>
                   {item.kind === 'task' && (
                     <span className='text-muted-foreground mr-1.5'>
                       {item.label}
@@ -112,7 +112,7 @@ export function TrashSettingsPage() {
                   {item.title ||
                     intl.formatMessage({ id: 'settings.trash.untitled' })}
                 </p>
-                <p className='text-xs text-muted-foreground mt-0.5'>
+                <p className='text-caption text-muted-foreground mt-0.5'>
                   {intl.formatMessage(
                     { id: 'settings.trash.meta' },
                     {

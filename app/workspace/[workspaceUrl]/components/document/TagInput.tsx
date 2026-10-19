@@ -82,7 +82,7 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
               ? intl.formatMessage({ id: 'documents.tagPlaceholder' })
               : ''
           }
-          className='bg-transparent text-sm outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
+          className='bg-transparent text-body outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
         />
       </div>
       {showSuggestions && input && filteredSuggestions.length > 0 && (
@@ -92,7 +92,7 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
               key={s}
               onMouseDown={e => e.preventDefault()}
               onClick={() => addTag(s)}
-              className='block w-full text-left px-3 py-1.5 text-sm hover:bg-muted'
+              className='block w-full text-left px-3 py-1.5 text-body hover:bg-muted'
             >
               {s}
             </button>

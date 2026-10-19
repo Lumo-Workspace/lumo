@@ -151,7 +151,7 @@ export function SettingsShell({
         <div className='p-4'>
           <Link
             href={`/workspace/${workspaceUrl}`}
-            className='flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors'
+            className='flex items-center gap-2 text-body text-muted-foreground hover:text-foreground transition-colors'
           >
             <ArrowLeft size={14} />
             {intl.formatMessage({ id: 'settings.backToApp' })}
@@ -164,7 +164,7 @@ export function SettingsShell({
         <nav className='flex-1 p-3 space-y-5 mt-2'>
           {navItems.map(({ section, items }) => (
             <div key={section}>
-              <p className='px-2 mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
+              <p className='px-2 mb-1 text-caption font-semibold uppercase text-muted-foreground'>
                 {section}
               </p>
               <ul className='space-y-0.5'>
@@ -174,10 +174,10 @@ export function SettingsShell({
                     <li key={href}>
                       <Link
                         href={href}
-                        className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                        className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-colors ${
                           isActive
-                            ? 'bg-muted text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            ? 'bg-muted text-body-strong text-foreground'
+                            : 'text-body text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                       >
                         <Icon size={14} />

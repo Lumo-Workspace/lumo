@@ -2,10 +2,13 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
 import { formatDurationSec } from '@/lib/datetime/duration'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 // Same compact notation the CLI and the task-level cost card use (LUM-560),
 // so one number reads identically across surfaces.
@@ -69,7 +72,9 @@ function ModelUsageBreakdown({
       {models.slice(0, 3).map(m => (
         <div key={m.model} data-testid='model-usage-row'>
           <div className='flex items-baseline justify-between gap-2 text-caption'>
-            <span className='min-w-0 truncate font-semibold'>{m.model}</span>
+            <span className='min-w-0 truncate text-caption font-semibold'>
+              {m.model}
+            </span>
             <span className='shrink-0 tabular-nums text-muted-foreground'>
               {fmtTokens(m.total)}
             </span>
@@ -137,7 +142,7 @@ type TaskRow = NonNullable<
 function ByTaskHeading() {
   const intl = useIntl()
   return (
-    <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
+    <p className='text-caption font-semibold uppercase text-muted-foreground'>
       {intl.formatMessage({ id: 'milestone.metrics.byTask' })}
     </p>
   )
@@ -194,15 +199,13 @@ function TokenBudgetLine({ budget }: { budget: ApiMilestone['budget'] }) {
           { percent: pct, budget: fmtTokens(budget.tokenBudget) }
         )}
       </p>
-      <div
+      <Progress
+        value={pct}
+        tone={budget.exceeded ? 'danger' : 'chart'}
+        size='xs'
+        className='mt-1'
         aria-hidden='true'
-        className='mt-1 flex h-1 overflow-hidden rounded-full bg-muted'
-      >
-        <span
-          className={budget.exceeded ? 'bg-[var(--danger)]' : 'bg-chart-1'}
-          style={{ width: `${Math.min(pct, 100)}%` }}
-        />
-      </div>
+      />
       {budget.exceeded && budget.overBy !== null && (
         <p
           data-testid='token-budget-over'
@@ -292,7 +295,7 @@ export function MilestoneMetricStrip({
         <span className='text-muted-foreground'>
           {intl.formatMessage({ id: labelId })}
         </span>
-        <span className='font-semibold tabular-nums'>{value}</span>
+        <span className='text-body-strong tabular-nums'>{value}</span>
         {isOpen ? (
           <ChevronUp className='size-3 text-muted-foreground' />
         ) : (
@@ -341,7 +344,7 @@ export function MilestoneMetricStrip({
       </div>
 
       {open !== null && (
-        <div className='mt-2 max-w-2xl space-y-3 rounded-lg border border-border bg-card p-4'>
+        <Card className='mt-2 max-w-2xl space-y-3 p-4'>
           {open === 'tokens' && costRollup && (
             <>
               <ByTaskHeading />
@@ -353,7 +356,7 @@ export function MilestoneMetricStrip({
                     <li key={row.taskId} data-testid='metric-task-row'>
                       <div className='flex items-baseline gap-2 text-caption'>
                         <TaskRowLabel row={row} />
-                        <span className='shrink-0 font-semibold tabular-nums'>
+                        <span className='shrink-0 text-caption font-semibold tabular-nums'>
                           {fmtTokens(row.tokenCost ?? 0)}
                         </span>
                       </div>
@@ -418,7 +421,7 @@ export function MilestoneMetricStrip({
                           }}
                         />
                       </div>
-                      <span className='w-16 shrink-0 text-right font-semibold tabular-nums'>
+                      <span className='w-16 shrink-0 text-right text-caption font-semibold tabular-nums'>
                         {formatDurationSec(intl, row.activeTimeSec)}
                       </span>
                     </li>
@@ -448,22 +451,24 @@ export function MilestoneMetricStrip({
                     >
                       <TaskRowLabel row={row} />
                       {row.multiPr && (
-                        <span
+                        <Badge
                           data-testid='multi-pr-chip'
-                          className='shrink-0 rounded-full border border-[var(--warning-border)] bg-[var(--warning-subtle)] px-2 py-0.5 font-semibold'
+                          variant='warning'
+                          size='sm'
+                          className='shrink-0 font-semibold'
                         >
                           {intl.formatMessage({
                             id: 'milestone.metrics.multiPr',
                           })}
-                        </span>
+                        </Badge>
                       )}
-                      <span className='w-14 shrink-0 text-right font-semibold tabular-nums'>
+                      <span className='w-14 shrink-0 text-right text-caption font-semibold tabular-nums'>
                         {intl.formatMessage(
                           { id: 'milestone.memberDelivery.prCount' },
                           { count: row.prCount }
                         )}
                       </span>
-                      <span className='w-24 shrink-0 text-right font-semibold'>
+                      <span className='w-24 shrink-0 text-right text-caption font-semibold'>
                         {row.changeVolume ? (
                           <VolumeText
                             additions={row.changeVolume.additions}
@@ -483,7 +488,7 @@ export function MilestoneMetricStrip({
               )}
             </>
           )}
-        </div>
+        </Card>
       )}
     </section>
   )
