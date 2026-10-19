@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { AlertTriangle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 
 export interface RetentionRowOption {
@@ -83,13 +85,15 @@ export function RetentionRow({
         </div>
       </div>
       {warning && (
-        <p
-          role='alert'
+        <Alert
+          variant='warning'
+          size='sm'
           data-testid={`retention-warning-${id}`}
-          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-caption text-warning-text'
+          className='mt-2'
         >
-          {warning}
-        </p>
+          <AlertTriangle />
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
       )}
     </div>
   )

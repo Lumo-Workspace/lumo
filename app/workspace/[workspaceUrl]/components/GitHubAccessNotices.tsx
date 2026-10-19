@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { AlertTriangle, Info } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface GitHubAccessNoticesProps {
   /** `false` = no verifier login on record; `undefined` = not known yet. */
@@ -40,12 +41,9 @@ export function GitHubAccessNotices({
   return (
     <div className='space-y-2'>
       {tokenFailingSince && (
-        <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-          <AlertTriangle
-            size={14}
-            className='mt-0.5 shrink-0 text-warning-text'
-          />
-          <p className='text-caption text-foreground'>
+        <Alert variant='warning' size='sm' role='note'>
+          <AlertTriangle />
+          <AlertDescription>
             {intl.formatMessage(
               { id: 'github.tokenFailing' },
               {
@@ -54,16 +52,13 @@ export function GitHubAccessNotices({
                 }),
               }
             )}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
       {removed > 0 && (
-        <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-          <AlertTriangle
-            size={14}
-            className='mt-0.5 shrink-0 text-warning-text'
-          />
-          <p className='text-caption text-foreground'>
+        <Alert variant='warning' size='sm' role='note'>
+          <AlertTriangle />
+          <AlertDescription>
             {intl.formatMessage(
               {
                 id:
@@ -73,16 +68,16 @@ export function GitHubAccessNotices({
               },
               { count: removed }
             )}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
       {accessRecheckEnabled === false && (
-        <div className='flex items-start gap-2 rounded-lg border border-border bg-muted px-3 py-2'>
-          <Info size={14} className='mt-0.5 shrink-0 text-muted-foreground' />
-          <p className='text-caption text-muted-foreground'>
+        <Alert size='sm' role='note'>
+          <Info />
+          <AlertDescription className='text-muted-foreground'>
             {intl.formatMessage({ id: 'github.accessRecheckOff' })}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   )
