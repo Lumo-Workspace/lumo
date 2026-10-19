@@ -5,13 +5,17 @@ import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import {
   Bug,
+  CircleAlert,
+  Code,
   Eye,
-  Hammer,
+  Info,
   Layers,
   Search,
+  TriangleAlert,
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { SESSION_MESSAGES as M } from '../messages'
@@ -221,7 +225,7 @@ function TypeBadge({ type }: { type: string }) {
 // Decorative: the adjacent type label carries the meaning (LUM-1250).
 const TYPE_ICONS: Record<string, LucideIcon> = {
   exploration: Search,
-  implementation: Hammer,
+  implementation: Code,
   debug: Bug,
   refactor: Wrench,
   review: Eye,
@@ -581,6 +585,14 @@ function StatusChip({ status }: { status: DebugStatus }) {
   )
 }
 
+// Severity is carried by an icon + the group's label word inside a neutral
+// bordered card — never by a coloured stripe alone (LUM-1249).
+const SEVERITY_ICONS = {
+  critical: { Icon: CircleAlert, className: 'text-danger-text' },
+  improvements: { Icon: TriangleAlert, className: 'text-warning-text' },
+  notes: { Icon: Info, className: 'text-muted-foreground' },
+} as const
+
 function SeverityGroup({
   label,
   tone,
@@ -590,19 +602,15 @@ function SeverityGroup({
   tone: 'critical' | 'improvements' | 'notes'
   items: string[]
 }) {
-  const toneClass =
-    tone === 'critical'
-      ? 'border-l-4 border-danger'
-      : tone === 'improvements'
-        ? 'border-l-4 border-warning-text'
-        : 'border-l-4 border-border'
+  const { Icon, className } = SEVERITY_ICONS[tone]
   return (
-    <div className={`pl-3 ${toneClass}`}>
-      <p className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+    <Card className='rounded-md p-3 shadow-none'>
+      <p className='mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+        <Icon aria-hidden className={`size-3.5 shrink-0 ${className}`} />
         {label}
       </p>
       <BulletList items={items} />
-    </div>
+    </Card>
   )
 }
 

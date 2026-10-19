@@ -224,7 +224,7 @@ export function ProjectDetailPage({
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
                   selected
-                    ? 'bg-background text-foreground shadow-elevation-1'
+                    ? 'bg-background text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
