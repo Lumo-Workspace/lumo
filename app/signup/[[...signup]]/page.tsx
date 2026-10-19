@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { PartyPopper } from 'lucide-react'
 import { waitlistClient, ApiClientError } from '@/lib/api-client'
 
 export default function WaitlistPage() {
@@ -53,7 +54,11 @@ export default function WaitlistPage() {
 
         {status === 'success' ? (
           <div className='rounded-2xl border border-border bg-card p-8 text-center'>
-            <div className='mb-4 text-4xl'>🎉</div>
+            <PartyPopper
+              aria-hidden
+              className='mx-auto mb-4 size-10 text-muted-foreground'
+              strokeWidth={1.5}
+            />
             <h2 className='mb-2 text-xl font-semibold text-foreground'>
               {intl.formatMessage({ id: 'waitlist.success.title' })}
             </h2>

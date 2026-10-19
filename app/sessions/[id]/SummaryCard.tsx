@@ -3,6 +3,15 @@
 import { useState, useTransition } from 'react'
 import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { useRouter } from 'next/navigation'
+import {
+  Bug,
+  Eye,
+  Hammer,
+  Layers,
+  Search,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { SESSION_MESSAGES as M } from '../messages'
@@ -194,22 +203,29 @@ const TYPE_MESSAGES: Record<string, MessageDescriptor> = {
 
 function TypeBadge({ type }: { type: string }) {
   const intl = useIntl()
-  const icon = TYPE_ICONS[type] ?? '•'
+  const Icon = TYPE_ICONS[type]
   return (
     <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
-      <span aria-hidden>{icon}</span>
+      {Icon && (
+        <Icon
+          aria-hidden
+          data-summary-type-icon={type}
+          className='size-3 shrink-0 text-muted-foreground'
+        />
+      )}
       {TYPE_MESSAGES[type] ? intl.formatMessage(TYPE_MESSAGES[type]) : type}
     </span>
   )
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  exploration: '🔍',
-  implementation: '🛠',
-  debug: '🐛',
-  refactor: '🔧',
-  review: '👁',
-  mixed: '≈',
+// Decorative: the adjacent type label carries the meaning (LUM-1250).
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  exploration: Search,
+  implementation: Hammer,
+  debug: Bug,
+  refactor: Wrench,
+  review: Eye,
+  mixed: Layers,
 }
 
 function SummaryBody({ summary }: { summary: unknown }) {
