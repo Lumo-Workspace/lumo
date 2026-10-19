@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
 import { IntegrationCard, ConnectedDot } from './IntegrationCard'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -92,20 +93,15 @@ export function GitHubIntegrationCard({
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {missing ? (
-          <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-            <AlertTriangle
-              size={14}
-              className='mt-0.5 shrink-0 text-warning-text'
-            />
-            <div className='min-w-0'>
-              <p className='text-caption text-foreground'>
-                {intl.formatMessage({ id: 'github.scanDisabled' })}
-              </p>
-              <p className='text-caption text-muted-foreground'>
+          <Alert variant='warning' size='sm' role='note'>
+            <AlertTriangle />
+            <AlertDescription>
+              <p>{intl.formatMessage({ id: 'github.scanDisabled' })}</p>
+              <p className='text-muted-foreground'>
                 {intl.formatMessage({ id: 'github.scanDisabledDesc' })}
               </p>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         ) : installed ? (
           <>
             <p className='text-body text-muted-foreground'>{installedLabel}</p>

@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
+import { AlertTriangle } from 'lucide-react'
 import { securityScanClient } from '@/ee/security/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
 import {
@@ -108,13 +110,15 @@ function ScopeRow({
           {description}
         </p>
         {value === 'global' && (
-          <p
-            role='alert'
+          <Alert
+            variant='warning'
+            size='sm'
             data-testid='learnings-scope-global-warning'
-            className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-caption text-warning-text'
+            className='mt-2'
           >
-            {globalWarning}
-          </p>
+            <AlertTriangle />
+            <AlertDescription>{globalWarning}</AlertDescription>
+          </Alert>
         )}
       </div>
       <select

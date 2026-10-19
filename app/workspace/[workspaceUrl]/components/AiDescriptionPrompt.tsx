@@ -3,7 +3,8 @@
 import { useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { CircleAlert, Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
 import { RichHtml } from '@/components/RichHtml'
@@ -142,9 +143,10 @@ export function AiDescriptionPrompt({
 
   // Error display (shown briefly, then back to idle prompt)
   const errorBanner = error ? (
-    <div className='mb-2 rounded-md bg-danger-subtle px-3 py-1.5 text-caption text-danger-text'>
-      {error}
-    </div>
+    <Alert variant='danger' size='sm' className='mb-2'>
+      <CircleAlert />
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
   ) : null
 
   // Refine mode: small button
