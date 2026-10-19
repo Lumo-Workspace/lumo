@@ -1560,7 +1560,7 @@ function CrossingRow({
               data-testid={`boundary-spawn-remediation-${c.id}`}
               disabled={pending}
               onClick={onSpawnRemediation}
-              className='ml-auto'
+              className='ml-auto gap-1 px-2'
             >
               <Plus className='size-3.5' aria-hidden />
               {intl.formatMessage({

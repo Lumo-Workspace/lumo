@@ -24,3 +24,21 @@ describe('cn() with typography tiers', () => {
     expect(cn('text-caption', 'text-body')).toBe('text-body')
   })
 })
+
+// LUM-1272: control size tokens merge like any other spacing value, so a
+// className override on a sized primitive replaces the base size.
+describe('cn() with control size tokens', () => {
+  it('lets an override replace the control height and inset', () => {
+    expect(cn('h-control-md px-control-inset-md py-2', 'h-auto p-0')).toBe(
+      'h-auto p-0'
+    )
+    expect(cn('h-control-sm px-control-inset-sm', 'px-2')).toBe(
+      'h-control-sm px-2'
+    )
+  })
+
+  it('collapses competing control heights to the last one', () => {
+    expect(cn('h-8', 'h-control-sm')).toBe('h-control-sm')
+    expect(cn('h-control-md w-control-md', 'size-7')).toBe('size-7')
+  })
+})
