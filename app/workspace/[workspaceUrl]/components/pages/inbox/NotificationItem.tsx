@@ -31,7 +31,7 @@ export function CommentPreview({ body }: { body: string }) {
           return (
             <mark
               key={i}
-              className='bg-transparent text-blue-500 dark:text-blue-400 font-medium not-italic'
+              className='bg-transparent text-info-text font-medium not-italic'
             >
               {`@${part.slice(2, -1)}`}
             </mark>
@@ -199,8 +199,7 @@ export function NotificationItem({
             'relative cursor-pointer rounded-md hover:bg-accent/50',
             isSelected && 'bg-accent',
             read && !pendingAction && 'opacity-60',
-            pendingAction &&
-              'border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20'
+            pendingAction && 'border border-info-border bg-info-subtle'
           )}
           onClick={e => {
             e.stopPropagation()
@@ -210,7 +209,7 @@ export function NotificationItem({
         >
           {/* Unread dot */}
           {!read && (
-            <div className='absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-blue-500' />
+            <div className='absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-info' />
           )}
 
           <ItemMedia className='self-start'>

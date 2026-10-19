@@ -379,7 +379,7 @@ export function TaskDetailPage({
               {intl.formatMessage({ id: 'common.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
               onClick={() => {
                 if (tc.confirmDeleteId) tc.deleteComment(tc.confirmDeleteId)
                 tc.setConfirmDeleteId(null)

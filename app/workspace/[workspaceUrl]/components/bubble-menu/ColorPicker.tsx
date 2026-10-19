@@ -88,7 +88,7 @@ export function ColorPicker({
                 className={cn(
                   'flex items-center justify-center size-5 rounded-sm text-[11px] font-bold border transition-colors',
                   currentColor === c.value || (!currentColor && !c.value)
-                    ? 'border-blue-500'
+                    ? 'border-ring'
                     : 'border-transparent hover:border-muted-foreground'
                 )}
                 style={{ color: c.value || undefined }}
@@ -126,7 +126,7 @@ export function ColorPicker({
                   'size-5 rounded-sm border transition-colors',
                   currentHighlight === c.value ||
                     (!currentHighlight && !c.value)
-                    ? 'border-blue-500'
+                    ? 'border-ring'
                     : 'border-border hover:border-muted-foreground'
                 )}
                 style={{ backgroundColor: c.value || 'transparent' }}
@@ -156,7 +156,7 @@ export function ColorPicker({
                 className={cn(
                   'size-5 rounded-sm border transition-colors',
                   currentHighlight === c.value
-                    ? 'border-blue-500'
+                    ? 'border-ring'
                     : 'border-border hover:border-muted-foreground'
                 )}
                 style={{ backgroundColor: c.value }}

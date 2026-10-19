@@ -1,3 +1,5 @@
+import { isFeatureEnabled } from '@/lib/features/is-enabled'
+
 /**
  * LUM-1234 — platform switch and cost ceiling of the reward-hack layer
  * ("Agent behavior"). Import-light on purpose: read by the workspace switch
@@ -9,38 +11,17 @@ export const REWARD_HACK_DEFAULT_MONTHLY_CAP_USD = 25
 
 type Env = Record<string, string | undefined>
 
-/** Platform kill switch: the layer runs only when `LUMO_REWARD_HACK=on`. */
-export function isRewardHackEnabled(env: Env = process.env): boolean {
-  return env.LUMO_REWARD_HACK === 'on'
-}
-
 /**
- * Staged rollout: `LUMO_REWARD_HACK_WORKSPACES` lists the workspace ids
- * (comma-separated) the platform switch applies to. Null when unset or
- * empty — then the switch applies to every workspace.
- */
-export function rewardHackWorkspaceAllowlist(
-  env: Env = process.env
-): Set<string> | null {
-  const ids = (env.LUMO_REWARD_HACK_WORKSPACES ?? '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
-  return ids.length > 0 ? new Set(ids) : null
-}
-
-/**
- * The platform ceiling of the layer for one workspace: the switch is on and,
- * when an allowlist is set, the workspace is on it. With an allowlist and no
- * workspace to check, it is off.
+ * The platform ceiling of the layer for one workspace: its rollout stage in
+ * `lib/features/config.ts` (`reward-hack-scan`). LUM-1260 replaced the
+ * `LUMO_REWARD_HACK` / `LUMO_REWARD_HACK_WORKSPACES` env switches; to turn
+ * the layer off everywhere, set that stage to `off` and deploy.
  */
 export function isRewardHackEnabledForWorkspace(
   workspaceId: string | null | undefined,
   env: Env = process.env
 ): boolean {
-  if (!isRewardHackEnabled(env)) return false
-  const allow = rewardHackWorkspaceAllowlist(env)
-  return allow === null || (!!workspaceId && allow.has(workspaceId))
+  return isFeatureEnabled('reward-hack-scan', workspaceId, env)
 }
 
 /**

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 import {
   DAY_MS as DAY,
   calendarDayKey,
@@ -179,11 +180,11 @@ export function SprintTimeline({
 
   if (sprints.length === 0) {
     return (
-      <div className='rounded-xl border border-border bg-card py-16 text-center shadow-elevation-1'>
+      <Card className='rounded-xl py-16 text-center'>
         <div className='text-sm font-semibold text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.landing.noResults' })}
         </div>
-      </div>
+      </Card>
     )
   }
 
@@ -241,7 +242,7 @@ export function SprintTimeline({
         </div>
       </div>
 
-      <div className='rounded-xl border border-border bg-card px-5 pb-5 pt-4 shadow-elevation-1'>
+      <Card className='rounded-xl px-5 pb-5 pt-4'>
         {/* Month axis */}
         <div className='mb-2 grid grid-cols-[168px_1fr]'>
           <div />
@@ -296,7 +297,7 @@ export function SprintTimeline({
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

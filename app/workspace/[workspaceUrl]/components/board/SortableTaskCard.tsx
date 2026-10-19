@@ -63,7 +63,7 @@ function CardShell({
         'bg-card border border-border p-3 rounded-lg shadow-elevation-1 hover:shadow-elevation-2 transition-shadow',
         cursorClass,
         isOverlay &&
-          'shadow-elevation-3 border-blue-500/50 rotate-2 cursor-grabbing',
+          'shadow-elevation-3 border-ring/50 rotate-2 cursor-grabbing',
         needsAttention && 'border-l-3 border-l-orange-400'
       )}
     >
@@ -206,7 +206,7 @@ export function ProjectTaskCard({
           className={cn(
             'text-[10px]',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-red-500 font-medium'
+              ? 'text-danger-text font-medium'
               : 'text-muted-foreground'
           )}
         >
@@ -253,7 +253,7 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
           className={cn(
             'text-[10px]',
             task.dueDate && isOverdue(task.dueDate)
-              ? 'text-red-500 font-medium'
+              ? 'text-danger-text font-medium'
               : 'text-muted-foreground'
           )}
         >

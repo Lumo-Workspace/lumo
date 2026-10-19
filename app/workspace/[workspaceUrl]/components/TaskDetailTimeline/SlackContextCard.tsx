@@ -138,7 +138,7 @@ export function SlackContextCard({
       )}
 
       {context.refreshError && (
-        <div className='mt-2 text-caption text-amber-600 dark:text-amber-400'>
+        <div className='mt-2 text-caption text-warning-text'>
           {intl.formatMessage(
             {
               id: 'slackContext.refresh.failedBanner',

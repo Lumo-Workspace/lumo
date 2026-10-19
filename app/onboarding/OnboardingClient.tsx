@@ -154,7 +154,7 @@ function WorkspaceStep({
               />
             </div>
           </div>
-          {error && <p className='text-xs text-red-600'>{error}</p>}
+          {error && <p className='text-xs text-danger-text'>{error}</p>}
           <Button
             type='button'
             disabled={isSubmitting || !isValid}
@@ -294,7 +294,7 @@ function InviteStep({
             </button>
           )}
 
-          {error && <p className='text-xs text-red-600'>{error}</p>}
+          {error && <p className='text-xs text-danger-text'>{error}</p>}
 
           <Button
             disabled={isSending || !allValid}

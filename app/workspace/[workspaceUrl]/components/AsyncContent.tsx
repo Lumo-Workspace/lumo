@@ -33,7 +33,7 @@ export function AsyncContent({
   if (error) {
     return (
       <div className='flex flex-col items-center justify-center h-40 gap-2'>
-        <p className='text-sm text-red-500'>{error}</p>
+        <p className='text-sm text-danger-text'>{error}</p>
         <Button
           variant='ghost'
           size='sm'

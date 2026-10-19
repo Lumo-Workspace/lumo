@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
@@ -341,7 +342,7 @@ export function MilestoneMetricStrip({
       </div>
 
       {open !== null && (
-        <div className='mt-2 max-w-2xl space-y-3 rounded-lg border border-border bg-card p-4'>
+        <Card className='mt-2 max-w-2xl space-y-3 p-4'>
           {open === 'tokens' && costRollup && (
             <>
               <ByTaskHeading />
@@ -483,7 +484,7 @@ export function MilestoneMetricStrip({
               )}
             </>
           )}
-        </div>
+        </Card>
       )}
     </section>
   )

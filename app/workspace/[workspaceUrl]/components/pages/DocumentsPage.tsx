@@ -3,6 +3,7 @@
 import { getInitials } from '@/lib/utils/getInitials'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { Plus, MoreHorizontal, Trash2, Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -157,7 +158,7 @@ export function DocumentsPage({
             {intl.formatMessage({ id: 'documents.copyLink' })}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className='text-red-500'
+            className='text-danger-text'
             onClick={e => {
               e.stopPropagation()
               setDeleteId(doc.id)
@@ -256,9 +257,9 @@ export function DocumentsPage({
     return (
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-4'>
         {sorted.map(doc => (
-          <div
+          <Card
             key={doc.id}
-            className='group flex h-64 cursor-pointer flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/50'
+            className='group flex h-64 cursor-pointer flex-col p-4 transition-colors hover:bg-muted/50'
             onClick={() => onSelectDocument(doc)}
           >
             <div className='flex items-start justify-between gap-2'>
@@ -298,7 +299,7 @@ export function DocumentsPage({
                 )}
               </span>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     )

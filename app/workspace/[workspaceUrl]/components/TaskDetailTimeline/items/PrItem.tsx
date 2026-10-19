@@ -21,7 +21,7 @@ export function PrItem({ entry }: PrItemProps) {
   > = {
     PR_CREATED: {
       icon: GitPullRequest,
-      color: 'text-green-600',
+      color: 'text-success-text',
       label: intl.formatMessage(
         { id: 'activity.prCreated', defaultMessage: 'PR #{n} created' },
         { n: prNumber }
@@ -29,7 +29,8 @@ export function PrItem({ entry }: PrItemProps) {
     },
     PR_MERGED: {
       icon: GitMerge,
-      color: 'text-purple-600',
+      // GitHub merged purple: status-in-review is the only purple token family.
+      color: 'text-status-in-review-text',
       label: intl.formatMessage(
         { id: 'activity.prMerged', defaultMessage: 'PR #{n} merged' },
         { n: prNumber }
@@ -37,7 +38,7 @@ export function PrItem({ entry }: PrItemProps) {
     },
     PR_LINKED: {
       icon: Link2,
-      color: 'text-blue-500',
+      color: 'text-info-text',
       label: intl.formatMessage(
         { id: 'activity.prLinked', defaultMessage: 'PR #{n} linked' },
         { n: prNumber }
@@ -76,7 +77,7 @@ export function PrItem({ entry }: PrItemProps) {
           href={prUrl}
           target='_blank'
           rel='noopener noreferrer'
-          className='text-[11px] text-blue-500 hover:underline shrink-0'
+          className='text-[11px] text-info-text hover:underline shrink-0'
         >
           View
         </a>

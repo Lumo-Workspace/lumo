@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import { Trash2, Plus, Key, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -108,42 +109,47 @@ export function ApiKeysPage() {
         ) : (
           <ul className='space-y-2'>
             {keys.map(k => (
-              <li
+              <Card
                 key={k.id}
-                className='flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card'
+                asChild
+                className='flex items-center justify-between px-4 py-3'
               >
-                <div>
-                  <p className='text-sm font-medium text-foreground'>
-                    {k.label}
-                    {k.scope === 'security:ingest' && (
-                      <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground'>
-                        {intl.formatMessage({
-                          id: 'apiKeys.scope.securityIngest',
-                        })}
-                      </span>
-                    )}
-                  </p>
-                  <p className='text-xs text-muted-foreground font-mono mt-0.5'>
-                    {k.keyPrefix}…
-                    {k.lastUsedAt && (
-                      <span className='font-sans ml-3'>
-                        {intl.formatMessage(
-                          { id: 'apiKeys.lastUsed' },
-                          { date: new Date(k.lastUsedAt).toLocaleDateString() }
-                        )}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='text-muted-foreground hover:text-destructive'
-                  onClick={() => setRevokeTarget(k)}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </li>
+                <li>
+                  <div>
+                    <p className='text-sm font-medium text-foreground'>
+                      {k.label}
+                      {k.scope === 'security:ingest' && (
+                        <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground'>
+                          {intl.formatMessage({
+                            id: 'apiKeys.scope.securityIngest',
+                          })}
+                        </span>
+                      )}
+                    </p>
+                    <p className='text-xs text-muted-foreground font-mono mt-0.5'>
+                      {k.keyPrefix}…
+                      {k.lastUsedAt && (
+                        <span className='font-sans ml-3'>
+                          {intl.formatMessage(
+                            { id: 'apiKeys.lastUsed' },
+                            {
+                              date: new Date(k.lastUsedAt).toLocaleDateString(),
+                            }
+                          )}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    className='text-muted-foreground hover:text-destructive'
+                    onClick={() => setRevokeTarget(k)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </li>
+              </Card>
             ))}
           </ul>
         )}

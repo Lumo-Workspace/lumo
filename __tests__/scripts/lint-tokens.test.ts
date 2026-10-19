@@ -175,8 +175,8 @@ describe('lint-tokens / isAllowed', () => {
     expect(isAllowed('app/globals.css')).toBe(true)
     expect(isAllowed('components/landing/landing.css')).toBe(true)
     expect(isAllowed('components/ui/icons.tsx')).toBe(true)
-    // Fixed-dark waitlist/signup marketing surface (not theme-aware).
-    expect(isAllowed('app/signup/[[...signup]]/page.tsx')).toBe(true)
+    // LUM-1245: signup is tokenized under a `.dark` scope, so it is linted.
+    expect(isAllowed('app/signup/[[...signup]]/page.tsx')).toBe(false)
     // Vendored shadcn-io decorative block (gradient hex stops are payload).
     expect(
       isAllowed('components/ui/shadcn-io/aurora-background/index.tsx')

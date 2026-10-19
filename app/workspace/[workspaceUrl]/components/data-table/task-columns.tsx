@@ -178,7 +178,7 @@ function TitleCell({
   return (
     <div className='flex items-center gap-2 group/title'>
       <span
-        className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors cursor-text flex-1 min-w-0 truncate'
+        className='font-medium group-hover:text-info-text transition-colors cursor-text flex-1 min-w-0 truncate'
         title={task.title}
         onClick={e => {
           e.stopPropagation()
@@ -670,7 +670,7 @@ export function createTaskColumns(
                 GHOST_TRIGGER,
                 'text-caption',
                 !dueDate && 'text-muted-foreground',
-                dueDate && isOverdue(dueDate) && 'text-red-500 font-medium'
+                dueDate && isOverdue(dueDate) && 'text-danger-text font-medium'
               )}
             />
           )
@@ -683,7 +683,7 @@ export function createTaskColumns(
             className={cn(
               'text-caption',
               isOverdue(dueDate)
-                ? 'text-red-500 font-medium'
+                ? 'text-danger-text font-medium'
                 : 'text-muted-foreground'
             )}
           >

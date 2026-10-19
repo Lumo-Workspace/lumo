@@ -111,7 +111,7 @@ export function AiPrioritySelect({
       {!isLoadingSuggestion && suggestion && !overrideRecorded && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className='inline-flex items-center gap-0.5 text-[10px] text-violet-500 cursor-default'>
+            <span className='inline-flex items-center gap-0.5 text-[10px] text-info-text cursor-default'>
               <Sparkles className='size-3' />
               {intl.formatMessage({ id: 'priority.aiRecommended' })}
             </span>
@@ -123,7 +123,7 @@ export function AiPrioritySelect({
       )}
 
       {overrideRecorded && (
-        <span className='text-[10px] text-emerald-500 animate-fade-out'>
+        <span className='text-[10px] text-success-text animate-fade-out'>
           {intl.formatMessage({ id: 'priority.preferenceRecorded' })}
         </span>
       )}

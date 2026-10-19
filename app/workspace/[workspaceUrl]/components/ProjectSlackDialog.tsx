@@ -319,7 +319,7 @@ export function ProjectSlackDialog({
 
         {loadState.phase === 'error' && (
           <div className='space-y-3 py-2'>
-            <p className='text-sm text-red-600 dark:text-red-400'>
+            <p className='text-sm text-danger-text'>
               Failed to load configuration.
             </p>
             <Button variant='outline' className='w-full' onClick={load}>
@@ -337,7 +337,7 @@ export function ProjectSlackDialog({
                   Slack is not connected to this workspace.{' '}
                   <a
                     href={`/workspace/${workspaceUrl}/settings/integrations`}
-                    className='text-blue-600 dark:text-blue-400 hover:underline'
+                    className='text-info-text hover:underline'
                   >
                     Connect it in Settings →
                   </a>
@@ -453,7 +453,7 @@ export function ProjectSlackDialog({
                           </Button>
                         </div>
                         {createError && (
-                          <p className='text-xs text-red-600 dark:text-red-400'>
+                          <p className='text-xs text-danger-text'>
                             {createError}
                           </p>
                         )}
@@ -525,9 +525,7 @@ export function ProjectSlackDialog({
                 </div>
 
                 {saveError && (
-                  <p className='text-xs text-red-600 dark:text-red-400'>
-                    {saveError}
-                  </p>
+                  <p className='text-xs text-danger-text'>{saveError}</p>
                 )}
 
                 <Button

@@ -187,7 +187,7 @@ export function LogoUploader({
             <Camera size={16} className='text-white' />
           </div>
         </button>
-        {sizeError && <p className='text-xs text-red-500'>{sizeError}</p>}
+        {sizeError && <p className='text-xs text-danger-text'>{sizeError}</p>}
       </div>
 
       <Dialog

@@ -486,7 +486,7 @@ export function ProjectsPage({
                   </td>
                   <td className='py-4 px-6 border-b border-border'>
                     <div className='flex items-center justify-center gap-3'>
-                      <span className='font-medium text-foreground group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
+                      <span className='font-medium text-foreground group-hover:text-info-text transition-colors'>
                         {project.name}
                       </span>
                       {project.isIdea && (
@@ -572,7 +572,7 @@ export function ProjectsPage({
             <AlertDialogAction
               disabled={deleting}
               onClick={runBulkDelete}
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
             >
               {deleting
                 ? intl.formatMessage({ id: 'common.deleting' })

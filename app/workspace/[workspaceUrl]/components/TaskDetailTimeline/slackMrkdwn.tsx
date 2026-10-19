@@ -37,7 +37,7 @@ export function SlackMrkdwn({
       const uid = token.slice(1)
       const name = userMap?.[uid] ?? null
       parts.push(
-        <span key={key++} className='text-blue-500'>
+        <span key={key++} className='text-info-text'>
           @{name ?? uid}
         </span>
       )
@@ -45,7 +45,7 @@ export function SlackMrkdwn({
       const pipe = token.indexOf('|')
       const name = pipe >= 0 ? token.slice(pipe + 1) : 'channel'
       parts.push(
-        <span key={key++} className='text-blue-500'>
+        <span key={key++} className='text-info-text'>
           #{name}
         </span>
       )
@@ -59,7 +59,7 @@ export function SlackMrkdwn({
           href={url}
           target='_blank'
           rel='noopener noreferrer'
-          className='text-blue-500 underline'
+          className='text-info-text underline'
         >
           {label}
         </a>

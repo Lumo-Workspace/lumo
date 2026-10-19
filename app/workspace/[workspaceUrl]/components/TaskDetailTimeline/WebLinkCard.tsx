@@ -153,9 +153,7 @@ export function WebLinkCard({
                 <ContentSignalsBadge signals={link.contentSignals} />
                 <p
                   className={`mt-0.5 text-caption ${
-                    link.loading
-                      ? 'text-muted-foreground'
-                      : 'text-amber-600 dark:text-amber-400'
+                    link.loading ? 'text-muted-foreground' : 'text-warning-text'
                   }`}
                 >
                   {link.loading

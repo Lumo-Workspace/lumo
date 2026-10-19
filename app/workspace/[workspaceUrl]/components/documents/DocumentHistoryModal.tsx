@@ -97,7 +97,11 @@ export function DocumentHistoryModal({
                 >
                   <span className='flex items-center gap-1.5'>
                     {r.isManual && (
-                      <Star size={12} className='text-amber-500' aria-hidden />
+                      <Star
+                        size={12}
+                        className='text-warning-text'
+                        aria-hidden
+                      />
                     )}
                     <span className='font-medium'>
                       {r.label ??

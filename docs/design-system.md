@@ -123,6 +123,23 @@ Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
   — no feedback hue clears 3:1 on both the near-black (light) and white
   (dark) primary.
 
+**No raw Tailwind palette classes in app UI (LUM-1245).** Map hues to the
+families above instead of `text-red-500` / `bg-amber-50` / `border-indigo-300`
+plus a `dark:` twin: red → `danger`, amber/yellow/orange → `warning`,
+green/emerald → `success`, blue/sky and AI/agent violet/indigo → `info`.
+Fills use `bg-*-subtle`, hover fills `hover:bg-*/15`, outlines `border-*-border`,
+text and icons `text-*-text`; selection/drop indicators use `ring` /
+`border-ring`; destructive confirm buttons use `variant='destructive'`. The
+tokens already re-resolve in `.dark`, so no `dark:` colour override is needed.
+A fixed-dark surface (signup) puts `dark` on its root and uses the same tokens.
+PR state indicators (`PrStateBadge`, `PrBadge`, `PrItem`) keep GitHub's colours
+through tokens: open → `success`, merged → `status-in-review` (the only
+purple/magenta family), closed → `danger`, draft → `muted` /
+`muted-foreground`.
+Survivors with a recorded reason: `RevisionDiffView` (diff ins/del colours — no
+diff token yet), `TurnCard` memory left border (owned by LUM-1249), and the
+vendored `components/ui/shadcn-io/aurora-background`.
+
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep
 back; `__tests__/styles/feedback-contrast.test.ts` computes every ratio above
@@ -218,6 +235,10 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 裸 `rounded`(= `0.25rem`,与 `rounded-sm` 同值)**禁用** —— 由 `lint:tokens` 拦截。
 方向性圆角(`rounded-t/l/r/b/tl…`)与 arbitrary `rounded-[..]` 按需使用,不受档位约束。
+
+## Card surface
+
+Static card surfaces use `Card` from `components/ui/card.tsx` (`rounded-lg border bg-card text-card-foreground shadow-elevation-1`, no padding) instead of a hand-rolled `rounded-lg border … bg-card` div (LUM-1246). Pass the element's own padding / layout via `className`; a large container may override to `rounded-xl` (see the radius table). For a semantic or interactive element use `asChild`: `<Card asChild className='p-4'><button …>…</button></Card>` (also `<section>`, `<li>`). `CardTitle` is `text-title`. Not for overlays (dialog / popover / menus use `shadow-elevation-2/3`) or dnd-kit board cards (`SortableTaskCard`).
 
 ## Focus rings
 

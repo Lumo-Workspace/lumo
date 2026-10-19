@@ -169,7 +169,7 @@ export function NewProjectModal({
               size='sm'
               className='gap-1.5 text-xs font-medium text-muted-foreground'
             >
-              <Sparkles size={13} className='text-violet-500' />
+              <Sparkles size={13} className='text-info-text' />
               {intl.formatMessage({ id: 'newProject.refineWithAI' })}
             </Button>
           </div>

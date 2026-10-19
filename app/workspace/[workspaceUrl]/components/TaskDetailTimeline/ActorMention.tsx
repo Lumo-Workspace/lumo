@@ -41,8 +41,8 @@ export function ActorMention({
       <HoverCardContent className='w-56 p-3' side='top'>
         <div className='flex gap-2.5'>
           {isAgent ? (
-            <div className='size-8 shrink-0 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
-              <Bot className='size-4 text-violet-600 dark:text-violet-400' />
+            <div className='size-8 shrink-0 rounded-full bg-info-subtle flex items-center justify-center'>
+              <Bot className='size-4 text-info-text' />
             </div>
           ) : (
             <Avatar className='size-8 shrink-0'>
@@ -57,9 +57,7 @@ export function ActorMention({
               {name}
             </span>
             {isAgent && (
-              <span className='block text-caption text-violet-600 dark:text-violet-400'>
-                Agent
-              </span>
+              <span className='block text-caption text-info-text'>Agent</span>
             )}
             {email && (
               <span className='block text-caption text-muted-foreground truncate'>

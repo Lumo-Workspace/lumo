@@ -146,23 +146,23 @@ function TreeItemRow({
           ? 'bg-accent text-accent-foreground font-semibold'
           : 'text-foreground/80 hover:bg-accent/50 hover:text-foreground',
         isDragging && 'opacity-40',
-        isDropInside && 'ring-1 ring-blue-400 bg-blue-50 dark:bg-blue-900/20'
+        isDropInside && 'ring-1 ring-ring bg-info-subtle'
       )}
       onClick={onClick}
     >
       {/* Drop indicator lines */}
       {isDropBefore && (
-        <div className='absolute left-2 right-2 top-0 h-0.5 bg-blue-500 rounded-full' />
+        <div className='absolute left-2 right-2 top-0 h-0.5 bg-ring rounded-full' />
       )}
       {isDropAfter && (
-        <div className='absolute left-2 right-2 bottom-0 h-0.5 bg-blue-500 rounded-full' />
+        <div className='absolute left-2 right-2 bottom-0 h-0.5 bg-ring rounded-full' />
       )}
 
       {/* Emoji / expand toggle (Notion-style: emoji morphs into chevron on hover) */}
       {hasChildren ? (
         <button
           type='button'
-          className='relative shrink-0 flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+          className='relative shrink-0 flex items-center justify-center w-6 h-6 rounded-sm hover:bg-accent transition-colors'
           onClick={e => {
             e.stopPropagation()
             onToggleExpand()
@@ -205,7 +205,7 @@ function TreeItemRow({
         {/* Add child */}
         <button
           type='button'
-          className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+          className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-accent transition-colors'
           onClick={e => {
             e.stopPropagation()
             onAddChild()
@@ -219,7 +219,7 @@ function TreeItemRow({
           <DropdownMenuTrigger asChild>
             <button
               type='button'
-              className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+              className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-accent transition-colors'
               onClick={e => e.stopPropagation()}
             >
               <MoreHorizontal size={13} className='text-muted-foreground' />

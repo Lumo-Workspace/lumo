@@ -199,7 +199,7 @@ export function TagsSettingsPage() {
               </button>
               <button
                 onClick={() => setDeleteTag(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-red-500 transition-all'
+                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-danger-text transition-all'
               >
                 <Trash2 size={14} />
               </button>
@@ -346,7 +346,7 @@ export function TagsSettingsPage() {
               {intl.formatMessage({ id: 'common.cancel' })}
             </AlertDialogCancel>
             <AlertDialogAction
-              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              variant='destructive'
               onClick={handleDelete}
               disabled={deleting}
             >

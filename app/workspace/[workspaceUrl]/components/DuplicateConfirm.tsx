@@ -25,8 +25,8 @@ const PRIORITY_LABEL: Record<string, string> = {
 }
 
 function scoreBadgeClass(score: number): string {
-  if (score >= 0.8) return 'text-red-600 dark:text-red-400'
-  if (score >= 0.6) return 'text-amber-600 dark:text-amber-400'
+  if (score >= 0.8) return 'text-danger-text'
+  if (score >= 0.6) return 'text-warning-text'
   return 'text-muted-foreground'
 }
 
@@ -51,7 +51,7 @@ export function DuplicateConfirm({
   return (
     <div className='space-y-4'>
       {/* Warning banner */}
-      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-700 dark:text-amber-400'>
+      <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-warning-border bg-warning-subtle text-sm text-warning-text'>
         <AlertTriangle className='size-4 shrink-0' />
         <span>
           {intl.formatMessage(
