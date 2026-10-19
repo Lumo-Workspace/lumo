@@ -507,6 +507,22 @@ export function ProjectSlackDialog({
                           />
                         </SelectTrigger>
                         <SelectContent>
+                          {/* A saved channel missing from the fetched list
+                              (archived, bot not invited, list paged) still
+                              gets an item, so the trigger shows it. */}
+                          {selectedChannelId &&
+                          !loadState.availableChannels.some(
+                            c => c.id === selectedChannelId
+                          ) ? (
+                            <SelectItem value={selectedChannelId}>
+                              {selectedChannelName || selectedChannelId}{' '}
+                              <span className='text-muted-foreground'>
+                                {intl.formatMessage({
+                                  id: 'slack.channelUnavailable',
+                                })}
+                              </span>
+                            </SelectItem>
+                          ) : null}
                           {loadState.availableChannels.map(c => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.name}

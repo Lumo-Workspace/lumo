@@ -86,3 +86,22 @@ it('labels the new channel name input while creating a channel', async () => {
     screen.getByPlaceholderText('channel-name')
   )
 })
+
+// LUM-1265: a saved channel that the fetched list doesn't contain (archived,
+// bot not invited, list paged) still shows on the trigger, marked unavailable.
+it('shows a saved channel missing from the list instead of a blank trigger', async () => {
+  setup(saved, [{ id: 'C1', name: 'general', private: false }])
+  await screen.findByText('Channel')
+  const trigger = screen.getByLabelText('Channel')
+  expect(trigger).toHaveTextContent('old-channel')
+  expect(trigger).toHaveTextContent('slack.channelUnavailable')
+})
+
+it('marks nothing unavailable when the saved channel is listed', async () => {
+  setup({ ...saved, channelId: 'C1', channelName: 'general' }, [
+    { id: 'C1', name: 'general', private: false },
+  ])
+  await screen.findByText('Channel')
+  expect(screen.getByLabelText('Channel')).toHaveTextContent('general')
+  expect(screen.queryByText('slack.channelUnavailable')).toBeNull()
+})

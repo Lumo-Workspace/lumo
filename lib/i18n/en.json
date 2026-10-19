@@ -1659,6 +1659,7 @@
   "signal.viewAllInTasks": "View all {count} in Tasks →",
   "slack.channelCreated": "#{name} created and selected",
   "slack.channelNote": "Channel notifications are configured per project.",
+  "slack.channelUnavailable": "(not available)",
   "slack.configRefreshed": "Configuration refreshed from server",
   "slack.connectFailed": "Failed to connect Slack",
   "slack.reconnect": "Reconnect Slack",

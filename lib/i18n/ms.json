@@ -346,6 +346,7 @@
   "slack.connected": "Disambung",
   "slack.connectedTo": "Disambung ke ruang kerja: {teamName}",
   "slack.channelNote": "Pemberitahuan saluran dikonfigurasi mengikut projek.",
+  "slack.channelUnavailable": "(tidak tersedia)",
   "slack.disconnectTitle": "Putuskan sambungan Slack?",
   "slack.disconnectDesc": "Semua langganan saluran akan dibuang. Anda boleh menyambung semula pada bila-bila masa.",
   "slack.connectSuccess": "Slack berjaya disambung",

@@ -346,6 +346,7 @@
   "slack.connected": "Подключено",
   "slack.connectedTo": "Подключено к рабочему пространству: {teamName}",
   "slack.channelNote": "Уведомления в каналы настраиваются для каждого проекта.",
+  "slack.channelUnavailable": "(недоступен)",
   "slack.disconnectTitle": "Отключить Slack?",
   "slack.disconnectDesc": "Все подписки на каналы будут удалены. Вы сможете переподключиться в любое время.",
   "slack.connectSuccess": "Slack успешно подключён",

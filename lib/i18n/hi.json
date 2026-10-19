@@ -346,6 +346,7 @@
   "slack.connected": "कनेक्टेड",
   "slack.connectedTo": "कार्यक्षेत्र से कनेक्टेड: {teamName}",
   "slack.channelNote": "चैनल सूचनाएं प्रति प्रोजेक्ट कॉन्फ़िगर की जाती हैं।",
+  "slack.channelUnavailable": "(उपलब्ध नहीं)",
   "slack.disconnectTitle": "Slack डिस्कनेक्ट करें?",
   "slack.disconnectDesc": "सभी चैनल सदस्यताएं हटा दी जाएंगी। आप कभी भी पुनः कनेक्ट कर सकते हैं।",
   "slack.connectSuccess": "Slack सफलतापूर्वक कनेक्ट हुआ",

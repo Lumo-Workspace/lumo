@@ -346,6 +346,7 @@
   "slack.connected": "연결됨",
   "slack.connectedTo": "워크스페이스에 연결됨: {teamName}",
   "slack.channelNote": "채널 알림은 프로젝트별로 설정됩니다.",
+  "slack.channelUnavailable": "(사용할 수 없음)",
   "slack.disconnectTitle": "Slack 연결을 해제하시겠습니까?",
   "slack.disconnectDesc": "모든 채널 구독이 제거됩니다. 언제든지 다시 연결할 수 있습니다.",
   "slack.connectSuccess": "Slack이 성공적으로 연결되었습니다",

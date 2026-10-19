@@ -7,6 +7,7 @@
  */
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { installRadixSelectShims, pickOption } from '../../helpers/radix-select'
 
 installRadixSelectShims()
@@ -119,4 +120,12 @@ describe('/signup — team size can be cleared', () => {
       teamSize: '',
     })
   })
+})
+
+// LUM-1265: /signup forces the dark theme on its wrapper; the team-size menu
+// is portalled outside it, so it must carry the `dark` class itself.
+it('opens the team-size menu on the dark theme', async () => {
+  render(<WaitlistPage />)
+  await userEvent.click(screen.getByLabelText('Team size'))
+  expect(await screen.findByRole('listbox')).toHaveClass('dark')
 })

@@ -346,6 +346,7 @@
   "slack.connected": "Verbunden",
   "slack.connectedTo": "Verbunden mit Arbeitsbereich: {teamName}",
   "slack.channelNote": "Kanalbenachrichtigungen werden pro Projekt konfiguriert.",
+  "slack.channelUnavailable": "(nicht verfügbar)",
   "slack.disconnectTitle": "Slack trennen?",
   "slack.disconnectDesc": "Alle Kanalabonnements werden entfernt. Sie können jederzeit erneut eine Verbindung herstellen.",
   "slack.connectSuccess": "Slack erfolgreich verbunden",

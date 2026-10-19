@@ -346,6 +346,7 @@
   "slack.connected": "Đã kết nối",
   "slack.connectedTo": "Đã kết nối với không gian làm việc: {teamName}",
   "slack.channelNote": "Thông báo kênh được cấu hình theo từng dự án.",
+  "slack.channelUnavailable": "(không khả dụng)",
   "slack.disconnectTitle": "Ngắt kết nối Slack?",
   "slack.disconnectDesc": "Tất cả các đăng ký kênh sẽ bị xóa. Bạn có thể kết nối lại bất cứ lúc nào.",
   "slack.connectSuccess": "Kết nối Slack thành công",

@@ -181,7 +181,9 @@ export default function WaitlistPage() {
                     })}
                   />
                 </SelectTrigger>
-                <SelectContent>
+                {/* The page forces the dark theme on its wrapper; the menu is
+                    portalled to <body>, outside it, so it carries `dark` too. */}
+                <SelectContent className='dark'>
                   <SelectItem value={NO_TEAM_SIZE}>
                     {intl.formatMessage({
                       id: 'waitlist.teamSize.preferNotToSay',

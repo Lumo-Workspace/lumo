@@ -346,6 +346,7 @@
   "slack.connected": "已連線",
   "slack.connectedTo": "已連線到工作區：{teamName}",
   "slack.channelNote": "頻道通知按專案設定。",
+  "slack.channelUnavailable": "（無法使用）",
   "slack.disconnectTitle": "中斷 Slack？",
   "slack.disconnectDesc": "所有頻道訂閱將被移除。你可以隨時重新連線。",
   "slack.connectSuccess": "Slack 連線成功",
