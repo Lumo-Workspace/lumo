@@ -52,10 +52,9 @@ const SINGLE_SOURCE_ALLOWLIST: Record<string, string> = {
   'focus-ring': 'single focus accent, identical light/dark (LUM-262)',
   ring: 'derives from var(--focus-ring) (LUM-262)',
   'sidebar-ring': 'derives from var(--focus-ring) (LUM-262)',
-  // Geometry / typography — not colours, mode-independent by nature.
+  // Geometry — not a colour, mode-independent by nature. (The font variables
+  // are set by next/font on <html>, not declared here — LUM-1261.)
   radius: 'border-radius geometry, mode-independent',
-  'font-inter': 'font family, mode-independent',
-  'font-source-code-pro': 'font family, mode-independent',
   // LUM-258: feedback -foreground is a near-black text colour kept identical in
   // both modes (flipping to white would fail AA on the light accents); -subtle
   // / -border are translucent color-mix() of the accent that re-resolve over

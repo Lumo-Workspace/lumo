@@ -179,8 +179,14 @@ preference to raw `<h1>` … `<h6>` so the scale stays consistent.
 **Fonts** (registered via `@theme inline` → Tailwind utilities `font-sans` /
 `font-mono`):
 
-- `--font-inter` → `Inter, sans-serif`
-- `--font-source-code-pro` → `Source Code Pro, monospace`
+- `--font-sans` → `var(--font-inter)` — Inter, loaded by `next/font/google` in
+  `app/layout.tsx`, which sets `--font-inter` on `<html>` (with a
+  metric-matched fallback face). Do not redeclare it in `globals.css`.
+- `--font-mono` → `var(--font-source-code-pro)` — Source Code Pro, same
+  mechanism. Plain CSS that needs mono uses `var(--font-mono)`, never
+  `ui-monospace`.
+- CJK glyph forms follow `<html lang>`, which tracks the active UI locale
+  (`lib/i18n/DocumentLang.tsx`), so ja / zh-TW / ko pick their own system face.
 
 ## Spacing & layout
 
