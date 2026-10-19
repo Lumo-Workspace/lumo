@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -45,11 +46,11 @@ const OUTCOME_ORDER: LineageOutcome[] = [
 // -subtle tint + -border + accent dot, with the LABEL kept neutral
 // (text-foreground/-muted) because the bright accents fail AA as text on their
 // own subtle tint. UNKNOWN carries no color — typography only.
-const OUTCOME_BADGE: Record<LineageOutcome, string> = {
-  MERGED: 'bg-success-subtle border border-success-border text-foreground',
-  REWORKED: 'bg-warning-subtle border border-warning-border text-foreground',
-  REJECTED: 'bg-danger-subtle border border-danger-border text-foreground',
-  UNKNOWN: 'border border-border text-muted-foreground',
+const OUTCOME_BADGE: Record<LineageOutcome, BadgeProps['variant']> = {
+  MERGED: 'success',
+  REWORKED: 'warning',
+  REJECTED: 'danger',
+  UNKNOWN: 'outline-muted',
 }
 
 function disclosureLabel(
@@ -241,11 +242,18 @@ export function LineageTab({
               key={`${f.fragmentType}-${f.fragmentId}-${i}`}
               className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
             >
-              <span
-                className={`rounded-sm px-1 text-caption font-semibold ${OUTCOME_BADGE[f.outcome]}`}
+              <Badge
+                variant={OUTCOME_BADGE[f.outcome]}
+                size='xs'
+                shape='square'
+                className={
+                  f.outcome === 'UNKNOWN'
+                    ? 'font-semibold'
+                    : 'font-semibold text-foreground'
+                }
               >
                 {f.outcome}
-              </span>
+              </Badge>
               <span className='truncate'>
                 {f.fragmentType} — {f.sourceLabel}
               </span>

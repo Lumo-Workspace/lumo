@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { ChevronRight, Bot, Sparkles } from 'lucide-react'
 import { MemberAvatar } from '@/components/MemberAvatar'
+import { Badge } from '@/components/ui/badge'
 import {
   CollapsibleCard,
   CollapsibleContent,
@@ -53,11 +54,11 @@ export function AgentRunCard({
           className='size-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-90'
           aria-hidden
         />
-        {/* leading-4 caps the pill at 20px (py-0.5 + 16px line) so the avatar,
-            not the pill, sets the row height — keeps this header the same
-            height as the token-usage summary header above. */}
-        <span
-          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption font-semibold shrink-0'
+        <Badge
+          variant='muted'
+          size='sm'
+          shape='square'
+          className='shrink-0 gap-1.5 font-semibold text-foreground'
           data-testid='run-number'
         >
           <Bot className='size-3' />
@@ -65,7 +66,7 @@ export function AgentRunCard({
             { id: 'agentRun.runNumber', defaultMessage: 'Run #{n}' },
             { n: run.runNumber }
           )}
-        </span>
+        </Badge>
         {run.member && (
           <span
             className='flex items-center gap-1.5 shrink-0'

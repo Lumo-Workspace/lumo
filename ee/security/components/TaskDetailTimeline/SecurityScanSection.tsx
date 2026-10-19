@@ -1240,14 +1240,16 @@ function FindingRow({
               </span>
             )}
             {suggestedOpen && (
-              <span
+              <Badge
                 data-testid='finding-suggested'
-                className='rounded-sm border border-warning/40 px-1 text-warning-text'
+                variant='warning'
+                size='xs'
+                shape='square'
               >
                 {intl.formatMessage({
                   id: 'securityScan.suggested.falsePositive',
                 })}
-              </span>
+              </Badge>
             )}
             {finding.kind === 'DEPENDENCY' && (
               <span

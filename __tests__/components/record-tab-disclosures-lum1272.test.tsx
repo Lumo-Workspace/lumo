@@ -106,6 +106,7 @@ it('toggles an agent run card with Enter and Space', async () => {
   const user = userEvent.setup()
   render(<AgentRunCard run={run} />)
   const trigger = screen.getByRole('button', { name: /Run #4/ })
+  expect(screen.getByTestId('run-number')).toHaveAttribute('data-slot', 'badge')
   expect(trigger).toHaveAttribute('aria-expanded', 'false')
   trigger.focus()
   await user.keyboard('{Enter}')
@@ -180,6 +181,8 @@ it('toggles the lineage fragment list with Enter and Space', async () => {
   trigger.focus()
   await user.keyboard('{Enter}')
   expect(screen.getByText(/Only fragment/)).toBeInTheDocument()
+  // The outcome chip is the shared Badge, not a hand-made pill.
+  expect(screen.getByText('MERGED')).toHaveAttribute('data-slot', 'badge')
   await user.keyboard(' ')
   expect(screen.queryByText(/Only fragment/)).not.toBeInTheDocument()
 })

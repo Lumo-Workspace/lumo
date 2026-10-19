@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Badge } from '@/components/ui/badge'
 import { ChevronRight, ArrowUp, MoonStar } from 'lucide-react'
 import {
   Collapsible,
@@ -48,12 +49,17 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           {timeRange}
         </span>
         {!turn.terminated && (
-          <span className='text-caption uppercase text-warning-text px-1.5 py-px rounded-sm bg-warning-subtle'>
+          <Badge
+            variant='warning'
+            size='xs'
+            shape='square'
+            className='uppercase'
+          >
             {intl.formatMessage({
               id: 'agentRun.unterminatedTurn',
               defaultMessage: '未终止',
             })}
-          </span>
+          </Badge>
         )}
         {turn.cost && (
           <span className='ml-auto shrink-0 text-right text-caption text-muted-foreground tabular-nums'>
