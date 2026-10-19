@@ -148,7 +148,12 @@ function MemberCard({
       <div className='flex w-full min-w-0 items-center gap-2'>
         <ChevronRight className='size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90' />
         {member ? (
-          <MemberAvatar member={member} size='sm' />
+          <MemberAvatar
+            decorative
+            name={member.name}
+            imageUrl={member.imageUrl}
+            size='xs'
+          />
         ) : (
           <span className='flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-caption text-muted-foreground'>
             ?

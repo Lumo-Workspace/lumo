@@ -15,7 +15,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 // Agent widgets hidden — agent features disabled for now
 import type { NotificationItemProps } from './types'
 
@@ -210,14 +210,19 @@ export function NotificationItem({
           )}
 
           <ItemMedia className='self-start'>
-            <Avatar className='size-9'>
-              <AvatarImage
-                src={actor?.imageUrl ?? (!actor ? '/logo-dark.svg' : undefined)}
+            {actor ? (
+              <MemberAvatar
+                decorative
+                name={actor.name}
+                imageUrl={actor.imageUrl}
+                size='xl'
               />
-              <AvatarFallback className='text-caption'>
-                {actor ? getInitials(actor.name) : 'LA'}
-              </AvatarFallback>
-            </Avatar>
+            ) : (
+              <Avatar className='size-9'>
+                <AvatarImage src='/logo-dark.svg' />
+                <AvatarFallback className='text-caption'>LA</AvatarFallback>
+              </Avatar>
+            )}
           </ItemMedia>
 
           <ItemContent>

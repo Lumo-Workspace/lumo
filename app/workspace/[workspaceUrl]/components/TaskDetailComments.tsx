@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl'
 import { Send, Pencil, Trash2, Reply, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import {
   Tooltip,
   TooltipContent,
@@ -33,7 +33,7 @@ interface TaskDetailCommentsProps {
   agentActors: { actorId: string; name: string; avatarColor: string }[]
   mentionableMembers: WorkspaceMemberInfo[]
   currentActorId: string | null | undefined
-  user: { imageUrl?: string; initials?: string } | null | undefined
+  user: { imageUrl?: string; displayName?: string } | null | undefined
   tc: {
     comments: ApiComment[]
     commentsLoading: boolean
@@ -127,7 +127,7 @@ export function TaskDetailComments({
                   <CommentAvatar
                     isAgent={ca.isAgent}
                     imageUrl={ca.imageUrl}
-                    initials={ca.initials}
+                    name={ca.name}
                   />
                   <div className='flex-1 min-w-0'>
                     <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
@@ -305,7 +305,7 @@ export function TaskDetailComments({
                           <CommentAvatar
                             isAgent={ra.isAgent}
                             imageUrl={ra.imageUrl}
-                            initials={ra.initials}
+                            name={ra.name}
                             size='sm'
                           />
                           <div className='flex-1 min-w-0'>
@@ -514,12 +514,12 @@ export function TaskDetailComments({
                 {/* ── Inline reply input ── */}
                 {isReplying && (
                   <div className='ml-9 mt-3 flex gap-2'>
-                    <Avatar className='size-5 shrink-0 mt-0.5'>
-                      <AvatarImage src={user?.imageUrl} />
-                      <AvatarFallback className='text-caption'>
-                        {user?.initials ?? '?'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <MemberAvatar
+                      name={user?.displayName ?? ''}
+                      imageUrl={user?.imageUrl}
+                      size='xs'
+                      className='mt-0.5'
+                    />
                     <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                       {tc.replyingToComment && (
                         <button
@@ -591,12 +591,12 @@ export function TaskDetailComments({
 
       {/* New comment input */}
       <div className='mt-5 flex gap-2.5'>
-        <Avatar className='size-7 shrink-0 mt-0.5'>
-          <AvatarImage src={user?.imageUrl} />
-          <AvatarFallback className='text-caption'>
-            {user?.initials ?? '?'}
-          </AvatarFallback>
-        </Avatar>
+        <MemberAvatar
+          name={user?.displayName ?? ''}
+          imageUrl={user?.imageUrl}
+          size='md'
+          className='mt-0.5'
+        />
         <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
           <div
             className='px-3 pt-2 pb-1 text-body'

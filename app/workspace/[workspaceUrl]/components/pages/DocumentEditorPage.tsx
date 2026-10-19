@@ -21,7 +21,7 @@ import { useMentionSources } from '../../hooks/useMentionSources'
 import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
 import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
-import { getInitials } from '@/lib/utils/getInitials'
+import { MemberAvatar } from '@/components/MemberAvatar'
 import type {
   ApiDocumentDetail,
   ApiDocumentAncestor,
@@ -610,19 +610,12 @@ export function DocumentEditorPage({
                 <div className='flex items-center gap-2 text-caption text-muted-foreground mb-3 flex-wrap'>
                   {/* Creator */}
                   <span className='flex items-center gap-1 shrink-0'>
-                    <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                      {doc.createdBy.imageUrl ? (
-                        <img
-                          src={doc.createdBy.imageUrl}
-                          alt={doc.createdBy.name}
-                          className='w-full h-full object-cover'
-                        />
-                      ) : (
-                        <span className='text-caption'>
-                          {getInitials(doc.createdBy.name)}
-                        </span>
-                      )}
-                    </span>
+                    <MemberAvatar
+                      decorative
+                      name={doc.createdBy.name}
+                      imageUrl={doc.createdBy.imageUrl}
+                      size='xs'
+                    />
                     <span>{doc.createdBy.name}</span>
                   </span>
 
@@ -649,11 +642,7 @@ export function DocumentEditorPage({
                   {doc.editors && doc.editors.length > 0 && (
                     <>
                       <span className='text-border'>·</span>
-                      <CollaboratorAvatars
-                        editors={doc.editors}
-                        max={3}
-                        size={18}
-                      />
+                      <CollaboratorAvatars editors={doc.editors} max={3} />
                     </>
                   )}
 

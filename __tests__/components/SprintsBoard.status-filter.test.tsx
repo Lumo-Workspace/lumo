@@ -47,7 +47,7 @@ function renderBoard() {
 it('names the status filter group', () => {
   renderBoard()
   const group = screen.getByRole('group', {
-    name: 'Filter sprints by status',
+    name: t('sprints.statusFilter.label'),
   })
   expect(group).toBeInTheDocument()
   expect(
