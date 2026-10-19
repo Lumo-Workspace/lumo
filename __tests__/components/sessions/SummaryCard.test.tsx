@@ -74,6 +74,46 @@ describe('SummaryCard', () => {
     ).toBeInTheDocument()
   })
 
+  // LUM-1250: phase badges use Lucide icons (decorative, next to the label).
+  it.each([
+    ['exploration', 'lucide-search'],
+    ['implementation', 'lucide-code'],
+    ['debug', 'lucide-bug'],
+    ['refactor', 'lucide-wrench'],
+    ['review', 'lucide-eye'],
+    ['mixed', 'lucide-layers'],
+  ])('renders the %s badge with a Lucide icon', (type, iconClass) => {
+    const { container } = render(
+      <SummaryCard {...base} initialSummaryType={type} initialSummary={null} />
+    )
+    const icon = container.querySelector(`[data-summary-type-icon="${type}"]`)
+    expect(icon).not.toBeNull()
+    expect(icon?.tagName.toLowerCase()).toBe('svg')
+    expect(icon).toHaveAttribute('aria-hidden', 'true')
+    expect(icon).toHaveClass(iconClass)
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+
+  it('treats a prototype key as an unknown summary type', () => {
+    const { container } = render(
+      <SummaryCard
+        {...base}
+        initialSummaryType='toString'
+        initialSummary={null}
+      />
+    )
+    expect(container.querySelector('[data-summary-type-icon]')).toBeNull()
+    expect(screen.getByText('toString')).toBeInTheDocument()
+  })
+
+  it('renders no icon for an unknown summary type', () => {
+    const { container } = render(
+      <SummaryCard {...base} initialSummaryType='other' initialSummary={null} />
+    )
+    expect(container.querySelector('[data-summary-type-icon]')).toBeNull()
+  })
+
   it('shows review severity with an icon + label in a neutral card, not a coloured stripe (LUM-1249)', () => {
     const { container } = render(
       <SummaryCard

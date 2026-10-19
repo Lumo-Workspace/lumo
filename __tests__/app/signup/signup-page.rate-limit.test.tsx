@@ -80,4 +80,17 @@ describe('/signup — 429 from the waitlist API', () => {
       ).toBeInTheDocument()
     )
   })
+
+  // LUM-1250: the success state uses a decorative Lucide icon, not an emoji.
+  it('renders the success icon as an aria-hidden svg, not an emoji', async () => {
+    respond(201, { message: 'ok' })
+    submit('carol@example.com')
+    const title = await screen.findByText(enMessages['waitlist.success.title']!)
+    const card = title.parentElement!
+    const icon = card.querySelector('svg')
+    expect(icon).not.toBeNull()
+    expect(icon).toHaveAttribute('aria-hidden', 'true')
+    expect(icon).toHaveClass('text-muted-foreground')
+    expect(card.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
 })

@@ -3,7 +3,18 @@
 import { useState, useTransition } from 'react'
 import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { useRouter } from 'next/navigation'
-import { CircleAlert, Info, TriangleAlert } from 'lucide-react'
+import {
+  Bug,
+  CircleAlert,
+  Code,
+  Eye,
+  Info,
+  Layers,
+  Search,
+  TriangleAlert,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
@@ -196,22 +207,35 @@ const TYPE_MESSAGES: Record<string, MessageDescriptor> = {
 
 function TypeBadge({ type }: { type: string }) {
   const intl = useIntl()
-  const icon = TYPE_ICONS[type] ?? '•'
+  // Own keys only: a server-sent type like 'toString' must not hit Object.prototype.
+  const Icon = Object.prototype.hasOwnProperty.call(TYPE_ICONS, type)
+    ? TYPE_ICONS[type]
+    : undefined
+  const label = Object.prototype.hasOwnProperty.call(TYPE_MESSAGES, type)
+    ? TYPE_MESSAGES[type]
+    : undefined
   return (
     <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
-      <span aria-hidden>{icon}</span>
-      {TYPE_MESSAGES[type] ? intl.formatMessage(TYPE_MESSAGES[type]) : type}
+      {Icon && (
+        <Icon
+          aria-hidden
+          data-summary-type-icon={type}
+          className='size-3 shrink-0 text-muted-foreground'
+        />
+      )}
+      {label ? intl.formatMessage(label) : type}
     </span>
   )
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  exploration: '🔍',
-  implementation: '🛠',
-  debug: '🐛',
-  refactor: '🔧',
-  review: '👁',
-  mixed: '≈',
+// Decorative: the adjacent type label carries the meaning (LUM-1250).
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  exploration: Search,
+  implementation: Code,
+  debug: Bug,
+  refactor: Wrench,
+  review: Eye,
+  mixed: Layers,
 }
 
 function SummaryBody({ summary }: { summary: unknown }) {
