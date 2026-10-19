@@ -76,6 +76,7 @@ const CLERK = {
   alphaMember: 'user_lum1192_alpha_member',
   bravoOwner: 'user_lum1192_bravo_owner',
   dualAlpha: DUAL_CLERK,
+  unreadReader: 'user_lum1233_unread_reader',
 }
 const TOKEN = {
   alphaOwner: 'lum1192-fixture-bearer-alpha-owner',
@@ -83,6 +84,8 @@ const TOKEN = {
   bravoOwner: 'lum1192-fixture-bearer-bravo-owner',
   /** The dual member's key bound to ALPHA. */
   dualAlpha: 'lum1192-fixture-bearer-dual-alpha',
+  /** LUM-1233: ALPHA-bound key of a human who is also a BRAVO member. */
+  unreadReader: 'lum1233-fixture-bearer-unread-reader',
 }
 type Caller = keyof typeof CLERK
 const SLUG = { alpha: 'lum1192-alpha', bravo: 'lum1192-bravo' }
@@ -285,8 +288,8 @@ async function call(
 }
 
 const get = {
-  notifications: (as: As) =>
-    call(notificationsRoute.GET, 'GET', '/api/notifications', {}, as),
+  notifications: (as: As, query = '') =>
+    call(notificationsRoute.GET, 'GET', `/api/notifications${query}`, {}, as),
   drafts: (as: As, query = '') =>
     call(draftsRoute.GET, 'GET', `/api/drafts${query}`, {}, as),
   projectStats: (as: As, projectId: string) =>
@@ -506,5 +509,122 @@ describe('LUM-1192 the CLI views render the same payload the web reads', () => {
       'Stalled 0 · High stakes 0 · Stale PRs 0 · Overdue 0'
     )
     expect(pText).toMatch(/Total tasks:\s+1\b/)
+  })
+})
+
+describe('LUM-1233 GET /api/notifications?unread=1 (lumo status default)', () => {
+  const reader: As = { caller: 'unreadReader', source: 'bearer' }
+  type Body = {
+    notifications: Array<{ read: boolean; task: { title: string } | null }>
+    unreadCount: number
+  }
+  const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000)
+
+  beforeAll(async () => {
+    const db = harness.prisma!
+    // ALPHA: one unread, one read (newer). BRAVO (same human): one unread
+    // that must never reach the ALPHA-bound key.
+    const alpha = await addMember(
+      A(),
+      CLERK.unreadReader,
+      TOKEN.unreadReader,
+      'MEMBER'
+    )
+    const bravoMember = await db.workspaceMember.create({
+      data: {
+        workspaceId: B().workspaceId,
+        clerkId: CLERK.unreadReader,
+        role: 'MEMBER',
+      },
+    })
+    const bravoActor = await db.actor.create({
+      data: {
+        workspaceId: B().workspaceId,
+        type: 'HUMAN',
+        memberId: bravoMember.id,
+      },
+    })
+    const row = (ws: Ws, actorId: string, read: boolean, at: Date) => ({
+      workspaceId: ws.workspaceId,
+      recipientActorId: actorId,
+      type: 'TASK_ASSIGNED' as const,
+      taskId: ws.taskId,
+      read,
+      createdAt: at,
+    })
+    await db.notification.createMany({
+      data: [
+        row(A(), alpha.actorId, false, minutesAgo(10)),
+        row(A(), alpha.actorId, true, minutesAgo(5)),
+        row(B(), bravoActor.id, false, minutesAgo(1)),
+      ],
+    })
+  })
+
+  it('returns only the caller’s unread rows in the key’s workspace; unreadCount counts them', async () => {
+    const res = await get.notifications(reader, '?unread=1')
+    expect(res.status).toBe(200)
+    const body = res.json() as Body
+    expect(body.notifications).toHaveLength(1)
+    expect(body.notifications.every(n => !n.read)).toBe(true)
+    expect(body.notifications[0]!.task?.title).toBe('alpha-own task one')
+    expect(body.unreadCount).toBe(1)
+    expect(res.text).not.toContain(BRAVO_MARK)
+  })
+
+  it('X-Lumo-Workspace cannot move the ALPHA key to BRAVO’s unread rows', async () => {
+    const res = await get.notifications(
+      { ...reader, activeSlug: SLUG.bravo },
+      '?unread=1'
+    )
+    expect(res.status).toBe(200)
+    expect((res.json() as Body).notifications).toHaveLength(1)
+    expect(res.text).not.toContain(BRAVO_MARK)
+  })
+
+  it('BRAVO’s own key sees BRAVO’s unread, never ALPHA’s', async () => {
+    const res = await get.notifications(bravoKey, '?unread=1')
+    expect(res.status).toBe(200)
+    expect(res.text).not.toContain('alpha-own')
+  })
+
+  it('without the parameter (and with unread=0) the read rows come back too — unchanged', async () => {
+    for (const q of ['', '?unread=0']) {
+      const body = (await get.notifications(reader, q)).json() as Body
+      expect(body.notifications.map(n => n.read).sort()).toEqual([false, true])
+      expect(body.unreadCount).toBe(1)
+    }
+  })
+
+  it('filters before the 50 cap: 55 newer read rows do not hide older unread ones', async () => {
+    const db = harness.prisma!
+    const actor = await db.actor.findFirstOrThrow({
+      where: {
+        workspaceId: A().workspaceId,
+        member: { clerkId: CLERK.unreadReader },
+      },
+    })
+    await db.notification.createMany({
+      data: Array.from({ length: 55 }, (_, i) => ({
+        workspaceId: A().workspaceId,
+        recipientActorId: actor.id,
+        type: 'TASK_DONE' as const,
+        taskId: A().taskId,
+        read: true,
+        createdAt: minutesAgo(0.5 - i / 1000),
+      })),
+    })
+    const all = (await get.notifications(reader)).json() as Body
+    expect(all.notifications).toHaveLength(50)
+    expect(all.notifications.every(n => n.read)).toBe(true)
+    const unread = (await get.notifications(reader, '?unread=1')).json() as Body
+    expect(unread.notifications).toHaveLength(1)
+    expect(unread.notifications[0]!.read).toBe(false)
+    expect(unread.unreadCount).toBe(1)
+  })
+
+  it('an unknown unread value is a 400', async () => {
+    const res = await get.notifications(reader, '?unread=yes')
+    expect(res.status).toBe(400)
   })
 })

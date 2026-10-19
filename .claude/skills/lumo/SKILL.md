@@ -91,7 +91,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 
 - `lumo workspace security-scan show` / `update` — show / set PR security-scan switches (`--disable-all`/`--enable-all`, `--reward-hack`, `--request-changes`, `--repos`/`--repo` …; OWNER; risky changes exit 4)
-- `lumo status [--inbox|--drafts|--next] [--json]` — me across the workspace: team priority line, inbox, my drafts, next tasks (read-only; not a task ref — that is `task status`) · `lumo project show [project]` — project health + latest summary
+- `lumo status [--inbox [--all]|--drafts|--next] [--json]` — me across the workspace: team priority line, unread inbox (`--all` adds read), my drafts, next tasks (read-only; not a task ref — that is `task status`) · `lumo project show [project]` — project health + latest summary
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 

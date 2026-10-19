@@ -144,6 +144,7 @@ describe('status output', () => {
       unreadCount: 0,
       total: 0,
       nextCursor: null,
+      filter: 'unread',
     })
     expect(body.next.tasks[0].ref).toBe('LUM-7')
     expect(body.next.version).toBeUndefined()
@@ -217,6 +218,7 @@ describe('grammar and Codex rules', () => {
       expect(grammar.commands).not.toHaveProperty([gone])
     expect(Object.keys(grammar.commands.status!.flags).sort()).toEqual(
       [
+        '--all',
         '--claimable',
         '--drafts',
         '--inbox',

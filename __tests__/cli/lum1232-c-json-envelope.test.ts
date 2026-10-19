@@ -338,6 +338,7 @@ describe('status --inbox --json', () => {
       unreadCount: 0,
       total: 0,
       nextCursor: null,
+      filter: 'unread',
     })
   })
 

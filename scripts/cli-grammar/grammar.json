@@ -3194,6 +3194,14 @@
     "status": {
       "arguments": [],
       "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Inbox: include read notifications too (• marks unread)"
+        },
         "--claimable": {
           "long": "--claimable",
           "short": null,
@@ -3216,7 +3224,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "My notifications: pending responses first, then the rest; • marks unread"
+          "description": "My unread notifications: pending responses first, then the rest"
         },
         "--json": {
           "long": "--json",
@@ -3245,7 +3253,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Me across the workspace: the team priority, my inbox, my drafts and the next tasks to work on. --inbox / --drafts / --next print only those sections. Read-only; for one task use `lumo task status`.",
+      "description": "Me across the workspace: the team priority, my unread inbox (--all: read too), my drafts and next tasks. --inbox / --drafts / --next print only those. Read-only; for one task: `lumo task status`.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "tag": {

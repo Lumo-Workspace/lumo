@@ -3,6 +3,8 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { requireIdentity } from '@/lib/auth/identity'
 import { getHumanActorId } from '@/lib/actor'
 import { notificationService } from '@/lib/services/notification.service'
+import { zodError } from '@/lib/api/helpers'
+import { notificationListQuerySchema } from '@/lib/validation/notification'
 
 /**
  * GET /api/notifications — return notifications for the current user.
@@ -11,11 +13,20 @@ import { notificationService } from '@/lib/services/notification.service'
  * LUM-1192: browser session or API key (`lumo status --inbox`). Scoped to the
  * credential's workspace — a Bearer key's own workspace, or the session's
  * active one — and to the caller's own Actor in it.
+ *
+ * LUM-1233: `?unread=1` returns only unread notifications (filtered before the
+ * newest-50 cap); `unreadCount` still counts the unread rows returned. Without
+ * it, every notification as before (the web inbox).
  */
 export async function GET(request: NextRequest) {
   try {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
+
+    const query = notificationListQuerySchema.safeParse({
+      unread: request.nextUrl.searchParams.get('unread') ?? undefined,
+    })
+    if (!query.success) return zodError(query)
 
     // Resolve current user's Actor ID to query notifications
     const recipientActorId = await getHumanActorId(identity.memberId)
@@ -25,7 +36,8 @@ export async function GET(request: NextRequest) {
 
     const rawNotifications = await notificationService.getNotifications(
       recipientActorId,
-      identity.workspaceId
+      identity.workspaceId,
+      { unreadOnly: query.data.unread }
     )
 
     if (rawNotifications.length === 0) {

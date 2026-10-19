@@ -60,6 +60,25 @@ describe('notificationRepository', () => {
       )
       expect(result).toEqual([{ id: 'n1' }])
     })
+
+    it('LUM-1233: unreadOnly filters read:false in the query, before take', async () => {
+      mockNotificationFindMany.mockResolvedValue([])
+
+      await notificationRepository.findByRecipient('actor-1', 'ws-1', {
+        unreadOnly: true,
+      })
+
+      expect(mockNotificationFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            workspaceId: 'ws-1',
+            recipientActorId: 'actor-1',
+            read: false,
+          },
+          take: 50,
+        })
+      )
+    })
   })
 
   describe('findById', () => {
