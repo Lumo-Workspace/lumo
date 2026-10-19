@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import type { Editor } from '@tiptap/core'
 import { useDocExtractContext } from '@/lib/editor/doc-extract-context'
 import { extractTasks } from '@/lib/api-client/documents-extract'
+import { ConfirmActionDialog } from '../ConfirmActionDialog'
 
 function countUncheckedUnlinked(editor: Editor): number {
   let n = 0
@@ -75,10 +76,6 @@ export function BatchExtractButton({ editor }: { editor: Editor }) {
     },
     { count }
   )
-  const cancelLabel = intl.formatMessage({
-    id: 'common.cancel',
-    defaultMessage: 'Cancel',
-  })
 
   return (
     <>
@@ -89,66 +86,18 @@ export function BatchExtractButton({ editor }: { editor: Editor }) {
       >
         {batchLabel}
       </button>
-      {confirming && (
-        <ConfirmDialog
-          title={confirmTitle}
-          message={confirmMessage}
-          cta={confirmCta}
-          cancelLabel={cancelLabel}
-          pending={pending}
-          onCancel={() => setConfirming(false)}
-          onConfirm={go}
-        />
-      )}
+      <ConfirmActionDialog
+        open={confirming}
+        onOpenChange={open => {
+          // Keep the dialog up while the extract request is in flight.
+          if (!pending) setConfirming(open)
+        }}
+        title={confirmTitle}
+        description={confirmMessage}
+        confirmLabel={confirmCta}
+        pending={pending}
+        onConfirm={() => void go()}
+      />
     </>
-  )
-}
-
-function ConfirmDialog({
-  title,
-  message,
-  cta,
-  cancelLabel,
-  pending,
-  onCancel,
-  onConfirm,
-}: {
-  title: string
-  message: string
-  cta: string
-  cancelLabel: string
-  pending: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <div
-      role='dialog'
-      aria-modal='true'
-      className='fixed inset-0 z-modal flex items-center justify-center bg-black/30'
-    >
-      <div className='w-96 rounded-sm bg-background p-4 shadow-elevation-3'>
-        <h2 className='mb-2 text-title'>{title}</h2>
-        <p className='mb-4 text-body text-muted-foreground'>{message}</p>
-        <div className='flex justify-end gap-2'>
-          <button
-            type='button'
-            onClick={onCancel}
-            disabled={pending}
-            className='rounded-sm border px-3 py-1 text-body'
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type='button'
-            onClick={onConfirm}
-            disabled={pending}
-            className='rounded-sm bg-primary px-3 py-1 text-body text-primary-foreground'
-          >
-            {cta}
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
