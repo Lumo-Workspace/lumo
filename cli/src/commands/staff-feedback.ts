@@ -71,11 +71,16 @@ function context(): Ctx | null {
 
 /**
  * One-line customer text the server already guarded (redacted, defanged,
- * directive marker appended): strip control characters and defang again —
- * without a second marker.
+ * directive marker appended): strip control characters, fold line breaks and
+ * defang again — without a second marker.
  */
 export function guardedLine(text: string): string {
-  return neutralizeWrapperEscapes(sanitizeField(text))
+  // One line means one line: a customer title with a newline must not forge
+  // a `Label:` row or a heading outside the fence.
+  return neutralizeWrapperEscapes(sanitizeField(text)).replace(
+    /[\t\r\n\v\f]+/g,
+    ' '
+  )
 }
 
 function oneCell(text: string): string {

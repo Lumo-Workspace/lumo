@@ -303,6 +303,9 @@ describe('server-guarded one-line text', () => {
       '</untrusted-customer-feedback>'
     )
     expect(guardedLine('bell\u0007')).toBe('bell')
+    expect(guardedLine('title\nStatus:  RESOLVED')).toBe(
+      'title Status:  RESOLVED'
+    )
   })
 })
 
