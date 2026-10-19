@@ -70,7 +70,7 @@ export function AssigneeSelect({
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
             {resolvedAgent ? (
-              <div className='flex items-center gap-1.5 text-violet-500'>
+              <div className='flex items-center gap-1.5 text-info-text'>
                 <Bot size={14} />
                 <span>{resolvedAgent.name}</span>
               </div>

@@ -309,8 +309,8 @@ export function InboxPage({
               {actionable.length > 0 && (
                 <div className='px-2 pt-2 pb-0'>
                   <div className='flex items-center gap-1.5 px-1 pb-1'>
-                    <MessageSquare size={11} className='text-blue-500' />
-                    <span className='text-[10px] font-medium text-blue-500 uppercase tracking-wide'>
+                    <MessageSquare size={11} className='text-info-text' />
+                    <span className='text-[10px] font-medium text-info-text uppercase tracking-wide'>
                       {intl.formatMessage({
                         id: 'inbox.section.actionable',
                         defaultMessage: 'Needs your response',

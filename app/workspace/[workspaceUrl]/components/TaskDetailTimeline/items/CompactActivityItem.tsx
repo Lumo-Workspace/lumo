@@ -341,7 +341,7 @@ function formatActivityText(
             })
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
-          <AlertTriangle className='h-3.5 w-3.5 text-red-500' />
+          <AlertTriangle className='h-3.5 w-3.5 text-danger-text' />
           <span>{label}</span>
           {eventCount !== null ? (
             <span className='text-muted-foreground'>· {eventCount} events</span>

@@ -123,6 +123,19 @@ Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
   — no feedback hue clears 3:1 on both the near-black (light) and white
   (dark) primary.
 
+**No raw Tailwind palette classes in app UI (LUM-1245).** Map hues to the
+families above instead of `text-red-500` / `bg-amber-50` / `border-indigo-300`
+plus a `dark:` twin: red → `danger`, amber/yellow/orange → `warning`,
+green/emerald → `success`, blue/sky and AI/agent violet/indigo → `info`.
+Fills use `bg-*-subtle`, hover fills `hover:bg-*/15`, outlines `border-*-border`,
+text and icons `text-*-text`; selection/drop indicators use `ring` /
+`border-ring`; destructive confirm buttons use `variant='destructive'`. The
+tokens already re-resolve in `.dark`, so no `dark:` colour override is needed.
+A fixed-dark surface (signup) puts `dark` on its root and uses the same tokens.
+Survivors with a recorded reason: `RevisionDiffView` (diff ins/del colours — no
+diff token yet), `TurnCard` memory left border (owned by LUM-1249), and the
+vendored `components/ui/shadcn-io/aurora-background`.
+
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep
 back; `__tests__/styles/feedback-contrast.test.ts` computes every ratio above

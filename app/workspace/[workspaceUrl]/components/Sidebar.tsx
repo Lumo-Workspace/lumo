@@ -157,7 +157,7 @@ export function AppSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className='text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer'
+                  className='text-danger-text focus:text-danger-text focus:bg-danger-subtle cursor-pointer'
                   onClick={() => {
                     clearCache()
                     signOut({ redirectUrl: '/signin' })
@@ -228,7 +228,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.inbox' })}
                     </span>
                     {unreadCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-info hover:bg-info text-info-foreground rounded-full justify-center'>
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </Badge>
                     )}

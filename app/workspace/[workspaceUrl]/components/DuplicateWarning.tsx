@@ -29,11 +29,11 @@ export function DuplicateWarning({
   if (matches.length === 0) return null
 
   return (
-    <div className='rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30'>
+    <div className='rounded-md border border-warning-border bg-warning-subtle'>
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
-        className='w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-700 dark:text-amber-400'
+        className='w-full flex items-center gap-2 px-3 py-2 text-sm text-warning-text'
       >
         <AlertTriangle className='size-4 shrink-0' />
         <span>
@@ -64,9 +64,9 @@ export function DuplicateWarning({
                 key={task.id}
                 type='button'
                 onClick={() => window.open(url, '_blank')}
-                className='w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors'
+                className='w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-sm hover:bg-warning/15 transition-colors'
               >
-                <span className='text-amber-600 dark:text-amber-500 font-medium tabular-nums shrink-0'>
+                <span className='text-warning-text font-medium tabular-nums shrink-0'>
                   {Math.round(score * 100)}%
                 </span>
                 <span className='truncate text-foreground'>{task.title}</span>

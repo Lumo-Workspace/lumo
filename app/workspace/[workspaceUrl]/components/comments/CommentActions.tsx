@@ -77,7 +77,7 @@ export function CommentActions({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
+                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-danger-text transition-colors disabled:opacity-40'
                 disabled={isDeleting}
                 onClick={onRequestDelete}
               >

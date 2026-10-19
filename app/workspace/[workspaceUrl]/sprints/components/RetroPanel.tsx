@@ -121,7 +121,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
             </p>
           </div>
           <div>
-            <p className='text-xl font-bold tabular-nums text-green-600 dark:text-green-400'>
+            <p className='text-xl font-bold tabular-nums text-success-text'>
               {done}
             </p>
             <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>
@@ -129,7 +129,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
             </p>
           </div>
           <div>
-            <p className='text-xl font-bold tabular-nums text-yellow-600 dark:text-yellow-400'>
+            <p className='text-xl font-bold tabular-nums text-warning-text'>
               {spillover}
             </p>
             <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>

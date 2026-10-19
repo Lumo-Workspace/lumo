@@ -20,9 +20,9 @@ export function CommentAvatar({
   if (isAgent) {
     return (
       <div
-        className={`${sizeClass} shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center`}
+        className={`${sizeClass} shrink-0 mt-0.5 rounded-full bg-info-subtle flex items-center justify-center`}
       >
-        <Bot className={`${iconSize} text-violet-600 dark:text-violet-400`} />
+        <Bot className={`${iconSize} text-info-text`} />
       </div>
     )
   }

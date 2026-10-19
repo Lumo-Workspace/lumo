@@ -61,7 +61,7 @@ export function BulkDeleteConfirm({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={deleting}
-            className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+            variant='destructive'
           >
             {deleting
               ? intl.formatMessage({

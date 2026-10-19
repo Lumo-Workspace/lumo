@@ -233,7 +233,7 @@ export function DueDatePicker({
                 className={cn(
                   triggerClassName,
                   'inline-flex items-center gap-1.5',
-                  overdue && 'text-red-500'
+                  overdue && 'text-danger-text'
                 )}
               >
                 <CalendarDays className='size-3.5 shrink-0' />

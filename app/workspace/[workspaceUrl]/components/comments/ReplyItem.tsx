@@ -75,7 +75,7 @@ export function ReplyItem({
   return (
     <div
       id={`comment-${reply.id}`}
-      className={`group flex gap-2 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+      className={`group flex gap-2 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === reply.id ? 'bg-warning-subtle' : ''}`}
     >
       <CommentAvatar
         isAgent={ra.isAgent}

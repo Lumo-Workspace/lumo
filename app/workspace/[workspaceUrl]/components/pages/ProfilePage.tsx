@@ -105,7 +105,7 @@ export function ProfilePage() {
                   className='w-9 h-9 rounded-full object-cover'
                 />
               ) : (
-                <div className='w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-semibold'>
+                <div className='w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold'>
                   {initials}
                 </div>
               )}
