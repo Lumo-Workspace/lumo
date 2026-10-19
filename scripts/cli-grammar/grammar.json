@@ -2918,6 +2918,53 @@
       "isInvokable": true,
       "description": "Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself"
     },
+    "scan": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Run Lumo security scans locally, before pushing (LUM-1255). Read-only: nothing is uploaded. The PR scan stays the authority for DONE."
+    },
+    "scan secrets": {
+      "arguments": [],
+      "flags": {
+        "--fail-on": {
+          "long": "--fail-on",
+          "short": null,
+          "value": "required",
+          "enum": ["low", "medium", "high"],
+          "enumCaseInsensitive": true,
+          "description": "Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive; errors exit 1)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the versioned machine-readable payload ({ summary, findings[] })"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Scan from <ref> to the working tree instead of the merge-base"
+        },
+        "--staged": {
+          "long": "--staged",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Scan only staged changes (git diff --cached) — for a pre-commit hook"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Run the PR scan's secret scanner on the lines your changes add. Default: from the merge-base with the default branch to the working tree, untracked files included. No network, no binary; findings carry the server's fingerprints."
+    },
     "session": {
       "arguments": [],
       "flags": {},

@@ -206,6 +206,8 @@ export const CODEX_SANDBOXED_COMMANDS: Readonly<Record<string, string>> = {
   'milestone testcase disposition':
     'a human-only ruling: keep Codex asking the user first',
   'memory sync': 'writes the local memory directory',
+  'scan secrets':
+    'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
   'session attach':
     'can create a git worktree (--worktree / autoWorktree) and sync local memory',
   'task testcase disposition':

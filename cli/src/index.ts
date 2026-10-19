@@ -99,6 +99,10 @@ import {
 import { taskPrShow } from './commands/task-pr-show'
 import { prScan, type PrScanOptions } from './commands/pr-scan'
 import {
+  scanSecretsCommand,
+  type ScanSecretsOptions,
+} from './commands/scan-secrets'
+import {
   workspaceSecurityScan,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
@@ -737,6 +741,35 @@ pr.command('scan <number>')
       prScan(number as string, options as PrScanOptions)
     )
   )
+
+const scan = program
+  .command('scan')
+  .description(
+    'Run Lumo security scans locally, before pushing (LUM-1255). Read-only: nothing is uploaded. The PR scan stays the authority for DONE.'
+  )
+
+scan
+  .command('secrets')
+  .description(
+    "Run the PR scan's secret scanner on the lines your changes add. Default: from the merge-base with the default branch to the working tree, untracked files included. No network, no binary; findings carry the server's fingerprints."
+  )
+  .option(
+    '--staged',
+    'Scan only staged changes (git diff --cached) — for a pre-commit hook'
+  )
+  .option(
+    '--since <ref>',
+    'Scan from <ref> to the working tree instead of the merge-base'
+  )
+  .option(
+    '--json',
+    'Emit the versioned machine-readable payload ({ summary, findings[] })'
+  )
+  .option(
+    '--fail-on <severity>',
+    'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive; errors exit 1)'
+  )
+  .action(wrap(options => scanSecretsCommand(options as ScanSecretsOptions)))
 
 const session = program
   .command('session')

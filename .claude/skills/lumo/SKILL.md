@@ -24,6 +24,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `init`, `skill`, `auth login/logout`, `whoami`, `update`                               | [references/onboarding.md](references/onboarding.md)                 |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)      | [references/task-context.md](references/task-context.md)             |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail) | [references/pr-scan.md](references/pr-scan.md)                       |
+| `scan secrets` — local scan of your changes before pushing (PR-scan rules, no network) | [references/scan.md](references/scan.md)                             |
 | `task create/update/list/search/statuses/show/comment/decide/template *`, `next`       | [references/tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (the refs `--assignee` accepts)                    | [references/members.md](references/members.md)                       |
 | `tag list/create` — workspace tags                                                     | [references/tags.md](references/tags.md)                             |
@@ -71,6 +72,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — read one PR’s scans; `--review incremental|full` requests review, `--pause` / `--resume [--limit N]` controls automatic AI rounds. See the reference before using control flags.
 - `lumo finding disposition <id...> --false-positive | --accepted-risk [--note]` — the **user's** ruling on security findings (clears a DONE block); exit-4 gated. See [pr-scan.md](references/pr-scan.md#finding-disposition).
+
+### Local scans — see [scan.md](references/scan.md)
+
+- `lumo scan secrets [--staged | --since <ref>] [--json] [--fail-on <sev>]` — the PR scan's secret scanner on your local changes (merge-base → working tree by default); exit 3 at `--fail-on`. Read-only; never a DONE gate.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 
@@ -199,9 +204,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 `task create`, `task update`, `session attach`, `task context` and `next` end with a short `Next:` block naming what to do now — attach an unbound session, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
 
-The rules are computed **server-side** from task status × session binding × open crossings, so the advice tracks the real state machine rather than a hard-coded string. Capped at **3 suggestions**; a rule whose condition is already satisfied never appears. The block goes to **stdout**, after the command's own result line — the result line stays first and unchanged, so reading line 1 still works.
-
-Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole shell.
+Computed server-side from task status × binding × open crossings; at most 3 lines, on stdout after the unchanged result line (line 1 still parses). Silence with `--no-hints` or `LUMO_NO_HINTS=1`.
 
 ## Commands & flags that do NOT exist (common mistakes)
 
@@ -212,7 +215,7 @@ Don't guess these:
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new agent session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>` (scan _settings_ are `lumo workspace security-scan`); `lumo task pr show` is the task-scoped PR card
+- No `lumo pr show` — the by-number security read-out is `lumo pr scan <number>` (scan _settings_: `lumo workspace security-scan`); `lumo task pr show` is the task-scoped PR card. `lumo scan` is local-only (`lumo scan secrets`)
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`
 - No `--body` on `lumo task comment` — the body is a positional arg: `lumo task comment LUM-N "text"`
