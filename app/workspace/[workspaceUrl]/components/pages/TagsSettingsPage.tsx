@@ -23,6 +23,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { tagsClient } from '@/lib/api-client'
 import type { ApiTagWithCounts } from '../../types'
 import { TagBadgeNew } from '../document/TagPicker'
@@ -163,15 +170,19 @@ export function TagsSettingsPage() {
           {intl.formatMessage({ id: 'common.loading' })}
         </div>
       ) : tags.length === 0 ? (
-        <div className='text-center py-12'>
-          <TagIcon size={32} className='mx-auto mb-3 text-muted-foreground' />
-          <p className='text-body-strong text-muted-foreground'>
-            {intl.formatMessage({ id: 'settings.tags.empty' })}
-          </p>
-          <p className='text-caption text-muted-foreground mt-1'>
-            {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
-          </p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <TagIcon />
+            </EmptyMedia>
+            <EmptyTitle>
+              {intl.formatMessage({ id: 'settings.tags.empty' })}
+            </EmptyTitle>
+            <EmptyDescription>
+              {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className='border rounded-lg divide-y divide-border border-border'>
           {tags.map(tag => (

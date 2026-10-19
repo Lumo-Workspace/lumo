@@ -2,6 +2,11 @@
 
 import { forwardRef } from 'react'
 import { Plus } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string
@@ -10,16 +15,20 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const SectionAddButton = forwardRef<HTMLButtonElement, Props>(
   function SectionAddButton({ label, ...rest }, ref) {
     return (
-      <button
-        ref={ref}
-        type='button'
-        aria-label={label}
-        title={label}
-        className='text-muted-foreground hover:text-foreground transition-colors'
-        {...rest}
-      >
-        <Plus size={14} />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={ref}
+            type='button'
+            aria-label={label}
+            className='text-muted-foreground hover:text-foreground transition-colors'
+            {...rest}
+          >
+            <Plus size={14} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
     )
   }
 )

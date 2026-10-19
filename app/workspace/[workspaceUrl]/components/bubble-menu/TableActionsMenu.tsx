@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
@@ -176,7 +177,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.addColRight' })}
           </button>
 
-          <div className='my-1 h-px bg-border' />
+          <Separator className='my-1' />
 
           {/* structure */}
           <button
@@ -220,7 +221,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.splitCell' })}
           </button>
 
-          <div className='my-1 h-px bg-border' />
+          <Separator className='my-1' />
 
           {/* delete */}
           <button

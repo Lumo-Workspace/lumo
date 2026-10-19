@@ -6,6 +6,12 @@ import { ChevronDown, ChevronRight, Download, ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -270,12 +276,16 @@ function AuditEventsBody({
   }
   if (events.length === 0) {
     return (
-      <div className='text-center py-12'>
-        <ScrollText size={32} className='mx-auto mb-3 text-muted-foreground' />
-        <p className='text-body-strong text-muted-foreground'>
-          {intl.formatMessage({ id: 'settings.auditLog.empty' })}
-        </p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant='icon'>
+            <ScrollText />
+          </EmptyMedia>
+          <EmptyTitle>
+            {intl.formatMessage({ id: 'settings.auditLog.empty' })}
+          </EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     )
   }
   return <AuditEventsTable events={events} />

@@ -12,6 +12,11 @@ import {
 } from '@/lib/api-client/task-documents'
 import { ContextSection } from '../ContextSection'
 import { LinkDocPopover } from '../../LinkDocPopover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
   documents: TaskDocumentResource[]
@@ -144,23 +149,29 @@ export function DocumentsSection({
                     })}
               </span>
               {doc.source === 'EXPLICIT' && (
-                <button
-                  type='button'
-                  onClick={() => {
-                    void handleDetach(doc.id)
-                  }}
-                  aria-label={intl.formatMessage({
-                    id: 'task.contextLink.doc.detachAction',
-                    defaultMessage: 'Remove document',
-                  })}
-                  title={intl.formatMessage({
-                    id: 'task.contextLink.doc.detachAction',
-                    defaultMessage: 'Remove document',
-                  })}
-                  className='p-0.5 rounded-sm text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground transition-opacity'
-                >
-                  <X size={12} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        void handleDetach(doc.id)
+                      }}
+                      aria-label={intl.formatMessage({
+                        id: 'task.contextLink.doc.detachAction',
+                        defaultMessage: 'Remove document',
+                      })}
+                      className='p-0.5 rounded-sm text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground transition-opacity'
+                    >
+                      <X size={12} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {intl.formatMessage({
+                      id: 'task.contextLink.doc.detachAction',
+                      defaultMessage: 'Remove document',
+                    })}
+                  </TooltipContent>
+                </Tooltip>
               )}
             </li>
           ))}
