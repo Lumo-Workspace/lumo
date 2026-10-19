@@ -22,14 +22,14 @@ jest.mock('@/lib/db/prisma', () => ({
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { formatList, main, runCli } from '../scripts/crossing-eval'
-import { trace, traceSamples } from '../scripts/crossing-eval/datasets'
+import { formatList, main, runCli } from '../../../scripts/crossing-eval'
+import { trace, traceSamples } from '../../../scripts/crossing-eval/datasets'
 import {
   convertTraceCall,
   convertTraceRow,
   hackFamily,
   parseTraceLabel,
-} from '../scripts/analysis/lum1234-trace/convert'
+} from '../../../scripts/analysis/lum1234-trace/convert'
 import {
   TRACE_ACCESS_STEP,
   downloadTrace,
@@ -38,7 +38,7 @@ import {
   parquetHint,
   resolveTraceFile,
   traceCacheFile,
-} from '../scripts/analysis/lum1234-trace/source'
+} from '../../../scripts/analysis/lum1234-trace/source'
 
 const noLog = () => {}
 const load = { history: false, download: false, log: noLog }
