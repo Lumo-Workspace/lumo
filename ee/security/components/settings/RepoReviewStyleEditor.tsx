@@ -129,12 +129,12 @@ export function RepoReviewStyleEditor({
 
   return (
     <div className='flex flex-col gap-3 pt-3'>
-      <p className='text-xs text-muted-foreground'>{t('precedence')}</p>
+      <p className='text-caption text-muted-foreground'>{t('precedence')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-profile`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('profile')}
           </label>
@@ -145,25 +145,25 @@ export function RepoReviewStyleEditor({
               setDraft(d => ({ ...d, reviewProfile: v as ReviewProfile }))
             }
           >
-            <SelectTrigger id={`${idBase}-profile`} className='text-xs'>
+            <SelectTrigger id={`${idBase}-profile`} className='text-caption'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {REVIEW_PROFILES.map(p => (
-                <SelectItem key={p} value={p} className='text-xs'>
+                <SelectItem key={p} value={p} className='text-caption'>
                   {t(`profile.${p}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t(`profileHint.${draft.reviewProfile}`)}
           </p>
         </div>
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-tone`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('tone')}
           </label>
@@ -172,17 +172,17 @@ export function RepoReviewStyleEditor({
             value={draft.toneInstructions}
             maxLength={TONE_INSTRUCTIONS_MAX_CHARS}
             disabled={disabled}
-            className='text-xs'
+            className='text-caption'
             onChange={e =>
               setDraft(d => ({ ...d, toneInstructions: e.target.value }))
             }
           />
-          <p className='text-xs text-muted-foreground'>{t('toneHint')}</p>
+          <p className='text-caption text-muted-foreground'>{t('toneHint')}</p>
         </div>
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-summary`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('summary')}
           </label>
@@ -196,25 +196,25 @@ export function RepoReviewStyleEditor({
               }))
             }
           >
-            <SelectTrigger id={`${idBase}-summary`} className='text-xs'>
+            <SelectTrigger id={`${idBase}-summary`} className='text-caption'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {HIGH_LEVEL_SUMMARY_MODES.map(m => (
-                <SelectItem key={m} value={m} className='text-xs'>
+                <SelectItem key={m} value={m} className='text-caption'>
                   {t(`summary.${m}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t(`summaryHint.${draft.highLevelSummary}`)}
           </p>
         </div>
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-diagrams`}
-            className='flex items-center gap-2 self-start text-xs font-medium text-foreground'
+            className='flex items-center gap-2 self-start text-caption text-foreground'
           >
             <Switch
               id={`${idBase}-diagrams`}
@@ -226,16 +226,14 @@ export function RepoReviewStyleEditor({
             />
             {t('sequenceDiagrams')}
           </label>
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t('sequenceDiagramsHint')}
           </p>
         </div>
       </div>
       <div className='flex flex-col gap-2'>
-        <p className='text-xs font-medium text-foreground'>
-          {t('pathInstructions')}
-        </p>
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-caption text-foreground'>{t('pathInstructions')}</p>
+        <p className='text-caption text-muted-foreground'>
           {t('pathInstructionsHint')}
         </p>
         {draft.pathInstructions.map((row, i) => (
@@ -249,7 +247,7 @@ export function RepoReviewStyleEditor({
               value={row.path}
               maxLength={PATH_INSTRUCTION_PATH_MAX_CHARS}
               disabled={disabled}
-              className='text-xs font-mono sm:w-48'
+              className='text-caption font-mono sm:w-48'
               onChange={e => setRow(i, { path: e.target.value })}
             />
             <Textarea
@@ -258,7 +256,7 @@ export function RepoReviewStyleEditor({
               rows={2}
               maxLength={PATH_INSTRUCTION_MAX_CHARS}
               disabled={disabled}
-              className='text-xs flex-1'
+              className='text-caption flex-1'
               onChange={e => setRow(i, { instructions: e.target.value })}
             />
             {canEdit && (

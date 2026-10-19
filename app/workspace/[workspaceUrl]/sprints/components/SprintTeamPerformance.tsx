@@ -285,7 +285,7 @@ function TaskRow({
           </span>
         </div>
         <div className='flex w-full items-baseline gap-3 pl-7 text-caption text-muted-foreground'>
-          <span className='font-semibold tabular-nums text-foreground'>
+          <span className='text-caption font-semibold tabular-nums text-foreground'>
             {fmtTokens(task.tokenCost)}
           </span>
           <span className='tabular-nums'>{fmtTime(task.activeTimeSec)}</span>

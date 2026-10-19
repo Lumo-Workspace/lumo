@@ -37,7 +37,7 @@ function DecisionToggle({
 }) {
   const intl = useIntl()
   return (
-    <div className='flex gap-1 text-xs'>
+    <div className='flex gap-1 text-caption'>
       <button
         type='button'
         onClick={() => onChange('moveToNext')}
@@ -142,16 +142,16 @@ export function CloseSprintDialog({
 
         <div className='flex flex-col gap-4 min-w-0 max-w-full'>
           {loading ? (
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-body text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.detail.loading' })}
             </p>
           ) : tasks.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-body text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.close.allDone' })}
             </p>
           ) : (
             <>
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-body text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'sprints.close.unfinishedCount' },
                   { count: tasks.length }
@@ -185,7 +185,7 @@ export function CloseSprintDialog({
                     key={task.id}
                     className='flex w-full items-center justify-between gap-2 rounded-sm border p-2 min-w-0'
                   >
-                    <span className='text-sm truncate flex-1 min-w-0'>
+                    <span className='text-body truncate flex-1 min-w-0'>
                       {task.title}
                     </span>
                     <div className='shrink-0'>
@@ -200,7 +200,7 @@ export function CloseSprintDialog({
             </>
           )}
 
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.close.irreversible' })}
           </p>
         </div>

@@ -71,33 +71,33 @@ export function SubprocessorChanges({
     return (
       <li key={c.id} className='rounded-md border border-border p-3'>
         <p className='flex flex-wrap items-baseline gap-x-2'>
-          <span className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+          <span className='text-caption uppercase text-muted-foreground'>
             {t(`${P}.kind.${c.kind}`)}
           </span>
-          <span className='font-medium'>{refName(subject)}</span>
+          <span className='text-title'>{refName(subject)}</span>
           {c.kind === 'replaced' && c.before ? (
-            <span className='text-sm text-muted-foreground'>
+            <span className='text-body text-muted-foreground'>
               {t(`${P}.replaces`, { name: refName(c.before) })}
             </span>
           ) : null}
         </p>
-        <p className='mt-1 text-sm'>
+        <p className='mt-1 text-body'>
           {category(subject)} · {location(subject)}
         </p>
         {/* The record's own wording — the only place a purpose change is
             described. Written once, in English, like the legal doc. */}
-        <p className='mt-1 text-sm' lang='en'>
+        <p className='mt-1 text-body' lang='en'>
           {c.summary}
         </p>
         {moved ? (
-          <p className='mt-1 text-sm'>
+          <p className='mt-1 text-body'>
             {t(`${P}.location`, {
               from: location(c.before!),
               to: location(c.after!),
             })}
           </p>
         ) : null}
-        <p className='mt-1 text-sm text-muted-foreground'>
+        <p className='mt-1 text-body text-muted-foreground'>
           {isPending
             ? t(`${P}.pendingDates`, {
                 announced: day(c.announcedAt),
@@ -106,7 +106,7 @@ export function SubprocessorChanges({
             : t(`${P}.recentDates`, { effective: day(c.effectiveAt) })}
         </p>
         {c.urgent && noticeDays(c) < NOTICE_PERIOD_DAYS ? (
-          <p className='mt-1 text-sm'>
+          <p className='mt-1 text-body'>
             {t(`${P}.urgent`, { days: NOTICE_PERIOD_DAYS })}
           </p>
         ) : null}
@@ -122,20 +122,20 @@ export function SubprocessorChanges({
     changes.length > 0 ? (
       <ul className='space-y-2'>{changes.map(c => item(c, isPending))}</ul>
     ) : (
-      <p className='text-sm text-muted-foreground'>{t(empty)}</p>
+      <p className='text-body text-muted-foreground'>{t(empty)}</p>
     )
 
   return (
     <div id='subprocessor-changes' data-testid='subprocessor-changes'>
-      <h3 className='mt-8 mb-2 text-base font-semibold'>{t(`${P}.heading`)}</h3>
-      <p className='mb-4 text-sm text-muted-foreground'>
+      <h3 className='mt-8 mb-2 text-title'>{t(`${P}.heading`)}</h3>
+      <p className='mb-4 text-body text-muted-foreground'>
         {intl.formatMessage(
           { id: `${P}.intro` },
           {
             days: NOTICE_PERIOD_DAYS,
             email: (
               <a
-                className='font-medium underline underline-offset-4'
+                className='text-body-strong underline underline-offset-4'
                 href={`mailto:${PRIVACY_CONTACT_EMAIL}`}
               >
                 {PRIVACY_CONTACT_EMAIL}
@@ -144,11 +144,11 @@ export function SubprocessorChanges({
           }
         )}
       </p>
-      <h4 className='mb-2 text-sm font-semibold'>{t(`${P}.pending`)}</h4>
+      <h4 className='mb-2 text-body-strong'>{t(`${P}.pending`)}</h4>
       <div data-testid='subprocessor-changes-pending'>
         {list(pending, true, `${P}.pendingEmpty`)}
       </div>
-      <h4 className='mt-4 mb-2 text-sm font-semibold'>{t(`${P}.recent`)}</h4>
+      <h4 className='mt-4 mb-2 text-body-strong'>{t(`${P}.recent`)}</h4>
       <div data-testid='subprocessor-changes-recent'>
         {list(recent, false, `${P}.recentEmpty`)}
       </div>

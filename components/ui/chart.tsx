@@ -55,7 +55,7 @@ function ChartContainer({
         data-slot='chart'
         data-chart={chartId}
         className={cn(
-          'flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot]:stroke-transparent [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden',
+          'flex aspect-video justify-center text-caption [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot]:stroke-transparent [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden',
           className
         )}
         {...props}
@@ -161,7 +161,7 @@ function ChartTooltipContent({
 
     if (labelFormatter) {
       return (
-        <div className={cn('font-medium', labelClassName)}>
+        <div className={cn(labelClassName)}>
           {labelFormatter(value, payload)}
         </div>
       )
@@ -171,7 +171,7 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn('font-medium', labelClassName)}>{value}</div>
+    return <div className={cn(labelClassName)}>{value}</div>
   }, [
     label,
     labelFormatter,
@@ -191,7 +191,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-elevation-2',
+        'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-caption shadow-elevation-2',
         className
       )}
     >
@@ -230,7 +230,7 @@ function ChartTooltipContent({
                   {itemConfig?.label || item.name}
                 </span>
                 {item.value !== undefined && (
-                  <span className='font-mono font-medium tabular-nums text-foreground'>
+                  <span className='font-mono tabular-nums text-foreground'>
                     {item.value.toLocaleString()}
                   </span>
                 )}

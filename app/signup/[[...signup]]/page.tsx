@@ -49,7 +49,7 @@ export default function WaitlistPage() {
         <div className='mb-8 flex items-center justify-center gap-3'>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src='/logo-dark.svg' alt='Lumo' className='h-10 w-auto' />
-          <span className='text-3xl font-bold text-foreground'>Lumo</span>
+          <span className='text-display text-foreground'>Lumo</span>
         </div>
 
         {status === 'success' ? (
@@ -59,10 +59,10 @@ export default function WaitlistPage() {
               className='mx-auto mb-4 size-10 text-muted-foreground'
               strokeWidth={1.5}
             />
-            <h2 className='mb-2 text-xl font-semibold text-foreground'>
+            <h2 className='mb-2 text-heading text-foreground'>
               {intl.formatMessage({ id: 'waitlist.success.title' })}
             </h2>
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-body text-muted-foreground'>
               {intl.formatMessage({ id: 'waitlist.success.body' })}
             </p>
           </div>
@@ -72,10 +72,10 @@ export default function WaitlistPage() {
             className='flex flex-col gap-5 rounded-2xl border border-border bg-card p-8'
           >
             <div className='text-center'>
-              <h1 className='text-xl font-semibold text-foreground'>
+              <h1 className='text-heading text-foreground'>
                 {intl.formatMessage({ id: 'waitlist.heading' })}
               </h1>
-              <p className='mt-1 text-sm text-muted-foreground'>
+              <p className='mt-1 text-body text-muted-foreground'>
                 {intl.formatMessage({ id: 'waitlist.subheading' })}
               </p>
             </div>
@@ -83,7 +83,7 @@ export default function WaitlistPage() {
             <div className='flex flex-col gap-1.5'>
               <label
                 htmlFor='email'
-                className='text-sm font-medium text-foreground'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.email' })}{' '}
                 <span className='text-danger-text'>*</span>
@@ -97,14 +97,14 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.email',
                 })}
-                className='rounded-lg border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
               <label
                 htmlFor='name'
-                className='text-sm font-medium text-foreground'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.name' })}
               </label>
@@ -116,14 +116,14 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.name',
                 })}
-                className='rounded-lg border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
               <label
                 htmlFor='company'
-                className='text-sm font-medium text-foreground'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.company' })}
               </label>
@@ -135,14 +135,14 @@ export default function WaitlistPage() {
                 placeholder={intl.formatMessage({
                   id: 'waitlist.placeholder.company',
                 })}
-                className='rounded-lg border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               />
             </div>
 
             <div className='flex flex-col gap-1.5'>
               <label
                 htmlFor='teamSize'
-                className='text-sm font-medium text-foreground'
+                className='text-body-strong text-foreground'
               >
                 {intl.formatMessage({ id: 'waitlist.field.teamSize' })}
               </label>
@@ -150,7 +150,7 @@ export default function WaitlistPage() {
                 id='teamSize'
                 value={teamSize}
                 onChange={e => setTeamSize(e.target.value)}
-                className='rounded-lg border border-border bg-input px-3 py-2.5 text-sm text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
+                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
               >
                 <option value='' className='bg-popover'>
                   {intl.formatMessage({ id: 'waitlist.teamSize.select' })}
@@ -175,7 +175,7 @@ export default function WaitlistPage() {
 
             {(status === 'error' || status === 'duplicate') && (
               <p
-                className={`text-sm ${status === 'error' ? 'text-danger-text' : 'text-warning-text'}`}
+                className={`text-body ${status === 'error' ? 'text-danger-text' : 'text-warning-text'}`}
               >
                 {message}
               </p>
@@ -184,7 +184,7 @@ export default function WaitlistPage() {
             <button
               type='submit'
               disabled={status === 'loading'}
-              className='rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50'
+              className='rounded-lg bg-primary px-4 py-2.5 text-body-strong text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50'
             >
               {status === 'loading'
                 ? intl.formatMessage({ id: 'waitlist.button.submitting' })
@@ -193,7 +193,7 @@ export default function WaitlistPage() {
           </form>
         )}
 
-        <p className='mt-6 text-center text-xs text-muted-foreground'>
+        <p className='mt-6 text-center text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'waitlist.footer' })}
         </p>
       </div>

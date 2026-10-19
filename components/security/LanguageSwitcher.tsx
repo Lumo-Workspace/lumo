@@ -20,7 +20,7 @@ export function LanguageSwitcher({ locale, path }: LanguageSwitcherProps) {
   const router = useRouter()
 
   return (
-    <label className='flex items-center gap-2 text-sm text-muted-foreground'>
+    <label className='flex items-center gap-2 text-body text-muted-foreground'>
       {intl.formatMessage({ id: 'security.language' })}
       <select
         className='rounded-md border bg-background px-2 py-1 text-foreground'

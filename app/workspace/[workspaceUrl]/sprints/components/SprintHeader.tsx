@@ -63,12 +63,10 @@ export function SprintHeader({
           nowhere to go but wrap unevenly. */}
       <div className='flex flex-col gap-1'>
         <div className='flex flex-wrap items-center gap-x-2.5 gap-y-1'>
-          <span className='text-title font-semibold tracking-tight'>
-            {sprint.name}
-          </span>
+          <span className='text-title'>{sprint.name}</span>
           {state && (
             <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-caption font-medium ${STATE_BADGE[state]}`}
+              className={`inline-flex rounded-full px-2 py-0.5 text-caption ${STATE_BADGE[state]}`}
             >
               {intl.formatMessage({ id: STATE_I18N_KEY[state] })}
             </span>

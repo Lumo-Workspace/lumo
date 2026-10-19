@@ -87,7 +87,7 @@ export function SprintBurnupCard({
       {/* Wraps rather than squeezing: in the ~320px rail the label and the
           readout don't always fit on one line. */}
       <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5'>
-        <span className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
+        <span className='text-caption font-semibold uppercase text-muted-foreground'>
           {intl.formatMessage({
             id: 'sprints.detail.burnup',
             defaultMessage: 'Burnup',

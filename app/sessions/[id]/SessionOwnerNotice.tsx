@@ -16,7 +16,7 @@ export function SessionOwnerNotice({
   return (
     <p
       role='note'
-      className='mb-8 rounded-md border border-info-border bg-info-subtle px-4 py-3 text-sm text-foreground'
+      className='mb-8 rounded-md border border-info-border bg-info-subtle px-4 py-3 text-body text-foreground'
     >
       {ownerName
         ? intl.formatMessage(M['detail.otherMember'], { name: ownerName })

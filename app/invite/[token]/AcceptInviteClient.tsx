@@ -80,10 +80,10 @@ export function AcceptInviteClient({
   if (status === 'ACCEPTED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>
+        <h2 className='text-title'>
           {intl.formatMessage({ id: 'invite.accepted.title' })}
         </h2>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.accepted.body' })}
         </p>
         <Button onClick={() => router.push(`/workspace/${workspaceSlug}`)}>
@@ -96,10 +96,10 @@ export function AcceptInviteClient({
   if (status === 'EXPIRED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>
+        <h2 className='text-title'>
           {intl.formatMessage({ id: 'invite.expired.title' })}
         </h2>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.expired.body' })}
         </p>
       </>
@@ -109,10 +109,10 @@ export function AcceptInviteClient({
   if (status === 'REVOKED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>
+        <h2 className='text-title'>
           {intl.formatMessage({ id: 'invite.revoked.title' })}
         </h2>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-body text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.revoked.body' })}
         </p>
       </>
@@ -123,7 +123,7 @@ export function AcceptInviteClient({
   if (!isLoaded || accepting) {
     return (
       <>
-        <h2 className='text-lg font-semibold'>
+        <h2 className='text-title'>
           {intl.formatMessage({ id: 'invite.joining' }, { workspaceName })}
         </h2>
         <div className='flex justify-center'>
@@ -150,10 +150,10 @@ export function AcceptInviteClient({
   if (error) {
     return (
       <>
-        <h2 className='text-lg font-semibold text-danger-text'>
+        <h2 className='text-title text-danger-text'>
           {intl.formatMessage({ id: 'invite.error.title' })}
         </h2>
-        <p className='text-sm text-muted-foreground'>{error}</p>
+        <p className='text-body text-muted-foreground'>{error}</p>
         <Button variant='outline' onClick={() => setError(null)}>
           {intl.formatMessage({ id: 'invite.error.tryAgain' })}
         </Button>
@@ -164,7 +164,7 @@ export function AcceptInviteClient({
   // Not signed in — show CTA
   return (
     <>
-      <h2 className='text-lg font-semibold'>
+      <h2 className='text-title'>
         <FormattedMessage
           id='invite.signup.title'
           values={{
@@ -175,7 +175,7 @@ export function AcceptInviteClient({
           }}
         />
       </h2>
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-body text-muted-foreground'>
         {intl.formatMessage(
           { id: 'invite.signup.forEmail' },
           { email: maskedEmail }

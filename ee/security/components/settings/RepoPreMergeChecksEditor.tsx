@@ -104,7 +104,7 @@ function ModeSelect({
       disabled={disabled}
       aria-label={ariaLabel}
       onChange={e => onChange(e.target.value as PreMergeCheckMode)}
-      className='h-8 rounded-md border border-border bg-transparent px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+      className='h-8 rounded-md border border-border bg-transparent px-2 text-caption text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
     >
       {MODES.map(m => (
         <option key={m} value={m}>
@@ -158,12 +158,12 @@ export function RepoPreMergeChecksEditor({
 
   return (
     <div className='flex flex-col gap-3 pt-3'>
-      <p className='text-xs text-muted-foreground'>{t('intro')}</p>
+      <p className='text-caption text-muted-foreground'>{t('intro')}</p>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-title`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('title')}
           </label>
@@ -177,7 +177,7 @@ export function RepoPreMergeChecksEditor({
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-description`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('description')}
           </label>
@@ -191,7 +191,7 @@ export function RepoPreMergeChecksEditor({
         <div className='flex flex-col gap-1'>
           <label
             htmlFor={`${idBase}-issue`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('issueAssessment')}
           </label>
@@ -201,13 +201,13 @@ export function RepoPreMergeChecksEditor({
             disabled={disabled}
             onChange={mode => setDraft(d => ({ ...d, issueMode: mode }))}
           />
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {t('issueAssessmentHint')}
           </p>
         </div>
         <label
           htmlFor={`${idBase}-task-details`}
-          className='flex items-center gap-2 self-start text-xs text-muted-foreground sm:pt-6'
+          className='flex items-center gap-2 self-start text-caption text-muted-foreground sm:pt-6'
         >
           <Switch
             id={`${idBase}-task-details`}
@@ -222,7 +222,7 @@ export function RepoPreMergeChecksEditor({
         <div className='flex flex-col gap-1 sm:col-span-2'>
           <label
             htmlFor={`${idBase}-requirements`}
-            className='text-xs font-medium text-foreground'
+            className='text-caption text-foreground'
           >
             {t('titleRequirements')}
           </label>
@@ -232,14 +232,14 @@ export function RepoPreMergeChecksEditor({
             rows={2}
             maxLength={INSTRUCTIONS_MAX}
             disabled={disabled}
-            className='text-xs'
+            className='text-caption'
             onChange={e =>
               setDraft(d => ({ ...d, titleRequirements: e.target.value }))
             }
           />
         </div>
       </div>
-      <p className='text-xs font-medium text-foreground'>{t('custom')}</p>
+      <p className='text-caption text-foreground'>{t('custom')}</p>
       {draft.customChecks.map((c, i) => (
         <div
           key={i}
@@ -252,7 +252,7 @@ export function RepoPreMergeChecksEditor({
               value={c.name}
               maxLength={NAME_MAX}
               disabled={disabled}
-              className='h-8 flex-1 text-xs'
+              className='h-8 flex-1 text-caption'
               onChange={e => setCustom(i, { name: e.target.value })}
             />
             <ModeSelect
@@ -285,7 +285,7 @@ export function RepoPreMergeChecksEditor({
             rows={2}
             maxLength={INSTRUCTIONS_MAX}
             disabled={disabled}
-            className='text-xs'
+            className='text-caption'
             onChange={e => setCustom(i, { instructions: e.target.value })}
           />
         </div>
@@ -312,7 +312,7 @@ export function RepoPreMergeChecksEditor({
       )}
       <label
         htmlFor={`${idBase}-reviewers-only`}
-        className='flex items-center gap-2 text-xs text-muted-foreground'
+        className='flex items-center gap-2 text-caption text-muted-foreground'
       >
         <Switch
           id={`${idBase}-reviewers-only`}

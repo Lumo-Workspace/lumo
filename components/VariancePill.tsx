@@ -32,7 +32,7 @@ export function VariancePill({
   const unit = deltaKind === 'rate' ? 'pt' : '%'
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${tone}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption ${tone}`}
     >
       {sign}
       {deltaPct}
