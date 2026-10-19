@@ -509,7 +509,7 @@ a.mention {
      same hue family as --info). */
   --focus-ring: oklch(0.6231 0.188 259.813); /* #3b82f6 */
   --ring: var(--focus-ring);
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
   /* Elevation — semantic shadow tiers (LUM-261). Exposed as
      shadow-elevation-1/2/3 utilities (registered in the theme layer below).
@@ -771,8 +771,8 @@ a.mention {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 8px);
-  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
