@@ -1113,7 +1113,6 @@ function FindingRow({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [chainOpen, setChainOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -1339,16 +1338,11 @@ function FindingRow({
           </div>
         )}
         {finding.callChain && finding.callChain.length > 0 && (
-          <div className='mt-0.5'>
-            <button
-              type='button'
-              aria-expanded={chainOpen}
-              onClick={() => setChainOpen(o => !o)}
-              className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
-            >
+          <Collapsible className='mt-0.5'>
+            <CollapsibleTrigger className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'>
               {intl.formatMessage({ id: 'securityScan.callChain' })}
-            </button>
-            {chainOpen && (
+            </CollapsibleTrigger>
+            <CollapsibleContent asChild>
               <ol
                 data-testid='finding-call-chain'
                 className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
@@ -1357,8 +1351,8 @@ function FindingRow({
                   <li key={i}>{`${edge.from} → ${edge.to}`}</li>
                 ))}
               </ol>
-            )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
         {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
               evidence is read from the server, with session access checked. */}

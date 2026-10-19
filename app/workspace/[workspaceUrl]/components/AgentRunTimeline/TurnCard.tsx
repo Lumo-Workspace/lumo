@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronDown, ChevronRight, ArrowUp, MoonStar } from 'lucide-react'
+import { ChevronRight, ArrowUp, MoonStar } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { Turn } from './segment-turns'
 import { InlineMemoryCard } from './InlineMemoryCard'
 import { AgentRunEventRow } from './AgentRunEventRow'
@@ -110,21 +115,22 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
 
       {/* Provenance / events disclosure */}
       {eventCount > 0 && (
-        <div className='mt-2 ml-1'>
-          <button
-            type='button'
-            onClick={() => setExpanded(v => !v)}
+        <Collapsible
+          open={expanded}
+          onOpenChange={setExpanded}
+          className='mt-2 ml-1'
+        >
+          <CollapsibleTrigger
             className={
               hasMemory
                 ? 'flex items-center gap-1 text-caption text-info-text hover:text-foreground transition-colors'
                 : 'flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors'
             }
           >
-            {expanded ? (
-              <ChevronDown className='size-3' />
-            ) : (
-              <ChevronRight className='size-3' />
-            )}
+            <ChevronRight
+              className='size-3 transition-transform group-data-[state=open]/collapsible:rotate-90'
+              aria-hidden
+            />
             {hasMemory && <ArrowUp className='size-3' />}
             <span>
               {hasMemory
@@ -156,18 +162,16 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
                     defaultMessage: '展开查看',
                   })}
             </span>
-          </button>
-          {expanded && (
-            // Neutral structural indent for the disclosed event list; the
-            // memory/silent distinction is already carried by the toggle's
-            // ArrowUp icon and label above (LUM-1249).
-            <div className='mt-2 ml-4 pl-3 border-l-2 border-border'>
-              {turn.events.map(ev => (
-                <AgentRunEventRow key={ev.id} event={ev} />
-              ))}
-            </div>
-          )}
-        </div>
+          </CollapsibleTrigger>
+          {/* Neutral structural indent for the disclosed event list; the
+            memory/silent distinction is already carried by the toggle's
+            ArrowUp icon and label above (LUM-1249). */}
+          <CollapsibleContent className='mt-2 ml-4 pl-3 border-l-2 border-border'>
+            {turn.events.map(ev => (
+              <AgentRunEventRow key={ev.id} event={ev} />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   )

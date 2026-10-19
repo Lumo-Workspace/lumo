@@ -4,6 +4,12 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import type {
@@ -153,8 +159,6 @@ export function LineageTab({
     .map(o => `${totals.outcomes[o]} ${o}`)
     .join(' · ')
 
-  const visibleFragments = showAllFragments ? fragments : []
-
   return (
     <Card className='text-caption'>
       {/* Summary row */}
@@ -230,50 +234,54 @@ export function LineageTab({
       ) : null}
 
       {/* Fragments list */}
-      <div>
-        {visibleFragments.map((f, i) => (
-          <div
-            key={`${f.fragmentType}-${f.fragmentId}-${i}`}
-            className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
-          >
-            <span
-              className={`rounded-sm px-1 text-caption font-semibold ${OUTCOME_BADGE[f.outcome]}`}
+      <Collapsible open={showAllFragments} onOpenChange={setShowAllFragments}>
+        <CollapsibleContent>
+          {fragments.map((f, i) => (
+            <div
+              key={`${f.fragmentType}-${f.fragmentId}-${i}`}
+              className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
             >
-              {f.outcome}
-            </span>
-            <span className='truncate'>
-              {f.fragmentType} — {f.sourceLabel}
-            </span>
-            <span className='ml-auto shrink-0 text-caption text-muted-foreground/80'>
-              {disclosureLabel(intl, f.disclosure, f.pulled)}
-            </span>
-            <span className='shrink-0 text-caption text-muted-foreground/80'>
-              {usedLabel(intl, f.used)}
-            </span>
-          </div>
-        ))}
+              <span
+                className={`rounded-sm px-1 text-caption font-semibold ${OUTCOME_BADGE[f.outcome]}`}
+              >
+                {f.outcome}
+              </span>
+              <span className='truncate'>
+                {f.fragmentType} — {f.sourceLabel}
+              </span>
+              <span className='ml-auto shrink-0 text-caption text-muted-foreground/80'>
+                {disclosureLabel(intl, f.disclosure, f.pulled)}
+              </span>
+              <span className='shrink-0 text-caption text-muted-foreground/80'>
+                {usedLabel(intl, f.used)}
+              </span>
+            </div>
+          ))}
+        </CollapsibleContent>
 
         {fragments.length > 0 && (
-          <button
-            type='button'
-            onClick={() => setShowAllFragments(v => !v)}
-            className='w-full px-3 py-2 border-t border-border/60 text-left text-caption text-muted-foreground hover:text-foreground transition-colors'
-          >
-            {showAllFragments
-              ? intl.formatMessage({
-                  id: 'lineage.fragments.collapse',
-                  defaultMessage: '收起',
-                })
-              : intl.formatMessage(
-                  {
-                    id: 'lineage.fragments.showAll',
-                    defaultMessage: 'Show all {count} fragments',
-                  },
-                  { count: fragments.length }
-                )}
-          </button>
+          <CollapsibleTrigger asChild>
+            <Button
+              type='button'
+              variant='ghost'
+              className='h-auto w-full justify-start rounded-none border-t border-border/60 px-3 py-2 text-caption font-normal text-muted-foreground'
+            >
+              {showAllFragments
+                ? intl.formatMessage({
+                    id: 'lineage.fragments.collapse',
+                    defaultMessage: '收起',
+                  })
+                : intl.formatMessage(
+                    {
+                      id: 'lineage.fragments.showAll',
+                      defaultMessage: 'Show all {count} fragments',
+                    },
+                    { count: fragments.length }
+                  )}
+            </Button>
+          </CollapsibleTrigger>
         )}
-      </div>
+      </Collapsible>
     </Card>
   )
 }

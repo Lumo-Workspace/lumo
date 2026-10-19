@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
+import { ChevronRight, Bot, Sparkles } from 'lucide-react'
 import { MemberAvatar } from '@/components/MemberAvatar'
-import { Card } from '@/components/ui/card'
+import {
+  CollapsibleCard,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { deriveRunDigest } from './derive-run-digest'
@@ -27,8 +30,6 @@ export function AgentRunCard({
   defaultExpanded = false,
 }: AgentRunCardProps) {
   const intl = useIntl()
-  const [expanded, setExpanded] = useState(defaultExpanded)
-
   const preDedupe = runOverstated(run)
   const preDedupeNotice = intl.formatMessage({
     id: 'usage.preDedupe.notice',
@@ -46,17 +47,12 @@ export function AgentRunCard({
   })
 
   return (
-    <Card>
-      <button
-        type='button'
-        onClick={() => setExpanded(v => !v)}
-        className='w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted transition-colors rounded-lg'
-      >
-        {expanded ? (
-          <ChevronDown className='size-4 text-muted-foreground shrink-0' />
-        ) : (
-          <ChevronRight className='size-4 text-muted-foreground shrink-0' />
-        )}
+    <CollapsibleCard defaultOpen={defaultExpanded}>
+      <CollapsibleTrigger className='w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted transition-colors rounded-lg'>
+        <ChevronRight
+          className='size-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-90'
+          aria-hidden
+        />
         {/* leading-4 caps the pill at 20px (py-0.5 + 16px line) so the avatar,
             not the pill, sets the row height — keeps this header the same
             height as the token-usage summary header above. */}
@@ -170,7 +166,7 @@ export function AgentRunCard({
             </>
           )}
         </span>
-      </button>
+      </CollapsibleTrigger>
 
       {run.runSummary ? (
         <div
@@ -204,7 +200,7 @@ export function AgentRunCard({
         </div>
       ) : null}
 
-      {expanded && (
+      <CollapsibleContent>
         <div className='border-t border-border/80 px-4 py-2'>
           {run.attribution && (
             <RunAttributionPanel attribution={run.attribution} />
@@ -244,7 +240,7 @@ export function AgentRunCard({
           {/* LUM-944: shown only to the session's member or a workspace OWNER. */}
           {run.sessionId && <RunRawRecordDelete sessionId={run.sessionId} />}
         </div>
-      )}
-    </Card>
+      </CollapsibleContent>
+    </CollapsibleCard>
   )
 }
