@@ -2,13 +2,14 @@ import { scanSecrets } from '../../../shared/src/secret-scan/scan-secrets'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { emitJson } from '../lib/json-output'
 import { collectLocalDiff, type ScanScope } from '../lib/local-diff'
+import { WARN_PREFIX } from '../lib/errors'
 import {
   EXIT_FAIL_ON,
+  FAIL_ON_VALUES,
   formatLocalScan,
   localScanJson,
-  meetsThreshold,
-  parseSeverity,
-  SEVERITIES,
+  meetsFailOn,
+  parseFailOn,
   type LocalFinding,
   type LocalScanner,
   type LocalScanResult,
@@ -29,6 +30,8 @@ export interface SecurityScanOptions {
   secrets?: boolean
   staged?: boolean
   since?: string
+  /** LUM-1258 — end the diff at this commit instead of the working tree. */
+  until?: string
   json?: boolean
   failOn?: string
   /** LUM-1256 — read the server context from the cache only. */
@@ -37,6 +40,18 @@ export interface SecurityScanOptions {
   pr?: boolean
   /** LUM-1256 — `owner/name` instead of origin's. */
   repo?: string
+  /** LUM-1258 — seconds to wait for the Lumo server before the cache. */
+  timeout?: string
+}
+
+/** `--timeout` bounds: a hook wants seconds, nobody wants minutes. */
+const TIMEOUT_MAX_SECONDS = 60
+
+/** Seconds as given to `--timeout` → ms; null when not a number in (0, 60]. */
+export function parseTimeoutSeconds(value: string): number | null {
+  if (!/^\d+(\.\d+)?$/.test(value.trim())) return null
+  const n = Number(value)
+  return n > 0 && n <= TIMEOUT_MAX_SECONDS ? Math.round(n * 1000) : null
 }
 
 /** The scanners a run selects: the flags given, or every local scanner. */
@@ -61,12 +76,18 @@ export async function withServerContext(
     offline: boolean
     pr: boolean
     repo?: string | undefined
+    timeoutMs?: number | undefined
   },
   deps: ScanContextDeps = {}
 ): Promise<{ findings: LocalFinding[]; server: ServerSection }> {
   const repo = input.repo ?? detectRepo(input.root)
   const loaded = await loadScanContext(
-    { repo, branch: detectBranch(input.root), offline: input.offline },
+    {
+      repo,
+      branch: detectBranch(input.root),
+      offline: input.offline,
+      ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
+    },
     deps
   )
   const ctx = loaded.context
@@ -86,14 +107,17 @@ export async function withServerContext(
         comparison: null,
       }
     } else {
-      const scan = await loadPrScan(number, loaded.repo, deps)
+      const scan = await loadPrScan(number, loaded.repo, deps, input.timeoutMs)
       if (!scan.ok) {
         pr = { number, headSha: null, note: scan.note, comparison: null }
-      } else if (input.scope.kind !== 'default') {
+      } else if (
+        input.scope.kind !== 'default' ||
+        input.scope.until !== undefined
+      ) {
         pr = {
           number,
           headSha: scan.headSha,
-          note: 'not compared: --staged / --since do not cover the PR diff',
+          note: 'not compared: --staged / --since / --until do not cover the PR diff',
           comparison: null,
         }
       } else {
@@ -146,26 +170,47 @@ export async function securityScanCommand(
     console.error('Error: pass either --staged or --since <ref>, not both')
     return EXIT_USAGE
   }
+  if (opts.staged && opts.until !== undefined) {
+    console.error(
+      'Error: --until ends a commit range; it cannot run with --staged'
+    )
+    return EXIT_USAGE
+  }
   if (opts.pr && opts.offline) {
     console.error('Error: --pr reads the server; it cannot run with --offline')
+    return EXIT_USAGE
+  }
+  const timeoutMs =
+    opts.timeout === undefined ? undefined : parseTimeoutSeconds(opts.timeout)
+  if (timeoutMs === null) {
+    console.error(
+      `Error: invalid --timeout "${opts.timeout}" (seconds, more than 0 and at most ${TIMEOUT_MAX_SECONDS})`
+    )
+    return EXIT_USAGE
+  }
+  if (timeoutMs !== undefined && opts.offline) {
+    console.error(
+      'Error: --timeout bounds the wait for the Lumo server; --offline makes no call'
+    )
     return EXIT_USAGE
   }
   if (opts.repo !== undefined && !/^[^/\s]+\/[^/\s]+$/.test(opts.repo)) {
     console.error(`Error: invalid --repo "${opts.repo}" (expected owner/name)`)
     return EXIT_USAGE
   }
-  const failOn = opts.failOn === undefined ? null : parseSeverity(opts.failOn)
+  const failOn = opts.failOn === undefined ? null : parseFailOn(opts.failOn)
   if (opts.failOn !== undefined && failOn === null) {
     console.error(
-      `Error: invalid --fail-on "${opts.failOn}" (allowed: ${SEVERITIES.map(s => s.toLowerCase()).join(', ')})`
+      `Error: invalid --fail-on "${opts.failOn}" (allowed: ${FAIL_ON_VALUES.join(', ')})`
     )
     return EXIT_USAGE
   }
+  const until = opts.until !== undefined ? { until: opts.until } : {}
   const scope: ScanScope = opts.staged
     ? { kind: 'staged' }
     : opts.since !== undefined
-      ? { kind: 'since', ref: opts.since }
-      : { kind: 'default' }
+      ? { kind: 'since', ref: opts.since, ...until }
+      : { kind: 'default', ...until }
   const scanners = selectScanners(opts)
 
   const started = performance.now()
@@ -182,6 +227,7 @@ export async function securityScanCommand(
       offline: opts.offline === true,
       pr: opts.pr === true,
       repo: opts.repo,
+      timeoutMs,
     },
     deps
   )
@@ -200,5 +246,10 @@ export async function securityScanCommand(
     console.log(
       formatLocalScan(result, { width: terminalWidth(), color: colorEnabled() })
     )
-  return failOn !== null && meetsThreshold(findings, failOn) ? EXIT_FAIL_ON : 0
+  // LUM-1258: `done` cannot be judged without the policy — say so, never fail.
+  if (failOn === 'DONE' && server.source === 'none' && findings.length > 0)
+    console.error(
+      `${WARN_PREFIX} --fail-on done: no server context, so no finding can be judged against the workspace policy — not failing`
+    )
+  return failOn !== null && meetsFailOn(findings, failOn) ? EXIT_FAIL_ON : 0
 }

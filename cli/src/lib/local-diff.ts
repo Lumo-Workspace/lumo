@@ -15,10 +15,14 @@ import { detectDefaultBranch, gitOutput, runGit } from './worktree'
  * the next commit will carry.
  */
 
+/**
+ * LUM-1258: `until` ends the diff at a commit instead of the working tree (no
+ * untracked files) — what a pre-push hook scans: the commits being pushed.
+ */
 export type ScanScope =
   | { kind: 'staged' }
-  | { kind: 'since'; ref: string }
-  | { kind: 'default' }
+  | { kind: 'since'; ref: string; until?: string }
+  | { kind: 'default'; until?: string }
 
 export interface LocalDiff {
   /** Repo root every path is relative to. */
@@ -142,6 +146,22 @@ function untrackedFiles(root: string, skipped: string[]): AddedFile[] {
   return files
 }
 
+function assertCommit(root: string, ref: string, flag: string): void {
+  if (
+    runGit(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], root)
+      .status !== 0
+  ) {
+    throw new Error(
+      `Unknown ref "${ref}" — pass a branch, tag or commit to ${flag}.`
+    )
+  }
+}
+
+/** A ref as given, but a full sha (what a pre-push hook passes) shortened. */
+function refLabel(root: string, ref: string): string {
+  return /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(ref) ? shortSha(root, ref) : ref
+}
+
 function shortSha(root: string, ref: string): string {
   return gitOutput(['rev-parse', '--short', ref], root)
 }
@@ -163,21 +183,15 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
     }
   }
 
+  const until = scope.until
+  if (until !== undefined) assertCommit(root, until, '--until')
+  const end = until === undefined ? 'working tree' : refLabel(root, until)
   let base: string
   let description: string
   if (scope.kind === 'since') {
-    if (
-      runGit(
-        ['rev-parse', '--verify', '--quiet', `${scope.ref}^{commit}`],
-        root
-      ).status !== 0
-    ) {
-      throw new Error(
-        `Unknown ref "${scope.ref}" — pass a branch, tag or commit to --since.`
-      )
-    }
+    assertCommit(root, scope.ref, '--since')
     base = scope.ref
-    description = `${scope.ref} → working tree`
+    description = `${refLabel(root, scope.ref)} → ${end}`
   } else {
     const branch = detectDefaultBranch(root, { allowNetwork: false })
     if (!branch) {
@@ -185,10 +199,18 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
         'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
       )
     }
-    base = gitOutput(['merge-base', 'HEAD', `origin/${branch}`], root)
-    description = `origin/${branch} (merge-base ${shortSha(root, base)}) → working tree`
+    base = gitOutput(['merge-base', until ?? 'HEAD', `origin/${branch}`], root)
+    description = `origin/${branch} (merge-base ${shortSha(root, base)}) → ${end}`
   }
 
+  if (until !== undefined) {
+    return {
+      root,
+      files: addedLinesWithNumbers(gitDiff(root, [base, until, '--'])),
+      description,
+      skipped,
+    }
+  }
   const files = [
     // `--` ends the revisions: a ref that is also a path name stays a ref.
     ...addedLinesWithNumbers(gitDiff(root, [base, '--'])),

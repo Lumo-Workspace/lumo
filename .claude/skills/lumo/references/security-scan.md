@@ -10,17 +10,19 @@ The **same deterministic secret scanner as the PR scan's first stage** (the code
 
 ## Flags
 
-| Flag                   | Notes                                                                                                                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--secrets`            | Run the secret scanner. No scanner flag = every local scanner.                                                                                                                                            |
-| _(no scope flag)_      | From the merge-base with the default branch (`origin/HEAD`, else `origin/main` / `origin/master`) to the **working tree**: committed, staged and unstaged edits, plus untracked files (not ignored ones). |
-| `--staged`             | Only the index (`git diff --cached`) — what the next commit will contain. For a pre-commit hook. Untracked files are not read.                                                                            |
-| `--since <ref>`        | From `<ref>` (as given, not its merge-base) to the working tree, untracked files included. Not with `--staged`.                                                                                           |
-| `--fail-on <severity>` | `low` \| `medium` \| `high` (case-insensitive): exit **3** when any finding is at or above it.                                                                                                            |
-| `--json`               | The list envelope (below).                                                                                                                                                                                |
-| `--offline`            | Label findings from the cached server context only — no Lumo API call. No cache yet = no labels. Not with `--pr`.                                                                                         |
-| `--pr`                 | When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).         |
-| `--repo <owner/repo>`  | The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).                                                                                  |
+| Flag                  | Notes                                                                                                                                                                                                                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--secrets`           | Run the secret scanner. No scanner flag = every local scanner.                                                                                                                                                                                                                            |
+| _(no scope flag)_     | From the merge-base with the default branch (`origin/HEAD`, else `origin/main` / `origin/master`) to the **working tree**: committed, staged and unstaged edits, plus untracked files (not ignored ones).                                                                                 |
+| `--staged`            | Only the index (`git diff --cached`) — what the next commit will contain. For a pre-commit hook. Untracked files are not read.                                                                                                                                                            |
+| `--since <ref>`       | From `<ref>` (as given, not its merge-base) to the working tree, untracked files included. Not with `--staged`.                                                                                                                                                                           |
+| `--until <ref>`       | End at this commit instead of the working tree: only committed changes, no untracked files. With `--since` the range is `<since>` → `<until>`; alone it starts at the merge-base of `<until>` with the default branch. Not with `--staged`. For a pre-push hook.                          |
+| `--fail-on <level>`   | `low` \| `medium` \| `high` (case-insensitive): exit **3** when any finding is at or above it. `done`: exit 3 when a finding **would block DONE** under the workspace policy (the `Server:` label below) — without server context nothing can, so it never exits 3 and says so on stderr. |
+| `--timeout <seconds>` | Wait at most this long for the Lumo server (default 8; more than 0, at most 60), then fall back to the cached context. Not with `--offline`.                                                                                                                                              |
+| `--json`              | The list envelope (below).                                                                                                                                                                                                                                                                |
+| `--offline`           | Label findings from the cached server context only — no Lumo API call. No cache yet = no labels. Not with `--pr`.                                                                                                                                                                         |
+| `--pr`                | When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).                                                                                         |
+| `--repo <owner/repo>` | The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).                                                                                                                                                                  |
 
 ```bash
 lumo security scan
@@ -28,6 +30,8 @@ lumo security scan --secrets --staged --fail-on high
 lumo security scan --since origin/main --json
 lumo security scan --pr
 lumo security scan --staged --offline --fail-on high
+lumo security scan --staged --fail-on done --timeout 2     # what the pre-commit hook runs
+lumo security scan --since origin/feature --until HEAD     # the commits a push would send
 ```
 
 Run it from anywhere inside the repository; paths are repo-relative. Untracked files that are binary, symlinks, unreadable or over 2 MiB are skipped and listed on a `Skipped …` line.
@@ -83,20 +87,35 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 
 ## Exit codes
 
-| Code | Meaning                                                                                             |
-| ---- | --------------------------------------------------------------------------------------------------- |
-| 0    | The scan ran (findings or not) and `--fail-on` was not given or not met                             |
-| 1    | Failed: not a git repo, unknown `--since` ref, no default branch found                              |
-| 2    | Usage error: `--staged` with `--since`, `--pr` with `--offline`, an invalid `--fail-on` or `--repo` |
-| 3    | `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open               |
+| Code | Meaning                                                                                                                                      |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | The scan ran (findings or not) and `--fail-on` was not given or not met                                                                      |
+| 1    | Failed: not a git repo, unknown `--since` / `--until` ref, no default branch found                                                           |
+| 2    | Usage error: `--staged` with `--since` or `--until`, `--pr` or `--timeout` with `--offline`, an invalid `--fail-on`, `--timeout` or `--repo` |
+| 3    | `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open                                                        |
 
 4 and 5 stay the confirmation and DONE gates' codes ([confirmation.md](confirmation.md)).
+
+## Git hooks
+
+`lumo init --scope project --scan-hooks` (opt-in; [onboarding.md](onboarding.md)) adds two managed blocks to the repo's git hooks, after any hook already there (husky / `core.hooksPath`: printed to add by hand, never written):
+
+| Hook         | Runs                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `pre-commit` | `lumo security scan --fail-on done --timeout 2 --staged`                                      |
+| `pre-push`   | the same with `--since <remote sha> --until <local sha>` per pushed branch (from git's stdin) |
+
+- **Blocks only on exit 3** — a finding the workspace policy would block DONE on (default: deterministic HIGH). Every other finding is printed with `lumo: warning only — not blocking the commit|push.`; a clean scan prints nothing.
+- **Fails open**, saying so: exit 1 / 2 (`lumo: security scan could not run (exit N) — not blocking …`), no `lumo` on PATH (`lumo: not on PATH — … skipped`), not logged in / no network / no plugin (no server context: findings warn, `⚠ --fail-on done: no server context …`). Inside Codex's sandbox the server call fails fast and the cached context is used.
+- **Time budget:** the server wait is capped at 2 s (`--timeout 2`), then the cache; the scan itself is local (typically 0.3–0.8 s a hook on a small change).
+- **pre-push range:** a new branch, or a remote sha this clone has not fetched, starts at the merge-base with the default branch (`--until` alone). Branch deletions and tags are skipped. If an earlier part of the hook consumed stdin, it scans `@{upstream}` (else the merge-base) → `HEAD`.
+- `git commit --no-verify` / `git push --no-verify` skip them; `lumo doctor` lists them (kind `scan-hook`), `lumo uninstall` removes only their blocks.
 
 ## When to suggest
 
 - Before pushing or opening a PR — "check my changes for secrets", "did I leave a key in here?".
 - After writing config, `.env`-style files, test fixtures or scripts that might hold a credential.
-- In a pre-commit hook: `lumo security scan --staged --fail-on high` (add `--offline` to never wait on the network).
+- In a pre-commit hook: `lumo init --scope project --scan-hooks` installs one that blocks only on what would block DONE; hand-rolled: `lumo security scan --staged --fail-on high` (add `--offline` to never wait on the network).
 - "Will this block DONE?" / "is this already ruled?" before pushing — the `Server:` labels.
 - After fixing findings on a PR's branch — `lumo security scan --pr` shows what the next push clears.
 - Not for reading what the PR scan found — that is `lumo pr show <number>` ([pr-scan.md](pr-scan.md)).

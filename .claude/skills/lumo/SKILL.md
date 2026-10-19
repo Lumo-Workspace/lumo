@@ -24,7 +24,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `init`, `doctor`, `skill`, `auth`, `whoami`, `update`                | [onboarding.md](references/onboarding.md)                 |
 | `task show` and its aspects, `slack/web/figma`, comments, PRs        | [task-context.md](references/task-context.md)             |
 | `pr show`, `pr review`, `task show --scans`, `finding disposition`   | [pr-scan.md](references/pr-scan.md)                       |
-| `security scan` — scan your local changes before pushing             | [security-scan.md](references/security-scan.md)           |
+| `security scan` — scan local changes before pushing; opt-in hooks    | [security-scan.md](references/security-scan.md)           |
 | `task create/update/list/search/show/…`, `status --next`, templates  | [tasks.md](references/tasks.md)                           |
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
@@ -52,7 +52,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Onboarding / auth / update — see [onboarding.md](references/onboarding.md)
 
-- `lumo init [--scope user|project] [--force] [--agent <token>] [--dry-run]` — skill + hooks for Claude Code + Codex (re-run to refresh; no `--scope` = `project`, never asks)
+- `lumo init [--scope user|project] [--force] [--agent <token>] [--dry-run] [--scan-hooks]` — skill + hooks for Claude Code + Codex (re-run to refresh; no `--scope` = `project`, never asks; `--scan-hooks` opts in to pre-commit / pre-push scans)
 - `lumo doctor [--json]` — read-only report of every Lumo install (skills, hooks, Codex rule, git hook) + fix commands
 - `lumo skill status [--json]` · `lumo skill update [--scope user|project] [--agent <t>] [--dry-run] [--force]` — report / refresh only the skill copies (never hooks)
 - `lumo uninstall [--scope user|project|all] [--agent <t>] [--force] [--purge] --confirm` — remove skills, hook entries, git hook block (exit 4 envelope first)
@@ -73,7 +73,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Local security scans — see [security-scan.md](references/security-scan.md)
 
-- `lumo security scan [--secrets] [--staged | --since <ref>] [--fail-on <sev>] [--offline | --pr] [--repo <o/r>] [--json]` — the PR scan's rules on your local changes (merge-base → working tree), each finding labelled from the server (new / on main / ruled / learning, would block DONE); exit 3 at `--fail-on`. Read-only; never a DONE gate.
+- `lumo security scan [--secrets] [--staged | --since <ref>] [--until <ref>] [--fail-on <sev|done>] [--offline | --pr] [--timeout <s>] [--repo <o/r>] [--json]` — the PR scan's rules on your local changes (merge-base → working tree), each finding labelled from the server (new / on main / ruled / learning, would block DONE); exit 3 at `--fail-on`. Read-only; never a DONE gate.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 

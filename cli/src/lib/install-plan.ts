@@ -3,7 +3,12 @@ import * as path from 'path'
 import { ENUM_TO_TOKEN, normalizeAgent } from './agent'
 import { listFiles } from './codex-plugin'
 import { classifyCodexRules, codexRulesPath } from './codex-rules'
-import { mergeGitHook, resolveHookInstall } from './git-hook-template'
+import {
+  mergeGitHook,
+  PREPARE_COMMIT_MSG_HOOK,
+  resolveHookInstall,
+  type GitHookSpec,
+} from './git-hook-template'
 import { gitCapture, resolveGitHooksDir } from './git-hooks-dir'
 import {
   isLumoHookCommand,
@@ -181,11 +186,15 @@ export type GitHookInstallPlan =
     }
 
 /**
- * What `lumo init --scope project` does to the repo's prepare-commit-msg: create
- * it, append the Lumo block to a foreign hook, replace a stale block, or
- * nothing. A configured `core.hooksPath` is never written.
+ * What `lumo init --scope project` does to the repo's prepare-commit-msg (or,
+ * LUM-1258, a scan hook `spec` names): create it, append the Lumo block to a
+ * foreign hook, replace a stale block, or nothing. A configured
+ * `core.hooksPath` is never written.
  */
-export function planGitHookInstall(projectRoot: string): GitHookInstallPlan {
+export function planGitHookInstall(
+  projectRoot: string,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK
+): GitHookInstallPlan {
   if (
     gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
   )
@@ -194,11 +203,11 @@ export function planGitHookInstall(projectRoot: string): GitHookInstallPlan {
   if (resolveHookInstall(coreHooksPath).mode === 'degrade')
     return { status: 'degrade', coreHooksPath: coreHooksPath! }
   if (!dir) return { status: 'no-dir' }
-  const hookPath = path.join(dir, 'prepare-commit-msg')
+  const hookPath = path.join(dir, spec.hook)
   const existing = fs.existsSync(hookPath)
     ? fs.readFileSync(hookPath, 'utf8')
     : null
-  const { content, status } = mergeGitHook(existing)
+  const { content, status } = mergeGitHook(existing, spec)
   if (status === 'unchanged') return { status, hookPath }
   return { status, hookPath, existing, content }
 }

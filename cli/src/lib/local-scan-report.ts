@@ -115,6 +115,28 @@ export function summaryLine(c: SeverityCounts): string {
   return `scan: ${c.total} ${noun} (${c.high} high, ${c.medium} medium, ${c.low} low)`
 }
 
+/**
+ * LUM-1258 — what `--fail-on` exits 3 on: a severity, or `DONE` — a finding
+ * the workspace policy would block DONE on (needs server context; without
+ * it nothing meets `DONE`, so a hook fails open).
+ */
+export type FailOn = SecuritySeverity | 'DONE'
+
+export const FAIL_ON_VALUES = ['low', 'medium', 'high', 'done'] as const
+
+/** `high` → `HIGH`, `done` → `DONE`; null for anything else. */
+export function parseFailOn(value: string): FailOn | null {
+  if (value.trim().toLowerCase() === 'done') return 'DONE'
+  return parseSeverity(value)
+}
+
+/** True when any finding meets `failOn` (see {@link FailOn}). */
+export function meetsFailOn(findings: LocalFinding[], failOn: FailOn): boolean {
+  return failOn === 'DONE'
+    ? findings.some(f => f.server?.wouldBlockDone === true)
+    : meetsThreshold(findings, failOn)
+}
+
 /** True when any finding is at or above `failOn`. */
 export function meetsThreshold(
   findings: { severity: SecuritySeverity }[],

@@ -510,6 +510,10 @@ function registerInit(): void {
       '--dry-run',
       'Print what init would change (per file: path, action, unified diff) and which Codex hooks need Trust, without writing anything'
     )
+    .option(
+      '--scan-hooks',
+      'Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE'
+    )
     // LUM-1118: removed; kept hidden only to print the migration error.
     .addOption(new Option('--upgrade').hideHelp())
     .action(
@@ -521,6 +525,7 @@ function registerInit(): void {
             agent?: string
             upgrade?: boolean
             dryRun?: boolean
+            scanHooks?: boolean
           }
         )
       )
@@ -609,7 +614,7 @@ program
   )
   .option(
     '--agent <token>',
-    'Only installs of this agent (claude-code, codex, git, ...); the prepare-commit-msg hook is labelled git, so it is included only by --agent git'
+    'Only installs of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git'
   )
   .option(
     '--force',
@@ -887,16 +892,24 @@ security
     'Scan from <ref> to the working tree instead of from the merge-base'
   )
   .option(
+    '--until <ref>',
+    'End the scan at this commit instead of the working tree (untracked files not read), for a pre-push hook'
+  )
+  .option(
     '--json',
     'Emit the list envelope ({ version, findings[], summary, … })'
   )
   .option(
-    '--fail-on <severity>',
-    'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)'
+    '--fail-on <level>',
+    'Exit 3 when a finding is at or above low | medium | high, or with done when one would block DONE under the workspace policy'
   )
   .option(
     '--offline',
     'Label findings from the cached server context only; no Lumo API call'
+  )
+  .option(
+    '--timeout <seconds>',
+    'Wait at most this long for the Lumo server (default 8), then use the cached context'
   )
   .option(
     '--pr',
