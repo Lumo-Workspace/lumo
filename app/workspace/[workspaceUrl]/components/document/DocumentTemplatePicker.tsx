@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { Card } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -48,38 +49,42 @@ export function DocumentTemplatePicker({
         </DialogHeader>
 
         <div className='grid grid-cols-2 gap-3'>
-          <button
-            type='button'
-            onClick={() => onSelect(null)}
-            className='flex flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent'
+          <Card
+            asChild
+            className='flex flex-col items-start gap-1 p-4 text-left transition-colors hover:bg-accent'
           >
-            <span className='text-2xl'>📄</span>
-            <span className='font-medium text-foreground'>
-              {intl.formatMessage({ id: 'documents.templateBlank' })}
-            </span>
-            <span className='text-sm text-muted-foreground'>
-              {intl.formatMessage({ id: 'documents.templateBlankDesc' })}
-            </span>
-          </button>
+            <button type='button' onClick={() => onSelect(null)}>
+              <span className='text-2xl'>📄</span>
+              <span className='font-medium text-foreground'>
+                {intl.formatMessage({ id: 'documents.templateBlank' })}
+              </span>
+              <span className='text-sm text-muted-foreground'>
+                {intl.formatMessage({ id: 'documents.templateBlankDesc' })}
+              </span>
+            </button>
+          </Card>
 
           {!loading &&
             templates.map(t => {
               const k = intlKey(t.key)
               return (
-                <button
+                <Card
                   key={t.id}
-                  type='button'
-                  onClick={() => onSelect(t)}
-                  className='flex flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent'
+                  asChild
+                  className='flex flex-col items-start gap-1 p-4 text-left transition-colors hover:bg-accent'
                 >
-                  <span className='text-2xl'>{t.emoji ?? '📄'}</span>
-                  <span className='font-medium text-foreground'>
-                    {intl.formatMessage({ id: `documents.template.${k}` })}
-                  </span>
-                  <span className='text-sm text-muted-foreground'>
-                    {intl.formatMessage({ id: `documents.template.${k}Desc` })}
-                  </span>
-                </button>
+                  <button type='button' onClick={() => onSelect(t)}>
+                    <span className='text-2xl'>{t.emoji ?? '📄'}</span>
+                    <span className='font-medium text-foreground'>
+                      {intl.formatMessage({ id: `documents.template.${k}` })}
+                    </span>
+                    <span className='text-sm text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: `documents.template.${k}Desc`,
+                      })}
+                    </span>
+                  </button>
+                </Card>
               )
             })}
         </div>
