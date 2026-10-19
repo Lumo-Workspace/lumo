@@ -25,7 +25,7 @@ lumo security scan --secrets --staged --fail-on high
 lumo security scan --since origin/main --json
 ```
 
-Run it from anywhere inside the repository; paths are repo-relative. Untracked files that are binary, symlinks or over 2 MiB are skipped and listed on a `Skipped …` line.
+Run it from anywhere inside the repository; paths are repo-relative. Untracked files that are binary, symlinks, unreadable or over 2 MiB are skipped and listed on a `Skipped …` line.
 
 ## Output
 

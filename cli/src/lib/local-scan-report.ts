@@ -37,7 +37,7 @@ export interface LocalScanResult {
   /** What was diffed, e.g. `staged changes`. */
   scope: string
   filesScanned: number
-  /** Untracked files left out (binary, symlink, over the size cap). */
+  /** Untracked files left out (binary, symlink, unreadable, over the size cap). */
   skipped: string[]
   elapsedMs: number
   findings: LocalFinding[]
@@ -120,7 +120,7 @@ export function formatLocalScan(
   ]
   if (r.skipped.length > 0) {
     lines.push(
-      `Skipped ${r.skipped.length} untracked (binary, symlink or over 2 MiB): ${r.skipped
+      `Skipped ${r.skipped.length} untracked (binary, symlink, unreadable or over 2 MiB): ${r.skipped
         .slice(0, 5)
         .map(s => sanitizeField(s))
         .join(', ')}${r.skipped.length > 5 ? ', …' : ''}`

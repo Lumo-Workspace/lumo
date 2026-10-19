@@ -140,6 +140,27 @@ describe('collectLocalDiff (real git)', () => {
     expect(bigFile?.lines).toHaveLength(40_000)
   })
 
+  it('skips an unreadable untracked file instead of aborting', () => {
+    write('locked.ts', 'export const l = 1\n')
+    fs.chmodSync(path.join(sb.main, 'locked.ts'), 0o000)
+    try {
+      const d = collectLocalDiff({ kind: 'default' }, sb.main)
+      expect(d.skipped).toContain('locked.ts')
+      expect(paths(d)).toContain('untracked.ts')
+    } finally {
+      fs.chmodSync(path.join(sb.main, 'locked.ts'), 0o644)
+    }
+  })
+
+  it('--since a ref that is also a path name diffs the ref', () => {
+    git(sb.main, 'branch', 'release')
+    write('release/notes.md', 'notes\n')
+    const d = collectLocalDiff({ kind: 'since', ref: 'release' }, sb.main)
+    expect(paths(d)).toEqual(
+      expect.arrayContaining(['README.md', 'staged.ts', 'release/notes.md'])
+    )
+  })
+
   it('paths are repo-relative when run from a subdirectory', () => {
     write('sub/inner.ts', 'export const i = 1\n')
     const d = collectLocalDiff({ kind: 'default' }, path.join(sb.main, 'sub'))

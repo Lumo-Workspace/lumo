@@ -109,12 +109,11 @@ describe('generated lists vs the last hand-kept ones', () => {
       ...DEVIATIONS.serverOnlyAdded,
     ]
     expect(LUMO_CODEX_RULES).toBe(
-      buildCodexRules(adjusted, CODEX_SANDBOXED_COMMANDS)
+      buildCodexRules(adjusted, {
+        ...renameKeys(hand.sandboxed),
+        ...ADDED_SANDBOXED,
+      })
     )
-    expect(CODEX_SANDBOXED_COMMANDS).toEqual({
-      ...renameKeys(hand.sandboxed),
-      ...ADDED_SANDBOXED,
-    })
     expect(LUMO_CODEX_RULES).toContain(
       'pattern = ["lumo", "priority", ["create", "list"]]'
     )

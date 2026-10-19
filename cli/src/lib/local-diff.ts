@@ -26,7 +26,7 @@ export interface LocalDiff {
   files: AddedFile[]
   /** Human description of what was diffed, e.g. `origin/main (merge-base 1a2b3c4) → working tree`. */
   description: string
-  /** Untracked files left out: binary, symlinks, or over the size cap. */
+  /** Untracked files left out: binary, symlinks, unreadable, or over the size cap. */
   skipped: string[]
 }
 
@@ -125,7 +125,14 @@ function untrackedFiles(root: string, skipped: string[]): AddedFile[] {
       skipped.push(rel)
       continue
     }
-    const buf = fs.readFileSync(abs)
+    let buf: Buffer
+    try {
+      buf = fs.readFileSync(abs)
+    } catch {
+      // Unreadable (permissions, vanished mid-scan): report it, keep scanning.
+      skipped.push(rel)
+      continue
+    }
     if (isBinaryContent(buf)) {
       skipped.push(rel)
       continue
@@ -150,7 +157,7 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
   if (scope.kind === 'staged') {
     return {
       root,
-      files: addedLinesWithNumbers(gitDiff(root, ['--cached'])),
+      files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
       description: 'staged changes',
       skipped,
     }
@@ -183,7 +190,8 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
   }
 
   const files = [
-    ...addedLinesWithNumbers(gitDiff(root, [base])),
+    // `--` ends the revisions: a ref that is also a path name stays a ref.
+    ...addedLinesWithNumbers(gitDiff(root, [base, '--'])),
     ...untrackedFiles(root, skipped),
   ]
   return { root, files, description, skipped }
