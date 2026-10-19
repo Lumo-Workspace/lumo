@@ -52,10 +52,10 @@ function ThemeOption({
   return (
     <button
       onClick={() => onSelect(value)}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${
         active
-          ? 'bg-muted text-foreground font-medium'
-          : 'text-muted-foreground hover:bg-muted'
+          ? 'bg-muted text-body-strong text-foreground'
+          : 'text-body text-muted-foreground hover:bg-muted'
       }`}
     >
       <Icon size={14} />
@@ -91,10 +91,10 @@ export function PreferencesPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-foreground mb-1'>
+        <h1 className='text-heading text-foreground mb-1'>
           {intl.formatMessage({ id: 'preferences.title' })}
         </h1>
-        <p className='text-sm text-muted-foreground mb-8'>
+        <p className='text-body text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'preferences.subtitle' })}
         </p>
 
@@ -104,7 +104,7 @@ export function PreferencesPage() {
           <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-2'>
               <Sun size={14} className='text-muted-foreground' />
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'preferences.theme' })}
               </p>
             </div>
@@ -137,7 +137,7 @@ export function PreferencesPage() {
           <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-2'>
               <Globe size={14} className='text-muted-foreground' />
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'preferences.language' })}
               </p>
             </div>
@@ -155,7 +155,7 @@ export function PreferencesPage() {
           <div className='flex items-center justify-between px-4 py-3'>
             <div className='flex items-center gap-2'>
               <Clock size={14} className='text-muted-foreground' />
-              <p className='text-sm font-medium text-foreground'>
+              <p className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'preferences.timezone' })}
               </p>
             </div>
@@ -164,7 +164,7 @@ export function PreferencesPage() {
               onValueChange={v => updatePreferences({ timezone: v })}
               disabled={loading}
             >
-              <SelectTrigger className='w-48 h-8 text-sm'>
+              <SelectTrigger className='w-48 h-8 text-body'>
                 <SelectValue>{getTimezoneLabel(prefs.timezone)}</SelectValue>
               </SelectTrigger>
               <SelectContent>

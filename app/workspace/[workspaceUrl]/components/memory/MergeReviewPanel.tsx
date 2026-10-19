@@ -76,7 +76,7 @@ export function MergeReviewPanel({
 
   return (
     <div className='rounded-md border border-dashed border-border bg-muted/30 p-3 space-y-2'>
-      <div className='flex items-center gap-1.5 text-xs font-medium text-muted-foreground'>
+      <div className='flex items-center gap-1.5 text-caption text-muted-foreground'>
         <GitMerge className='size-3.5' />
         {intl.formatMessage(
           {
@@ -87,7 +87,7 @@ export function MergeReviewPanel({
           { count: visible.length }
         )}
       </div>
-      <p className='text-[11px] text-muted-foreground'>
+      <p className='text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'memory.merge.description',
           defaultMessage:
@@ -108,13 +108,13 @@ export function MergeReviewPanel({
               <div className='flex items-center justify-between gap-2'>
                 <div className='min-w-0 flex-1'>
                   <div className='flex items-center gap-1'>
-                    <span className='rounded-sm border border-border px-1 text-[10px] leading-4 text-muted-foreground'>
+                    <span className='rounded-sm border border-border px-1 text-caption text-muted-foreground'>
                       {intl.formatMessage({
                         id: 'memory.merge.keepBadge',
                         defaultMessage: 'keep',
                       })}
                     </span>
-                    <p className='truncate text-xs text-foreground'>
+                    <p className='truncate text-caption text-foreground'>
                       {snippet(canonical)}
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export function MergeReviewPanel({
                   <Button
                     size='sm'
                     variant='ghost'
-                    className='h-6 px-2 text-[11px]'
+                    className='h-6 px-2 text-caption'
                     onClick={() => dismiss(c.canonicalId)}
                   >
                     {intl.formatMessage({
@@ -134,7 +134,7 @@ export function MergeReviewPanel({
                   <Button
                     size='sm'
                     variant='outline'
-                    className='h-6 px-2 text-[11px]'
+                    className='h-6 px-2 text-caption'
                     disabled={confirming}
                     onClick={() => handleConfirm(c)}
                   >
@@ -149,9 +149,9 @@ export function MergeReviewPanel({
                 {siblings.map(s => (
                   <li
                     key={s.id}
-                    className='flex items-center gap-1 text-[11px] text-muted-foreground'
+                    className='flex items-center gap-1 text-caption text-muted-foreground'
                   >
-                    <span className='rounded-sm border border-border px-1 text-[10px] leading-4'>
+                    <span className='rounded-sm border border-border px-1 text-caption'>
                       {intl.formatMessage({
                         id: 'memory.merge.mergeBadge',
                         defaultMessage: 'merge',

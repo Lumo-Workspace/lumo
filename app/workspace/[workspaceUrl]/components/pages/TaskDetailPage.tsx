@@ -272,7 +272,7 @@ export function TaskDetailPage({
                   e.currentTarget.blur()
                 }
               }}
-              className='text-heading font-bold text-foreground outline-none cursor-text mb-6 leading-tight'
+              className='text-heading text-foreground outline-none cursor-text mb-6'
             >
               {task.title}
             </h1>
@@ -386,7 +386,7 @@ export function TaskDetailPage({
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
-              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+              <kbd className='ml-1.5 text-caption opacity-60 font-sans'>↵</kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

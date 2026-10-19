@@ -117,7 +117,9 @@ export function MilestoneRow({
         <span
           className={cn(
             'w-11 shrink-0 text-right text-caption tabular-nums',
-            complete ? 'font-semibold text-foreground' : 'text-muted-foreground'
+            complete
+              ? 'text-caption font-semibold text-foreground'
+              : 'text-muted-foreground'
           )}
         >
           {done}/{total}

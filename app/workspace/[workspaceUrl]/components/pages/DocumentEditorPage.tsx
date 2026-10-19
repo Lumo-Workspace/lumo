@@ -433,7 +433,7 @@ export function DocumentEditorPage({
   if (loading && !doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='animate-pulse text-muted-foreground text-sm'>
+        <div className='animate-pulse text-muted-foreground text-body'>
           Loading...
         </div>
       </div>
@@ -443,7 +443,7 @@ export function DocumentEditorPage({
   if (!doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='text-muted-foreground text-sm'>
+        <div className='text-muted-foreground text-body'>
           {intl.formatMessage({ id: 'documentEditor.notFound' })}
         </div>
       </div>
@@ -480,7 +480,7 @@ export function DocumentEditorPage({
           <div className='flex items-center gap-2'>
             <button
               type='button'
-              className='h-8 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground'
+              className='h-8 rounded-md px-2 text-body text-muted-foreground hover:text-foreground'
               onClick={async () => {
                 const label = window.prompt(
                   intl.formatMessage({
@@ -600,7 +600,7 @@ export function DocumentEditorPage({
                     type='text'
                     value={title}
                     onChange={e => handleTitleChange(e.target.value)}
-                    className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
+                    className='flex-1 text-display bg-transparent border-none outline-none placeholder:text-muted-foreground'
                     placeholder={intl.formatMessage({
                       id: 'documents.untitled',
                     })}
@@ -608,7 +608,7 @@ export function DocumentEditorPage({
                 </div>
 
                 {/* Metadata */}
-                <div className='flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap'>
+                <div className='flex items-center gap-2 text-caption text-muted-foreground mb-3 flex-wrap'>
                   {/* Creator */}
                   <span className='flex items-center gap-1 shrink-0'>
                     <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
@@ -619,7 +619,7 @@ export function DocumentEditorPage({
                           className='w-full h-full object-cover'
                         />
                       ) : (
-                        <span className='text-[8px] font-medium'>
+                        <span className='text-caption'>
                           {getInitials(doc.createdBy.name)}
                         </span>
                       )}

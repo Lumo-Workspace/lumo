@@ -129,7 +129,7 @@ export function MilestoneDetailPage({
     return (
       <DetailLayout
         breadcrumb={
-          <span className='text-sm text-muted-foreground'>
+          <span className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.tab.title' })}
           </span>
         }
@@ -147,13 +147,13 @@ export function MilestoneDetailPage({
     return (
       <DetailLayout
         breadcrumb={
-          <span className='text-sm text-muted-foreground'>
+          <span className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.tab.title' })}
           </span>
         }
       >
         <div className='flex-1 p-4 md:p-8'>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'milestone.notFound' })}
           </p>
         </div>

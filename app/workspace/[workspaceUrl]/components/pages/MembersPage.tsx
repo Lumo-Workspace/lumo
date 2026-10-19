@@ -251,10 +251,10 @@ export function MembersPage() {
         {/* Header */}
         <div className='flex flex-wrap items-end justify-between gap-4'>
           <div className='flex flex-col gap-1'>
-            <h1 className='text-xl font-semibold text-foreground'>
+            <h1 className='text-heading text-foreground'>
               {intl.formatMessage({ id: 'members.title' })}
             </h1>
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-body text-muted-foreground'>
               {intl.formatMessage({ id: 'members.subtitle' })}
             </p>
           </div>
@@ -275,7 +275,7 @@ export function MembersPage() {
                 placeholder={intl.formatMessage({
                   id: 'members.search.placeholder',
                 })}
-                className='h-9 w-60 rounded-md border border-border bg-transparent pl-8 pr-3 text-sm text-foreground outline-none focus-visible:border-ring placeholder:text-muted-foreground'
+                className='h-9 w-60 rounded-md border border-border bg-transparent pl-8 pr-3 text-body text-foreground outline-none focus-visible:border-ring placeholder:text-muted-foreground'
               />
             </label>
             <Button className='gap-1.5' onClick={() => setInviteOpen(true)}>
@@ -303,7 +303,7 @@ export function MembersPage() {
               onChange={setFilter}
             />
             {latestCliVersion && (
-              <p className='pb-2.5 text-xs text-muted-foreground'>
+              <p className='pb-2.5 text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'members.latestRelease' },
                   {
@@ -336,10 +336,7 @@ export function MembersPage() {
                     'members.colJoined',
                   ] as const
                 ).map(id => (
-                  <span
-                    key={id}
-                    className='text-xs font-medium text-muted-foreground'
-                  >
+                  <span key={id} className='text-caption text-muted-foreground'>
                     {intl.formatMessage({ id })}
                   </span>
                 ))}
@@ -347,11 +344,11 @@ export function MembersPage() {
               </div>
 
               {members.length === 0 ? (
-                <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
+                <div className='px-4 py-6 text-body text-muted-foreground text-center'>
                   {intl.formatMessage({ id: 'common.loading' })}
                 </div>
               ) : visibleMembers.length === 0 ? (
-                <div className='px-4 py-10 text-sm text-muted-foreground text-center'>
+                <div className='px-4 py-10 text-body text-muted-foreground text-center'>
                   {intl.formatMessage({ id: 'members.filter.empty' })}
                 </div>
               ) : (
@@ -379,23 +376,23 @@ export function MembersPage() {
                           ) : (
                             <div
                               aria-hidden
-                              className='size-9 rounded-full bg-muted border border-border flex items-center justify-center text-xs font-semibold text-foreground shrink-0 uppercase'
+                              className='size-9 rounded-full bg-muted border border-border flex items-center justify-center text-caption font-semibold text-foreground shrink-0 uppercase'
                             >
                               {getInitials(m.name)}
                             </div>
                           )}
                           <div className='flex min-w-0 flex-col'>
                             <div className='flex items-center gap-2 min-w-0'>
-                              <span className='text-sm font-medium text-foreground truncate'>
+                              <span className='text-body-strong text-foreground truncate'>
                                 {m.name}
                               </span>
                               {isSelf && (
-                                <span className='shrink-0 rounded-full border border-border px-1.5 text-[11px] leading-4 text-muted-foreground'>
+                                <span className='shrink-0 rounded-full border border-border px-1.5 text-caption text-muted-foreground'>
                                   {intl.formatMessage({ id: 'members.you' })}
                                 </span>
                               )}
                             </div>
-                            <span className='text-xs text-muted-foreground truncate'>
+                            <span className='text-caption text-muted-foreground truncate'>
                               {m.email ?? '—'}
                             </span>
                           </div>
@@ -430,15 +427,15 @@ export function MembersPage() {
                               { id: 'members.roleFor' },
                               { name: m.name }
                             )}
-                            className='w-24 text-xs border-border'
+                            className='w-24 text-caption border-border'
                           >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value='OWNER' className='text-xs'>
+                            <SelectItem value='OWNER' className='text-caption'>
                               {intl.formatMessage({ id: 'members.roleAdmin' })}
                             </SelectItem>
-                            <SelectItem value='MEMBER' className='text-xs'>
+                            <SelectItem value='MEMBER' className='text-caption'>
                               {intl.formatMessage({
                                 id: 'members.roleMember',
                               })}
@@ -447,7 +444,7 @@ export function MembersPage() {
                         </Select>
 
                         {/* Joined */}
-                        <span className='text-sm text-muted-foreground shrink-0 whitespace-nowrap'>
+                        <span className='text-body text-muted-foreground shrink-0 whitespace-nowrap'>
                           {formatDate(m.joinedAt, intl.locale)}
                         </span>
 
@@ -557,10 +554,10 @@ export function MembersPage() {
         {(invites.length > 0 || loadingInvites) && (
           <section>
             <div className='flex items-center gap-2 mb-3'>
-              <span className='text-sm font-medium text-foreground'>
+              <span className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'members.invited' })}
               </span>
-              <span className='text-xs text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {invites.length}
               </span>
             </div>
@@ -568,23 +565,23 @@ export function MembersPage() {
             <div className='rounded-lg border border-border overflow-hidden'>
               {/* Table header — same columns as Active */}
               <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
-                <span className='text-xs font-medium text-muted-foreground'>
+                <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colName' })}
                 </span>
-                <span className='text-xs font-medium text-muted-foreground'>
+                <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colEmail' })}
                 </span>
-                <span className='text-xs font-medium text-muted-foreground'>
+                <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colRole' })}
                 </span>
-                <span className='text-xs font-medium text-muted-foreground'>
+                <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colSent' })}
                 </span>
                 <span />
               </div>
 
               {loadingInvites && invites.length === 0 ? (
-                <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
+                <div className='px-4 py-6 text-body text-muted-foreground text-center'>
                   {intl.formatMessage({ id: 'common.loading' })}
                 </div>
               ) : (
@@ -595,33 +592,33 @@ export function MembersPage() {
                   >
                     {/* Name — show email with avatar (no real name yet) */}
                     <div className='flex items-center gap-2.5 min-w-0'>
-                      <div className='size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground shrink-0 uppercase'>
+                      <div className='size-7 rounded-full bg-muted flex items-center justify-center text-caption font-semibold text-muted-foreground shrink-0 uppercase'>
                         {inv.email[0]}
                       </div>
-                      <span className='text-sm text-foreground truncate'>
+                      <span className='text-body text-foreground truncate'>
                         {inv.email}
                       </span>
                     </div>
 
                     {/* Email */}
-                    <span className='text-sm text-muted-foreground truncate'>
+                    <span className='text-body text-muted-foreground truncate'>
                       {inv.email}
                     </span>
 
                     {/* Role — always disabled for pending invites */}
                     <Select value='MEMBER' disabled>
-                      <SelectTrigger className='h-7 w-24 text-xs border-border'>
+                      <SelectTrigger className='h-7 w-24 text-caption border-border'>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='MEMBER' className='text-xs'>
+                        <SelectItem value='MEMBER' className='text-caption'>
                           {intl.formatMessage({ id: 'members.roleMember' })}
                         </SelectItem>
                       </SelectContent>
                     </Select>
 
                     {/* Sent date */}
-                    <span className='text-sm text-muted-foreground whitespace-nowrap'>
+                    <span className='text-body text-muted-foreground whitespace-nowrap'>
                       {formatDate(inv.createdAt, intl.locale)}
                     </span>
 
@@ -695,7 +692,7 @@ export function MembersPage() {
                       addEmailField()
                     }
                   }}
-                  className='flex-1 h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground'
+                  className='flex-1 h-9 rounded-md border border-border bg-transparent px-3 text-body outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground'
                   autoFocus={i === emailInputs.length - 1 && i > 0}
                 />
                 {emailInputs.length > 1 && (
@@ -716,7 +713,7 @@ export function MembersPage() {
               <button
                 type='button'
                 onClick={addEmailField}
-                className='text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mt-1 transition-colors'
+                className='text-caption text-muted-foreground hover:text-foreground flex items-center gap-1 mt-1 transition-colors'
               >
                 <Plus size={12} />
                 {intl.formatMessage({ id: 'members.addAnother' })}

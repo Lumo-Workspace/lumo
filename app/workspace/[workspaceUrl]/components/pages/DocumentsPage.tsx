@@ -181,16 +181,16 @@ export function DocumentsPage({
             className='flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group'
             onClick={() => onSelectDocument(doc)}
           >
-            <span className='text-lg shrink-0'>{doc.emoji ?? '📄'}</span>
+            <span className='text-title shrink-0'>{doc.emoji ?? '📄'}</span>
             <div className='min-w-0 flex-1'>
-              <div className='font-medium text-sm truncate'>
+              <div className='text-body-strong truncate'>
                 {doc.title ||
                   intl.formatMessage({
                     id: 'documents.untitled',
                     defaultMessage: 'Untitled',
                   })}
               </div>
-              <div className='text-xs text-muted-foreground truncate'>
+              <div className='text-caption text-muted-foreground truncate'>
                 {getSubtitle(doc)}
               </div>
             </div>
@@ -204,12 +204,12 @@ export function DocumentsPage({
                     className='w-full h-full object-cover'
                   />
                 ) : (
-                  <span className='text-[8px] font-medium text-muted-foreground'>
+                  <span className='text-caption text-muted-foreground'>
                     {getInitials(doc.createdBy.name)}
                   </span>
                 )}
               </span>
-              <span className='text-xs text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {doc.createdBy.name}
               </span>
             </span>
@@ -223,7 +223,7 @@ export function DocumentsPage({
                     className='w-full h-full object-cover'
                   />
                 ) : (
-                  <span className='text-[8px] font-medium text-muted-foreground'>
+                  <span className='text-caption text-muted-foreground'>
                     {getInitials(doc.createdBy.name)}
                   </span>
                 )}
@@ -243,7 +243,7 @@ export function DocumentsPage({
                 <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
               </div>
             )}
-            <span className='text-xs text-muted-foreground w-16 text-right shrink-0'>
+            <span className='text-caption text-muted-foreground w-16 text-right shrink-0'>
               {formatRelativeTime(doc.updatedAt, intl.locale)}
             </span>
             {renderRowMenu(doc)}
@@ -264,8 +264,8 @@ export function DocumentsPage({
           >
             <div className='flex items-start justify-between gap-2'>
               <div className='flex min-w-0 items-center gap-2'>
-                <span className='shrink-0 text-base'>{doc.emoji ?? '📄'}</span>
-                <span className='truncate text-sm font-medium'>
+                <span className='shrink-0 text-title'>{doc.emoji ?? '📄'}</span>
+                <span className='truncate text-body-strong'>
                   {doc.title ||
                     intl.formatMessage({
                       id: 'documents.untitled',
@@ -275,7 +275,7 @@ export function DocumentsPage({
               </div>
               {renderRowMenu(doc)}
             </div>
-            <div className='mt-3 flex-1 overflow-hidden text-xs leading-relaxed text-muted-foreground whitespace-pre-line line-clamp-6'>
+            <div className='mt-3 flex-1 overflow-hidden text-caption text-muted-foreground whitespace-pre-line line-clamp-6'>
               {doc.preview ?? ''}
             </div>
             <div className='mt-3 flex items-center gap-2'>
@@ -287,12 +287,12 @@ export function DocumentsPage({
                     className='h-full w-full object-cover'
                   />
                 ) : (
-                  <span className='text-[9px] font-medium text-muted-foreground'>
+                  <span className='text-caption text-muted-foreground'>
                     {getInitials(doc.createdBy.name)}
                   </span>
                 )}
               </span>
-              <span className='truncate text-xs text-muted-foreground'>
+              <span className='truncate text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'documents.editedAt' },
                   { time: formatRelativeTime(doc.updatedAt, intl.locale) }
@@ -332,7 +332,7 @@ export function DocumentsPage({
             key={f.key}
             type='button'
             className={cn(
-              'px-3 py-1 text-xs rounded-md transition-colors',
+              'px-3 py-1 text-caption rounded-md transition-colors',
               filter === f.key
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:text-foreground'
@@ -348,7 +348,7 @@ export function DocumentsPage({
             value={sortBy}
             onValueChange={(v: string) => handleSetSortBy(v as SortKey)}
           >
-            <SelectTrigger className='h-8 w-36 text-xs'>
+            <SelectTrigger className='h-8 w-36 text-caption'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -373,7 +373,7 @@ export function DocumentsPage({
           onRetry={onRetry}
           empty={sorted.length === 0}
           emptyState={
-            <div className='text-center text-muted-foreground text-sm py-12'>
+            <div className='text-center text-muted-foreground text-body py-12'>
               {intl.formatMessage({
                 id:
                   search || filter !== 'ALL'

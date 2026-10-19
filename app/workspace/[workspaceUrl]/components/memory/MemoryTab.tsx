@@ -148,7 +148,9 @@ export function MemoryTab({
 
   if (error) {
     return (
-      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+      <div className='py-8 text-center text-caption text-danger-text'>
+        {error}
+      </div>
     )
   }
 
@@ -167,7 +169,7 @@ export function MemoryTab({
           {/* Counts what is on screen, so it tracks the filter. At zero it goes
               silent rather than reading "No memories" over a project that has
               some — the empty state below says why the list is empty. */}
-          <span className='text-xs text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {shownMemories.length > 0
               ? intl.formatMessage(
                   {
