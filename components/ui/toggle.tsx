@@ -14,6 +14,9 @@ const toggleVariants = cva(
         default: 'bg-transparent',
         outline:
           'border border-border bg-transparent shadow-elevation-1 hover:bg-accent hover:text-accent-foreground',
+        /** Filter chip: a pill that fills with primary when selected. Size
+         *  lives in compoundVariants so it wins over every `size`. */
+        chip: 'rounded-full border border-border bg-card text-caption text-muted-foreground hover:bg-muted hover:text-foreground data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90',
       },
       size: {
         default: 'h-9 px-2 min-w-9',
@@ -21,6 +24,12 @@ const toggleVariants = cva(
         lg: 'h-10 px-2.5 min-w-10',
       },
     },
+    compoundVariants: [
+      {
+        variant: 'chip',
+        className: 'h-6 min-w-0 gap-1.5 px-3 [&_svg]:size-3',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',

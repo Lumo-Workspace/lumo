@@ -1357,6 +1357,7 @@
   "sprints.view.list": "सूची",
   "sprints.view.timeline": "टाइमलाइन",
   "sprints.filter.all": "सभी",
+  "sprints.statusFilter.label": "स्प्रिंट को स्थिति के अनुसार फ़िल्टर करें",
   "sprints.metric.completed": "पूर्ण",
   "sprints.metric.remaining": "शेष",
   "sprints.metric.timeLeft": "शेष समय",

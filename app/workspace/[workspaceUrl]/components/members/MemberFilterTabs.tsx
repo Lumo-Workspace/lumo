@@ -1,7 +1,11 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { cn } from '@/lib/utils'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import {
   MEMBER_FILTERS,
   type MemberFilter,
@@ -26,34 +30,24 @@ export function MemberFilterTabs({
 }) {
   const intl = useIntl()
   return (
-    <nav
+    <ToggleGroup
+      type='single'
+      variant='chip'
+      value={value}
+      onValueChange={v => {
+        // Single-select: ignore the '' Radix sends when the active chip is re-clicked.
+        if (v) onChange(v as MemberFilter)
+      }}
       aria-label={intl.formatMessage({ id: 'members.filter.label' })}
-      className='flex flex-wrap gap-1'
     >
-      {MEMBER_FILTERS.map(f => {
-        const active = f === value
-        return (
-          <button
-            key={f}
-            type='button'
-            aria-pressed={active}
-            onClick={() => onChange(f)}
-            className={cn(
-              '-mb-px h-10 shrink-0 whitespace-nowrap border-b-2 px-3 text-body transition-colors',
-              active
-                ? 'border-foreground text-body-strong text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {intl.formatMessage({ id: LABEL_ID[f] })}
-            {counts[f] !== undefined && (
-              <span className='ml-1.5 font-normal text-muted-foreground'>
-                {counts[f]}
-              </span>
-            )}
-          </button>
-        )
-      })}
-    </nav>
+      {MEMBER_FILTERS.map(f => (
+        <ToggleGroupItem key={f} value={f}>
+          {intl.formatMessage({ id: LABEL_ID[f] })}
+          {counts[f] !== undefined && (
+            <ToggleGroupItemCount>{counts[f]}</ToggleGroupItemCount>
+          )}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }

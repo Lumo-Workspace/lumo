@@ -13,6 +13,11 @@ import {
   type CaseVerdict,
 } from '@/lib/test-cases/case-summary'
 import { deriveStepReport } from '@/lib/test-cases/step-report'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { TestCaseRunReport } from './TestCaseRunReport'
 import type { WorkspaceMemberInfo } from '../../types'
 import { Badge } from '@/components/ui/badge'
@@ -167,140 +172,137 @@ export function TestCaseCard({
     : intl.formatMessage({ id: 'testCases.neverRun' })
 
   return (
-    <article
-      data-testid='test-case'
-      data-verdict={verdict}
-      className='overflow-hidden rounded-lg border border-border'
-    >
-      <button
-        type='button'
-        aria-expanded={expanded}
-        onClick={onToggle}
-        className='flex w-full flex-wrap items-center gap-x-2.5 gap-y-0.5 px-4 py-3 text-left transition-colors hover:bg-muted/40'
+    <Collapsible asChild open={expanded} onOpenChange={onToggle}>
+      <article
+        data-testid='test-case'
+        data-verdict={verdict}
+        className='overflow-hidden rounded-lg border border-border'
       >
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
-          aria-hidden
-        />
-        <VerdictIcon verdict={verdict} />
-        {/* 人读「Test case 3」；CLI 句柄 LUM-12/TC3 留在悬停提示里，复制给 agent 时用。 */}
-        <span
-          className='text-body-strong text-foreground'
-          title={`${taskIdentifier}/TC${testCase.number}`}
-        >
-          {intl.formatMessage(
-            { id: 'testCases.caseLabel' },
-            { n: testCase.number }
-          )}
-        </span>
-        <span className='min-w-0 text-body text-foreground'>
-          {testCase.title}
-        </span>
-        {testCase.requiredEnvironment ? (
-          // LUM-808: 这条用例只有在该环境跑才证明得了东西。放在标题行是因为
-          // 它约束的是**整条用例**，不是某一次执行。
-          <Badge
-            variant='outline-muted'
-            size='xs'
-            shape='square'
-            className='border-dashed uppercase'
+        <CollapsibleTrigger className='flex w-full flex-wrap items-center gap-x-2.5 gap-y-0.5 px-4 py-3 text-left transition-colors hover:bg-muted/40'>
+          <ChevronRight
+            className='size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90'
+            aria-hidden
+          />
+          <VerdictIcon verdict={verdict} />
+          {/* 人读「Test case 3」；CLI 句柄 LUM-12/TC3 留在悬停提示里，复制给 agent 时用。 */}
+          <span
+            className='text-body-strong text-foreground'
+            title={`${taskIdentifier}/TC${testCase.number}`}
           >
             {intl.formatMessage(
-              { id: 'testCases.requiresEnv.badge' },
-              {
-                env: intl.formatMessage({
-                  id: `testCases.env.${testCase.requiredEnvironment}`,
-                }),
-              }
+              { id: 'testCases.caseLabel' },
+              { n: testCase.number }
             )}
-          </Badge>
-        ) : null}
-        <span className='ml-auto text-caption text-muted-foreground'>
-          {collapsedSummary}
-        </span>
-      </button>
-
-      {expanded ? (
-        <div className='flex flex-col gap-3 border-t border-border px-4 py-3'>
-          {testCase.setup ? (
-            <Section
-              title={intl.formatMessage({ id: 'testCases.section.setup' })}
+          </span>
+          <span className='min-w-0 text-body text-foreground'>
+            {testCase.title}
+          </span>
+          {testCase.requiredEnvironment ? (
+            // LUM-808: 这条用例只有在该环境跑才证明得了东西。放在标题行是因为
+            // 它约束的是**整条用例**，不是某一次执行。
+            <Badge
+              variant='outline-muted'
+              size='xs'
+              shape='square'
+              className='border-dashed uppercase'
             >
-              {testCase.setup}
-            </Section>
+              {intl.formatMessage(
+                { id: 'testCases.requiresEnv.badge' },
+                {
+                  env: intl.formatMessage({
+                    id: `testCases.env.${testCase.requiredEnvironment}`,
+                  }),
+                }
+              )}
+            </Badge>
           ) : null}
+          <span className='ml-auto text-caption text-muted-foreground'>
+            {collapsedSummary}
+          </span>
+        </CollapsibleTrigger>
 
-          <Section
-            title={intl.formatMessage({ id: 'testCases.section.steps' })}
-          >
-            <OrderedSteps items={testCase.steps} />
-          </Section>
-          {testCase.verification.length > 0 ? (
+        <CollapsibleContent>
+          <div className='flex flex-col gap-3 border-t border-border px-4 py-3'>
+            {testCase.setup ? (
+              <Section
+                title={intl.formatMessage({ id: 'testCases.section.setup' })}
+              >
+                {testCase.setup}
+              </Section>
+            ) : null}
+
             <Section
-              title={intl.formatMessage({
-                id: 'testCases.section.verification',
-              })}
+              title={intl.formatMessage({ id: 'testCases.section.steps' })}
             >
-              <OrderedSteps items={testCase.verification} />
+              <OrderedSteps items={testCase.steps} />
             </Section>
-          ) : null}
-          <Section
-            title={intl.formatMessage({ id: 'testCases.section.expected' })}
-          >
-            {testCase.expected}
-          </Section>
+            {testCase.verification.length > 0 ? (
+              <Section
+                title={intl.formatMessage({
+                  id: 'testCases.section.verification',
+                })}
+              >
+                <OrderedSteps items={testCase.verification} />
+              </Section>
+            ) : null}
+            <Section
+              title={intl.formatMessage({ id: 'testCases.section.expected' })}
+            >
+              {testCase.expected}
+            </Section>
 
-          {/* 先读完用例本身，再看每次跑出了什么——新的在上。 */}
-          {runs.length > 0 ? (
-            <div data-testid='test-case-runs'>
-              <p className='text-body-strong text-foreground'>
-                {intl.formatMessage({ id: 'testCases.section.runs' })}
-              </p>
-              <div className='mt-1.5 flex flex-col gap-2'>
-                {runs.map(r => (
-                  <TestCaseRunReport
-                    key={r.id}
-                    run={r}
-                    steps={testCase.steps}
-                    verification={testCase.verification}
-                    expected={testCase.expected}
-                    requiredEnvironment={testCase.requiredEnvironment}
-                    pullRequests={pullRequests}
-                    highlighted={r.id === linkedRunId}
-                    members={members}
-                    open={isRunOpen(r.id)}
-                    onToggle={() => toggleRun(r.id)}
-                  />
-                ))}
+            {/* 先读完用例本身，再看每次跑出了什么——新的在上。 */}
+            {runs.length > 0 ? (
+              <div data-testid='test-case-runs'>
+                <p className='text-body-strong text-foreground'>
+                  {intl.formatMessage({ id: 'testCases.section.runs' })}
+                </p>
+                <div className='mt-1.5 flex flex-col gap-2'>
+                  {runs.map(r => (
+                    <TestCaseRunReport
+                      key={r.id}
+                      run={r}
+                      steps={testCase.steps}
+                      verification={testCase.verification}
+                      expected={testCase.expected}
+                      requiredEnvironment={testCase.requiredEnvironment}
+                      pullRequests={pullRequests}
+                      highlighted={r.id === linkedRunId}
+                      members={members}
+                      open={isRunOpen(r.id)}
+                      onToggle={() => toggleRun(r.id)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <footer className='flex gap-3 text-caption'>
-            <button
-              type='button'
-              onClick={onRecordRun}
-              className='text-foreground underline-offset-2 hover:underline'
-            >
-              {intl.formatMessage({ id: 'testCases.action.recordRun' })}
-            </button>
-            <button
-              type='button'
-              onClick={onEdit}
-              className='text-muted-foreground hover:text-foreground'
-            >
-              {intl.formatMessage({ id: 'testCases.action.edit' })}
-            </button>
-            <button
-              type='button'
-              onClick={onRemove}
-              className='text-muted-foreground hover:text-foreground'
-            >
-              {intl.formatMessage({ id: 'testCases.action.remove' })}
-            </button>
-          </footer>
-        </div>
-      ) : null}
-    </article>
+            <footer className='flex gap-3 text-caption'>
+              <button
+                type='button'
+                onClick={onRecordRun}
+                className='text-foreground underline-offset-2 hover:underline'
+              >
+                {intl.formatMessage({ id: 'testCases.action.recordRun' })}
+              </button>
+              <button
+                type='button'
+                onClick={onEdit}
+                className='text-muted-foreground hover:text-foreground'
+              >
+                {intl.formatMessage({ id: 'testCases.action.edit' })}
+              </button>
+              <button
+                type='button'
+                onClick={onRemove}
+                className='text-muted-foreground hover:text-foreground'
+              >
+                {intl.formatMessage({ id: 'testCases.action.remove' })}
+              </button>
+            </footer>
+          </div>
+        </CollapsibleContent>
+      </article>
+    </Collapsible>
   )
 }

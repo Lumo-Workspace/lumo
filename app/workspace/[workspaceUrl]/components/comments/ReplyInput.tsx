@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
 import { MemberAvatar } from '@/components/MemberAvatar'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { isMac } from '@/lib/utils/keyboard'
 import type { MentionSources } from '@/types/mention'
 import { CommentEditor } from './CommentEditor'
@@ -69,9 +70,9 @@ export function ReplyInput({
           >
             <Send size={12} />
             Reply
-            <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
+            <Kbd variant='solid' className='ml-0.5'>
               {isMac ? '⌘↵' : 'Ctrl+↵'}
-            </kbd>
+            </Kbd>
           </Button>
         </div>
       </div>

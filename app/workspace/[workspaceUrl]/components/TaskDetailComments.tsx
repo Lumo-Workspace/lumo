@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { Send, Pencil, Trash2, Reply, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { MemberAvatar } from '@/components/MemberAvatar'
 import {
   Tooltip,
@@ -574,9 +575,9 @@ export function TaskDetailComments({
                         >
                           <Send size={12} />
                           {intl.formatMessage({ id: 'task.reply' })}
-                          <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
+                          <Kbd variant='solid' className='ml-0.5'>
                             {isMac ? '⌘↵' : 'Ctrl+↵'}
-                          </kbd>
+                          </Kbd>
                         </Button>
                       </div>
                     </div>
@@ -626,9 +627,9 @@ export function TaskDetailComments({
             >
               <Send size={12} />
               {intl.formatMessage({ id: 'task.comment' })}
-              <kbd className='ml-0.5 text-caption opacity-60 font-sans'>
+              <Kbd variant='solid' className='ml-0.5'>
                 {isMac ? '⌘↵' : 'Ctrl+↵'}
-              </kbd>
+              </Kbd>
             </Button>
           </div>
         </div>

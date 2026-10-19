@@ -1357,6 +1357,7 @@
   "sprints.view.list": "Senarai",
   "sprints.view.timeline": "Garis Masa",
   "sprints.filter.all": "Semua",
+  "sprints.statusFilter.label": "Tapis sprint mengikut status",
   "sprints.metric.completed": "Selesai",
   "sprints.metric.remaining": "Baki",
   "sprints.metric.timeLeft": "Masa berbaki",

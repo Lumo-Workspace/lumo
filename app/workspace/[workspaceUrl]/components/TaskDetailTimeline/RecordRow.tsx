@@ -2,6 +2,11 @@
 
 import type { ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 /**
  * LUM-1009 · one row of the Record tab's Records list: a title, a one-line
@@ -28,15 +33,15 @@ export function RecordRow({
   children: ReactNode
 }) {
   return (
-    <div id={id} className='overflow-hidden rounded-lg border border-border'>
-      <button
-        type='button'
-        aria-expanded={expanded}
-        onClick={onToggle}
-        className='grid w-full grid-cols-[0.875rem_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 px-4 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[0.875rem_11rem_minmax(0,1fr)]'
-      >
+    <Collapsible
+      open={expanded}
+      onOpenChange={onToggle}
+      id={id}
+      className='overflow-hidden rounded-lg border border-border'
+    >
+      <CollapsibleTrigger className='grid w-full grid-cols-[0.875rem_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 px-4 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[0.875rem_11rem_minmax(0,1fr)]'>
         <ChevronRight
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+          className='size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90'
           aria-hidden
         />
         <span className='text-body-strong text-foreground'>{title}</span>
@@ -48,10 +53,10 @@ export function RecordRow({
             {summary}
           </span>
         ) : null}
-      </button>
-      {expanded ? (
+      </CollapsibleTrigger>
+      <CollapsibleContent>
         <div className='border-t border-border px-4 py-3'>{children}</div>
-      ) : null}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

@@ -10,6 +10,11 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -90,11 +95,14 @@ export function IntegrationCard({
   const [expanded, setExpanded] = useState(false)
 
   const canCollapse = Boolean(collapsible && children)
-  const bodyVisible = children && (!canCollapse || expanded)
   const hasMenu = Boolean(onReconnect || onDisconnect)
 
   return (
-    <div className='rounded-xl border border-border overflow-hidden'>
+    <Collapsible
+      open={!canCollapse || expanded}
+      onOpenChange={setExpanded}
+      className='rounded-xl border border-border overflow-hidden'
+    >
       <div className='flex items-center justify-between px-6 py-5 bg-card'>
         <div className='flex items-center gap-3 min-w-0'>
           <div className='size-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-foreground'>
@@ -137,29 +145,22 @@ export function IntegrationCard({
             </DropdownMenu>
           ) : null}
           {canCollapse ? (
-            <button
-              type='button'
-              onClick={() => setExpanded(prev => !prev)}
-              aria-expanded={expanded}
-              className='text-muted-foreground hover:text-foreground transition-colors'
-            >
+            <CollapsibleTrigger className='text-muted-foreground hover:text-foreground transition-colors'>
               <ChevronRight
                 size={16}
-                className={
-                  expanded
-                    ? 'rotate-90 transition-transform'
-                    : 'transition-transform'
-                }
+                className='transition-transform group-data-[state=open]/collapsible:rotate-90'
               />
-            </button>
+            </CollapsibleTrigger>
           ) : null}
         </div>
       </div>
-      {bodyVisible ? (
-        <div className='border-t border-border px-6 py-5 bg-muted/50 space-y-4'>
-          {children}
-        </div>
+      {children ? (
+        <CollapsibleContent>
+          <div className='border-t border-border px-6 py-5 bg-muted/50 space-y-4'>
+            {children}
+          </div>
+        </CollapsibleContent>
       ) : null}
-    </div>
+    </Collapsible>
   )
 }
