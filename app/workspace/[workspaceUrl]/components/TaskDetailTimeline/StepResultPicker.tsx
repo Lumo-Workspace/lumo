@@ -106,7 +106,8 @@ export function StepResultPicker({
                 <Button
                   type='button'
                   variant='link'
-                  className='h-auto p-0 font-normal text-muted-foreground'
+                  size='inline'
+                  className='font-normal text-muted-foreground'
                   aria-label={intl.formatMessage(
                     { id: 'testCases.field.stepResults.clearLabel' },
                     { label: item.label }

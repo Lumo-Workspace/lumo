@@ -217,7 +217,7 @@ export function TestCasesSection({
           variant='ghost'
           size='sm'
           onClick={() => setMode({ kind: 'create' })}
-          className='self-start px-1.5 text-muted-foreground'
+          className='self-start text-muted-foreground'
         >
           + {intl.formatMessage({ id: 'testCases.add' })}
         </Button>

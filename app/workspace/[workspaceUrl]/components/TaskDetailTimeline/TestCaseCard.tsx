@@ -283,7 +283,8 @@ export function TestCaseCard({
                 type='button'
                 variant='link'
                 onClick={onRecordRun}
-                className='h-auto p-0 text-caption text-foreground'
+                size='inline'
+                className='text-caption text-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.recordRun' })}
               </Button>
@@ -291,7 +292,8 @@ export function TestCaseCard({
                 type='button'
                 variant='link'
                 onClick={onEdit}
-                className='h-auto p-0 text-caption text-muted-foreground'
+                size='inline'
+                className='text-caption text-muted-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.edit' })}
               </Button>
@@ -299,7 +301,8 @@ export function TestCaseCard({
                 type='button'
                 variant='link'
                 onClick={onRemove}
-                className='h-auto p-0 text-caption text-muted-foreground'
+                size='inline'
+                className='text-caption text-muted-foreground'
               >
                 {intl.formatMessage({ id: 'testCases.action.remove' })}
               </Button>

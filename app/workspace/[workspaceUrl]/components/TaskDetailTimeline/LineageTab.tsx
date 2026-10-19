@@ -272,7 +272,8 @@ export function LineageTab({
             <Button
               type='button'
               variant='ghost'
-              className='h-auto w-full justify-start rounded-none border-t border-border/60 px-3 py-2 text-caption font-normal text-muted-foreground'
+              size='inline'
+              className='w-full justify-start rounded-none border-t border-border/60 px-3 py-2 text-caption font-normal text-muted-foreground'
             >
               {showAllFragments
                 ? intl.formatMessage({

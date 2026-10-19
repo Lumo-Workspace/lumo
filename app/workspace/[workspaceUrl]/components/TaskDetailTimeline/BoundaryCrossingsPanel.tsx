@@ -1295,7 +1295,8 @@ function CrossingRow({
                 data-testid={`boundary-revoke-rule-${c.id}`}
                 disabled={pending}
                 onClick={onRevokeRule}
-                className='ml-2 h-auto p-0 text-caption'
+                size='inline'
+                className='ml-2 text-caption'
               >
                 {intl.formatMessage({
                   id: 'boundary.panel.revokeRule',
@@ -1560,7 +1561,7 @@ function CrossingRow({
               data-testid={`boundary-spawn-remediation-${c.id}`}
               disabled={pending}
               onClick={onSpawnRemediation}
-              className='ml-auto gap-1 px-2'
+              className='ml-auto'
             >
               <Plus className='size-3.5' aria-hidden />
               {intl.formatMessage({

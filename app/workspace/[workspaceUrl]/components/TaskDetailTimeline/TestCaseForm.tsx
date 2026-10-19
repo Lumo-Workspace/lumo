@@ -78,7 +78,7 @@ function StepList({
             onClick={() => move(i, i - 1)}
             variant='ghost'
             size='sm'
-            className='px-1.5 text-muted-foreground'
+            className='text-muted-foreground'
           >
             ↑
           </Button>
@@ -88,7 +88,7 @@ function StepList({
             onClick={() => move(i, i + 1)}
             variant='ghost'
             size='sm'
-            className='px-1.5 text-muted-foreground'
+            className='text-muted-foreground'
           >
             ↓
           </Button>
@@ -98,7 +98,7 @@ function StepList({
             onClick={() => onChange(items.filter((_, j) => j !== i))}
             variant='ghost'
             size='sm'
-            className='px-1.5 text-muted-foreground'
+            className='text-muted-foreground'
           >
             ×
           </Button>
@@ -109,7 +109,7 @@ function StepList({
         variant='ghost'
         size='sm'
         onClick={() => onChange([...items, ''])}
-        className='self-start px-1.5 text-muted-foreground'
+        className='self-start text-muted-foreground'
       >
         + {addLabel}
       </Button>
