@@ -164,6 +164,7 @@ With review controls on the payload an `AI review` block follows the header:
       cache: read 0 / write 1600 of 1900 input
       stop: submitted · spent 9800/30000 · reserve 4400 · last step 4300 · next 4400 · 3 steps
       wrap-up: not made (submitted)
+      candidates: submitted 3 · kept 2 · dropped 1 (reasons: cwe)
     t2 steps · alibaba/qwen3-coder-plus · 6 sites · no shell commands
       stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps
 ```
@@ -178,7 +179,11 @@ input`, LUM-1224 — only when the steps recorded cache counters; a reported
 `read 0 / write 0` means the stable prefix was under the provider's cache
 minimum, not that nothing was measured), the `stop:` arithmetic (spent/budget, reserve held for the
 wrap-up, last step's cost, the price the next step was charged at, steps),
-and the wrap-up outcome. Fields a row was written without are simply not
+the wrap-up outcome, and what `submit_candidates` received (`candidates: submitted N · kept K ·
+dropped D (reasons: …)`, LUM-1226 — `reasons` are the schema field names the
+dropped candidates failed on, `limit` past the per-task cap; `· N calls` when
+the tool was called more than once; counts are kept when old scan evidence is
+scrubbed). Fields a row was written without are simply not
 printed — an older scan prints exactly what it recorded.
 
 `stop: no-progress` (LUM-799) is the search stopping itself: it spent
@@ -312,6 +317,7 @@ written before the gate counted anything at all.
                      resolution: { kind: 'placement', placed: { subgraph, sinkRule, sandbox }, unplaced, accepted, rejected }
                                  | { kind: 'legacy', subgraph, sinkRule, sandbox, rejected } | null,
                      tasks: [ { taskId, stopped, sites?, model?, shell?, stop?, wrapUp?,
+                                submission?: { calls?, submitted?, kept?, dropped?, reasons?: string[] },
                                 trace?: [ { i, tool?, text?, inputTokens?, cacheReadTokens?, cacheWriteTokens?,
                                             outputTokens?, reasoningTokens?, elidedChars?, finishReason? } ] } ] } | null } ] }
 ```
