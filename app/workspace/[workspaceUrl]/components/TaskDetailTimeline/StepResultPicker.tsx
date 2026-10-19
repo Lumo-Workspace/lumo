@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import type { PickerEntry, PickerState } from '@/lib/test-cases/step-picker'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -104,9 +105,10 @@ export function StepResultPicker({
                 })}
               </RadioGroup>
               {entry ? (
-                <button
+                <Button
                   type='button'
-                  className='text-muted-foreground hover:text-foreground'
+                  variant='link'
+                  className='h-auto p-0 font-normal text-muted-foreground'
                   aria-label={intl.formatMessage(
                     { id: 'testCases.field.stepResults.clearLabel' },
                     { label: item.label }
@@ -116,7 +118,7 @@ export function StepResultPicker({
                   {intl.formatMessage({
                     id: 'testCases.field.stepResults.clear',
                   })}
-                </button>
+                </Button>
               ) : null}
             </div>
             {entry?.status === 'SKIP' ? (
@@ -141,9 +143,11 @@ export function StepResultPicker({
           </div>
         )
       })}
-      <button
+      <Button
         type='button'
-        className='self-start px-2 py-1 text-body text-muted-foreground hover:text-foreground'
+        variant='ghost'
+        size='sm'
+        className='self-start text-muted-foreground'
         onClick={() => {
           const next = { ...value }
           for (const item of items)
@@ -152,7 +156,7 @@ export function StepResultPicker({
         }}
       >
         {intl.formatMessage({ id: 'testCases.field.stepResults.restPass' })}
-      </button>
+      </Button>
     </fieldset>
   )
 }

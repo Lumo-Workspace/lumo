@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import type { TestCase } from '@prisma/client'
 import type { CreateTestCaseBody } from '@/lib/validation/test-case'
@@ -71,39 +72,47 @@ function StepList({
               )
             }
           />
-          <button
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveUp' })}
             onClick={() => move(i, i - 1)}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='px-1.5 text-muted-foreground'
           >
             ↑
-          </button>
-          <button
+          </Button>
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveDown' })}
             onClick={() => move(i, i + 1)}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='px-1.5 text-muted-foreground'
           >
             ↓
-          </button>
-          <button
+          </Button>
+          <Button
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.removeStep' })}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className='px-1 text-caption text-muted-foreground hover:text-foreground'
+            variant='ghost'
+            size='sm'
+            className='px-1.5 text-muted-foreground'
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
-      <button
+      <Button
         type='button'
+        variant='ghost'
+        size='sm'
         onClick={() => onChange([...items, ''])}
-        className='self-start text-caption text-muted-foreground hover:text-foreground'
+        className='self-start px-1.5 text-muted-foreground'
       >
         + {addLabel}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -264,23 +273,14 @@ export function TestCaseForm({
       {error ? <p className='text-body text-danger-text'>{error}</p> : null}
 
       <div className='flex gap-2'>
-        <button
-          type='button'
-          onClick={submit}
-          disabled={busy}
-          className='rounded-sm border border-foreground px-2 py-1 text-body text-foreground disabled:opacity-50'
-        >
+        <Button type='button' size='sm' onClick={submit} disabled={busy}>
           {intl.formatMessage({
             id: initial ? 'testCases.action.save' : 'testCases.action.create',
           })}
-        </button>
-        <button
-          type='button'
-          onClick={onCancel}
-          className='px-2 py-1 text-body text-muted-foreground hover:text-foreground'
-        >
+        </Button>
+        <Button type='button' variant='ghost' size='sm' onClick={onCancel}>
           {intl.formatMessage({ id: 'testCases.action.cancel' })}
-        </button>
+        </Button>
       </div>
     </div>
   )

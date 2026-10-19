@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Button } from '@/components/ui/button'
 import { useTestCases } from '../../hooks/useTestCases'
 import type { TestCaseOwnerRef } from '@/lib/api-client/test-cases'
 import { TestCaseCard } from './TestCaseCard'
@@ -211,13 +212,15 @@ export function TestCasesSection({
           onCancel={() => setMode({ kind: 'idle' })}
         />
       ) : (
-        <button
+        <Button
           type='button'
+          variant='ghost'
+          size='sm'
           onClick={() => setMode({ kind: 'create' })}
-          className='self-start text-caption text-muted-foreground hover:text-foreground'
+          className='self-start px-1.5 text-muted-foreground'
         >
           + {intl.formatMessage({ id: 'testCases.add' })}
-        </button>
+        </Button>
       )}
 
       <ConfirmActionDialog

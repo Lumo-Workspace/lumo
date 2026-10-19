@@ -31,6 +31,7 @@ import { tasksClient } from '@/lib/api-client'
 import { PluginSlot } from '@/lib/plugins/client'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -52,6 +53,13 @@ import { systemExplainState } from './boundary-explain'
 import { groupCrossings, type CrossingGroup } from './crossing-groups'
 import { Badge as UiBadge, badgeVariants } from '@/components/ui/badge'
 export { systemExplainState } from './boundary-explain'
+
+// Toned outline actions: the shared outline Button plus a feedback tone. The
+// icon and label carry the meaning too, so colour is never the only signal.
+const TONE_DANGER =
+  'border-danger-border text-danger-text hover:bg-danger-subtle hover:text-danger-text'
+const TONE_WARNING =
+  'border-warning-border text-warning-text hover:bg-warning-subtle hover:text-warning-text'
 
 /**
  * Returns 'advisory' when the crossing is advisory (non-blocking), null when
@@ -1134,12 +1142,14 @@ function CrossingRow({
             )
           }
           return (
-            <button
+            <Button
               type='button'
+              variant='outline'
+              size='sm'
               data-testid={`crossing-explain-btn-${c.id}`}
               disabled={explainLoading || pending}
               onClick={requestExplanation}
-              className='mt-1.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
+              className='mt-1.5'
             >
               {explainLoading
                 ? intl.formatMessage({
@@ -1150,7 +1160,7 @@ function CrossingRow({
                     id: 'boundary.explain.button',
                     defaultMessage: 'Explain',
                   })}
-            </button>
+            </Button>
           )
         })()}
 
@@ -1277,18 +1287,19 @@ function CrossingRow({
                 })}
               </span>
             ) : (
-              <button
+              <Button
                 type='button'
+                variant='link'
                 data-testid={`boundary-revoke-rule-${c.id}`}
                 disabled={pending}
                 onClick={onRevokeRule}
-                className='ml-2 underline hover:text-foreground disabled:opacity-50'
+                className='ml-2 h-auto p-0 text-caption'
               >
                 {intl.formatMessage({
                   id: 'boundary.panel.revokeRule',
                   defaultMessage: 'Revoke rule',
                 })}
-              </button>
+              </Button>
             )}
           </p>
         )}
@@ -1395,29 +1406,32 @@ function CrossingRow({
               />
             )}
             <div className='flex items-center gap-2'>
-              <button
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-false-positive-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition('FALSE_POSITIVE')}
-                className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 <FlagOff className='size-3.5' aria-hidden />
                 {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-confirm-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition('CONFIRMED')}
-                className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-caption text-danger-text hover:bg-danger-subtle disabled:opacity-50'
+                className={TONE_DANGER}
               >
                 <AlertTriangle className='size-3.5' aria-hidden />
                 {intl.formatMessage({
                   id: 'boundary.panel.confirmCrossing',
                   defaultMessage: 'Confirm crossing',
                 })}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1439,12 +1453,13 @@ function CrossingRow({
               className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
             />
             <div className='flex flex-wrap items-center gap-2'>
-              <button
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-change-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition(otherVerdict)}
-                className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 <FlagOff className='size-3.5' aria-hidden />
                 {intl.formatMessage(
@@ -1454,20 +1469,22 @@ function CrossingRow({
                   },
                   { verdict: boundaryDispositionLabel(otherVerdict, intl) }
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-reopen-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition('OPEN')}
-                className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-caption text-warning-text hover:bg-warning-subtle disabled:opacity-50'
+                className={TONE_WARNING}
               >
                 <Unlock className='size-3.5' aria-hidden />
                 {intl.formatMessage({
                   id: 'boundary.panel.reopen',
                   defaultMessage: 'Undo disposition (re-block Done)',
                 })}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1534,19 +1551,21 @@ function CrossingRow({
                   'Confirmed and unremediated — consider opening a fix.',
               })}
             </span>
-            <button
+            <Button
               type='button'
+              variant='outline'
+              size='sm'
               data-testid={`boundary-spawn-remediation-${c.id}`}
               disabled={pending}
               onClick={onSpawnRemediation}
-              className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
+              className='ml-auto'
             >
               <Plus className='size-3.5' aria-hidden />
               {intl.formatMessage({
                 id: 'boundary.panel.spawnRemediation',
                 defaultMessage: 'Spawn remediation task',
               })}
-            </button>
+            </Button>
           </div>
         )}
       </CollapsibleContent>
