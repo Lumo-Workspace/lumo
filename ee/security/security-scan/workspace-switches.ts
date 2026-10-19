@@ -86,8 +86,8 @@ export interface PlatformSecurityCeiling {
   managedScan: boolean
   hunt: boolean
   /**
-   * LUM-1234: `LUMO_REWARD_HACK=on`, and the workspace is on
-   * `LUMO_REWARD_HACK_WORKSPACES` when that allowlist is set.
+   * LUM-1234: the `reward-hack-scan` rollout stage (`lib/features/config.ts`,
+   * LUM-1260) is on for this workspace.
    */
   rewardHack: boolean
   /**
@@ -103,8 +103,8 @@ type Env = Record<string, string | undefined>
 
 /**
  * `workspaceId`: the workspace the ceiling is for — the reward-hack layer's
- * rollout allowlist is per workspace (without one, a set allowlist reads as
- * off). A workspace not on it sees the layer as not offered, never as
+ * rollout stage is per workspace (without one, only a public stage reads as
+ * on). A workspace outside the stage sees the layer as not offered, never as
  * turned off by it.
  */
 export function platformSecurityCeiling(

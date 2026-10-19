@@ -237,7 +237,7 @@ let dispositioned: unknown[]
 
 beforeEach(() => {
   jest.clearAllMocks()
-  process.env.LUMO_REWARD_HACK = 'on'
+  process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w1'
   delete process.env.LUMO_REWARD_HACK_MONTHLY_CAP_USD
   previousScan = null
   previousRows = []
@@ -308,7 +308,7 @@ beforeEach(() => {
 })
 
 afterAll(() => {
-  delete process.env.LUMO_REWARD_HACK
+  delete process.env.LUMO_DOGFOOD_WORKSPACE_IDS
 })
 
 describe('LUM-1234 reward-hack layer runner', () => {

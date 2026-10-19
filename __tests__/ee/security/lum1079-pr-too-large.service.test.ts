@@ -212,8 +212,8 @@ describe('run(): a PR too large to scan', () => {
         external: 'SKIPPED',
         supplyChain: 'SKIPPED',
         judge: 'SKIPPED',
-        // LUM-1234 (R10): not offered by the platform (LUMO_REWARD_HACK
-        // unset) — no rewardHack key at all.
+        // LUM-1234 (R10): not offered by the platform (not rolled out to
+        // this workspace) — no rewardHack key at all.
         hunt: 'SKIPPED',
       },
       partialCauses: ['PR_TOO_LARGE'],
@@ -228,11 +228,10 @@ describe('run(): a PR too large to scan', () => {
     expect(repo.persistResult).not.toHaveBeenCalled()
   })
 
-  test('LUM-1234 rollout allowlist: the rewardHack key exists only for a listed workspace', async () => {
+  test('LUM-1260 rollout stage: the rewardHack key exists only for a dogfood workspace', async () => {
     fetchPrChangedFiles.mockResolvedValue(504)
-    process.env.LUMO_REWARD_HACK = 'on'
     try {
-      process.env.LUMO_REWARD_HACK_WORKSPACES = 'w-other'
+      process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w-other'
       await prSecurityScanService.run({
         pullRequestId: 'pr1',
         trigger: 'PR_EVENT',
@@ -243,7 +242,7 @@ describe('run(): a PR too large to scan', () => {
       expect(notListed.stages).not.toHaveProperty('rewardHack')
 
       repo.finalize.mockClear()
-      process.env.LUMO_REWARD_HACK_WORKSPACES = 'w-other, w1'
+      process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w-other, w1'
       await prSecurityScanService.run({
         pullRequestId: 'pr1',
         trigger: 'PR_EVENT',
@@ -253,8 +252,7 @@ describe('run(): a PR too large to scan', () => {
       }
       expect(listed.stages.rewardHack).toBe('SKIPPED')
     } finally {
-      delete process.env.LUMO_REWARD_HACK
-      delete process.env.LUMO_REWARD_HACK_WORKSPACES
+      delete process.env.LUMO_DOGFOOD_WORKSPACE_IDS
     }
   })
 
