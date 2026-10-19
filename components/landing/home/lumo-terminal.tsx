@@ -8,11 +8,11 @@ import styles from './home.module.css'
 
 // What working with Lumo actually looks like inside a coding agent: you point it
 // at a task with one command, it runs prechecks, then drives the lumo CLI as
-// tool calls (attach + context → test-case runs → PR scan → wrapup) and reports
+// tool calls (attach + context → test-case runs → PR scan → status) and reports
 // back — the real agent transcript shape, kept model-/tool-neutral ("coding
 // agent"). Commands are the genuine ones: `lumo task testcase run <task>/TC<n>
-// --result <r> --env <e> [--evidence-file …]`, `lumo pr scan <number>` and
-// `lumo task wrapup <task>` all match cli/src/commands/. The run ends IN_REVIEW with findings still open,
+// --result <r> --env <e> [--evidence-file …]`, `lumo pr show <number>` and
+// `lumo task status <task>` all match cli/src/commands/. The run ends IN_REVIEW with findings still open,
 // because the agent does not get to close its own task.
 const QUERY = '/lumo LUM-204'
 
@@ -36,7 +36,7 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
-    cmd: 'lumo session attach LUM-204 && lumo task context LUM-204',
+    cmd: 'lumo session attach LUM-204 && lumo task show LUM-204 --full',
     out: [
       'Attached session to LUM-204 “Add Stripe checkout flow”',
       'Loaded context · 3 test cases · 2 source cards',
@@ -69,7 +69,7 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
-    cmd: 'lumo pr scan 482',
+    cmd: 'lumo pr show 482',
     out: [
       'Scanning PR #482 — 5 layers',
       'Secrets 1 · Code scan 2 · Dependencies 3 · AI review 1 · Exploit paths 1',
@@ -79,13 +79,13 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
-    cmd: 'lumo task update LUM-204 --status in_review && lumo task wrapup LUM-204',
+    cmd: 'lumo task update LUM-204 --status in_review && lumo task status LUM-204',
     out: [
       'LUM-204 → IN_REVIEW',
-      '[1/4] Test cases          3/3 PASS with evidence',
-      '[2/4] Security scans      PR #482 · 8 open, 2 blocking',
-      '[3/4] Boundary crossings  none open',
-      '[4/4] Readiness: BLOCKED — a human-only gate would refuse DONE',
+      'Done gate: BLOCKED — a human-only gate would refuse DONE',
+      'Test cases          3/3 PASS with evidence',
+      'Security scans      PR #482 · 8 open, 2 blocking',
+      'Boundary crossings  none open',
     ],
   },
   {

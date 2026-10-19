@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as os from 'os'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -66,7 +67,7 @@ interface StewardBoundResponse {
  * a different binding requires a brand-new agent session.
  *
  * A STEWARD session plans and accepts only: task create/update, milestone
- * exit criteria, deps confirm/dismiss, milestone add/remove and all
+ * test cases, deps confirm/dismiss, milestone add/remove and all
  * reads pass; self-dispatch is refused with 409, and
  * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
@@ -80,7 +81,7 @@ export async function sessionAttach(
         ? 'Error: missing <identifier>. Usage: lumo session attach --steward <milestone id | name | slug>'
         : 'Error: missing <identifier>. Usage: lumo session attach <LUM-42>'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-932: strict — when the call can't be told apart from a running
@@ -368,7 +369,7 @@ async function stewardAttach(args: {
   console.log('')
   console.log('Governance role — plan & accept only (lifetime lock):')
   console.log(
-    '  allowed: task create/update · milestone criteria set/verdict · deps confirm/dismiss · milestone add/remove · all reads'
+    '  allowed: task create/update · milestone testcase add/run · deps confirm/dismiss · milestone add/remove · all reads'
   )
   console.log(
     '  blocked: moving a task to in_progress assigned to yourself · attaching a task'
@@ -384,9 +385,10 @@ async function stewardAttach(args: {
   }
 }
 
-/** LUM-1092: the one pointer to `task context`, through the shared hint(). */
+/** LUM-1092: the one pointer to the task context (`task show --full`,
+ *  LUM-1233), through the shared hint(). */
 export function formatBackgroundHint(taskIdentifier: string): string {
   return hint(
-    `run ${cmd(`lumo task context ${taskIdentifier}`)} for background (team memory, test cases, sources, prior sessions)`
+    `run ${cmd(`lumo task show ${taskIdentifier} --full`)} for background (team memory, test cases, sources, prior sessions)`
   )
 }

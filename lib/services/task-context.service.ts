@@ -3,6 +3,10 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
+import {
   activeDurationMs,
   activeDurationMsBySession,
   activeDurationMsBySessionTask,
@@ -373,6 +377,7 @@ function scheduleLazyRefresh(
 /** A mentioned document as shaped by miscRepository.findDocumentsForContext. */
 interface ContextDocument {
   id: string
+  slug?: string | null
   title: string
   updatedAt: Date
   summary: string | null
@@ -723,7 +728,10 @@ export const taskContextService = {
    * resource fetch failing is isolated — that section renders empty, the rest
    * still inject.
    */
-  async buildSessionStartSections(taskId: string): Promise<{
+  async buildSessionStartSections(
+    taskId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
+  ): Promise<{
     /** LUM-807: "## Test cases" nudge ('' once a script exists or on DONE). */
     testCaseSection: string
     memorySection: string
@@ -865,7 +873,7 @@ export const taskContextService = {
     // Tier-2 memory: top-K addressable index, then a pointer for the rest.
     // Wrapped in the same untrusted boundary as the old full card.
     const memorySection = wrapUntrustedMemory(
-      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K)
+      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K, commands)
     )
     // Observe-only telemetry (LUM-402): keep the `memory` metric shape so the
     // return type and the session-start metrics stamp stay intact. Memory no
@@ -915,7 +923,7 @@ export const taskContextService = {
     const figmaManifestBlock = manifestBlock(
       '## Figma Designs',
       ranked.figma,
-      link => figmaManifest(link, taskIdentifier)
+      link => figmaManifest(link, taskIdentifier, commands)
     )
     const webManifestBlock = manifestBlock(
       '## Web Links',
@@ -1096,7 +1104,8 @@ export const taskContextService = {
    */
   async buildProgressSectionForTask(
     taskId: string,
-    currentSessionId: string
+    currentSessionId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<string> {
     const recovery =
       await taskContextService.buildPreviousSessionRecoveryForTask(
@@ -1120,7 +1129,7 @@ export const taskContextService = {
       body.push('', ...renderSessionRecapFollowUps(visible))
       if (overflow > 0) {
         body.push(
-          `- +${overflow} more — \`lumo task context\` for the full list`
+          `- +${overflow} more — \`${commands.taskContextBound}\` for the full list`
         )
       }
     }
@@ -1153,7 +1162,8 @@ export const taskContextService = {
    */
   async buildLayer2ReviewSectionForTask(
     taskId: string,
-    currentSessionId: string
+    currentSessionId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<{ section: string; fragments: FragmentRef[]; dropped: number }> {
     const empty = { section: '', fragments: [] as FragmentRef[], dropped: 0 }
     const task = await taskRepository.findById(taskId)
@@ -1178,7 +1188,7 @@ export const taskContextService = {
     }))
     const survivors = applyTokenBudget(ordered)
     return {
-      section: renderLayer2ReviewSection(survivors),
+      section: renderLayer2ReviewSection(survivors, commands),
       fragments: survivors.map(m => ({
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,
@@ -1201,7 +1211,10 @@ export const taskContextService = {
     // variant that picks any active workspace integration, so the caller's
     // memberId is no longer needed here. Drop on next signature change.
     _actorMemberId: string,
-    identifier: string
+    identifier: string,
+    // LUM-1233: the commands the caller's CLI has, for the pointers the
+    // rendered sections carry (legacy names unless the route says otherwise).
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<TaskContext | null> {
     const resolved = await taskService.resolveIdentifier(
       workspaceId,
@@ -1244,7 +1257,11 @@ export const taskContextService = {
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
     const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
-    const figmaSection = renderFigmaSection(figmaLinks, resolved.identifier)
+    const figmaSection = renderFigmaSection(
+      figmaLinks,
+      resolved.identifier,
+      commands
+    )
     if (figmaLinks.length > 0) {
       scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
     }
@@ -1273,7 +1290,12 @@ export const taskContextService = {
       _actorMemberId
     )) as ContextDocument[]
     const docSection = renderDocumentSection(
-      docs.map(d => ({ id: d.id, title: d.title, summary: d.summary }))
+      docs.map(d => ({
+        id: d.id,
+        slug: d.slug ?? null,
+        title: d.title,
+        summary: d.summary,
+      }))
     )
     // Serve the cached summaries now; refresh stale ones in the background.
     scheduleStaleDocumentSummaries(docs, workspaceId)
@@ -1291,6 +1313,7 @@ export const taskContextService = {
       })),
       identifier: resolved.identifier,
       commentsSummary: full.commentsSummary ?? null,
+      commands,
     })
 
     const prs = await pullRequestRepository.listByTask(resolved.id)
@@ -1319,7 +1342,8 @@ export const taskContextService = {
     )
     const memoryIndexSection = renderMemoryIndexBlock(
       budgetedMemories,
-      resolved.identifier
+      resolved.identifier,
+      commands
     )
 
     const milestone = full.milestoneId

@@ -1,5 +1,6 @@
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
+import { withAuthorNames } from '@/lib/services/comment-author-names'
 
 export interface TimelineEntry {
   id: string
@@ -10,6 +11,8 @@ export interface TimelineEntry {
 
 interface TimelineOptions {
   limit: number
+  /** Workspace the comment author names are looked up in (LUM-1238). */
+  workspaceId: string
   cursor?:
     | { timestamp: string; id: string; source: 'activity' | 'comment' }
     | undefined
@@ -21,12 +24,33 @@ interface TimelineResult {
   nextCursor: string | null
 }
 
+/**
+ * LUM-1238: `authorName` on the comment entries (and their replies) of one
+ * page — looked up only for that page, not for every comment on the task.
+ */
+async function withPageCommentAuthors(
+  items: TimelineEntry[],
+  workspaceId: string
+): Promise<TimelineEntry[]> {
+  const pageComments = items.filter(i => i.kind === 'comment') as Array<
+    TimelineEntry & {
+      authorActorId: string | null
+      replies?: { authorActorId: string | null }[]
+    }
+  >
+  if (pageComments.length === 0) return items
+  const named = new Map(
+    (await withAuthorNames(pageComments, workspaceId)).map(c => [c.id, c])
+  )
+  return items.map(i => named.get(i.id) ?? i)
+}
+
 export const timelineService = {
   async getTimeline(
     taskId: string,
     options: TimelineOptions
   ): Promise<TimelineResult> {
-    const { limit, cursor } = options
+    const { limit, cursor, workspaceId } = options
 
     // Build cursor filters per source
     const activityCursor =
@@ -86,7 +110,10 @@ export const timelineService = {
 
     // Determine hasMore: if either source returned more than limit, there's more
     const hasMore = merged.length > limit
-    const items = merged.slice(0, limit)
+    const items = await withPageCommentAuthors(
+      merged.slice(0, limit),
+      workspaceId
+    )
 
     let nextCursor: string | null = null
     if (hasMore && items.length > 0) {

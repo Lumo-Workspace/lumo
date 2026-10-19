@@ -1,3 +1,5 @@
+import { allPass } from '../helpers/step-results'
+
 const mockGetProject = jest.fn()
 const mockFindMilestone = jest.fn()
 const mockDispatch = jest.fn()
@@ -17,9 +19,7 @@ jest.mock('@/lib/services/milestone-rollup.service', () => ({
 }))
 jest.mock('@/lib/services/milestone-close-gate.service', () => ({
   milestoneCloseGateService: {
-    read: jest
-      .fn()
-      .mockResolvedValue({ held: 0, unresolvedCriteria: 0, cases: [] }),
+    read: jest.fn().mockResolvedValue({ held: 0, cases: [] }),
   },
 }))
 jest.mock('@/lib/repositories/test-case.repository', () => ({
@@ -141,7 +141,11 @@ describe('milestoneTestCaseService', () => {
     await milestoneTestCaseService.recordRun(
       'm-1',
       'TC1',
-      { result: 'PASS', environment: 'PRODUCTION' } as never,
+      {
+        result: 'PASS',
+        environment: 'PRODUCTION',
+        stepResults: allPass(mcase),
+      } as never,
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -201,7 +205,11 @@ describe('milestoneTestCaseService', () => {
     await milestoneTestCaseService.recordRun(
       'm-1',
       'TC1',
-      { result: 'PASS', environment: 'LOCAL' } as never,
+      {
+        result: 'PASS',
+        environment: 'LOCAL',
+        stepResults: allPass(mcase),
+      } as never,
       attribution
     )
     expect(mockDispatch).toHaveBeenCalledWith('m-1')
@@ -248,7 +256,7 @@ describe('milestoneTestCaseService', () => {
       id: 'r1',
       executedBy: 'mem-1',
     })
-    expect(res.gate).toEqual({ held: 0, unresolvedCriteria: 0, cases: [] })
+    expect(res.gate).toEqual({ held: 0, cases: [] })
   })
 
   it('getDetail returns the case with its runs', async () => {
@@ -290,5 +298,48 @@ describe('milestoneTestCaseService', () => {
     await milestoneTestCaseService.remove('m-1', 'TC1', attribution)
     expect(repo.softDelete).toHaveBeenCalledWith(mcase.id)
     expect(mockDispatch).toHaveBeenCalledWith('m-1')
+  })
+})
+
+// LUM-1185: milestone 读端与任务读端同形——推导判定 + N/M passing 汇总。
+describe('milestone read-side verdict (LUM-1185)', () => {
+  const run = {
+    id: 'r1',
+    testCaseId: mcase.id,
+    result: 'PASS',
+    environment: 'LOCAL',
+    failedPhase: null,
+    failedIndex: null,
+    failedStepText: null,
+    failureAttribution: null,
+    unprovenVerification: [],
+    evidence: [],
+    stepResults: [],
+    executedByMemberId: null,
+    disposition: null,
+  }
+
+  it('list carries the ceiling per run and the summary', async () => {
+    repo.listForMilestone.mockResolvedValue([mcase] as never)
+    repo.runsPerCaseForMilestone.mockResolvedValue(
+      new Map([[mcase.id, [run]]]) as never
+    )
+    const res = await milestoneTestCaseService.list('m-1', 'mem-1')
+    expect(res.testCases[0]!.runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'no-evidence',
+    })
+    expect(res.summary).toMatchObject({ total: 1, passing: 0, inconclusive: 1 })
+  })
+
+  it('getDetail carries the step report', async () => {
+    repo.findByMilestoneAndNumber.mockResolvedValue(mcase as never)
+    repo.listRuns.mockResolvedValue([run] as never)
+    const res = await milestoneTestCaseService.getDetail('m-1', 'TC1', 'mem-1')
+    expect(res.runs[0]!.stepReport).toMatchObject({
+      total: 1,
+      passed: 0,
+      hasStepResults: false,
+    })
   })
 })

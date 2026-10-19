@@ -4,7 +4,8 @@
  * answers with.
  *
  * The reply is untrusted text from a public PR. Nothing here acts on it: the
- * only effects a reply can ever have are a short templated answer, closing
+ * only effects a reply can ever have are a short answer (templated, or —
+ * LUM-1154, for a question — the chat service's grounded answer), closing
  * that one thread on this PR, and (when this gate AND the model agree) a
  * learning the AI review reads as data later. It never touches a finding's
  * disposition — a gate-blocking finding stays blocking until the user rules
@@ -19,6 +20,11 @@
 import { detectInjectionSignals } from '@/shared/src/untrusted-content'
 import { classifyReviewer } from '@/lib/context/reviewer-trust'
 import { matchPathGlob } from '@/lib/policy/path-glob'
+import {
+  guardInjectedText,
+  guardPromptLineText,
+} from '@/lib/security-scan/inject-guard'
+import type { ThreadReplyInput } from '@/ee/security/llm/thread-reply-client'
 
 export type ReplyLabel =
   /** States the finding is intentional / not applicable — a learning candidate. */
@@ -212,6 +218,29 @@ export function screenReplyDetailed(raw: string): {
   return { label: 'OTHER', reason }
 }
 
+// ── What the model is shown ──────────────────────────────────────────────────
+
+/**
+ * LUM-1157 — the classifier's input for one reply: the thread's OWN finding
+ * (each field through the prompt-line guard) and the reply, redacted and
+ * fenced (`guardInjectedText`). Shared by the service and the real-model
+ * probe, so the probe measures exactly what production asks.
+ */
+export function buildClassifierInput(
+  finding: { ruleId: string; title: string; filePath: string },
+  body: string
+): Pick<ThreadReplyInput, 'finding' | 'reply'> {
+  const guarded = guardInjectedText(body)
+  return {
+    finding: {
+      ruleId: guardPromptLineText(finding.ruleId),
+      title: guardPromptLineText(finding.title),
+      filePath: guardPromptLineText(finding.filePath),
+    },
+    reply: { text: guarded.text, notices: guarded.notices },
+  }
+}
+
 // ── Who may teach Lumo ───────────────────────────────────────────────────────
 
 export interface ReplyAuthor {
@@ -356,8 +385,14 @@ export interface LearningReplyInput {
   learning: string
   repo: string
   pathGlob: string | null
-  /** Whether the learning was stored as a memory, and if not why. */
-  stored: 'stored' | 'no_project' | 'failed'
+  /** Whether the learning was stored as a memory. */
+  stored: 'stored' | 'failed'
+  /**
+   * LUM-1157: the learning's memory belongs to a Lumo project (else it is
+   * scoped to the workspace and repository only) — decides where the
+   * answer says to change or undo it.
+   */
+  inProject: boolean
   /** The GitHub thread was really resolved (else the reply says so). */
   closed: boolean
   /** A gate-blocking finding: the reply must say it still blocks. */
@@ -380,12 +415,13 @@ export function buildLearningReply(input: LearningReplyInput): string {
     ? `\`${input.repo}\`, files matching \`${input.pathGlob}\``
     : `\`${input.repo}\``
   const head = headLine(input.login, input.closed)
+  const undo = input.inProject
+    ? "edit or delete this learning in the project's memory in Lumo"
+    : `list this repository's learnings with \`lumo memory list --learnings --repo ${input.repo}\` and delete one with \`lumo memory delete <id>\` (Lumo CLI 1.125 and older: \`lumo workspace learnings --repo ${input.repo}\` / \`lumo memory rm <id>\`)`
   const body =
     input.stored === 'stored'
-      ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, edit or delete this learning in the project's memory in Lumo._`
-      : input.stored === 'no_project'
-        ? `\n\nLumo could not store a learning from it: this repository is not linked to a Lumo project.`
-        : `\n\nLumo could not store a learning from it this time — nothing was saved.`
+      ? `\n\n**${LEARNING_ADDED}** ${input.learning}\n\n_Scope: ${scope}. Lumo's AI review applies it to this pull request until it merges, then to every pull request in the repository. To change or undo it, ${undo}._`
+      : `\n\nLumo could not store a learning from it this time — nothing was saved.`
   return `${head}${body}${input.blockingFindingId ? blockingNote(input.blockingFindingId) : ''}\n\n${REPLY_NOTE_MARKER}`
 }
 
@@ -405,7 +441,7 @@ export function buildAckReply(label: ReplyLabel, login: string): string {
   const body =
     label === 'DEFER'
       ? `Thanks @${login} — Lumo resolves this thread on its own once a push no longer has the finding.`
-      : `Thanks @${login}. Lumo does not discuss findings in threads. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will apply it to this pull request's reviews until it merges, then to every pull request in this repository; if it is a real problem, the thread resolves on its own once a push fixes it.`
+      : `Thanks @${login}. If this finding does not apply here, reply with the reason (for example "this is intentional because …") and Lumo will apply it to this pull request's reviews until it merges, then to every pull request in this repository; if it is a real problem, the thread resolves on its own once a push fixes it. To ask Lumo about it, reply with a question.`
   return `${body}\n\n${REPLY_NOTE_MARKER}`
 }
 
@@ -417,7 +453,7 @@ export const REVIEW_LEARNINGS_MAX_ITEMS = 12
 export const REVIEW_LEARNINGS_MAX_CHARS = 4_000
 
 /**
- * CodeRabbit parity (LUM-1131 decision): a learning from a reply on an open
+ * Learnings scope (LUM-1131 decision): a learning from a reply on an open
  * PR applies only to that PR's reviews; once the source PR merges (into any
  * branch) it applies to the whole repository. Closed without merging, it
  * stays with that PR. "Merged" is read from the stored promotion OR the

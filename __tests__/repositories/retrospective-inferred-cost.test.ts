@@ -309,6 +309,7 @@ describe('retrospective loaders — hybrid cost (LUM-932 P3)', () => {
       projectId: 'p1',
       sessions: [
         {
+          id: 'N',
           inputTokens: null,
           outputTokens: null,
           cacheReadTokens: null,

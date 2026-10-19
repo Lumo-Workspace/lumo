@@ -14,8 +14,10 @@ import { NextRequest, NextResponse } from 'next/server'
  * their meaning; the gate only stops a known-incompatible CLI early.
  */
 
-/** Must stay byte-identical to `CLI_VERSION_HEADER` in the CLI (a test pins it). */
-export const CLI_VERSION_HEADER = 'X-Lumo-Cli-Version'
+// LUM-1233: the header name and the version parser live in a module without
+// `next/server`, so pure renderers can pick command names by CLI version.
+import { CLI_VERSION_HEADER, parseCliVersion } from '@/lib/api/cli-version'
+export { CLI_VERSION_HEADER, parseCliVersion }
 
 /** `code` of the 426 body; the CLI keys its upgrade hint on it. */
 export const CLI_VERSION_UNSUPPORTED_CODE = 'CLI_VERSION_UNSUPPORTED'
@@ -27,17 +29,6 @@ export const CLI_VERSION_UNSUPPORTED_CODE = 'CLI_VERSION_UNSUPPORTED'
  * overrides it per deployment.
  */
 export const MIN_SUPPORTED_CLI_VERSION: string | null = null
-
-const VERSION_RE = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})$/
-
-/** `[major, minor, patch]`, or null when `value` is not a plain version. */
-export function parseCliVersion(
-  value: string | null | undefined
-): [number, number, number] | null {
-  const m = VERSION_RE.exec((value ?? '').trim())
-  if (!m) return null
-  return [Number(m[1]), Number(m[2]), Number(m[3])]
-}
 
 function isOlder(
   a: [number, number, number],

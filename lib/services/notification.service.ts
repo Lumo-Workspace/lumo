@@ -28,11 +28,17 @@ export const notificationService = {
   /**
    * Get enriched notifications for a recipient.
    * Returns raw notifications with trigger info — caller enriches with Clerk user data.
+   * `unreadOnly` (LUM-1233) returns only unread ones, newest 50 of those.
    */
-  async getNotifications(actorId: string, workspaceId: string) {
+  async getNotifications(
+    actorId: string,
+    workspaceId: string,
+    opts: { unreadOnly?: boolean } = {}
+  ) {
     const rawNotifications = await notificationRepository.findByRecipient(
       actorId,
-      workspaceId
+      workspaceId,
+      opts
     )
 
     // Sort actionable (requiresAction=true AND actionTakenAt=null) to top,

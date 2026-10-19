@@ -474,6 +474,41 @@ describe('LUM-740 read model — fixed and suggested counts', () => {
     expect(previousOpen).not.toHaveBeenCalled()
   })
 
+  it('LUM-1234: a REWARD_HACK row reaches the task view with its fixed title only, never the judge prose', async () => {
+    latestScans.mockResolvedValue([
+      scanRow({
+        findings: [
+          row({
+            id: 'rh',
+            fingerprint: 'rh',
+            kind: 'REWARD_HACK',
+            provenance: 'LLM_JUDGE',
+            title:
+              'Agent behavior: Weakened or bypassed tests in src/a.test.ts',
+            detail:
+              'The user asked to keep the strict check; the agent removed it.',
+            scan: undefined,
+          }),
+          row({
+            id: 'v',
+            fingerprint: 'v',
+            detail: 'kept detail',
+            scan: undefined,
+          }),
+        ],
+      }),
+    ])
+    previousOpen.mockResolvedValue([])
+    const view = await prSecurityScanService.getForTask('t1')
+    const findings = view.prs[0]!.latest!.findings
+    const rh = findings.find(f => f.id === 'rh')!
+    expect(rh.title).toBe(
+      'Agent behavior: Weakened or bypassed tests in src/a.test.ts'
+    )
+    expect(rh.detail).toBe('')
+    expect(findings.find(f => f.id === 'v')!.detail).toBe('kept detail')
+  })
+
   it('counts open suggested false positives across PRs; dispositioned ones do not count', async () => {
     latestScans.mockResolvedValue([
       scanRow({

@@ -144,6 +144,9 @@ interface CreateReviewInput {
   comments: Array<{
     path: string
     line: number
+    /** LUM-1150 — a multi-line comment (a suggestion's range) starts here. */
+    start_line?: number
+    start_side?: 'RIGHT'
     side: 'RIGHT'
     body: string
   }>
@@ -164,6 +167,8 @@ export interface ListedReview {
   state: string
   commit_id: string | null
   user: { id?: number; login?: string; type?: string } | null
+  /** LUM-1149 — the review's body (a marker dedupes Lumo's own). */
+  body?: string | null
 }
 
 /**
@@ -512,6 +517,77 @@ export const prCommentClient = {
     const sha = pr?.head?.sha
     return sha && pr?.state ? { sha, state: pr.state } : null
   },
+
+  /**
+   * LUM-1151 — the PR's description as it is now (null = empty), read right
+   * before Lumo edits its summary block into it.
+   */
+  async getPullRequestBody(input: {
+    repo: Repo
+    prNumber: number
+    token: string
+  }): Promise<{ body: string | null; state: string | null }> {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}`
+    const pr = await call<{ body?: unknown; state?: unknown }>(url, {
+      method: 'GET',
+      headers: headers(input.token),
+    })
+    return {
+      body: typeof pr?.body === 'string' ? pr.body : null,
+      state: typeof pr?.state === 'string' ? pr.state : null,
+    }
+  },
+
+  /** LUM-1151 — replace the PR's description (`pull_requests: write`). */
+  async updatePullRequestBody(input: {
+    repo: Repo
+    prNumber: number
+    body: string
+    token: string
+  }): Promise<void> {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}`
+    await call<unknown>(url, {
+      method: 'PATCH',
+      headers: headers(input.token),
+      body: JSON.stringify({ body: input.body }),
+    })
+  },
+
+  /**
+   * LUM-1151 — the PR's changed files (name, status, line counts), for the
+   * summary's walkthrough. Walks at most `MAX_FILE_PAGES` pages of 100;
+   * GitHub itself stops listing at 3,000 files.
+   */
+  async listPullRequestFiles(input: {
+    repo: Repo
+    prNumber: number
+    token: string
+  }): Promise<ListedPullRequestFile[]> {
+    const base = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/files`
+    const out: ListedPullRequestFile[] = []
+    for (let page = 1; page <= MAX_FILE_PAGES; page += 1) {
+      const rows =
+        (await call<ListedPullRequestFile[]>(
+          `${base}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+          { method: 'GET', headers: headers(input.token) }
+        )) ?? []
+      out.push(...rows)
+      if (rows.length < COMMENTS_PER_PAGE) break
+    }
+    return out
+  },
+}
+
+/** LUM-1151 — pages of the PR file list one walkthrough reads (300 files). */
+const MAX_FILE_PAGES = 3
+
+/** LUM-1151 — one file as `GET pulls/{n}/files` lists it. */
+export interface ListedPullRequestFile {
+  filename: string
+  status: string
+  additions: number
+  deletions: number
+  previous_filename?: string
 }
 
 /**

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState, fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
@@ -8,9 +9,11 @@ import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
 } from '../lib/pagination'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 import {
   formatHealth,
   milestoneState,
@@ -20,6 +23,8 @@ import {
 interface MilestoneRow {
   id: string
   name: string
+  /** LUM-1230: the handle `lumo milestone <cmd> <slug>` takes (web URL segment). */
+  slug?: string | null
   /** LUM-714: derived completion stamp; non-null = the milestone is done. */
   completedAt: string | null
   targetDate: string | null
@@ -40,15 +45,19 @@ export interface MilestoneListOptions {
   search?: string | undefined
   limit?: string | undefined
   cursor?: string | undefined
+  json?: boolean | undefined
 }
 
 /**
  * Render milestones as a table (LUM-1089, header on a TTY only):
- *   <STATE>  <HEALTH>  <target-date or ->  <name>
+ *   <STATE>  <HEALTH>  <target-date or ->  <slug>  <name>
  *
  * STATE is ACTIVE / COMPLETED / ARCHIVED (LUM-714) — derived, never stored.
  * HEALTH is the target-date risk light (ON-TRACK / AT-RISK / OVERDUE), or `-`
  * when no light applies (completed, archived, or no target date).
+ *
+ * SLUG (LUM-1230) is what every milestone command accepts — the name may be
+ * duplicated or hard to type; `-` from an older server that sends none.
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
@@ -62,9 +71,14 @@ export function formatMilestoneList(
       milestoneState(r),
       formatHealth(r.health),
       fmtCalendarDay(r.targetDate),
+      r.slug ? sanitizeField(r.slug) : '-',
       sanitizeField(r.name),
     ]),
-    { header: ['STATE', 'HEALTH', 'TARGET', 'NAME'], flex: 3, ...opts }
+    {
+      header: ['STATE', 'HEALTH', 'TARGET', 'SLUG', 'NAME'],
+      flex: 4,
+      ...opts,
+    }
   )
 }
 
@@ -90,13 +104,13 @@ export async function milestoneList(
 
   if (options.archived && options.all) {
     console.error('Error: --archived and --all are mutually exclusive.')
-    return 1
+    return EXIT_USAGE
   }
   const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
   const pageArgs = parsePageArgs(options.limit, options.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const query = new URLSearchParams({ filter })
@@ -115,6 +129,16 @@ export async function milestoneList(
   // LUM-1093: the route returns the project's whole (filtered) list, so the
   // page is cut here.
   const page = paginate(data.milestones, pageArgs)
+  if (options.json) {
+    emitJson(
+      listEnvelope(
+        'milestones',
+        stripInternalFields(page.items),
+        pageJson(page)
+      )
+    )
+    return
+  }
   const lines = [
     page.items.length === 0 && page.total > 0
       ? 'No milestones on this page.'

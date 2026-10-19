@@ -1,4 +1,91 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import {
+  parseEmptyBaseBranchesMeans,
+  type RepoReviewSettingValues,
+} from '@/ee/security/security-scan/auto-review-policy'
+import { parsePreMergeChecksSetting } from '@/ee/security/security-scan/pre-merge-checks'
+import { normalizePathInstructions } from '@/ee/security/security-scan/path-instructions'
+import { parseReviewProfile } from '@/ee/security/security-scan/review-profile'
+import { parseHighLevelSummary } from '@/ee/security/security-scan/pr-description-summary'
+
+type StoredColumns =
+  | 'emptyBaseBranchesMeans'
+  | 'pathInstructions'
+  | 'reviewProfile'
+  | 'toneInstructions'
+  | 'preMergeChecks'
+  | 'highLevelSummary'
+
+/** The stored text / Json columns as the domain types. */
+function toDomain<
+  T extends {
+    emptyBaseBranchesMeans: string
+    pathInstructions: unknown
+    reviewProfile: string
+    toneInstructions: string | null
+    preMergeChecks: unknown
+    highLevelSummary: string
+  },
+>(
+  row: T
+): Omit<T, StoredColumns> & Pick<RepoReviewSettingValues, StoredColumns> {
+  return {
+    ...row,
+    emptyBaseBranchesMeans: parseEmptyBaseBranchesMeans(
+      row.emptyBaseBranchesMeans
+    ),
+    // LUM-1147: a Json column — anything malformed reads as no entry.
+    pathInstructions: normalizePathInstructions(row.pathInstructions),
+    reviewProfile: parseReviewProfile(row.reviewProfile),
+    toneInstructions: row.toneInstructions,
+    // LUM-1148: null (never set) or malformed reads as the defaults.
+    preMergeChecks: parsePreMergeChecksSetting(row.preMergeChecks),
+    highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+  }
+}
+
+/** The domain values as columns (the Json values as Prisma input). */
+function toColumns<V extends Partial<RepoReviewSettingValues>>(
+  values: V
+): Omit<V, 'pathInstructions' | 'preMergeChecks'> & {
+  pathInstructions?: Prisma.InputJsonValue
+  preMergeChecks?: Prisma.InputJsonValue
+} {
+  const { pathInstructions, preMergeChecks, ...rest } = values
+  return {
+    ...rest,
+    ...(pathInstructions !== undefined
+      ? {
+          pathInstructions:
+            pathInstructions as unknown as Prisma.InputJsonValue,
+        }
+      : {}),
+    // LUM-1148: the pre-merge checks are one Json value.
+    ...(preMergeChecks !== undefined
+      ? { preMergeChecks: preMergeChecks as unknown as Prisma.InputJsonValue }
+      : {}),
+  }
+}
+
+/** LUM-1143: every stored setting column (filters included). */
+const SETTING_SELECT = {
+  autoReview: true,
+  reviewDrafts: true,
+  baseBranches: true,
+  emptyBaseBranchesMeans: true,
+  labels: true,
+  ignoreTitleKeywords: true,
+  ignoreUsernames: true,
+  descriptionKeyword: true,
+  pathFilters: true,
+  preMergeChecks: true,
+  pathInstructions: true,
+  reviewProfile: true,
+  toneInstructions: true,
+  highLevelSummary: true,
+  sequenceDiagrams: true,
+} as const
 
 /**
  * LUM-1133 — per-repository automatic review settings and the cross-workspace
@@ -11,10 +98,8 @@ export interface ConfirmingWorkspaceRow {
   confirmedAt: Date
 }
 
-export interface RepoReviewSettingRow {
+export interface RepoReviewSettingRow extends RepoReviewSettingValues {
   workspaceId: string
-  autoReview: boolean
-  reviewDrafts: boolean
 }
 
 export const repoReviewSettingRepository = {
@@ -44,18 +129,72 @@ export const repoReviewSettingRepository = {
     repoLower: string
   ): Promise<RepoReviewSettingRow[]> {
     if (workspaceIds.length === 0) return []
-    return prisma.repositoryReviewSetting.findMany({
+    const rows = await prisma.repositoryReviewSetting.findMany({
       where: { workspaceId: { in: workspaceIds }, repo: repoLower },
-      select: { workspaceId: true, autoReview: true, reviewDrafts: true },
+      select: { workspaceId: true, ...SETTING_SELECT },
     })
+    return (rows ?? []).map(toDomain)
+  },
+
+  /**
+   * LUM-1143: one workspace's path filters for a repository ([] = none
+   * stored), for the scan worker's review input.
+   */
+  async findPathFilters(
+    workspaceId: string,
+    repoLower: string
+  ): Promise<string[]> {
+    const row = await prisma.repositoryReviewSetting.findUnique({
+      where: { workspaceId_repo: { workspaceId, repo: repoLower } },
+      select: { pathFilters: true },
+    })
+    return row?.pathFilters ?? []
+  },
+
+  /**
+   * LUM-1147: one workspace's review style for a repository (null = no
+   * stored row), for the scan worker's review input.
+   */
+  async findReviewStyle(
+    workspaceId: string,
+    repoLower: string
+  ): Promise<Pick<
+    RepoReviewSettingValues,
+    | 'pathInstructions'
+    | 'reviewProfile'
+    | 'toneInstructions'
+    | 'highLevelSummary'
+    | 'sequenceDiagrams'
+  > | null> {
+    const row = await prisma.repositoryReviewSetting.findUnique({
+      where: { workspaceId_repo: { workspaceId, repo: repoLower } },
+      select: {
+        pathInstructions: true,
+        reviewProfile: true,
+        toneInstructions: true,
+        highLevelSummary: true,
+        sequenceDiagrams: true,
+      },
+    })
+    if (!row) return null
+    return {
+      pathInstructions: normalizePathInstructions(row.pathInstructions),
+      reviewProfile: parseReviewProfile(row.reviewProfile),
+      toneInstructions: row.toneInstructions,
+      // LUM-1151: where the high-level summary goes.
+      highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+      // LUM-1155: the call-flow diagram switch.
+      sequenceDiagrams: row.sequenceDiagrams,
+    }
   },
 
   /** Every stored setting of one workspace. */
   async findForWorkspace(workspaceId: string) {
-    return prisma.repositoryReviewSetting.findMany({
+    const rows = await prisma.repositoryReviewSetting.findMany({
       where: { workspaceId },
-      select: { repo: true, autoReview: true, reviewDrafts: true },
+      select: { repo: true, ...SETTING_SELECT },
     })
+    return (rows ?? []).map(toDomain)
   },
 
   /**
@@ -65,14 +204,14 @@ export const repoReviewSettingRepository = {
   async upsert(
     workspaceId: string,
     repoLower: string,
-    values: { autoReview: boolean; reviewDrafts: boolean },
-    changed: { autoReview?: boolean; reviewDrafts?: boolean } = values
+    values: RepoReviewSettingValues,
+    changed: Partial<RepoReviewSettingValues> = values
   ) {
     return prisma.repositoryReviewSetting.upsert({
       where: { workspaceId_repo: { workspaceId, repo: repoLower } },
-      create: { workspaceId, repo: repoLower, ...values },
-      update: changed,
-      select: { repo: true, autoReview: true, reviewDrafts: true },
+      create: { workspaceId, repo: repoLower, ...toColumns(values) },
+      update: toColumns(changed),
+      select: { repo: true, ...SETTING_SELECT },
     })
   },
 

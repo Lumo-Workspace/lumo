@@ -23,6 +23,11 @@ import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossin
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { emitCoreEvent } from '@/lib/plugins/events'
 import { shouldNotifySlackEvent } from '@/lib/services/notification.service'
+import {
+  pullRequestReviewFacts,
+  pullRequestReviewFactsBefore,
+  type PullRequestFactsPayload,
+} from '@/lib/integrations/github/pr-review-facts'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,7 +43,7 @@ type GitHubPR = {
   // LUM-746: `sha` is on every pull_request payload; optional so a stripped
   // payload degrades to a head fetch on the request path.
   head: { ref: string; sha?: string }
-  base: { ref: string }
+  base: { ref: string; sha?: string }
   merged_at: string | null
   closed_at: string | null
   merge_commit_sha: string | null
@@ -49,10 +54,10 @@ type GitHubPR = {
   changed_files?: number
 }
 
-type PullRequestPayload = {
+type PullRequestPayload = PullRequestFactsPayload & {
   action: string
   pull_request: GitHubPR
-  repository: { full_name: string }
+  repository: { full_name: string; default_branch?: string | null }
 }
 
 type CheckSuitePayload = {
@@ -105,7 +110,8 @@ export async function handlePullRequest(
   } = payload as unknown as PullRequestPayload
 
   // LUM-1133: ready_for_review / converted_to_draft keep `isDraft` current
-  // (a task-less draft is reviewed once it is marked ready).
+  // (a task-less draft is reviewed once it is marked ready). LUM-1143:
+  // labeled / unlabeled can newly opt a PR into the automatic review.
   const relevantActions = [
     'opened',
     'reopened',
@@ -114,6 +120,8 @@ export async function handlePullRequest(
     'edited',
     'ready_for_review',
     'converted_to_draft',
+    'labeled',
+    'unlabeled',
   ]
   if (!relevantActions.includes(action)) return
 
@@ -162,6 +170,13 @@ export async function handlePullRequest(
     prRow.taskId
   )
 
+  const payloadFacts = payload as unknown as PullRequestFactsPayload
+  const reviewFacts = pullRequestReviewFacts(payloadFacts)
+  const reviewFactsBefore = pullRequestReviewFactsBefore(
+    payloadFacts,
+    reviewFacts
+  )
+
   // The plugin event for this PR. LUM-1133: emitted for a PR without a task
   // too (taskId null) so it can be reviewed; everything below stays
   // task-only (branch list, lineage, notifications).
@@ -173,6 +188,11 @@ export async function handlePullRequest(
     repo: repository.full_name,
     prNumber: pr.number,
     isDraft: pr.draft === true,
+    // LUM-1143: what the per-repository auto-review filters read.
+    reviewFacts,
+    ...(reviewFactsBefore ? { reviewFactsBefore } : {}),
+    // LUM-1146: the repository config file is read at the base commit.
+    baseSha: typeof pr.base.sha === 'string' ? pr.base.sha : null,
   }
 
   if (!linkedTask) {
@@ -591,7 +611,7 @@ export async function handlePullRequestReviewThread(
 /**
  * LUM-1131 — hand a review-line comment to the plugins as
  * `github.reviewComment` (a human reply in a Lumo finding thread can become
- * a learning). Only the fields a consumer needs; the body stays untrusted.
+ * a learning; LUM-1154: a question to Lumo is answered). Only the fields a consumer needs; the body stays untrusted.
  */
 function emitReviewComment(
   payload: Record<string, unknown>,
@@ -604,8 +624,14 @@ function emitReviewComment(
     in_reply_to_id?: unknown
     user?: { login?: unknown; type?: unknown } | null
     author_association?: unknown
+    path?: unknown
+    line?: unknown
+    diff_hunk?: unknown
   }
   if (typeof c.id !== 'number') return
+  // `line` is in the PR head; `original_line` is in the commit the comment
+  // was first made on — not the head, so an outdated comment gets no line.
+  const line = typeof c.line === 'number' ? c.line : null
   const user = c.user ?? null
   emitCoreEvent('github.reviewComment', {
     workspaceId,
@@ -630,6 +656,11 @@ function emitReviewComment(
         typeof c.author_association === 'string'
           ? c.author_association.slice(0, 40)
           : null,
+      // LUM-1154: where a question on a code line points (chat context).
+      path: typeof c.path === 'string' ? c.path : null,
+      line,
+      diffHunk:
+        typeof c.diff_hunk === 'string' ? c.diff_hunk.slice(0, 8_000) : null,
     },
   })
 }

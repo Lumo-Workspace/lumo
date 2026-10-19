@@ -1,7 +1,8 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import { fetchDirectory, resolveDirectoryMember } from '../lib/directory'
-import { resolveProjectId } from '../lib/resolve'
+import { resolveProjectId, slugify } from '../lib/resolve'
 import { successLine } from '../lib/feedback'
 
 /** LUM-821: `lumo project create` / `lumo project update`. */
@@ -45,13 +46,15 @@ export async function projectCreate(
   process.stdout.write(formatCreatedProjectLine(r.data.project) + '\n')
 }
 
-/** LUM-1092: `Created project "<name>"  <id>` (was `(<id>)`). */
+/** LUM-1092: `Created project "<name>"  <slug>` — LUM-1230: the slug
+ *  `--project` takes, never the cuid. */
 export function formatCreatedProjectLine(project: ProjectRow): string {
+  const slug = slugify(project.name)
   return successLine({
     verb: 'Created',
     kind: 'project',
     title: project.name,
-    id: project.id,
+    ...(slug ? { id: slug } : {}),
   })
 }
 
@@ -70,7 +73,7 @@ export async function projectUpdate(
   if (opts.name !== undefined) {
     if (!opts.name.trim()) {
       console.error('Error: --name cannot be empty')
-      return 1
+      return EXIT_USAGE
     }
     body.name = opts.name.trim()
   }
@@ -81,7 +84,7 @@ export async function projectUpdate(
     console.error(
       'Error: provide at least one field to update (--name, --description, --owner)'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1

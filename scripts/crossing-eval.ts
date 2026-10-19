@@ -7,6 +7,7 @@
  *   npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --judge rules [--confirm] [--history] [--split tune|holdout|all]
  *   npx tsx scripts/crossing-eval.ts --dataset basharena-synthetic --judge rules [--confirm] [--split train|test|all]
  *   npx tsx scripts/crossing-eval.ts --dataset rjudge --judge rules --confirm
+ *   npx tsx scripts/crossing-eval.ts --dataset trace --judge rules [--confirm] [--download]
  *   npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --judge recorded \
  *     --records $HOME/.cache/lumo-lum965/results.jsonl --config whole/v1/anthropic/claude-sonnet-4.6 --split holdout
  *   npx tsx scripts/crossing-eval.ts --dataset controlarena-holdout --judge recorded \
@@ -41,6 +42,7 @@ import {
   basharenaSynthetic,
   controlarenaHoldout,
   rjudge,
+  trace,
 } from './crossing-eval/datasets'
 
 export const DATASETS: DatasetAdapter[] = [
@@ -49,6 +51,7 @@ export const DATASETS: DatasetAdapter[] = [
   basharenaSynthetic,
   rjudge,
   controlarenaHoldout,
+  trace,
 ]
 
 export const JUDGES: { id: string; describe: string }[] = [

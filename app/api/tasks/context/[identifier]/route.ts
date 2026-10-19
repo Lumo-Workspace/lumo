@@ -4,6 +4,7 @@ import { taskContextService } from '@/lib/services/task-context.service'
 import { nextStepsService } from '@/lib/services/next-steps.service'
 import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 import type { TaskStatusForNextSteps } from '@/lib/context/render/next-steps'
+import { cliCommandNamesFromHeaders } from '@/lib/cli/command-names'
 
 export async function GET(
   request: Request,
@@ -16,7 +17,9 @@ export async function GET(
   const result = await taskContextService.getContextForIdentifier(
     identity.workspaceId,
     identity.memberId,
-    identifier
+    identifier,
+    // LUM-1233: name only the commands the caller's CLI has.
+    cliCommandNamesFromHeaders(request.headers)
   )
   if (!result) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })

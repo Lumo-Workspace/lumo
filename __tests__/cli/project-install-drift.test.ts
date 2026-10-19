@@ -27,6 +27,7 @@ import {
   projectDriftNote,
   projectDriftOnce,
   projectInstallDrift,
+  retiredHooksNote,
 } from '@/cli/src/lib/project-install-drift'
 import { hashSkillDir } from '@/cli/src/lib/skill-hash'
 
@@ -126,11 +127,81 @@ describe('projectInstallDrift', () => {
     ])
   })
 
+  it('committed settings still holding retired WorktreeCreate are reported (LUM-1235)', () => {
+    currentInstall()
+    const settings = buildLumoHookFragment('claude-code')
+    settings.hooks!.WorktreeCreate = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'lumo hook worktree-create --agent claude-code',
+          },
+        ],
+      },
+    ]
+    write('.claude/settings.json', json(settings))
+    git('add', '-A')
+    expect(kinds()).toEqual([
+      ['claude-settings', '.claude/settings.json', null],
+    ])
+  })
+
+  it('a settings file holding only the retired entries is still a target (LUM-1235)', () => {
+    write(
+      '.claude/settings.json',
+      json({
+        hooks: {
+          WorktreeRemove: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook worktree-remove --agent cursor',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    expect(projectClaudeSettingsTarget(repo)).toEqual({
+      path: path.join(repo, '.claude', 'settings.json'),
+      agent: 'cursor',
+    })
+  })
+
   it('the same stale files, not tracked by git: nothing reported', () => {
     git('init', '-q')
     skill('.agents', '1.102.0')
     write('.codex/hooks.json', olderHooks('codex', CODEX_HOOK_EVENTS))
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
+    expect(kinds()).toEqual([])
+  })
+
+  it('uncommitted settings still holding retired Lumo hooks are reported as local (LUM-1235)', () => {
+    git('init', '-q')
+    const settings = buildLumoHookFragment('claude-code')
+    settings.hooks!.WorktreeCreate = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'lumo hook worktree-create --agent claude-code',
+          },
+        ],
+      },
+    ]
+    write('.claude/settings.json', json(settings))
+    const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(items.map(i => [i.kind, i.relPath, i.retiredEvents])).toEqual([
+      ['claude-settings-retired', '.claude/settings.json', ['WorktreeCreate']],
+    ])
+  })
+
+  it('uncommitted settings that are merely behind (no retired entries): nothing reported', () => {
+    git('init', '-q')
+    write('.claude/settings.json', olderHooks('claude-code', LUMO_HOOK_EVENTS))
     expect(kinds()).toEqual([])
   })
 
@@ -186,29 +257,29 @@ describe('projectDriftNote', () => {
     expect(projectDriftNote([], CLI)).toBeNull()
   })
 
-  it('skill only: `lumo skill update --project` and the PR step', () => {
+  it('skill only: `lumo skill update --scope project` and the PR step', () => {
     expect(
       projectDriftNote([item('skill', '.agents/skills/lumo', '1.102.0')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0 — run `lumo skill update --project`, then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0 — run `lumo skill update --scope project`, then commit the changes in a PR'
     )
   })
 
-  it('hooks / rules only: re-run `lumo init --project` for their agent, with its dry run', () => {
+  it('hooks / rules only: re-run `lumo init --scope project` for their agent, with its dry run', () => {
     expect(
       projectDriftNote([item('codex-rules', '.codex/rules/lumo.rules')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
     )
     expect(
       projectDriftNote(
         [item('claude-settings', '.claude/settings.json', null, 'cursor')],
         CLI
       )
-    ).toContain('run `lumo init --project --agent cursor` (preview with')
+    ).toContain('run `lumo init --scope project --agent cursor` (preview with')
   })
 
-  it('hooks of two agents: plain `lumo init --project`', () => {
+  it('hooks of two agents: plain `lumo init --scope project`', () => {
     const note = projectDriftNote(
       [
         item('claude-settings', '.claude/settings.json'),
@@ -217,7 +288,7 @@ describe('projectDriftNote', () => {
       CLI
     )
     expect(note).toContain(
-      'run `lumo init --project` (preview with `--dry-run`)'
+      'run `lumo init --scope project` (preview with `--dry-run`)'
     )
     expect(note).not.toContain('--upgrade')
   })
@@ -233,8 +304,48 @@ describe('projectDriftNote', () => {
         { restart: true }
       )
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --project` and `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --scope project` and `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
     )
+  })
+})
+
+describe('retiredHooksNote', () => {
+  const retired = (agent = 'claude-code', events = ['WorktreeCreate']) => ({
+    kind: 'claude-settings-retired' as const,
+    path: path.join(repo, '.claude/settings.json'),
+    relPath: '.claude/settings.json',
+    version: null,
+    agent,
+    retiredEvents: events,
+  })
+
+  it('names the uncommitted file, its retired events and the fix — no PR step', () => {
+    expect(
+      retiredHooksNote([
+        retired('claude-code', ['WorktreeCreate', 'WorktreeRemove']),
+      ])
+    ).toBe(
+      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate, WorktreeRemove) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
+    )
+  })
+
+  it('no retired items: no note; committed items stay out of it', () => {
+    expect(retiredHooksNote([])).toBeNull()
+    expect(
+      retiredHooksNote([
+        {
+          kind: 'codex-rules',
+          path: path.join(repo, '.codex/rules/lumo.rules'),
+          relPath: '.codex/rules/lumo.rules',
+          version: null,
+          agent: 'codex',
+        },
+      ])
+    ).toBeNull()
+  })
+
+  it('the committed note ignores the uncommitted retired item', () => {
+    expect(projectDriftNote([retired()], CLI)).toBeNull()
   })
 })
 

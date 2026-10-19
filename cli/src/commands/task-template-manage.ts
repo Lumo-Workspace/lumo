@@ -1,3 +1,5 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, withVersion } from '../lib/json-output'
 import { fmtCount } from '../lib/format'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
@@ -99,7 +101,7 @@ export async function taskTemplateShow(
       isSystem: t.isSystem,
       content: t.content,
     }
-    process.stdout.write(JSON.stringify(out, null, 2) + '\n')
+    emitJson(withVersion(out))
     return
   }
   // The Markdown body only, so `> file.md` saves the template as-is
@@ -123,7 +125,7 @@ export async function taskTemplateCreate(
     console.error(
       'Error: --name and --file are required. Usage: lumo task template create <key> --name "<name>" --file <path.md>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const loaded = await loadTemplateFile(opts.file, deps)
   if (!loaded.ok) {
@@ -142,7 +144,7 @@ export async function taskTemplateCreate(
   }
   if (existing) {
     console.error(
-      `Error: task template "${sanitizeField(key)}" already exists. Change it with \`lumo task template edit ${sanitizeField(key)} --file <path.md>\`.`
+      `Error: task template "${sanitizeField(key)}" already exists. Change it with \`lumo task template update ${sanitizeField(key)} --file <path.md>\`.`
     )
     return 1
   }
@@ -193,7 +195,7 @@ export interface TemplateEditOptions {
   key?: string
 }
 
-/** `lumo task template edit <key> [--name] [--file] [--key <new-key>]`. */
+/** `lumo task template update <key> [--name] [--file] [--key <new-key>]`. */
 export async function taskTemplateEdit(
   key: string,
   opts: TemplateEditOptions,
@@ -207,7 +209,7 @@ export async function taskTemplateEdit(
     console.error(
       'Error: nothing to change. Pass at least one of --name, --file, --key.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const patch: { name?: string; content?: string; key?: string } = {}
   if (opts.file !== undefined) {
@@ -223,7 +225,7 @@ export async function taskTemplateEdit(
 
   const ctx = apiContext()
   if (!ctx) return 1
-  const found = await findWritable(ctx, key, 'edited', 'task template edit')
+  const found = await findWritable(ctx, key, 'edited', 'task template update')
   if (!found) return 1
   if (Object.keys(patch).length === 0) {
     process.stdout.write(`No change: --key is already ${sanitizeField(key)}.\n`)
@@ -234,7 +236,7 @@ export async function taskTemplateEdit(
     ctx,
     `/api/task-templates/${encodeURIComponent(found.id)}`,
     { method: 'PATCH', json: patch },
-    'task template edit'
+    'task template update'
   )
   if (!r.ok || !r.data) return 1
   const t = r.data.template
@@ -259,19 +261,19 @@ export function describeTemplateRm(t: { key: string; name: string }): string[] {
   ]
 }
 
-/** `lumo task template rm <key> [--confirm]` — exit 4 envelope first. */
+/** `lumo task template delete <key> [--confirm]` — exit 4 envelope first. */
 export async function taskTemplateRm(
   key: string,
   opts: ConfirmFlags = {}
 ): Promise<number | void> {
   const ctx = apiContext()
   if (!ctx) return 1
-  const found = await findWritable(ctx, key, 'removed', 'task template rm')
+  const found = await findWritable(ctx, key, 'removed', 'task template delete')
   if (!found) return 1
 
   if (!isConfirmed(opts)) {
     return emitConfirmation({
-      command: 'task template rm',
+      command: 'task template delete',
       changes: describeTemplateRm(found),
     })
   }
@@ -280,7 +282,7 @@ export async function taskTemplateRm(
     ctx,
     `/api/task-templates/${encodeURIComponent(found.id)}`,
     { method: 'DELETE' },
-    'task template rm'
+    'task template delete'
   )
   if (!r.ok) return 1
   process.stdout.write(`Removed task template ${sanitizeField(key)}\n`)

@@ -225,7 +225,7 @@ describe('LUM-814 judge budget persistence', () => {
 
     const meta = await runScan()
 
-    // LUM-832: over the cap the AI review does not run (like CodeRabbit's
+    // LUM-832: over the cap the AI review does not run (like an industry-standard
     // limit), so nothing is "truncated" — nothing was reviewed at all — and
     // the budget still records the arithmetic the customer notice reads.
     expect(meta.truncated).toBe(false)

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { spawn } from 'child_process'
 import * as path from 'path'
 import {
@@ -14,7 +15,7 @@ export async function update(options: { auto?: string } = {}): Promise<number> {
   if (options.auto !== undefined) {
     if (options.auto !== 'on' && options.auto !== 'off') {
       process.stderr.write('Error: --auto must be "on" or "off".\n')
-      return 1
+      return EXIT_USAGE
     }
     writeAutoUpdateSetting(options.auto === 'on')
     process.stdout.write(`${describeAutoUpdate(getAutoUpdateStatus())}\n`)

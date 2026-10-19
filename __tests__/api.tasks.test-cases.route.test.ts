@@ -49,7 +49,11 @@ jest.mock('@/lib/services/task-test-case.service', () => ({
 
 import { GET, POST } from '@/app/api/tasks/[id]/test-cases/route'
 import { POST as RUN_POST } from '@/app/api/tasks/[id]/test-cases/[caseRef]/runs/route'
-import { DELETE } from '@/app/api/tasks/[id]/test-cases/[caseRef]/route'
+import {
+  DELETE,
+  GET as DETAIL_GET,
+} from '@/app/api/tasks/[id]/test-cases/[caseRef]/route'
+import { taskTestCaseService } from '@/lib/services/task-test-case.service'
 
 const params = (over: Record<string, string> = {}) => ({
   params: Promise.resolve({ id: 'LUM-1', caseRef: 'TC1', ...over }),
@@ -177,6 +181,29 @@ describe('POST /api/tasks/[id]/test-cases/[caseRef]/runs', () => {
     )
   })
 
+  it.each(['no-evidence', 'skipped'] as const)(
+    'adds unobserved: [] to a %s ceiling for old CLIs',
+    async reason => {
+      recordRun.mockResolvedValue({
+        run: { id: 'run-1' },
+        ceiling: { effective: 'UNPROVEN', reason },
+      })
+      const res = await RUN_POST(
+        post('http://x/api/tasks/LUM-1/test-cases/TC1/runs', {
+          result: 'PASS',
+          environment: 'LOCAL',
+        }),
+        params()
+      )
+      const body = await res.json()
+      expect(body.ceiling).toEqual({
+        effective: 'UNPROVEN',
+        reason,
+        unobserved: [],
+      })
+    }
+  )
+
   it('maps a service 400 onto the response status', async () => {
     recordRun.mockRejectedValue(
       Object.assign(new Error('not linked to this task'), { status: 400 })
@@ -220,5 +247,62 @@ describe('DELETE /api/tasks/[id]/test-cases/[caseRef]', () => {
     )
     expect(res.status).toBe(200)
     expect(remove).toHaveBeenCalledWith('tc-1', expect.anything())
+  })
+})
+
+// LUM-1185: the CLI reads both GETs with a bearer token to render the full
+// verdict. Lookups are scoped to the caller's workspace — another workspace's
+// task is a 404, never its verdicts.
+describe('GET test cases — workspace scoping (LUM-1185)', () => {
+  const otherWorkspace = (rawId: string, workspaceId: string) =>
+    workspaceId === 'w-1' && rawId === 'LUM-1'
+      ? { id: 't-1', status: 'IN_PROGRESS' }
+      : null
+
+  it('404s the list for a task in another workspace', async () => {
+    resolveTaskParam.mockImplementation(async (id, ws) =>
+      otherWorkspace(id as string, ws as string)
+    )
+    const res = await GET(
+      new NextRequest('http://x/api/tasks/OTHER-1/test-cases'),
+      params({ id: 'OTHER-1' })
+    )
+    expect(res.status).toBe(404)
+    expect(resolveTaskParam).toHaveBeenCalledWith('OTHER-1', 'w-1')
+    expect(listForTask).not.toHaveBeenCalled()
+  })
+
+  it('404s the detail for a task in another workspace', async () => {
+    resolveTaskParam.mockImplementation(async (id, ws) =>
+      otherWorkspace(id as string, ws as string)
+    )
+    const res = await DETAIL_GET(
+      new NextRequest('http://x/api/tasks/OTHER-1/test-cases/TC1'),
+      params({ id: 'OTHER-1' })
+    )
+    expect(res.status).toBe(404)
+    expect(taskTestCaseService.getDetail).not.toHaveBeenCalled()
+  })
+
+  it('returns the detail with the derived verdict fields untouched', async () => {
+    const detail = {
+      testCase: aCase,
+      runs: [
+        {
+          id: 'r1',
+          ceiling: { effective: 'UNPROVEN', reason: 'no-evidence' },
+          stepReport: { rows: [], passed: 0, total: 1, hasStepResults: false },
+          review: null,
+        },
+      ],
+      pullRequests: [],
+    }
+    ;(taskTestCaseService.getDetail as jest.Mock).mockResolvedValue(detail)
+    const res = await DETAIL_GET(
+      new NextRequest('http://x/api/tasks/LUM-1/test-cases/TC1'),
+      params()
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual(detail)
   })
 })

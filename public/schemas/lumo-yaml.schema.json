@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "Schema version of this file. Currently 1.",
+      "type": "number",
+      "const": 1
+    },
+    "reviews": {
+      "type": "object",
+      "properties": {
+        "auto_review": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Review every PR of the repository automatically. When false, only a PR carrying one of `labels` or whose description contains `description_keyword` is reviewed.",
+              "type": "boolean"
+            },
+            "drafts": {
+              "description": "Review draft PRs too (otherwise they wait until ready).",
+              "type": "boolean"
+            },
+            "base_branches": {
+              "description": "Regular expressions (full match) for base branches besides the default branch whose PRs are reviewed; `.*` = every branch.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "labels": {
+              "description": "`label` reviews only PRs carrying one of the listed labels; `!label` never reviews a PR carrying it.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "ignore_title_keywords": {
+              "description": "A PR whose title contains one of these (case-insensitive) is not reviewed automatically.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "ignore_usernames": {
+              "description": "PRs by these GitHub logins (exact, case-sensitive) are never reviewed automatically.",
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "description_keyword": {
+              "description": "With `enabled: false`, a PR whose description contains this is reviewed. Empty or null clears it.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "description": "Which PRs without a Lumo task are reviewed automatically. PRs linked to a Lumo task are always scanned."
+        },
+        "path_filters": {
+          "description": "Globs for the files the AI review reads: `!glob` excludes; once any `glob` is listed, only matching files are reviewed.",
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "pre_merge_checks": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "Built-in check: the PR title is concise and describes the change.",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                },
+                "requirements": {
+                  "description": "Extra rules the PR title must meet, in plain language (e.g. \"start with feat:, fix: or chore:\").",
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              }
+            },
+            "description": {
+              "description": "Built-in check: the PR description is filled in (and follows the repository's pull request template, if any).",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                }
+              }
+            },
+            "issue_assessment": {
+              "description": "Built-in check: the PR implements the Goal and \"Done when\" items of its linked Lumo task and the issues its description closes or links (each Addressed / Not addressed / Unclear; not applicable without either). Quoting a private task on a public repository is a Lumo setting only.",
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["off", "warning", "error"],
+                  "description": "`off` = not run; `warning` = a failure is reported; `error` = a failure also keeps Lumo at \"Changes requested\" (request-changes workflow on) until fixed or overridden on the PR."
+                }
+              }
+            },
+            "custom_checks": {
+              "description": "The repository's own checks, in natural language. Replaces the checks set in Lumo.",
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "Shown in the PR summary; unique per repository."
+                  },
+                  "mode": {
+                    "description": "Default `warning`.",
+                    "type": "string",
+                    "enum": ["off", "warning", "error"]
+                  },
+                  "instructions": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "The rule, in plain language."
+                  }
+                },
+                "required": ["name", "instructions"]
+              }
+            },
+            "override_requested_reviewers_only": {
+              "description": "Only the PR's reviewers — requested by name, or who have already submitted a review — may run `ignore pre-merge checks`; never its author.",
+              "type": "boolean"
+            }
+          },
+          "description": "Pre-merge checks, reported in the PR summary. Overriding them never clears a finding that blocks DONE."
+        },
+        "profile": {
+          "description": "Which findings get inline comments: `quiet` = only HIGH and Done-blocking ones (MEDIUM and path-instruction findings listed in the summary), `chill` (default) = HIGH, MEDIUM and any finding a path instruction asked for, `assertive` = LOW too. Detection and what blocks DONE are the same in every profile.",
+          "type": "string",
+          "enum": ["quiet", "chill", "assertive"]
+        },
+        "path_instructions": {
+          "description": "Review instructions per path glob, added to the AI review of matching files (on top of its built-in review; they cannot turn a check off).",
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Glob over repository paths, e.g. `scripts/**` or `*.sql`."
+              },
+              "instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "What the AI review should also check in matching files."
+              }
+            },
+            "required": ["path", "instructions"],
+            "description": "Extra instructions for the AI review of files matching `path`."
+          }
+        },
+        "high_level_summary": {
+          "description": "Where Lumo writes its high-level summary of the PR: `description` (default, or `true`) = into the PR description, at an `@uselumo summary` line or appended, and kept in sync on every review; `comment` = only in Lumo's summary comment; `off` (or `false`) = nowhere.",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": ["description", "comment", "off"]
+            }
+          ]
+        },
+        "sequence_diagrams": {
+          "description": "Add a sequence diagram of the PR's main call flow to the walkthrough in Lumo's summary comment (default true). Trivial PRs never get one; `@uselumo diagram` draws it again on demand.",
+          "type": "boolean"
+        }
+      },
+      "description": "Code review settings."
+    },
+    "tone_instructions": {
+      "description": "How the AI review words its findings and PR description, and how Lumo words its answers on the PR (at most 250 characters), e.g. \"Be concise and friendly\". Changes wording only, never what is reported.",
+      "type": "string",
+      "maxLength": 250
+    }
+  },
+  "description": "Lumo repository configuration (.lumo.yaml). Read from the base branch of each pull request.",
+  "title": ".lumo.yaml"
+}

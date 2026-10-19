@@ -31,7 +31,7 @@ const mockWorkspaceAll = jest.fn()
 jest.mock('@/lib/repositories/task.repository', () => ({
   WORKSPACE_TASK_QUERY_LIMIT: 500,
   taskRepository: {
-    findAssignedTasksPage: (...a: unknown[]) => mockAssignedPage(...a),
+    findTaskListPage: (...a: unknown[]) => mockAssignedPage(...a),
     findByWorkspaceWithFiltersPage: (...a: unknown[]) =>
       mockWorkspacePage(...a),
     findByWorkspaceWithFilters: (...a: unknown[]) => mockWorkspaceAll(...a),
@@ -77,12 +77,12 @@ beforeEach(() => {
   mockAssignedPage.mockImplementation(
     async (
       _w: string,
-      _a: string,
       _f: unknown,
       page: { offset: number; limit: number }
     ) => ({
       rows: ALL.slice(page.offset, page.offset + page.limit),
       total: ALL.length,
+      truncated: false,
     })
   )
 })
@@ -108,8 +108,12 @@ describe('GET /api/tasks/me paging', () => {
     const body = await res.json()
     expect(mockAssignedPage).toHaveBeenCalledWith(
       'w1',
-      'act-1',
-      { statuses: ['TODO', 'DONE'], milestoneIds: ['m1'], projectName: 'Lumo' },
+      {
+        statuses: ['TODO', 'DONE'],
+        milestoneIds: ['m1'],
+        projectName: 'Lumo',
+        assigneeActorIds: ['act-1'],
+      },
       { offset: 50, limit: 50 }
     )
     expect(body.tasks).toHaveLength(50)
@@ -206,7 +210,7 @@ describe('e2e: lumo task list → /api/tasks/me → printed command → page 2',
   it('follows the footer command to the second page', async () => {
     expect(await taskList({})).toBeUndefined()
     expect(out).toContain('Showing 1-50 of 120.')
-    const m = /`lumo task list --cursor (\S+)`/.exec(out)
+    const m = /^Next page: lumo task list --cursor (\S+)$/m.exec(out)
     expect(m).not.toBeNull()
 
     out = ''
@@ -215,6 +219,6 @@ describe('e2e: lumo task list → /api/tasks/me → printed command → page 2',
     expect(ids[0]).toMatch(/^LUM-51\s/)
     expect(ids).toHaveLength(50)
     expect(out).toContain('Showing 51-100 of 120.')
-    expect(out).toContain('`lumo task list --cursor 100`')
+    expect(out).toContain('Next page: lumo task list --cursor 100')
   })
 })

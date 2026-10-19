@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -22,15 +23,15 @@ export async function taskArtifactUpdate(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <task>. Usage: lumo task artifact update <LUM-42> <artifact> --kind plan'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact-id>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <artifact>. Usage: lumo task artifact update <LUM-42> <artifact> --kind plan'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const payload: Record<string, string> = {}
@@ -40,21 +41,21 @@ export async function taskArtifactUpdate(
   if (options.kind !== undefined) {
     if (!kind) {
       console.error('Error: --kind cannot be empty.')
-      return 1
+      return EXIT_USAGE
     }
     payload.kind = kind
   }
   if (options.title !== undefined) {
     if (!title) {
       console.error('Error: --title cannot be empty.')
-      return 1
+      return EXIT_USAGE
     }
     payload.title = title
   }
   if (options.source !== undefined) {
     if (!source) {
       console.error('Error: --source cannot be empty.')
-      return 1
+      return EXIT_USAGE
     }
     payload.source = source
   }
@@ -64,7 +65,7 @@ export async function taskArtifactUpdate(
       console.error(
         `Error: invalid --agent "${options.agent}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
       )
-      return 1
+      return EXIT_USAGE
     }
     payload.agent = agent
   }
@@ -72,7 +73,7 @@ export async function taskArtifactUpdate(
     console.error(
       'Error: provide at least one of --kind, --title, --source, or --agent to update.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

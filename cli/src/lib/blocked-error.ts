@@ -16,8 +16,9 @@
  *
  *   1. recognises the gate refusal (`isDoneGateRefusal`);
  *   2. re-reads the existing read models — `GET …/status` for blocking
- *      security findings, `GET …/boundary-crossings` for open crossings — and
- *      lists every blocker with its id;
+ *      security findings and proven test-case defects (LUM-1229), `GET
+ *      …/boundary-crossings` for open crossings — and lists every blocker
+ *      with its id;
  *   3. prints a `DONE_BLOCKED` error on stdout and exits 5
  *      (`EXIT_BLOCKED`), with remediation lines that only ever point at
  *      human-side or explain-only paths.
@@ -26,8 +27,13 @@
  * silently showing fewer blockers — the same fail-closed stance as
  * `lumo task status`.
  */
-import { fetchOpenCrossings, dispositionUrl } from './open-crossings'
+import {
+  fetchOpenCrossings,
+  dispositionUrl,
+  testCasesUrl,
+} from './open-crossings'
 import { sanitizeField } from './sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 
 export const EXIT_BLOCKED = 5
 
@@ -52,6 +58,21 @@ export type DoneBlocker =
       line: number | null
       prNumber: number
       statement: string
+    }
+  /**
+   * LUM-1229: a test case whose latest run proved an implementation defect
+   * and nobody has ruled on that run — the server gate's TEST_CASE_DEFECT
+   * plane, read from the status model's `TEST_CASE_VERDICT` rows
+   * (`blocking: true`), never from the 409 text.
+   */
+  | {
+      kind: 'TEST_CASE_DEFECT'
+      /** `<task>/TC<n>` — the handle `lumo task testcase disposition` takes. */
+      ref: string
+      number: number
+      title: string
+      /** The web Test cases section, where a human can rule on it. */
+      url: string
     }
 
 /** LUM-771: an open crossing the server DONE gate does NOT count (advisory,
@@ -94,7 +115,15 @@ export function isDoneGateRefusal(message: string | null | undefined): boolean {
 /** The slice of `GET /api/tasks/[id]/status` the blocker list needs. */
 interface StatusSlice {
   nextActions?: Array<
-    | { kind: 'TEST_CASE' | 'TEST_CASE_VERDICT' }
+    | { kind: 'TEST_CASE' }
+    | {
+        kind: 'TEST_CASE_VERDICT'
+        signal: string
+        number: number
+        title: string
+        /** LUM-1186; absent on an older server. */
+        blocking?: boolean
+      }
     | {
         kind: 'SECURITY_FINDING'
         findingId: string
@@ -113,6 +142,9 @@ export async function collectDoneBlockers(args: {
   base: string
   token: string
   identifier: string
+  /** LUM-1229: for the per-blocker test-cases link. */
+  apiUrl?: string
+  workspaceSlug?: string
 }): Promise<{
   blockers: DoneBlocker[]
   unconfirmed: string[]
@@ -146,6 +178,30 @@ export async function collectDoneBlockers(args: {
             prNumber: a.prNumber,
             statement: a.statement,
           })
+        } else if (
+          a.kind === 'TEST_CASE_VERDICT' &&
+          a.signal === 'PROVEN_DEFECT'
+        ) {
+          // LUM-1229: the server says whether this row holds the gate
+          // (same predicate as computeDoneVerdict). An older server sends no
+          // `blocking` — then we cannot tell, and say so.
+          if (a.blocking === true) {
+            blockers.push({
+              kind: 'TEST_CASE_DEFECT',
+              ref: `${identifier}/TC${a.number}`,
+              number: a.number,
+              title: a.title,
+              url: testCasesUrl(
+                args.apiUrl ?? base,
+                args.workspaceSlug ?? '',
+                identifier
+              ),
+            })
+          } else if (a.blocking === undefined) {
+            unconfirmed.push(
+              `TC${a.number}: the server did not say whether this proven defect blocks DONE`
+            )
+          }
         }
       }
     }
@@ -212,9 +268,19 @@ export function buildRemediation(
   if (kinds.has('SECURITY_FINDING')) {
     const ids = blockers
       .filter(b => b.kind === 'SECURITY_FINDING')
-      .map(b => (b as { findingId: string }).findingId)
+      .map(b => shortRef((b as { findingId: string }).findingId))
     lines.push(
       `SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or relay the finding to the user and, once they rule, record it with \`lumo finding disposition ${ids.join(' ')} --false-positive\` or \`--accepted-risk\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
+    )
+  }
+  if (kinds.has('TEST_CASE_DEFECT')) {
+    const defects = blockers.filter(
+      (b): b is Extract<DoneBlocker, { kind: 'TEST_CASE_DEFECT' }> =>
+        b.kind === 'TEST_CASE_DEFECT'
+    )
+    const url = defects[0]!.url
+    lines.push(
+      `TEST_CASE_DEFECT: ${defects.map(d => d.ref).join(', ')} — the latest run proved an implementation defect and blocks DONE until the user rules on that run. The ruling is the user's, never the agent's: relay each case to the user and, once they rule, record it with \`lumo task testcase disposition ${defects[0]!.ref} --known-defect\` (ship anyway) or \`--not-a-defect\` — it prints exit-4 envelopes (a three-step handshake) for the user to approve step by step; never self-approve. Fixing the defect first is not required to clear this. The web panel also works: ${url}`
     )
   }
   if (unconfirmed.length > 0) {
@@ -235,7 +301,16 @@ export function buildBlockedError(args: {
   workspaceSlug: string
   statusSummary?: string[]
 }): BlockedError {
-  const url = dispositionUrl(args.apiUrl, args.workspaceSlug, args.identifier)
+  // LUM-1229: point at where the blocker lives. Only test-case defects →
+  // the Test cases section; any crossing / security blocker (or an empty,
+  // unconfirmed list) keeps the crossings panel — the plane the 409 text
+  // names first. Each TEST_CASE_DEFECT blocker also carries its own `url`.
+  const onlyTestCases =
+    args.blockers.length > 0 &&
+    args.blockers.every(b => b.kind === 'TEST_CASE_DEFECT')
+  const url = onlyTestCases
+    ? testCasesUrl(args.apiUrl, args.workspaceSlug, args.identifier)
+    : dispositionUrl(args.apiUrl, args.workspaceSlug, args.identifier)
   return {
     status: 'blocked',
     code: 'DONE_BLOCKED',
@@ -259,7 +334,9 @@ function blockerLine(b: DoneBlocker): string {
     case 'BOUNDARY_CROSSING':
       return `[${b.severity}] ${b.category} ${b.ref}: ${b.detail}`
     case 'SECURITY_FINDING':
-      return `[${b.severity}] ${b.ruleId} ${b.findingId} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
+      return `[${b.severity}] ${b.ruleId} ${shortRef(b.findingId)} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
+    case 'TEST_CASE_DEFECT':
+      return `[TEST CASE] ${b.ref} ${b.title} — implementation defect, with evidence (blocks DONE until the user rules on it)`
   }
 }
 

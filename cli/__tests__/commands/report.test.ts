@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1100 — `lumo report`: window resolution, rendering (data + empty
+ * LUM-1100 — `lumo usage show --tasks` (formerly `lumo report`): window resolution, rendering (data + empty
  * state), --json passthrough, --member resolution.
  */
 jest.mock('../../src/lib/config', () => ({
@@ -177,9 +177,10 @@ describe('formatReport', () => {
 
   it('splits tokens and completed counts per member', () => {
     const alice = out.split('\n').find(l => l.startsWith('Alice'))
-    expect(alice).toMatch(/Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/)
+    // LUM-1232 L-3: piped rows are TAB-separated, plain integers, `-` for empty cells.
+    expect(alice).toBe('Alice\t-\t-\t-\t-\t1000000\t3 (1 unmetered)\t1')
     const unassigned = out.split('\n').find(l => l.startsWith('(unassigned)'))
-    expect(unassigned).toMatch(/\s-\s+0\s+1$/)
+    expect(unassigned).toBe('(unassigned)\t-\t-\t-\t-\t-\t0\t1')
   })
 
   // LUM-1123 follow-up: the summary line is compact, with the same kind
@@ -216,70 +217,91 @@ describe('formatReport', () => {
 
   // LUM-1123
   it('By model lists input / output / cache write / cache read / total per model', () => {
-    const lines = out.split('\n')
-    expect(lines).toContainEqual(
+    const tty = formatReport(data, { window: win({}), tty: true, width: 200 })
+    expect(tty.split('\n')).toContainEqual(
       expect.stringMatching(
         /^MODEL\s+INPUT\s+OUTPUT\s+CACHE WRITE\s+CACHE READ\s+TOTAL$/
       )
     )
-    expect(lines.find(l => l.startsWith('claude-opus'))).toMatch(
+    expect(tty.split('\n').find(l => l.startsWith('claude-opus'))).toMatch(
       /^claude-opus\s+0\s+1,234,567\s+0\s+0\s+1,234,567$/
     )
+    // Piped: title line, no header, TAB-separated plain integers.
+    const lines = out.split('\n')
+    const i = lines.indexOf('By model')
+    expect(i).toBeGreaterThan(-1)
+    expect(lines[i + 1]).toBe('claude-opus\t0\t1234567\t0\t0\t1234567')
+    expect(lines).not.toContainEqual(expect.stringMatching(/^MODEL\s/))
   })
 
   it('By member shows a summary row then one row per model with every token kind', () => {
+    const splitMembers: ReportResponseDto['byMember'] = [
+      {
+        memberId: 'm1',
+        label: 'Alice',
+        tokens: {
+          input: 11,
+          output: 2200,
+          cacheRead: 330000,
+          cacheCreation: 44000,
+          total: 376211,
+        },
+        byModel: [
+          {
+            model: 'claude-opus',
+            input: 10,
+            output: 2000,
+            cacheRead: 300000,
+            cacheCreation: 40000,
+            total: 342010,
+          },
+          {
+            model: 'claude-sonnet',
+            input: 1,
+            output: 200,
+            cacheRead: 30000,
+            cacheCreation: 4000,
+            total: 34201,
+          },
+        ],
+        sessions: 3,
+        unmeteredSessions: 0,
+        completedCount: 2,
+      },
+    ]
     const split = formatReport(
       {
         ...data,
-        byMember: [
-          {
-            memberId: 'm1',
-            label: 'Alice',
-            tokens: {
-              input: 11,
-              output: 2200,
-              cacheRead: 330000,
-              cacheCreation: 44000,
-              total: 376211,
-            },
-            byModel: [
-              {
-                model: 'claude-opus',
-                input: 10,
-                output: 2000,
-                cacheRead: 300000,
-                cacheCreation: 40000,
-                total: 342010,
-              },
-              {
-                model: 'claude-sonnet',
-                input: 1,
-                output: 200,
-                cacheRead: 30000,
-                cacheCreation: 4000,
-                total: 34201,
-              },
-            ],
-            sessions: 3,
-            unmeteredSessions: 0,
-            completedCount: 2,
-          },
-        ],
+        byMember: splitMembers,
       },
       { window: win({}), tty: false }
     )
     const lines = split.split('\n')
-    expect(lines).toContainEqual(
+    expect(lines).not.toContainEqual(expect.stringMatching(/^MEMBER\s/))
+    const i = lines.findIndex(l => l.startsWith('Alice'))
+    expect(lines[i]).toBe('Alice\t-\t-\t-\t-\t376211\t3\t2')
+    expect(lines[i + 1]).toBe(
+      'Alice/claude-opus\t10\t2000\t40000\t300000\t342010\t-\t-'
+    )
+    expect(lines[i + 2]).toBe(
+      'Alice/claude-sonnet\t1\t200\t4000\t30000\t34201\t-\t-'
+    )
+    // On a TTY: header row, `↳` child rows with thousands separators.
+    const ttyLines = formatReport(
+      { ...data, byMember: splitMembers },
+      { window: win({}), tty: true, width: 200 }
+    ).split('\n')
+    expect(ttyLines).toContainEqual(
       expect.stringMatching(
         /^MEMBER\s+INPUT\s+OUTPUT\s+CACHE WRITE\s+CACHE READ\s+TOTAL\s+SESSIONS\s+DONE$/
       )
     )
-    const i = lines.findIndex(l => l.startsWith('Alice'))
-    expect(lines[i]).toMatch(/^Alice\s+376,211\s+3\s+2$/)
-    expect(lines[i + 1]).toMatch(
+    const j = ttyLines.findIndex(l => l.startsWith('Alice'))
+    expect(ttyLines[j]).toMatch(/^Alice\s+376,211\s+3\s+2$/)
+    expect(ttyLines[j + 1]).toMatch(
       /^\s+↳ claude-opus\s+10\s+2,000\s+40,000\s+300,000\s+342,010$/
     )
-    expect(lines[i + 2]).toMatch(
+    expect(ttyLines[j + 2]).toMatch(
       /^\s+↳ claude-sonnet\s+1\s+200\s+4,000\s+30,000\s+34,201$/
     )
   })
@@ -292,8 +314,9 @@ describe('formatReport', () => {
       },
       { window: win({}) }
     )
-    expect(old).toMatch(/^Alice\s+1,000,000\s+3 \(1 unmetered\)\s+1$/m)
+    expect(old).toMatch(/^Alice\t-\t-\t-\t-\t1000000\t3 \(1 unmetered\)\t1$/m)
     expect(old).not.toContain('↳')
+    expect(old).not.toContain('Alice/')
   })
 
   describe('token table width', () => {
@@ -329,8 +352,9 @@ describe('formatReport', () => {
         tty: false,
         width: 60,
       })
-      expect(piped).toContain('11,111,111,110')
-      expect(piped).toContain('4,444,444,444')
+      // Piped figures are plain integers (no separators, no compact units).
+      expect(piped).toContain('\t11111111110')
+      expect(piped).toContain('\t4444444444')
       expect(tables(piped).join('\n')).not.toMatch(COMPACT)
       expect(piped).not.toContain('--json')
     })
@@ -388,19 +412,18 @@ describe('formatReport', () => {
   })
 
   it('lists completed tasks with local done day and assignee, sanitized, with truncation note', () => {
-    expect(out).toContain(
-      'Completed tasks (showing 2 of 3; raise --limit for more)'
-    )
-    expect(out).toMatch(/LUM-2\s+2026-10-12\s+Alice\s+Ship report/)
-    expect(out).toMatch(/LUM-1\s+2026-10-08\s+-\s+Evil/)
+    expect(out).toContain('\nCompleted tasks (3)\n')
+    expect(out).toContain('\nShowing 1-2 of 3.\nAll rows: add --limit 3')
+    expect(out).toContain('LUM-2\t2026-10-12\tAlice\tShip report')
+    expect(out).toMatch(/LUM-1\t2026-10-08\t-\tEvil/)
     expect(out).not.toContain('\u001b')
   })
 
   it('prints the task-list header only on a TTY', () => {
     const tty = formatReport(data, { window: win({}), tty: true, width: 40 })
-    expect(tty).toMatch(/^TASK\s+DONE\s+ASSIGNEE\s+TITLE$/m)
+    expect(tty).toMatch(/^ID\s+DONE\s+ASSIGNEE\s+TITLE$/m)
     const piped = formatReport(data, { window: win({}), tty: false })
-    expect(piped).not.toMatch(/^TASK\s+DONE/m)
+    expect(piped).not.toMatch(/^ID\s+DONE/m)
     expect(piped).toContain('Ship report')
   })
 
@@ -527,7 +550,7 @@ describe('report()', () => {
   })
 
   it('rejects a bad --limit / --since before any network call', async () => {
-    expect(await report({ limit: '0' })).toBe(1)
+    expect(await report({ limit: '0' })).toBe(2)
     expect(await report({ since: 'soon' })).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })

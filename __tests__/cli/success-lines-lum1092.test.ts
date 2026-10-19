@@ -67,24 +67,31 @@ describe('agent-parsed first lines are byte-identical (regression)', () => {
 
 describe('success lines share one shape', () => {
   it('tag create: id after two spaces, no parentheses', () => {
+    // LUM-1230: tags are referenced by name; no cuid is printed.
     expect(formatCreatedTagLine({ id: 'tag_1', name: 'ui' })).toBe(
-      'Created tag "ui"  tag_1'
+      'Created tag "ui"'
     )
   })
 
   it('project create: id after two spaces, no parentheses', () => {
+    // LUM-1230: the slug `--project` takes, not the cuid.
     expect(formatCreatedProjectLine({ id: 'p_1', name: 'Core' })).toBe(
-      'Created project "Core"  p_1'
+      'Created project "Core"  core'
     )
   })
 
   it('milestone / sprint create keep their documented lines', () => {
-    expect(formatCreatedMilestoneLine({ id: 'm-1', name: 'Q3 Launch' })).toBe(
-      'Created milestone "Q3 Launch"  m-1'
-    )
+    // LUM-1230: the trailing handle is the slug, not the cuid.
+    expect(
+      formatCreatedMilestoneLine({
+        id: 'm-1',
+        name: 'Q3 Launch',
+        slug: 'q3-launch',
+      })
+    ).toBe('Created milestone "Q3 Launch"  q3-launch')
     expect(
       formatCreatedSprintLine({ id: 'sp-3', number: 3, name: 'Sprint 3' })
-    ).toBe('Created sprint #3 "Sprint 3"  sp-3')
+    ).toBe('Created sprint #3 "Sprint 3"')
   })
 
   const edge: DepEdge = {
@@ -142,7 +149,7 @@ describe('success lines share one shape', () => {
 describe('hints share one prefix and backticked commands', () => {
   it('session attach background pointer', () => {
     expect(formatBackgroundHint('LUM-42')).toBe(
-      'Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)'
+      'Hint: run `lumo task show LUM-42 --full` for background (team memory, test cases, sources, prior sessions)'
     )
   })
 
@@ -169,7 +176,9 @@ describe('lumo next has no hard-coded LUM prefix', () => {
       score: 1,
     })
     const out = formatNextOutput([task('SPEC-1'), task('SPEC-2')] as never, 2)
-    expect(out).toContain('(or pick any other task from the list)')
+    expect(out).toContain(
+      'Hint: any other task in the list works the same way.'
+    )
     expect(out).not.toContain('LUM')
   })
 })

@@ -1,4 +1,5 @@
 import { emptyState } from '../lib/format'
+import { emitJson, withVersion } from '../lib/json-output'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { apiContext } from '../lib/test-case-api'
@@ -50,7 +51,17 @@ export async function memberList(
   const dir = await fetchDirectory(ctx)
   if (!dir) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(dir, null, 2) + '\n')
+    // `total` counts the members list (agents ride along beside it).
+    // `clerkId` is an internal auth id, deprecated in --json (J-3 step 1):
+    // still emitted, removed only with a `version` bump.
+    emitJson(
+      withVersion({
+        ...dir,
+        total: dir.members.length,
+        nextCursor: null,
+        deprecatedFields: ['clerkId'],
+      })
+    )
     return
   }
   process.stdout.write(formatMemberList(dir) + '\n')

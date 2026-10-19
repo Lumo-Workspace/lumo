@@ -21,6 +21,9 @@
  * both halves of the prompt pass through the same mask at the same place.
  */
 
+// LUM-1143: one lockfile list for the review input and its context.
+import { LOCKFILE_PATH } from './reviewable-path'
+
 /** Total chars of file content the review gets (the replay's number). */
 export const REVIEW_CONTEXT_MAX_CHARS = 100_000
 
@@ -58,8 +61,6 @@ export const REVIEW_CONTEXT_READ_CONCURRENCY = 8
  */
 export const REVIEW_CONTEXT_TIMEOUT_MS = 20_000
 
-const LOCKFILE =
-  /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Gemfile\.lock|poetry\.lock|Pipfile\.lock|uv\.lock|composer\.lock|go\.sum|Cargo\.lock|mix\.lock|pubspec\.lock|Podfile\.lock|packages\.lock\.json)$/
 const GENERATED_OR_BINARY =
   /\.(min\.js|min\.css|map|snap|lock|svg|png|jpe?g|gif|webp|ico|bmp|tiff?|pdf|zip|gz|tgz|bz2|xz|7z|rar|jar|war|class|so|dylib|dll|exe|bin|wasm|woff2?|ttf|otf|eot|mp3|mp4|mov|avi|webm|wav|ogg|pyc|o|a)$/i
 const TEST_PATH =
@@ -67,7 +68,7 @@ const TEST_PATH =
 
 /** Never context: lockfiles, binaries, minified / generated output. */
 export function isSkippedContextPath(path: string): boolean {
-  return LOCKFILE.test(path) || GENERATED_OR_BINARY.test(path)
+  return LOCKFILE_PATH.test(path) || GENERATED_OR_BINARY.test(path)
 }
 
 /** Test and fixture files go after source: they explain less of the change. */
@@ -85,6 +86,12 @@ export interface PackedReviewContext {
   text: string
   /** Paths packed, in prompt order. */
   included: string[]
+  /**
+   * LUM-1150 — each packed file's content by path (the suggestion scope
+   * check). Kept apart from `text`: a body may contain a line shaped like
+   * another file's `=== path ===` header, so `text` cannot be split back.
+   */
+  bodies?: Readonly<Record<string, string>>
 }
 
 function looksBinary(body: string): boolean {
@@ -121,13 +128,30 @@ export function packReviewContext(
     .sort(contextOrder)
   let text = ''
   const included: string[] = []
+  const bodies: Record<string, string> = {}
   for (const f of eligible) {
     const block = `=== ${f.path} ===\n${f.body}\n`
     if (text.length + block.length > maxChars) continue
     text += block
     included.push(f.path)
+    bodies[f.path] = f.body
   }
-  return { text, included }
+  return { text, included, bodies }
+}
+
+/**
+ * PURE — LUM-1150: one packed file's content, as read at the PR head, or null
+ * when it was not packed (or the context predates `bodies`).
+ */
+export function packedFileBody(
+  packed: PackedReviewContext,
+  path: string
+): string | null {
+  const bodies = packed.bodies
+  // Own keys only: a path named `constructor` must not read Object's member.
+  if (!bodies || !Object.prototype.hasOwnProperty.call(bodies, path))
+    return null
+  return bodies[path] ?? null
 }
 
 export interface LoadedReviewContext extends PackedReviewContext {

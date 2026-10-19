@@ -132,6 +132,7 @@ describe('every partial set point records an attributed cause', () => {
     expect(partialCauseClass('HUNT_INCOMPLETE')).toBe('OUR_FAULT')
     expect(partialCauseClass('GRAPH_READ_FAILED')).toBe('OUR_FAULT')
     expect(partialCauseClass('JUDGE_TRUNCATED')).toBe('COVERAGE_OWED')
+    expect(partialCauseClass('REWARD_HACK_REFUTE_CAP')).toBe('COVERAGE_OWED')
     expect(partialCauseClass('AI_REVIEW_PAUSED')).toBe('USER_CONTROLLED')
     expect(partialCauseClass('SOMETHING_NEWER')).toBe('UNATTRIBUTED')
   })

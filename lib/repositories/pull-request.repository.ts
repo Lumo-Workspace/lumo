@@ -7,6 +7,21 @@ interface PrStateUpdate {
   isDraft: boolean
 }
 
+/** LUM-788 / LUM-1189 — the PR columns the scan read-out prints. */
+const SCAN_READOUT_PR_SELECT = {
+  id: true,
+  repo: true,
+  number: true,
+  title: true,
+  url: true,
+  state: true,
+  headSha: true,
+  mergedAt: true,
+  task: {
+    select: { number: true, team: { select: { identifier: true } } },
+  },
+} as const
+
 export const pullRequestRepository = {
   /** Update a PR's state and timestamps. */
   async updateState(id: string, data: PrStateUpdate) {
@@ -153,7 +168,7 @@ export const pullRequestRepository = {
 
   /**
    * LUM-788 — the PR(s) a workspace knows under `number`, for the by-number
-   * scan read-out (`lumo pr scan`). Scoped by workspace so a number that
+   * scan read-out (`lumo pr show`). Scoped by workspace so a number that
    * belongs to another workspace is simply not found (no existence leak);
    * `repo` narrows to one row when the same number exists in several repos.
    * The task join is optional — an unlinked PR is readable too.
@@ -166,19 +181,21 @@ export const pullRequestRepository = {
     return prisma.pullRequest.findMany({
       where: { workspaceId, number, ...(repo ? { repo } : {}) },
       orderBy: { repo: 'asc' },
-      select: {
-        id: true,
-        repo: true,
-        number: true,
-        title: true,
-        url: true,
-        state: true,
-        headSha: true,
-        mergedAt: true,
-        task: {
-          select: { number: true, team: { select: { identifier: true } } },
-        },
-      },
+      select: SCAN_READOUT_PR_SELECT,
+    })
+  },
+
+  /**
+   * LUM-1189 — every PR linked to a task in this workspace, in the same shape
+   * as `findByNumberInWorkspace`, for the task-level scan read-out
+   * (`lumo task scans`). The workspace filter is belt and braces: the route
+   * already resolved the task inside the caller's workspace.
+   */
+  async findManyForScanReadoutByTaskId(workspaceId: string, taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { workspaceId, taskId },
+      orderBy: [{ number: 'desc' }, { repo: 'asc' }],
+      select: SCAN_READOUT_PR_SELECT,
     })
   },
 

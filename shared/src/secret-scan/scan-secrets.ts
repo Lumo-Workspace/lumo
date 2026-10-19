@@ -19,7 +19,10 @@ import {
   type SecretPattern,
 } from './secret-patterns'
 import {
+  maskQuotedCodeValues,
+  maskQuotedCommandArgs,
   maskQuotedCredentials,
+  maskQuotedKeyedValues,
   maskQuotedValues,
   redactLine,
   redactSecret,
@@ -44,7 +47,8 @@ const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
  *   a bounded evidence excerpt around the reported value
  *   (`EVIDENCE_EXCERPT_CONTEXT_CHARS` each side), cut from the fully
  *   redacted line.
- * - `redactKnownSecrets` / `redactForInjection` are sanitizers over text
+ * - `redactKnownSecrets` (and its variants such as `redactToolOutputLine`) /
+ *   `redactForInjection` are sanitizers over text
  *   that is about to be persisted or injected. They scan and redact the
  *   first `MAX_SCANNED_LINE_CHARS` characters and DROP the remainder behind
  *   `…(truncated)` — never passing unscanned text back to the caller.
@@ -408,10 +412,80 @@ export function redactKnownSecrets(input: string): string {
  * names readable (`labelled 'Verification'`) and still masks every quoted
  * span in text that talks about passwords / tokens / keys, every span beside
  * a registry hit, and every credential-shaped quoted value. Not for raw tool
- * or command output — that stays on `redactKnownSecrets`.
+ * or command output — the hunt / verifier read that through
+ * `redactToolOutputLine` (LUM-1200 follow-up #6).
  */
 export function redactFindingText(input: string): string {
   return redactThenMaskQuotes(input, maskQuotedCredentials)
+}
+
+/**
+ * LUM-1200 — `redactKnownSecrets` for prose a model wrote about a whole PR
+ * (the PR summary). Identical registry pass and truncation red line; the
+ * final quoted-span pass is `maskQuotedKeyedValues`, which keeps quoted
+ * phrases (`marked 'do not merge'`) even when the summary mentions tokens,
+ * and masks a quoted value only when it is credential-shaped, beside a
+ * registry hit, or right after a credential key (`password is "…"`).
+ */
+export function redactSummaryText(input: string): string {
+  // The text as written goes along: a quoted span the registry pass left
+  // untouched may quote an already-masked value back without being masked
+  // whole for it (`maskQuotedKeyedValues`, LUM-1200 follow-up #4).
+  return redactThenMaskQuotes(input, text => maskQuotedKeyedValues(text, input))
+}
+
+/**
+ * LUM-1200 follow-up #3 — `redactKnownSecrets` for a shell command a model
+ * ran (the hunt's `rg` / `grep` calls). Identical registry pass and
+ * truncation red line; the final quoted-span pass is `maskQuotedCommandArgs`,
+ * which keeps search patterns that merely name an identifier
+ * (`"export function checkSessionToken"`) and masks a quoted argument that is
+ * credential-shaped, beside a registry hit, or a credential key's value.
+ */
+export function redactShellCommand(input: string): string {
+  return redactThenMaskQuotes(input, text => maskQuotedCommandArgs(text))
+}
+
+/**
+ * LUM-1200 follow-up #6 — `redactKnownSecrets` for one line of shell / tool
+ * output the exploit-path hunt model or the verifier reads. Identical
+ * registry pass and truncation red line; the final quoted-span pass is
+ * `maskQuotedCodeValues`, which keeps string literals such as route paths,
+ * SQL text and log messages readable and masks credential-shaped values and
+ * credential keys' values, quoted or not. User ruling 2026-10-16: this
+ * replaces the strict `maskQuotedValues` pass for hunt / verifier tool
+ * output only — everything else that said "redactKnownSecrets on every model
+ * input" keeps its pass.
+ */
+export function redactToolOutputLine(input: string): string {
+  return redactThenMaskQuotes(input, maskQuotedCodeValues)
+}
+
+/**
+ * LUM-1200 follow-up #4 — the reason the hunt's command gate gave for
+ * refusing `command`: the gate's own sentence, then (after `: `) the refused
+ * segment, or a sed / awk script, quoted from the command. Read by content:
+ * the longest tail after a `: ` that stands verbatim in the command is that
+ * command's text and gets the command pass (`maskQuotedCommandArgs`, judged
+ * against the whole command), the sentence before it the prose pass
+ * (`redactSummaryText`). A reason that quotes no tail of the command is prose
+ * throughout. Production (probe PR 67): `xargs grep -l "isSe…(len 27)"` in
+ * the reason while the same record's `cmd` read `"isSessionValid|…"`.
+ */
+export function redactShellReason(reason: string, command: string): string {
+  for (
+    let at = reason.indexOf(': ');
+    at !== -1;
+    at = reason.indexOf(': ', at + 1)
+  ) {
+    const tail = reason.slice(at + 2)
+    if (tail.trim().length === 0 || !command.includes(tail)) continue
+    const head = reason.slice(0, at + 2)
+    return `${redactSummaryText(head)}${redactThenMaskQuotes(tail, text =>
+      maskQuotedCommandArgs(text, command)
+    )}`
+  }
+  return redactSummaryText(reason)
 }
 
 function redactThenMaskQuotes(

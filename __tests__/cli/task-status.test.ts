@@ -163,6 +163,36 @@ describe('taskStatus — output', () => {
     expect(parsed.cost).toEqual({ tokenCost: 1200, activeTimeSec: 90 })
   })
 
+  it('--json keeps claim + faithfulness while the text report drops the Claim section', async () => {
+    const withClaim: TaskStatusResponse = {
+      ...PAYLOAD,
+      claim: { text: 'Added the gate', source: 'AGENT' },
+      faithfulness: {
+        state: 'UNJUDGEABLE',
+        verdict: 'UNJUDGEABLE',
+        evidence: [],
+        reasoning: null,
+        diffShas: [],
+        prNumbers: [],
+        judgedAt: null,
+        judgedClaimAt: null,
+      },
+    }
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(200, withClaim))
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    expect(parsed.claim).toEqual({ text: 'Added the gate', source: 'AGENT' })
+    expect(parsed.faithfulness.state).toBe('UNJUDGEABLE')
+
+    writeSpy.mockClear()
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    const out = stdout()
+    expect(out).toContain('LUM-9  do the thing')
+    expect(out).not.toMatch(/^Claim$/m)
+    expect(out).not.toContain('Claim:')
+    expect(out).not.toContain('Faithfulness:')
+  })
+
   it('human output shows the header, next actions and (--full) the dashboard', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(200, PAYLOAD))
     expect(await taskStatus('LUM-9', { full: true })).toBeUndefined()
@@ -186,7 +216,7 @@ describe('taskStatus — output', () => {
 
   it('a task with nothing outstanding says so', () => {
     const out = formatTaskStatus({ ...PAYLOAD, nextActions: [] })
-    expect(out).toContain('\nNext actions\n  None on record.\n')
+    expect(out).toContain('\nNext actions\n  No next actions.\n')
   })
 
   it('task status no longer renders acceptance criteria or verify rounds', () => {

@@ -1,3 +1,5 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, listEnvelope } from '../lib/json-output'
 import { NONE, emptyState, fmtDay, fmtTimestamp } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -12,6 +14,7 @@ import {
   parsePageArgs,
   type PageArgs,
 } from '../lib/pagination'
+import type { OutputSink } from '../lib/output-sink'
 
 /**
  * `lumo task history <LUM-N> [--limit N] [--cursor C]` (LUM-821) — the task's field-change
@@ -48,7 +51,7 @@ export function describeActivity(
 ): string {
   const p = a.payload ?? {}
   const who = (id: unknown) =>
-    typeof id === 'string' ? sanitizeField(names.get(id) ?? 'unknown') : NONE
+    typeof id === 'string' ? sanitizeField(names.get(id) ?? NONE) : NONE
   const day = (v: unknown) => (typeof v === 'string' ? fmtDay(v) : NONE)
   switch (a.type) {
     case 'STATUS_CHANGED':
@@ -96,8 +99,8 @@ export function formatHistory(
   if (entries.length === 0) return emptyState('history')
   const rows = entries.map(a => {
     return [
-      fmtTimestamp(a.createdAt),
-      a.actorId ? sanitizeField(names.get(a.actorId) ?? 'unknown') : 'system',
+      fmtTimestamp(a.createdAt, { tty: opts.tty }),
+      a.actorId ? sanitizeField(names.get(a.actorId) ?? NONE) : 'system',
       describeActivity(a, names),
     ]
   })
@@ -137,12 +140,17 @@ export function historyPage(
 
 export async function taskHistory(
   identifier: string,
-  opts: { limit?: string; cursor?: string; json?: boolean } = {}
+  opts: {
+    limit?: string | undefined
+    cursor?: string | undefined
+    json?: boolean | undefined
+  } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1
@@ -167,9 +175,15 @@ export async function taskHistory(
   }
   const page = historyPage(activities, pageArgs)
   if (opts.json) {
-    // Unchanged array shape — agents already parse it (LUM-1093 keeps the
-    // --json contract; paging is driven by --limit / --cursor).
-    process.stdout.write(JSON.stringify(page.items, null, 2) + '\n')
+    // Batch C: the former bare array is wrapped once (release notes);
+    // `total` / `nextCursor` drive --limit / --cursor paging.
+    emitJson(
+      listEnvelope('entries', page.items, {
+        total: page.total,
+        nextCursor: page.nextCursor,
+      }),
+      out
+    )
     return
   }
   const dir = await fetchDirectory(ctx)
@@ -188,11 +202,10 @@ export async function taskHistory(
     ...pageFooter(
       { ...page, shown: page.items.length },
       buildCommand(
-        `task history ${shellQuote(sanitizeField(task.identifier))}`,
+        `task show ${shellQuote(sanitizeField(task.identifier))} --history`,
         [['--limit', opts.limit]]
-      ),
-      'earlier entries'
+      )
     ),
   ]
-  process.stdout.write(lines.join('\n') + '\n')
+  out.write(lines.join('\n') + '\n')
 }

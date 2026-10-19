@@ -24,7 +24,7 @@ Detected LUM-145 (from branch name). Run lumo session attach LUM-145 to bind.
 
 #### When to suggest
 
-You see a suggestion line. Confirm the inferred task is the one the user wants, then run `lumo session attach <LUM-N>` followed by `lumo task context <LUM-N>` to load the background. `session attach` is the **only** path that binds — there is nothing to "undo" if the inference is wrong; just attach the correct task instead.
+You see a suggestion line. Confirm the inferred task is the one the user wants, then run `lumo session attach <LUM-N>` followed by `lumo task show <LUM-N> --full` to load the background. `session attach` is the **only** path that binds — there is nothing to "undo" if the inference is wrong; just attach the correct task instead.
 
 ### Session record notice at session start (LUM-943)
 
@@ -44,7 +44,7 @@ When the session is bound, session-start may inject a **"🆕 Review needed: pro
 
 #### When to suggest
 
-Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id>` — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
+Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory delete <ref>` (the 8-char ref printed under it) — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
 
 ### Blocker alert injected at `session attach` / session-start
 
@@ -63,14 +63,14 @@ Trigger conditions (OR — either or both may appear):
 - This task is blocked by LUM-9 "Fix auth token expiry" (status IN_PROGRESS).
 - This task is blocked by LUM-15 "Upgrade Postgres driver" (status IN_REVIEW, PR #42 not merged).
 
-Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.
-Detected 3 candidate dependencies awaiting confirmation: run `lumo task deps list LUM-42`.
+Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task dep remove/dismiss`.
+Detected 3 candidate dependencies awaiting confirmation: run `lumo task show LUM-42 --deps`.
 ```
 
 **Form B — NO live blockers, but SUGGESTED candidates exist:** the hint line **only** — no `## ⚠ Dependency alerts` header, no advice line. Rationale: pure candidates are a hint, not an alert, so they don't get the ⚠ header and real alerts aren't diluted.
 
 ```
-Detected 3 candidate dependencies awaiting confirmation: run `lumo task deps list LUM-42`.
+Detected 3 candidate dependencies awaiting confirmation: run `lumo task show LUM-42 --deps`.
 ```
 
 - Each blocker line shows: identifier, title, current status. An open PR on the blocking task appends `, PR #N not merged` — `, PR #N (draft) not merged` for draft PRs.
@@ -80,9 +80,9 @@ Detected 3 candidate dependencies awaiting confirmation: run `lumo task deps lis
 
 Watch for EITHER the `## ⚠ Dependency alerts` header (form A) OR the standalone hint line (form B).
 
-- `lumo task deps list <LUM-N>` — inspect the full edge list (run for any candidate hint, form A or B; confirm real SUGGESTED edges, dismiss false positives — unreviewed edges mean repeated hints every session).
-- `lumo task deps rm <LUM-N> <edge> --confirm` — drop a manually-added, now-obsolete edge (exit 4 + envelope without `--confirm`).
-- `lumo task deps dismiss <LUM-N> <edge>` — dismiss a false positive from detection.
+- `lumo task show <LUM-N> --deps` — inspect the full edge list (run for any candidate hint, form A or B; confirm real SUGGESTED edges, dismiss false positives — unreviewed edges mean repeated hints every session).
+- `lumo task dep remove <LUM-N> <edge> --confirm` — drop a manually-added, now-obsolete edge (exit 4 + envelope without `--confirm`).
+- `lumo task dep dismiss <LUM-N> <edge>` — dismiss a false positive from detection.
 - Form A live blockers: evaluate whether to wait — overlapping work (same files, same API surface) risks rework; read the blocker's status and open-PR note before deciding.
 - Do **not** blindly start work on a task whose live blocker is still IN_PROGRESS or IN_REVIEW unless the user explicitly decides to proceed in parallel.
 
@@ -102,9 +102,9 @@ What it does:
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 - Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.
-- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: ``Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)``.
+- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task show --full` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: ``Hint: run `lumo task show LUM-42 --full` for background (team memory, test cases, sources, prior sessions)``.
 
-After attaching, always run `lumo task context <identifier>` to load the task background — memory and the test-case nudge live there.
+After attaching, always run `lumo task show <identifier> --full` to load the task background — memory and the test-case nudge live there.
 
 #### Auto-downsync on attach
 
@@ -149,7 +149,7 @@ Every subagent gets its own child session (`<parent session id>:<agent id>`); `l
 - A subagent that attached on its own keeps its task even if the parent attaches later.
 - A subagent of a **STEWARD** session cannot attach a task (409), same as the steward session itself.
 - How a command finds its subagent: Lumo matches the call to the subagent's own still-running Bash command — nothing is rewritten and permissions are unchanged. If two sessions of the same family run the **identical** `lumo` command at the same moment, a write command is refused as ambiguous (just re-run it once the other finishes); a read command falls back to the main session. `lumo session attach` is stricter: if it cannot tell the main session from a subagent that is mid-command, it refuses — a subagent should run `lumo session attach <TASK>` directly (not via a script, variable or npx).
-- **Inside a subagent, always pass the task id explicitly** (`lumo task status LUM-12`, `lumo task context LUM-12`) — parallel subagents running the same argument-less command (`lumo task status`, `lumo session status`) cannot be told apart. When dispatching subagents, include this instruction in each subagent prompt.
+- **Inside a subagent, always pass the task id explicitly** (`lumo task status LUM-12`, `lumo task show LUM-12 --full`) — parallel subagents running the same argument-less command (`lumo task status`, `lumo session status`) cannot be told apart. When dispatching subagents, include this instruction in each subagent prompt.
 
 When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first. If all subagents work on the **same** task, attach the main session once instead — the subagents inherit it.
 
@@ -176,7 +176,7 @@ lumo session attach --steward cmxyz123...                 # by milestone id
 - **Multiple stewards per milestone are allowed** (acceptance is multi-round by nature); sessions don't conflict.
 - **Prior-milestone learnings injected at attach (LUM-647):** the attach prints a `## Prior-milestone learnings (this project)` section — the **MILESTONE-scope** memories distilled from this project's earlier milestone-close retros (a cross-milestone learning unit), wrapped in the `<untrusted-team-memory>` boundary. Empty when the project has no prior distilled learnings; the current milestone's own rows are excluded. A resumed steward session re-gets it via the session-start hook. These memories are written automatically when a milestone closes and its retro is generated — there is no manual command to author them.
 
-**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `milestone criteria set/verdict`, `task deps confirm/dismiss`, `milestone add/remove`, and **all read operations**.
+**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `milestone testcase add/run`, `task dep confirm/dismiss`, `milestone add/remove`, and **all read operations**.
 
 **Blocked (implementation — first layer, API gate):**
 
@@ -194,6 +194,8 @@ The user asks to "review/accept/plan a milestone", to act as reviewer/steward ac
 Each Claude Code or Codex session has its own session id (`CLAUDE_CODE_SESSION_ID` / `CODEX_THREAD_ID`, see [Codex](#codex) below). Two terminals running an agent and binding to different tasks will not interfere — bindings are scoped per session row server-side.
 
 ### `lumo session status` — show current binding
+
+`--json` prints `{ version, session }` — the server's session record (binding, role, event count, attribution); `{ sessionId, exists: false }` before the session has any server-side state.
 
 ```bash
 lumo session status
@@ -244,9 +246,9 @@ The old end-of-session command was **removed**. The three passes it ran interact
 - confidently-unused → `used=false`
 - genuinely-uncertain edges stay `null` (honest "not voted", not "unused")
 
-Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative). `task context --full` then reports each fragment's **judged-used track record** — of the N tasks it appeared in, X were judged to have actually used it. That is a **lower bound** (never-audited appearances are excluded from the proven/retire calls), and it **replaced the retired merge-rate signal** (RFC LUM-535).
+Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative). `task show --full --memory` then reports each fragment's **judged-used track record** — of the N tasks it appeared in, X were judged to have actually used it. That is a **lower bound** (never-audited appearances are excluded from the proven/retire calls), and it **replaced the retired merge-rate signal** (RFC LUM-535).
 
-> Don't confuse this with the used-vs-base **merge rate** still reported by `lumo task lineage --signal` ([task-context.md](task-context.md)) — that is a different, live metric for workspace signal-health, not the retired fragment-usefulness one.
+> Don't confuse this with the used-vs-base **merge rate** still reported by `lumo task show --lineage --signal` ([task-context.md](task-context.md)) — that is a different, live metric for workspace signal-health, not the retired fragment-usefulness one.
 
 **3. Blocked-tag automation (server-side).** When a session crosses the same-tool failure threshold (**≥ 3** same-type failures, aggregated from `POST_TOOL_USE_FAILURE` grouped by tool name + `STOP_FAILURE` turn-level failures), the server **auto-applies the shared `blocked` tag** to the bound task. This inverts the old manual gate — no prompt, no human in the loop — and is safe via three safeguards:
 
@@ -264,7 +266,7 @@ Nothing to suggest — these run on their own. If a teammate asks why a task sho
 
 Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo init` (no `--agent`, or `--agent codex`) installs the skill, `.codex/hooks.json` and `.codex/rules/lumo.rules` ([onboarding.md](onboarding.md)); the user must **trust** the hooks once (Codex app Settings → Hooks, or `/hooks`).
 
-- **Network.** Codex's default sandbox has no network; the Lumo rules run only the **server-only** `lumo` commands outside it without a prompt — the ones that just call the Lumo API (`task show/context/list/status/wrapup/comment/create`, `doc show/list/…`, `session status`, `next`, …). The `lumo` commands that change local files or start local processes stay sandboxed on purpose: `session attach` (can create a worktree), `task update` (a confirmed DONE removes worktrees), `worktree …`, `memory sync/push`, `init`/`uninstall`/`update`, `auth …`, `hook …`, the commands that can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone criteria set`, `usage resync` — a prefix rule cannot exclude `--file`), plus the human-only `crossing disposition` / `task testcase disposition` (local-only `whoami` / `doctor` run fine sandboxed). For those, request Codex's approval to run outside the sandbox (the user is asked) or have the user run them. Source of truth: `CODEX_SERVER_ONLY_COMMANDS` in `cli/src/lib/codex-rules.ts`. The rules match the words right after `lumo`, so run `lumo …` as its own command with flags after the subcommand — `lumo a && lumo b` is fine, but `lumo … | head` / `> file` / `lumo --no-hints task …` runs sandboxed and fails with `could not reach Lumo API … (fetch failed)`. On that failure inside the sandbox the CLI appends a `Hint:`: for a server-only command it says re-run `lumo init` and restart Codex (a project's rule loads only in a trusted project); for a sandboxed-on-purpose command it says approve it in Codex instead — relay it. Hooks run outside the sandbox either way.
+- **Network.** Codex's default sandbox has no network; the Lumo rules run only the **server-only** `lumo` commands outside it without a prompt — the ones that just call the Lumo API (`task show/list/status/comment/create`, `doc show/list/…`, `session status`, `status`, …). The `lumo` commands that change local files or start local processes stay sandboxed on purpose: `session attach` (can create a worktree), `task update` (a confirmed DONE removes worktrees), `worktree …`, `memory sync/push`, `init`/`uninstall`/`update`, `auth …`, `hook …`, the commands that can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone testcase run`, `usage resync` — a prefix rule cannot exclude `--file`), plus the human-only `crossing disposition` / `task testcase disposition` (local-only `whoami` / `doctor` run fine sandboxed). For those, request Codex's approval to run outside the sandbox (the user is asked) or have the user run them. Source of truth: the `.codex()` class each command declares where it is defined (`cli/src/index.ts`), which `emit-grammar` writes into `grammar.json` and the rules are generated from (LUM-1233 batch 4); `lumo priority` itself is not allowed — only `priority create` / `list`. The rules match the words right after `lumo`, so run `lumo …` as its own command with flags after the subcommand — `lumo a && lumo b` is fine, but `lumo … | head` / `> file` / `lumo --no-hints task …` runs sandboxed and fails with `could not reach Lumo API … (fetch failed)`. On that failure inside the sandbox the CLI appends a `Hint:`: for a server-only command it says re-run `lumo init` and restart Codex (a project's rule loads only in a trusted project); for a sandboxed-on-purpose command it says approve it in Codex instead — relay it. Hooks run outside the sandbox either way.
 
 - **Session id.** Codex sets `CODEX_THREAD_ID` in every shell; it wins over a `CLAUDE_CODE_SESSION_ID` inherited from a parent Claude Code session. The session is `CODEX_SESSION_ID`. Inside a Codex subagent the two differ and the CLI uses the child session `<CODEX_SESSION_ID>:<CODEX_THREAD_ID>` — the same id the hooks build from the payload's `session_id` + `agent_id` — so a subagent's `session attach` is deterministic (no Claude-style ambiguity errors).
 - **Hook trust self-check.** Codex skips untrusted hooks with no error. When the server has no hook event for this Codex session, `session attach` (after the bind line) and `session status` (on stderr) print `no hook events have reached Lumo from this Codex session …` — relay it: the user must run `lumo init` (or `lumo init --agent codex`) and trust the `lumo hook …` entries. Until then nothing of the session is recorded. When events do arrive but some Lumo events have no trust entry in `~/.codex/config.toml` for the user or repo `.codex/hooks.json` (LUM-1112 — typically events added or changed by re-running `lumo init`), both print `these Lumo hook events may not be trusted in Codex: <events>` instead — relay it: trust those entries in Codex (`/hooks`). The check is a text scan (hash not verified), so it is worded as "may"; it stays silent when no Lumo event looks trusted at all, and never lists events of a hooks file whose trust it cannot read (the scan can't be relied on there) and never runs in Claude Code.
@@ -272,18 +274,18 @@ Codex (CLI and desktop app, 0.162+) is a supported agent since LUM-1051. `lumo i
 - **Events.** Captured: SessionStart/End, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop, plus Codex-only PreCompact / PostCompact / Interrupt (shown on the timeline). Codex has no PostToolUseFailure (a failed command is a normal PostToolUse without exit code), PermissionDenied (a declined approval shows as Interrupt), PostToolBatch, Worktree*, FileChanged, ConfigChange, Task*, Notification, Elicitation\*, CwdChanged or InstructionsLoaded — those signals are absent for Codex sessions.
 - **Tools.** Codex writes files only through `apply_patch`; it counts as a write tool (collision warnings, sensitive-path and secret checks, deleted-test detection) with its paths read from the patch headers. Reads go through `Bash`. `collaborationspawn_agent` / `collaborationwait_agent` are its subagent tools.
 - **Token usage** comes from the Codex rollout (`~/.codex/sessions/…/rollout-*.jsonl`) on every Stop, subagents from their own rollouts. No mid-turn live usage (no PostToolBatch); an interrupted turn's usage lands with the next Stop. `lumo usage resync` is not needed for Codex.
-- **Memory.** `memory sync` / `memory push` refuse in a Codex shell (they target Claude Code's memory store, which Codex never reads; `--dir` still writes explicitly). Team memory reaches Codex through `lumo task context` and the session-start hook.
+- **Memory.** `memory sync` / `memory push` refuse in a Codex shell (they target Claude Code's memory store, which Codex never reads; `--dir` still writes explicitly). Team memory reaches Codex through `lumo task show --full` and the session-start hook.
 
 ## usage resync
 
-`lumo usage resync [--apply] [--json]` (LUM-932) recomputes Claude Code token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 50 per request on a dry run and 10 with `--apply`.
+`lumo usage resync [--dry-run] [--json]` (LUM-932) recomputes Claude Code token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 10 per request when writing and 50 with `--dry-run`. It writes when run (LUM-1233 Q7); `--dry-run` previews. The old opt-in `--apply` was removed — `lumo usage resync --apply` prints `was removed. Use: lumo usage resync` and exits 2 without writing.
 
-**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
+**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Preview first with `--dry-run` (prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then run it without `--dry-run` once they agree.
 
 ```bash
-lumo usage resync            # dry run
-lumo usage resync --apply    # write corrections
-lumo usage resync --json     # merged server response
+lumo usage resync --dry-run  # preview, writes nothing
+lumo usage resync            # write corrections
+lumo usage resync --dry-run --json  # merged server response
 ```
 
 Output starts with `Sent X of Y session(s) with usage.`, then counts: resynced / would be resynced, not on this account / unknown (foreign or never-seen transcripts, not an error), not inflated, already resynced, active after cutoff, no usage.

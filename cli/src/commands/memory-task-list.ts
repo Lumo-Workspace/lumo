@@ -1,12 +1,15 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatMemoryList, type MemoryRowLike } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 interface ListOptions {
   category?: string
   limit?: string
+  json?: boolean
 }
 
 export async function memoryTaskList(
@@ -19,7 +22,7 @@ export async function memoryTaskList(
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -35,7 +38,7 @@ export async function memoryTaskList(
     console.error(
       'Error: no <LUM-N> given and no task bound to this session.\nPass it explicitly or run `lumo session attach <LUM-N>`.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let taskId: string
@@ -84,6 +87,14 @@ export async function memoryTaskList(
     rows = rows.filter(
       m => m.category.toLowerCase() === options.category!.toLowerCase()
     )
+  // `total` counts the filtered list before `--limit` cuts it.
+  const total = rows.length
   if (limit !== undefined) rows = rows.slice(0, limit)
+  if (options.json) {
+    // No cursor exists for this list: `nextCursor` stays null and a `total`
+    // above the row count means -n cut it (documented in memory.md).
+    emitJson(listEnvelope('memories', stripInternalFields(rows), { total }))
+    return
+  }
   process.stdout.write(formatMemoryList(rows) + '\n')
 }

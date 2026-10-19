@@ -429,7 +429,7 @@ describe('batch explain', () => {
     expect(parseExplainItems('[{"id":"cx-a","note":" hi "}]')).toEqual([
       { id: 'cx-a', note: 'hi' },
     ])
-    expect(await crossingExplain('cx-a', { file: 'x.json', note: 'n' })).toBe(1)
+    expect(await crossingExplain('cx-a', { file: 'x.json', note: 'n' })).toBe(2)
     expect(stderr.join('\n')).toMatch(/either --file or <id> --note/)
     expect(fetchMock).not.toHaveBeenCalled()
   })

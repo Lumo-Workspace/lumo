@@ -2,7 +2,8 @@
  * LUM-1114 — does any detector ever check this compiled rule?
  *
  * A rule is stored per project, but only some shapes have a consumer:
- *  - action + deterministic + cmd-substr / push-target → project action rules
+ *  - action + deterministic + cmd-substr / push-target / path-delete /
+ *    migration-command → project action rules
  *    (crossing-detectors `detectProjectActionCrossings`);
  *  - code + deterministic + diff-regex → code pipeline, deterministic pass;
  *  - code + semantic + assertion → code pipeline, semantic judge (only while
@@ -33,7 +34,10 @@ export function ruleReach(
   if (
     rule.kind === 'action' &&
     rule.tier === 'deterministic' &&
-    (p?.type === 'cmd-substr' || p?.type === 'push-target')
+    (p?.type === 'cmd-substr' ||
+      p?.type === 'push-target' ||
+      p?.type === 'path-delete' ||
+      p?.type === 'migration-command')
   )
     return 'action-predicate'
   if (

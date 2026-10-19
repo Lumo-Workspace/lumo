@@ -89,7 +89,9 @@ describe('Codex rules file (LUM-1054)', () => {
     expect(patternOf('"lumo", "task", "testcase"')).not.toContain(
       '"disposition"'
     )
-    expect(patternOf('"lumo", "crossing"')).toBeUndefined()
+    // LUM-1187: only the read-only `crossing list` is server-only; the
+    // ruling / explaining siblings stay sandboxed.
+    expect(patternOf('"lumo", "crossing"')).toBe('"list"')
     for (const example of [
       '"lumo init"',
       '"lumo uninstall --confirm"',

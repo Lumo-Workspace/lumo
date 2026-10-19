@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
@@ -66,20 +67,20 @@ export async function milestoneTriage(
     console.error(
       'Error: --claimable and --not-claimable are mutually exclusive.'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!opts.claimable && !opts.notClaimable) {
     console.error(
       'Error: choose a direction — pass --claimable or --not-claimable.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const claimable = Boolean(opts.claimable)
 
   const refs = dedupeTaskRefs(tasks)
   if (refs.length === 0) {
     console.error('Error: provide at least one task (e.g. `LUM-1 LUM-2`).')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

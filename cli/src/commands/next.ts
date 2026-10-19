@@ -1,23 +1,27 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
-import { renderTaskTable } from '../lib/format'
+import { NONE, renderTaskTable } from '../lib/format'
 import type { ListRenderOptions } from '../lib/list-table'
 import { rankTasks, type NextTask, type RankedTask } from '../lib/rank-tasks'
-import { formatNextSteps } from '../lib/next-steps'
+import { formatNextSteps, nextStepsSilenced } from '../lib/next-steps'
+import { hint } from '../lib/feedback'
 import {
   filterClaimable,
   formatClaimableExclusions,
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
+import { listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface NextOptions {
-  count?: string
+  /** LUM-1233 3f: was `--count`; `-n` keeps working. */
+  limit?: string | undefined
   /**
    * LUM-646: restrict recommendations to the autonomy boundary — only tasks
    * that are claimable AND unblocked (F3) AND within milestone budget (F2).
    */
-  claimable?: boolean
+  claimable?: boolean | undefined
 }
 
 interface ActiveSprintsResponse {
@@ -28,20 +32,41 @@ interface TasksMeResponse {
   tasks: NextTask[]
 }
 
+/** The ranked recommendation, ready to render (text or `--json`). */
+export interface NextResult {
+  ranked: RankedTask[]
+  /** Tasks the ranking chose from: open, or claimable with `--claimable`. */
+  poolSize: number
+  claimable: boolean
+  excluded?: import('../lib/claimable-filter').ClaimableExclusions
+}
+
+/** `--limit` as a count (default 3), or null when it is not a positive integer. */
+export function parseNextLimit(limit: string | undefined): number | null {
+  if (limit === undefined) return 3
+  if (!/^\d+$/.test(limit.trim())) return null
+  const n = parseInt(limit, 10)
+  return n >= 1 ? n : null
+}
+
 /**
- * `lumo next [-n, --count <N>]` — recommend the next task(s) to work on.
+ * The Next section of `lumo status` (LUM-1233 3f; formerly `lumo next`) —
+ * recommend the next task(s) to work on.
  *
  * Chains two read-only endpoints: active sprint ids (for a ranking boost) and
  * "my tasks". The active-sprints call is non-fatal — if it fails we warn and
- * rank without the sprint boost rather than aborting.
+ * rank without the sprint boost rather than aborting. Errors are printed;
+ * the result is the exit code then.
  */
-export async function nextCommand(opts: NextOptions): Promise<number | void> {
-  const count = opts.count !== undefined ? parseInt(opts.count, 10) : 3
-  if (Number.isNaN(count) || count < 1) {
+export async function loadNext(
+  opts: NextOptions
+): Promise<NextResult | number> {
+  const count = parseNextLimit(opts.limit)
+  if (count === null) {
     console.error(
-      `Error: invalid --count "${opts.count}" (expected a positive integer)`
+      `Error: invalid --limit "${opts.limit}" (expected a positive integer)`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -109,28 +134,77 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
   // standard LUM-645 ranking is untouched.
   if (opts.claimable) {
     const gate = filterClaimable(open)
-    if (!gate.supported) {
-      // Older server predating F4 — degrade to the standard ranking with a
-      // one-line notice rather than silently returning nothing.
-      console.error(
-        warn(
-          '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
-        )
-      )
-    } else {
-      const ranked = rankTasks(gate.kept, activeSprintIds, new Date()).slice(
-        0,
-        count
-      )
-      process.stdout.write(
-        formatClaimableOutput(ranked, gate.kept.length, gate.excluded) + '\n'
-      )
-      return
+    if (gate.supported) {
+      return {
+        ranked: rankTasks(gate.kept, activeSprintIds, new Date()).slice(
+          0,
+          count
+        ),
+        poolSize: gate.kept.length,
+        claimable: true,
+        excluded: gate.excluded,
+      }
     }
+    // Older server predating F4 — degrade to the standard ranking with a
+    // one-line notice rather than silently returning nothing.
+    console.error(
+      warn(
+        '`--claimable` needs an updated Lumo server; showing the standard ranking instead.'
+      )
+    )
   }
 
-  const ranked = rankTasks(open, activeSprintIds, new Date()).slice(0, count)
-  process.stdout.write(formatNextOutput(ranked, open.length) + '\n')
+  return {
+    ranked: rankTasks(open, activeSprintIds, new Date()).slice(0, count),
+    poolSize: open.length,
+    claimable: false,
+  }
+}
+
+/** The `--json` envelope of a loaded result. */
+export function nextResultJson(r: NextResult): Record<string, unknown> {
+  return nextJson(r.ranked, r.poolSize, {
+    claimable: r.claimable,
+    ...(r.excluded ? { excluded: r.excluded } : {}),
+  })
+}
+
+/** The text of a loaded result. */
+export function formatNextResult(
+  r: NextResult,
+  opts: Parameters<typeof formatNextOutput>[3] = {}
+): string {
+  return r.claimable && r.excluded
+    ? formatClaimableOutput(r.ranked, r.poolSize, r.excluded, opts)
+    : formatNextOutput(r.ranked, r.poolSize, 'open', opts)
+}
+
+/**
+ * The `--json` envelope: the ranked tasks in rank order, each the server's
+ * task row plus its `ref` (first) and ranking `reasons`. `poolSize` is the
+ * number of tasks the ranking chose from (open, or claimable with
+ * `--claimable`, which also carries the exclusion tally).
+ */
+export function nextJson(
+  ranked: RankedTask[],
+  poolSize: number,
+  extra: {
+    claimable: boolean
+    excluded?: import('../lib/claimable-filter').ClaimableExclusions
+  }
+): Record<string, unknown> {
+  return listEnvelope(
+    'tasks',
+    ranked.map(r =>
+      stripInternalFields({
+        ref: r.identifier,
+        ...r.task,
+        reasons: r.reasons,
+      })
+    ),
+    {},
+    { poolSize, ...extra }
+  )
 }
 
 /**
@@ -142,7 +216,8 @@ export async function nextCommand(opts: NextOptions): Promise<number | void> {
 export function formatClaimableOutput(
   ranked: RankedTask[],
   totalClaimable: number,
-  excluded: import('../lib/claimable-filter').ClaimableExclusions
+  excluded: import('../lib/claimable-filter').ClaimableExclusions,
+  opts: Parameters<typeof formatNextOutput>[3] = {}
 ): string {
   if (ranked.length === 0) {
     const breakdown = formatClaimableExclusions(excluded)
@@ -150,7 +225,7 @@ export function formatClaimableOutput(
     return breakdown ? `${base} (excluded: ${breakdown})` : base
   }
 
-  return formatNextOutput(ranked, totalClaimable, 'claimable')
+  return formatNextOutput(ranked, totalClaimable, 'claimable', opts)
 }
 
 /**
@@ -163,8 +238,12 @@ export function formatNextOutput(
   totalOpen: number,
   /** Noun for the "(of N <noun>)" header — 'claimable' for the gated view. */
   poolNoun = 'open',
-  opts: ListRenderOptions = {}
+  opts: ListRenderOptions & {
+    /** Print the trailing `Next:` block and hint (default: unless `--no-hints` / `LUMO_NO_HINTS`). */
+    hints?: boolean
+  } = {}
 ): string {
+  const { hints = !nextStepsSilenced(), ...tableOpts } = opts
   const first = ranked[0]
   if (!first) return 'No open tasks assigned to you.'
 
@@ -174,25 +253,28 @@ export function formatNextOutput(
     '',
   ]
 
-  // LUM-1089: the shared task table; the rank rides in the id cell so the
-  // non-TTY rows keep their `1. LUM-42  …` shape. Each table row is followed
-  // by its reasons line; a TTY header (when present) comes first.
+  // LUM-1232 L-4: the ref is the first column (row order is the rank) and
+  // the ranking reasons are a WHY column — no `1.` prefix, no `↳` sub-rows.
+  // The priority is already its own column, so it is not repeated in WHY.
   const table = renderTaskTable(
-    ranked.map((r, i) => ({
-      id: `${i + 1}. ${r.identifier}`,
+    ranked.map(r => ({
+      id: r.identifier,
       status: r.task.status,
       priority: r.task.priority,
+      why:
+        r.reasons
+          .filter(x => x !== r.task.priority)
+          .map(x => sanitizeField(x))
+          .join(' · ') || NONE,
       title: sanitizeField(r.task.title),
     })),
-    [],
-    { idHeader: 'TASK', ...opts }
-  ).split('\n')
-  const offset = table.length - ranked.length
-  lines.push(...table.slice(0, offset))
-  ranked.forEach((r, i) => {
-    lines.push(table[offset + i] ?? '')
-    lines.push(`     ↳ ${r.reasons.join(' · ')}`)
-  })
+    ['why'],
+    tableOpts
+  )
+  lines.push(table)
+
+  // LUM-1232 H-2: advice only — `--no-hints` / LUMO_NO_HINTS drops it.
+  if (!hints) return lines.join('\n')
 
   lines.push('')
   // LUM-686: was a hand-written string here — the original drift source this
@@ -200,13 +282,13 @@ export function formatNextOutput(
   lines.push(
     formatNextSteps([
       {
-        command: `lumo session attach ${first.identifier} && lumo task context ${first.identifier}`,
+        command: `lumo session attach ${first.identifier} && lumo task show ${first.identifier} --full`,
         why: 'start on the top-ranked task',
       },
     ])
   )
   if (ranked.length > 1) {
-    lines.push('(or pick any other task from the list)')
+    lines.push(hint('any other task in the list works the same way.'))
   }
 
   return lines.join('\n')

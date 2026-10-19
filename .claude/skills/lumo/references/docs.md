@@ -44,7 +44,7 @@ Use this when the user wants to write a new document from the terminal. Title is
 | `--task <LUM-N>`   | string              | Bind to this task immediately after create.                                                                      |
 | `--tag <name>`     | string (repeatable) | Attach tag by name. Creates tag if missing. Max 20 per call.                                                     |
 | `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
-| `--parent <doc>`   | string              | cuid or case-insensitive title. Files the new doc under this parent. Omit for root.                              |
+| `--parent <doc>`   | string              | slug, case-insensitive title or cuid. Files the new doc under this parent. Omit for root.                        |
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one. **`--file` is sandboxed:** the CLI rejects a path that resolves outside the current project directory (parent-traversal, absolute, escaping symlinks) or matches a sensitive-file denylist (`.env*`, private keys, `*.pem`/`*.key`, `credentials`, `.ssh`/`.aws` contents, …). Pass only project-local, non-secret files; there is no override flag.
 
@@ -60,11 +60,11 @@ lumo doc create "Sub-doc" --parent "RFC"
 Success output:
 
 ```
-Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42
+Created rfc-doc-cli-42 "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42
 Tags: rfc, draft
 ```
 
-The cuid (`cmd_xxx`) is still printed as a stable identifier you can pass back into other `lumo doc ...` commands; the URL switched to the per-workspace slug shape (`slugify(title)-<number>`) and the cuid is no longer a valid web URL. The `Tags:` line is omitted when no tags were attached.
+The doc is named by its slug (`slugify(title)-<number>`, the segment of its web URL — LUM-1230), which every `lumo doc ...` command accepts as `<doc>`; the cuid is no longer printed (it still works as input). The `Tags:` line is omitted when no tags were attached.
 
 ### When to suggest `doc create`
 
@@ -73,7 +73,7 @@ The cuid (`cmd_xxx`) is still printed as a stable identifier you can pass back i
 
 ## `lumo doc update <doc> [flags]` — update a document
 
-`<doc>` accepts a cuid or a case-insensitive title. Ambiguous titles fail with a candidate list — re-run with the cuid.
+`<doc>` accepts the slug (`<title>-<number>`, as in the web URL and `doc list` column 1), a case-insensitive title or the cuid. An old slug from before a rename still works: when no slug or title matches, a slug-shaped ref falls back to its `-<number>` tail (stable across renames) and a `Note:` on stderr names the doc it landed on. Ambiguous titles fail with a candidate list by slug — re-run with the slug. Every `lumo doc` command names the doc by its slug in its output.
 
 | Flag                     | Type                | Notes                                                                                                                                                                       |
 | ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,16 +120,18 @@ lumo doc update RFC --tag final --add-tag oops
 
 ## `lumo doc list [flags]` — list documents
 
-Default behavior: lists every document the current user can see, as table rows: `<cuid>  <SCOPE>  <project|->  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
+`--json` prints `{ version, documents, total, nextCursor }` for the same page (rows keep the full id and the slug).
 
-| Flag              | Type    | Notes                                                                                  |
-| ----------------- | ------- | -------------------------------------------------------------------------------------- |
-| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                      |
-| `--project <ref>` | string  | Filter by project.                                                                     |
-| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.          |
-| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.  |
-| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).            |
-| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table. |
+Default behavior: lists every document the current user can see, as table rows: `<slug>  <SCOPE>  <project|->  <title>` (header `REF`; the slug is what `<doc>` takes), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the slug.
+
+| Flag              | Type    | Notes                                                                                        |
+| ----------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                            |
+| `--project <ref>` | string  | Only that project's docs (name or slug; an unknown or ambiguous ref is an error, 404 / 409). |
+| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.                |
+| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.        |
+| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).                  |
+| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table.       |
 
 `--tree` plus filters work together: the CLI fetches with filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result render as top-level rows. With `--tree` the page is cut **after** tree ordering, so each page reads top to bottom and rows keep their real depth. When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
 
@@ -146,12 +148,12 @@ lumo doc list --scope workspace --tree
 
 ## `lumo doc move <doc> [flags]` — move a doc under a different parent or to root
 
-Reparents a doc. `<doc>` accepts a cuid or a case-insensitive title; ambiguous titles fail with a candidate list.
+Reparents a doc. `<doc>` accepts the slug, a case-insensitive title or the cuid; ambiguous titles fail with a candidate list.
 
-| Flag             | Type    | Notes                                            |
-| ---------------- | ------- | ------------------------------------------------ |
-| `--parent <doc>` | string  | New parent doc (cuid or case-insensitive title). |
-| `--root`         | boolean | Move to top level (`parentId = null`).           |
+| Flag             | Type    | Notes                                                  |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `--parent <doc>` | string  | New parent doc (slug, case-insensitive title or cuid). |
+| `--root`         | boolean | Move to top level (`parentId = null`).                 |
 
 `--parent` and `--root` are **mutually exclusive** and one is **required** (CLI errors before any network call otherwise). The new `sortOrder` is computed CLI-side as `max(sibling.sortOrder) + 1` — the moved doc lands at the end of its new sibling list. Reordering among siblings (`--before` / `--after`) is not yet supported; use the Web UI.
 
@@ -167,49 +169,48 @@ lumo doc move "Sub-doc" --root
 
 ## `lumo doc delete <doc> --confirm` — move a document to the trash
 
-Moves the document **and every document nested under it** to the trash (LUM-918): restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. Immediate erasure is Settings → Trash → Delete permanently.
+Moves the document **and every document nested under it** to the trash (LUM-918): restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). Immediate erasure is Settings → Trash → Delete permanently.
 
 ```bash
 lumo doc delete cmd_xxx            # exit 4 + envelope
 lumo doc delete cmd_xxx --confirm  # after the user approved
 ```
 
-## `lumo doc bind <doc> <task>` / `lumo doc unbind <doc> <task>` — task linkage
+## Task linkage and member sharing — fields of `doc update` (LUM-1233)
 
-`bind` adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the same pair, it's upgraded to EXPLICIT so a later `unbind` can remove it. `unbind` removes EXPLICIT mentions only — a purely CONTENT-derived mention can't be unbound from CLI (fails 409, instructing the user to remove the `@LUM-N` from the doc body in the Web UI).
+Like `--add-tag` / `--remove-tag`, sharing and task binding are flags of `doc update`; the member list is `doc show --members`. (`doc bind`, `doc unbind`, `doc share`, `doc unshare` and `doc share-list` were removed; they print `was removed. Use: …` and exit 2.) Each flag is repeatable. Field changes (title, body, tags …) apply first, then members, then tasks, stopping at the first failure; with only these flags the body is not touched and stdin is not read.
+
+| Flag                             | Effect                                                                                                                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--add-task <LUM-N>`             | adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the pair, it is upgraded to EXPLICIT so a later `--remove-task` can remove it. Idempotent.                                                                     |
+| `--remove-task <LUM-N>`          | removes EXPLICIT mentions only — a purely CONTENT-derived mention fails with 409, telling the user to remove the `@LUM-N` from the doc body in the Web UI.                                                                                                                           |
+| `--add-member <member>`          | adds (or updates) a DocumentShare row. `<member>` resolves like `task --assignee`: `me`, an email, or a display name (case-insensitive). **Auto-promotion**: on a PRIVATE doc the server flips visibility to SHARED first. A second call with another role updates the row in place. |
+| `--role viewer\|editor\|manager` | with `--add-member` only (default `viewer`; case-insensitive).                                                                                                                                                                                                                       |
+| `--remove-member <member>`       | idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that with `doc update --scope personal`.                                                                                                                        |
+
+`doc show <doc> --members` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (the doc may still be WORKSPACE-visible). It cannot be combined with `--raw`, `--section` or `--json`.
 
 ```bash
-lumo doc bind cmd_xxx LUM-42
+lumo doc update cmd_xxx --add-task LUM-42
 # Bound cmd_xxx ↔ LUM-42
 # Bound cmd_xxx ↔ LUM-42 (upgraded from content)   # when upgrading a CONTENT row
 # Already bound cmd_xxx ↔ LUM-42                   # idempotent
-lumo doc unbind cmd_xxx LUM-42
+lumo doc update cmd_xxx --remove-task LUM-42
+lumo doc update "RFC" --add-member alice@example.com --role editor
+lumo doc update cmd_xxx --add-member "Alice Wong" --role manager
+lumo doc update "RFC" --remove-member alice@example.com
+lumo doc show "RFC" --members
 ```
 
-## `lumo doc share / unshare / share-list` — member sharing
-
-`share <doc> <member> [--role viewer|editor|manager]` adds (or updates) a DocumentShare row. `<member>` resolves the same way as `task --assignee`: `me`, an email, or a display name (case-insensitive). Role defaults to `viewer`. **Auto-promotion**: invoked on a PRIVATE doc, the server transactionally flips visibility to SHARED before upserting the share row (sharing = intent that it should be SHARED). A second invocation with a different role updates the row in place.
-
-`unshare <doc> <member>` is idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that explicitly via `doc update --scope personal`.
-
-`share-list <doc>` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (may still be WORKSPACE-visible).
-
-```bash
-lumo doc share "RFC" alice@example.com --role editor
-lumo doc share cmd_xxx "Alice Wong" --role manager
-lumo doc unshare "RFC" alice@example.com
-lumo doc share-list "RFC"
-```
-
-### When to suggest the doc share commands
+### When to suggest sharing
 
 - User says "share doc X with Y", "give Y access to X".
-- After `doc create --scope personal`, if teammates need access, suggest `doc share` rather than `doc update --scope workspace` when only specific members should see it.
-- Before `doc unshare`, run `doc share-list` if the user hasn't named a specific member.
+- After `doc create --scope personal`, if teammates need access, suggest `doc update <doc> --add-member` rather than `doc update --scope workspace` when only specific members should see it.
+- Before `--remove-member`, run `doc show <doc> --members` if the user hasn't named a specific member.
 
-## `lumo doc import-gdoc <url> [--scope …] [--task LUM-N]` — import a Google Doc
+## `lumo doc import --gdoc <url> [--scope …] [--task LUM-N]` — import a Google Doc
 
-One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `<url>` accepts a Google Doc URL or a bare doc id.
+One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `--gdoc <url>` accepts a Google Doc URL or a bare doc id (`doc import-gdoc <url>` was removed in LUM-1233; it prints `was removed. Use: lumo doc import --gdoc <url>`).
 
 | Flag              | Type   | Notes                                                                                      |
 | ----------------- | ------ | ------------------------------------------------------------------------------------------ |
@@ -219,10 +220,10 @@ One-way import of a Google Doc into Lumo. The doc is exported from Google as mar
 **Over-share note:** once imported, the content follows **Lumo's** sharing model (PRIVATE / SHARED / WORKSPACE) and is **no longer gated by Google permissions**. Importing a `workspace`-scoped doc can expose it to everyone in the workspace even if the Google Doc was restricted — the command prints this reminder on success. Requires a connected Google Drive integration (connect in the Web UI at `/settings/integrations`; there is no CLI `google auth` command).
 
 ```bash
-lumo doc import-gdoc "https://docs.google.com/document/d/<id>/edit" --scope workspace --task LUM-127
+lumo doc import --gdoc "https://docs.google.com/document/d/<id>/edit" --scope workspace --task LUM-127
 ```
 
-### When to suggest `doc import-gdoc`
+### When to suggest `doc import --gdoc`
 
 - User pastes a Google Doc URL or says "import this Google Doc", "pull this gdoc into Lumo".
 - User wants a Google Doc tracked alongside Lumo tasks/docs — suggest import (with `--task LUM-N` if a task is in context) and remind them about the over-share semantics for `--scope workspace`.

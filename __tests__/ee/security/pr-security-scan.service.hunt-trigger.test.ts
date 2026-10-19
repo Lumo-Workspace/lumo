@@ -160,6 +160,7 @@ beforeEach(() => {
   repo.countExternalFindings.mockResolvedValue(0)
   repo.persistResult.mockImplementation(async () => {
     order.push('persist')
+    return { managedLayerLanded: false }
   })
   repo.mergeStages.mockResolvedValue(undefined)
   repo.setManagedRunId = jest.fn().mockResolvedValue(undefined) as never
@@ -288,7 +289,7 @@ describe('LUM-739 hunt trigger', () => {
     expect(crossings.findUndispositionedByTask).toHaveBeenCalledWith('t1')
 
     jest.clearAllMocks()
-    repo.persistResult.mockResolvedValue(undefined)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: false })
     prRepo.findById.mockResolvedValue(PR as never)
     fetchPrHeadSha.mockResolvedValue('sha-2')
     repo.findByPrAndSha.mockResolvedValue(null)
@@ -453,7 +454,7 @@ describe('LUM-739 hunt trigger', () => {
 })
 
 /**
- * LUM-832 — like CodeRabbit's limit, a layer whose input is over its size cap
+ * LUM-832 — like an industry-standard size cap, a layer whose input is over its size cap
  * does not run at all (no tokens spent), and the scan records what the
  * customer's notice needs: the change is too large, and how to get the layer.
  */
@@ -534,6 +535,9 @@ describe('a layer over its size cap does not run and the scan says why', () => {
     expect(caps.judgeOverCap).toEqual({
       diffChars: huge.length,
       capChars: 180_000,
+      // LUM-1144: one file larger than the cap — nothing fits.
+      files: 1,
+      capFiles: 150,
     })
     expect(formatJudgeOverCap(caps.judgeOverCap!)).toMatch(
       /so it did not run\. To get it, narrow the review scope or split the PR\.$/

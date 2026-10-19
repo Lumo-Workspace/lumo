@@ -176,7 +176,7 @@ it('errors when no <task> and no binding', async () => {
     trigger: 't',
     outcome: 'o',
   } as any)
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/no task bound/i))
 })
 
@@ -270,7 +270,7 @@ it('omits agent key when --agent is not passed', async () => {
   expect(body).not.toHaveProperty('agent')
 })
 
-it('returns 1 and makes no memories POST when --agent is invalid', async () => {
+it('returns 2 (usage error) and makes no memories POST when --agent is invalid', async () => {
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const allCalls: string[] = []
   jest.spyOn(global, 'fetch').mockImplementation(((url: any) => {
@@ -287,7 +287,7 @@ it('returns 1 and makes no memories POST when --agent is invalid', async () => {
     outcome: 'o',
     agent: 'bogus',
   } as any)
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/invalid --agent/i))
   const memoriesPostMade = allCalls.some(u => u.includes('/memories'))
   expect(memoriesPostMade).toBe(false)

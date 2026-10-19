@@ -180,6 +180,7 @@ it('reports "over the size limit" for a clean scan skipped for size, not incompl
           ownedUnfinished: false,
           huntOverCap: { sourceFiles: 151, capFiles: 150 },
           judgeOverCap: null,
+          judgePartial: null,
         } as SecurityScanView
       }
     />,
@@ -201,6 +202,7 @@ it('a size-capped scan with a fault of ours on top still reads incomplete', () =
           ownedUnfinished: true,
           huntOverCap: { sourceFiles: 151, capFiles: 150 },
           judgeOverCap: null,
+          judgePartial: null,
         } as SecurityScanView
       }
     />,

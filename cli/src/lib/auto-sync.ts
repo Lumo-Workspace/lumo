@@ -121,14 +121,20 @@ function syncSkill(
   return { kind: 'updated' }
 }
 
-/** Re-merge Lumo hooks only when the Lumo event set differs. */
+/** Re-merge Lumo hooks only when the Lumo event set differs (incl. retired ones). */
 function syncSettings(rec: InstallRecord, version: string): void {
   if (!fs.existsSync(rec.path) || isPathGitTracked(rec.path)) return
   const existing = JSON.parse(fs.readFileSync(rec.path, 'utf8')) as Parameters<
     typeof mergeLumoHooks
   >[0]
   const { merged, stats } = mergeLumoHooks(existing, rec.agent)
-  if (stats.addedEvents.length + stats.updatedEvents.length === 0) return
+  if (
+    stats.addedEvents.length +
+      stats.updatedEvents.length +
+      stats.removedEvents.length ===
+    0
+  )
+    return
   fs.writeFileSync(rec.path, JSON.stringify(merged, null, 2) + '\n')
   upsertInstall({ ...rec, version, installedAt: new Date().toISOString() })
 }
@@ -186,7 +192,7 @@ function recentlyAttempted(
 /**
  * First run of a new CLI version: bring user-scope, untracked, unmodified
  * installs up to date. Never throws; never touches project-scope or
- * git-tracked paths (those need an explicit `lumo init --project`).
+ * git-tracked paths (those need an explicit `lumo init --scope project`).
  */
 export function maybeAutoSync(
   currentVersion: string | null = readCliVersion(),

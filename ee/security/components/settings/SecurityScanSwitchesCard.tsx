@@ -22,6 +22,8 @@ interface SecurityScanSwitchesCardProps {
   initial: WorkspaceSecuritySwitches
   /** False when the platform env turned the hunt off: shown off, locked. */
   huntAvailable: boolean
+  /** False when the platform env has the reward-hack layer off: shown off, locked. */
+  rewardHackAvailable: boolean
   /**
    * LUM-1025 — false when Vercel Sandbox is not configured on this
    * deployment: the managed scanners and the hunt cannot run, and the notes
@@ -196,6 +198,7 @@ function PauseAfterRow({
 export function SecurityScanSwitchesCard({
   initial,
   huntAvailable,
+  rewardHackAvailable,
   sandboxAvailable,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
@@ -241,7 +244,8 @@ export function SecurityScanSwitchesCard({
   const allOff =
     !switches.securityScanEnabled &&
     !switches.securityAiReviewEnabled &&
-    !switches.securityHuntEnabled
+    !switches.securityHuntEnabled &&
+    !switches.securityRewardHackEnabled
   const handleToggleAll = () =>
     save({ all: allOff }, allOff ? 'allEnabled' : 'allDisabled')
 
@@ -295,6 +299,19 @@ export function SecurityScanSwitchesCard({
         note={huntAvailable ? undefined : platformNote}
         onChange={set('securityHuntEnabled')}
       />
+      {/* LUM-1234: agent behavior — reads the agent sessions behind the PR.
+          Needs no sandbox, so the note is always the platform one. */}
+      <SwitchRow
+        id='security-reward-hack-enabled'
+        label={t('rewardHack.label')}
+        description={t('rewardHack.description')}
+        checked={
+          scanOn && rewardHackAvailable && switches.securityRewardHackEnabled
+        }
+        disabled={saving || !scanOn || !rewardHackAvailable}
+        note={rewardHackAvailable ? undefined : t('platformOff')}
+        onChange={set('securityRewardHackEnabled')}
+      />
       {/* LUM-1130: not a layer — how Lumo's review reads on the PR. Off by
           default; "enable all" / "disable all" leave it as it is. */}
       <SwitchRow
@@ -304,6 +321,17 @@ export function SecurityScanSwitchesCard({
         checked={scanOn && switches.securityRequestChangesEnabled}
         disabled={saving || !scanOn}
         onChange={set('securityRequestChangesEnabled')}
+      />
+      {/* LUM-1142: author approval — who may run
+          `@uselumo resolve` / `approve`. On by default; "enable all" /
+          "disable all" leave it as it is. */}
+      <SwitchRow
+        id='security-allow-author-approval'
+        label={t('allowAuthorApproval.label')}
+        description={t('allowAuthorApproval.description')}
+        checked={scanOn && switches.securityAllowAuthorApproval}
+        disabled={saving || !scanOn}
+        onChange={set('securityAllowAuthorApproval')}
       />
       {/* LUM-1134: learnings only shape the AI review — locked while it is
           off. Saved with the switches; "enable all" / "disable all" leave
@@ -319,7 +347,7 @@ export function SecurityScanSwitchesCard({
           setSwitches(prev => ({ ...prev, securityLearningsScope: next }))
         }
       />
-      {/* LUM-1137: CodeRabbit's auto_pause_after_reviewed_commits — every
+      {/* LUM-1137: auto-pause after reviewed commits — every
           push is reviewed until N reviewed commits; 0 = never pause. Locked
           while neither AI layer runs. */}
       <PauseAfterRow

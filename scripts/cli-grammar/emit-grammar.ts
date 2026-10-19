@@ -13,7 +13,12 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
-import { extractGrammar, type CommandLike } from './grammar'
+import {
+  CODEX_CLASSES_FILE,
+  codexClassesSource,
+  extractGrammar,
+  type CommandLike,
+} from './grammar'
 
 async function main() {
   process.env.LUMO_CLI_INTROSPECT = '1'
@@ -36,11 +41,17 @@ async function main() {
     ...config,
     parser: 'json',
   })
+  const classesPath = join(here, '../..', CODEX_CLASSES_FILE)
+  const classes = await prettier.format(codexClassesSource(grammar), {
+    ...((await prettier.resolveConfig(classesPath)) ?? {}),
+    parser: 'typescript',
+  })
   if (process.argv.includes('--print')) {
     process.stdout.write(json)
     return
   }
   writeFileSync(outPath, json)
+  writeFileSync(classesPath, classes)
   console.log(
     `grammar.json written: ${Object.keys(grammar.commands).length} command nodes (cli v${grammar.cliVersion})`
   )

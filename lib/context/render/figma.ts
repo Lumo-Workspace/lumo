@@ -1,4 +1,9 @@
+import { shortRef } from '@/shared/src/short-ref'
 import type { TaskFigmaLink } from '@prisma/client'
+import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
 
 function figmaTitle(link: TaskFigmaLink): string {
   return link.frameName
@@ -11,7 +16,12 @@ function figmaTitle(link: TaskFigmaLink): string {
  * LUM-N task identifier — the first positional of the on-demand fetch command,
  * not the cuid.
  */
-export function figmaCard(link: TaskFigmaLink, identifier: string): string {
+export function figmaCard(
+  link: TaskFigmaLink,
+  identifier: string,
+  // LUM-1233 3j: the command the caller's CLI has (figma show vs context).
+  commands: CliCommandNames = LEGACY_CLI_COMMANDS
+): string {
   // LUM-347: entry-level source attribution — synced external Figma metadata.
   const lines: string[] = [`- [external:figma] **${figmaTitle(link)}**`]
   lines.push(`  - URL: ${link.url}`)
@@ -25,7 +35,7 @@ export function figmaCard(link: TaskFigmaLink, identifier: string): string {
   }
   lines.push(`  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`)
   lines.push(
-    `  ↳ design context: lumo task figma context ${identifier} ${link.id}`
+    `  ↳ design context: ${commands.taskFigmaShow(identifier, shortRef(link.id))}`
   )
   return lines.join('\n')
 }
@@ -48,8 +58,12 @@ function truncateDescriptor(text: string, max = 70): string {
  * positional of the `lumo task figma context` hint so an agent can run it
  * verbatim.
  */
-export function figmaManifest(link: TaskFigmaLink, identifier: string): string {
-  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${identifier} ${link.id}`
+export function figmaManifest(
+  link: TaskFigmaLink,
+  identifier: string,
+  commands: CliCommandNames = LEGACY_CLI_COMMANDS
+): string {
+  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → ${commands.taskFigmaShow(identifier, shortRef(link.id))}`
 }
 
 /**
@@ -58,12 +72,13 @@ export function figmaManifest(link: TaskFigmaLink, identifier: string): string {
  */
 export function renderFigmaSection(
   links: TaskFigmaLink[],
-  identifier: string
+  identifier: string,
+  commands: CliCommandNames = LEGACY_CLI_COMMANDS
 ): string {
   if (links.length === 0) return ''
   const lines: string[] = ['## Figma Designs', '']
   for (const link of links) {
-    lines.push(figmaCard(link, identifier))
+    lines.push(figmaCard(link, identifier, commands))
     lines.push('')
   }
   return lines.join('\n').trimEnd()

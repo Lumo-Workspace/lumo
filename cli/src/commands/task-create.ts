@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
@@ -65,7 +66,8 @@ export function assertSameTeam(
 ): void {
   if (task.teamId !== sprint.teamId) {
     throw new Error(
-      `Sprint binding skipped: sprint #${sprint.number} belongs to team "${sprint.teamId}", task belongs to "${task.teamId}"`
+      // LUM-1230: team ids are internal — name the conflict, not the uuids.
+      `Sprint binding skipped: sprint #${sprint.number} belongs to a different team than ${task.identifier}`
     )
   }
 }
@@ -203,14 +205,14 @@ export async function taskCreate(
     console.error(
       'Error: missing <title>. Usage: lumo task create <title> [options]'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   if (opts.template !== undefined && opts.description !== undefined) {
     process.stderr.write(
       'Error: pass either --description or --template, not both. See `lumo task template list`.\n'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let dueDate: string | undefined
@@ -220,7 +222,7 @@ export async function taskCreate(
       console.error(
         `Error: --due expects a valid YYYY-MM-DD date, got "${opts.due}"`
       )
-      return 1
+      return EXIT_USAGE
     }
     dueDate = iso
   }
@@ -239,7 +241,7 @@ export async function taskCreate(
       console.error(
         `Error: invalid priority "${opts.priority}". Allowed: low, medium, high, urgent`
       )
-      return 1
+      return EXIT_USAGE
     }
     priority = normalized
   }

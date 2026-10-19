@@ -63,7 +63,10 @@ describe('formatTaskContextMarkdown', () => {
       now
     )
     expect(md).toContain('## Previous Sessions (1)')
-    expect(md).toContain('### Session abc12345 · 2 days ago · 1h 20m')
+    // LUM-1232: absolute time (UTC `Z` off a TTY), never `2 days ago`.
+    expect(md).toMatch(
+      /### Session abc12345 · \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ · 1h 20m/
+    )
     expect(md).toContain('**Summary**: Wire Session.taskId')
     // LUM-1067: open items are candidate follow-ups, not "Unresolved"
     expect(md).not.toContain('**Unresolved**:')
@@ -178,7 +181,7 @@ describe('formatTaskContextMarkdown', () => {
     expect(mdMissing).not.toContain('## PR review todos')
   })
 
-  it('renders "just now" / "Xm ago" / "yesterday" per relative-time rules', () => {
+  it('prints the absolute last-activity time, never a relative one (LUM-1232)', () => {
     const mk = (offsetSec: number) => ({
       id: 'x12345678',
       startedAt: new Date(
@@ -191,18 +194,17 @@ describe('formatTaskContextMarkdown', () => {
       headline: 'h',
       unresolved: [],
     })
-    expect(
-      formatTaskContextMarkdown({ task: baseTask, sessions: [mk(10)] }, now)
-    ).toContain('· just now ·')
-    expect(
-      formatTaskContextMarkdown({ task: baseTask, sessions: [mk(180)] }, now)
-    ).toContain('· 3m ago ·')
-    expect(
-      formatTaskContextMarkdown(
-        { task: baseTask, sessions: [mk(24 * 3600 + 100)] },
+    for (const offset of [10, 180, 24 * 3600 + 100]) {
+      const md = formatTaskContextMarkdown(
+        { task: baseTask, sessions: [mk(offset)] },
         now
       )
-    ).toContain('· yesterday ·')
+      const at = new Date(now.getTime() - offset * 1000)
+        .toISOString()
+        .replace(/\.\d{3}Z$/, 'Z')
+      expect(md).toContain(`### Session x1234567 · ${at} · 1m`)
+      expect(md).not.toMatch(/just now|ago|yesterday/)
+    }
   })
 })
 
@@ -386,7 +388,7 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
       LINEAGE_NOW
     )
     expect(out).not.toContain('judged-used in 3 of 4 tasks')
-    expect(out).toContain('lumo task context LUM-1 --full')
+    expect(out).toContain('lumo task show LUM-1 --full --memory')
   })
 
   it('omits the lineage block when lineageSection is absent/empty', () => {

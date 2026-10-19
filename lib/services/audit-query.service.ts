@@ -28,6 +28,8 @@ import {
   type AuditEventView,
 } from '@/lib/audit/query'
 import { auditEventsToCsv } from '@/lib/audit/csv'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { formatCrossingRef } from '@/lib/boundary-crossing/crossing-ref'
 import {
   recordAuditEvent,
   type AuditContext,
@@ -114,8 +116,47 @@ async function toFilters(
   }
 }
 
+/**
+ * LUM-1232 G1: human-readable refs for the targets that have one (boundary
+ * crossings → `LUM-X482`), looked up in the viewer's workspace only. Best
+ * effort: a failed lookup leaves the id as the record.
+ */
+async function targetRefs(
+  workspaceId: string,
+  rows: AuditEventRow[]
+): Promise<Map<string, string>> {
+  const ids = [
+    ...new Set(
+      rows
+        .filter(r => r.targetType === 'boundary_crossing' && r.targetId)
+        .map(r => r.targetId as string)
+    ),
+  ]
+  const refs = new Map<string, string>()
+  if (ids.length === 0) return refs
+  try {
+    const found = await boundaryCrossingRepository.findRefFieldsByIds(
+      workspaceId,
+      ids
+    )
+    for (const c of found) {
+      if (c.number == null) continue
+      refs.set(c.id, formatCrossingRef(c.task?.team.identifier, c.number, c.id))
+    }
+  } catch (error) {
+    logger.warn('[audit] target ref lookup failed', {
+      error: (error as Error)?.message ?? String(error),
+    })
+  }
+  return refs
+}
+
 /** Rows → views, with member names / emails looked up in Clerk. */
-async function toViews(rows: AuditEventRow[]): Promise<AuditEventView[]> {
+async function toViews(
+  rows: AuditEventRow[],
+  workspaceId: string
+): Promise<AuditEventView[]> {
+  const refs = await targetRefs(workspaceId, rows)
   const clerkIds = [
     ...new Set(
       rows
@@ -149,6 +190,7 @@ async function toViews(rows: AuditEventRow[]): Promise<AuditEventView[]> {
       source: r.source,
       targetType: r.targetType,
       targetId: r.targetId,
+      targetRef: r.targetId ? (refs.get(r.targetId) ?? null) : null,
       ip: r.ip,
       userAgent: r.userAgent,
       metadata: r.metadata ?? null,
@@ -176,7 +218,7 @@ export async function listAuditEvents(
   const page = rows.slice(0, limit)
   const last = page[page.length - 1]
   return {
-    events: await toViews(page),
+    events: await toViews(page, viewer.workspaceId),
     nextCursor:
       rows.length > limit && last
         ? encodeAuditCursor({ createdAt: last.createdAt, id: last.id })
@@ -220,7 +262,7 @@ export async function exportAuditEventsCsv(
     const last = rows[rows.length - 1]!
     cursor = { createdAt: last.createdAt, id: last.id }
   }
-  const csv = auditEventsToCsv(await toViews(rows))
+  const csv = auditEventsToCsv(await toViews(rows, viewer.workspaceId))
   // LUM-907 PR3: taking the log out of Lumo is itself audited (listing it is
   // not). The filters as given — never the exported rows.
   await recordAuditEvent({

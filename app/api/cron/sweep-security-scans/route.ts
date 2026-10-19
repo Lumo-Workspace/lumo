@@ -18,7 +18,8 @@ export const maxDuration = 300
  * reads "scanning" forever and no VM idles unbilled-for.
  * LUM-822: the same for the hunt layer, except a first stale attempt is
  * retried once before it is failed. LUM-988: and the agentic verifier's
- * comment hold — a lost run's held inline comments are released. The sweeps
+ * comment hold — a lost run's held inline comments are released. LUM-1234:
+ * and a reward-hack layer whose runner died is stamped FAILED. The sweeps
  * are independent: one throwing must not skip the others.
  *
  * Cron only: gated by the shared CRON_SECRET.
@@ -28,15 +29,17 @@ export async function GET(req: NextRequest) {
   // is that same check, moved where the other eight can reach it.
   const unauthorized = requireCronAuth(req)
   if (unauthorized) return unauthorized
-  const [external, hunt, verifier] = await Promise.allSettled([
+  const [external, hunt, verifier, rewardHack] = await Promise.allSettled([
     securityManagedScanOpsService.sweepStalePending(),
     securityHuntOpsService.sweepStaleHunts(),
     reviewVerifierOpsService.sweepStaleHolds(),
+    securityHuntOpsService.sweepStaleRewardHacks(),
   ])
   for (const [name, result] of [
     ['external', external],
     ['hunt', hunt],
     ['verifier', verifier],
+    ['rewardHack', rewardHack],
   ] as const) {
     if (result.status === 'rejected')
       logger.error(
@@ -50,12 +53,14 @@ export async function GET(req: NextRequest) {
   const failed =
     external.status === 'rejected' ||
     hunt.status === 'rejected' ||
-    verifier.status === 'rejected'
+    verifier.status === 'rejected' ||
+    rewardHack.status === 'rejected'
   return NextResponse.json(
     {
       ...(external.status === 'fulfilled' ? external.value : {}),
       hunt: hunt.status === 'fulfilled' ? hunt.value : null,
       verifier: verifier.status === 'fulfilled' ? verifier.value : null,
+      rewardHack: rewardHack.status === 'fulfilled' ? rewardHack.value : null,
     },
     { status: failed ? 500 : 200 }
   )

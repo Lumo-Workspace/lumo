@@ -13,14 +13,13 @@ import { stewardContextService } from '@/lib/services/steward-context.service'
 
 describe('stewardContextService test-case section (LUM-1135)', () => {
   it('is empty when the milestone has no test cases', async () => {
-    mockRead.mockResolvedValue({ held: 0, unresolvedCriteria: 0, cases: [] })
+    mockRead.mockResolvedValue({ held: 0, cases: [] })
     expect(await stewardContextService.buildTestCaseSection('m-1')).toBe('')
   })
 
   it('lists held cases and tells the steward how to run them', async () => {
     mockRead.mockResolvedValue({
       held: 1,
-      unresolvedCriteria: 0,
       cases: [
         {
           number: 1,
@@ -47,7 +46,6 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
   it('says the gate is open when nothing is held', async () => {
     mockRead.mockResolvedValue({
       held: 0,
-      unresolvedCriteria: 0,
       cases: [
         {
           number: 1,
@@ -69,7 +67,6 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
   it('neutralises injected text in case titles', async () => {
     mockRead.mockResolvedValue({
       held: 1,
-      unresolvedCriteria: 0,
       cases: [
         {
           number: 1,
@@ -94,7 +91,6 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
   it('buildStewardSections joins memory and test-case sections', async () => {
     mockRead.mockResolvedValue({
       held: 1,
-      unresolvedCriteria: 0,
       cases: [
         {
           number: 3,
@@ -111,20 +107,9 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
     expect(r.section).toContain('latest run failed')
   })
 
-  it('with no cases, still says how many deprecated exit criteria hold the gate', async () => {
-    mockRead.mockResolvedValue({ held: 2, unresolvedCriteria: 2, cases: [] })
-    const s = await stewardContextService.buildTestCaseSection('m-1')
-    expect(s).toContain('2 deprecated exit criteria hold this milestone open')
-    mockRead.mockResolvedValue({ held: 1, unresolvedCriteria: 1, cases: [] })
-    expect(await stewardContextService.buildTestCaseSection('m-1')).toContain(
-      '1 deprecated exit criterion holds this milestone open'
-    )
-  })
-
-  it('names the PROVEN_DEFECT and BLOCKED reasons, and the criteria alongside cases', async () => {
+  it('names the PROVEN_DEFECT and BLOCKED reasons', async () => {
     mockRead.mockResolvedValue({
-      held: 3,
-      unresolvedCriteria: 1,
+      held: 2,
       cases: [
         {
           number: 1,
@@ -147,6 +132,6 @@ describe('stewardContextService test-case section (LUM-1135)', () => {
       'TC1 Refund — proven defect (needs a disposition or a fix)'
     )
     expect(s).toContain('TC2 Deploy — latest run blocked')
-    expect(s).toContain('1 deprecated exit criterion holds this milestone open')
+    expect(s).not.toMatch(/exit criteri/)
   })
 })

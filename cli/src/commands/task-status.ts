@@ -6,6 +6,7 @@ import {
   externalFailureReason,
   findingCountPhrase,
   isCodeReviewFinding,
+  isRewardHackFinding,
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
 import {
@@ -14,6 +15,8 @@ import {
   formatTurnedOffLines,
   formatScanningOffLines,
   scanFields,
+  type JudgeOverCapLine,
+  type JudgePartialLine,
   type PrTooLargeLine,
 } from '../lib/scan-format'
 import {
@@ -33,14 +36,31 @@ import {
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
-import { colorEnabled, terminalWidth } from '../lib/ui'
-import { fmtTokens, formatDurationSec } from '../lib/format'
+import { colorEnabled, enumColor, terminalWidth } from '../lib/ui'
+import { doneGateSection, type DoneGateReadout } from '../lib/done-gate-format'
+import { emptyState, fmtTokens, formatDurationSec } from '../lib/format'
+import {
+  fetchTaskTestCases,
+  type TaskTestCasesResult,
+} from '../lib/task-test-cases-read'
+import { formatTestCasesSummary } from '../lib/test-case-report'
+import { formatListRow } from './task-testcase-list'
+import { shortRef } from '../../../shared/src/short-ref'
+import {
+  assessReadiness,
+  assessWorktrees,
+  formatDoneReadiness,
+  readJson,
+  readinessNextCommand,
+  type ReadinessInput,
+  type ReadinessTask,
+} from '../lib/done-readiness'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean
   /** LUM-733: also print the dashboard sections (cost, struggle/rework
-   *  trail, trend). Off by default — the agent self-check is the next actions
+   *  trail, trend, and — LUM-1186 — each test case's latest run). Off by default — the agent self-check is the next actions
    *  (undispositioned security findings, test-case advisories) and any open
    *  crossings. */
   full?: boolean
@@ -57,10 +77,18 @@ export interface TaskStatusExtras {
   full?: boolean
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
+  /** LUM-1186: the `--full` Test cases section's read (same payload as
+   *  `lumo task testcase list`). Absent = not read, section skipped. */
+  testCases?: TaskTestCasesResult | undefined
   /** LUM-1091: report width (default 100) and styling (default off — the
    *  command passes `colorEnabled()`, so a pure call stays plain text). */
   width?: number | undefined
   color?: boolean | undefined
+  /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
+  tty?: boolean | undefined
+  /** LUM-1233: the DONE-readiness section (formerly `task wrapup`), rendered
+   *  only when the task is READY. Absent = not READY or not assessed. */
+  readinessLines?: string[] | undefined
 }
 
 /** One-line a possibly-multiline crossing detail and cap it so the safety block
@@ -108,13 +136,13 @@ export interface TaskStatusResponse {
     }
   }
   /** LUM-564: the agent's CLAIM — what it SAYS it did (an unverified
-   *  self-report). Not rendered in the terminal; --json carries it. */
+   *  self-report). JSON-only: the text report does not render it. */
   claim?: {
     text: string | null
     source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
   }
   /** LUM-583: whether the CLAIM faithfully reflects the delivery, read from
-   *  the persisted verdict. Not rendered in the terminal; --json carries it. */
+   *  the persisted verdict. JSON-only: the text report does not render it. */
   faithfulness?: {
     state:
       | 'FAITHFUL'
@@ -139,8 +167,11 @@ export interface TaskStatusResponse {
         number: number
         title: string
         /** LUM-819: 仅 UNPROVEN_PASS 带。老服务端不回这个字段。 */
-        ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
-        advisory: true
+        ceilingReason?: 'environment' | 'unobserved' | 'skipped' | 'no-evidence'
+        /** LUM-1186: a proven defect nobody has ruled on — refuses DONE.
+         *  Absent on an older server. */
+        blocking?: boolean
+        advisory: boolean
       }
     | {
         kind: 'SECURITY_FINDING'
@@ -164,6 +195,10 @@ export interface TaskStatusResponse {
         advisory: true
       }
   >
+  /** LUM-1186: the Done gate, derived server-side by the web Record tab's
+   *  `deriveDoneGate`. Absent on an older server (rendered as "cannot
+   *  confirm"). */
+  doneGate?: DoneGateReadout
   /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
    *  confirm); optional so a new CLI tolerates an older server. */
   securityFindings?: {
@@ -209,7 +244,9 @@ export interface TaskStatusResponse {
       /** LUM-832 — the file cap left files out; absent on an older server. */
       huntOverCap?: { sourceFiles: number; capFiles: number } | null
       /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
-      judgeOverCap?: { diffChars: number; capChars: number } | null
+      judgeOverCap?: JudgeOverCapLine | null
+      /** LUM-1144 — the AI review read part of an over-cap diff; absent on an older server. */
+      judgePartial?: JudgePartialLine | null
       /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
       prTooLarge?: PrTooLargeLine | null
       /** LUM-901 — the workspace has scanning off; absent on an older server. */
@@ -326,16 +363,36 @@ const CEILING_REASON_LABEL: Record<
 > = {
   environment: 'not run where it can prove anything',
   unobserved: 'some verification steps went unobserved',
+  skipped: 'some steps were skipped',
   'no-evidence': 'no evidence attached',
 }
 
-/** The text of one verdict advisory, without its bullet. */
+/**
+ * LUM-1186: what the DONE gate does with a verdict row. A proven defect whose
+ * latest run nobody has ruled on refuses DONE (409, `computeDoneVerdict`'s
+ * TEST_CASE_DEFECT blocker); once ruled on, or for any other signal, it never
+ * does. An older server sends no `blocking` — a proven defect then may block,
+ * and is never called advisory.
+ */
+export function testCaseVerdictGate(a: TestCaseVerdictAction): string {
+  if (a.signal !== 'PROVEN_DEFECT') return 'advisory'
+  if (a.blocking === true) return 'blocks DONE until the user rules on it'
+  if (a.blocking === false) return 'ruled on — does not block DONE'
+  return 'blocks DONE unless that run was already ruled on'
+}
+
+/** A verdict row that holds DONE back (or may, on an older server). */
+export function testCaseVerdictBlocks(a: TestCaseVerdictAction): boolean {
+  return a.signal === 'PROVEN_DEFECT' && a.blocking !== false
+}
+
+/** The text of one verdict row, without its bullet. */
 export function testCaseVerdictText(a: TestCaseVerdictAction): string {
   const why =
     a.signal === 'UNPROVEN_PASS' && a.ceilingReason
       ? ` (${CEILING_REASON_LABEL[a.ceilingReason]})`
       : ''
-  return `[TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
+  return `[TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (${testCaseVerdictGate(a)})`
 }
 
 /** 一条判决层 advisory 渲染成一行。导出给测试用。 */
@@ -368,7 +425,12 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
   const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
   // LUM-988: an AI-review correctness finding (`review:<kind>`) is tagged
   // `[BUG]` — same scan, same disposition flow, not a security finding.
-  const tag = isCodeReviewFinding(a.ruleId) ? 'BUG' : 'SECURITY'
+  // LUM-1234: an agent-behavior finding (`reward-hack/<KIND>`) is `[AGENT]`.
+  const tag = isRewardHackFinding(a.ruleId)
+    ? 'AGENT'
+    : isCodeReviewFinding(a.ruleId)
+      ? 'BUG'
+      : 'SECURITY'
   const rule = sanitizeField(a.ruleId)
   return [
     ...bulletLines(`[${tag}] [${a.severity}] ${title || rule}`, 2, opts),
@@ -380,8 +442,8 @@ function securityActionLines(a: SecurityAction, opts: LayoutOptions): string[] {
           value: `${sanitizeField(where)} · PR #${a.prNumber}`,
         },
         { label: 'Gate', value: `${gate}${note}` },
-        // LUM-1128: the id `lumo finding disposition` takes.
-        { label: 'Id', value: sanitizeField(a.findingId) },
+        // LUM-1128 / LUM-1230: the short ref `lumo finding disposition` takes.
+        { label: 'Ref', value: sanitizeField(shortRef(a.findingId)) },
       ],
       4,
       opts
@@ -413,12 +475,12 @@ export function pushSecurityActions(
   for (const a of securityActions) lines.push(...securityActionLines(a, opts))
 }
 
-/** `Next actions (2 security findings)`, or split when bugs are present (LUM-988). */
+/** `Next actions (2 security findings)`, or split when bugs (LUM-988) or agent-behavior findings (LUM-1234) are present. */
 export function securityActionsHeading(
   securityActions: SecurityAction[]
 ): string {
   const ruleIds = securityActions.map(a => a.ruleId)
-  if (!ruleIds.some(isCodeReviewFinding))
+  if (!ruleIds.some(r => isCodeReviewFinding(r) || isRewardHackFinding(r)))
     return `Next actions (${ruleIds.length} security finding${ruleIds.length === 1 ? '' : 's'})`
   return `Next actions (${findingCountPhrase(ruleIds)})`
 }
@@ -432,7 +494,7 @@ type ScanSummary = NonNullable<
 /**
  * LUM-735 — one block per linked PR's latest scan: a `PR #945 · scan CLEAN`
  * line, then one labelled row per layer (LUM-1091) — the layer grammar lives
- * in `cli/src/lib/scan-format.ts`, shared with `lumo pr scan` (LUM-788) so
+ * in `cli/src/lib/scan-format.ts`, shared with `lumo pr show` (LUM-788) so
  * the two surfaces cannot drift. LUM-756 (P8): `error` has two writers —
  * only the prefixed, scrubbed scanner reason may be printed, and only when
  * the layer FAILED.
@@ -451,6 +513,7 @@ function scanSummaryLines(s: ScanSummary, opts: LayoutOptions): string[] {
           partialCauses: s.partialCauses,
           huntOverCap: s.huntOverCap,
           judgeOverCap: s.judgeOverCap,
+          judgePartial: s.judgePartial,
           prTooLarge: s.prTooLarge,
           partial: s.partial,
           externalFindings: s.externalFindings,
@@ -469,7 +532,7 @@ function scanSummaryLines(s: ScanSummary, opts: LayoutOptions): string[] {
       opts
     )
   )
-  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-832: the file cap, stated plainly as a limit on the change.
   // LUM-892: layers turned off in settings — the customer's choice.
   // LUM-901: scanning itself is off — this scan is for an earlier commit.
   for (const l of [
@@ -534,11 +597,19 @@ export function formatTaskStatus(
   data: TaskStatusResponse,
   extras: TaskStatusExtras = {}
 ): string {
-  const opts: LayoutOptions = { width: extras.width, color: extras.color }
+  const opts: LayoutOptions = {
+    width: extras.width,
+    color: extras.color,
+    tty: extras.tty,
+  }
   const lines: string[] = []
   const t = data.task
   lines.push(`${t.identifier}  ${sanitizeField(t.title)}`)
-  lines.push(`Status: ${t.status}`)
+  lines.push(`Status: ${enumColor(t.status, opts.color === true)}`)
+  // LUM-1186: the single verdict first — the web Record tab's Done gate.
+  lines.push(...doneGateSection(data.doneGate, opts))
+  // The claim / faithfulness verdict is NOT rendered here (user ruling
+  // 2026-10-17); it stays in `--json` (additive-only contract).
 
   const {
     security: securityActions,
@@ -550,6 +621,7 @@ export function formatTaskStatus(
     pushCost(lines, data, opts)
     pushStruggleTrail(lines, data, opts)
     pushTrend(lines, data, opts)
+    pushTestCases(lines, extras.testCases, data.task.identifier, opts)
   }
 
   if (securityActions.length > 0) {
@@ -561,7 +633,10 @@ export function formatTaskStatus(
     testCaseVerdictActions.length === 0
   ) {
     lines.push(...sectionHeading('Next actions', opts))
-    lines.push('  None on record.')
+    lines.push(`  ${emptyState('next actions')}`)
+  } else if (testCaseVerdictActions.some(testCaseVerdictBlocks)) {
+    // LUM-1186: a proven defect holds DONE — never "advisory only".
+    lines.push(...sectionHeading('Next actions', opts))
   } else {
     lines.push(...sectionHeading('Next actions (advisory only)', opts))
   }
@@ -578,7 +653,39 @@ export function formatTaskStatus(
   }
 
   pushOpenCrossings(lines, extras, opts)
+  if (extras.readinessLines) lines.push(...extras.readinessLines)
   return lines.join('\n') + '\n'
+}
+
+/**
+ * LUM-1186: the `--full` "Test cases" section — one line per case, the very
+ * row `lumo task testcase list` prints (`formatListRow`: number, sanitized
+ * title, steps, latest result with its ceiling / cause / step progress / date,
+ * or `never run`), then the server-computed `N/M passing · …` summary. Only
+ * renders; every verdict comes from the server. A failed read says so
+ * (fail-closed) instead of looking like "no test cases".
+ */
+export function pushTestCases(
+  lines: string[],
+  read: TaskTestCasesResult | undefined,
+  identifier: string,
+  opts: LayoutOptions = {}
+): void {
+  if (!read) return
+  lines.push(...sectionHeading('Test cases', opts))
+  if (read.status === 'error') {
+    lines.push(
+      `  ⚠ could not read test cases (${sanitizeField(read.reason)}) — retry with: lumo task testcase list ${identifier}`
+    )
+    return
+  }
+  if (read.testCases.length === 0) {
+    lines.push('  None recorded.')
+    return
+  }
+  for (const c of read.testCases) lines.push(`  ${formatListRow(c)}`)
+  const summary = formatTestCasesSummary(read.summary, 'task')
+  if (summary) lines.push(`  ${summary}`)
 }
 
 /**
@@ -924,6 +1031,16 @@ export async function taskStatus(
   // resolved taskId (the identifier the status was fetched for) is the key here.
   const crossingsResult = await fetchOpenCrossings(base, creds.token, taskId)
 
+  // LUM-1233: DONE readiness (formerly `task wrapup`) — the task and its
+  // linked PRs plus the local worktrees decide whether the task is READY.
+  const readinessInput = await readReadinessInput(
+    base,
+    creds.token,
+    data,
+    crossingsResult
+  )
+  const readiness = assessReadiness(readinessInput)
+
   if (options.json) {
     // JSON.stringify escapes control chars (…), so the payload is safe
     // to emit raw — and consumers get byte-faithful server data.
@@ -932,22 +1049,75 @@ export async function taskStatus(
     // from `[]`, which is a successful read with zero open crossings.
     const openCrossings =
       crossingsResult.status === 'ok' ? crossingsResult.crossings : null
+    // LUM-1233: `readiness` is additive — the level, its reasons and, when
+    // READY, the one command to run next.
+    const readinessJson = {
+      level: readiness.level,
+      reasons: readiness.reasons,
+      nextCommand: readinessNextCommand(readinessInput, readiness),
+    }
     process.stdout.write(
-      JSON.stringify({ ...data, openCrossings }, null, 2) + '\n'
+      JSON.stringify(
+        { ...data, openCrossings, readiness: readinessJson },
+        null,
+        2
+      ) + '\n'
     )
     return
   }
+  // LUM-1186: the test-case list is a --full section only — the default
+  // report never pays for the extra read. `--json` stays unchanged.
+  const testCases =
+    options.full === true
+      ? await fetchTaskTestCases(base, creds.token, taskId)
+      : undefined
   process.stdout.write(
     formatTaskStatus(data, {
       full: options.full === true,
       openCrossings: crossingsResult,
+      testCases,
       dispositionUrl: dispositionUrl(
         base,
         creds.workspaceSlug ?? 'lumo',
         data.task.identifier
       ),
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
+      readinessLines:
+        readiness.level === 'READY'
+          ? formatDoneReadiness(readinessInput, readiness, {
+              width: terminalWidth(),
+              tty: Boolean(process.stdout.isTTY),
+              color: colorEnabled(),
+            })
+          : undefined,
     })
   )
+}
+
+/** The inputs of the DONE-readiness verdict for an already-read status. */
+async function readReadinessInput(
+  base: string,
+  token: string,
+  status: TaskStatusResponse,
+  crossings: OpenCrossingsResult
+): Promise<ReadinessInput> {
+  const identifier = status.task.identifier
+  const task = await readJson(
+    `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`,
+    token,
+    body => {
+      const t = (body as { task?: ReadinessTask }).task
+      if (!t) throw new Error('no task in response')
+      return t
+    }
+  )
+  return {
+    identifier,
+    status: { ok: true, value: status },
+    task,
+    crossings,
+    worktrees: assessWorktrees(identifier, task),
+  }
 }

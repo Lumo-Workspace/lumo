@@ -1,8 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { RepoReviewFiltersEditor } from './RepoReviewFiltersEditor'
+import { RepoPreMergeChecksEditor } from './RepoPreMergeChecksEditor'
+import { RepoReviewStyleEditor } from './RepoReviewStyleEditor'
 import {
   useRepoReviewSettings,
   useUpdateRepoReviewSettings,
@@ -27,43 +32,112 @@ function RepoRow({ setting, canEdit, saving, onChange }: RepoRowProps) {
       { repo: setting.repo }
     )
   const id = `repo-review-${setting.repo.replace(/[^\w-]/g, '-')}`
+  // LUM-1143: the auto-review filters fold out under the row.
+  const [showFilters, setShowFilters] = useState(false)
+  // LUM-1148: the pre-merge checks fold out the same way.
+  const [showChecks, setShowChecks] = useState(false)
+  // LUM-1147: the review style (profile, tone, path instructions) too.
+  const [showStyle, setShowStyle] = useState(false)
   return (
-    <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 border-b border-border last:border-b-0'>
-      <p className='text-sm font-medium text-foreground break-all'>
-        {setting.repo}
-      </p>
-      <div className='flex items-center gap-4'>
-        <label
-          htmlFor={`${id}-auto`}
-          className='flex items-center gap-2 text-xs text-muted-foreground'
-        >
-          {t('autoReview')}
-          <Switch
-            id={`${id}-auto`}
-            aria-label={t('autoReviewAria')}
-            checked={setting.autoReview}
-            disabled={!canEdit || saving}
-            onCheckedChange={next =>
-              onChange({ repo: setting.repo, autoReview: next })
-            }
-          />
-        </label>
-        <label
-          htmlFor={`${id}-drafts`}
-          className='flex items-center gap-2 text-xs text-muted-foreground'
-        >
-          {t('drafts')}
-          <Switch
-            id={`${id}-drafts`}
-            aria-label={t('draftsAria')}
-            checked={setting.autoReview && setting.reviewDrafts}
-            disabled={!canEdit || saving || !setting.autoReview}
-            onCheckedChange={next =>
-              onChange({ repo: setting.repo, reviewDrafts: next })
-            }
-          />
-        </label>
+    <div className='px-5 py-3 border-b border-border last:border-b-0'>
+      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
+        <p className='text-sm font-medium text-foreground break-all'>
+          {setting.repo}
+        </p>
+        <div className='flex items-center gap-4'>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-expanded={showFilters}
+            aria-controls={`${id}-filters`}
+            aria-label={t('filters.toggleAria')}
+            onClick={() => setShowFilters(v => !v)}
+          >
+            {t('filters.toggle')}
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-expanded={showChecks}
+            aria-controls={`${id}-checks`}
+            aria-label={t('checks.toggleAria')}
+            onClick={() => setShowChecks(v => !v)}
+          >
+            {t('checks.toggle')}
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            aria-expanded={showStyle}
+            aria-controls={`${id}-style`}
+            aria-label={t('style.toggleAria')}
+            onClick={() => setShowStyle(v => !v)}
+          >
+            {t('style.toggle')}
+          </Button>
+          <label
+            htmlFor={`${id}-auto`}
+            className='flex items-center gap-2 text-xs text-muted-foreground'
+          >
+            {t('autoReview')}
+            <Switch
+              id={`${id}-auto`}
+              aria-label={t('autoReviewAria')}
+              checked={setting.autoReview}
+              disabled={!canEdit || saving}
+              onCheckedChange={next =>
+                onChange({ repo: setting.repo, autoReview: next })
+              }
+            />
+          </label>
+          <label
+            htmlFor={`${id}-drafts`}
+            className='flex items-center gap-2 text-xs text-muted-foreground'
+          >
+            {t('drafts')}
+            <Switch
+              id={`${id}-drafts`}
+              aria-label={t('draftsAria')}
+              checked={setting.autoReview && setting.reviewDrafts}
+              disabled={!canEdit || saving || !setting.autoReview}
+              onCheckedChange={next =>
+                onChange({ repo: setting.repo, reviewDrafts: next })
+              }
+            />
+          </label>
+        </div>
       </div>
+      {showFilters && (
+        <div id={`${id}-filters`}>
+          <RepoReviewFiltersEditor
+            setting={setting}
+            canEdit={canEdit}
+            saving={saving}
+            onSave={onChange}
+          />
+        </div>
+      )}
+      {showChecks && (
+        <div id={`${id}-checks`}>
+          <RepoPreMergeChecksEditor
+            repo={setting.repo}
+            setting={setting.preMergeChecks}
+            canEdit={canEdit}
+            saving={saving}
+            onSave={onChange}
+          />
+        </div>
+      )}
+      {showStyle && (
+        <div id={`${id}-style`}>
+          <RepoReviewStyleEditor
+            setting={setting}
+            canEdit={canEdit}
+            saving={saving}
+            onSave={onChange}
+          />
+        </div>
+      )}
     </div>
   )
 }

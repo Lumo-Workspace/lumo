@@ -19,12 +19,21 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
+  // LUM-1152: the description, read for `@<app> ignore` (only with a slug).
+  fetchPrBody: jest.fn(),
   fetchReviewChangedPaths: jest.fn(),
   // LUM-785: stage A's graph rules read touched files; null = not found.
   readRepoFile: jest.fn().mockResolvedValue(null),
 }))
 jest.mock('@/ee/security/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
+}))
+// LUM-1151: an incremental review's whole-PR summary call (own suite:
+// lum1151-whole-pr-summary.test.ts).
+jest.mock('@/ee/security/llm/pr-summary-client', () => ({
+  summarizeWholePr: jest
+    .fn()
+    .mockResolvedValue({ intent: 'Whole PR.', changes: [] }),
 }))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
@@ -892,6 +901,37 @@ describe('LUM-735 SARIF push — stage A side', () => {
     )
   })
 
+  test('LUM-1150: the managed run landed (and synced) before stage A persisted → stage A posts the final summary itself', async () => {
+    // Production probe PR #59: the managed run synced at 15:45:03 while the
+    // AI review was still running ("still running" summary); stage A
+    // persisted at 15:45:12 and, having queued the run, never synced.
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: true })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).toHaveBeenCalled()
+    expect(syncReview).toHaveBeenCalledWith('s1')
+    expect(waitUntilMock).toHaveBeenCalledTimes(1)
+    expect(syncReview.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      repo.persistResult.mock.invocationCallOrder[0]!
+    )
+  })
+
+  test('LUM-1150: the managed run still pending when stage A persisted → its own sync is the one summary', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    repo.persistResult.mockResolvedValue({ managedLayerLanded: false })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).toHaveBeenCalled()
+    expect(waitUntilMock).not.toHaveBeenCalled()
+  })
+
   test('LUM-738 supplyChain surface — queuing the managed run stamps supplyChain PENDING beside external and requests the baseline lazily', async () => {
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     countExternal.mockResolvedValue(0)
@@ -1394,7 +1434,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     })
   })
 
-  // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top tier
+  // LUM-832 — like an industry-standard size cap, a diff over the AI review's top tier
   // is not reviewed at all (it used to be reviewed on a trimmed prefix): no
   // model call, and the scan records the cause the customer notice reads.
   test('a diff over the AI review cap is not reviewed at all and the scan says why', async () => {
@@ -1995,3 +2035,174 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     }),
   },
 }))
+
+describe('LUM-1152: `@<app> ignore` in the PR description', () => {
+  const fetchPrBody = gh.fetchPrBody as jest.Mock
+  const admit = autoReviewAdmissionService.admit as jest.Mock
+  const prevSlug = process.env.GITHUB_APP_SLUG
+  beforeEach(() => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+  })
+  afterAll(() => {
+    if (prevSlug === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = prevSlug
+  })
+
+  test('skips the automatic AI layers, keeps the deterministic ones and spends no budget', async () => {
+    fetchPrBody.mockResolvedValue('Refactor.\n\n@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(judgeSecurity).not.toHaveBeenCalled()
+    expect(admit).not.toHaveBeenCalled()
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.arrayContaining([
+        expect.objectContaining({
+          provenance: 'DETERMINISTIC',
+          kind: 'SECRET',
+        }),
+      ]),
+      expect.objectContaining({
+        stages: expect.objectContaining({ secrets: 'RAN', judge: 'PAUSED' }),
+        partialCauses: expect.arrayContaining(['AI_REVIEW_IGNORED']),
+      })
+    )
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.partialCauses).not.toContain('AI_REVIEW_PAUSED')
+    // The task-linked PR still gets its summary (and the DONE-gate scan row).
+    expect(syncReview).toHaveBeenCalledWith('s1')
+  })
+
+  test('removed from the description: the next push is reviewed', async () => {
+    fetchPrBody.mockResolvedValue('Refactor.')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(admit).toHaveBeenCalled()
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+  })
+
+  test('a manual review still runs, without reading the description', async () => {
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'incremental',
+    })
+    expect(fetchPrBody).not.toHaveBeenCalled()
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+  })
+})
+
+// LUM-1152 follow-up — production probe: a manual review asked for while
+// the ignored head's scan was still in flight (managed scanners PENDING) was
+// deduplicated and never ran.
+jest.mock('@/ee/security/services/security-deferred-review-start', () => ({
+  startDeferredManualReview: jest.fn().mockResolvedValue(true),
+}))
+import { startDeferredManualReview } from '@/ee/security/services/security-deferred-review-start'
+import { logger as lumoLogger } from '@/lib/logger'
+
+describe('LUM-1152 follow-up: manual review on an in-flight ignored head', () => {
+  const defer = startDeferredManualReview as jest.Mock
+  const fetchPrBody = gh.fetchPrBody as jest.Mock
+  const prevSlug = process.env.GITHUB_APP_SLUG
+  beforeEach(() => {
+    process.env.GITHUB_APP_SLUG = 'uselumo'
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    repo.findByPrAndSha.mockResolvedValueOnce({
+      id: 's1',
+      status: 'CLEAN',
+      startedAt: new Date(),
+    })
+  })
+  afterAll(() => {
+    if (prevSlug === undefined) delete process.env.GITHUB_APP_SLUG
+    else process.env.GITHUB_APP_SLUG = prevSlug
+  })
+
+  test('a full review refused because the scan is in flight is deferred, not dropped', async () => {
+    repo.restart.mockResolvedValueOnce(false as never)
+    const r = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+    })
+    expect(r).toEqual({ deduped: true, scanId: 's1' })
+    expect(defer).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      scanId: 's1',
+      reviewMode: 'full',
+    })
+    expect(judgeSecurity).not.toHaveBeenCalled()
+  })
+
+  test('a full review records its mode, so a deferred full request can tell', async () => {
+    repo.restart.mockResolvedValueOnce([] as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+    })
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.judgeReviewMode).toBe('full')
+  })
+
+  test('an automatic review records incremental; a held one records none', async () => {
+    repo.findByPrAndSha.mockReset().mockResolvedValue(null)
+    fetchPrBody.mockResolvedValue('no directive')
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBe(
+      'incremental'
+    )
+    repo.persistResult.mockClear()
+    fetchPrBody.mockResolvedValue('@uselumo ignore')
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult.mock.calls[0]![2].judgeReviewMode).toBeNull()
+  })
+
+  test('the deferred dispatch is never deferred again, and its dedupe is logged', async () => {
+    const info = jest.spyOn(lumoLogger, 'info').mockImplementation(() => {})
+    repo.restart.mockResolvedValueOnce(false as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'incremental',
+      deferred: true,
+    })
+    expect(defer).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'deferred manual incremental review deduplicated pr=pr1 scan=s1'
+      )
+    )
+  })
+
+  test('once settled, the manual full review runs the judge on the ignored head', async () => {
+    repo.restart.mockResolvedValueOnce([] as never)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+      reviewMode: 'full',
+      deferred: true,
+    })
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+    expect(fetchPrBody).not.toHaveBeenCalled()
+    const [, , result] = repo.persistResult.mock.calls[0]!
+    expect(result.partialCauses ?? []).not.toContain('AI_REVIEW_IGNORED')
+    expect(result.stages.judge).not.toBe('PAUSED')
+  })
+})

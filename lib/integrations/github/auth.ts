@@ -216,7 +216,7 @@ export async function getRepoToken(
 /**
  * LUM-852 — the token a sandbox clones with. Scoped to ONE repository with
  * `contents: read` and nothing else, so a token that leaks out of the VM (the
- * CodeRabbit 2025 class: a scanner reads repository config and prints its
+ * 2025 scanner-config leak class: a scanner reads repository config and prints its
  * environment) opens exactly the checkout the attacker already has. Callers
  * revoke it with `revokeInstallationToken` as soon as the clone is done.
  * LUM-883: only for a confirmed repository, like every other mint.

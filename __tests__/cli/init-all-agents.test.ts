@@ -17,7 +17,7 @@ import {
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { init, initAgentTokens, scopePrompt } from '@/cli/src/commands/init'
+import { init, initAgentTokens, resolveScope } from '@/cli/src/commands/init'
 import { collectDoctor } from '@/cli/src/commands/doctor'
 import { uninstall } from '@/cli/src/commands/uninstall'
 import { readRegistry } from '@/cli/src/lib/install-registry'
@@ -119,7 +119,7 @@ function expectBothAgents(root: string): void {
 describe('lumo init with no --agent installs Claude Code and Codex', () => {
   it('project scope: both skills and hook files, the Codex rule, and every install registered', async () => {
     const e = env()
-    expect(await init({ project: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project' }, e.deps)).toBe(0)
     expectBothAgents(e.project)
     expect(records()).toEqual([
       'claude-settings:project:claude-code',
@@ -136,7 +136,7 @@ describe('lumo init with no --agent installs Claude Code and Codex', () => {
 
   it('user scope: writes under the home dir and registers both agents (no git hook)', async () => {
     const e = env()
-    expect(await init({ user: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user' }, e.deps)).toBe(0)
     expectBothAgents(e.home)
     expect(existsSync(join(e.project, '.claude'))).toBe(false)
     expect(existsSync(join(e.project, '.codex'))).toBe(false)
@@ -151,13 +151,13 @@ describe('lumo init with no --agent installs Claude Code and Codex', () => {
 
   it('re-running leaves the Codex hooks.json and rules byte-identical (no re-trust)', async () => {
     const e = env()
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     const hooks = join(e.project, '.codex', 'hooks.json')
     const custom = JSON.stringify(JSON.parse(readFileSync(hooks, 'utf8')))
     writeFileSync(hooks, custom)
     const rules = codexRulesPath(e.project)
     stdout = ''
-    expect(await init({ project: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project' }, e.deps)).toBe(0)
     expect(readFileSync(hooks, 'utf8')).toBe(custom)
     expect(readFileSync(rules, 'utf8')).toBe(LUMO_CODEX_RULES)
     expect(stdout).toContain(`Codex rule already in place: ${rules}`)
@@ -168,13 +168,13 @@ describe('lumo init with no --agent installs Claude Code and Codex', () => {
     const rules = codexRulesPath(e.project)
     mkdirSync(join(rules, '..'), { recursive: true })
     writeFileSync(rules, 'prefix_rule(pattern = ["mine"])\n')
-    expect(await init({ project: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project' }, e.deps)).toBe(0)
     expect(readFileSync(rules, 'utf8')).toBe(
       'prefix_rule(pattern = ["mine"])\n'
     )
     expect(stdout).toContain('not written by Lumo')
     expect(records()).not.toContain('codex-rules:project:codex')
-    expect(await init({ project: true, force: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', force: true }, e.deps)).toBe(0)
     expect(readFileSync(rules, 'utf8')).toBe(LUMO_CODEX_RULES)
   })
 })
@@ -188,20 +188,33 @@ describe('agent selection and the scope prompt', () => {
     expect(initAgentTokens('nope')).toHaveProperty('error')
   })
 
-  it('the interactive prompt names both targets', () => {
-    expect(scopePrompt(['claude-code', 'codex'])).toBe(
-      'Install Lumo for [u]ser (~/.claude, ~/.agents + ~/.codex) or [p]roject (./.claude, ./.agents + ./.codex)? [u/P]: '
+  it('no --scope means project, with one line and no question — on a TTY too (LUM-1233 follow-up)', () => {
+    const write = jest.spyOn(process.stdout, 'write').mockReturnValue(true)
+    const desc = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+    Object.defineProperty(process.stdin, 'isTTY', {
+      value: true,
+      configurable: true,
+    })
+    try {
+      expect(resolveScope({})).toBe('project')
+      expect(resolveScope({ scope: 'user' })).toBe('user')
+    } finally {
+      if (desc) Object.defineProperty(process.stdin, 'isTTY', desc)
+      else delete (process.stdin as { isTTY?: boolean }).isTTY
+    }
+    const out = write.mock.calls.map(c => String(c[0])).join('')
+    write.mockRestore()
+    expect(out).toContain(
+      'No --scope given: installing for this repo (--scope project)'
     )
-    expect(scopePrompt(['codex'])).toBe(
-      'Install Lumo for [u]ser (~/.agents + ~/.codex) or [p]roject (./.agents + ./.codex)? [u/P]: '
-    )
+    expect(out).not.toMatch(/\[u\/P\]/)
   })
 })
 
 describe('--agent still installs a single agent', () => {
   it('--agent codex: only .agents + .codex', async () => {
     const e = env()
-    expect(await init({ project: true, agent: 'codex' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', agent: 'codex' }, e.deps)).toBe(0)
     expect(existsSync(join(e.project, '.claude'))).toBe(false)
     expect(existsSync(join(e.project, '.agents', 'skills', 'lumo'))).toBe(true)
     expect(existsSync(codexRulesPath(e.project))).toBe(true)
@@ -215,7 +228,9 @@ describe('--agent still installs a single agent', () => {
 
   it('--agent claude-code: only .claude', async () => {
     const e = env()
-    expect(await init({ project: true, agent: 'claude-code' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', agent: 'claude-code' }, e.deps)).toBe(
+      0
+    )
     expect(existsSync(join(e.project, '.agents'))).toBe(false)
     expect(existsSync(join(e.project, '.codex'))).toBe(false)
     expect(records()).toEqual([
@@ -228,7 +243,7 @@ describe('--agent still installs a single agent', () => {
 
   it('--agent cursor keeps the Claude layout with the cursor hook label', async () => {
     const e = env()
-    expect(await init({ user: true, agent: 'cursor' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user', agent: 'cursor' }, e.deps)).toBe(0)
     expect(existsSync(join(e.home, '.codex'))).toBe(false)
     expect(
       readFileSync(join(e.home, '.claude', 'settings.json'), 'utf8')
@@ -239,15 +254,15 @@ describe('--agent still installs a single agent', () => {
 describe('re-running init and the Codex rule', () => {
   it('refreshes an outdated Lumo rules file and leaves a current one alone', async () => {
     const e = env()
-    await init({ user: true }, e.deps)
+    await init({ scope: 'user' }, e.deps)
     const rules = codexRulesPath(e.home)
     writeFileSync(rules, `${CODEX_RULES_MARKER}\nold\n`)
     stdout = ''
-    expect(await init({ user: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user' }, e.deps)).toBe(0)
     expect(readFileSync(rules, 'utf8')).toBe(LUMO_CODEX_RULES)
     expect(stdout).toContain(`wrote Codex rule: ${rules}`)
     stdout = ''
-    expect(await init({ user: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user' }, e.deps)).toBe(0)
     expect(stdout).toContain(`Codex rule already in place: ${rules}`)
   })
 })
@@ -255,7 +270,7 @@ describe('re-running init and the Codex rule', () => {
 describe('doctor reports the Codex network state', () => {
   it('after init: a codex-rules row and no network warning', async () => {
     const e = env()
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     const r = collectDoctor({
       homeDir: e.home,
       cwd: e.project,
@@ -276,7 +291,7 @@ describe('doctor reports the Codex network state', () => {
 
   it('Codex hooks without the rule (an older init) warn that lumo has no network in the sandbox', async () => {
     const e = env()
-    await init({ project: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'project', agent: 'codex' }, e.deps)
     rmSync(codexRulesPath(e.project))
     const r = collectDoctor({
       homeDir: e.home,
@@ -292,7 +307,7 @@ describe('doctor reports the Codex network state', () => {
 
   it('network_access = true in config.toml counts as network on', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     rmSync(codexRulesPath(e.home))
     writeFileSync(
       join(e.home, '.codex', 'config.toml'),
@@ -312,7 +327,7 @@ describe('doctor reports the Codex network state', () => {
 
   it('an outdated Lumo rules file suggests re-running init for its scope and agent', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     writeFileSync(codexRulesPath(e.home), `${CODEX_RULES_MARKER}\nold\n`)
     const r = collectDoctor({
       homeDir: e.home,
@@ -322,7 +337,7 @@ describe('doctor reports the Codex network state', () => {
     })
     expect(r.rows.find(x => x.kind === 'codex-rules')).toMatchObject({
       state: 'outdated',
-      suggestion: 'lumo init --user --agent codex',
+      suggestion: 'lumo init --scope user --agent codex',
     })
   })
 })
@@ -330,7 +345,7 @@ describe('doctor reports the Codex network state', () => {
 describe('uninstall removes only the rule Lumo wrote', () => {
   it('deletes the Lumo rules file and drops its record', async () => {
     const e = env()
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     const rules = codexRulesPath(e.project)
     stdout = ''
     expect(

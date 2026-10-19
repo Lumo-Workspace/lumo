@@ -16,6 +16,25 @@ export const actorRepository = {
     })
   },
 
+  /**
+   * LUM-1232 G2: what a display label is built from, for the given actor ids
+   * in one workspace — the member's Clerk id, the agent's name or the GitHub
+   * handle. Ids from another workspace are not returned.
+   */
+  async findLabelFieldsByIds(workspaceId: string, actorIds: string[]) {
+    if (actorIds.length === 0) return []
+    return prisma.actor.findMany({
+      where: { id: { in: actorIds }, workspaceId },
+      select: {
+        id: true,
+        type: true,
+        externalIdentity: true,
+        member: { select: { clerkId: true } },
+        agent: { select: { name: true } },
+      },
+    })
+  },
+
   /** Look up an actor by the `(workspaceId, externalIdentity)` composite key. */
   async findByExternalIdentity(workspaceId: string, externalIdentity: string) {
     return prisma.actor.findUnique({

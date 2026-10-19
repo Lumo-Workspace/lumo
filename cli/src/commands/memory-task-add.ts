@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -6,6 +7,7 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
+import { shortRef } from '../../../shared/src/short-ref'
 
 interface AddOptions extends MemoryFlags {
   category?: string
@@ -20,7 +22,7 @@ export async function memoryTaskAdd(
     console.error(
       'Error: --category <trap|decision|convention|procedural> is required.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const built = buildMemoryContent(options.category, options)
   if (!built.ok) {
@@ -36,7 +38,7 @@ export async function memoryTaskAdd(
       console.error(
         `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
       )
-      return 1
+      return EXIT_USAGE
     }
     agent = normalized
   }
@@ -57,7 +59,7 @@ export async function memoryTaskAdd(
       'Error: no <LUM-N> given and no task bound to this session.\n' +
         'Pass it explicitly or run `lumo session attach <LUM-N>`.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-N → task id.
@@ -139,7 +141,9 @@ export async function memoryTaskAdd(
       memory?: { id?: string }
     }
     if (typeof b.outcome === 'string') outcome = b.outcome
-    if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
+    // LUM-1230: print the 8-char short ref, never the bare cuid.
+    if (b.memory && typeof b.memory.id === 'string')
+      memId = shortRef(b.memory.id)
   } catch {
     /* keep defaults */
   }
@@ -164,7 +168,7 @@ export async function memoryTaskAdd(
       process.stdout.write(
         `Added ${built.category} memory to ${identifier}${boundSuffix}\n` +
           hint(
-            `only useful for this task? If it generalizes, use ${cmd('lumo project memory add')} or ${cmd('lumo memory promote')} later.`
+            `only useful for this task? If it generalizes, use ${cmd('lumo memory add --scope project')} or ${cmd('lumo memory update <ref> --scope project')} later.`
           ) +
           '\n'
       )

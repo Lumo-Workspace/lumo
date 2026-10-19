@@ -24,7 +24,7 @@ export default async function InvitePage({ params }: PageProps) {
   if (!invite) notFound()
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted py-12 px-4'>
+    <div className='min-h-screen flex items-center justify-center bg-background py-12 px-4'>
       <div className='w-full max-w-md bg-card rounded-xl shadow-elevation-3 p-8 text-center space-y-6'>
         <Image
           src='/logo-dark.svg'

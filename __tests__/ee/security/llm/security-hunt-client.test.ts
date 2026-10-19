@@ -8,6 +8,7 @@ jest.mock('ai', () => ({
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateText } from 'ai'
+import { z } from 'zod'
 import { HUNT_MODEL } from '@/lib/ai/models'
 import { HUNT_CLIENT_MAX_RETRIES } from '@/ee/security/services/security-hunt.config'
 import {
@@ -18,6 +19,8 @@ import {
   renderStartingPointsForPrompt,
   renderTaskForPrompt,
   renderToolAvailability,
+  repairCandidatesToolCall,
+  SubmitCandidatesInputSchema,
   traceOfStep,
   HUNT_SYSTEM_PROMPT,
   wrapUpWindowMs,
@@ -1017,6 +1020,22 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
       reasoningTokens: 40,
       finishReason: 'tool-calls',
     })
+    // LUM-1224 — the cache share of the step's input, when reported.
+    expect(
+      traceOfStep(2, {
+        usage: {
+          inputTokens: 5000,
+          outputTokens: 10,
+          inputTokenDetails: { cacheReadTokens: 4200, cacheWriteTokens: 300 },
+        },
+      })
+    ).toEqual({
+      i: 2,
+      inputTokens: 5000,
+      outputTokens: 10,
+      cacheReadTokens: 4200,
+      cacheWriteTokens: 300,
+    })
     // No text, no tool, no usage: the step is its index and nothing else —
     // a `?` in the read-out, not a 0 that looks like a measurement.
     expect(traceOfStep(1, { text: '   ', toolCalls: [] })).toEqual({ i: 1 })
@@ -1449,8 +1468,35 @@ describe('LUM-787 transcript elision', () => {
     const out = await huntTask({ ...base, onStep: s => seen.push(s) })
 
     // Step 1: nothing to elide, nothing spent — the opening call is what
-    // every scan before this sent, byte for byte.
-    expect(prepared[0]).toBeUndefined()
+    // every scan before this sent, byte for byte, plus (LUM-1224) a cache
+    // breakpoint on the opening prompt.
+    const cc = { anthropic: { cacheControl: { type: 'ephemeral' } } }
+    const opts = (m: unknown) =>
+      (m as { providerOptions?: unknown }).providerOptions
+    expect(prepared[0]!.messages).toHaveLength(1)
+    expect(prepared[0]!.messages![0]).toMatchObject({
+      role: 'user',
+      content: gen.mock.calls[0]![0].prompt,
+      providerOptions: cc,
+    })
+    expect(prepared[0]!.system).toBeUndefined()
+    // LUM-1224 — from step 2 on the breakpoint is the latest assistant
+    // message: the next step re-sends everything up to it unchanged, and
+    // elides the result after it. Exactly one breakpoint per step.
+    expect(prepared[1]!.messages!.map(opts)).toEqual([
+      undefined,
+      cc,
+      undefined,
+      undefined,
+    ])
+    expect(prepared[2]!.messages!.map(opts)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      cc,
+      undefined,
+      undefined,
+    ])
     // Step 2: one completed step, and it is the latest — its result stays
     // whole; the only change is the gauge appended as the last message.
     // steps left = (20 000 − 1 000 spent − 4 000 reserve) / 1 000 dearest = 15.
@@ -1484,6 +1530,9 @@ describe('LUM-787 transcript elision', () => {
     // latest (a short hit) whole, and the instruction last.
     const wrap = gen.mock.calls[1]![0] as { messages: unknown[] }
     expect(wrap.messages).toHaveLength(8)
+    // LUM-1224 — the forced tool choice invalidates the cached messages, so
+    // the replay carries no breakpoint (a marker would only pay to write).
+    expect(wrap.messages.map(opts).every(o => o === undefined)).toBe(true)
     expect(resultOf(wrap.messages[2])).toEqual({ output: elisionStub(2_000) })
     expect(resultOf(wrap.messages[4])).toEqual({ output: elisionStub(2_000) })
     expect(resultOf(wrap.messages[6])).toEqual({ output: 'lib/c.ts:3: hit' })
@@ -1716,5 +1765,215 @@ describe('LUM-799 no-progress stop', () => {
     // The streak is recorded anyway — how close a search came is the number
     // that says whether the threshold is set anywhere near right.
     expect(out.stop.repeatSteps).toBe(2)
+  })
+})
+
+// LUM-1226 — the SDK validates a tool call's input against `inputSchema`
+// BEFORE `execute`, and rejects the call as a whole: one invalid field used
+// to void every candidate the task submitted. These drive the tool the way
+// the SDK does — repair on failure, validate, execute only when valid — so
+// they read the schema and the repair the client actually hands over.
+describe('LUM-1226 submit_candidates survives one invalid field', () => {
+  type SdkTool = {
+    inputSchema: {
+      safeParse: (v: unknown) => { success: boolean; data?: unknown }
+    }
+    execute: (input: unknown) => Promise<unknown>
+  }
+  type Opts = {
+    tools: Record<string, SdkTool>
+    experimental_repairToolCall?: (o: {
+      toolCall: { toolName: string; input: string }
+    }) => Promise<{ input: string } | null>
+  }
+
+  async function submitLikeTheSdk(opts: Opts, input: unknown) {
+    const t = opts.tools.submit_candidates!
+    let parsed = t.inputSchema.safeParse(input)
+    if (!parsed.success && opts.experimental_repairToolCall) {
+      const fixed = await opts.experimental_repairToolCall({
+        toolCall: {
+          toolName: 'submit_candidates',
+          input: JSON.stringify(input),
+        },
+      })
+      if (fixed) parsed = t.inputSchema.safeParse(JSON.parse(fixed.input))
+    }
+    return parsed.success ? t.execute(parsed.data) : undefined
+  }
+
+  function huntSubmitting(input: unknown) {
+    gen.mockImplementationOnce(async (opts: Opts) => {
+      await submitLikeTheSdk(opts, input)
+      return {
+        steps: [
+          {
+            toolCalls: [{ toolName: 'submit_candidates' }],
+            usage: { totalTokens: 300 },
+          },
+        ],
+        totalUsage: { totalTokens: 300 },
+      }
+    })
+    return huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 1000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+  }
+
+  const other = {
+    ...candidate,
+    sink: { symbol: 'b.ts#fetch@9', file: 'b.ts', line: 9 },
+  }
+
+  it('a 450-character claim is cut to 400 and no candidate is lost', async () => {
+    const long = { ...candidate, claim: 'c'.repeat(450) }
+    const out = await huntSubmitting({ candidates: [long, other] })
+    expect(out.candidates).toHaveLength(2)
+    expect(out.candidates[0]).toEqual({ ...candidate, claim: 'c'.repeat(400) })
+    expect(out.candidates[1]).toEqual(other)
+    expect(out.stopped).toBe('done')
+    expect(out.submission).toEqual({
+      calls: 1,
+      submitted: 2,
+      kept: 2,
+      dropped: 0,
+    })
+  })
+
+  it('candidates sent as a JSON string are repaired and kept', async () => {
+    const out = await huntSubmitting({
+      candidates: JSON.stringify([candidate, other]),
+    })
+    expect(out.candidates).toEqual([candidate, other])
+    expect(out.submission).toMatchObject({ submitted: 2, kept: 2, dropped: 0 })
+  })
+
+  it('a bad cwe or a missing sink drops only that candidate, and says why', async () => {
+    const noSink: Record<string, unknown> = { ...other }
+    delete noSink.sink
+    const out = await huntSubmitting({
+      candidates: [{ ...candidate, cwe: 'CWE918' }, noSink, candidate],
+    })
+    expect(out.candidates).toEqual([candidate])
+    expect(out.submission).toEqual({
+      calls: 1,
+      submitted: 3,
+      kept: 1,
+      dropped: 2,
+      reasons: ['cwe', 'sink'],
+    })
+  })
+
+  it('more than 10 candidates keeps the first 10; a 25-link call chain keeps 20', async () => {
+    const chain = Array.from({ length: 25 }, (_, i) => ({
+      from: `a.ts#f${i}`,
+      to: `a.ts#f${i + 1}`,
+    }))
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...candidate,
+      sink: { ...candidate.sink, line: i + 1 },
+      call_chain: chain,
+    }))
+    const out = await huntSubmitting({ candidates: many })
+    expect(out.candidates).toHaveLength(10)
+    expect((out.candidates[0] as { call_chain: unknown[] }).call_chain).toEqual(
+      chain.slice(0, 20)
+    )
+    expect(out.submission).toEqual({
+      calls: 1,
+      submitted: 12,
+      kept: 10,
+      dropped: 2,
+      reasons: ['limit'],
+    })
+  })
+
+  it('the forced tool choice stays, and the search and the wrap-up both carry the repair', async () => {
+    gen.mockResolvedValueOnce({
+      steps: [
+        { toolCalls: [{ toolName: 'run_shell' }], usage: { totalTokens: 100 } },
+      ],
+      totalUsage: { totalTokens: 100 },
+      response: { messages: [] },
+    })
+    gen.mockResolvedValueOnce({
+      steps: [{ toolCalls: [], usage: { totalTokens: 100 } }],
+      totalUsage: { totalTokens: 100 },
+    })
+    await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+      timeoutMs: 5000,
+      maxSteps: 1,
+    })
+    expect(gen).toHaveBeenCalledTimes(2)
+    expect(repairCandidatesToolCall).toEqual(expect.any(Function))
+    for (const [opts] of gen.mock.calls) {
+      expect(opts.experimental_repairToolCall).toBe(repairCandidatesToolCall)
+    }
+    expect(gen.mock.calls[1]![0].toolChoice).toEqual({
+      type: 'tool',
+      toolName: 'submit_candidates',
+    })
+  })
+
+  it('repair touches only a JSON-string list on submit_candidates', async () => {
+    const call = (toolName: string, input: unknown) =>
+      ({
+        type: 'tool-call',
+        toolCallId: 't1',
+        toolName,
+        input: JSON.stringify(input),
+      }) as never
+    const repair = (toolCall: never) =>
+      repairCandidatesToolCall({ toolCall } as never)
+    const fixed = (await repair(
+      call('submit_candidates', { candidates: JSON.stringify([candidate]) })
+    )) as { toolCallId: string; input: string } | null
+    expect(fixed!.toolCallId).toBe('t1')
+    expect(JSON.parse(fixed!.input)).toEqual({ candidates: [candidate] })
+    expect(
+      await repair(call('submit_candidates', { candidates: 'oops' }))
+    ).toBe(null)
+    expect(
+      await repair(call('submit_candidates', { candidates: '{"a":1}' }))
+    ).toBe(null)
+    expect(
+      await repair(call('submit_candidates', { candidates: [candidate] }))
+    ).toBe(null)
+    expect(
+      await repair(call('run_shell', { candidates: JSON.stringify([]) }))
+    ).toBe(null)
+  })
+
+  it('the model is still shown the full candidate contract', () => {
+    const shown = z.toJSONSchema(SubmitCandidatesInputSchema, {
+      target: 'draft-7',
+      io: 'input',
+    }) as unknown as {
+      properties: {
+        candidates: {
+          maxItems: number
+          items: { required: string[]; properties: Record<string, unknown> }
+        }
+      }
+    }
+    expect(shown.properties.candidates.maxItems).toBe(10)
+    expect(shown.properties.candidates.items.required).toEqual(
+      expect.arrayContaining(['category', 'cwe', 'sink', 'entry', 'claim'])
+    )
+    expect(shown.properties.candidates.items.properties.claim).toMatchObject({
+      type: 'string',
+      maxLength: 400,
+    })
   })
 })

@@ -1,3 +1,4 @@
+import { shortRef } from '@/shared/src/short-ref'
 /**
  * Strip Slack mrkdwn tokens that would confuse the agent. Local to the slack
  * renderer — the only consumer of Slack message text.
@@ -60,7 +61,9 @@ export function slackCard(c: SlackContextCard, identifier: string): string {
       lines.push(`- ${author}: ${plainText(m.text)}`)
     }
   }
-  lines.push(`  ↳ full text: lumo task slack show ${identifier} ${c.id}`)
+  lines.push(
+    `  ↳ full text: lumo task slack show ${identifier} ${shortRef(c.id)}`
+  )
   return lines.join('\n')
 }
 
@@ -89,7 +92,7 @@ export function slackManifest(c: SlackContextCard, identifier: string): string {
     : '#channel'
   const snippet = truncateDescriptor(c.summary ?? '')
   const descriptor = snippet ? `${channelLabel} — ${snippet}` : channelLabel
-  return `- [external:slack] ${descriptor} → lumo task slack show ${identifier} ${c.id}`
+  return `- [external:slack] ${descriptor} → lumo task slack show ${identifier} ${shortRef(c.id)}`
 }
 
 /**

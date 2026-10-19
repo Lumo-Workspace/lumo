@@ -191,6 +191,7 @@ describe('lumo task template show', () => {
     serve()
     await taskTemplateShow('bug-report', { json: true })
     expect(JSON.parse(out)).toEqual({
+      version: 1,
       key: 'bug-report',
       name: 'Bug report',
       description: null,
@@ -255,7 +256,7 @@ describe('lumo task template create', () => {
 
   it('--name and --file are required', async () => {
     serve()
-    expect(await taskTemplateCreate('triage', { file: 'b.md' }, files)).toBe(1)
+    expect(await taskTemplateCreate('triage', { file: 'b.md' }, files)).toBe(2)
     expect(err).toContain('--name and --file are required')
     expect(calls).toHaveLength(0)
   })
@@ -284,7 +285,7 @@ describe('lumo task template create', () => {
       await taskTemplateCreate('bug-report', { name: 'X', file: 'b.md' }, files)
     ).toBe(1)
     expect(err).toContain('already exists')
-    expect(err).toContain('lumo task template edit bug-report')
+    expect(err).toContain('lumo task template update bug-report')
     expect(calls.some(c => c.method === 'POST')).toBe(false)
   })
 
@@ -333,7 +334,7 @@ describe('lumo task template edit', () => {
 
   it('needs at least one change', async () => {
     serve()
-    expect(await taskTemplateEdit('bug-report', {}, files)).toBe(1)
+    expect(await taskTemplateEdit('bug-report', {}, files)).toBe(2)
     expect(err).toContain('nothing to change')
     expect(calls).toHaveLength(0)
   })
@@ -370,7 +371,7 @@ describe('lumo task template rm', () => {
     expect(await taskTemplateRm('bug-report')).toBe(EXIT_CONFIRMATION_REQUIRED)
     const env = JSON.parse(out)
     expect(env.status).toBe('confirmation_required')
-    expect(env.command).toBe('task template rm')
+    expect(env.command).toBe('task template delete')
     expect(env.changes[0]).toBe(
       'Will delete workspace task template bug-report "Bug report"'
     )

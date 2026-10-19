@@ -7,6 +7,7 @@ import {
   Circle,
   CircleDashed,
   Minus,
+  SkipForward,
   X,
 } from 'lucide-react'
 import type { TestCaseRunView } from '@/lib/api-client/test-cases'
@@ -24,7 +25,6 @@ import {
   DispositionBadge,
   EnvironmentBadge,
   ExecutorLabel,
-  ReviewBadge,
   VerdictBadge,
 } from './RunHistoryList'
 import { runAnchorId } from './taskTabs'
@@ -49,6 +49,13 @@ function StepIcon({ state }: { state: StepState }) {
       return (
         <Circle
           className={`${common} fill-muted-foreground/40 text-muted-foreground/40`}
+          aria-label={label}
+        />
+      )
+    case 'skipped':
+      return (
+        <SkipForward
+          className={`${common} text-muted-foreground`}
           aria-label={label}
         />
       )
@@ -108,6 +115,9 @@ function StepRow({
                 id: `testCases.report.state.${row.state}`,
               })}
             </span>
+          ) : null}
+          {row.state === 'skipped' && row.reason ? (
+            <span className='text-muted-foreground'> — {row.reason}</span>
           ) : null}
         </span>
         {row.durationMs !== null ? (
@@ -304,15 +314,12 @@ export function TestCaseRunReport({
             </p>
           ) : null}
 
-          {run.note ||
-          stepEvidence.length < countRaw(run.evidence) ||
-          run.review ? (
+          {run.note || stepEvidence.length < countRaw(run.evidence) ? (
             <div className='flex flex-col gap-2 border-t border-border px-3 py-2.5 text-caption'>
               {run.note ? (
                 <p className='text-muted-foreground'>{run.note}</p>
               ) : null}
               <EvidenceStrip evidence={run.evidence} exclude={stepEvidence} />
-              <ReviewBadge run={run} />
             </div>
           ) : null}
         </>

@@ -31,15 +31,15 @@ const task: TaskRow = {
 describe('formatSprintShow', () => {
   it('renders sprint header, progress, and task table', () => {
     const out = formatSprintShow(sprint, progress, [task])
-    expect(out).toContain('Sprint:    #3 Sprint 3')
+    expect(out).toContain('#3  Sprint 3\nStatus:    ACTIVE')
     expect(out).toContain('Status:    ACTIVE')
     expect(out).toContain('Team:      Engineering')
     expect(out).toContain('Start:     2026-06-01')
     expect(out).toContain('End:       2026-06-14')
     expect(out).toContain('Started:   2026-06-01')
     expect(out).toContain('Closed:    -')
-    expect(out).toContain('Progress:  4 / 10')
-    expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
+    expect(out).toContain('Progress:  4/10')
+    expect(out).toContain('\nTasks (1)\n  LUM-42\tIN_PROGRESS')
   })
 
   it('renders "-" for null dates and omits task table when no tasks', () => {
@@ -54,7 +54,7 @@ describe('formatSprintShow', () => {
     )
     expect(out).toContain('Started:   -')
     expect(out).toContain('Closed:    -')
-    expect(out).toContain('Progress:  0 / 0')
+    expect(out).toContain('Progress:  0/0')
     expect(out).toContain('\nTasks (0)\n  None — no task is in this sprint.')
     expect(out).not.toContain('LUM-')
   })

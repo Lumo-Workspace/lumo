@@ -12,7 +12,7 @@ jest.mock('../../cli/src/lib/session-id', () => ({
 }))
 
 import { memoryPromote } from '@/cli/src/commands/memory-promote'
-import { memoryRm } from '@/cli/src/commands/memory-rm'
+import { memoryDelete } from '@/cli/src/commands/memory-delete'
 
 afterEach(() => jest.restoreAllMocks())
 
@@ -60,9 +60,9 @@ it('surfaces 404 not found on promote', async () => {
 it('promote errors on missing id (no network)', async () => {
   const fetchSpy = jest.spyOn(global, 'fetch')
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
-  expect(await memoryPromote(undefined)).toBe(1)
+  expect(await memoryPromote(undefined)).toBe(2)
   expect(fetchSpy).not.toHaveBeenCalled()
-  expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memoryId>/))
+  expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memory>/))
 })
 
 it('rm without --confirm: fetches the card, exits 4 with the envelope, sends no DELETE (LUM-755)', async () => {
@@ -79,7 +79,7 @@ it('rm without --confirm: fetches the card, exits 4 with the envelope, sends no 
       }),
     } as Response)
   }) as any)
-  expect(await memoryRm('m1', {})).toBe(4)
+  expect(await memoryDelete('m1', {})).toBe(4)
   expect(calls).toEqual([{ url: 'https://x/api/memories/m1', method: 'GET' }])
   expect(err).not.toHaveBeenCalled()
   const printed = out.mock.calls.map(c => String(c[0])).join('')
@@ -94,7 +94,7 @@ it('rm DELETEs with --yes (204)', async () => {
     captured = { url: String(url), init }
     return Promise.resolve({ ok: true, status: 204 } as Response)
   }) as any)
-  const code = await memoryRm('m1', { yes: true })
+  const code = await memoryDelete('m1', { confirm: true })
   expect(code).toBeUndefined()
   expect(captured.url).toContain('/api/memories/m1')
   expect(captured.init.method).toBe('DELETE')
@@ -106,6 +106,6 @@ it('rm surfaces 404', async () => {
   jest
     .spyOn(global, 'fetch')
     .mockResolvedValue({ ok: false, status: 404 } as Response)
-  expect(await memoryRm('mX', { yes: true })).toBe(1)
+  expect(await memoryDelete('mX', { confirm: true })).toBe(1)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/not found/))
 })

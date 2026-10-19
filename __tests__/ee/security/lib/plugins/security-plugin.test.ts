@@ -43,14 +43,24 @@ jest.mock('@/ee/security/services/pr-thread-reply.service', () => ({
 jest.mock('@/ee/security/services/pr-command.service', () => ({
   applyPrCommentCommand: jest.fn().mockResolvedValue('done'),
 }))
+jest.mock('@/ee/security/services/pr-chat.service', () => ({
+  applyLineMention: jest.fn().mockResolvedValue('answered'),
+  applyConversationQuestion: jest.fn().mockResolvedValue('answered'),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: { scrubCodeForWorkspace: jest.fn() },
+  prSecurityScanRepository: {
+    scrubCodeForWorkspace: jest.fn(),
+    anyScanForTask: jest.fn(),
+  },
 }))
 
 import { getPluginRegistry } from '@/lib/plugins/registry'
 import { INSTALLED_SERVER_PLUGINS } from '@/lib/plugins/installed'
 import { securityPlugin } from '@/ee/security/server'
-import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
+import {
+  collectDoneGateBlockers,
+  readDoneGatePluginRow,
+} from '@/lib/plugins/done-gate'
 import {
   collectPreToolUseReminders,
   collectSessionStartSections,
@@ -69,6 +79,10 @@ import { applyReviewThreadEvent } from '@/ee/security/services/pr-finding-thread
 import { applyThreadReply } from '@/ee/security/services/pr-thread-reply.service'
 import { promoteLearningsOnMerge } from '@/ee/security/services/review-learnings.service'
 import { applyPrCommentCommand } from '@/ee/security/services/pr-command.service'
+import {
+  applyConversationQuestion,
+  applyLineMention,
+} from '@/ee/security/services/pr-chat.service'
 
 const reminder = prSecurityReminderService as unknown as Record<
   string,
@@ -112,6 +126,22 @@ describe('DONE gate', () => {
       { ruleId: 'secret:aws', filePath: 'a.ts' },
     ])
     expect(listOpenBlockingFindings).toHaveBeenCalledWith('t-1')
+  })
+
+  it('LUM-1186: reports whether the task has a scan (not scanned vs clear)', async () => {
+    ;(listOpenBlockingFindings as jest.Mock).mockResolvedValue([])
+    const anyScan = prSecurityScanRepository.anyScanForTask as jest.Mock
+    anyScan.mockResolvedValue(true)
+    await expect(readDoneGatePluginRow('t-1')).resolves.toEqual({
+      present: true,
+      blocking: 0,
+      checked: true,
+    })
+    expect(anyScan).toHaveBeenCalledWith('t-1')
+    anyScan.mockResolvedValue(false)
+    await expect(readDoneGatePluginRow('t-1')).resolves.toMatchObject({
+      checked: false,
+    })
   })
 
   it('stays fail-closed: a read failure refuses to answer', async () => {
@@ -296,6 +326,90 @@ describe('events', () => {
       comment: { ...event.comment, inReplyToId: null },
     })
     expect(mockWaitUntil).not.toHaveBeenCalled()
+  })
+
+  describe('LUM-1154: questions to Lumo', () => {
+    const OLD_SLUG = process.env.GITHUB_APP_SLUG
+    beforeEach(() => {
+      process.env.GITHUB_APP_SLUG = 'uselumo'
+    })
+    afterEach(() => {
+      if (OLD_SLUG === undefined) delete process.env.GITHUB_APP_SLUG
+      else process.env.GITHUB_APP_SLUG = OLD_SLUG
+    })
+    const review = (body: string, inReplyToId: number | null) => ({
+      workspaceId: 'w-1',
+      pullRequestId: 'pr-1',
+      taskId: null,
+      repo: 'o/r',
+      prNumber: 3,
+      action: 'created',
+      comment: {
+        id: 8,
+        body,
+        inReplyToId,
+        user: { login: 'alice', type: 'User' },
+        authorAssociation: 'COLLABORATOR',
+        path: 'src/a.ts',
+        line: 4,
+        diffHunk: null,
+      },
+    })
+    const settle = () =>
+      Promise.all(mockWaitUntil.mock.results.map(r => r.value))
+
+    it('a new line comment mentioning the App goes to the chat', async () => {
+      const event = review('@uselumo why is this unsafe?', null)
+      emitCoreEvent('github.reviewComment', event)
+      await settle()
+      expect(applyThreadReply).not.toHaveBeenCalled()
+      expect(applyLineMention).toHaveBeenCalledWith(event)
+    })
+
+    it('a reply goes to the thread-reply service first; only outside a Lumo thread to the chat', async () => {
+      ;(applyThreadReply as jest.Mock).mockResolvedValueOnce('answered')
+      emitCoreEvent('github.reviewComment', review('@uselumo why?', 5))
+      await settle()
+      expect(applyThreadReply).toHaveBeenCalledTimes(1)
+      expect(applyLineMention).not.toHaveBeenCalled()
+
+      mockWaitUntil.mockClear()
+      ;(applyThreadReply as jest.Mock).mockResolvedValueOnce('not_lumo_thread')
+      emitCoreEvent('github.reviewComment', review('@uselumo why?', 5))
+      await settle()
+      expect(applyLineMention).toHaveBeenCalledTimes(1)
+
+      mockWaitUntil.mockClear()
+      ;(applyThreadReply as jest.Mock).mockResolvedValueOnce('not_lumo_thread')
+      emitCoreEvent('github.reviewComment', review('no mention here', 5))
+      await settle()
+      expect(applyLineMention).toHaveBeenCalledTimes(1)
+    })
+
+    it('a conversation question goes to the chat; a command still to the command service', async () => {
+      const ask = (body: string) => ({
+        workspaceId: 'w-1',
+        pullRequestId: 'pr-1',
+        repo: 'o/r',
+        prNumber: 7,
+        action: 'created',
+        comment: {
+          id: 1,
+          body,
+          createdAt: null,
+          user: { login: 'alice', type: 'User' },
+        },
+        prAuthorLogin: 'bob',
+      })
+      emitCoreEvent('github.issueComment', ask('@uselumo why is db.ts unsafe?'))
+      emitCoreEvent('github.issueComment', ask('@uselumo review'))
+      await settle()
+      expect(applyConversationQuestion).toHaveBeenCalledTimes(1)
+      expect(applyPrCommentCommand).toHaveBeenCalledTimes(1)
+      expect(
+        (applyPrCommentCommand as jest.Mock).mock.calls[0][0].comment.body
+      ).toBe('@uselumo review')
+    })
   })
 
   describe('LUM-1129: PR comment commands', () => {

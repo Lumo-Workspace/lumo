@@ -7,7 +7,7 @@ import {
   taskHasSessions,
 } from '@/lib/repositories/task-attribution-where'
 import type { Interval } from '@/lib/forecast/types'
-import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
+import { runKeyOf, sumActiveDurationSec } from '@/lib/agent-run/active-time'
 import {
   mergeModelCosts,
   toModelCosts,
@@ -175,7 +175,7 @@ export const retrospectiveRepository = {
         projectId: true,
         sessions: {
           select: {
-            parentSessionId: true,
+            id: true,
             inputTokens: true,
             outputTokens: true,
             cacheReadTokens: true,
@@ -190,7 +190,7 @@ export const retrospectiveRepository = {
     // the task — wider type list lets active-time exclude mid-turn human-wait
     // intervals (PERMISSION_REQUEST / NOTIFICATION / ELICITATION) in addition
     // to the inter-turn idle that was already excluded.
-    const [turnEvents, inferred, inferredSessionCount] = await Promise.all([
+    const [turnEvents, inferred, inferredSessions] = await Promise.all([
       prisma.hookEvent.findMany({
         where: {
           ...eventsForTask(taskId),
@@ -200,7 +200,10 @@ export const retrospectiveRepository = {
         select: { sessionId: true, type: true, createdAt: true },
       }),
       inferredUsageForTasks([taskId]),
-      prisma.session.count({ where: inferredTopLevelSessionsForTask(taskId) }),
+      prisma.session.findMany({
+        where: inferredTopLevelSessionsForTask(taskId),
+        select: { id: true },
+      }),
     ])
 
     // LUM-932 P3 hybrid cost: explicit sessions' cumulative columns (as
@@ -230,12 +233,14 @@ export const retrospectiveRepository = {
     return {
       projectId: task.projectId,
       tokenCost,
-      // LUM-932 P3: distinct TOP-LEVEL sessions — explicit ones bound to the
-      // task + unattached ones inferred onto it. Subagent children are part of
-      // their parent's run, never an iteration of their own.
-      iterations:
-        task.sessions.filter(s => !s.parentSessionId).length +
-        inferredSessionCount,
+      // LUM-932 P3 / LUM-1237: distinct RUNS — the top-level session of
+      // every explicit binding (a subagent that attached the task is a run of
+      // its parent session, its siblings are not extra runs) + unattached
+      // top-level sessions inferred onto it.
+      iterations: new Set([
+        ...task.sessions.map(s => runKeyOf(s.id)),
+        ...inferredSessions.map(s => s.id),
+      ]).size,
       interactionRounds,
       totalDurationSec,
     }
@@ -322,11 +327,20 @@ export const retrospectiveRepository = {
         type: { in: ACTIVE_TIME_EVENT_TYPES },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, type: true, createdAt: true },
+      select: {
+        sessionId: true,
+        taskId: true,
+        type: true,
+        createdAt: true,
+        session: { select: { taskId: true } },
+      },
     })
+    // Same per-(run, task) grouping as `loadMemberActualRowsForTasks`, so the
+    // rollup total and the delivery stats' rows reconcile exactly (LUM-1237).
     const activeTimeSec = sumActiveDurationSec(
       turnEvents.map(e => ({
         sessionId: e.sessionId ?? '__none__',
+        taskId: e.taskId ?? e.session?.taskId ?? null,
         type: e.type,
         createdAt: e.createdAt,
       }))

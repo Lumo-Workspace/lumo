@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
@@ -56,7 +57,7 @@ export async function memoryFold(
         'Error: no <project-ref> given and no task bound to this session.\n' +
           'Pass a project, or run `lumo session attach <LUM-N>`.'
       )
-      return 1
+      return EXIT_USAGE
     }
     const r = await resolveBoundProjectId(apiUrl, creds.token, bound)
     if (!r.ok) {

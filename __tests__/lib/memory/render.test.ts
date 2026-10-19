@@ -32,11 +32,11 @@ describe('renderLayer2ReviewSection (LUM-165)', () => {
     expect(wrapAt).toBeGreaterThan(0)
     const preamble = out.slice(0, wrapAt)
     expect(preamble).toContain('Review needed')
-    expect(preamble).toContain('lumo memory rm <id> --yes')
+    expect(preamble).toContain('lumo memory rm <ref> --yes')
     // The member-authored body and its id live inside the untrusted block.
     const block = out.slice(wrapAt)
     expect(block).toContain('enum mid-migration')
-    expect(block).toContain('id: mem_42')
+    expect(block).toContain('ref: mem_42')
   })
 
   it('lists each memory with its id for targeted removal', () => {
@@ -54,8 +54,8 @@ describe('renderLayer2ReviewSection (LUM-165)', () => {
         content: { rule: 'r2', scope: 's2' },
       },
     ])
-    expect(out).toContain('id: a1')
-    expect(out).toContain('id: b2')
+    expect(out).toContain('ref: a1')
+    expect(out).toContain('ref: b2')
   })
 })
 
@@ -396,7 +396,7 @@ describe('memoryManifestLine (LUM-147)', () => {
 
   it('memory manifest carries id + fetch hint and keeps the headline (LUM-500)', () => {
     const line = memoryManifestLine({
-      id: 'cmem_9f3a2',
+      id: 'cmprcce99003304jrkp5brom5',
       scope: 'TASK',
       category: 'TRAP',
       content: {
@@ -404,8 +404,9 @@ describe('memoryManifestLine (LUM-147)', () => {
         outcome: 'edits land in the wrong file',
       },
     })
-    expect(line).toContain('cmem_9f3a2')
-    expect(line).toContain('lumo memory show cmem_9f3a2')
+    // LUM-1230: the hint carries the 8-char short ref, never the bare cuid.
+    expect(line).toContain('lumo memory show kp5brom5')
+    expect(line).not.toContain('cmprcce99003304jrkp5brom5')
     expect(line).toContain('worktree')
   })
 })
@@ -553,7 +554,7 @@ describe('renderMemoryIndexBlock (LUM-844)', () => {
     expect(lines[0]).toBe('<untrusted-team-memory>')
     expect(lines[1]).toMatch(/^NOTE TO ASSISTANT/)
     expect(out.endsWith('</untrusted-team-memory>')).toBe(true)
-    expect(out).toContain('lumo memory show <id>')
+    expect(out).toContain('lumo memory show <ref>')
     expect(out).toContain('lumo task context LUM-1 --full')
     const items = lines.filter(l => l.startsWith('- '))
     expect(items).toEqual([

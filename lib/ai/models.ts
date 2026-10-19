@@ -46,6 +46,10 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
  * code-review replay. Gateway format;
  * catalog-probed 2026-10-04 (`anthropic/claude-sonnet-5.5` resolves — keep
  * the version dot, do NOT dash-normalise).
+ *
+ * Also answers the questions people ask Lumo on a pull request (LUM-1154,
+ * `ee/security/llm/pr-chat-client.ts`): same provider pin, no tools, text
+ * only, bounded per PR per hour.
  */
 export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
 
@@ -85,6 +89,19 @@ export const CODE_REVIEW_MODEL = 'anthropic/claude-sonnet-5.5'
 export const HUNT_MODEL = 'anthropic/claude-haiku-4.5'
 
 /**
+ * 桶 REWARD_HACK — the PR scan's reward-hack layer: a whole-trajectory judge
+ * over the agent sessions that produced the PR, and the per-item refute call
+ * (ee/security/llm/reward-hack-judge-client.ts).
+ *
+ * Why Sonnet 4.6 (LUM-1234): on the synthetic TRACE benchmark a
+ * whole-trajectory, non-contrastive (one trajectory per call) Sonnet 4.6
+ * judge reached AUROC 0.84. Catalog: the same id the LUM-965 / LUM-1234
+ * experiments called successfully through the gateway on 2026-10-18. Gateway
+ * format; keep the version dot, do NOT dash-normalise.
+ */
+export const REWARD_HACK_MODEL = 'anthropic/claude-sonnet-4.6'
+
+/**
  * LUM-988 — models whose gateway routing is pinned to the listed hosts.
  * `lib/ai/zdr-fetch.ts` forces `providerOptions.gateway.only` to this list on
  * every request for the model, at the wire, like ZDR. The gateway's default
@@ -100,6 +117,9 @@ export const MODEL_PROVIDER_PINS: Readonly<Record<string, readonly string[]>> =
     // LUM-1084 — same reason: the hunt sends customer code, and Haiku's other
     // gateway hosts (bedrock, claudeaws, vertexAnthropic) are not announced.
     [HUNT_MODEL]: ['anthropic'],
+    // LUM-1234 — the reward-hack judge reads agent session transcripts; same
+    // reason: keep it on Anthropic's own API, not the unannounced cloud hosts.
+    [REWARD_HACK_MODEL]: ['anthropic'],
   }
 
 /**
@@ -157,6 +177,11 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
  * FAST-tier call refuses or fails, a different, larger model gives the
  * second opinion — whether a reply becomes a stored learning is itself a
  * memory keep decision. Same ZDR-forced gateway and hosts; no new provider.
+ *
+ * Also the PR reviewer's pre-merge checks (LUM-1148,
+ * `ee/security/llm/pre-merge-checks-client.ts`): one structured
+ * passed / failed / inconclusive judgment per check over a bounded diff —
+ * rubric judging of the same kind, on the same gateway.
  */
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 

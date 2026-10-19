@@ -1,7 +1,17 @@
 // Category/field metadata + builders for the `lumo memory` commands.
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
 import { emptyState } from './format'
+import { renderListTable, type ListRenderOptions } from './list-table'
+import {
+  bulletLines,
+  fieldLines,
+  sectionHeading,
+  wrapLines,
+  type LayoutOptions,
+} from './report-layout'
+import { heading } from './ui'
 import { sanitizeField } from './sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 
 type Built =
   | {
@@ -145,16 +155,92 @@ function headline(category: string, content: unknown): string {
     : '(unparseable)'
 }
 
-/** Fixed-width rows: id  SCOPE  CATEGORY  headline  source(auto|manual). */
-export function formatMemoryList(rows: MemoryRowLike[]): string {
+/**
+ * Rows: ref  SCOPE  CATEGORY  SOURCE(auto|manual)  headline — through the
+ * shared list renderer (LUM-1232 batch A: header + headline cut to the
+ * terminal on a TTY, TAB-separated piped; the free-text headline is last).
+ * LUM-1230: the first column is the 8-char short ref `lumo memory show|rm|
+ * promote` accept — the full cuid stays in `--json`.
+ */
+export function formatMemoryList(
+  rows: MemoryRowLike[],
+  opts: ListRenderOptions = {}
+): string {
   if (rows.length === 0) return emptyState('memories')
-  const idW = Math.max(...rows.map(r => r.id.length))
-  const scopeW = Math.max(...rows.map(r => r.scope.length))
-  const catW = Math.max(...rows.map(r => r.category.length))
-  return rows
-    .map(r => {
-      const src = r.createdByMemberId ? 'manual' : 'auto'
-      return `${r.id.padEnd(idW)}  ${r.scope.padEnd(scopeW)}  ${r.category.padEnd(catW)}  ${headline(r.category, r.content)}  ${src}`
-    })
-    .join('\n')
+  return renderListTable(
+    rows.map(r => [
+      shortRef(r.id),
+      r.scope,
+      r.category,
+      r.createdByMemberId ? 'manual' : 'auto',
+      headline(r.category, r.content),
+    ]),
+    {
+      header: ['ID', 'SCOPE', 'CATEGORY', 'SOURCE', 'HEADLINE'],
+      flex: 4,
+      ...opts,
+    }
+  )
+}
+
+/** `whyNot` → `Why not`, `summary` → `Summary`. */
+function sectionTitle(key: string): string {
+  const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
+}
+
+/**
+ * LUM-1232 batch B (D-5): one memory as a detail view, never raw JSON —
+ * `<ref>  <summary or headline>`, its type, then one section per content
+ * field (lists as bullets). Untrusted text is sanitized here.
+ */
+export function formatMemoryShow(
+  memory: { id: string; category: string; content: unknown },
+  opts: LayoutOptions = {}
+): string {
+  const c =
+    memory.content && typeof memory.content === 'object'
+      ? (memory.content as Record<string, unknown>)
+      : {}
+  const firstText = Object.values(c).find(
+    (v): v is string => typeof v === 'string' && v.trim() !== ''
+  )
+  const fromCategory = headline(memory.category, c)
+  const summary =
+    typeof c.summary === 'string' && c.summary.trim() !== ''
+      ? sanitizeField(c.summary)
+      : fromCategory !== '(unparseable)'
+        ? fromCategory
+        : firstText
+          ? sanitizeField(firstText)
+          : '-'
+  const lines = [
+    heading(`${shortRef(memory.id)}  ${summary}`, {
+      color: opts.color === true,
+    }),
+    ...fieldLines(
+      [{ label: 'Type', value: sanitizeField(memory.category) }],
+      0,
+      opts
+    ),
+  ]
+  for (const [key, value] of Object.entries(c)) {
+    if (
+      key === 'summary' ||
+      value === null ||
+      value === undefined ||
+      value === ''
+    )
+      continue
+    lines.push(...sectionHeading(sectionTitle(key), opts))
+    if (Array.isArray(value)) {
+      for (const item of value)
+        lines.push(...bulletLines(sanitizeField(String(item)), 2, opts))
+    } else if (typeof value === 'object') {
+      lines.push(...wrapLines(sanitizeField(JSON.stringify(value)), 2, opts))
+    } else {
+      lines.push(...wrapLines(sanitizeField(String(value)), 2, opts))
+    }
+  }
+  return lines.join('\n')
 }

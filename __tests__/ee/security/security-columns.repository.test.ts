@@ -117,6 +117,31 @@ test('LUM-1130 findRequestChangesEnabled — true only when the workspace turned
   )
 })
 
+// ── LUM-1142 author approval ────────────────────────────────────────────────
+
+test('LUM-1142 findAllowAuthorApproval — as stored; fails closed when the workspace is missing', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityAllowAuthorApproval: true,
+  })
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    true
+  )
+  expect(mockWorkspace.findUnique).toHaveBeenCalledWith({
+    where: { id: 'w1' },
+    select: { securityAllowAuthorApproval: true },
+  })
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityAllowAuthorApproval: false,
+  })
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    false
+  )
+  mockWorkspace.findUnique.mockResolvedValueOnce(null)
+  expect(await securityColumnsRepository.findAllowAuthorApproval('w1')).toBe(
+    false
+  )
+})
+
 // ── LUM-1134 learnings scope ────────────────────────────────────────────────
 
 test('LUM-1134 findLearningsScope — the stored scope; auto when missing or unrecognised', async () => {
@@ -151,4 +176,22 @@ test('LUM-1137 findReviewAutoPauseAfter — the stored value; 5 when missing or 
   })
   mockWorkspace.findUnique.mockResolvedValueOnce(null)
   expect(await securityColumnsRepository.findReviewAutoPauseAfter('w1')).toBe(5)
+})
+
+test('LUM-1234 findSecuritySwitches selects and returns the reward-hack switch', async () => {
+  mockWorkspace.findUnique.mockResolvedValueOnce({
+    securityScanEnabled: true,
+    securityAiReviewEnabled: true,
+    securityHuntEnabled: true,
+    securityRewardHackEnabled: false,
+    securityRequestChangesEnabled: false,
+    securityAllowAuthorApproval: true,
+    securityLearningsScope: 'auto',
+    securityReviewAutoPauseAfter: 5,
+  })
+  const got = await securityColumnsRepository.findSecuritySwitches('w1')
+  expect(got?.securityRewardHackEnabled).toBe(false)
+  expect(mockWorkspace.findUnique.mock.calls[0][0].select).toMatchObject({
+    securityRewardHackEnabled: true,
+  })
 })

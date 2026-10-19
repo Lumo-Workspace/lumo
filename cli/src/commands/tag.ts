@@ -1,3 +1,5 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitJson, listEnvelope } from '../lib/json-output'
 import { emptyState } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
@@ -48,7 +50,8 @@ export async function tagList(
   if (!r.ok || !r.data) return 1
   const tags = [...r.data.tags].sort((a, b) => a.name.localeCompare(b.name))
   if (opts.json) {
-    process.stdout.write(JSON.stringify(tags, null, 2) + '\n')
+    // Batch C: the former bare array is wrapped once (release notes).
+    emitJson(listEnvelope('tags', tags))
     return
   }
   process.stdout.write(formatTagList(tags) + '\n')
@@ -72,7 +75,7 @@ export async function tagCreate(
   }
   if (opts.color !== undefined && !COLOR_RE.test(opts.color)) {
     console.error(`Error: --color expects #rrggbb, got "${opts.color}"`)
-    return 1
+    return EXIT_USAGE
   }
   const ctx = apiContext()
   if (!ctx) return 1
@@ -89,7 +92,8 @@ export async function tagCreate(
   process.stdout.write(formatCreatedTagLine(r.data.tag) + '\n')
 }
 
-/** LUM-1092: `Created tag "<name>"  <id>` (was `(<id>)`). */
+/** LUM-1092: `Created tag "<name>"`. LUM-1230: tags are referenced by
+ *  name (`--tag <name>`), so the cuid is not printed. */
 export function formatCreatedTagLine(tag: {
   id: string
   name: string
@@ -98,6 +102,5 @@ export function formatCreatedTagLine(tag: {
     verb: 'Created',
     kind: 'tag',
     title: tag.name,
-    id: tag.id,
   })
 }

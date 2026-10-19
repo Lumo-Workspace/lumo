@@ -22,9 +22,7 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
-import { RunReviewPage } from './pages/RunReviewPage'
 import { DraftsPage } from './DraftsPage'
-import { DashboardPage } from './pages/DashboardPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
 import { SprintDetailClient } from '../sprints/[sprintId]/SprintDetailClient'
 import { GlobalDocTree, CollapsedDocTreeRail } from './document/GlobalDocTree'
@@ -128,7 +126,7 @@ interface Props {
  * `WorkspaceModals`.
  *
  * Pages and dropped routes:
- *   dashboard / my-tasks / projects / project-detail / documents /
+ *   my-tasks / projects / project-detail / documents /
  *   document-editor / drafts / sprints / sprint-detail / inbox.
  */
 export function WorkspacePageRouter(props: Props) {
@@ -233,17 +231,6 @@ export function WorkspacePageRouter(props: Props) {
   )
 
   switch (currentPage) {
-    case 'dashboard':
-      return (
-        <DashboardPage
-          onOpenRunReviews={() => navigateTo('run-reviews')}
-          onNavigateToProject={projectId => {
-            const project = projects.find(p => p.id === projectId)
-            if (project) navigateTo('project-detail', project)
-          }}
-        />
-      )
-
     case 'my-tasks':
       return (
         <MyTasksPage
@@ -406,9 +393,6 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'milestone-detail':
       return <MilestoneDetailPage onOpenTask={handleOpenTask} />
-
-    case 'run-reviews':
-      return <RunReviewPage workspaceUrl={workspaceUrl} />
 
     case 'inbox':
       return (

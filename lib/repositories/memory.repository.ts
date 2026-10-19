@@ -41,7 +41,8 @@ const MEMORY_ROW_SELECT = {
 
 interface CreateMemoryInput {
   workspaceId: string
-  projectId: string
+  /** null only for a PR-review learning of a repository with no project (LUM-1157). */
+  projectId: string | null
   taskId: string | null
   scope: MemoryScope
   category: MemoryCategory
@@ -166,14 +167,17 @@ export const memoryRepository = {
   async findProjectsOverActiveMemoryThreshold(threshold: number) {
     const rows = await prisma.memory.groupBy({
       by: ['projectId'],
-      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      // LUM-1157: a project-less memory (PR-review learning) has no project
+      // to compact.
+      where: { scope: 'PROJECT', status: 'ACTIVE', projectId: { not: null } },
       _count: { _all: true },
       having: { projectId: { _count: { gt: threshold } } },
     })
-    return rows.map(r => ({
-      projectId: r.projectId,
-      activeCount: r._count._all,
-    }))
+    return rows.flatMap(r =>
+      r.projectId
+        ? [{ projectId: r.projectId, activeCount: r._count._all }]
+        : []
+    )
   },
 
   /**
@@ -488,6 +492,24 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * LUM-1230: the memories of one workspace whose id starts or ends with
+   * `needle` (a short ref or id prefix, already lowercased). Capped — the
+   * caller only needs to know whether the match is unique and, if not, to
+   * list a few candidates.
+   */
+  async findIdsMatchingRef(workspaceId: string, needle: string, take = 10) {
+    return prisma.memory.findMany({
+      where: {
+        workspaceId,
+        OR: [{ id: { startsWith: needle } }, { id: { endsWith: needle } }],
+      },
+      select: { id: true, category: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.memory.create({
@@ -693,7 +715,7 @@ export const memoryRepository = {
    */
   async findProjectIdsWithActiveProjectMemory(): Promise<string[]> {
     const rows = await prisma.memory.findMany({
-      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      where: { scope: 'PROJECT', status: 'ACTIVE', projectId: { not: null } },
       distinct: ['projectId'],
       select: { projectId: true },
     })

@@ -1,7 +1,9 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface BindFormatArgs {
   docId: string
@@ -12,9 +14,9 @@ export interface BindFormatArgs {
 
 export function formatBindOutput(args: BindFormatArgs): string {
   if (args.alreadyBound)
-    return `Already bound ${args.docId} ↔ ${args.identifier}`
+    return `Already bound ${docHandle(args.docId)} ↔ ${args.identifier}`
   const upgrade = args.upgradedFromContent ? ' (upgraded from content)' : ''
-  return `Bound ${args.docId} ↔ ${args.identifier}${upgrade}`
+  return `Bound ${docHandle(args.docId)} ↔ ${args.identifier}${upgrade}`
 }
 
 export async function docBind(
@@ -22,8 +24,8 @@ export async function docBind(
   task: string | undefined
 ): Promise<number | void> {
   if (!docRef || !task) {
-    console.error('Error: usage: lumo doc bind <doc> <task>')
-    return 1
+    console.error('Error: usage: lumo doc update <doc> --add-task <task>')
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {

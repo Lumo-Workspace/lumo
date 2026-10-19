@@ -28,6 +28,7 @@ jest.mock('@/ee/security/llm/review-ranker-client', () => ({
 }))
 
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { logger } from '@/lib/logger'
 import { prSecurityScanRepository as repo } from '@/ee/security/repositories/pr-security-scan.repository'
 import * as sandbox from '@/ee/security/services/security-hunt-sandbox'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
@@ -146,6 +147,34 @@ describe('LUM-988 reviewVerifierService.run', () => {
     })
     expect(securityPrReviewService.sync).toHaveBeenCalledWith('s1')
     expect(out).toEqual({ findings: 1, rejected: 1, error: null })
+  })
+
+  it('LUM-1226 logs how many verdicts defaulted and how the wrap-up went', async () => {
+    ;(verifyFindings as jest.Mock).mockResolvedValue({
+      results: [{ id: 'a', verdict: 'CONFIRMED', reason: '', defaulted: true }],
+      steps: 18,
+      commands: 15,
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      error: null,
+      wrapUp: { attempts: 2, submitted: false },
+    })
+    await reviewVerifierService.run(job)
+    const line = (logger.info as jest.Mock).mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.startsWith('[review-verifier]'))
+    expect(line).toContain(' defaulted=1 wrapUp=2/none ')
+  })
+
+  it('LUM-1226 logs defaulted=0 and no wrap-up when the search submitted', async () => {
+    await reviewVerifierService.run(job)
+    const line = (logger.info as jest.Mock).mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.startsWith('[review-verifier]'))
+    expect(line).toContain(' defaulted=0 steps=')
+    expect(line).not.toContain('wrapUp=')
   })
 
   it('on a failed VM attach records no verdict but still releases the hold and syncs', async () => {
@@ -301,6 +330,49 @@ describe('LUM-988 ranker after the verifier', () => {
     await reviewVerifierService.run(job)
     expect(rankFindings).not.toHaveBeenCalled()
   })
+
+  it('LUM-1194: a confirmed test finding is never ranked away, and alone it skips the call', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('a', { ruleId: 'review:test_defect' }),
+    ])
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [{ id: 'a', p: 0, reason: 'test tidiness' }],
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    expect(rankFindings).not.toHaveBeenCalled()
+    expect(
+      (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    ).toMatchObject([{ findingId: 'a', verdict: 'CONFIRMED' }])
+  })
+
+  it('LUM-1194: next to a removable finding, a low-ranked test finding stays', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('a'),
+      row('t', { ruleId: 'review:test_defect' }),
+    ])
+    confirmA()
+    ;(rankFindings as jest.Mock).mockResolvedValue({
+      ranking: [
+        { id: 't', p: 0, reason: 'test tidiness' },
+        { id: 'a', p: 5, reason: 'speculative' },
+      ],
+      inputTokens: 1,
+      outputTokens: 1,
+      error: null,
+    })
+    await reviewVerifierService.run(job)
+    const input = (rankFindings as jest.Mock).mock.calls[0]![0]
+    expect(input.findings.map((f: { id: string }) => f.id)).toEqual(['a', 't'])
+    const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
+    expect(verdicts.map((v: { findingId: string }) => v.findingId)).toEqual([
+      'a',
+    ])
+    expect(verdicts[0]).toMatchObject({ verdict: 'REJECTED' })
+  })
 })
 
 describe('LUM-1013 verifier reason keeps quoted prose', () => {
@@ -320,5 +392,17 @@ describe('LUM-1013 verifier reason keeps quoted prose', () => {
     await reviewVerifierService.run(job)
     const verdicts = (repo.completeVerification as jest.Mock).mock.calls[0]![1]
     expect(verdicts[0].reason).toBe(prose)
+  })
+})
+
+describe('LUM-1210 path-instruction findings skip the verifier', () => {
+  it('a row the owners asked for (verified pathInstruction) is never sent to the verifier', async () => {
+    ;(repo.findJudgeFindingsForVerify as jest.Mock).mockResolvedValue([
+      row('asked', { severity: 'LOW', pathInstruction: 'scripts/**' }),
+    ])
+    await reviewVerifierService.run(job)
+    expect(sandbox.attachOrCreateHuntSandbox).not.toHaveBeenCalled()
+    expect(verifyFindings).not.toHaveBeenCalled()
+    expect(repo.completeVerification).toHaveBeenCalledWith('s1', [])
   })
 })

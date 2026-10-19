@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn, httpFailed, warn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 export interface ImportGdocOptions {
   scope?: string
@@ -14,12 +15,14 @@ interface ImportedDocResponse {
 
 export function formatImportedLine(doc: {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   url: string
 }): string {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   return (
-    `Imported ${doc.id} "${escaped}"  ${doc.url}\n` +
+    `Imported ${docHandle(doc.id, doc.slug)} "${escaped}"  ${doc.url}\n` +
     warn(
       'imported content follows Lumo sharing and is no longer gated by Google permissions.'
     )
@@ -73,7 +76,7 @@ export async function docImportGdoc(
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(errHttp('doc import-gdoc', res.status, text))
+    console.error(errHttp('doc import', res.status, text))
     return 1
   }
 
@@ -82,6 +85,7 @@ export async function docImportGdoc(
   console.log(
     formatImportedLine({
       id: document.id,
+      slug: document.slug,
       title: document.title,
       url: fullUrl,
     })
@@ -108,6 +112,6 @@ export async function docImportGdoc(
       )
       return 1
     }
-    console.log(`Bound ${document.id} ↔ ${opts.task}`)
+    console.log(`Bound ${docHandle(document.id, document.slug)} ↔ ${opts.task}`)
   }
 }

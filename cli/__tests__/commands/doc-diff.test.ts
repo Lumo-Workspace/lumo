@@ -113,7 +113,7 @@ describe('doc diff', () => {
 
   it('requires --file', async () => {
     const exit = await docDiff('cmd_1', {})
-    expect(exit).toBe(1)
+    expect(exit).toBe(2)
     expect(errorSpy.mock.calls[0]![0]).toContain('--file')
   })
 

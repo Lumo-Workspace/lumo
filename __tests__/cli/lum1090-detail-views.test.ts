@@ -80,7 +80,7 @@ describe('LUM-1090 — one label width per detail view', () => {
     const out = formatSprintShow(sprint, { done: 4, total: 10 }, [])
     const rows = out.split('\nBlockers')[0]!.split('\nTasks')[0]!.split('\n')
     expect(new Set(valueColumns(rows))).toEqual(new Set([11]))
-    expect(out).toContain('Closed:    -\n\nProgress:  4 / 10')
+    expect(out).toContain('Closed:    -\n\nProgress:  4/10')
   })
 
   it('task show: header line, then rows in one value column', () => {
@@ -169,7 +169,7 @@ describe('LUM-1090 — milestone show sections', () => {
     )
     const pipe = formatMilestoneShow(milestone, [task])
     expect(pipe).toContain(
-      '\nTasks (1)\n  LUM-42  IN_PROGRESS  HIGH  Lumo  Fix'
+      '\nTasks (1)\n  LUM-42\tIN_PROGRESS\tHIGH\tLumo\tFix'
     )
     expect(pipe).not.toContain('PRIORITY')
   })
@@ -276,7 +276,9 @@ describe('LUM-1090 — colour only when the caller turns it on', () => {
       tty: true,
     })
     expect(coloured).toContain(`${ESC}[1mProgress${ESC}[22m`)
-    expect(coloured).toContain(`${ESC}[2mMilestone:${ESC}[22m`)
+    expect(coloured).toContain(`${ESC}[2mState:${ESC}[22m`)
+    // LUM-1232 E-2: a bare enum value is coloured on a TTY.
+    expect(coloured).toContain(`${ESC}[33mAT_RISK${ESC}[39m`)
   })
 
   it('sanitizes before styling: ESC in member text never reaches a styled line', () => {
@@ -345,17 +347,20 @@ describe('LUM-1090 — task history table', () => {
     ['b', '李超'],
   ])
 
-  it('pads the actor column by display width; header on a TTY only', () => {
+  it('TAB-separated when piped; pads the actor column by display width on a TTY (header there only)', () => {
     const pipe = formatHistory(entries, names, { tty: false }).split('\n')
     expect(pipe).toHaveLength(2)
-    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d  Al    created$/)
-    expect(pipe[1]).toMatch(/  李超  priority LOW → HIGH$/)
+    // LUM-1232 T-1: piped times are UTC ISO 8601 with `Z`.
+    expect(pipe[0]).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\tAl\tcreated$/)
+    expect(pipe[1]).toMatch(/\t李超\tpriority LOW → HIGH$/)
     const tty = formatHistory(entries, names, {
       tty: true,
       color: false,
       width: 100,
     }).split('\n')
-    expect(tty[0]).toBe('WHEN              ACTOR  CHANGE')
+    // LUM-1232 T-2: a TTY shows local time with its UTC offset.
+    expect(tty[0]).toBe(`${'WHEN'.padEnd(25)}ACTOR  CHANGE`)
+    expect(tty[1]).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d [+-]\d\d:\d\d  Al /)
     expect(tty).toHaveLength(3)
   })
 })
@@ -385,7 +390,7 @@ describe('LUM-1090 — layout helpers', () => {
     expect(taskTableSection([task], 'None.')).toEqual([
       '',
       'Tasks (1)',
-      '  LUM-42  IN_PROGRESS  HIGH  Lumo  Fix Slack OAuth redirect',
+      '  LUM-42\tIN_PROGRESS\tHIGH\tLumo\tFix Slack OAuth redirect',
     ])
   })
 })

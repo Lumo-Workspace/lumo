@@ -1,9 +1,11 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 interface ShareListResponse {
   shares: Array<{
@@ -17,8 +19,10 @@ export async function docUnshare(
   memberRef: string | undefined
 ): Promise<number | void> {
   if (!docRef || !memberRef) {
-    console.error('Error: usage: lumo doc unshare <doc> <member>')
-    return 1
+    console.error(
+      'Error: usage: lumo doc update <doc> --remove-member <member>'
+    )
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -83,5 +87,7 @@ export async function docUnshare(
     console.error(errHttp('doc unshare', delRes.status, text))
     return 1
   }
-  console.log(`Unshared ${docId} ↔ ${sanitizeField(result.member.displayName)}`)
+  console.log(
+    `Unshared ${docHandle(docId)} ↔ ${sanitizeField(result.member.displayName)}`
+  )
 }

@@ -214,7 +214,7 @@ export const updateTaskSchema = z
 const removedParentRef = z
   .never({
     error:
-      'Subtasks were removed (LUM-959): --parent is no longer supported. Group related tasks with a milestone, or order them with `lumo task deps add`.',
+      'Subtasks were removed (LUM-959): --parent is no longer supported. Group related tasks with a milestone, or order them with `lumo task dep add` (CLI 1.125 and older: `lumo task deps add`).',
   })
   .optional()
 
@@ -688,7 +688,7 @@ export const updateMilestoneSchema = z.object({
   tokenBudget: z.number().int().min(1).max(2_147_483_647).nullable().optional(),
   // LUM-714: milestone completion is derived from task completion — there is
   // no status to patch, so this schema carries no lifecycle field at all. The
-  // one human lever over completion is the exit-criteria close override, which
+  // one human lever over completion is the close-gate override, which
   // has its own endpoint (POST .../close-override).
 })
 
@@ -728,14 +728,16 @@ export const workspaceTaskFiltersSchema = z.object({
 
 /**
  * LUM-1093: server-side filters of GET /api/tasks/me (`lumo task list`).
- * Only read on the paged path (`limit` / `cursor` present).
+ * Only read on the paged path (`limit` / `cursor` present). LUM-1233 added
+ * every workspace-query filter plus `assignee=any`; the original three
+ * (statuses, milestoneIds, projectName) keep their meaning for older CLIs.
  */
-export const myTaskFiltersSchema = z.object({
-  statuses: z
-    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
-    .optional(),
+export const myTaskFiltersSchema = workspaceTaskFiltersSchema.extend({
   milestoneIds: z.array(z.string().min(1)).optional(),
   projectName: z.string().trim().min(1).max(200).optional(),
+  // LUM-1233: no assignee filter → `any` widens to the whole workspace;
+  // `me` (the default) keeps the caller's own tasks.
+  assignee: z.enum(['me', 'any']).optional(),
 })
 
 // ─── Task Dependencies ─────────────────────────────────────────────────────

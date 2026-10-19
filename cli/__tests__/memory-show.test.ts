@@ -34,8 +34,8 @@ afterEach(() => {
 })
 
 describe('memoryShow', () => {
-  it('errors (returns 1) without an id', async () => {
-    expect(await memoryShow(undefined)).toBe(1)
+  it('errors (returns 2, usage) without an id', async () => {
+    expect(await memoryShow(undefined)).toBe(2)
   })
 
   it('prints the category tag and content on success', async () => {
@@ -55,7 +55,10 @@ describe('memoryShow', () => {
 
     expect(exit).toBeUndefined()
     const printed = logSpy.mock.calls.map(c => c.join(' ')).join('\n')
-    expect(printed).toContain('[TRAP]')
+    // LUM-1232 D-5: a detail view, not raw JSON.
+    expect(printed).toMatch(/^mem_1  do not reach into nested props$/m)
+    expect(printed).toMatch(/^Type:\s+TRAP$/m)
+    expect(printed).not.toContain('{')
     expect(printed).toContain('do not reach into nested props')
   })
 

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
@@ -40,7 +41,7 @@ export function formatCreatedSprintLine(sprint: {
     kind: 'sprint',
     ref: `#${sprint.number}`,
     title: sprint.name,
-    id: sprint.id,
+    // LUM-1230: `#<number>` is the handle; the uuid is not printed.
   })
 }
 
@@ -49,7 +50,7 @@ export async function sprintCreate(
 ): Promise<number | void> {
   if (!opts.start || !opts.end) {
     console.error('Error: --start and --end are required (YYYY-MM-DD)')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

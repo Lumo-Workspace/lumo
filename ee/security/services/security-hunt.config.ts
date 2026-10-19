@@ -322,7 +322,7 @@ export const HUNT_OVERSIZED_SOURCE_FILES = 40
 /**
  * LUM-832 — the most source files a hunt runs on (≤ 4 batches of
  * HUNT_OVERSIZED_SOURCE_FILES). Past it the hunt does NOT run at all — like
- * CodeRabbit's file limit (150 on Pro), which skips the review — so no tokens
+ * the industry-standard file cap (150 files), which skips the review — so no tokens
  * are spent, and the customer is told to narrow the scope or split the PR.
  */
 export const HUNT_MAX_HUNTED_FILES = 150
@@ -802,6 +802,8 @@ export interface HuntTaskAudit {
   model?: string
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
+  /** LUM-1226 — see `HuntSubmissionFacts`; absent when the tool never ran. */
+  submission?: HuntSubmissionFacts
   taskId: string
   objective: string
   category: HuntCategory
@@ -1039,8 +1041,10 @@ export interface HuntShellStats {
    * The commands themselves, capped and secret-redacted — the only field that
    * lets a reader tell mapping from reading, or a loop from progress. A model
    * can echo a literal it saw in the repo into its next query, so this goes
-   * through `redactKnownSecrets` like every other model-authored string that
-   * gets persisted.
+   * through secret redaction like every other model-authored string that
+   * gets persisted (`redactShellCommand`, LUM-1200 follow-up #3). Not to be
+   * confused with the command's OUTPUT, which the model reads through the
+   * code-aware `redactToolOutputLine` (follow-up #6).
    *
    * Each carries its own verdict. A flat list beside `refused: 7` says seven
    * were rejected without saying WHICH seven or why, which is the half of the
@@ -1093,6 +1097,10 @@ export interface HuntStepTrace {
   /** Assistant text written in this step — prefix, secret-redacted. */
   text?: string
   inputTokens?: number
+  /** LUM-1224 — the part of `inputTokens` read from the prompt cache. */
+  cacheReadTokens?: number
+  /** LUM-1224 — the part of `inputTokens` written to the prompt cache. */
+  cacheWriteTokens?: number
   outputTokens?: number
   reasoningTokens?: number
   finishReason?: string
@@ -1150,6 +1158,21 @@ export interface HuntWrapUpFacts {
   finishReason?: string
   /** The call was attempted and threw (timeout / gateway). */
   error?: string
+}
+
+/**
+ * LUM-1226 — what `submit_candidates` was sent and what survived it. A
+ * candidate that breaks the contract is dropped on its own instead of voiding
+ * the call, so `kept < submitted` is now an outcome to read, not a silence.
+ */
+export interface HuntSubmissionFacts {
+  /** `submit_candidates` calls that reached `execute`. */
+  calls: number
+  submitted: number
+  kept: number
+  dropped: number
+  /** Distinct schema field paths (and `limit`) the dropped ones failed on. */
+  reasons?: string[]
 }
 
 export interface HuntCompressStats {
@@ -1293,6 +1316,8 @@ export interface HuntBatchOutput {
   trace: HuntStepTrace[]
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
+  /** LUM-1226 — see `HuntSubmissionFacts`. */
+  submission?: HuntSubmissionFacts
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`

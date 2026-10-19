@@ -8,13 +8,13 @@ jest.mock('../src/lib/status-digest', () => ({ printStatusDigest: jest.fn() }))
 import { readCredentials } from '../src/lib/config'
 import { printStatusDigest } from '../src/lib/status-digest'
 import {
-  milestoneTestCaseAdd,
-  milestoneTestCaseDisposition,
-  milestoneTestCaseRm,
-  milestoneTestCaseRun,
-  milestoneTestCaseShow,
-  milestoneTestCaseUpdate,
-} from '../src/commands/milestone-testcase'
+  testCaseAdd,
+  testCaseDelete,
+  testCaseDisposition,
+  testCaseRun,
+  testCaseShow,
+  testCaseUpdate,
+} from '../src/commands/testcase'
 
 const PROJECT_ID = '0123456789abcdef0123456789abcdef'.replace(
   /^(.{8})(.{4})(.{4})(.{4})(.{12})$/,
@@ -57,7 +57,7 @@ afterEach(() => {
 function queueResolve(name = 'Review v2') {
   fetchMock.mockImplementation(async (url: string) => {
     if (/\/api\/projects\/[^/]+\/milestones/.test(url)) {
-      return reply({ milestones: [{ id: 'm-1', name }] })
+      return reply({ milestones: [{ id: 'm-1', name, slug: 'review-v2' }] })
     }
     if (/\/api\/projects(\?|$)/.test(url)) {
       return reply({
@@ -99,7 +99,7 @@ const urls = () => fetchMock.mock.calls.map(c => String(c[0]))
 
 it('adds a case to a milestone resolved by name', async () => {
   queueResolve()
-  const code = await milestoneTestCaseAdd('Review v2', {
+  const code = await testCaseAdd('milestone', 'Review v2', {
     title: 'E2E',
     step: ['open PR'],
     expected: 'comment posted',
@@ -109,7 +109,8 @@ it('adds a case to a milestone resolved by name', async () => {
   expect(urls().some(u => /\/api\/milestones\/m-1\/test-cases$/.test(u))).toBe(
     true
   )
-  expect(stdout()).toContain('Created Review v2/TC1 "E2E"')
+  // LUM-1233 3a: the printed handle uses the slug, so it can be pasted back.
+  expect(stdout()).toContain('Created review-v2/TC1 "E2E"')
   const post = fetchMock.mock.calls.find(c =>
     /\/api\/milestones\/m-1\/test-cases$/.test(String(c[0]))
   )!
@@ -124,7 +125,7 @@ it('adds a case to a milestone resolved by name', async () => {
 it('prints a sanitized milestone label', async () => {
   const esc = String.fromCharCode(0x1b)
   queueResolve(`Evil${esc}[31m name`)
-  await milestoneTestCaseAdd(`Evil${esc}[31m name`, {
+  await testCaseAdd('milestone', `Evil${esc}[31m name`, {
     title: 'E2E',
     step: ['s'],
     expected: 'e',
@@ -135,28 +136,28 @@ it('prints a sanitized milestone label', async () => {
 })
 
 it.each([
-  ['show', () => milestoneTestCaseShow('Review v2', undefined, {})],
-  [
-    'update',
-    () => milestoneTestCaseUpdate('Review v2', undefined, { title: 'x' }),
-  ],
-  ['rm', () => milestoneTestCaseRm('Review v2', undefined, {})],
+  ['show', () => testCaseShow('milestone', undefined, {})],
+  ['update', () => testCaseUpdate('milestone', undefined, { title: 'x' })],
+  ['delete', () => testCaseDelete('milestone', undefined, {})],
   [
     'run',
     () =>
-      milestoneTestCaseRun('Review v2', undefined, {
+      testCaseRun('milestone', undefined, {
         result: 'pass',
         env: 'local',
       }),
   ],
-])('%s without a case ref fails before any request', async (_n, call) => {
-  expect(await call()).toBe(1)
-  expect(fetchMock).not.toHaveBeenCalled()
-})
+])(
+  '%s without a case handle is a usage error before any request',
+  async (_n, call) => {
+    expect(await call()).toBe(2)
+    expect(fetchMock).not.toHaveBeenCalled()
+  }
+)
 
 it('dispositions against the milestone route with no task status call', async () => {
   queueResolve()
-  await milestoneTestCaseDisposition('Review v2', 'TC1', {
+  await testCaseDisposition('milestone', 'Review v2/TC1', {
     knownDefect: true,
     confirm: true,
     receipt: 'r2.1.2.3.sig',
@@ -211,7 +212,7 @@ it.each([
       }
       return base(url)
     })
-    const code = await milestoneTestCaseShow('Review v2', 'TC1', {
+    const code = await testCaseShow('milestone', 'Review v2/TC1', {
       project: 'lumo',
     })
     expect(code).toBeUndefined()
@@ -221,7 +222,7 @@ it.each([
 
 it('records a run against TC1', async () => {
   queueResolve()
-  await milestoneTestCaseRun('Review v2', 'TC1', {
+  await testCaseRun('milestone', 'Review v2/TC1', {
     result: 'pass',
     env: 'production',
     project: 'lumo',
@@ -232,13 +233,13 @@ it('records a run against TC1', async () => {
 })
 
 it('rejects --pr on a milestone run before any request', async () => {
-  const code = await milestoneTestCaseRun('Review v2', 'TC1', {
+  const code = await testCaseRun('milestone', 'Review v2/TC1', {
     result: 'pass',
     env: 'local',
     pr: '12',
     project: 'lumo',
   })
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(fetchMock).not.toHaveBeenCalled()
 })
 
@@ -252,7 +253,7 @@ describe('milestone disposition wording (LUM-1135)', () => {
 
   it('a NOT_A_DEFECT ruling says the case still holds the milestone', async () => {
     queueResolve()
-    await milestoneTestCaseDisposition('Review v2', 'TC1', {
+    await testCaseDisposition('milestone', 'Review v2/TC1', {
       notADefect: true,
       confirm: true,
       receipt: 'r2.1.2.3.sig',
@@ -266,7 +267,7 @@ describe('milestone disposition wording (LUM-1135)', () => {
 
   it('a KNOWN_DEFECT ruling says the run no longer holds the gate', async () => {
     queueResolve()
-    await milestoneTestCaseDisposition('Review v2', 'TC1', {
+    await testCaseDisposition('milestone', 'Review v2/TC1', {
       knownDefect: true,
       confirm: true,
       receipt: 'r2.1.2.3.sig',
@@ -298,7 +299,7 @@ describe('milestone disposition wording (LUM-1135)', () => {
       }
       return base(url)
     })
-    const code = await milestoneTestCaseDisposition('Review v2', 'TC1', {
+    const code = await testCaseDisposition('milestone', 'Review v2/TC1', {
       knownDefect: true,
       project: 'lumo',
     })
@@ -324,7 +325,7 @@ describe('milestone disposition wording (LUM-1135)', () => {
       }
       return base(url)
     })
-    const code = await milestoneTestCaseDisposition('Review v2', 'TC1', {
+    const code = await testCaseDisposition('milestone', 'Review v2/TC1', {
       notADefect: true,
       project: 'lumo',
     })

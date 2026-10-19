@@ -3,6 +3,7 @@ import type {
   SecuritySeverity,
 } from '../../../shared/src/secret-scan/core-types'
 import { secretDowngradeNote } from '../../../shared/src/security-scan'
+import { listEnvelope } from './json-output'
 import { sanitizeField } from './sanitize'
 import {
   bulletLines,
@@ -12,28 +13,34 @@ import {
 } from './report-layout'
 
 /**
- * LUM-1255 — the output contract every `lumo scan <scanner>` shares: a first
- * line a script can parse (`scan: N findings (H high, M medium, L low)`), one
- * item per finding, a versioned `--json` payload, and `--fail-on` as its own
- * exit code so a hook can tell "findings at the threshold" (block) from a
- * runtime error (exit 1 — fail open). 4 and 5 stay the confirmation and DONE
- * gates' codes.
+ * LUM-1255 — the output contract of `lumo security scan`: a first line a
+ * script can parse (`scan: N findings (H high, M medium, L low)`), one item
+ * per finding, the `--json` list envelope, and `--fail-on` as its own exit
+ * code (3, docs/cli-output-conventions.md X-4) so a hook can tell "findings
+ * at the threshold" (block) from a failure (1) or a usage error (2).
  */
 export const EXIT_FAIL_ON = 3
+
+/** The local scanners, as `--json` and the human output name them (E-1). */
+export const LOCAL_SCANNERS = ['SECRETS'] as const
+export type LocalScanner = (typeof LOCAL_SCANNERS)[number]
 
 export const SEVERITIES: readonly SecuritySeverity[] = ['LOW', 'MEDIUM', 'HIGH']
 
 const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
 
+/** One finding, tagged with the scanner that reported it. */
+export type LocalFinding = RawSecretFinding & { scanner: LocalScanner }
+
 export interface LocalScanResult {
-  scanner: 'secrets'
+  scanners: LocalScanner[]
   /** What was diffed, e.g. `staged changes`. */
   scope: string
   filesScanned: number
   /** Untracked files left out (binary, symlink, over the size cap). */
   skipped: string[]
   elapsedMs: number
-  findings: RawSecretFinding[]
+  findings: LocalFinding[]
 }
 
 export interface SeverityCounts {
@@ -78,7 +85,7 @@ export function meetsThreshold(
 }
 
 /** Highest severity first, then path, then line — a stable reading order. */
-export function sortFindings(findings: RawSecretFinding[]): RawSecretFinding[] {
+export function sortFindings<T extends RawSecretFinding>(findings: T[]): T[] {
   return [...findings].sort(
     (a, b) =>
       RANK[b.severity] - RANK[a.severity] ||
@@ -87,7 +94,7 @@ export function sortFindings(findings: RawSecretFinding[]): RawSecretFinding[] {
   )
 }
 
-function findingLines(f: RawSecretFinding, opts: LayoutOptions): string[] {
+function findingLines(f: LocalFinding, opts: LayoutOptions): string[] {
   const fields: Field[] = [
     { label: 'Rule', value: sanitizeField(f.ruleId) },
     { label: 'Where', value: sanitizeField(`${f.filePath}:${f.line}`) },
@@ -109,7 +116,7 @@ export function formatLocalScan(
   const files = r.filesScanned === 1 ? 'file' : 'files'
   const lines = [
     summaryLine(countSeverities(r.findings)),
-    `Scope: ${r.scanner} · ${sanitizeField(r.scope)} · ${r.filesScanned} ${files} · ${r.elapsedMs}ms`,
+    `Scope: ${r.scanners.join(', ')} · ${sanitizeField(r.scope)} · ${r.filesScanned} ${files} · ${r.elapsedMs}ms`,
   ]
   if (r.skipped.length > 0) {
     lines.push(
@@ -125,27 +132,36 @@ export function formatLocalScan(
   return lines.join('\n')
 }
 
-/** The `--json` payload (v1). Evidence is the scanner's redacted line. */
-export function localScanJson(r: LocalScanResult): object {
-  return {
-    version: 1,
-    scanner: r.scanner,
-    scope: r.scope,
-    filesScanned: r.filesScanned,
-    skipped: r.skipped,
-    elapsedMs: r.elapsedMs,
-    summary: countSeverities(r.findings),
-    findings: sortFindings(r.findings).map(f => ({
-      kind: f.kind,
-      ruleId: f.ruleId,
-      severity: f.severity,
-      title: f.title,
-      filePath: f.filePath,
-      line: f.line,
-      evidence: f.evidence,
-      fingerprint: f.fingerprint,
-      detail: f.detail,
-      downgrade: f.downgrade ?? null,
-    })),
-  }
+/**
+ * The `--json` list envelope (J-2): `findings` plus the scan's own facts as
+ * siblings. Declared finding fields (J-3): scanner, kind, ruleId, severity,
+ * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade.
+ */
+export function localScanJson(r: LocalScanResult): Record<string, unknown> {
+  const findings = sortFindings(r.findings).map(f => ({
+    scanner: f.scanner,
+    kind: f.kind,
+    ruleId: f.ruleId,
+    severity: f.severity,
+    title: f.title,
+    filePath: f.filePath,
+    line: f.line,
+    evidence: f.evidence,
+    fingerprint: f.fingerprint,
+    detail: f.detail,
+    downgrade: f.downgrade ?? null,
+  }))
+  return listEnvelope(
+    'findings',
+    findings,
+    {},
+    {
+      scanners: r.scanners,
+      scope: r.scope,
+      filesScanned: r.filesScanned,
+      skipped: r.skipped,
+      elapsedMs: r.elapsedMs,
+      summary: countSeverities(r.findings),
+    }
+  )
 }

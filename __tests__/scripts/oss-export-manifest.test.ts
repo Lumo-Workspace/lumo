@@ -978,7 +978,7 @@ describe('oss/manifest.json', () => {
 
     it('the private sources keep the hosted copy', () => {
       expect(read('components/landing/home/lumo-terminal.tsx')).toContain(
-        "cmd: 'lumo pr scan 482'"
+        "cmd: 'lumo pr show 482'"
       )
       expect(read('components/landing/home/how-it-works.tsx')).toContain(
         'Every pull request is scanned.'

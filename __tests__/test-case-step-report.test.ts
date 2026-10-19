@@ -5,7 +5,6 @@
 import {
   deriveStepReport,
   parseStepResults,
-  priorPassedResults,
   type StepReportRun,
 } from '@/lib/test-cases/step-report'
 
@@ -191,32 +190,12 @@ describe('parseStepResults', () => {
         index: 0,
         text: '',
         status: 'PASS',
+        reason: null,
         durationMs: null,
         evidence: [],
       },
     ])
     expect(parseStepResults('nope')).toEqual([])
-  })
-})
-
-describe('priorPassedResults', () => {
-  it('passes every step before a failing verification check, then fails it', () => {
-    expect(
-      priorPassedResults(testCase, { phase: 'VERIFICATION', index: 1 })
-    ).toEqual([
-      { phase: 'STEPS', index: 0, status: 'PASS' },
-      { phase: 'STEPS', index: 1, status: 'PASS' },
-      { phase: 'STEPS', index: 2, status: 'PASS' },
-      { phase: 'VERIFICATION', index: 0, status: 'PASS' },
-      { phase: 'VERIFICATION', index: 1, status: 'FAIL' },
-    ])
-  })
-
-  it('only covers earlier steps when a step fails', () => {
-    expect(priorPassedResults(testCase, { phase: 'STEPS', index: 1 })).toEqual([
-      { phase: 'STEPS', index: 0, status: 'PASS' },
-      { phase: 'STEPS', index: 1, status: 'FAIL' },
-    ])
   })
 })
 
@@ -272,5 +251,110 @@ describe('backfilled step results (20261020090000_lum1011_backfill_step_results)
       'v1:notReached',
       'v2:notReached',
     ])
+  })
+})
+
+describe('SKIP (LUM-1211)', () => {
+  const tc = { steps: ['open page', 'call API'], verification: ['refresh'] }
+  const base = {
+    result: 'PASS' as const,
+    failedPhase: null,
+    failedIndex: null,
+    failedStepText: null,
+    unprovenVerification: [],
+  }
+
+  it('parses a SKIP entry with its reason', () => {
+    expect(
+      parseStepResults([
+        {
+          phase: 'STEPS',
+          index: 1,
+          text: 'call API',
+          status: 'SKIP',
+          reason: 'no real DB',
+        },
+      ])
+    ).toEqual([
+      {
+        phase: 'STEPS',
+        index: 1,
+        text: 'call API',
+        status: 'SKIP',
+        reason: 'no real DB',
+        durationMs: null,
+        evidence: [],
+      },
+    ])
+  })
+
+  it('renders a skipped step as skipped, never passed', () => {
+    const report = deriveStepReport(tc, {
+      ...base,
+      stepResults: [
+        { phase: 'STEPS', index: 0, text: 'open page', status: 'PASS' },
+        {
+          phase: 'STEPS',
+          index: 1,
+          text: 'call API',
+          status: 'SKIP',
+          reason: 'no real DB',
+        },
+        { phase: 'VERIFICATION', index: 0, text: 'refresh', status: 'PASS' },
+      ],
+    })
+    expect(report.rows.map(r => r.state)).toEqual([
+      'passed',
+      'skipped',
+      'passed',
+    ])
+    expect(report.rows[1]!.reason).toBe('no real DB')
+    expect(report.passed).toBe(2)
+  })
+
+  it('drops a SKIP entry that has no reason (malformed Json reads as absent)', () => {
+    expect(
+      parseStepResults([
+        { phase: 'STEPS', index: 0, text: 'x', status: 'SKIP' },
+      ])
+    ).toEqual([])
+  })
+})
+
+describe('LUM-1211 backfill shape', () => {
+  it('reads a backfilled PASS with a backfilled SKIP verification', () => {
+    const report = deriveStepReport(
+      { steps: ['a'], verification: ['v'] },
+      {
+        result: 'PASS',
+        failedPhase: null,
+        failedIndex: null,
+        failedStepText: null,
+        unprovenVerification: [{ index: 0, text: 'v' }],
+        stepResults: [
+          {
+            phase: 'STEPS',
+            index: 0,
+            text: 'a',
+            status: 'PASS',
+            reason: null,
+            durationMs: null,
+            evidence: [],
+            backfilled: true,
+          },
+          {
+            phase: 'VERIFICATION',
+            index: 0,
+            text: 'v',
+            status: 'SKIP',
+            reason: 'Declared unobserved when recorded',
+            durationMs: null,
+            evidence: [],
+            backfilled: true,
+          },
+        ],
+      }
+    )
+    expect(report.rows.map(r => r.state)).toEqual(['passed', 'skipped'])
   })
 })

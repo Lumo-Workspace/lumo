@@ -133,6 +133,51 @@ export async function readRepoFileWithToken(opts: {
 }
 
 /**
+ * LUM-1208 — the paths of the FILES directly in a repository directory at a
+ * ref ('' = the root), with a token the caller holds (`withRepoReadToken`).
+ * Subdirectories, symlinks and submodules are left out. A directory that does
+ * not exist (404), or a path that is a file, lists as []; any other failure
+ * throws with its status.
+ */
+export async function listRepoDirWithToken(opts: {
+  token: string
+  fullName: string
+  path: string
+  ref?: string
+  signal?: AbortSignal
+}): Promise<string[]> {
+  const [owner, repo] = splitFullName(opts.fullName)
+  const suffix = opts.path ? `/${encodeRepoPath(opts.path)}` : ''
+  const url = new URL(
+    `https://api.github.com/repos/${owner}/${repo}/contents${suffix}`
+  )
+  if (opts.ref) url.searchParams.set('ref', opts.ref)
+  const res = await fetch(url.toString(), {
+    headers: { ...GH_HEADERS, Authorization: `Bearer ${opts.token}` },
+    ...(opts.signal ? { signal: opts.signal } : {}),
+  })
+  if (res.status === 404) return []
+  if (!res.ok) {
+    logger.error(
+      `[github/contents] listRepoDir failed for ${opts.fullName}/${opts.path}: ${res.status}`
+    )
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for ${opts.fullName}/${opts.path}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as unknown
+  if (!Array.isArray(body)) return []
+  const files: string[] = []
+  for (const entry of body as Array<{ type?: unknown; path?: unknown }>)
+    if (entry.type === 'file' && typeof entry.path === 'string')
+      files.push(entry.path)
+  return files
+}
+
+/**
  * Fetches the unified diff for a pull request.
  * Returns the raw diff text.
  */
@@ -307,6 +352,11 @@ export interface PrFileEntry {
   filename: string
   /** added | removed | modified | renamed | copied | changed | unchanged */
   status: string
+  /**
+   * The file's unified-diff hunks, when GitHub sends them (it leaves them
+   * out for binary and very large files).
+   */
+  patch?: string
 }
 
 const PR_FILES_PER_PAGE = 100
@@ -357,7 +407,11 @@ export async function fetchPrFiles(opts: {
           `GitHub pulls/files entry missing filename/status for ${opts.fullName}#${opts.prNumber}`
         )
       }
-      out.push({ filename: f.filename, status: f.status })
+      out.push({
+        filename: f.filename,
+        status: f.status,
+        ...(typeof f.patch === 'string' ? { patch: f.patch } : {}),
+      })
     }
     if (body.length < PR_FILES_PER_PAGE) return out
   }
@@ -461,6 +515,179 @@ export async function fetchPrHeadSha(opts: {
 }
 
 /**
+ * LUM-1152 — the PR's description as it is now (null when it has none), from
+ * the pulls API. Throws on non-2xx.
+ */
+export async function fetchPrBody(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<string | null> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as { body?: unknown }
+  return typeof body.body === 'string' ? body.body : null
+}
+
+/**
+ * LUM-1146 — the PR's base branch and the commit it currently points at, from
+ * the pulls API (the repository config file is read there). Throws on non-2xx
+ * or a missing field.
+ */
+export async function fetchPrBase(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<{ ref: string; sha: string }> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as {
+    base?: { ref?: unknown; sha?: unknown }
+  }
+  const { ref, sha } = body.base ?? {}
+  if (typeof ref !== 'string' || typeof sha !== 'string' || sha.length === 0) {
+    throw new Error(
+      `GitHub pulls payload missing base ref/sha for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  return { ref, sha }
+}
+
+/** LUM-1148 — what the pre-merge checks and their override read off a PR. */
+export interface PrDetails {
+  title: string
+  body: string
+  authorLogin: string | null
+  state: string
+  headSha: string
+  baseRef: string | null
+  baseSha: string | null
+  /** Users GitHub still lists as requested reviewers (teams are not expanded). */
+  requestedReviewers: string[]
+}
+
+/**
+ * LUM-1148 — the PR's title, description, author, head / base and requested
+ * reviewers, from one pulls API call. Throws on non-2xx or a missing head.
+ */
+export async function fetchPrDetails(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<PrDetails> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as {
+    title?: unknown
+    body?: unknown
+    state?: unknown
+    user?: { login?: unknown } | null
+    head?: { sha?: unknown }
+    base?: { ref?: unknown; sha?: unknown }
+    requested_reviewers?: Array<{ login?: unknown } | null> | null
+  }
+  const headSha = body.head?.sha
+  if (typeof headSha !== 'string' || headSha.length === 0) {
+    throw new Error(
+      `GitHub pulls payload missing head.sha for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  const str = (v: unknown): string | null =>
+    typeof v === 'string' && v.length > 0 ? v : null
+  return {
+    title: typeof body.title === 'string' ? body.title : '',
+    body: typeof body.body === 'string' ? body.body : '',
+    authorLogin: str(body.user?.login),
+    state: typeof body.state === 'string' ? body.state : 'open',
+    headSha,
+    baseRef: str(body.base?.ref),
+    baseSha: str(body.base?.sha),
+    requestedReviewers: (body.requested_reviewers ?? [])
+      .map(r => r?.login)
+      .filter((l): l is string => typeof l === 'string' && l.length > 0),
+  }
+}
+
+/** LUM-1148 — where GitHub looks for a pull request template (first wins). */
+export const PR_TEMPLATE_PATHS = [
+  '.github/pull_request_template.md',
+  '.github/PULL_REQUEST_TEMPLATE.md',
+  'pull_request_template.md',
+  'docs/pull_request_template.md',
+] as const
+
+/**
+ * LUM-1148 — the repository's pull request template at `ref`, or null when
+ * it has none. One contents:read token for the reads, revoked after.
+ */
+export async function readPrTemplate(opts: {
+  workspaceId: string
+  fullName: string
+  ref: string
+}): Promise<string | null> {
+  return withRepoReadToken(opts, async token => {
+    for (const path of PR_TEMPLATE_PATHS) {
+      const text = await readRepoFileWithToken({
+        token,
+        fullName: opts.fullName,
+        path,
+        ref: opts.ref,
+      })
+      if (text !== null) return text
+    }
+    return null
+  })
+}
+
+/**
  * LUM-738 — the default branch and its current head sha, for the repository
  * security baseline. Two calls (repo → default_branch, then the branch ref).
  * Throws on non-2xx or a missing field.
@@ -555,6 +782,72 @@ export async function fetchRepoVisibility(opts: {
     return 'unknown'
   } catch {
     return 'unknown'
+  } finally {
+    await revokeInstallationToken(token).catch(() => false)
+  }
+}
+
+/** LUM-1149 — an issue as the linked issue assessment reads it. */
+export interface RepoIssue {
+  number: number
+  title: string
+  body: string
+}
+
+const ISSUE_TIMEOUT_MS = 10_000
+
+/**
+ * LUM-1149 — issues `numbers` of the repository, for the linked issue
+ * assessment: one issues:read token for every read, revoked after. A number
+ * that is a pull request (GitHub serves both under `/issues`) or that does
+ * not exist (404 / 410) is skipped. Throws on any other failure (the check is
+ * then inconclusive, never not-applicable).
+ */
+export async function fetchRepoIssues(opts: {
+  workspaceId: string
+  fullName: string
+  numbers: readonly number[]
+}): Promise<RepoIssue[]> {
+  if (opts.numbers.length === 0) return []
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.issueRead
+  )
+  try {
+    const [owner, repo] = splitFullName(opts.fullName)
+    const out: RepoIssue[] = []
+    for (const n of opts.numbers) {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/issues/${n}`,
+        {
+          headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(ISSUE_TIMEOUT_MS),
+        }
+      )
+      if (res.status === 404 || res.status === 410) continue
+      if (!res.ok) {
+        throw Object.assign(
+          new Error(
+            `GitHub API error ${res.status} for issue ${opts.fullName}#${n}`
+          ),
+          { status: res.status }
+        )
+      }
+      const body = (await res.json()) as {
+        number?: unknown
+        title?: unknown
+        body?: unknown
+        pull_request?: unknown
+      }
+      if (body.pull_request) continue
+      out.push({
+        number: typeof body.number === 'number' ? body.number : n,
+        title: typeof body.title === 'string' ? body.title : '',
+        body: typeof body.body === 'string' ? body.body : '',
+      })
+    }
+    return out
   } finally {
     await revokeInstallationToken(token).catch(() => false)
   }

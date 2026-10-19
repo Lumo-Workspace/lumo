@@ -1,6 +1,8 @@
 import * as fs from 'fs'
+import { stringifyJson, withVersion } from '../lib/json-output'
 import * as os from 'os'
 import * as path from 'path'
+import { WARN_PREFIX } from '../lib/errors'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import {
   describeAutoUpdate,
@@ -19,6 +21,7 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
   isLumoHookCommand,
+  retiredLumoHookEvents,
 } from '../lib/hooks-template'
 import {
   codexEventKey,
@@ -105,7 +108,7 @@ export function refreshCommand(
   scope: 'user' | 'project',
   agent?: string
 ): string {
-  return `lumo init --${scope}${agent ? ` --agent ${agent}` : ''}`
+  return `lumo init --scope ${scope}${agent ? ` --agent ${agent}` : ''}`
 }
 
 /** State for an install older than what the running CLI would write. */
@@ -247,7 +250,8 @@ function settingsRow(
     if (has) any = true
     else missing.push(event)
   }
-  if (!any) return null
+  const retired = retiredLumoHookEvents(data.hooks)
+  if (!any && retired.length === 0) return null
   const row: DoctorRow = {
     path: file,
     kind: 'claude-settings',
@@ -255,15 +259,31 @@ function settingsRow(
     agent: 'claude-code',
     group: groupFor(scope, root, file, () => isPathGitTracked(file)),
     tracked: isPathGitTracked(file),
-    state: missing.length === 0 ? 'up to date' : 'incomplete',
+    state:
+      missing.length === 0 && retired.length === 0
+        ? 'up to date'
+        : 'incomplete',
   }
+  const details: string[] = []
   if (missing.length > 0) {
-    row.suggestion = `lumo init --${scope}`
-    row.detail = `missing ${missing.length} hook event(s)`
+    details.push(`missing ${missing.length} hook event(s)`)
     warnings.push({
       code: 'missing-hook-events',
       message: `${file} is missing Lumo hook events: ${missing.join(', ')}`,
     })
+  }
+  // LUM-1235: a Lumo WorktreeCreate entry replaces Claude Code's own worktree
+  // creation and makes it fail; `lumo init` removes it.
+  if (retired.length > 0) {
+    details.push(`retired hook event(s) to remove: ${retired.join(', ')}`)
+    warnings.push({
+      code: 'retired-hook-events',
+      message: `${file} still has retired Lumo hook events that break Claude Code worktrees: ${retired.join(', ')}`,
+    })
+  }
+  if (details.length > 0) {
+    row.suggestion = `lumo init --scope ${scope}`
+    row.detail = details.join('; ')
   }
   return row
 }
@@ -307,7 +327,7 @@ function gitHookRow(
   }
   if (!upToDate) {
     if (hooksPath)
-      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --project\` prints`
+      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --scope project\` prints`
     else row.suggestion = refreshCommand('project')
   }
   return row
@@ -609,12 +629,14 @@ function renderText(report: DoctorReport): string {
       const parts = [r.kind, r.version ? `v${r.version}` : null, r.state]
       lines.push(`    ${parts.filter(Boolean).join(' · ')}`)
       if (r.detail) lines.push(`    ${r.detail}`)
-      if (r.suggestion) lines.push(`    -> ${r.suggestion}`)
+      // LUM-1232 S-1: a command sits on its own line with no arrow.
+      if (r.suggestion) lines.push(`    ${r.suggestion}`)
     }
   }
   if (report.warnings.length > 0) {
     lines.push('', 'Warnings')
-    for (const w of report.warnings) lines.push(`  ! ${w.code}: ${w.message}`)
+    for (const w of report.warnings)
+      lines.push(`  ${WARN_PREFIX} ${w.code}: ${w.message}`)
   }
   return lines.join('\n') + '\n'
 }
@@ -639,7 +661,7 @@ export async function doctor(
     report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
   }
   process.stdout.write(
-    options.json ? JSON.stringify(report, null, 2) + '\n' : renderText(report)
+    options.json ? stringifyJson(withVersion(report)) : renderText(report)
   )
   return 0
 }

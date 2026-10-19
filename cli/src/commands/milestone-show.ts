@@ -11,6 +11,11 @@ import {
 } from '../lib/milestone-labels'
 import { renderListTable } from '../lib/list-table'
 import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import {
   fieldLines,
   indentLines,
   sectionHeading,
@@ -19,15 +24,42 @@ import {
   type Field,
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
-import { colorEnabled, DEFAULT_TERMINAL_WIDTH, terminalWidth } from '../lib/ui'
+import {
+  formatSummaryAspect,
+  readSummary,
+  type SummaryRead,
+} from '../lib/summary-aspect'
+import {
+  formatMilestoneChangelog,
+  readChangelog,
+  type MilestoneChangelogPayload,
+} from './milestone-changelog'
+import {
+  milestoneMetricsLines,
+  type MilestoneMetricsData,
+} from '../lib/milestone-metrics'
+import {
+  colorEnabled,
+  DEFAULT_TERMINAL_WIDTH,
+  enumColor,
+  heading,
+  terminalWidth,
+} from '../lib/ui'
 
 export interface ShowMilestoneOptions {
   project?: string
+  json?: boolean
+  /** LUM-1233 3j (AF-1): the AI summary (was `milestone summary`). */
+  summary?: boolean
+  /** LUM-1233 3j (AF-1): the changelog (was `milestone changelog`). */
+  changelog?: boolean
 }
 
-export interface MilestoneShowData {
+export interface MilestoneShowData extends MilestoneMetricsData {
   id: string
   name: string
+  /** LUM-1230: the handle the milestone commands take; absent on an older server. */
+  slug?: string | null
   /** LUM-714: derived completion stamp; non-null = the milestone is done. */
   completedAt: string | null
   startDate: string | null
@@ -86,11 +118,10 @@ export interface MilestoneShowData {
         rate: number | null
       }
     | undefined
-  /** LUM-1135: close gate (exit criteria + milestone test cases). Absent on older servers. */
+  /** LUM-1135: close gate (milestone test cases). Absent on older servers. */
   closeGate?:
     | {
         held: number
-        unresolvedCriteria: number
         cases: Array<{ state: 'open' | 'held'; reason: string | null }>
       }
     | null
@@ -104,7 +135,7 @@ const GATE_REASON_LABEL: Record<string, string> = {
   BLOCKED: 'blocked',
 }
 
-/** LUM-1135: `open` or `held (2 not run, 1 failing, 1 exit criterion)`. */
+/** LUM-1135: `open` or `held (2 not run, 1 failing)`. */
 export function formatCloseGate(
   gate: NonNullable<MilestoneShowData['closeGate']>
 ): string {
@@ -116,11 +147,6 @@ export function formatCloseGate(
     counts.set(label, (counts.get(label) ?? 0) + 1)
   }
   const parts = [...counts].map(([label, n]) => `${n} ${label}`)
-  if (gate.unresolvedCriteria > 0) {
-    parts.push(
-      `${gate.unresolvedCriteria} exit ${gate.unresolvedCriteria === 1 ? 'criterion' : 'criteria'}`
-    )
-  }
   return `held (${parts.join(', ')})`
 }
 
@@ -219,7 +245,7 @@ function progressLines(
 /**
  * LUM-1090 — `milestone show` as a detail view: `Label:  value` rows padded to
  * the widest label, then one headed section each for the description (wrapped
- * at the report width, every line indented), progress, sprint coverage,
+ * at the report width, every line indented), progress, metrics, sprint coverage,
  * cross-milestone learning and the task table. Plain text unless `opts`
  * turns colour on (the command entry does, on a TTY).
  */
@@ -234,15 +260,23 @@ export function formatMilestoneShow(
   // LUM-1089: same upper-case words as `milestone list`'s STATE column.
   const state = milestoneState(m)
   const drift = m.staleness?.completionDrift
+  const c = opts.color === true
   const stateValue = drift
-    ? `${state}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
-    : state
+    ? `${enumColor(state, c)}  (stale — task progress indicates ${drift === 'complete' ? 'COMPLETED' : 'ACTIVE'}; auto-updating)`
+    : enumColor(state, c)
   const targetValue = m.staleness?.datesMissing
     ? `${fmtCalendarDay(m.targetDate)}  (no target date — schedule health unavailable)`
     : fmtCalendarDay(m.targetDate)
+  // LUM-1232 D-1: the first line is `<ref>  <title>` (the slug is the ref
+  // `milestone show` takes; the name when the server sends no slug).
+  const titleLine = heading(
+    m.slug
+      ? `${sanitizeField(m.slug)}  ${sanitizeField(m.name)}`
+      : sanitizeField(m.name),
+    { color: c }
+  )
   const lines = fieldLines(
     [
-      { label: 'Milestone', value: sanitizeField(m.name) },
       { label: 'State', value: stateValue },
       // null = the server could not read the gate; absent = an older server.
       ...(m.closeGate === null
@@ -258,7 +292,7 @@ export function formatMilestoneShow(
         label: 'Archived',
         value: fmtDay(m.archivedAt),
       },
-      { label: 'Health', value: formatHealth(m.health) },
+      { label: 'Health', value: enumColor(formatHealth(m.health), c) },
       { label: 'Start', value: fmtCalendarDay(m.startDate) },
       { label: 'Target', value: targetValue },
       { label: 'Project', value: sanitizeField(m.projectName) },
@@ -266,10 +300,13 @@ export function formatMilestoneShow(
     0,
     opts
   )
+  lines.unshift(titleLine)
   lines.push(...sectionHeading('Description', opts))
   const description = m.description ? sanitizeField(m.description).trim() : ''
   lines.push(...(description ? wrapLines(description, 2, opts) : ['  -']))
   lines.push(...progressLines(m.taskCounts, opts))
+  // LUM-1190: the web metric strip (tokens · budget · active time · PRs).
+  lines.push(...milestoneMetricsLines(m, opts))
   lines.push(...sprintCoverageLines(m.sprintCoverage, opts))
   lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning, opts))
   lines.push(
@@ -303,6 +340,15 @@ export async function milestoneShow(
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
+
+  // LUM-1233 3j: the aspects read in parallel with the main reads; a failed
+  // aspect is a `Could not read (…)` line / `{ error }`, never the whole show.
+  const aspects = Promise.all([
+    opts.summary
+      ? readSummary(base, creds.token, 'milestones', milestoneId)
+      : undefined,
+    opts.changelog ? readChangelog(base, creds.token, milestoneId) : undefined,
+  ])
 
   // Fetch the milestone (with taskCounts) and the task list in parallel.
   let milestoneRes: Response
@@ -339,6 +385,7 @@ export async function milestoneShow(
     milestone: {
       id: string
       name: string
+      slug?: string | null
       completedAt: string | null
       startDate: string | null
       targetDate: string | null
@@ -351,9 +398,24 @@ export async function milestoneShow(
       sprintCoverage?: MilestoneShowData['sprintCoverage']
       crossMilestoneLearning?: MilestoneShowData['crossMilestoneLearning']
       closeGate?: MilestoneShowData['closeGate']
+      costRollup?: MilestoneShowData['costRollup']
+      budget?: MilestoneShowData['budget']
+      deliveryStats?: MilestoneShowData['deliveryStats']
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
+
+  const [summary, changelog] = await aspects
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('milestone', stripInternalFields(milestone), {
+        tasks: stripInternalFields(tasks),
+        ...(summary !== undefined ? { summary } : {}),
+        ...(changelog !== undefined ? { changelog } : {}),
+      })
+    )
+    return
+  }
 
   // Look up project display name. If the caller passed `--project <ref>`
   // we already know it; otherwise hit /api/projects once.
@@ -375,6 +437,7 @@ export async function milestoneShow(
       {
         id: milestone.id,
         name: milestone.name,
+        slug: milestone.slug ?? null,
         completedAt: milestone.completedAt,
         startDate: milestone.startDate,
         targetDate: milestone.targetDate,
@@ -387,6 +450,9 @@ export async function milestoneShow(
         sprintCoverage: milestone.sprintCoverage,
         crossMilestoneLearning: milestone.crossMilestoneLearning,
         closeGate: milestone.closeGate,
+        costRollup: milestone.costRollup,
+        budget: milestone.budget,
+        deliveryStats: milestone.deliveryStats,
       },
       tasks,
       {
@@ -394,6 +460,30 @@ export async function milestoneShow(
         color: colorEnabled(),
         tty: Boolean(process.stdout.isTTY),
       }
-    ) + '\n'
+    ) +
+      formatAspects(summary, changelog, { color: colorEnabled() }) +
+      '\n'
   )
+}
+
+/** The `--summary` / `--changelog` sections after the detail view. Pure. */
+export function formatAspects(
+  summary: SummaryRead | undefined,
+  changelog: MilestoneChangelogPayload | { error: string } | undefined,
+  opts: { color?: boolean } = {}
+): string {
+  const lines: string[] = []
+  if (summary !== undefined)
+    lines.push(
+      ...sectionHeading('Summary', opts),
+      ...formatSummaryAspect(summary)
+    )
+  if (changelog !== undefined)
+    lines.push(
+      ...sectionHeading('Changelog', opts),
+      'error' in changelog && typeof changelog.error === 'string'
+        ? `Could not read (${sanitizeField(changelog.error)})`
+        : formatMilestoneChangelog(changelog as MilestoneChangelogPayload)
+    )
+  return lines.length ? '\n' + lines.join('\n') : ''
 }

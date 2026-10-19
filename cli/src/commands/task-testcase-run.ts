@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -5,9 +6,8 @@ import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveSessionId } from '../lib/session-id'
 import { printStatusDigest } from '../lib/status-digest'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
-  splitCaseHandle,
   resolveRunLocator,
   readGitCoordinate,
   resolveCommitCoordinate,
@@ -22,6 +22,8 @@ import {
 import {
   parseStepSpecs,
   parseStepEvidence,
+  missingStepRefsLocal,
+  formatMissingStepsError,
   isUrl,
 } from '../lib/test-case-steps'
 
@@ -79,26 +81,6 @@ interface UploadResponse {
   }>
 }
 
-export async function taskTestCaseRun(
-  handle: string | undefined,
-  options: TestCaseRunOptions
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase run LUM-42/TC3 --result pass --env local'
-    )
-    return 1
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return 1
-  }
-  return testCaseRunInScope(taskScope(split.task), split.caseRef, options)
-}
-
 export async function testCaseRunInScope(
   scope: TestCaseScope,
   caseRef: string,
@@ -110,7 +92,7 @@ export async function testCaseRunInScope(
     console.error(
       'Error: --pr does not apply to a milestone run (a milestone spans many PRs); the commit is recorded instead.'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const result = options.result?.trim().toUpperCase()
@@ -118,7 +100,7 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --result is required. Valid values: ${RESULTS.join(' | ').toLowerCase()}.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // environment 没有默认值 —— 这个命令存在的理由就是分清跑在哪个环境。
@@ -128,49 +110,49 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --env is required (no default). Valid values: ${ENVIRONMENTS.join(' | ').toLowerCase()}.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const locator = resolveRunLocator(options)
   if (!locator.ok) {
     console.error(`Error: ${locator.error}`)
-    return 1
+    return EXIT_USAGE
   }
   if (result !== 'FAIL' && locator.failedPhase !== null) {
     console.error(
       `Error: a ${result} run cannot carry a failure locator. BLOCKED means the case never ran; use --result fail to point at a step.`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-1011: 逐步结果。只有 FAIL 能带 fail 步；BLOCKED 根本没跑起来。
   const steps = parseStepSpecs(options.step)
   if (!steps.ok) {
     console.error(`Error: ${steps.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const stepEvidence = parseStepEvidence(options.stepEvidence)
   if (!stepEvidence.ok) {
     console.error(`Error: ${stepEvidence.error}`)
-    return 1
+    return EXIT_USAGE
   }
   if (result === 'BLOCKED' && steps.value.length > 0) {
     console.error(
       'Error: a BLOCKED run cannot carry --step results — the case never ran. Use --result fail with the failing step instead.'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (result !== 'FAIL' && steps.value.some(s => s.status === 'FAIL')) {
     console.error(`Error: a ${result} run cannot report a failing --step.`)
-    return 1
+    return EXIT_USAGE
   }
   for (const e of stepEvidence.value) {
     if (!steps.value.some(s => s.phase === e.phase && s.index === e.index)) {
       const ref = `${e.phase === 'STEPS' ? 's' : 'v'}${e.index + 1}`
       console.error(
-        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail.`
+        `Error: --step-evidence ${ref} needs a matching --step ${ref}=pass|fail|skip:<reason>.`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
   const actual = options.actual?.trim() || null
@@ -178,7 +160,7 @@ export async function testCaseRunInScope(
     console.error(
       `Error: --actual is for a failing run (got --result ${result.toLowerCase()}).`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-808 步骤 1：FAIL 必须说清是谁的锅。服务端有同样的闸门，这里挡一道
@@ -189,14 +171,14 @@ export async function testCaseRunInScope(
   )
   if (!cause.ok) {
     console.error(`Error: ${cause.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-808 步骤 2：本次没能观察到的复验条目（1-based → 0-based）。
   const unproven = resolveUnprovenIndices(options.unproven)
   if (!unproven.ok) {
     console.error(`Error: ${unproven.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   let prNumber: number | null = null
@@ -206,7 +188,7 @@ export async function testCaseRunInScope(
       console.error(
         `Error: invalid --pr "${options.pr}". Expected a PR number, e.g. --pr 123.`
       )
-      return 1
+      return EXIT_USAGE
     }
     prNumber = Number(raw)
   }
@@ -256,6 +238,26 @@ export async function testCaseRunInScope(
     return 1
   }
   if (paths.length > 0) {
+    // LUM-1211: 服务端会因漏报逐步结果拒绝这条 run；先在本地预检，别为一条
+    // 必拒的 run 上传出孤儿证据。没有文件要传时不多发这一次请求。
+    const pre = await apiCall<{
+      testCase: { steps: string[]; verification: string[] }
+    }>(ctx, base, {}, 'test case show')
+    if (!pre.ok || !pre.data) return 1
+    const missing = missingStepRefsLocal(pre.data.testCase, {
+      result: result as 'PASS' | 'FAIL' | 'BLOCKED',
+      steps: steps.value,
+      failLocator:
+        locator.failedPhase !== null && locator.failedIndex !== null
+          ? { phase: locator.failedPhase, index: locator.failedIndex }
+          : null,
+      unprovenVerification: unproven.indices,
+    })
+    if (missing.length > 0) {
+      console.error(`Error: ${formatMissingStepsError(missing)}`)
+      return 1
+    }
+
     const fd = new FormData()
     for (const p of paths) {
       let bytes: Buffer
@@ -293,6 +295,7 @@ export async function testCaseRunInScope(
     phase: s.phase,
     index: s.index,
     status: s.status,
+    ...(s.status === 'SKIP' ? { reason: s.reason } : {}),
     durationMs: s.durationMs,
     evidence: stepEvidenceIdx.get(`${s.phase}:${s.index}`) ?? [],
   }))
@@ -317,7 +320,7 @@ export async function testCaseRunInScope(
         failureAttribution: cause.cause,
         unprovenVerification: unproven.indices,
         note: options.note?.trim() || null,
-        // LUM-1011: 旧服务端会静默丢掉这两个字段（非 strict schema）。
+        // LUM-1211: 服务端要求每一步都上报；缺了它会 400 并列出缺项，CLI 原样转述。
         ...(stepResults.length > 0 ? { stepResults } : {}),
         ...(actual !== null ? { actual } : {}),
         pullRequestNumber: prNumber,
@@ -345,8 +348,11 @@ export async function testCaseRunInScope(
   }
   if (actual !== null) console.log(`  actual: ${actual}`)
   if (stepResults.length > 0) {
-    const passed = stepResults.filter(s => s.status === 'PASS').length
-    console.log(`Steps: ${passed} passed of ${stepResults.length} reported`)
+    const n = (st: string) => stepResults.filter(r => r.status === st).length
+    const parts = [`${n('PASS')} passed`]
+    if (n('SKIP') > 0) parts.push(`${n('SKIP')} skipped`)
+    if (n('FAIL') > 0) parts.push(`${n('FAIL')} failed`)
+    console.log(`Steps: ${parts.join(', ')} of ${stepResults.length} reported`)
   }
   if (prNumber !== null) console.log(`PR: #${prNumber}`)
   if (commitSha) {

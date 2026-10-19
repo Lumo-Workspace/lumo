@@ -10,15 +10,20 @@
  * parseable footer — agents rely on it to notice they did not see everything:
  *
  *   Showing 1-50 of 132.
- *   Hint: next page with `lumo task list --cursor 50`
+ *   Next page: lumo task list --cursor 50
+ *
+ * LUM-1232 (conventions PG-1, decision Q5): the second line is data, not a
+ * hint — it always prints, `--no-hints` does not touch it.
  *
  * A result that fits on the first page prints no footer, so short lists look
  * exactly as before. No colour here: the footer is read by agents as-is.
  */
 
 import { shellQuote } from './confirmation'
-import { cmd, hint } from './feedback'
 import { sanitizeField } from './sanitize'
+
+/** The paging footer's second line (PG-1). */
+export const NEXT_PAGE_PREFIX = 'Next page:'
 
 /** User-ruled default page size (LUM-1093 decision, 2026-10-13). */
 export const DEFAULT_PAGE_SIZE = 50
@@ -123,7 +128,6 @@ export function buildCommand(base: string, flags: CommandFlag[]): string {
 /**
  * The footer lines for a page, or `[]` when there is nothing to say (the page
  * is the whole result). `command` is the next-page command without `--cursor`.
- * `noun` names what the next page holds (default `next page`).
  */
 export function pageFooter(
   page: Pick<Page<unknown>, 'total' | 'offset' | 'nextCursor'> & {
@@ -131,8 +135,7 @@ export function pageFooter(
     /** 1-based position of the first shown row (default `offset + 1`). */
     first?: number
   },
-  command: string,
-  noun = 'next page'
+  command: string
 ): string[] {
   if (page.nextCursor === null && page.offset === 0) return []
   const first = page.first ?? page.offset + 1
@@ -142,9 +145,7 @@ export function pageFooter(
       : `Showing ${first}-${first + page.shown - 1} of ${page.total}.`,
   ]
   if (page.nextCursor !== null) {
-    lines.push(
-      hint(`${noun} with ${cmd(`${command} --cursor ${page.nextCursor}`)}`)
-    )
+    lines.push(`${NEXT_PAGE_PREFIX} ${command} --cursor ${page.nextCursor}`)
   }
   return lines
 }

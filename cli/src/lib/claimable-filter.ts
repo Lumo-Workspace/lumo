@@ -1,6 +1,6 @@
 /**
  * LUM-646 (F4/自治边界): the agent-claimable autonomy gate for
- * `lumo next --claimable`. Pure — no network/IO — so it can be unit-tested
+ * `lumo status --next --claimable`. Pure — no network/IO — so it can be unit-tested
  * directly and kept out of the ranking comparator.
  *
  * A task is inside the autonomy boundary only when ALL THREE hold:

@@ -141,7 +141,7 @@ describe('skill rows and grouping', () => {
     expect(rowFor(r, old)).toMatchObject({
       group: 'machine',
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --user --agent codex',
+      suggestion: 'lumo init --scope user --agent codex',
     })
   })
 
@@ -289,6 +289,33 @@ describe('claude settings hooks', () => {
     expect(w[0]!.message).toContain('SessionEnd')
   })
 
+  it('flags retired Lumo WorktreeCreate / WorktreeRemove entries (LUM-1235)', () => {
+    const f = fixture()
+    const p = join(f.repo, '.claude', 'settings.json')
+    writeSettings(p, ALL)
+    const data = JSON.parse(readFileSync(p, 'utf8'))
+    data.hooks.WorktreeCreate = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'lumo hook worktree-create --agent claude-code',
+          },
+        ],
+      },
+    ]
+    writeFileSync(p, JSON.stringify(data))
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, p)).toMatchObject({
+      state: 'incomplete',
+      suggestion: 'lumo init --scope project',
+    })
+    const w = warn(r, 'retired-hook-events')
+    expect(w).toHaveLength(1)
+    expect(w[0]!.message).toContain('WorktreeCreate')
+    expect(warn(r, 'missing-hook-events')).toHaveLength(0)
+  })
+
   it('ignores settings without any Lumo hook and survives invalid JSON', () => {
     const f = fixture()
     mkdirSync(join(f.home, '.claude'), { recursive: true })
@@ -331,7 +358,7 @@ describe('git hook', () => {
     )
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --project',
+      suggestion: 'lumo init --scope project',
     })
   })
 
@@ -476,9 +503,13 @@ describe('doctor command', () => {
     expect(stdout).toContain('This machine')
     expect(stdout).toContain(up)
     expect(stdout).toContain('behind CLI 2.0.0')
-    expect(stdout).toContain('-> lumo init --user --agent claude-code')
+    expect(stdout).toContain('    lumo init --scope user --agent claude-code')
+    expect(stdout).not.toContain('-> lumo init')
     expect(stdout).not.toContain('--upgrade')
     expect(stdout).toContain('lumo-not-on-path')
+    // LUM-1232 S-1: warnings use the one warning marker, never `!`.
+    expect(stdout).toMatch(/^  ⚠ lumo-not-on-path: /m)
+    expect(stdout).not.toMatch(/^  ! /m)
     expect(hashSkillDir(up)).toBe(before)
   })
 
@@ -587,7 +618,7 @@ describe('fix round 1', () => {
     ])
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       group: 'other-repos',
-      suggestion: 'lumo init --project',
+      suggestion: 'lumo init --scope project',
       detail: 'run the command in that repo',
     })
   })
@@ -695,7 +726,7 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     )
     const r = collectDoctor(f.deps)
     const row = rowFor(r, p)!
-    expect(row.suggestion).toBe('lumo init --user --agent codex')
+    expect(row.suggestion).toBe('lumo init --scope user --agent codex')
     expect(row.detail).toContain('missing 1 hook event(s)')
     expect(
       warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))

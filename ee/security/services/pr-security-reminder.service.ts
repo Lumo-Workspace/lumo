@@ -58,6 +58,7 @@ import {
   prTooLargeOf,
   type HuntOverCapInput,
   type JudgeOverCapInput,
+  type JudgePartialInput,
   type PrTooLargeInput,
 } from '@/shared/src/security-scan'
 
@@ -104,6 +105,8 @@ export interface TaskSecurityScanSummary {
   huntOverCap: HuntOverCapInput | null
   /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
+  judgePartial: JudgePartialInput | null
   /**
    * LUM-1079 — the whole PR was too large to scan. null otherwise. Additive:
    * an older CLI ignores it.
@@ -155,6 +158,15 @@ function unconfirmedReason(
   if (scan.status === 'PENDING') return 'PENDING'
   if (scan.status === 'RUNNING') return 'RUNNING'
   return null
+}
+
+/**
+ * LUM-1234 — agent-behavior (REWARD_HACK) findings are advisory notes for
+ * the humans reviewing the PR: the agent reminders leave them out (they are
+ * neither security findings nor the agent's to rule on).
+ */
+function notAgentBehavior(f: { kind: string }): boolean {
+  return f.kind !== 'REWARD_HACK'
 }
 
 export const prSecurityReminderService = {
@@ -274,7 +286,7 @@ export const prSecurityReminderService = {
         // next-actions list and `openFindings` leave it out.
         if (exits.has(f.id)) continue
         // LUM-988: the agentic verifier rejected it after reading the code —
-        // shown in the panel and `pr scan`, never asked of the agent.
+        // shown in the panel and `pr show`, never asked of the agent.
         if (isVerifierRejected(f)) continue
         // LUM-1127: a human resolved its thread on GitHub (non-blocking only).
         if (closedOnGithub(f)) continue
@@ -311,7 +323,7 @@ export const prSecurityReminderService = {
   ): Promise<string> {
     const state = await this.loadOpenFindingsForTask(taskId)
     return renderSessionStartSecuritySection({
-      findings: state.findings,
+      findings: state.findings.filter(notAgentBehavior),
       unconfirmedPrs: state.unconfirmedPrs,
       identifier,
     })
@@ -345,7 +357,9 @@ export const prSecurityReminderService = {
       .map(ls => ({
         prNumber: ls.prNumber,
         headSha: ls.headSha,
-        findings: state.findings.filter(f => f.scanId === ls.scanId),
+        findings: state.findings.filter(
+          f => f.scanId === ls.scanId && notAgentBehavior(f)
+        ),
       }))
       .filter(s => s.findings.length > 0)
     const rendered =

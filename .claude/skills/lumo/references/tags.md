@@ -13,7 +13,10 @@ Columns align by display width (CJK names count 2). On a TTY a `NAME  COLOR  TAS
 
 ```bash
 lumo tag list
+lumo tag list --json
 ```
+
+`--json` prints `{ version, tags: [{ id, name, color, taskCount, documentCount, createdAt, workspaceId }], total, nextCursor }` (`nextCursor` is always `null`). Before CLI batch C (LUM-1232) it printed the bare `tags` array — read `.tags` now.
 
 ### `lumo tag create <name> [--color <hex>]`
 
@@ -25,5 +28,5 @@ lumo tag create infra --color "#3b82f6"
 
 ### When to suggest
 
-- Before `task search --tag` or `task update --add-tag`, when you are unsure of a tag's exact name — `tag list` avoids a typo minting a stray tag via `--add-tag`.
+- Before `task list --tag` or `task update --add-tag`, when you are unsure of a tag's exact name — `tag list` avoids a typo minting a stray tag via `--add-tag`.
 - "What labels do we have", "create a label for X".

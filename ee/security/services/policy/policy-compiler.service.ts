@@ -24,10 +24,17 @@ import {
   type StoredProjectPolicy,
 } from '@/ee/security/repositories/project-policy.repository'
 import { logger } from '@/lib/logger'
-import { recordPolicyWeakening } from '@/lib/services/boundary-crossing-policy-weakening.service'
+import {
+  recordPolicyWeakening,
+  recordRetainedRules,
+} from '@/lib/services/boundary-crossing-policy-weakening.service'
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
 import { dedupeRules } from './rule-dedupe'
+import { deletePathRuleShape } from './delete-path-rule'
+import { migrationCommandRuleShape } from './migration-command-rule'
+import { retainWeakenedRules } from './retain-rules'
+import { isUnsafeCmdNeedle } from '@/ee/security/boundary-crossing/action-rule-match'
 import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
 
 /**
@@ -37,7 +44,7 @@ import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
  * of serving a stale rule set until someone edits the doc (LUM-770: the stored
  * policies carried the tsc-obligation-as-prohibition rule).
  */
-export const COMPILER_VERSION = 'lum1114'
+export const COMPILER_VERSION = 'lum1236b'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -156,6 +163,21 @@ async function emitWeakening(
  *   naming only built-in-guarded branches → no predicate at all (the built-in,
  *   target-scoped since LUM-464, is the single detector); otherwise → a
  *   `push-target` predicate over the branches the rule names.
+ * - LUM-1236: a "never delete / rename files in <path>" prohibition never
+ *   keeps a path-blind predicate (`cmd-substr: "rm"` flagged `format`,
+ *   `confirm`, every `git rm`): it becomes `path-delete` over the named paths,
+ *   mapped to MIGRATION_FILE_DELETED when they all lie under prisma/migrations
+ *   (./delete-path-rule); any other bare-verb / ≤2-char cmd-substr is dropped;
+ * - LUM-1236 follow-up: a rule whose prohibition clause names migration
+ *   commands ("never `migrate dev`, `db push`, `migrate reset`, or direct
+ *   edits to `_prisma_migrations`") becomes `migration-command` over those
+ *   operations, mapped to DESTRUCTIVE_DB_COMMAND, whatever the model said —
+ *   the lum1236 recompile left it with no predicate (NO_CHECKER)
+ *   (./migration-command-rule);
+ * - a compiler-derived predicate (`push-target`, `path-delete`,
+ *   `migration-command`) is deterministic: a rule the model called semantic
+ *   would otherwise be stored with a check no detector reads (the
+ *   tier filter of `detectProjectActionCrossings`);
  * - LUM-1114: a semantic rule without an assertion is judged on its own text —
  *   otherwise nothing ever checks it (./rule-reachability);
  * - LUM-1114: rules that would detect exactly the same thing are merged into
@@ -165,14 +187,18 @@ async function emitWeakening(
 export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
   return dedupeRules(
     rawRules.map(r => {
-      const hasBuiltin =
-        r.mappedCategory != null &&
-        (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
+      // LUM-1236 follow-up: a rule whose prohibition clause names migration
+      // commands keeps a checker derived from its own text. Decided first and
+      // without the model's polarity — "use only X — never Y" read as an
+      // obligation is exactly the misreading this guards against.
+      const migShape = migrationCommandRuleShape(r)
       const obligationWithCmdSubstr =
+        migShape == null &&
         r.kind === 'action' &&
         r.predicate?.type === 'cmd-substr' &&
         (r.polarity === 'require' || isObligationText(r.text))
       let predicate = obligationWithCmdSubstr ? undefined : r.predicate
+      let mappedCategory = r.mappedCategory
 
       // LUM-772: push prohibitions are judged on the push destination only.
       const push = obligationWithCmdSubstr ? null : pushRuleShape(r)
@@ -181,11 +207,35 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
           ? undefined
           : { type: 'push-target', value: push.branches.join(',') }
       }
+      // LUM-1236: "never delete files in <path>" is judged on the delete's
+      // operands (`path-delete`); under prisma/migrations the built-in is the
+      // one detector. A bare-verb `cmd-substr` ("rm") never survives: it
+      // matches everyday work and names nothing the rule protects.
+      const del =
+        obligationWithCmdSubstr || push ? null : deletePathRuleShape(r)
+      const mig = push || del ? null : migShape
+      if (del) {
+        predicate = { type: 'path-delete', value: del.paths.join(',') }
+        if (del.coveredByBuiltin) mappedCategory = 'MIGRATION_FILE_DELETED'
+      } else if (mig) {
+        predicate = { type: 'migration-command', value: mig.ops.join(',') }
+        mappedCategory = 'DESTRUCTIVE_DB_COMMAND'
+      } else if (
+        predicate?.type === 'cmd-substr' &&
+        isUnsafeCmdNeedle(predicate.value)
+      ) {
+        predicate = undefined
+      }
+      const hasBuiltin =
+        mappedCategory != null &&
+        (BUILTIN_CATEGORIES as readonly string[]).includes(mappedCategory)
       const hasPredicate = predicate != null
 
-      const tier: PolicyRule['tier'] =
-        obligationWithCmdSubstr ||
-        (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
+      const derived = (push != null && !push.coveredByBuiltin) || !!del || !!mig
+      const tier: PolicyRule['tier'] = derived
+        ? 'deterministic'
+        : obligationWithCmdSubstr ||
+            (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
           ? 'semantic'
           : r.tier
 
@@ -198,10 +248,10 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
         // blocking only when mappedCategory resolves to a known built-in that
         // can block at all (LUM-963: not an advisory-only one).
         blocking:
-          hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(r.mappedCategory as string),
+          hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(mappedCategory as string),
       }
       // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
-      if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
+      if (mappedCategory != null) rule.mappedCategory = mappedCategory
       if (hasPredicate && predicate != null) rule.predicate = predicate
       // LUM-1114: a stored rule re-run here keeps the ids merged into it.
       if (r.aliases != null && r.aliases.length > 0)
@@ -212,11 +262,15 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
       // detector reads it — it is stored and silently checks nothing. The
       // rule's own text is the assertion then (rule-reachability).
       const blankAssertion = r.assertion == null || r.assertion.trim() === ''
-      if (!blankAssertion) rule.assertion = r.assertion as string
+      // A compiler-derived predicate is the whole check: no detector reads an
+      // assertion on it, and keeping the model's wording would stop two
+      // copies of the same check from merging (rule-dedupe).
+      if (!derived && !blankAssertion) rule.assertion = r.assertion as string
       else if (
-        tier === 'semantic' ||
-        obligationWithCmdSubstr ||
-        (push && !hasPredicate && !hasBuiltin)
+        !derived &&
+        (tier === 'semantic' ||
+          obligationWithCmdSubstr ||
+          (push && !hasPredicate && !hasBuiltin))
       )
         rule.assertion = r.text
       return rule
@@ -284,7 +338,25 @@ async function compileAndPersist(
   }
 
   // Apply the deterministic safety nets (pure; see compileRuleSet).
-  const rules = compileRuleSet(raw.rules)
+  const compiled = compileRuleSet(raw.rules)
+  // LUM-1236 follow-up: a deterministic+blocking rule of the previous policy
+  // the model dropped or downgraded, whose text is still in the source, keeps
+  // its checker (./retain-rules) — a recompile never silently weakens.
+  const { rules, retained } = prev
+    ? retainWeakenedRules({
+        prevRules: prev.rules,
+        nextRules: compiled,
+        source,
+        compile: compileRuleSet,
+      })
+    : { rules: compiled, retained: [] }
+  if (retained.length > 0) {
+    logger.warn(
+      `[policy-compiler] project ${input.projectId}: kept ${retained.length} previous deterministic rule(s) the new compile dropped or downgraded: ${retained
+        .map(r => r.previous.id)
+        .join(', ')}`
+    )
+  }
 
   // Persist — insert-or-ignore on (projectId, sourceHash).
   const inserted = await projectPolicyRepository.createIfAbsent({
@@ -308,6 +380,15 @@ async function compileAndPersist(
   // from the compile that created the row.
   if (prev && input.taskId) {
     await emitWeakening(prev.rules, rules, input.taskId, source)
+    await recordRetainedRules({
+      retained: retained
+        .filter(r => !r.mergedIntoNew)
+        .map(r => ({
+          id: r.previous.id,
+          text: r.previous.text,
+        })),
+      taskId: input.taskId,
+    })
   }
   await rejudgeAfterPolicyChange(input.projectId, source)
   return { sourceHash, rules }

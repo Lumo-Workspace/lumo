@@ -5,7 +5,6 @@
  * LUM-1255 — the shared `lumo scan` output contract: parseable first line,
  * severity threshold, ordering, redaction-only evidence, JSON v1 shape.
  */
-import type { RawSecretFinding } from '@/shared/src/secret-scan/core-types'
 import {
   countSeverities,
   formatLocalScan,
@@ -14,11 +13,13 @@ import {
   parseSeverity,
   sortFindings,
   summaryLine,
+  type LocalFinding,
   type LocalScanResult,
 } from '../../cli/src/lib/local-scan-report'
 
-function finding(over: Partial<RawSecretFinding>): RawSecretFinding {
+function finding(over: Partial<LocalFinding>): LocalFinding {
   return {
+    scanner: 'SECRETS',
     kind: 'SECRET',
     ruleId: 'secret:aws-access-key-id',
     title: 'AWS access key ID',
@@ -32,9 +33,9 @@ function finding(over: Partial<RawSecretFinding>): RawSecretFinding {
   }
 }
 
-function result(findings: RawSecretFinding[]): LocalScanResult {
+function result(findings: LocalFinding[]): LocalScanResult {
   return {
-    scanner: 'secrets',
+    scanners: ['SECRETS'],
     scope: 'staged changes',
     filesScanned: 2,
     skipped: [],
@@ -99,7 +100,7 @@ describe('formatLocalScan', () => {
     const out = formatLocalScan(result([finding({})]))
     const lines = out.split('\n')
     expect(lines[0]).toBe('scan: 1 finding (1 high, 0 medium, 0 low)')
-    expect(lines[1]).toBe('Scope: secrets · staged changes · 2 files · 7ms')
+    expect(lines[1]).toBe('Scope: SECRETS · staged changes · 2 files · 7ms')
     expect(out).toContain('[HIGH] AWS access key ID')
     expect(out).toContain('secret:aws-access-key-id')
     expect(out).toContain('src/a.ts:1')
@@ -127,19 +128,28 @@ describe('formatLocalScan', () => {
 })
 
 describe('localScanJson', () => {
-  it('is versioned and carries fingerprints and the summary', () => {
-    const json = localScanJson(result([finding({})])) as Record<string, unknown>
+  it('is the list envelope with the scan facts and declared finding fields', () => {
+    const json = localScanJson(result([finding({})]))
     expect(json).toMatchObject({
       version: 1,
-      scanner: 'secrets',
+      total: 1,
+      nextCursor: null,
+      scanners: ['SECRETS'],
+      scope: 'staged changes',
       summary: { total: 1, high: 1, medium: 0, low: 0 },
-      findings: [
-        {
-          ruleId: 'secret:aws-access-key-id',
-          fingerprint: '0123456789abcdef',
-          downgrade: null,
-        },
-      ],
+    })
+    expect((json.findings as object[])[0]).toEqual({
+      scanner: 'SECRETS',
+      kind: 'SECRET',
+      ruleId: 'secret:aws-access-key-id',
+      severity: 'HIGH',
+      title: 'AWS access key ID',
+      filePath: 'src/a.ts',
+      line: 1,
+      evidence: 'const k = "AKIA…(len 20)"',
+      fingerprint: '0123456789abcdef',
+      detail: 'AWS access key ID committed in src/a.ts:1',
+      downgrade: null,
     })
   })
 })

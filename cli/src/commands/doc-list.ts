@@ -1,5 +1,10 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import { normalizeScope } from './doc-create'
 import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 import { sanitizeField } from '../lib/sanitize'
@@ -8,9 +13,12 @@ import { errHttp, errNotLoggedIn } from '../lib/errors'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
 } from '../lib/pagination'
+import { docHandle } from '../lib/doc-handle'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface ListDocOptions {
   scope?: string
@@ -19,10 +27,13 @@ export interface ListDocOptions {
   limit?: string
   cursor?: string
   tree?: boolean
+  json?: boolean
 }
 
 interface DocRow {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   visibility: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
   project: { name: string } | null
@@ -38,11 +49,12 @@ function visibilityLabel(v: DocRow['visibility'] | null | undefined): string {
   return v
 }
 
-const DOC_HEADER = ['ID', 'SCOPE', 'PROJECT', 'TITLE']
+const DOC_HEADER = ['REF', 'SCOPE', 'PROJECT', 'TITLE']
 
 function docCells(row: DocRow, indent = ''): string[] {
   return [
-    row.id,
+    // LUM-1230: the slug every doc command takes; --json keeps the id.
+    docHandle(row.id, row.slug),
     visibilityLabel(row.visibility),
     sanitizeField(row.project?.name ?? '-'),
     `${indent}${sanitizeField(row.title)}`,
@@ -101,7 +113,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   const pageArgs = parsePageArgs(opts.limit, opts.cursor)
   if (!pageArgs.ok) {
     console.error(`Error: ${pageArgs.error}`)
-    return 1
+    return EXIT_USAGE
   }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
 
@@ -116,7 +128,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
         console.error(
           `Error: invalid scope "${opts.scope}". Allowed: personal, workspace, all`
         )
-        return 1
+        return EXIT_USAGE
       }
       params.set('visibility', v)
     }
@@ -130,7 +142,8 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(errHttp('doc list', res.status, text))
+    // The server's `{ error }` message (e.g. `No project matches "x"`), not raw JSON.
+    console.error(errHttp('doc list', res.status, extractErrorMessage(text)))
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }
@@ -150,6 +163,12 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   // here — after tree ordering with --tree, so a page reads top to bottom.
   const ordered = opts.tree ? orderAsTree(rows) : rows
   const page = paginate(ordered, pageArgs)
+  if (opts.json) {
+    emitJson(
+      listEnvelope('documents', stripInternalFields(page.items), pageJson(page))
+    )
+    return
+  }
   const lines = opts.tree
     ? formatDocListRowsAsTree(page.items, {}, ordered)
     : formatDocListRows(page.items)

@@ -21,6 +21,10 @@ import {
   type NextStep,
   type TaskStatusForNextSteps,
 } from '@/lib/context/render/next-steps'
+import {
+  ambiguousMilestoneError,
+  matchMilestoneRef,
+} from '@/shared/src/milestone-ref'
 
 function httpError(status: number, message: string): Error {
   return Object.assign(new Error(message), { status })
@@ -80,8 +84,10 @@ export async function resolveProjectId(
 
 /**
  * Resolve a `--milestone <ref>` argument to a milestone id within a project.
- * Matches case-insensitively against the milestone name. Returns null on
- * empty / undefined ref. Throws 400 when the name is not found.
+ * LUM-1230: matches the id, the slug (the web URL segment) or the name
+ * (case-insensitive) — see `matchMilestoneRef`. Returns null on empty /
+ * undefined ref. Throws 400 when nothing matches, and 400 listing the
+ * candidates by slug when a name is shared — never a silent pick.
  */
 async function resolveMilestoneId(
   projectId: string,
@@ -89,15 +95,20 @@ async function resolveMilestoneId(
 ): Promise<string | null> {
   if (!milestoneRef) return null
   const milestones = await milestoneRepository.findByProject(projectId)
-  const ref = milestoneRef.trim().toLowerCase()
-  const match = milestones.find(m => m.name.toLowerCase() === ref)
-  if (!match) {
+  const match = matchMilestoneRef(milestoneRef, milestones)
+  if (match.kind === 'not-found') {
     throw httpError(
       400,
       `no milestone matches "${milestoneRef}" in this project. Try \`lumo milestone list\`.`
     )
   }
-  return match.id
+  if (match.kind === 'ambiguous') {
+    throw httpError(
+      400,
+      ambiguousMilestoneError(milestoneRef, match.candidates)
+    )
+  }
+  return match.milestone.id
 }
 
 async function resolveAssigneeActorId(args: {
@@ -677,6 +688,7 @@ async function deleteFromCli(args: {
 export const taskCliService = {
   resolveProjectId,
   resolveAssigneeActorId,
+  resolveMilestoneId,
   createFromCli,
   updateFromCli,
   showFromCli,

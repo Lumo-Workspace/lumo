@@ -13,11 +13,20 @@
  * gateway, so this module MUST only be reached via `await import()` from
  * service code (jest TransformStream trap).
  */
-import { generateText, hasToolCall, stepCountIs, tool } from 'ai'
+import {
+  generateText,
+  hasToolCall,
+  stepCountIs,
+  tool,
+  type ModelMessage,
+  type ToolCallRepairFunction,
+  type ToolSet,
+} from 'ai'
 import { z } from 'zod'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { CODE_REVIEW_MODEL } from '@/lib/ai/models'
+import { cacheUsageOf, markCacheBreakpoint } from '@/lib/ai/prompt-cache'
 import {
   HUNT_COMMAND_MAX_CHARS,
   describeRunShellTool,
@@ -71,8 +80,19 @@ export interface ReviewVerifierOutput {
   commands: number
   inputTokens: number
   outputTokens: number
+  /** LUM-1224 — the part of `inputTokens` read from the prompt cache. */
+  cacheReadTokens: number
+  /** LUM-1224 — the part of `inputTokens` written to the prompt cache. */
+  cacheWriteTokens: number
   /** Why the run ended without verdicts (timeout, gateway error), else null. */
   error: string | null
+  /**
+   * LUM-1226 — the wrap-up turn, when the search ended without verdicts:
+   * how many times it was asked and whether `submit_verdicts` came back.
+   * `submitted: false` is the one path where findings default without an
+   * error. Null when no wrap-up was needed (or the search itself failed).
+   */
+  wrapUp: { attempts: number; submitted: boolean } | null
 }
 
 export const VERIFIER_SYSTEM_PROMPT = `You are verifying an automated code reviewer's findings on a pull request. The reviewer only saw the diff and the changed files; it is right often, but it also reports problems that are not real. You have a read-only checkout of the repository at the pull request's head and one tool, run_shell. Facts come only from code you actually read.
@@ -101,21 +121,70 @@ export function renderFindingsForPrompt(findings: VerifierFinding[]): string {
 }
 
 /**
- * The forced last turn when the budget ran out before submit_verdicts: the
- * search is over, verdicts only from what was already read — and "CONFIRMED
- * when unsure" restated, so a forced call cannot turn into a guess to reject.
+ * The last turn when the budget ran out before submit_verdicts: the search
+ * is over, verdicts only from what was already read — and "CONFIRMED when
+ * unsure" restated, so a pressed answer cannot turn into a guess to reject.
  */
 export const VERIFIER_WRAP_UP = `Your tool budget is spent. Do not run any more commands. Call submit_verdicts now with a verdict for every finding id, based only on code you have already read in this session. A finding you did not get to, or could not refute, is CONFIRMED.`
 
-const VerdictsSchema = z.object({
+/**
+ * LUM-1226 — CODE_REVIEW_MODEL (Sonnet 5.5) rejects a forced tool choice, so
+ * the wrap-up asks with `auto` and the instruction above, and `auto` does not
+ * guarantee a call; a call can also come back with input the SDK rejects (the
+ * reply then carries the tool error). Either way nothing was recorded, and
+ * this is appended to the conversation (never an edit of it), at most once.
+ */
+export const VERIFIER_WRAP_UP_RETRY = `No verdicts were recorded: submit_verdicts was not called, or its input was rejected (any tool error is shown above). Call submit_verdicts now, with a verdict for every finding id. A finding you could not refute is CONFIRMED.`
+
+/** LUM-1226 — wrap-up requests at most: the first ask and one retry. */
+export const VERIFIER_WRAP_UP_ATTEMPTS = 2
+
+/** Longest reason kept per verdict; the rest is cut, never rejected. */
+export const VERIFIER_REASON_MAX_CHARS = 400
+
+/**
+ * LUM-1226 — no length limit in the schema. A `.max()` here is validated by
+ * the SDK before `execute` runs, and ONE over-long reason made the whole call
+ * invalid: every verdict in it was dropped and every finding defaulted
+ * (reproduced with Haiku 4.5 as the verifier: 537- and 413-character reasons
+ * defaulted 8 findings on 2 of 6 PRs). The length is cut in `execute`.
+ */
+export const VerdictsSchema = z.object({
   verdicts: z.array(
     z.object({
       id: z.string(),
       verdict: z.enum(['CONFIRMED', 'REJECTED']),
-      reason: z.string().max(400),
+      reason: z
+        .string()
+        .describe(
+          `One sentence. Only the first ${VERIFIER_REASON_MAX_CHARS} characters are kept.`
+        ),
     })
   ),
 })
+
+/**
+ * LUM-1226 — the one malformed `submit_verdicts` input seen in replays that
+ * is unambiguous to mend: `verdicts` sent as a JSON-encoded STRING of the
+ * array (Haiku 4.5 did it on both wrap-up attempts of one PR, after being
+ * shown the validation error, so every finding there defaulted). The string
+ * is parsed back into the array and the call re-validated by the SDK; any
+ * other invalid input is left alone (null = no repair).
+ */
+export const repairVerdictsToolCall: ToolCallRepairFunction<ToolSet> = async ({
+  toolCall,
+}) => {
+  if (toolCall.toolName !== 'submit_verdicts') return null
+  try {
+    const input = JSON.parse(toolCall.input) as Record<string, unknown>
+    if (typeof input.verdicts !== 'string') return null
+    const verdicts: unknown = JSON.parse(input.verdicts)
+    if (!Array.isArray(verdicts)) return null
+    return { ...toolCall, input: JSON.stringify({ ...input, verdicts }) }
+  } catch {
+    return null
+  }
+}
 
 /**
  * Every finding gets a result. A finding with no verdict — the agent ran out
@@ -146,7 +215,10 @@ export async function verifyFindings(
       commands: 0,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       error: null,
+      wrapUp: null,
     }
   const submitted: Array<{
     id: string
@@ -170,7 +242,12 @@ export async function verifyFindings(
         'Submit the verdict for every finding id. Call exactly once, when done.',
       inputSchema: VerdictsSchema,
       execute: async ({ verdicts }) => {
-        submitted.push(...verdicts)
+        submitted.push(
+          ...verdicts.map(v => ({
+            ...v,
+            reason: v.reason.slice(0, VERIFIER_REASON_MAX_CHARS),
+          }))
+        )
         return { accepted: verdicts.length }
       },
     }),
@@ -186,28 +263,65 @@ export async function verifyFindings(
       prompt,
       tools,
       stopWhen: [hasToolCall('submit_verdicts'), stepCountIs(input.maxSteps)],
+      // LUM-1224 — every step re-sends the whole transcript, and nothing in
+      // it ever changes: mark the latest message as a cache breakpoint so the
+      // next step reads all of it from the prompt cache. Only the marker is
+      // added; the SDK's own transcript (and the wrap-up below) never has one.
+      prepareStep: ({ messages }) => ({
+        messages: markCacheBreakpoint(messages, messages.length - 1),
+      }),
+      experimental_repairToolCall: repairVerdictsToolCall,
       abortSignal,
     })
     let steps = res.steps.length
     let inputTokens = res.totalUsage.inputTokens ?? 0
     let outputTokens = res.totalUsage.outputTokens ?? 0
+    let { cacheReadTokens, cacheWriteTokens } = cacheUsageOf(res.totalUsage)
+    let wrapUp: ReviewVerifierOutput['wrapUp'] = null
     if (submitted.length === 0) {
-      const wrap = await generateText({
-        model,
-        system,
-        messages: [
-          { role: 'user', content: prompt },
-          ...res.response.messages,
-          { role: 'user', content: VERIFIER_WRAP_UP },
-        ],
-        tools: { submit_verdicts: tools.submit_verdicts },
-        toolChoice: { type: 'tool', toolName: 'submit_verdicts' },
-        stopWhen: stepCountIs(1),
-        abortSignal,
-      })
-      steps += wrap.steps.length
-      inputTokens += wrap.totalUsage.inputTokens ?? 0
-      outputTokens += wrap.totalUsage.outputTokens ?? 0
+      // No breakpoints here: this call declares a different tool set, which
+      // invalidates the whole cached prefix, so a marker would only pay the
+      // write premium for an entry nothing reads.
+      //
+      // LUM-1226 — `auto`, not a forced choice: the model answers a forced
+      // one with HTTP 400, and the SDK silently sends `auto` instead (with a
+      // warning nobody read). Saying `auto` here is saying what is sent; the
+      // check after each reply is what replaces the guarantee forcing gave.
+      let messages: ModelMessage[] = [
+        { role: 'user', content: prompt },
+        ...res.response.messages,
+        { role: 'user', content: VERIFIER_WRAP_UP },
+      ]
+      wrapUp = { attempts: 0, submitted: false }
+      while (wrapUp.attempts < VERIFIER_WRAP_UP_ATTEMPTS) {
+        wrapUp.attempts++
+        const wrap = await generateText({
+          model,
+          system,
+          messages,
+          tools: { submit_verdicts: tools.submit_verdicts },
+          toolChoice: 'auto',
+          stopWhen: stepCountIs(1),
+          experimental_repairToolCall: repairVerdictsToolCall,
+          abortSignal,
+        })
+        steps += wrap.steps.length
+        inputTokens += wrap.totalUsage.inputTokens ?? 0
+        outputTokens += wrap.totalUsage.outputTokens ?? 0
+        const wrapCache = cacheUsageOf(wrap.totalUsage)
+        cacheReadTokens += wrapCache.cacheReadTokens
+        cacheWriteTokens += wrapCache.cacheWriteTokens
+        if (submitted.length > 0) {
+          wrapUp.submitted = true
+          break
+        }
+        // Append-only: the reply as it came back, then one more ask.
+        messages = [
+          ...messages,
+          ...wrap.response.messages,
+          { role: 'user', content: VERIFIER_WRAP_UP_RETRY },
+        ]
+      }
     }
     return {
       results: mergeVerdicts(input.findings, submitted),
@@ -215,7 +329,10 @@ export async function verifyFindings(
       commands,
       inputTokens,
       outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
       error: null,
+      wrapUp,
     }
   } catch (error) {
     return {
@@ -224,7 +341,10 @@ export async function verifyFindings(
       commands,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       error: error instanceof Error ? error.message : String(error),
+      wrapUp: null,
     }
   }
 }

@@ -2,6 +2,7 @@ import { sanitizeField } from './sanitize'
 import { fetchOpenCrossings, type OpenCrossingsResult } from './open-crossings'
 import {
   splitNextActions,
+  testCaseVerdictBlocks,
   type TaskStatusResponse,
 } from '../commands/task-status'
 
@@ -67,7 +68,7 @@ export function assessDigest(input: StatusDigestInput): DigestDoneVerdict {
   const data = input.status.value
   const split = splitNextActions(data.nextActions)
 
-  // What blocks DONE — the same gates `task wrapup` counts.
+  // What blocks DONE — the same gates the DONE-readiness section counts.
   const blocking: string[] = []
   const unconfirmed: string[] = []
   if (input.crossings.status === 'ok') {
@@ -89,9 +90,8 @@ export function assessDigest(input: StatusDigestInput): DigestDoneVerdict {
     const n = split.security.filter(a => a.blocking).length
     if (n > 0) blocking.push(plural(n, 'blocking security finding'))
   }
-  const defects = split.testCaseVerdict.filter(
-    a => a.signal === 'PROVEN_DEFECT'
-  ).length
+  // LUM-1186: a ruled-on defect no longer blocks (server `blocking: false`).
+  const defects = split.testCaseVerdict.filter(testCaseVerdictBlocks).length
   if (defects > 0) blocking.push(plural(defects, 'proven test-case defect'))
   return { statusOk: true, blocking, unconfirmed }
 }

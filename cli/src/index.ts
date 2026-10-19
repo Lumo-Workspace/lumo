@@ -2,7 +2,14 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { Command, Option } from 'commander'
+import { Option } from 'commander'
+import {
+  LumoCommand,
+  SERVER_ONLY,
+  readsLocalFile,
+  sandboxed,
+  writesLocal,
+} from './lib/command-class'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
@@ -17,10 +24,9 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { usageResync } from './commands/usage-resync'
-import { nextCommand } from './commands/next'
-import { cost } from './commands/cost'
-import { report } from './commands/report'
-import { priority, priorityList } from './commands/priority'
+import { status, type StatusOptions } from './commands/status'
+import { usageShow, type UsageShowOptions } from './commands/usage'
+import { priorityCreate, priorityList } from './commands/priority'
 import {
   crossingExplain,
   type CrossingExplainOptions,
@@ -29,12 +35,13 @@ import {
   crossingDisposition,
   type CrossingDispositionOptions,
 } from './commands/crossing-disposition'
-import { outcomeShow } from './commands/outcome'
-import { taskContext } from './commands/task-context'
+import {
+  crossingList,
+  type CrossingListOptions,
+} from './commands/crossing-list'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
-import { taskList } from './commands/task-list'
-import { taskSearch } from './commands/task-search'
+import { taskList, type ListTaskOptions } from './commands/task-list'
 import { taskStatuses } from './commands/task-statuses'
 import { taskTemplateList } from './commands/task-template-list'
 import {
@@ -45,24 +52,22 @@ import {
 } from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
+import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
 import { taskDelete } from './commands/task-delete'
-import { taskHistory } from './commands/task-history'
 import { projectCreate, projectUpdate } from './commands/project-manage'
-import { taskShow } from './commands/task-show'
+import { taskShow, type TaskShowOptions } from './commands/task-show'
+import { findRemovedCommand, removedCommandLines } from './lib/removed-commands'
+import { taskOrBound } from './lib/task-or-bound'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
-import { memoryTaskList } from './commands/memory-task-list'
-import { memoryTaskAdd } from './commands/memory-task-add'
-import { memoryProjectList } from './commands/memory-project-list'
-import { memoryProjectAdd } from './commands/memory-project-add'
-import { memoryPromote } from './commands/memory-promote'
-import { memoryRm } from './commands/memory-rm'
+import { memoryAdd, memoryList, memoryUpdate } from './commands/memory'
+import { memoryDelete } from './commands/memory-delete'
 import { memoryShow } from './commands/memory-show'
 import { memorySync } from './commands/memory-sync'
 import { memoryPush } from './commands/memory-push'
@@ -72,76 +77,76 @@ import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
 import { taskArtifactUpdate } from './commands/task-artifact-update'
-import { taskTestCaseAdd } from './commands/task-testcase-add'
-import { taskTestCaseList } from './commands/task-testcase-list'
-import { taskTestCaseShow } from './commands/task-testcase-show'
-import { taskTestCaseUpdate } from './commands/task-testcase-update'
-import { taskTestCaseRm } from './commands/task-testcase-rm'
-import { taskTestCaseRun } from './commands/task-testcase-run'
-import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import {
+  testCaseAdd,
+  testCaseDelete,
+  testCaseDisposition,
+  testCaseDownload,
+  testCaseList,
+  testCaseRun,
+  testCaseShow,
+  testCaseUpdate,
+  type TestCaseParentKind,
+} from './commands/testcase'
 import {
   findingDisposition,
   type FindingDispositionOptions,
 } from './commands/finding-disposition'
-import { taskWrapup } from './commands/task-wrapup'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
-import { taskCommentList } from './commands/task-comment-list'
 import { taskCommentEdit, taskCommentRm } from './commands/task-comment-manage'
 import {
-  taskDepsList,
   taskDepsAdd,
   taskDepsConfirm,
   taskDepsDismiss,
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
-import { prScan, type PrScanOptions } from './commands/pr-scan'
 import {
-  scanSecretsCommand,
-  type ScanSecretsOptions,
-} from './commands/scan-secrets'
+  prReview,
+  prShow,
+  type PrReviewOptions,
+  type PrShowOptions,
+} from './commands/pr-scan'
+import {
+  securityScanCommand,
+  type SecurityScanOptions,
+} from './commands/security-scan'
 import {
   workspaceSecurityScan,
+  workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
-import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
-import { milestoneShow } from './commands/milestone-show'
-import { milestoneUpdate } from './commands/milestone-update'
+import {
+  milestoneShow,
+  type ShowMilestoneOptions,
+} from './commands/milestone-show'
+import {
+  milestoneUpdate,
+  type UpdateMilestoneOptions,
+} from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
 import { milestoneArchive } from './commands/milestone-archive'
 import { milestoneUnarchive } from './commands/milestone-unarchive'
 import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
 import { milestoneTriage } from './commands/milestone-triage'
-import { milestoneSummary } from './commands/milestone-summary'
-import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
-import {
-  milestoneTestCaseAdd,
-  milestoneTestCaseList,
-  milestoneTestCaseShow,
-  milestoneTestCaseUpdate,
-  milestoneTestCaseRm,
-  milestoneTestCaseRun,
-  milestoneTestCaseDisposition,
-} from './commands/milestone-testcase'
-import { milestoneCriteriaSet } from './commands/milestone-criteria-set'
-import { milestoneCriteriaList } from './commands/milestone-criteria-list'
-import { milestoneCriteriaVerdict } from './commands/milestone-criteria-verdict'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
-import { sprintShow } from './commands/sprint-show'
-import { sprintUpdate } from './commands/sprint-update'
+import { sprintShow, type ShowSprintOptions } from './commands/sprint-show'
+import {
+  sprintUpdate,
+  type UpdateSprintOptions,
+} from './commands/sprint-update'
 import { sprintDelete } from './commands/sprint-delete'
 import { sprintStart } from './commands/sprint-start'
 import { sprintClose } from './commands/sprint-close'
-import { sprintSummary } from './commands/sprint-summary'
 import { sprintAdd } from './commands/sprint-add'
 import { sprintRemove } from './commands/sprint-remove'
 import { docCreate } from './commands/doc-create'
@@ -150,18 +155,15 @@ import {
   type ImportGdocOptions,
 } from './commands/doc-import-gdoc'
 import { docSync } from './commands/doc-sync'
-import { docUpdate } from './commands/doc-update'
-import { docShow } from './commands/doc-show'
 import { docDiff } from './commands/doc-diff'
 import { docRebuildSource } from './commands/doc-rebuild-source'
 import { docPatch, docAppend } from './commands/doc-section-edit'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
-import { docBind } from './commands/doc-bind'
-import { docUnbind } from './commands/doc-unbind'
-import { docShare } from './commands/doc-share'
-import { docUnshare } from './commands/doc-unshare'
-import { docShareList } from './commands/doc-share-list'
+import {
+  docShowWithMembers,
+  docUpdateWithRelations,
+} from './commands/doc-relations'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
@@ -177,7 +179,10 @@ import {
   printUpdateNoticeIfAny,
   runBackgroundRefresh,
 } from './lib/update-check'
-import { sanitizeField } from './lib/sanitize'
+import { finalizeErrorOutput, installErrorOutput } from './lib/error-output'
+import { EXIT_ERROR, EXIT_USAGE } from './lib/exit-codes'
+import { attachHelpSections } from './lib/help-text'
+import { describeThrownError } from './lib/errors'
 import {
   maybeAutoSync,
   shouldAutoSync,
@@ -223,6 +228,14 @@ if (isUpdateCheckWorker) {
     maybeAutoSync(pkg.version, { quiet: process.argv[2] === 'hook' })
 }
 
+// LUM-1232 batch E: one error shape on stderr (`Error:` / `Usage:` / `Hint:`),
+// and with `--json` one JSON error object instead. Installed before the
+// trackers below so they still see every line. Not for `lumo hook …` (its
+// stderr is read by the agent harness as-is).
+if (!isIntrospect && !isUpdateCheckWorker && process.argv[2] !== 'hook') {
+  installErrorOutput({ json: process.argv.slice(2).includes('--json') })
+}
+
 // LUM-843: a 401 that a command reported only as `HTTP 401` still ends with
 // the `lumo auth login` remediation, so agents need no whoami pre-probe.
 const authTracker =
@@ -239,6 +252,45 @@ const versionTracker =
     ? installVersionCompatTracker(pkg.version)
     : null
 
+/** The command being run (set in preAction; null before parsing finishes). */
+let currentCommand: CommandLike | null = null
+
+interface CommandLike {
+  name(): string
+  usage(): string
+  parent: unknown
+  commands: readonly CommandLike[]
+  aliases(): string[]
+}
+
+/** `Usage:` / `--help` context for the failing command, if known. */
+function usageContext(cmd: CommandLike | null): {
+  usage: string | null
+  helpCommand: string | null
+} {
+  if (!cmd) return { usage: null, helpCommand: null }
+  const path = commandPathOf(cmd)
+  const base = path ? `lumo ${path}` : 'lumo'
+  return { usage: `${base} ${cmd.usage()}`, helpCommand: base }
+}
+
+/**
+ * The deepest registered command named by argv (options skipped) — what a
+ * Commander parse error is about, since preAction never ran for it.
+ */
+function commandFromArgv(root: CommandLike, argv: string[]): CommandLike {
+  let node = root
+  for (const tok of argv) {
+    if (tok.startsWith('-')) continue
+    const next = node.commands.find(
+      c => c.name() === tok || c.aliases().includes(tok)
+    )
+    if (!next) break
+    node = next
+  }
+  return node
+}
+
 function exitWith(code: number): never {
   const hint = authTracker?.hintFor(code)
   if (hint) console.error(hint)
@@ -246,6 +298,7 @@ function exitWith(code: number): never {
   if (netHint) console.error(netHint)
   const versionHint = versionTracker?.hintFor(code)
   if (versionHint) console.error(versionHint)
+  finalizeErrorOutput(code, usageContext(currentCommand))
   process.exit(code)
 }
 
@@ -264,13 +317,24 @@ if (!isIntrospect) {
 }
 
 const collect = (val: string, acc: string[]): string[] => [...acc, val]
+// LUM-1143: like `collect`, but an absent flag stays undefined ("leave the
+// list alone") while a given one — even "" — replaces it.
+const collectList = (val: string, acc: string[] | undefined): string[] => [
+  ...(acc ?? []),
+  val,
+]
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
 /**
  * Exit-code convention (LUM-755). A command returns the code to propagate:
+ * (LUM-1232: the constants live in cli/src/lib/exit-codes.ts.)
  *   0 / undefined  success
- *   1              general error (message on stderr)
+ *   1              general error (message on stderr): not found, auth,
+ *                  permission, server, network
+ *   2              usage error — unknown flag, missing / extra argument,
+ *                  invalid flag value — caught before any network call
+ *                  (`Error:` + `Usage:` + `Hint:` on stderr)
  *   4              confirmation required — a mutation that needs the user's
  *                  approval printed a `confirmation_required` envelope on
  *                  stdout (see cli/src/lib/confirmation.ts); re-run the
@@ -280,7 +344,7 @@ type CommandFn = (...args: unknown[]) => Promise<number | void>
  *                  `DONE_BLOCKED` error on stdout listing every blocker
  *                  (see cli/src/lib/blocked-error.ts); nothing on the CLI
  *                  can clear it — relay it, don't retry
- * 2 (auth) and 3 (validation) are reserved for a later pass.
+ * 3 is reserved. Lumo's 4 is not gh's 4 (gh: authentication required).
  */
 function wrap(fn: CommandFn) {
   return async (...args: unknown[]) => {
@@ -288,14 +352,15 @@ function wrap(fn: CommandFn) {
       const code = await fn(...args)
       if (typeof code === 'number' && code !== 0) exitWith(code)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`Error: ${sanitizeField(msg)}`)
-      exitWith(1)
+      // LUM-1232 X-3: a thrown git / tool message is wrapped, never passed
+      // through as the whole error.
+      for (const line of describeThrownError(err)) console.error(line)
+      exitWith(EXIT_ERROR)
     }
   }
 }
 
-const program = new Command()
+const program = new LumoCommand()
   .name('lumo')
   .description('Lumo CLI — manage tasks and sessions from the terminal')
   .version(pkg.version)
@@ -303,35 +368,77 @@ const program = new Command()
   // point at --help instead of dead-ending on "unknown option". Subcommands
   // created via .command() inherit these settings.
   .showSuggestionAfterError(true)
-  .showHelpAfterError(
-    '(run the command with --help to list its valid flags and arguments)'
-  )
+  // LUM-1233 3g: every command's --help lists the global flags (--project,
+  // --no-hints) under "Global Options"; subcommands inherit the setting.
+  .configureHelp({ showGlobalOptions: true })
+  // LUM-1232 batch E: a parse error prints `Error: …`, then `Usage:` and a
+  // `Hint:` pointing at --help (added by finalizeErrorOutput), and exits 2.
+  // Subcommands inherit both settings.
+  .configureOutput({
+    outputError: (str, write) => write(str.replace(/^error: /, 'Error: ')),
+  })
+  .exitOverride(err => {
+    if (err.exitCode === 0) process.exit(0) // --help / --version
+    finalizeErrorOutput(
+      EXIT_USAGE,
+      usageContext(
+        commandFromArgv(
+          program as unknown as CommandLike,
+          // What was actually parsed (== process.argv for the real CLI).
+          (
+            (program as unknown as { rawArgs?: string[] }).rawArgs ??
+            process.argv
+          ).slice(2)
+        )
+      )
+    )
+    process.exit(EXIT_USAGE)
+  })
   // LUM-686: global mute for the trailing next-step block. `LUMO_NO_HINTS=1`
   // does the same for a whole shell.
   .option('--no-hints', 'suppress the trailing next-step suggestions')
+  // LUM-1233 3g (GF-1): one global --project. Commands that resolve names in
+  // a project (tasks, docs, milestones, memory, test cases, usage) read it as
+  // their own `project` option; the rest accept and ignore it.
+  .option(
+    '--project <ref>',
+    "The project to resolve names in (name or slug); defaults to the bound task's project where a command needs one"
+  )
 
 // Commander does not merge program-level options into a subcommand's own
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
 program.hook('preAction', (thisCommand, actionCommand) => {
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+  // The global --project lands in the action's own options, so every command
+  // keeps reading `opts.project` exactly as when it declared the flag.
+  const project = thisCommand.opts().project as string | undefined
+  if (project !== undefined) actionCommand.setOptionValue('project', project)
   versionTracker?.setCommand(commandPathOf(actionCommand))
+  currentCommand = actionCommand as unknown as CommandLike
 })
 
 const auth = program.command('auth').description('Manage Lumo authentication')
 
 auth
   .command('login')
+  .codex(writesLocal('writes ~/.lumo credentials and opens a browser'))
   .description('Log in to Lumo by pasting an API key')
   .action(wrap(authLogin))
 
 auth
   .command('logout')
+  .codex(writesLocal('deletes ~/.lumo credentials'))
   .description('Log out and remove local credentials')
   .action(wrap(authLogout))
 
 program
   .command('whoami')
+  .codex(
+    sandboxed(
+      'local-only (reads credentials, no Lumo API call; runs fine sandboxed)'
+    )
+  )
   .description(
     'Show the logged-in identity from local credentials (one line; no network call)'
   )
@@ -343,27 +450,23 @@ program
 
 program
   .command('update')
+  .codex(writesLocal('runs npm install -g'))
   .description(
     `Check npm for a newer ${pkg.name} and install it globally if available. The CLI also updates itself in the background by default; --auto on|off toggles that.`
   )
   .option('--auto <on|off>', 'Turn background auto-update on or off')
   .action(wrap(options => update(options as { auto?: string })))
 
-function registerInit(name: string, hidden: boolean): void {
+function registerInit(): void {
   program
-    .command(name, hidden ? { hidden: true } : undefined)
+    .command('init')
+    .codex(writesLocal('writes skill, hook and rules files'))
     .description(
-      hidden
-        ? 'Alias of `lumo init` (kept for older docs and scripts).'
-        : "Set up Lumo for Claude Code and Codex together: the skill into .claude/skills/ and .agents/skills/, hook handlers into .claude/settings.json and .codex/hooks.json (which you then trust in Codex /hooks), and a Codex rule (.codex/rules/lumo.rules) that lets `lumo` commands reach the Lumo API from Codex's sandbox. --agent <token> sets up just that agent. Run via `npx @lumoai/cli init` for first-time onboarding; re-run it to refresh an install (unchanged files are not rewritten), with --dry-run to preview."
+      'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
     )
     .option(
-      '--user',
-      'Install into ~/.claude and ~/.agents + ~/.codex (applies across all projects for this user)'
-    )
-    .option(
-      '--project',
-      'Install into ./.claude and ./.agents + ./.codex (applies to the current project only)'
+      '--scope <scope>',
+      'user | project (case-insensitive) — user: ~/.claude, ~/.agents + ~/.codex, for every project of this user; project: ./.claude, ./.agents + ./.codex, this repo only'
     )
     .option(
       '--force',
@@ -371,11 +474,11 @@ function registerInit(name: string, hidden: boolean): void {
     )
     .option(
       '--agent <token>',
-      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command; codex installs the Codex skill layout, .codex/hooks.json and .codex/rules/lumo.rules, the others the Claude Code layout. Without it, init sets up claude-code and codex.'
+      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Default: claude-code and codex.'
     )
     .option(
       '--dry-run',
-      'Print what this init would change — per file the path, the action and a unified diff (JSON hook files show only the Lumo entries, the rest folded; the git hook only its Lumo block), and which Codex hooks would need Trust — without writing any file, marker or registry record'
+      'Print what init would change (per file: path, action, unified diff) and which Codex hooks need Trust, without writing anything'
     )
     // LUM-1118: removed; kept hidden only to print the migration error.
     .addOption(new Option('--upgrade').hideHelp())
@@ -383,8 +486,7 @@ function registerInit(name: string, hidden: boolean): void {
       wrap(options =>
         init(
           options as {
-            user?: boolean
-            project?: boolean
+            scope?: string
             force?: boolean
             agent?: string
             upgrade?: boolean
@@ -395,9 +497,7 @@ function registerInit(name: string, hidden: boolean): void {
     )
 }
 
-registerInit('init', false)
-// `setup` is the pre-LUM-1052 name; hidden alias running the same action.
-registerInit('setup', true)
+registerInit()
 
 const skill = program
   .command('skill')
@@ -407,8 +507,13 @@ const skill = program
 
 skill
   .command('status')
+  .codex(
+    sandboxed(
+      'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)'
+    )
+  )
   .description(
-    'Read-only: every Lumo skill copy (user ~/.claude, ~/.agents, this repo, recorded installs) with scope, agent, version and state vs this CLI (up to date / behind CLI / newer than CLI / modified / source) and whether git tracks it'
+    'Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.'
   )
   .option(
     '--json',
@@ -418,13 +523,13 @@ skill
 
 skill
   .command('update')
+  .codex(writesLocal('writes skill files'))
   .description(
-    "Refresh the Lumo skill copies that are behind this CLI from the bundled skill — the user copies and the current repo's copies only (copies recorded in other repos are listed, not written: run it in that repo). Never downgrades a newer copy, skips locally modified copies unless --force, never touches the Lumo source repo skill; git-tracked copies are changed but not committed. Hooks, settings, Codex hooks/rules and the git hook are left alone (re-running `lumo init` refreshes those)."
+    'Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.'
   )
-  .option('--user', 'Only user-scope copies (~/.claude, ~/.agents)')
   .option(
-    '--project',
-    "Only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
+    '--scope <scope>',
+    "user | project (case-insensitive) — user: only ~/.claude, ~/.agents copies; project: only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
   )
   .option(
     '--agent <token>',
@@ -442,8 +547,7 @@ skill
     wrap(options =>
       skillUpdate(
         options as {
-          user?: boolean
-          project?: boolean
+          scope?: string
           agent?: string
           dryRun?: boolean
           force?: boolean
@@ -454,16 +558,20 @@ skill
 
 program
   .command('doctor')
+  .codex(
+    sandboxed('local-only diagnosis, no Lumo API call (runs fine sandboxed)')
+  )
   .description(
-    'Read-only report of every Lumo install on this machine and repo (skills, Claude/Codex hooks, the Codex rule, git hook): version, state, and the command that fixes it. Warns on missing hook events, `lumo` missing from PATH, untrusted Codex hooks and Codex installs where `lumo` has no network in the sandbox; always exits 0.'
+    'Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.'
   )
   .option('--json', 'Machine-readable output')
   .action(wrap(options => doctor(options as { json?: boolean })))
 
 program
   .command('uninstall')
+  .codex(writesLocal('deletes skill, hook and rules files'))
   .description(
-    'Remove what `lumo init` installed: Lumo skill dirs, Lumo hook entries in Claude settings and Codex hooks.json (~/.codex or ./.codex), the Lumo Codex rule (.codex/rules/lumo.rules), the marked block in prepare-commit-msg, and the install registry records. Locally edited skill copies are skipped unless --force; foreign hooks and file content are kept. Without --confirm prints a confirmation envelope (exit 4) listing every path; never commits. Ends with the manual `npm rm -g @lumoai/cli` step.'
+    'Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.'
   )
   .option(
     '--scope <scope>',
@@ -506,9 +614,27 @@ const crossing = program
   )
 
 crossing
-  .command('explain [id]')
+  .command('list [task]')
+  .codex(SERVER_ONLY)
   .description(
-    'Append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Several crossings in one call: --file with a JSON array of {"id","note"} (LUM-845); each is reported. Targets crossings on the session-bound task.'
+    "Read-only: a task's boundary crossings in full, as the web Record panel shows them. Open rows only by default; --all adds the dispositioned history. Defaults to the session-bound task."
+  )
+  .option(
+    '--all',
+    'Also list dispositioned crossings (the ruling history), not just open ones'
+  )
+  .option('--json', 'Emit the raw server rows as JSON (same --all filter)')
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      crossingList(task as string | undefined, options as CrossingListOptions)
+    )
+  )
+
+crossing
+  .command('explain [id]')
+  .codex(readsLocalFile('--file <json>'))
+  .description(
+    'Append an agent self-explanation to boundary crossings for the human reviewer. Append-only: it never clears a crossing or unblocks Done. --file takes a JSON array of {"id","note"}.'
   )
   .option(
     '--note <text>',
@@ -530,8 +656,9 @@ crossing
 
 crossing
   .command('disposition <ids...>')
+  .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
   .description(
-    "Rule on one or more boundary crossings from the terminal (LUM-769; several ids = one batch per ruling, LUM-845 — each step prints ONE envelope listing every crossing in full and carrying one receipt per crossing as --receipt <id>=<token>,…; drop an id between steps to leave that crossing OPEN; every write is reported per crossing) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+    'Rule on one or more boundary crossings through a three-step handshake (show, confirm read, confirm ruling); each step exits 4 with an envelope to relay. Never supply a step flag yourself.'
   )
   .option(
     '--false-positive',
@@ -548,7 +675,7 @@ crossing
   )
   .option(
     '--receipt <token>',
-    "Read receipt(s) from the previous step's envelope (its confirmCommand carries them — a bare token for one crossing, <id>=<token>,… for a batch); required with --confirm-read (stage 1) and --confirm (stage 2), verified server-side per crossing"
+    "Receipt(s) from the previous step's envelope: a bare token for one crossing, <id>=<token>,… for a batch. Required with --confirm-read and --confirm"
   )
   .option(
     '--confirm-read',
@@ -569,12 +696,13 @@ crossing
 
 const finding = program
   .command('finding')
-  .description('Rule on PR security findings with user approval (LUM-1128)')
+  .description('Rule on PR security findings with user approval')
 
 finding
   .command('disposition <ids...>')
+  .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
   .description(
-    "Record the user's ruling on one or more PR security findings (LUM-1128) — how a blocking finding is cleared for DONE (the web panel stays a second surface). Without --confirm it reads the findings from the server and prints ONE confirmation envelope (one line per finding: id, severity, title, ruling, note), exit 4, writes nothing; relay it and re-run its confirmCommand only after the user approves. With --confirm it applies each ruling, reports each finding, and the server records it as channel CLI (actor, session, time); the web panel can correct it. Ids are listed by `lumo task status`. Targets findings on the session-bound task unless --task is given."
+    "Record the user's ruling on one or more PR security findings, which clears a DONE blocker. Without --confirm it prints one confirmation envelope (exit 4) and writes nothing."
   )
   .option('--false-positive', 'Rule the findings false positives')
   .option(
@@ -596,129 +724,62 @@ finding
     )
   )
 
-const outcome = program
-  .command('outcome')
-  .description('Read the post-hoc outcome well (LUM-598)')
-
-outcome
-  .command('show <task>')
-  .description(
-    'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
-  )
-  .action(wrap((task: unknown) => outcomeShow(task as string)))
-
 program
-  .command('next')
+  .command('status')
+  .codex(SERVER_ONLY)
   .description(
-    'Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`. Use --claimable to restrict to the autonomy boundary (claimable ∩ unblocked ∩ in-budget).'
+    'Me across the workspace: the team priority, my unread inbox (--all: read too), my drafts and next tasks. --inbox / --drafts / --next print only those. Read-only; for one task: `lumo task status`.'
   )
-  .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
+  .option(
+    '--inbox',
+    'My unread notifications: pending responses first, then the rest'
+  )
+  .option('--all', 'Inbox: include read notifications too (• marks unread)')
+  .option('--drafts', 'My unsent task / project drafts from the web composer')
+  .option(
+    '--next',
+    'The next tasks to work on, ranked by priority, active sprint and due date'
+  )
   .option(
     '--claimable',
-    'Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)'
+    'Next: only agent-claimable tasks that are unblocked and within milestone budget'
   )
-  .action(
-    wrap(options =>
-      nextCommand(options as { count?: string; claimable?: boolean })
-    )
-  )
-
-program
-  .command('cost')
-  .description(
-    'Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session'
-  )
-  .option('--task <id>', 'Aggregate a single task (e.g. LUM-42)')
-  .option('--session <id>', 'Aggregate a single Claude Code or Codex session')
+  .option('-n, --limit <N>', 'Next: number of tasks to recommend (default 3)')
   .option(
-    '--since <date>',
-    'Workspace window lower bound (ISO date); default last 30 days'
+    '--json',
+    "Print the sections as JSON (one section flag: that section's own envelope)"
   )
-  .option(
-    '--by <dim>',
-    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
-  )
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      cost(
-        options as {
-          task?: string
-          session?: string
-          since?: string
-          by?: string
-          json?: boolean
-        }
-      )
-    )
-  )
-
-program
-  .command('report')
-  .description(
-    'Summarize token usage and tasks completed over a window of local days (default: last 7 days incl. today). Team totals plus a per-member split; --member me for just yourself'
-  )
-  .option(
-    '--since <day>',
-    'First day, inclusive: a YYYY-MM-DD date, Nd for the N days ending on --until (default: incl. today; e.g. 30d), today, or yesterday'
-  )
-  .option(
-    '--until <day>',
-    'Last day, inclusive: a YYYY-MM-DD date, today, or yesterday (default today)'
-  )
-  .option('--member <ref>', 'Only this member: me, an email, or a display name')
-  .option('--project <name>', 'Only tasks (and their sessions) in this project')
-  .option('--limit <N>', 'Max completed tasks listed (default 50, max 500)')
-  .option('--json', 'Emit the versioned payload as JSON')
-  .action(
-    wrap(options =>
-      report(
-        options as {
-          since?: string
-          until?: string
-          member?: string
-          project?: string
-          limit?: string
-          json?: boolean
-        }
-      )
-    )
-  )
+  .action(wrap(options => status(options as StatusOptions)))
 
 const priorityCmd = program
-  .command('priority [text]')
+  .command('priority')
+  .description('The team priority: an append-only list of declarations')
+
+priorityCmd
+  .command('create <text>')
+  .codex(SERVER_ONLY)
   .description(
-    'Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it.'
+    'Declare the team priority (1-3 sentences). A newer declaration supersedes the old without deleting it.'
   )
-  .action(wrap((text: unknown) => priority(text as string | undefined)))
+  .action(wrap((text: unknown) => priorityCreate(text as string)))
 
 priorityCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'Print the team priority append history, newest-first (the current declaration is marked with *).'
   )
-  .action(wrap(() => priorityList()))
+  .option('--json', 'Print { version, priorities, current } as JSON')
+  .action(wrap(opts => priorityList(opts as { json?: boolean })))
 
 const pr = program
   .command('pr')
   .description('Inspect pull requests by number — linked to a task or not')
 
-pr.command('scan <number>')
-  .option(
-    '--review <mode>',
-    'Request incremental or full AI review without counting toward the automatic budget'
-  )
-  .option('--pause', 'Pause automatic AI reviews for this PR')
-  .option(
-    '--resume',
-    'Resume automatic AI review of every push and reset the reviewed-commit count'
-  )
-  .option(
-    '--limit <commits>',
-    'This PR pauses after N reviewed commits (1..100, over the workspace setting), with pause or resume'
-  )
+pr.command('show <number>')
+  .codex(SERVER_ONLY)
   .description(
-    'Read PR scans and control automatic AI reviews. Use --review incremental|full to request a review, or --pause / --resume to control automatic review of every push (paused after N reviewed commits). Rule on a finding with `lumo finding disposition` (exit-4 envelope, the user approves).'
+    "Read a PR's security scans (read-only): layers, findings, the AI review budget. Request or pause a review with `lumo pr review`; rule with `lumo finding disposition`."
   )
   .option(
     '--repo <owner/repo>',
@@ -738,38 +799,72 @@ pr.command('scan <number>')
   )
   .action(
     wrap((number, options) =>
-      prScan(number as string, options as PrScanOptions)
+      prShow(number as string, options as PrShowOptions)
     )
   )
 
-const scan = program
-  .command('scan')
+pr.command('review <number>')
+  .codex(SERVER_ONLY)
   .description(
-    'Run Lumo security scans locally, before pushing (LUM-1255). Read-only: nothing is uploaded. The PR scan stays the authority for DONE.'
+    'Request an AI review now (incremental by default, --full for a full one; not counted toward the automatic budget), or --pause / --resume automatic review of every push.'
+  )
+  .option('--full', 'A full review instead of an incremental one')
+  .option('--pause', 'Pause automatic AI reviews for this PR')
+  .option(
+    '--resume',
+    'Resume automatic AI review of every push and reset the reviewed-commit count'
+  )
+  .option(
+    '--limit <commits>',
+    'With --pause / --resume: this PR pauses after N reviewed commits (1..100, over the workspace setting)'
+  )
+  .option(
+    '--repo <owner/repo>',
+    'Narrow to one repo when the same PR number exists in several (the error lists the candidates)'
+  )
+  .action(
+    wrap((number, options) =>
+      prReview(number as string, options as PrReviewOptions)
+    )
   )
 
-scan
-  .command('secrets')
+const security = program
+  .command('security')
   .description(
-    "Run the PR scan's secret scanner on the lines your changes add. Default: from the merge-base with the default branch to the working tree, untracked files included. No network, no binary; findings carry the server's fingerprints."
+    'Run Lumo security scans on your local changes before you push. Read-only; the PR scan stays the authority for DONE.'
+  )
+
+security
+  .command('scan')
+  .codex(
+    sandboxed(
+      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)'
+    )
+  )
+  .description(
+    "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints."
+  )
+  .option(
+    '--secrets',
+    'Run the secret scanner (no scanner flag runs every local scanner)'
   )
   .option(
     '--staged',
-    'Scan only staged changes (git diff --cached) — for a pre-commit hook'
+    'Scan only staged changes (git diff --cached), for a pre-commit hook'
   )
   .option(
     '--since <ref>',
-    'Scan from <ref> to the working tree instead of the merge-base'
+    'Scan from <ref> to the working tree instead of from the merge-base'
   )
   .option(
     '--json',
-    'Emit the versioned machine-readable payload ({ summary, findings[] })'
+    'Emit the list envelope ({ version, findings[], summary, … })'
   )
   .option(
     '--fail-on <severity>',
-    'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive; errors exit 1)'
+    'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)'
   )
-  .action(wrap(options => scanSecretsCommand(options as ScanSecretsOptions)))
+  .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
 const session = program
   .command('session')
@@ -777,16 +872,21 @@ const session = program
 
 session
   .command('attach <identifier>')
+  .codex(
+    writesLocal(
+      'can create a git worktree (--worktree / autoWorktree) and sync local memory'
+    )
+  )
   .description(
-    'Attach the current Claude Code or Codex session to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead.'
+    'Attach this Claude Code or Codex session to a task, or with --steward to a milestone as a governance session. The binding is a lifetime lock: start a new session to switch.'
   )
   .option(
     '--steward',
-    'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
+    'Bind as a STEWARD (governance) session to a milestone (id, name or slug). Stewards plan and accept only; implementation commits/PRs are recorded as boundary crossings.'
   )
   .option(
     '--worktree',
-    "Create this task's worktree under .worktrees/ when none exists (LUM-825; only from the main checkout; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
+    "Create this task's worktree under .worktrees/ when none exists (main checkout only; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
   )
   .option(
     '--no-worktree',
@@ -803,22 +903,68 @@ session
 
 session
   .command('status')
+  .codex(SERVER_ONLY)
   .description(
     'Show what the current Claude Code or Codex session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
-  .action(wrap(() => sessionStatus()))
+  .option('--json', 'Print { version, session } as JSON')
+  .action(wrap(opts => sessionStatus(opts as { json?: boolean })))
 
-const usage = program.command('usage').description('Token usage maintenance')
+const usage = program
+  .command('usage')
+  .description('Token usage: what it cost, who used it, and corrections')
+
+usage
+  .command('show')
+  .codex(SERVER_ONLY)
+  .description(
+    'Token cost per operation (default: workspace, last 30 days, by tool); --by member --tasks adds the tasks completed over local days.'
+  )
+  .option(
+    '--by <dim>',
+    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
+  )
+  .option('--task <id>', 'Cost of a single task (e.g. LUM-42)')
+  .option('--session <id>', 'Cost of a single Claude Code or Codex session')
+  .option(
+    '--since <day>',
+    'First day, inclusive: YYYY-MM-DD, Nd (the N days ending on --until), today, yesterday, or a timestamp. Default: last 30 days (7 with --tasks)'
+  )
+  .option(
+    '--tasks',
+    'Append the tasks completed in the window (tokens split per member)'
+  )
+  .option(
+    '--until <day>',
+    'Last day, inclusive: YYYY-MM-DD, today, or yesterday (default today)'
+  )
+  .option(
+    '--member <ref>',
+    'With --tasks: only this member (me, an email, or a display name)'
+  )
+  .option(
+    '--limit <N>',
+    'With --tasks: max completed tasks listed (default 50, max 500)'
+  )
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(wrap(options => usageShow(options as UsageShowOptions)))
 
 usage
   .command('resync')
-  .description(
-    'Correct historical (inflated) token usage from local transcripts (LUM-932). Dry run by default — prints what would change; add --apply to write. Sends token counts only, never transcript content.'
+  .codex(
+    readsLocalFile(
+      'reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)'
+    )
   )
-  .option('--apply', 'Write the corrections (default is a dry run)')
+  .description(
+    'Correct historical (inflated) token usage from local transcripts; --dry-run previews. Sends token counts only, never transcript content.'
+  )
+  .option('--dry-run', 'Show what would be corrected and write nothing')
   .option('--json', 'Print the merged server response as JSON')
   .action(
-    wrap(options => usageResync(options as { apply?: boolean; json?: boolean }))
+    wrap(options =>
+      usageResync(options as { dryRun?: boolean; json?: boolean })
+    )
   )
 
 const task = program
@@ -826,54 +972,25 @@ const task = program
   .description('Inspect tasks from the terminal')
 
 task
-  .command('context <identifier>')
-  .description(
-    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <id>).'
-  )
-  .option(
-    '--full',
-    'Print full memory bodies and the judged-used track-record footer instead of the one-line index'
-  )
-  .action(
-    wrap((identifier, options) =>
-      taskContext(identifier as string, options as { full?: boolean })
-    )
-  )
-
-task
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
-    'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
-  )
-  .option(
-    '-s, --status <value>',
-    'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
-  )
-  .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
-  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
-  .option(
-    '--cursor <cursor>',
-    'Continue from a previous page (from the footer)'
-  )
-  .option(
-    '-m, --milestone <ref>',
-    'Filter by milestone name or UUID (scopes to my tasks under that milestone)'
-  )
-  .option('--json', 'Emit { tasks, total, nextCursor } as JSON')
-  .action(wrap(options => taskList(options as Record<string, string>)))
-
-task
-  .command('search [query]')
-  .description(
-    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side; 50 per page (--limit / --cursor, a longer result ends with "Showing X-Y of N." and the next-page command).'
+    'List tasks: yours by default, --assignee any for everyone. A repeated flag ORs its values; different flags AND. 50 per page; a longer list ends with "Showing X-Y of N." and the next-page command.'
   )
   .option(
     '-a, --assignee <ref>',
-    'Assignee — me, an email, a member or agent name, or none for unassigned; repeatable (ORed)',
+    'Assignee — me (default), any (everyone), none (unassigned), an email, a member or agent name; repeatable (ORed)',
     collect,
     []
   )
-  .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
+  .option(
+    '--search <text>',
+    'Every term must match the title/description or a task number like LUM-42; ranked, typo-tolerant unless --exact'
+  )
+  .option(
+    '--exact',
+    'With --search: substring matching only, in board order (no typo tolerance)'
+  )
   .option(
     '-s, --status <value>',
     'Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
@@ -881,13 +998,13 @@ task
     []
   )
   .option(
-    '-p, --priority <level>',
+    '--priority <level>',
     'Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)',
     collect,
     []
   )
-  .option('--project <ref>', 'Project name or slug')
-  .option('-m, --milestone <ref>', 'Milestone name or UUID')
+  .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
+  .option('-m, --milestone <ref>', 'Milestone slug, name or id')
   .option('--sprint <ref>', 'Sprint number or UUID')
   .option('--team <ref>', 'Team to resolve --sprint against')
   .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
@@ -898,20 +1015,20 @@ task
     'Continue from a previous page (from the footer)'
   )
   .option(
-    '--exact',
-    'Substring matching only, in board order (default: typo-tolerant, ranked by relevance)'
+    '--json',
+    'Print { version, tasks, total, nextCursor, truncated, deprecatedFields } as JSON'
   )
-  .option('--json', 'Emit { tasks, truncated, total, nextCursor } as JSON')
-  .action(
-    wrap((query, options) =>
-      taskSearch(query as string | undefined, options as Record<string, never>)
-    )
+  .option(
+    '--fields <list>',
+    'With --json: print only these comma-separated task fields, e.g. ref,title,status (an unknown name lists the valid ones)'
   )
+  .action(wrap(options => taskList(options as ListTaskOptions)))
 
 task
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Move a task and all its subtasks to the trash (restorable for 30 days from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope listing what goes with it.'
+    'Move a task and its subtasks to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with an envelope listing what goes with it.'
   )
   .option(
     '--confirm',
@@ -924,30 +1041,8 @@ task
   )
 
 task
-  .command('history <identifier>')
-  .description(
-    'Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first.'
-  )
-  .option(
-    '-n, --limit <count>',
-    'Entries per page, newest page first (1-500, default 50)'
-  )
-  .option(
-    '--cursor <cursor>',
-    'Continue with earlier entries (from the footer)'
-  )
-  .option('--json', 'Emit the raw activity entries of this page as JSON')
-  .action(
-    wrap((identifier, options) =>
-      taskHistory(
-        identifier as string,
-        options as { limit?: string; cursor?: string; json?: boolean }
-      )
-    )
-  )
-
-task
   .command('statuses')
+  .codex(SERVER_ONLY)
   .description(
     'Show the task status set, allowed transitions and priorities, as served by the API.'
   )
@@ -955,23 +1050,66 @@ task
   .action(wrap(options => taskStatuses(options as { json?: boolean })))
 
 task
-  .command('show <identifier>')
+  .command('show [task]')
+  .codex(SERVER_ONLY)
   .description(
-    'Show a single task: title, status, priority, assignee, project, URL, description.'
+    'Show a task: title, status, fields, description. Aspect flags add sections (combine freely); defaults to the bound task.'
   )
-  .action(wrap(identifier => taskShow(identifier as string)))
-
-task
-  .command('wrapup [task]')
-  .description(
-    'Whole wrap-up in one read (LUM-841): test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: requests no receipt, changes no status. Defaults to the session-bound task.'
+  .option(
+    '--full',
+    'Alone: the whole task context for starting work (prior sessions, memory index, linked sources, test cases). With an aspect flag: that aspect in long form'
   )
-  .action(wrap(taskArg => taskWrapup(taskArg as string | undefined)))
+  .option(
+    '--memory',
+    'The task context with every memory body and the judged-used track record'
+  )
+  .option(
+    '--comments',
+    'Add the comment thread (50 top-level threads per page)'
+  )
+  .option('--history', 'Add the field-change history, oldest first')
+  .option('--scans', "Add the security scans of the task's linked PRs")
+  .option(
+    '--runs',
+    'Add the agent runs (session, summary, turns, tool calls, tokens, attribution)'
+  )
+  .option(
+    '--outcome',
+    'Add the post-hoc outcome well (REJECTED or INCONCLUSIVE)'
+  )
+  .option(
+    '--lineage',
+    'Add the causal trail: context fragments, their outcomes and run cost'
+  )
+  .option('--deps', 'Add the dependency edges (both directions)')
+  .option(
+    '--all',
+    "With --scans: every pushed head's scan, not the latest only"
+  )
+  .option('--signal', 'With --lineage: append the usage-signal health section')
+  .option(
+    '-n, --limit <count>',
+    'With exactly one of --comments / --history: entries per page (1-500, default 50)'
+  )
+  .option(
+    '--cursor <cursor>',
+    'With exactly one of --comments / --history: continue from the footer'
+  )
+  .option(
+    '--json',
+    'Print { version, task } plus one key per aspect (context, comments, history, …) as JSON'
+  )
+  .action(
+    wrap((taskArg, opts) =>
+      taskShow(taskArg as string | undefined, opts as TaskShowOptions)
+    )
+  )
 
 task
   .command('status [task]')
+  .codex(SERVER_ONLY)
   .description(
-    'Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend).'
+    'Task self-check: next actions, scan coverage, open crossings; when READY for DONE, what DONE would change and the command to run. Defaults to the bound task.'
   )
   .option(
     '--json',
@@ -979,7 +1117,7 @@ task
   )
   .option(
     '--full',
-    'Also print the dashboard sections: cost, struggle/rework trail, trend'
+    "Also print cost, the rework trail, trend and each test case's latest run (as in `testcase list`)"
   )
   .action(
     wrap((taskArg, options) =>
@@ -990,27 +1128,86 @@ task
     )
   )
 
-task
-  .command('comment <identifier> <body>')
+// LUM-1233 3j (Q9): one `comment` noun — add / update / delete. The task is
+// `--task`, defaulting to the session-bound task (AR-2).
+const taskCommentCmd = task
+  .command('comment')
+  .description(
+    'Write on the task comment thread (read it with `lumo task show --comments`)'
+  )
+taskCommentCmd
+  .command('add <body>')
+  .codex(SERVER_ONLY)
   .description(
     'Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.'
   )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
   .option(
     '--reply-to <comment>',
-    'Reply to a top-level comment: its #id from `task comments list` (unique prefix of 6+ chars)'
+    'Reply to a top-level comment: its #id from `task show --comments` (unique prefix of 6+ chars)'
   )
   .action(
-    wrap((identifier, body, opts) =>
-      taskComment(
-        identifier as string,
-        body as string,
-        opts as { replyTo?: string }
+    wrap(async (body, opts) => {
+      const o = opts as { task?: string; replyTo?: string }
+      const task = await taskOrBound(
+        o.task,
+        'lumo task comment add "<body>" --task <LUM-N>'
       )
-    )
+      if (typeof task === 'number') return task
+      return taskComment(
+        task,
+        body as string,
+        o.replyTo !== undefined ? { replyTo: o.replyTo } : {}
+      )
+    })
+  )
+taskCommentCmd
+  .command('update <comment> <body>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Replace the text of one of your own comments. <comment> is its #id from `task show --comments` (unique prefix of 6+ chars).'
+  )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
+  .action(
+    wrap(async (comment, body, opts) => {
+      const task = await taskOrBound(
+        (opts as { task?: string }).task,
+        'lumo task comment update <comment> "<body>" --task <LUM-N>'
+      )
+      if (typeof task === 'number') return task
+      return taskCommentEdit(task, comment as string, body as string)
+    })
+  )
+taskCommentCmd
+  .command('delete <comment>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
+  )
+  .option('--task <task>', 'The task (LUM-N); default: the session-bound task')
+  .option(
+    '--confirm',
+    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
+  )
+  .action(
+    wrap(async (comment, opts) => {
+      const o = opts as { task?: string; confirm?: boolean }
+      const task = await taskOrBound(
+        o.task,
+        'lumo task comment delete <comment> --task <LUM-N>'
+      )
+      if (typeof task === 'number') return task
+      return taskCommentRm(
+        task,
+        comment as string,
+        o.confirm !== undefined ? { confirm: o.confirm } : {}
+      )
+    })
   )
 
 task
   .command('create <title>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.'
   )
@@ -1020,8 +1217,10 @@ task
     'Priority: low | medium | high | urgent (case-insensitive; default: low)'
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
-  .option('--project <ref>', 'Project name or slug')
-  .option('--milestone <ref>', 'Milestone name (case-insensitive)')
+  .option(
+    '--milestone <ref>',
+    'Milestone slug (as in the web URL) or name (case-insensitive)'
+  )
   .option('--due <date>', 'Due date, YYYY-MM-DD (your local day)')
   .option(
     '--template <key>',
@@ -1053,6 +1252,7 @@ const taskTemplate = task
 
 taskTemplate
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.'
   )
@@ -1061,6 +1261,7 @@ taskTemplate
 
 taskTemplate
   .command('show <key>')
+  .codex(SERVER_ONLY)
   .description(
     "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`."
   )
@@ -1073,6 +1274,7 @@ taskTemplate
 
 taskTemplate
   .command('create <key>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Create a workspace template from a local Markdown file (OWNER only). <key> is a lowercase slug; built-in keys are reserved.'
   )
@@ -1091,7 +1293,8 @@ taskTemplate
   )
 
 taskTemplate
-  .command('edit <key>')
+  .command('update <key>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited.'
   )
@@ -1111,26 +1314,24 @@ taskTemplate
   )
 
 taskTemplate
-  .command('rm <key>')
+  .command('delete <key>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((key, options) =>
-      taskTemplateRm(
-        key as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
+      taskTemplateRm(key as string, options as { confirm?: boolean })
     )
   )
 
 task
   .command('decide <identifier> <text>')
+  .codex(SERVER_ONLY)
   .description(
     "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
   )
@@ -1144,6 +1345,7 @@ const taskFigma = task
 
 taskFigma
   .command('add <task> <url>')
+  .codex(SERVER_ONLY)
   .description(
     'Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.'
   )
@@ -1155,14 +1357,24 @@ taskFigma
 
 taskFigma
   .command('list <task>')
+  .codex(SERVER_ONLY)
   .description('List Figma links attached to a task')
+  .option('--json', 'Print { version, figmaLinks, total, nextCursor } as JSON')
   .action(
-    wrap((taskId: unknown) => taskFigmaList({ identifier: taskId as string }))
+    wrap((taskId: unknown, opts: unknown) =>
+      taskFigmaList({
+        identifier: taskId as string,
+        json: (opts as { json?: boolean }).json,
+      })
+    )
   )
 
 taskFigma
-  .command('rm <task> <link-id-or-url>')
-  .description('Remove a Figma link from a task (idempotent)')
+  .command('remove <task> <link>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Remove a Figma link from a task (idempotent). <link> is the Figma URL, the 8-char short ref `figma list` prints, a unique id prefix (6+ chars) or the full id; an ambiguous ref removes nothing'
+  )
   .action(
     wrap((taskId: unknown, linkIdOrUrl: unknown) =>
       taskFigmaRm({
@@ -1174,6 +1386,7 @@ taskFigma
 
 taskFigma
   .command('refresh <task>')
+  .codex(SERVER_ONLY)
   .description(
     'Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.'
   )
@@ -1183,98 +1396,80 @@ taskFigma
     )
   )
 
-// Tier-2 retrieval commands (LUM-122). `task context` prints the matching
+// Tier-2 retrieval commands (LUM-122). `task show --full` prints the matching
 // command at the end of each cheap inline card; the agent runs it to pull the
 // full content on demand.
 const taskSlack = task.command('slack').description('Inspect Slack context')
 taskSlack
-  .command('show <identifier> <contextId>')
-  .description('Show the full stored Slack thread snapshot')
-  .action(wrap((id, ctx) => taskSlackShow(id as string, ctx as string)))
+  .command('show <identifier> <ref>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Show the full stored Slack thread snapshot (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+  )
+  .option('--json', 'Print { version, slackContext } as JSON')
+  .action(
+    wrap((id, ctx, opts) =>
+      taskSlackShow(id as string, ctx as string, opts as { json?: boolean })
+    )
+  )
 
 const taskWeb = task.command('web').description('Inspect web link content')
 taskWeb
-  .command('show <identifier> <linkId>')
-  .description('Show the fetched web link body as plain text')
-  .action(wrap((id, link) => taskWebShow(id as string, link as string)))
+  .command('show <identifier> <ref>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Show the fetched web link body as plain text (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
+  )
+  .option('--json', 'Print { version, webLink } as JSON')
+  .action(
+    wrap((id, link, opts) =>
+      taskWebShow(id as string, link as string, opts as { json?: boolean })
+    )
+  )
 
 // taskFigma already exists above → attach the context leaf to it.
 taskFigma
-  .command('context <identifier> <linkId>')
-  .description('Show the cached Figma design context (metadata)')
-  .action(wrap((id, link) => taskFigmaContext(id as string, link as string)))
-
-// Plural `comments` parent: `task comment <id> <body>` already exists for
-// adding a comment, and commander disallows a duplicate name.
-const taskComments = task
-  .command('comments')
-  .description('Read and manage the task comment thread')
-taskComments
-  .command('list <identifier>')
+  .command('show <identifier> <ref>')
+  .codex(SERVER_ONLY)
   .description(
-    'List the task comment thread, 50 top-level threads per page (--limit / --cursor; capped to the output budget; --full alone prints every comment)'
-  )
-  .option('--full', 'Print every comment, bypassing the output-token cap')
-  .option('--limit <n>', 'Top-level threads per page (1-500, default 50)')
-  .option(
-    '--cursor <cursor>',
-    'Continue from a previous page (from the footer)'
-  )
-  .action(
-    wrap((id, opts) =>
-      taskCommentList(
-        id as string,
-        opts as { full?: boolean; limit?: string; cursor?: string }
-      )
-    )
-  )
-taskComments
-  .command('edit <identifier> <comment> <body>')
-  .description(
-    'Replace the text of one of your own comments. <comment> is its #id from `task comments list` (unique prefix of 6+ chars).'
-  )
-  .action(
-    wrap((id, comment, body) =>
-      taskCommentEdit(id as string, comment as string, body as string)
-    )
-  )
-taskComments
-  .command('rm <identifier> <comment>')
-  .description(
-    'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
+    'Show the cached Figma design context (metadata) (<ref>: the 8-char short ref `task show --full` / the listing prints, a unique id prefix of 6+ chars, or the full id)'
   )
   .option(
-    '--confirm',
-    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
+    '--json',
+    'Print { version, figmaLink, designContextAvailable, note } as JSON'
   )
   .action(
-    wrap((id, comment, opts) =>
-      taskCommentRm(
-        id as string,
-        comment as string,
-        opts as { confirm?: boolean }
-      )
+    wrap((id, link, opts) =>
+      taskFigmaContext(id as string, link as string, opts as { json?: boolean })
     )
   )
 
-const taskDeps = task
-  .command('deps')
+// LUM-1233 3j (Q9): `deps` → `dep` (one noun, singular), `rm` → `remove`.
+const taskDep = task
+  .command('dep')
   .description(
-    'Task dependency edges — detected candidates + confirmed blockers'
+    'Manage task dependency edges (read them with `lumo task show --deps`)'
   )
-taskDeps
-  .command('list <identifier>')
-  .description('List dependency edges (both directions)')
-  .action(wrap(id => taskDepsList(id as string)))
-taskDeps
-  .command('add <identifier>')
+taskDep
+  .command('add [task]')
+  .codex(SERVER_ONLY)
   .requiredOption('--blocked-by <blocker>', 'blocker task (LUM-N)')
-  .description('Declare a manual hard dependency (CONFIRMED)')
-  .action(
-    wrap((id, opts) => taskDepsAdd(id as string, opts as { blockedBy: string }))
+  .description(
+    'Declare a manual hard dependency (CONFIRMED). [task] defaults to the session-bound task.'
   )
-taskDeps
-  .command('confirm <identifier> <edge>')
+  .action(
+    wrap(async (id, opts) => {
+      const task = await taskOrBound(
+        id as string | undefined,
+        'lumo task dep add <LUM-N> --blocked-by <LUM-M>'
+      )
+      if (typeof task === 'number') return task
+      return taskDepsAdd(task, opts as { blockedBy: string })
+    })
+  )
+taskDep
+  .command('confirm <task> <edge>')
+  .codex(SERVER_ONLY)
   .option('--reverse', 'flip direction when confirming')
   .description('Confirm a detected candidate edge')
   .action(
@@ -1286,110 +1481,44 @@ taskDeps
       )
     )
   )
-taskDeps
-  .command('dismiss <identifier> <edge>')
+taskDep
+  .command('dismiss <task> <edge>')
+  .codex(SERVER_ONLY)
   .description('Dismiss a candidate (never re-suggested)')
   .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
-taskDeps
-  .command('rm <identifier> <edge>')
+taskDep
+  .command('remove <task> <edge>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id, edge, opts) =>
-      taskDepsRm(
-        id as string,
-        edge as string,
-        opts as { confirm?: boolean; yes?: boolean }
-      )
+      taskDepsRm(id as string, edge as string, opts as { confirm?: boolean })
     )
   )
 
 const taskPr = task.command('pr').description('Inspect linked PRs')
 taskPr
   .command('show <identifier> <number>')
+  .codex(SERVER_ONLY)
   .description(
     'Show the synced PR record (diff/review comments when available)'
   )
-  .action(wrap((id, num) => taskPrShow(id as string, num as string)))
-
-task
-  .command('lineage <identifier>')
-  .description(
-    "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
-  )
   .option(
-    '--signal',
-    'Append usage-signal health section (fetches /api/lineage/signal)'
+    '--json',
+    'Print { version, pullRequest, task, liveDiffAvailable, note } as JSON'
   )
   .action(
-    wrap((id, options) =>
-      taskLineage(id as string, options as { signal?: boolean })
+    wrap((id, num, opts) =>
+      taskPrShow(id as string, num as string, opts as { json?: boolean })
     )
   )
 
-const taskMemory = task
-  .command('memory')
-  .description('View and record memories scoped to a task')
-
-taskMemory
-  .command('list [task]')
-  .description(
-    "List a task's memories. <task> defaults to the session-bound task."
-  )
-  .option(
-    '--category <cat>',
-    'Filter by trap|decision|convention|procedural (case-insensitive)'
-  )
-  .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskList(
-        taskArg as string | undefined,
-        opts as Record<string, string>
-      )
-    )
-  )
-
-taskMemory
-  .command('add [task]')
-  .description(
-    'Record a memory on a task (<task> defaults to the bound session). ' +
-      'Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. ' +
-      'Pick --category then its fields.'
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
-  .option('--outcome <text>', 'trap: what goes wrong')
-  .option('--workaround <text>', 'trap: optional fix')
-  .option('--what <text>', 'decision: the decision')
-  .option('--why <text>', 'decision: rationale')
-  .option('--alternatives <text>', 'decision: optional alternatives considered')
-  .option('--implications <text>', 'decision: optional implications')
-  .option('--rule <text>', 'convention: the rule')
-  .option('--applies <text>', 'convention: where the rule applies')
-  .option('--workflow <text>', 'procedural: the workflow name')
-  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
-  .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
-  )
-  .action(
-    wrap((taskArg: unknown, opts: unknown) =>
-      memoryTaskAdd(
-        taskArg as string | undefined,
-        opts as Record<string, unknown>
-      )
-    )
-  )
 const taskArtifact = task
   .command('artifact')
   .description(
@@ -1398,6 +1527,7 @@ const taskArtifact = task
 
 taskArtifact
   .command('add <task>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content.'
   )
@@ -1425,9 +1555,10 @@ taskArtifact
   )
 
 taskArtifact
-  .command('update <task> <artifact-id>')
+  .command('update <task> <artifact>')
+  .codex(SERVER_ONLY)
   .description(
-    'Update an artifact’s kind / title / source (not content). Provide at least one flag.'
+    'Update an artifact’s kind / title / source (not content). Provide at least one flag. <artifact>: the 8-char short ref in `artifact list` column 1, a unique id prefix or the full id.'
   )
   .option('--kind <kind>', 'New artifact kind (opaque)')
   .option('--title <title>', 'New artifact title')
@@ -1451,39 +1582,322 @@ taskArtifact
 
 taskArtifact
   .command('list <task>')
+  .codex(SERVER_ONLY)
   .description('List artifacts attached to a task, in order')
-  .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
-
-taskArtifact
-  .command('show <task> <artifact-id>')
-  .description(
-    'Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1.'
-  )
+  .option('--json', 'Print { version, artifacts, total, nextCursor } as JSON')
   .action(
-    wrap((taskId: unknown, artifactId: unknown) =>
-      taskArtifactShow(taskId as string, artifactId as string)
+    wrap((taskId: unknown, opts: unknown) =>
+      taskArtifactList(taskId as string, opts as { json?: boolean })
     )
   )
 
 taskArtifact
-  .command('rm <task> <artifact-id>')
+  .command('show <task> <artifact>')
+  .codex(SERVER_ONLY)
   .description(
-    'Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
+    'Show one artifact (key:value header + content body). <artifact>: the 8-char short ref in `artifact list` column 1 (also printed by `task show --full`), a unique id prefix or the full id.'
+  )
+  .option('--json', 'Print { version, artifact, task } as JSON')
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, opts: unknown) =>
+      taskArtifactShow(
+        taskId as string,
+        artifactId as string,
+        opts as { json?: boolean }
+      )
+    )
+  )
+
+taskArtifact
+  .command('delete <task> <artifact>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Delete an artifact from a task (irreversible; <artifact>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
       taskArtifactRm(
         taskId as string,
         artifactId as string,
-        options as { confirm?: boolean; yes?: boolean }
+        options as { confirm?: boolean }
       )
     )
   )
+
+/**
+ * LUM-1233 batch 3a: one definition for `task testcase …` and
+ * `milestone testcase …` — the same verbs, flags and help text on both, so
+ * they cannot drift. Each per-case verb takes the handle `<parent>/TC<n>`.
+ */
+function registerTestCaseCommands(
+  group: LumoCommand,
+  kind: TestCaseParentKind
+): void {
+  const parent = kind === 'task' ? '[task]' : '<milestone>'
+  const handle = `<${kind}/case>`
+  const example = kind === 'task' ? 'LUM-42/TC3' : 'headless-web-cli/TC3'
+  const parentNote =
+    kind === 'task' ? ' Defaults to the session-bound task.' : ''
+
+  group
+    .command(`add ${parent}`)
+    .codex(SERVER_ONLY)
+    .description(
+      `Add a test case. --step / --verify are repeatable and keep the order they appear in.${parentNote}`
+    )
+    .requiredOption('--title <title>', 'Test case title')
+    .option(
+      '--setup <text>',
+      'Preconditions, e.g. "The user is on the Dashboard."'
+    )
+    .option(
+      '--step <text>',
+      'One execution step (repeatable, ordered). At least one is required.',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'One verification step (repeatable, ordered). May be omitted entirely.',
+      collect,
+      [] as string[]
+    )
+    .requiredOption('--expected <text>', 'Expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
+    )
+    .action(
+      wrap((ref: unknown, options: unknown) =>
+        testCaseAdd(
+          kind,
+          ref as string | undefined,
+          options as Record<string, never>
+        )
+      )
+    )
+
+  group
+    .command(`list ${parent}`)
+    .codex(SERVER_ONLY)
+    .description(
+      `List test cases with each one's latest run (result, environment, commit).${parentNote}`
+    )
+    .option(
+      '--json',
+      'Print { version, testCases, total, nextCursor, summary } as JSON'
+    )
+    .action(
+      wrap((ref: unknown, opts: unknown) =>
+        testCaseList(
+          kind,
+          ref as string | undefined,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`show ${handle}`)
+    .codex(SERVER_ONLY)
+    .description(
+      `Show one test case (four sections, 1-based step numbers) plus its run history; evidence is listed under the step it is attached to. Handle: ${example}`
+    )
+    .option('--json', 'Print { version, testCase, runs, pullRequests } as JSON')
+    .action(
+      wrap((h: unknown, opts: unknown) =>
+        testCaseShow(
+          kind,
+          h as string,
+          opts as { project?: string; json?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`download ${handle} <dir>`)
+    .codex(
+      writesLocal(
+        'writes local files (saves evidence into <dir>) — Codex asks first'
+      )
+    )
+    .description(
+      `Save the Lumo-hosted evidence files of every run of a test case into <dir>/<run>/ using your API key (external links are listed, not downloaded). Handle: ${example}`
+    )
+    .action(
+      wrap((h: unknown, dir: unknown, opts: unknown) =>
+        testCaseDownload(
+          kind,
+          h as string,
+          dir as string,
+          opts as { project?: string }
+        )
+      )
+    )
+
+  group
+    .command(`update ${handle}`)
+    .codex(SERVER_ONLY)
+    .description(
+      'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
+    )
+    .option('--title <title>', 'New title')
+    .option('--setup <text>', 'New preconditions')
+    .option(
+      '--step <text>',
+      'Replacement step (repeatable, ordered) - replaces the whole steps list',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--verify <text>',
+      'Replacement verification step (repeatable, ordered) - replaces the whole list',
+      collect,
+      [] as string[]
+    )
+    .option('--expected <text>', 'New expected result')
+    .option(
+      '--requires-env <environment>',
+      'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+    )
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseUpdate(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`delete ${handle}`)
+    .codex(SERVER_ONLY)
+    .description(
+      'Delete a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
+    )
+    .option(
+      '--confirm',
+      'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
+    )
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDelete(
+          kind,
+          h as string,
+          options as { project?: string; confirm?: boolean }
+        )
+      )
+    )
+
+  group
+    .command(`run ${handle}`)
+    .codex(readsLocalFile('--evidence-file, --step-evidence <step>=<file>'))
+    .description(
+      'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
+    )
+    .requiredOption(
+      '--result <result>',
+      'pass | fail | blocked (case-insensitive)'
+    )
+    .requiredOption(
+      '--env <environment>',
+      'local | preview | production (case-insensitive; no default - say where this ran)'
+    )
+    .option(
+      '--pr <number>',
+      'The PR whose change this run exercised (must be linked to the task; a milestone run refuses it and records the commit)'
+    )
+    .option(
+      '--commit <sha>',
+      'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
+    )
+    .option(
+      '--failed-step <n>',
+      '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
+    )
+    .option(
+      '--failed-verify <n>',
+      '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+    )
+    .option(
+      '--cause <cause>',
+      'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
+    )
+    .option(
+      '--unproven <n>',
+      '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
+      collect,
+      [] as string[]
+    )
+    .option('--note <text>', 'Free-text note about this run')
+    .option(
+      '--evidence <url>',
+      'Evidence link (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--evidence-file <path>',
+      'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step <spec>',
+      'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass, fail or skip:<reason>, e.g. s1-3=pass, v1=fail@0.3s, s4=skip:"no real DB". Required: every step must be reported or the run is rejected',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--step-evidence <spec>',
+      'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
+      collect,
+      [] as string[]
+    )
+    .option(
+      '--actual <text>',
+      'What actually happened at the failing step (FAIL only), shown next to the expected result'
+    )
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseRun(kind, h as string, options as Record<string, never>)
+      )
+    )
+
+  group
+    .command(`disposition ${handle}`)
+    .codex(sandboxed('a human-only ruling: keep Codex asking the user first'))
+    .description(
+      "Rule on a test case whose latest run proved an implementation defect — clears that run's block. Three-step handshake; never add a step flag yourself."
+    )
+    .option(
+      '--known-defect',
+      'We accept this defect and ship anyway (does NOT claim it is fixed)'
+    )
+    .option(
+      '--not-a-defect',
+      'The failure was mis-attributed to the implementation'
+    )
+    .option('--note <text>', 'Why this ruling')
+    .option(
+      '--receipt <token>',
+      'The read receipt from the previous step of the handshake'
+    )
+    .option(
+      '--confirm-read',
+      "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+    )
+    .option(
+      '--confirm',
+      "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+    )
+    .action(
+      wrap((h: unknown, options: unknown) =>
+        testCaseDisposition(kind, h as string, options as Record<string, never>)
+      )
+    )
+}
 
 const taskTestCase = task
   .command('testcase')
@@ -1491,210 +1905,7 @@ const taskTestCase = task
     'Structured test cases on a task (setup / steps / verification / expected) and their run records'
   )
 
-taskTestCase
-  .command('add <task>')
-  .description(
-    'Add a test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((taskId: unknown, options: unknown) =>
-      taskTestCaseAdd(taskId as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('list <task>')
-  .description(
-    "List a task's test cases with each one's latest run (result, environment, commit)"
-  )
-  .action(wrap((taskId: unknown) => taskTestCaseList(taskId as string)))
-
-taskTestCase
-  .command('show <task/case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3'
-  )
-  .action(wrap((handle: unknown) => taskTestCaseShow(handle as string)))
-
-taskTestCase
-  .command('update <task/case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseUpdate(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('rm <task/case>')
-  .description(
-    'Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRm(
-        handle as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-taskTestCase
-  .command('run <task/case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--pr <number>',
-    'The PR whose change this run exercised (must be linked to this task)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseRun(handle as string, options as Record<string, never>)
-    )
-  )
-
-taskTestCase
-  .command('disposition <task/case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .action(
-    wrap((handle: unknown, options: unknown) =>
-      taskTestCaseDisposition(
-        handle as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(taskTestCase, 'task')
 
 const memberCmd = program
   .command('member')
@@ -1702,6 +1913,7 @@ const memberCmd = program
 
 memberCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List workspace members (name, email, role) and agent actors — the refs `--assignee` accepts.'
   )
@@ -1714,6 +1926,7 @@ const auditCmd = program
 
 auditCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List the workspace audit log, newest first: who did what, when, from where (OWNER only).'
   )
@@ -1742,10 +1955,34 @@ const workspaceCmd = program
   .command('workspace')
   .description('Workspace settings from the terminal')
 
-workspaceCmd
+// LUM-1233 3j (Q9, RW-1): reading and changing the settings are two verbs.
+const securityScanCmd = workspaceCmd
   .command('security-scan')
   .description(
-    'Show or change the PR security-scan switches (LUM-1002): the master scan switch, AI review and exploit-path hunt, with the platform ceiling and what actually runs, plus the request-changes workflow (LUM-1130), the learnings scope (LUM-1134) and how many reviewed commits pause automatic review of a PR (LUM-1137). LUM-1133: --repos lists, and --repo <owner/name> --review/--drafts changes, the per-repository automatic review of PRs without a task (default on, drafts skipped). Any member may read; changing is OWNER only, and turning anything off (or the request-changes workflow on, or the learnings scope to global) exits 4 with a confirmation envelope until --confirm.'
+    'PR security-scan and AI review settings, workspace-wide or per repository (--repo)'
+  )
+securityScanCmd
+  .command('show')
+  .codex(SERVER_ONLY)
+  .description(
+    'Show the PR security-scan and AI review settings, workspace-wide, for every connected repository (--repos) or one (--repo). Any member may read.'
+  )
+  .option(
+    '--repos',
+    'List each connected repository with its automatic review settings'
+  )
+  .option('--repo <owner/name>', 'One connected repository: show its settings')
+  .option('--json', 'Emit { switches, platform, effective } as JSON')
+  .action(
+    wrap(options =>
+      workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
+    )
+  )
+securityScanCmd
+  .command('update')
+  .codex(SERVER_ONLY)
+  .description(
+    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -1754,8 +1991,16 @@ workspaceCmd
   .option('--ai-review <on|off>', 'AI review (LLM security review and triage)')
   .option('--hunt <on|off>', 'Exploit-path hunt in the sandbox')
   .option(
+    '--reward-hack <on|off>',
+    'Agent behavior check: whether the agent sessions behind a PR gamed tests or checks (advisory)'
+  )
+  .option(
     '--request-changes <on|off>',
     'Request-changes workflow (default off): Lumo requests changes while threads or Done-blocking findings are open, approves when clean'
+  )
+  .option(
+    '--allow-author-approval <on|off>',
+    'PR authors may run `@uselumo resolve` / `approve` on their own PR (default on); off = only other write-access accounts'
   )
   .option(
     '--learnings-scope <local|global|auto>',
@@ -1763,18 +2008,10 @@ workspaceCmd
   )
   .option(
     '--auto-pause-after <n>',
-    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr scan --resume --limit` wins)'
+    'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')
-  .option(
-    '--repos',
-    'List each connected repository with its automatic review settings'
-  )
-  .option(
-    '--repo <owner/name>',
-    'One connected repository: show it, or change it with --review / --drafts'
-  )
   .option(
     '--review <on|off>',
     'With --repo: review every PR without a task automatically'
@@ -1783,11 +2020,89 @@ workspaceCmd
     '--drafts <on|off>',
     'With --repo: review draft PRs too (off = wait for ready for review)'
   )
+  .option(
+    '--base-branches <regex>',
+    'With --repo (repeatable; replaces the list, "" clears): also review PRs whose base branch fully matches; the default branch is always reviewed, ".*" = all',
+    collectList
+  )
+  .option(
+    '--labels <label>',
+    'With --repo (repeatable; replaces the list, "" clears): label = review only PRs carrying one (opts in when --review off), !label = skip PRs carrying it',
+    collectList
+  )
+  .option(
+    '--ignore-title <keyword>',
+    'With --repo (repeatable; replaces the list, "" clears): skip PRs whose title contains it (case-insensitive)',
+    collectList
+  )
+  .option(
+    '--ignore-users <login>',
+    'With --repo (repeatable; replaces the list, "" clears): never auto-review PRs by this author (exact, case-sensitive; beats every other rule)',
+    collectList
+  )
+  .option(
+    '--description-keyword <text>',
+    'With --repo ("" clears): with --review off, review PRs whose description contains it'
+  )
+  .option(
+    '--path-filter <glob>',
+    'With --repo (repeatable; replaces the list, "" clears): what the AI review and hunt read; !glob excludes, glob restricts to matches; lockfiles and generated files are excluded by default',
+    collectList
+  )
+  .option(
+    '--title-check <off|warning|error>',
+    'With --repo: the pre-merge title check (default warning); error = a failed check keeps Lumo at "Changes requested" (request-changes workflow on) until fixed or `@uselumo ignore pre-merge checks`'
+  )
+  .option(
+    '--title-requirements <text>',
+    'With --repo ("" clears): extra rules the PR title must meet, in plain language'
+  )
+  .option(
+    '--description-check <off|warning|error>',
+    "With --repo: the pre-merge description check (default warning; follows the repository's PR template if it has one)"
+  )
+  .option(
+    '--override-reviewers-only <on|off>',
+    "With --repo: only the PR's reviewers (requested by name, or who already submitted a review; never the PR author) may `@uselumo ignore pre-merge checks` (default off)"
+  )
+  .option(
+    '--issue-assessment <off|warning|error>',
+    'With --repo: the pre-merge check that judges each requirement of the linked Lumo task (Goal, Done when items) and of the issues the PR description closes or links as Addressed / Not addressed / Unclear (default warning; not applicable without a linked task or issue; unmet ones are flagged in a review comment)'
+  )
+  .option(
+    '--task-details-on-public-repos <on|off>',
+    "With --repo: quote the linked Lumo task's requirements on a PUBLIC repository's PRs too (default off: only the item and its outcome are shown there; private repositories always show them)"
+  )
+  .option(
+    '--profile <quiet|chill|assertive>',
+    'With --repo: which findings get inline comments — quiet = only HIGH and Done-blocking (MEDIUM and path-instruction findings listed in the summary), chill (default) = HIGH, MEDIUM and any finding a path instruction asked for, assertive = LOW too. Never changes detection or what blocks Done'
+  )
+  .option(
+    '--tone <text>',
+    'With --repo ("" clears; ≤250 chars): how the AI review words its findings and PR description, and Lumo its answers on the PR — wording only'
+  )
+  .option(
+    '--path-instruction <glob=instructions>',
+    'With --repo (repeatable; replaces the list, "" clears; ≤20): extra AI review instructions for files matching the glob, e.g. "scripts/**=Flag any console.log". They add checks, never remove one',
+    collectList
+  )
+  .option(
+    '--summary <description|comment|off>',
+    "With --repo: where Lumo's high-level summary of each PR goes — description (default) = into the PR description (at an `@uselumo summary` line, else appended) and kept in sync on every review, comment = only in Lumo's summary comment, off = nowhere. Lumo only edits its own section of the description"
+  )
+  .option(
+    '--sequence-diagrams <on|off>',
+    "With --repo: a Mermaid sequence diagram of each PR's main call flow in the walkthrough of Lumo's summary comment (default on; trivial PRs never get one). `@uselumo diagram` on a PR draws it again"
+  )
+  .option(
+    '--repo <owner/name>',
+    'One connected repository: change it with the --repo settings above'
+  )
   .option('--confirm', 'The user approved the listed changes')
   .option('--json', 'Emit { switches, platform, effective } as JSON')
   .action(
     wrap(options =>
-      workspaceSecurityScan(options as WorkspaceSecurityScanOptions)
+      workspaceSecurityScanUpdate(options as WorkspaceSecurityScanOptions)
     )
   )
 
@@ -1797,6 +2112,7 @@ const tagCmd = program
 
 tagCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List workspace tags with their color and how many tasks / docs carry each.'
   )
@@ -1805,6 +2121,7 @@ tagCmd
 
 tagCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`.'
   )
@@ -1821,13 +2138,33 @@ const projectCmd = program
 
 projectCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
-  .action(wrap(() => projectList()))
+  .option('--json', 'Print { version, projects, total, nextCursor } as JSON')
+  .action(wrap(opts => projectList(opts as { json?: boolean })))
+
+projectCmd
+  .command('show [project]')
+  .codex(SERVER_ONLY)
+  .description(
+    "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
+  )
+  .option('--report', "Print the summary's full report under its TL;DR")
+  .option('--json', 'Emit { project, stats, summary } as JSON')
+  .action(
+    wrap((ref, options) =>
+      projectOverview(
+        ref as string | undefined,
+        options as { json?: boolean; report?: boolean }
+      )
+    )
+  )
 
 projectCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description('Create a project in the workspace (≤200 chars).')
   .option('-d, --description <text>', 'Project description')
   .action(
@@ -1838,6 +2175,7 @@ projectCmd
 
 projectCmd
   .command('update <project>')
+  .codex(SERVER_ONLY)
   .description(
     'Update a project (name or slug): --name, --description ("" clears), --owner (me | email | name; "" clears).'
   )
@@ -1853,100 +2191,130 @@ projectCmd
     )
   )
 
-const projectMemory = projectCmd
+const memoryCmd = program
   .command('memory')
-  .description('View and record PROJECT-scope memories')
-
-projectMemory
-  .command('list [project]')
   .description(
-    "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    'Team memory: add, list, show, update, delete; --scope task|project picks the scope'
+  )
+
+memoryCmd
+  .command('add')
+  .codex(SERVER_ONLY)
+  .description(
+    'Record a memory: only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure). Task scope by default; --scope project when it helps any task in the project.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
+  )
+  .requiredOption(
+    '--category <cat>',
+    'trap | decision | convention | procedural (case-insensitive)'
+  )
+  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
+  .option('--outcome <text>', 'trap: what goes wrong')
+  .option('--workaround <text>', 'trap: optional fix')
+  .option('--what <text>', 'decision: the decision')
+  .option('--why <text>', 'decision: rationale')
+  .option('--alternatives <text>', 'decision: optional alternatives considered')
+  .option('--implications <text>', 'decision: optional implications')
+  .option('--rule <text>', 'convention: the rule')
+  .option('--applies <text>', 'convention: where the rule applies')
+  .option('--workflow <text>', 'procedural: the workflow name')
+  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
+  .option(
+    '--agent <agent>',
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+  )
+  .action(wrap((opts: unknown) => memoryAdd(opts as Record<string, never>)))
+
+memoryCmd
+  .command('list')
+  .codex(SERVER_ONLY)
+  .description(
+    'List memories of a task (default: the bound task) or, with --scope project, of a project; --learnings lists the workspace PR-review learnings.'
+  )
+  .option(
+    '--scope <scope>',
+    'task | project (case-insensitive). Default: task, or project when only --project is given'
+  )
+  .option(
+    '--task <LUM-N>',
+    'The task (task scope; default: the session-bound task)'
   )
   .option(
     '--category <cat>',
     'Filter by trap|decision|convention|procedural (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectList(p as string | undefined, opts as Record<string, string>)
-    )
-  )
-
-projectMemory
-  .command('add [project]')
-  .description(
-    "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
-  )
-  .requiredOption(
-    '--category <cat>',
-    'trap | decision | convention | procedural (case-insensitive)'
-  )
-  .option('--trigger <text>', 'trap/procedural trigger')
-  .option('--outcome <text>', 'trap outcome')
-  .option('--workaround <text>', 'trap optional workaround')
-  .option('--what <text>', 'decision')
-  .option('--why <text>', 'decision rationale')
-  .option('--alternatives <text>', 'decision optional alternatives')
-  .option('--implications <text>', 'decision optional implications')
-  .option('--rule <text>', 'convention rule')
-  .option('--applies <text>', 'convention: where it applies')
-  .option('--workflow <text>', 'procedural workflow')
-  .option('--step <text>', 'procedural step (repeatable)', collect, [])
   .option(
-    '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
+    '--learnings',
+    "The workspace's PR-review learnings (what reviewers told Lumo in review threads), newest first"
   )
+  .option(
+    '--repo <owner/name>',
+    "With --learnings: only this repository's learnings"
+  )
+  .option(
+    '--json',
+    'Print { version, memories, total, nextCursor } as JSON ({ version, learnings } with --learnings)'
+  )
+  .action(wrap((opts: unknown) => memoryList(opts as Record<string, never>)))
+
+memoryCmd
+  .command('show <memory>')
+  .codex(SERVER_ONLY)
+  .description(
+    "Show one memory's full card (category + content). <memory> = the 8-char short ref from listings and session-start index lines, a unique id prefix (6+ chars) or the full id."
+  )
+  .option('--json', 'Print { version, memory } as JSON')
   .action(
-    wrap((p: unknown, opts: unknown) =>
-      memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)
+    wrap((id: unknown, opts: unknown) =>
+      memoryShow(id as string, opts as { json?: boolean })
     )
   )
 
-const memoryCmd = program
-  .command('memory')
+memoryCmd
+  .command('update <memory>')
+  .codex(SERVER_ONLY)
   .description(
-    'Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)'
+    'Change a memory (<memory>: short ref, unique id prefix or full id). --scope project moves a task memory to the project scope — only when the lesson recurs across 2+ tasks.'
+  )
+  .option(
+    '--scope <scope>',
+    'project (a memory only moves from task to project)'
+  )
+  .action(
+    wrap((id: unknown, opts: unknown) =>
+      memoryUpdate(id as string, opts as { scope?: string })
+    )
   )
 
 memoryCmd
-  .command('show <memoryId>')
+  .command('delete <memory>')
+  .codex(SERVER_ONLY)
   .description(
-    "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
-  )
-  .action(wrap((id: unknown) => memoryShow(id as string)))
-
-memoryCmd
-  .command('promote <memoryId>')
-  .description(
-    'Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks.'
-  )
-  .action(wrap((id: unknown) => memoryPromote(id as string)))
-
-memoryCmd
-  .command('rm <memoryId>')
-  .description(
-    'Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card.'
+    'Delete a memory (hard delete; <memory>: short ref, unique id prefix or full id). Without --confirm: exit 4 + a confirmation envelope showing the card.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id: unknown, opts: unknown) =>
-      memoryRm(id as string, opts as { confirm?: boolean; yes?: boolean })
+      memoryDelete(id as string, opts as { confirm?: boolean })
     )
   )
 
 memoryCmd
   .command('sync')
+  .codex(writesLocal('writes the local memory directory'))
   .description(
-    'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block). Only touches files it owns; never clobbers your own memory. Resolves the project from the bound session unless --project is given.'
-  )
-  .option(
-    '--project <ref>',
-    'Project to sync (name/slug/id); default = bound session'
+    'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block); never clobbers your own memory. Project from the bound session unless --project.'
   )
   .option(
     '--dir <path>',
@@ -1977,12 +2345,9 @@ memoryCmd
 
 memoryCmd
   .command('push')
+  .codex(writesLocal('deletes local memory files after pushing'))
   .description(
-    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success.'
-  )
-  .option(
-    '--project <ref>',
-    'Project to push to (name/slug/id); default = bound session'
+    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team. Pushed files are removed from the outbox on success.'
   )
   .option(
     '--dir <path>',
@@ -1997,6 +2362,7 @@ memoryCmd
 
 memoryCmd
   .command('fold [project-ref]')
+  .codex(SERVER_ONLY)
   .description(
     'Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run.'
   )
@@ -2016,10 +2382,10 @@ const milestoneCmd = program
 
 milestoneCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List milestones for a project, 50 per page (--limit / --cursor). --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('--archived', 'Show only archived milestones')
   .option('--all', 'Show both archived and non-archived milestones')
   .option(
@@ -2031,14 +2397,15 @@ milestoneCmd
     '--cursor <cursor>',
     'Continue from a previous page (from the footer)'
   )
+  .option('--json', 'Print { version, milestones, total, nextCursor } as JSON')
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
 milestoneCmd
   .command('create <name>')
+  .codex(SERVER_ONLY)
   .description(
     'Create a milestone. --project required when workspace has >1 project.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('-d, --description <text>', 'Milestone description')
   .option('--start <date>', 'Start date (YYYY-MM-DD)')
   .option('--target <date>', 'Target date (YYYY-MM-DD)')
@@ -2050,22 +2417,34 @@ milestoneCmd
 
 milestoneCmd
   .command('show <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name.'
+    'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option(
+    '--summary',
+    'Also print the AI-generated summary (was `milestone summary`)'
+  )
+  .option(
+    '--changelog',
+    'Also print the changelog: DONE tasks, merged PRs and frozen claims with provenance, and a baseline vs prior milestones (was `milestone changelog`)'
+  )
+  .option(
+    '--json',
+    'Print { version, milestone, tasks } as JSON (+ summary / changelog with those flags)'
+  )
   .action(
     wrap((identifier, options) =>
-      milestoneShow(identifier as string, options as Record<string, string>)
+      milestoneShow(identifier as string, options as ShowMilestoneOptions)
     )
   )
 
 milestoneCmd
   .command('update <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Update a milestone. Provide at least one of --name, --description, --start, --target, --token-budget. Use "" to clear nullable fields. Completion is derived from task completion (LUM-714) — there is no status flag.'
+    'Update a milestone: at least one of --name, --description, --start, --target, --token-budget ("" clears a nullable field). Completion is derived from its tasks.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .option('-n, --name <text>', 'New name')
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
@@ -2074,38 +2453,41 @@ milestoneCmd
     '--token-budget <tokens>',
     'Advisory token budget, positive integer (empty string to clear). Overview shows burn vs budget; over-budget raises a risk-queue alert — never a hard gate.'
   )
+  .option(
+    '--refresh-summary',
+    'Queue regeneration of the AI summary (was `milestone summary --retry`); read it with `milestone show --summary`'
+  )
   .action(
     wrap((identifier, options) =>
-      milestoneUpdate(identifier as string, options as Record<string, string>)
+      milestoneUpdate(identifier as string, options as UpdateMilestoneOptions)
     )
   )
 
 milestoneCmd
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       milestoneDelete(
         identifier as string,
-        options as { project?: string; confirm?: boolean; yes?: boolean }
+        options as { project?: string; confirm?: boolean }
       )
     )
   )
 
 milestoneCmd
   .command('archive <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name.'
+    'Archive a milestone (slug, name or id): hidden from `milestone list` by default, history and task links kept. Reversible with `milestone unarchive`.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .action(
     wrap((identifier, options) =>
       milestoneArchive(identifier as string, options as { project?: string })
@@ -2114,10 +2496,10 @@ milestoneCmd
 
 milestoneCmd
   .command('unarchive <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name.'
+    'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts the slug (as in the web URL), the name or the id.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .action(
     wrap((identifier, options) =>
       milestoneUnarchive(identifier as string, options as { project?: string })
@@ -2126,10 +2508,10 @@ milestoneCmd
 
 milestoneCmd
   .command('add <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
-    'Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back.'
+    'Bind one or more tasks (LUM-N or UUID) to a milestone (slug, name or id). Reports each task with a tally; partial failures do not roll back.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .action(
     wrap((identifier, tasks, options) =>
       milestoneAdd(
@@ -2142,10 +2524,10 @@ milestoneCmd
 
 milestoneCmd
   .command('remove <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
-    'Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID.'
+    'Unbind one or more tasks (LUM-N or UUID) from a milestone (slug, name or id). Tasks not in the milestone are skipped, never reassigned.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .action(
     wrap((identifier, tasks, options) =>
       milestoneRemove(
@@ -2158,10 +2540,10 @@ milestoneCmd
 
 milestoneCmd
   .command('triage <identifier> <tasks...>')
+  .codex(SERVER_ONLY)
   .description(
-    'Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks.'
+    'Batch-mark tasks in a milestone agent-claimable (--claimable) or not (--not-claimable); tasks outside it are skipped. `lumo next --claimable` then surfaces them.'
   )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .option('--claimable', 'Mark the listed tasks agent-claimable')
   .option('--not-claimable', 'Mark the listed tasks NOT agent-claimable')
   .action(
@@ -2179,43 +2561,11 @@ milestoneCmd
   )
 
 milestoneCmd
-  .command('summary <identifier>')
-  .description(
-    'Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .option('--retry', 'Trigger summary regeneration before fetching')
-  .action(
-    wrap((identifier, options) =>
-      milestoneSummary(
-        identifier as string,
-        options as { project?: string; retry?: boolean }
-      )
-    )
-  )
-
-milestoneCmd
-  .command('changelog <identifier>')
-  .description(
-    "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .option('--json', 'Emit the raw structured changelog payload')
-  .action(
-    wrap((identifier, options) =>
-      milestoneChangelog(
-        identifier as string,
-        options as { project?: string; json?: boolean }
-      )
-    )
-  )
-
-milestoneCmd
   .command('reorder <refs...>')
+  .codex(SERVER_ONLY)
   .description(
-    "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
+    "Reorder a project's milestones. Pass every milestone (slug, name or id) in the desired order. --project required when workspace has >1 project."
   )
-  .option('--project <ref>', 'Project name or slug')
   .action(
     wrap((refs, options) =>
       milestoneReorder(refs as string[], options as { project?: string })
@@ -2224,10 +2574,10 @@ milestoneCmd
 
 milestoneCmd
   .command('move <ref>')
+  .codex(SERVER_ONLY)
   .description(
     'Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project.'
   )
-  .option('--project <ref>', 'Project name or slug')
   .option('--before <ref>', 'Place <ref> immediately before this milestone')
   .option('--after <ref>', 'Place <ref> immediately after this milestone')
   .action(
@@ -2239,335 +2589,13 @@ milestoneCmd
     )
   )
 
-const milestoneCriteria = milestoneCmd
-  .command('criteria')
-  .description(
-    'DEPRECATED (LUM-1135) — use `milestone testcase`. Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only).'
-  )
-
-milestoneCriteria
-  .command('set <identifier>')
-  .description(
-    'Submit the whole exit contract from a JSON file (full replace; adjudicated rows are tombstoned, their verdict trail survives). Default = steward/agent draft; --human records a transcribed HUMAN_EDIT revision. Locked with 409 once the milestone is COMPLETED.'
-  )
-  .requiredOption(
-    '--file <path>',
-    'JSON array of criteria: [{"statement","referentKind":"EXTERNAL_FACT"|"AGENT_CONSTRUCTED_STATE"|"PENDING_OUTCOME"}] — no verifierType/checkpointer (exit criteria are adjudicated, not machine-run)'
-  )
-  .option(
-    '--human',
-    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, options) =>
-      milestoneCriteriaSet(
-        identifier as string,
-        options as { project?: string; file?: string; human?: boolean }
-      )
-    )
-  )
-
-milestoneCriteria
-  .command('list <identifier>')
-  .description(
-    'List a milestone’s exit criteria: id, verdict (MET | NOT_MET | PENDING), provenance, referent kind, statement — plus whether the close gate is open.'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, options) =>
-      milestoneCriteriaList(
-        identifier as string,
-        options as { project?: string }
-      )
-    )
-  )
-
-milestoneCriteria
-  .command('verdict <identifier> <criterion>')
-  .description(
-    'Adjudicate (裁定) one exit criterion: --met or --unmet, with optional --note. Grounding gate: --met on an EXTERNAL_FACT criterion requires --evidence (422 otherwise), and a PENDING_OUTCOME criterion can never be MET. <criterion> = id or ≥6-char id prefix from `criteria list`.'
-  )
-  .option('--met', 'Adjudicate the criterion MET')
-  .option('--unmet', 'Adjudicate the criterion NOT_MET')
-  .option('--note <text>', 'Adjudication note (why this verdict)')
-  .option(
-    '--evidence <pointer>',
-    'Evidence pointer backing a MET on EXTERNAL_FACT (URL, commit SHA, CI run, DB probe …)'
-  )
-  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .action(
-    wrap((identifier, criterion, options) =>
-      milestoneCriteriaVerdict(
-        identifier as string,
-        criterion as string,
-        options as {
-          project?: string
-          met?: boolean
-          unmet?: boolean
-          note?: string
-          evidence?: string
-        }
-      )
-    )
-  )
-
 const milestoneTestCase = milestoneCmd
   .command('testcase')
   .description(
-    'Milestone test cases — cross-task end-to-end cases and the milestone close contract (LUM-1135). The close gate opens only when every case’s latest run passed (or a proven defect was dispositioned known).'
+    "Milestone test cases: cross-task end-to-end cases. The close gate opens only when every case's latest run passed (or a proven defect was dispositioned known)."
   )
 
-milestoneTestCase
-  .command('add <milestone>')
-  .description(
-    'Add a milestone test case. --step / --verify are repeatable and keep the order they appear in.'
-  )
-  .requiredOption('--title <title>', 'Test case title')
-  .option(
-    '--setup <text>',
-    'Preconditions, e.g. "The user is on the Dashboard."'
-  )
-  .option(
-    '--step <text>',
-    'One execution step (repeatable, ordered). At least one is required.',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'One verification step (repeatable, ordered). May be omitted entirely.',
-    collect,
-    [] as string[]
-  )
-  .requiredOption('--expected <text>', 'Expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseAdd(ms as string, options as Record<string, never>)
-    )
-  )
-
-milestoneTestCase
-  .command('list <milestone>')
-  .description(
-    "List a milestone's test cases with each one's latest run (result, environment, commit)"
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, options: unknown) =>
-      milestoneTestCaseList(ms as string, options as { project?: string })
-    )
-  )
-
-milestoneTestCase
-  .command('show <milestone> <case>')
-  .description(
-    'Show one test case (four sections, 1-based step numbers) plus its run history. Case: TC3'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseShow(
-        ms as string,
-        caseRef as string,
-        options as { project?: string }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('update <milestone> <case>')
-  .description(
-    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
-  )
-  .option('--title <title>', 'New title')
-  .option('--setup <text>', 'New preconditions')
-  .option(
-    '--step <text>',
-    'Replacement step (repeatable, ordered) - replaces the whole steps list',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--verify <text>',
-    'Replacement verification step (repeatable, ordered) - replaces the whole list',
-    collect,
-    [] as string[]
-  )
-  .option('--expected <text>', 'New expected result')
-  .option(
-    '--requires-env <environment>',
-    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseUpdate(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('rm <milestone> <case>')
-  .description(
-    'Remove a milestone test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
-  )
-  .option(
-    '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
-  )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRm(
-        ms as string,
-        caseRef as string,
-        options as { project?: string; confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('run <milestone> <case>')
-  .description(
-    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
-  )
-  .requiredOption(
-    '--result <result>',
-    'pass | fail | blocked (case-insensitive)'
-  )
-  .requiredOption(
-    '--env <environment>',
-    'local | preview | production (case-insensitive; no default - say where this ran)'
-  )
-  .option(
-    '--commit <sha>',
-    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
-  )
-  .option(
-    '--failed-step <n>',
-    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
-  )
-  .option(
-    '--failed-verify <n>',
-    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
-  )
-  .option(
-    '--cause <cause>',
-    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
-  )
-  .option(
-    '--unproven <n>',
-    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
-    collect,
-    [] as string[]
-  )
-  .option('--note <text>', 'Free-text note about this run')
-  .option(
-    '--evidence <url>',
-    'Evidence link (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--evidence-file <path>',
-    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step <spec>',
-    'Per-step result (repeatable): <step>=<result>[@duration], where <step> is s<n> for a step or v<n> for a verification check (ranges like s1-3) and <result> is pass or fail, e.g. s1-3=pass, v1=fail@0.3s. Steps you do not report are shown as "no per-step result", never as passed',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--step-evidence <spec>',
-    'Attach evidence to one reported step (repeatable): s3=shot.png or v1=https://... Files count toward the 5-file limit',
-    collect,
-    [] as string[]
-  )
-  .option(
-    '--actual <text>',
-    'What actually happened at the failing step (FAIL only), shown next to the expected result'
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseRun(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
-
-milestoneTestCase
-  .command('disposition <milestone> <case>')
-  .description(
-    "Rule on a test case whose latest run proved an implementation defect — clears that run's hold on the milestone close gate. Three-step handshake; never add a step flag yourself."
-  )
-  .option(
-    '--known-defect',
-    'We accept this defect and ship anyway (does NOT claim it is fixed)'
-  )
-  .option(
-    '--not-a-defect',
-    'The failure was mis-attributed to the implementation'
-  )
-  .option('--note <text>', 'Why this ruling')
-  .option(
-    '--receipt <token>',
-    'The read receipt from the previous step of the handshake'
-  )
-  .option(
-    '--confirm-read',
-    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
-  )
-  .option(
-    '--confirm',
-    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
-  )
-  .option(
-    '--project <ref>',
-    'Project name or slug (needed when the milestone name is ambiguous)'
-  )
-  .action(
-    wrap((ms: unknown, caseRef: unknown, options: unknown) =>
-      milestoneTestCaseDisposition(
-        ms as string,
-        caseRef as string,
-        options as Record<string, never>
-      )
-    )
-  )
+registerTestCaseCommands(milestoneTestCase, 'milestone')
 
 const sprintCmd = program
   .command('sprint')
@@ -2575,6 +2603,7 @@ const sprintCmd = program
 
 sprintCmd
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List sprints for a team. --team required when workspace has >1 team. Sorted newest first.'
   )
@@ -2584,22 +2613,33 @@ sprintCmd
     'Filter by status: draft | active | closed (case-insensitive)'
   )
   .option('-n, --limit <count>', 'Show only the first N sprints')
+  .option('--json', 'Print { version, sprints, total, nextCursor } as JSON')
   .action(wrap(options => sprintList(options as Record<string, string>)))
 
 sprintCmd
   .command('show <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.'
   )
   .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option(
+    '--summary',
+    'Also print the AI-generated summary (was `sprint summary`)'
+  )
+  .option(
+    '--json',
+    'Print { version, sprint, progress, topBlockers, tasks, burnup, teamPerformance } as JSON (+ summary with --summary)'
+  )
   .action(
     wrap((identifier, options) =>
-      sprintShow(identifier as string, options as { team?: string })
+      sprintShow(identifier as string, options as ShowSprintOptions)
     )
   )
 
 sprintCmd
   .command('create')
+  .codex(SERVER_ONLY)
   .description(
     'Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.'
   )
@@ -2614,6 +2654,7 @@ sprintCmd
 
 sprintCmd
   .command('update <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.'
   )
@@ -2621,23 +2662,27 @@ sprintCmd
   .option('-n, --name <text>', 'New sprint name')
   .option('--start <date>', 'New start date (YYYY-MM-DD)')
   .option('--end <date>', 'New end date (YYYY-MM-DD)')
+  .option(
+    '--refresh-summary',
+    'Queue regeneration of the AI summary (was `sprint summary --retry`); read it with `sprint show --summary`'
+  )
   .action(
     wrap((identifier, options) =>
-      sprintUpdate(identifier as string, options as Record<string, string>)
+      sprintUpdate(identifier as string, options as UpdateSprintOptions)
     )
   )
 
 sprintCmd
   .command('delete <identifier>')
+  .codex(SERVER_ONLY)
   .description(
     'Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintDelete(identifier as string, options as Record<string, unknown>)
@@ -2646,6 +2691,7 @@ sprintCmd
 
 sprintCmd
   .command('start <identifier>')
+  .codex(SERVER_ONLY)
   .description('Transition a DRAFT sprint to ACTIVE.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2656,17 +2702,17 @@ sprintCmd
 
 sprintCmd
   .command('close <identifier>')
+  .codex(SERVER_ONLY)
   .description(
-    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move.'
+    'Close an ACTIVE sprint. Unfinished tasks need --move-all (to the next sprint) or --backlog-all (to the backlog); either without --confirm exits 4 with an envelope.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option('--move-all', 'Move all unfinished tasks to the next sprint')
   .option('--backlog-all', 'Return all unfinished tasks to the backlog')
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
@@ -2674,23 +2720,8 @@ sprintCmd
   )
 
 sprintCmd
-  .command('summary <identifier>')
-  .description(
-    'Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
-  )
-  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
-  .option('--retry', 'Trigger summary regeneration before fetching')
-  .action(
-    wrap((identifier, options) =>
-      sprintSummary(
-        identifier as string,
-        options as { team?: string; retry?: boolean }
-      )
-    )
-  )
-
-sprintCmd
   .command('add <identifier> <task>')
+  .codex(SERVER_ONLY)
   .description('Add a task to a sprint. <task> accepts LUM-N or UUID.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2705,6 +2736,7 @@ sprintCmd
 
 sprintCmd
   .command('remove <identifier> <task>')
+  .codex(SERVER_ONLY)
   .description('Remove a task from a sprint. <task> accepts LUM-N or UUID.')
   .option('--team <ref>', 'Team name or UUID (informational)')
   .action(
@@ -2721,8 +2753,9 @@ const doc = program.command('doc').description('Manage Lumo documents')
 
 doc
   .command('create [title]')
+  .codex(readsLocalFile('--file'))
   .description(
-    'Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc.'
+    'Create a document. Body from --content, --file or piped stdin (pick one); --scope defaults to personal. --task LUM-N binds it to a task, --parent files it under another doc.'
   )
   .option('--content <text>', 'Inline markdown content')
   .option('--file <path>', 'Read markdown content from file')
@@ -2730,9 +2763,8 @@ doc
     '--scope <scope>',
     'personal | workspace (case-insensitive; default: personal)'
   )
-  .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
-  .option('--parent <doc>', 'File under this parent doc (cuid or title)')
+  .option('--parent <doc>', 'File under this parent doc (slug, title or id)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .action(
@@ -2742,41 +2774,49 @@ doc
   )
 
 doc
-  .command('import-gdoc <url>')
-  .description('Import a Google Doc as a Lumo doc (one-way Google → Lumo)')
+  .command('import')
+  .codex(SERVER_ONLY)
+  .description(
+    'Import a document into Lumo; --gdoc <url> imports a Google Doc (one-way Google → Lumo)'
+  )
+  .requiredOption('--gdoc <url>', 'The Google Doc to import (its sharing URL)')
   .option(
     '--scope <scope>',
     'personal | workspace (case-insensitive; default: personal)'
   )
   .option('--task <LUM-N>', 'Bind the imported doc to this task')
   .action(
-    wrap((url, opts) => docImportGdoc(url as string, opts as ImportGdocOptions))
+    wrap(opts => {
+      const { gdoc, ...rest } = opts as ImportGdocOptions & { gdoc: string }
+      return docImportGdoc(gdoc, rest)
+    })
   )
 
 doc
   .command('sync <doc>')
+  .codex(SERVER_ONLY)
   .description('Re-sync a Google-imported doc (overwrites the Lumo body)')
   .action(wrap(ref => docSync(ref as string)))
 
 doc
   .command('update <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
-    'Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a document (<doc> = slug, case-insensitive title or id). Body from --content, --file or piped stdin; 422 if it drops tables/rows/headings unless --allow-shrink.'
   )
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
   .option('--file <path>', 'Replace content from file')
   .option('--scope <scope>', 'personal | workspace (case-insensitive)')
-  .option('--project <ref>', 'Project name/slug; pass "" to clear')
   .option(
     '--tag <name>',
-    'Set tags by name (bulk replace, repeatable)',
+    'Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
   .option(
     '--tag-id <cuid>',
-    'Set tags by id (bulk replace, repeatable)',
+    'Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
@@ -2802,16 +2842,48 @@ doc
     '--allow-shrink',
     'Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)'
   )
+  .option(
+    '--add-member <member>',
+    'Share with a member: "me", an email or a display name (repeatable; PRIVATE docs become SHARED)',
+    collect,
+    []
+  )
+  .option(
+    '--role <role>',
+    'With --add-member: viewer | editor | manager (case-insensitive; default: viewer)'
+  )
+  .option(
+    '--remove-member <member>',
+    'Stop sharing with a member (repeatable; a member not on the list is a no-op)',
+    collect,
+    []
+  )
+  .option(
+    '--add-task <LUM-N>',
+    'Bind the document to a task (repeatable; idempotent)',
+    collect,
+    []
+  )
+  .option(
+    '--remove-task <LUM-N>',
+    'Unbind the document from a task (repeatable; a binding from @LUM-N in the body fails with 409)',
+    collect,
+    []
+  )
   .action(
     wrap((reference, opts) =>
-      docUpdate(reference as string | undefined, opts as Record<string, string>)
+      docUpdateWithRelations(
+        reference as string | undefined,
+        opts as Record<string, never>
+      )
     )
   )
 
 doc
   .command('show <doc>')
+  .codex(SERVER_ONLY)
   .description(
-    'Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr).'
+    "Show a document's header and body (doc = slug, title or id). --raw prints the byte-identical markdown source (the edit base); --section <heading> prints one section of it."
   )
   .option(
     '--raw',
@@ -2821,19 +2893,33 @@ doc
     '--section <heading>',
     'Print one heading-addressed section of the markdown source (prefix with #… to pin depth, e.g. "## Status")'
   )
+  .option(
+    '--json',
+    'Print { version, document } as JSON (not with --raw / --section)'
+  )
+  .option(
+    '--members',
+    'Print only the members the document is shared with (NAME  ROLE rows)'
+  )
   .action(
     wrap((reference, opts) =>
-      docShow(
+      docShowWithMembers(
         reference as string | undefined,
-        opts as { raw?: boolean; section?: string }
+        opts as {
+          raw?: boolean
+          section?: string
+          json?: boolean
+          members?: boolean
+        }
       )
     )
   )
 
 doc
   .command('patch <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
-    'Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed.'
+    'Replace one heading-addressed section of the markdown source, leaving the rest untouched. 409 on a concurrent edit; 422 if the section loses tables/rows/headings unless --allow-shrink.'
   )
   .requiredOption(
     '--section <heading>',
@@ -2857,8 +2943,9 @@ doc
 
 doc
   .command('append <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
-    'Append markdown at the end of a heading-addressed section (before the next same-or-higher heading), or at the document end when --section is omitted. Pure insertion — no existing byte is modified — which makes it the safest write for running logs/ledgers. 409 on concurrent edits.'
+    'Append markdown at the end of a heading-addressed section, or at the document end without --section. Pure insertion, the safest write for running logs; 409 on concurrent edits.'
   )
   .option(
     '--section <heading>',
@@ -2878,6 +2965,7 @@ doc
 
 doc
   .command('diff <doc>')
+  .codex(readsLocalFile('--file'))
   .description(
     'Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source.'
   )
@@ -2890,20 +2978,17 @@ doc
 
 doc
   .command('rebuild-source <doc>')
+  .codex(SERVER_ONLY)
   .description(
-    "Regenerate the stored markdown source from the doc's HTML body using a lossless serializer (tables/rows/headings round-trip), re-enabling doc show --raw / diff / patch / append for a source-less doc. The rebuilt source is structure-guarded: any table/tr/heading shrink is rejected with 422 (no silent flattening) unless --allow-shrink is passed. A doc that already has a source is refused with 409 unless --force re-derives it (replacing a byte-faithful source with a serializer-derived one)."
+    'Regenerate the markdown source from the HTML body (lossless), re-enabling show --raw / diff / patch / append. 422 on a structure shrink; an existing source exits 4 until --confirm.'
   )
   .option(
     '--allow-shrink',
     'Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)'
   )
   .option(
-    '--force',
-    'Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm.'
-  )
-  .option(
     '--confirm',
-    'The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs'
+    'The user has approved replacing the existing source (without it an existing source exits 4 with a confirmation envelope)'
   )
   .option(
     '--if-revision <n>',
@@ -2915,7 +3000,6 @@ doc
         reference as string | undefined,
         opts as {
           allowShrink?: boolean
-          force?: boolean
           confirm?: boolean
           ifRevision?: string
         }
@@ -2925,6 +3009,7 @@ doc
 
 doc
   .command('list')
+  .codex(SERVER_ONLY)
   .description(
     'List documents visible to the current user, 50 per page (--limit / --cursor)'
   )
@@ -2932,7 +3017,6 @@ doc
     '--scope <scope>',
     'personal | workspace | all (case-insensitive; default: all)'
   )
-  .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
   .option('--limit <n>', 'Docs per page (1-500, default 50)')
   .option(
@@ -2940,14 +3024,16 @@ doc
     'Continue from a previous page (from the footer)'
   )
   .option('--tree', 'Render as an indented tree (paged in tree order)')
+  .option('--json', 'Print { version, documents, total, nextCursor } as JSON')
   .action(wrap(opts => docList(opts as Record<string, string>)))
 
 doc
   .command('move <doc>')
+  .codex(SERVER_ONLY)
   .description(
     'Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only.'
   )
-  .option('--parent <doc>', 'New parent doc (cuid or title)')
+  .option('--parent <doc>', 'New parent doc (slug, title or id)')
   .option('--root', 'Move to top level (no parent)')
   .action(
     wrap((reference, opts) =>
@@ -2957,86 +3043,25 @@ doc
 
 doc
   .command('delete <doc>')
+  .codex(SERVER_ONLY)
   .description(
-    'Move a document and everything nested under it to the trash (restorable for 30 days by its owner from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope with the title.'
+    'Move a document and everything nested under it to the trash (restorable for 30 days from web Settings → Trash). Without --confirm: exit 4 with a confirmation envelope.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((reference, opts) =>
-      docDelete(
-        reference as string | undefined,
-        opts as { confirm?: boolean; yes?: boolean }
-      )
+      docDelete(reference as string | undefined, opts as { confirm?: boolean })
     )
   )
-
-doc
-  .command('bind <doc> <task>')
-  .description(
-    'Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docBind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('unbind <doc> <task>')
-  .description(
-    'Unbind a document from a task. Removes EXPLICIT mentions only — purely CONTENT-derived mentions (from @LUM-N in the body) cannot be removed via CLI and fail with 409; edit the doc body in the web UI instead.'
-  )
-  .action(
-    wrap((docRef, task) =>
-      docUnbind(docRef as string | undefined, task as string | undefined)
-    )
-  )
-
-doc
-  .command('share <doc> <member>')
-  .description(
-    'Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts "me", an email, or a display name.'
-  )
-  .option(
-    '--role <role>',
-    'viewer | editor | manager (case-insensitive; default: viewer)'
-  )
-  .action(
-    wrap((docRef, member, opts) =>
-      docShare(
-        docRef as string | undefined,
-        member as string | undefined,
-        opts as { role?: string }
-      )
-    )
-  )
-
-doc
-  .command('unshare <doc> <member>')
-  .description(
-    'Remove a member from a document\'s share list. Idempotent — prints "Not shared with …" if no row exists.'
-  )
-  .action(
-    wrap((docRef, member) =>
-      docUnshare(docRef as string | undefined, member as string | undefined)
-    )
-  )
-
-doc
-  .command('share-list <doc>')
-  .description(
-    'List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>.'
-  )
-  .action(wrap(docRef => docShareList(docRef as string | undefined)))
 
 task
   .command('update <identifier>')
+  .codex(writesLocal('a confirmed DONE removes local git worktrees'))
   .description(
-    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use "" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a task: at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint or a tag flag. "" clears description, assignee, milestone or sprint.'
   )
   .option('-t, --title <text>', 'New title')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -3054,7 +3079,7 @@ task
   )
   .option(
     '--milestone <ref>',
-    'Milestone name (case-insensitive); empty string to unbind'
+    'Milestone slug (as in the web URL) or name (case-insensitive); empty string to unbind'
   )
   .option(
     '--sprint <ref>',
@@ -3074,13 +3099,13 @@ task
   )
   .option(
     '--tag <name>',
-    'Set tags by name (bulk replace, repeatable)',
+    'Set tags by name (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
   .option(
     '--tag-id <cuid>',
-    'Set tags by id (bulk replace, repeatable)',
+    'Set tags by id (bulk replace, repeatable). Cannot be combined with --add-tag* / --remove-tag*',
     collect,
     []
   )
@@ -3100,7 +3125,7 @@ task
   )
   .option(
     '--confirm',
-    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done with no other flag runs in one step when every linked PR (at least one) is merged and nothing blocks DONE (LUM-1106); otherwise it exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+    'With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4.'
   )
   .action(
     wrap((identifier, options) =>
@@ -3110,6 +3135,11 @@ task
 
 const worktree = program
   .command('worktree')
+  .codex(
+    writesLocal(
+      'creates/removes git worktrees and branches (list: local git only)'
+    )
+  )
   .description(
     'Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout.'
   )
@@ -3117,7 +3147,7 @@ const worktree = program
 worktree
   .command('add <identifier> [slug]')
   .description(
-    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off the remote default branch (origin/HEAD), link node_modules when present, copy the husky shim when husky owns hooks, and apply .lumo/worktree.json (linkPaths, copyPaths, notes). Run from the main checkout.'
+    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/HEAD and apply .lumo/worktree.json. Run from the main checkout.'
   )
   .option(
     '--base <ref>',
@@ -3133,7 +3163,7 @@ worktree
   )
   .option(
     '--confirm',
-    'The user has seen and approved the verifyCommand shown in the confirmation envelope (LUM-755). Only meaningful with --verify.'
+    'The user has seen and approved the verifyCommand shown in the confirmation envelope. Only meaningful with --verify.'
   )
   .action(
     wrap((identifier, slug, options) => {
@@ -3155,13 +3185,12 @@ worktree
 worktree
   .command('rm <identifier>')
   .description(
-    'Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch.'
+    "Remove a task's worktree. Without --confirm (or with uncommitted changes and no --force) exits 4 with an envelope naming what would be discarded. Keeps the branch unless --delete-branch."
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
-  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .option('--force', 'Remove even with uncommitted changes (discards them)')
   .option(
     '--delete-branch',
@@ -3173,7 +3202,6 @@ worktree
         identifier as string,
         options as {
           confirm?: boolean
-          yes?: boolean
           force?: boolean
           deleteBranch?: boolean
         }
@@ -3186,16 +3214,17 @@ worktree
   .description(
     'List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked.'
   )
-  .action(wrap(() => worktreeList()))
+  .option('--json', 'Print { version, worktrees, total, nextCursor } as JSON')
+  .action(wrap(opts => worktreeList(opts as { json?: boolean })))
 
 worktree
   .command('prune')
   .description(
-    'Remove the worktrees of tasks that are already DONE (closed on the web or another machine too). Keeps any worktree with uncommitted changes, commits that are neither pushed nor the head of a merged linked PR, or the current directory inside it. Without --confirm exits 4 with an envelope listing what goes and what stays. Never deletes branches.'
+    'Remove the worktrees of DONE tasks, keeping any with uncommitted or unpushed work or the current directory inside. Without --confirm exits 4 with an envelope. Never deletes branches.'
   )
   .option(
     '--confirm',
-    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+    'The user has approved the change shown in the confirmation envelope. Without it the command exits 4 and prints what it would do.'
   )
   .action(wrap(options => worktreePrune(options as { confirm?: boolean })))
 
@@ -3209,6 +3238,11 @@ worktree
 //      scope, so a broken hook never fails at import time either.
 const hook = program
   .command('hook')
+  .codex(
+    writesLocal(
+      'agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself'
+    )
+  )
   .description(
     'Coding-agent hook ingestion (invoked by Claude Code settings.json or Codex hooks.json, not humans)'
   )
@@ -3218,7 +3252,8 @@ const hook = program
 // --agent <token>`); the value rides to the server as the X-Lumo-Agent header
 // so auto-sedimented memories are attributed to the agent that produced them.
 // Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
-// and the server-side HookEventType slugs.
+// and the server-side HookEventType slugs. The worktree-* pair is retired
+// (RETIRED_LUMO_HOOK_EVENTS) but stays registered for settings written before.
 const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   [
     'pre-tool-use',
@@ -3267,11 +3302,11 @@ const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   ],
   [
     'worktree-create',
-    'Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)',
+    'Retired: forwards a WorktreeCreate event; `lumo init` no longer installs it and removes old entries',
   ],
   [
     'worktree-remove',
-    'Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)',
+    'Retired: forwards a WorktreeRemove event; `lumo init` no longer installs it and removes old entries',
   ],
   [
     'file-changed',
@@ -3347,11 +3382,56 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
     )
 }
 
-if (!isUpdateCheckWorker && !isIntrospect) {
+// LUM-1232 batch F (HT-1): `Examples:` / `Exit codes:` sections, after every
+// command is registered. Data lives in cli/src/lib/help-text.ts.
+attachHelpSections(
+  program as unknown as Parameters<typeof attachHelpSections>[0]
+)
+
+/**
+ * LUM-1233 3a: whether `flag` takes a value on the registered command at
+ * `path` — so a tombstone counts positionals the way Commander would (the
+ * value of `--result pass` is not a second argument).
+ */
+function optionTakesValue(path: string, flag: string): boolean {
+  let node = program as unknown as {
+    commands: readonly { name(): string }[]
+    options: readonly {
+      long?: string
+      short?: string
+      required: boolean
+      optional: boolean
+    }[]
+  }
+  for (const word of path.split(' ')) {
+    const next = node.commands.find(c => c.name() === word)
+    if (!next) break
+    node = next as unknown as typeof node
+  }
+  // LUM-1233 3g: a command's own options first, then the global ones
+  // (`--project <ref>` is defined once on the program).
+  const opt =
+    node.options.find(o => o.long === flag || o.short === flag) ??
+    (program as unknown as typeof node).options.find(
+      o => o.long === flag || o.short === flag
+    )
+  return opt ? opt.required || opt.optional : false
+}
+
+// LUM-1233 (RN-3): a removed command never runs — it fails with exit 2 and
+// names its replacement. Checked before Commander, so tombstones never show in
+// --help or grammar.json.
+const removedCommand =
+  !isUpdateCheckWorker && !isIntrospect
+    ? findRemovedCommand(process.argv.slice(2), optionTakesValue)
+    : null
+if (removedCommand) {
+  for (const line of removedCommandLines(removedCommand)) console.error(line)
+  exitWith(EXIT_USAGE)
+} else if (!isUpdateCheckWorker && !isIntrospect) {
   program.parseAsync(process.argv).catch(err => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: ${sanitizeField(msg)}`)
-    process.exit(1)
+    for (const line of describeThrownError(err)) console.error(line)
+    exitWith(EXIT_ERROR)
   })
 }
 

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import {
   extractErrorMessage,
@@ -13,6 +14,7 @@ import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd as cmdRef, hint } from '../lib/feedback'
+import { docHandle } from '../lib/doc-handle'
 
 /**
  * `lumo doc patch` / `lumo doc append` (LUM-409) — section-addressed writes.
@@ -44,6 +46,8 @@ export interface DocSectionEditOptions {
 export function formatSectionEditLine(args: {
   verb: 'Patched' | 'Appended to'
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   sectionHeading: string | null
   revision: number | null
@@ -53,7 +57,7 @@ export function formatSectionEditLine(args: {
     ? ` § "${sanitizeField(args.sectionHeading)}"`
     : ' (document end)'
   const rev = args.revision !== null ? `  revision ${args.revision}` : ''
-  return `${args.verb} ${args.id} "${escaped}"${target}${rev}`
+  return `${args.verb} ${docHandle(args.id, args.slug)} "${escaped}"${target}${rev}`
 }
 
 async function docSectionEdit(
@@ -68,11 +72,11 @@ async function docSectionEdit(
         mode === 'replace' ? '--section <heading>' : '[--section <heading>]'
       } [--content <md> | --file <path> | stdin] [--if-revision <n>]`
     )
-    return 1
+    return EXIT_USAGE
   }
   if (mode === 'replace' && (!opts.section || opts.section.trim() === '')) {
     console.error('Error: --section <heading> is required for doc patch')
-    return 1
+    return EXIT_USAGE
   }
 
   let ifRevision: number | undefined
@@ -81,7 +85,7 @@ async function docSectionEdit(
       console.error(
         `Error: --if-revision must be a non-negative integer (got "${opts.ifRevision}")`
       )
-      return 1
+      return EXIT_USAGE
     }
     ifRevision = Number(opts.ifRevision)
   }
@@ -172,6 +176,7 @@ async function docSectionEdit(
   const { document } = (await res.json()) as {
     document: {
       id: string
+      slug?: string | null
       title: string
       contentRevision?: number
       sectionHeading?: string | null
@@ -181,6 +186,7 @@ async function docSectionEdit(
     formatSectionEditLine({
       verb: mode === 'replace' ? 'Patched' : 'Appended to',
       id: document.id,
+      slug: document.slug ?? null,
       title: document.title,
       sectionHeading: document.sectionHeading ?? opts.section ?? null,
       revision:

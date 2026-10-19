@@ -9,10 +9,21 @@ import {
   DEFAULT_REPO_REVIEW_SETTING,
   type RepoReviewSettingValues,
 } from '@/ee/security/security-scan/auto-review-policy'
+import {
+  applyPreMergeChecksUpdate,
+  type PreMergeChecksUpdate,
+} from '@/ee/security/security-scan/pre-merge-checks'
+import {
+  normalizePathInstructions,
+  normalizeToneInstructions,
+  type PathInstruction,
+} from '@/ee/security/security-scan/path-instructions'
+import type { ReviewProfile } from '@/ee/security/security-scan/review-profile'
+import type { HighLevelSummaryMode } from '@/ee/security/security-scan/pr-description-summary'
 
 /**
- * LUM-1133 — per-repository automatic review settings (CodeRabbit
- * `reviews.auto_review`): whether PRs without a Lumo task are reviewed
+ * LUM-1133 — per-repository automatic review settings
+ * (auto-review filters): whether PRs without a Lumo task are reviewed
  * automatically, and whether drafts are. Shared by the settings card and
  * `lumo workspace security-scan --repo`. Any member reads; OWNER changes.
  */
@@ -37,6 +48,107 @@ export interface RepoReviewSettingsUpdate {
   repo: string
   autoReview?: boolean | undefined
   reviewDrafts?: boolean | undefined
+  /** LUM-1143 filters: a list replaces the stored one ([] clears). */
+  baseBranches?: string[] | undefined
+  labels?: string[] | undefined
+  ignoreTitleKeywords?: string[] | undefined
+  ignoreUsernames?: string[] | undefined
+  /** '' or null clears. */
+  descriptionKeyword?: string | null | undefined
+  pathFilters?: string[] | undefined
+  /** LUM-1148: the pre-merge checks (a partial change). */
+  preMergeChecks?: PreMergeChecksUpdate | undefined
+  /** LUM-1147 review style: the list replaces the stored one ([] clears). */
+  pathInstructions?: PathInstruction[] | undefined
+  reviewProfile?: ReviewProfile | undefined
+  /** '' or null clears. */
+  toneInstructions?: string | null | undefined
+  /** LUM-1151: where the high-level summary goes. */
+  highLevelSummary?: HighLevelSummaryMode | undefined
+  /** LUM-1155: the call-flow diagram in the walkthrough. */
+  sequenceDiagrams?: boolean | undefined
+}
+
+type SettingKey = keyof RepoReviewSettingValues
+
+const LIST_KEYS = [
+  'baseBranches',
+  'labels',
+  'ignoreTitleKeywords',
+  'ignoreUsernames',
+  'pathFilters',
+] as const satisfies readonly SettingKey[]
+
+/** Trimmed, without blanks, first occurrence kept. */
+export function normalizeFilterList(list: readonly string[]): string[] {
+  return [...new Set(list.map(v => v.trim()).filter(v => v.length > 0))]
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b))
+    return (
+      a.length === b.length &&
+      a.every((v, i) =>
+        typeof v === 'object' && v !== null
+          ? JSON.stringify(v) === JSON.stringify(b[i])
+          : v === b[i]
+      )
+    )
+  // LUM-1148: the pre-merge checks are one structured value.
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === 'object' &&
+    typeof b === 'object'
+  )
+    return JSON.stringify(a) === JSON.stringify(b)
+  return a === b
+}
+
+/** PURE — the settings after `update`, from `from`. */
+export function applyRepoReviewUpdate(
+  from: RepoReviewSettingValues,
+  update: RepoReviewSettingsUpdate
+): RepoReviewSettingValues {
+  const to: RepoReviewSettingValues = {
+    ...from,
+    autoReview: update.autoReview ?? from.autoReview,
+    reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
+    reviewProfile: update.reviewProfile ?? from.reviewProfile,
+    highLevelSummary: update.highLevelSummary ?? from.highLevelSummary,
+    sequenceDiagrams: update.sequenceDiagrams ?? from.sequenceDiagrams,
+  }
+  for (const key of LIST_KEYS) {
+    const next = update[key]
+    if (next !== undefined) to[key] = normalizeFilterList(next)
+  }
+  if (update.descriptionKeyword !== undefined) {
+    const k = update.descriptionKeyword?.trim() ?? ''
+    to.descriptionKeyword = k.length > 0 ? k : null
+  }
+  if (update.preMergeChecks !== undefined)
+    to.preMergeChecks = applyPreMergeChecksUpdate(
+      from.preMergeChecks,
+      update.preMergeChecks
+    )
+  if (update.pathInstructions !== undefined)
+    to.pathInstructions = normalizePathInstructions(update.pathInstructions)
+  if (update.toneInstructions !== undefined)
+    to.toneInstructions = normalizeToneInstructions(update.toneInstructions)
+  return to
+}
+
+/** PURE — the keys whose value differs, with their new value. */
+export function changedRepoReviewValues(
+  from: RepoReviewSettingValues,
+  to: RepoReviewSettingValues
+): Partial<RepoReviewSettingValues> {
+  const changed: Partial<RepoReviewSettingValues> = {}
+  for (const key of Object.keys(to) as SettingKey[]) {
+    if (!sameValue(from[key], to[key]))
+      (changed as Record<SettingKey, unknown>)[key] = to[key]
+  }
+  return changed
 }
 
 async function confirmedRepositories(workspaceId: string): Promise<string[]> {
@@ -46,10 +158,10 @@ async function confirmedRepositories(workspaceId: string): Promise<string[]> {
 
 async function settingsByRepo(workspaceId: string) {
   const rows = await repoReviewSettingRepository.findForWorkspace(workspaceId)
-  return new Map(
-    rows.map(r => [
-      r.repo,
-      { autoReview: r.autoReview, reviewDrafts: r.reviewDrafts },
+  return new Map<string, RepoReviewSettingValues>(
+    rows.map(({ repo, ...values }) => [
+      repo,
+      { ...DEFAULT_REPO_REVIEW_SETTING, ...values },
     ])
   )
 }
@@ -100,18 +212,9 @@ export const repoReviewSettingsService = {
     const from =
       (await settingsByRepo(caller.workspaceId)).get(repoLower) ??
       DEFAULT_REPO_REVIEW_SETTING
-    const to: RepoReviewSettingValues = {
-      autoReview: update.autoReview ?? from.autoReview,
-      reviewDrafts: update.reviewDrafts ?? from.reviewDrafts,
-    }
-    if (
-      to.autoReview !== from.autoReview ||
-      to.reviewDrafts !== from.reviewDrafts
-    ) {
-      const changed: Partial<RepoReviewSettingValues> = {}
-      if (to.autoReview !== from.autoReview) changed.autoReview = to.autoReview
-      if (to.reviewDrafts !== from.reviewDrafts)
-        changed.reviewDrafts = to.reviewDrafts
+    const to = applyRepoReviewUpdate(from, update)
+    const changed = changedRepoReviewValues(from, to)
+    if (Object.keys(changed).length > 0) {
       await repoReviewSettingRepository.upsert(
         caller.workspaceId,
         repoLower,

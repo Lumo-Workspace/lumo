@@ -123,6 +123,20 @@ describe('rebuildDocumentSource (LUM-446)', () => {
     expect(mockUpdate).toHaveBeenCalledTimes(1)
   })
 
+  it("LUM-1233 3h: the 409 names the approval flag the caller's CLI has", async () => {
+    mockFindWithPermission.mockResolvedValue(
+      sourcelessDoc({ sourceMarkdown: '# human-authored\n' })
+    )
+    await expect(
+      documentService.rebuildDocumentSource('doc-1', 'm-1', 'ws-1')
+    ).rejects.toThrow('(CLI: --force)')
+    await expect(
+      documentService.rebuildDocumentSource('doc-1', 'm-1', 'ws-1', {
+        cliApproval: '--confirm',
+      })
+    ).rejects.toThrow('(CLI: --confirm)')
+  })
+
   it('rejects a viewer (403) and a missing doc (404)', async () => {
     mockFindWithPermission.mockResolvedValue(
       sourcelessDoc({

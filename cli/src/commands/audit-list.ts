@@ -1,9 +1,10 @@
 import { emptyState, fmtTimestamp } from '../lib/format'
+import { emitJson, withVersion } from '../lib/json-output'
 import { apiCall, apiContext, type ApiContext } from '../lib/test-case-api'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import { NEXT_PAGE_PREFIX } from '../lib/pagination'
 import { httpFailed, warn } from '../lib/errors'
-import { cmd, hint } from '../lib/feedback'
 import { shellQuote } from '../lib/confirmation'
 
 export interface AuditListOptions {
@@ -31,6 +32,8 @@ export interface AuditListEvent {
   source: string
   targetType: string
   targetId: string | null
+  /** LUM-1232: `LUM-X482` for a boundary crossing; absent on older servers. */
+  targetRef?: string | null
   ip: string | null
 }
 
@@ -71,7 +74,7 @@ function actorLabel(e: AuditListEvent): string {
 
 /**
  * Render a page as a table (LUM-1089, header on a TTY only): UTC time,
- * action, actor, target, source, IP. A trailing hint carries the cursor for
+ * action, actor, target, source, IP. A paging footer carries the cursor for
  * the next page.
  */
 export function formatAuditList(
@@ -81,11 +84,14 @@ export function formatAuditList(
 ): string {
   if (page.events.length === 0) return emptyState('audit events')
   const rows = page.events.map(e => ({
-    time: fmtTimestamp(e.createdAt),
+    time: fmtTimestamp(e.createdAt, { tty: env.tty }),
     action: sanitizeField(e.action),
     actor: sanitizeField(actorLabel(e)),
+    // LUM-1232 G1: the human-readable ref when the server has one.
     target: sanitizeField(
-      e.targetId ? `${e.targetType} ${e.targetId}` : e.targetType
+      e.targetRef || e.targetId
+        ? `${e.targetType} ${e.targetRef || e.targetId}`
+        : e.targetType
     ),
     source: e.source,
     ip: sanitizeField(e.ip ?? '-'),
@@ -112,11 +118,12 @@ export function formatAuditList(
       .filter(([, v]) => v)
       // LUM-1116: shell-quote only when needed — `--limit 2`, not `--limit "2"`.
       .map(([k, v]) => `${k} ${shellQuote(String(v))}`)
+    // LUM-1232 PG-1: the paging footer (the total is not known here).
     lines.push(
-      '',
-      hint(
-        `more events with ${cmd(`lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`)}`
-      )
+      opts.cursor
+        ? `Showing ${page.events.length} more.`
+        : `Showing 1-${page.events.length}.`,
+      `${NEXT_PAGE_PREFIX} lumo audit list ${[...flags, `--cursor ${shellQuote(page.nextCursor)}`].join(' ')}`
     )
   }
   return lines.join('\n')
@@ -176,7 +183,8 @@ export async function auditList(
   )
   if (!r.ok || !r.data) return 1
   if (opts.json) {
-    process.stdout.write(JSON.stringify(r.data, null, 2) + '\n')
+    // Paged by cursor; the server does not count the whole result.
+    emitJson(withVersion({ ...r.data, total: null }))
     return
   }
   process.stdout.write(formatAuditList(r.data, opts) + '\n')

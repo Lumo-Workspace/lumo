@@ -50,9 +50,9 @@ describe('extractLumoSegments preserves original quoting', () => {
 describe('parseInvocation flag extraction with quoting preserved', () => {
   it('does not leak flag-shaped words from quoted bodies', () => {
     const inv = parseInvocation(
-      'lumo task comment LUM-1 "please run tsc --noEmit and check --status"'
+      'lumo task comment add "please run tsc --noEmit and check --status"'
     )
-    expect(inv.commandPath).toBe('task comment')
+    expect(inv.commandPath).toBe('task comment add')
     expect(inv.flags).toEqual([])
   })
 

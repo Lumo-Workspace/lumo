@@ -295,7 +295,7 @@ function hooksItem(
   agent: string,
   home: string
 ): InitItem {
-  const { addedEvents, updatedEvents } = plan.stats
+  const { addedEvents, updatedEvents, removedEvents } = plan.stats
   const label = kind === 'codex-hooks' ? '' : ` (agent=${agent})`
   if (!plan.writes) {
     return {
@@ -343,7 +343,7 @@ function hooksItem(
     kind,
     path: file,
     action: plan.exists ? 'update' : 'install',
-    summary: `add ${addedEvents.length}, update ${updatedEvents.length} Lumo event${addedEvents.length + updatedEvents.length === 1 ? '' : 's'}${label}`,
+    summary: `add ${addedEvents.length}, update ${updatedEvents.length} Lumo event${addedEvents.length + updatedEvents.length === 1 ? '' : 's'}${removedEvents.length > 0 ? `, remove ${removedEvents.length} retired (${removedEvents.join(', ')})` : ''}${label}`,
     notes,
     diffs: [
       textDiff(
@@ -428,7 +428,7 @@ function gitHookItem(root: string, home: string): InitItem {
         path: plan.coreHooksPath,
         action: 'skip',
         summary:
-          'core.hooksPath is set (husky or a custom dir) — never written; `lumo init --project` prints the block to add by hand',
+          'core.hooksPath is set (husky or a custom dir) — never written; `lumo init --scope project` prints the block to add by hand',
         notes: [],
       }
     case 'no-dir':
@@ -509,7 +509,7 @@ function skillDirFor(root: string, token: string): string {
 export function planInit(args: {
   scope: 'user' | 'project'
   tokens: readonly string[]
-  /** The scope root: home for `--user`, the cwd for `--project`. */
+  /** The scope root: home for `--scope user`, the cwd for `--scope project`. */
   root: string
   homeDir: string
   bundled: string
@@ -565,7 +565,7 @@ export function initApplyCommand(
   scope: 'user' | 'project',
   opts: { agent?: string; force?: boolean }
 ): string {
-  let cmd = `lumo init --${scope}`
+  let cmd = `lumo init --scope ${scope}`
   if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
   if (opts.force) cmd += ' --force'
   return cmd
@@ -599,7 +599,7 @@ export function renderInitPlan(
     cliVersion: string
     home: string
     scope: 'user' | 'project'
-    /** The command that applies the plan, e.g. `lumo init --project`. */
+    /** The command that applies the plan, e.g. `lumo init --scope project`. */
     applyCommand: string
   }
 ): string {

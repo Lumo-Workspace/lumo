@@ -16,6 +16,7 @@ const run = (over: Partial<SummaryRun> = {}): SummaryRun => ({
   failureAttribution: null,
   unprovenVerification: [],
   evidence: [{ type: 'link', url: 'https://example.com' }],
+  stepResults: [],
   disposition: null,
   ...over,
 })

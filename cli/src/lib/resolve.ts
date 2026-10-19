@@ -1,4 +1,8 @@
 import { AUTH_INVALID_MESSAGE, httpFailed } from './errors'
+import {
+  ambiguousMilestoneError,
+  matchMilestoneRef,
+} from '../../../shared/src/milestone-ref'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,7 +20,17 @@ interface ProjectRow {
 interface MilestoneRow {
   id: string
   name: string
-  status: string
+  status?: string
+  /** LUM-1230: the web URL segment; matched as a ref. */
+  slug?: string | null
+  projectId?: string
+}
+
+/** Thrown when no `--project` was given and the workspace has several. */
+export class MultipleProjectsError extends Error {
+  constructor() {
+    super('workspace has multiple projects; pass --project <slug>.')
+  }
 }
 
 /**
@@ -68,6 +82,15 @@ export async function resolveProjectId(
   token: string,
   ref: string | undefined
 ): Promise<string> {
+  return (await resolveProject(base, token, ref)).id
+}
+
+/** {@link resolveProjectId}, keeping the project's name (LUM-1192). */
+export async function resolveProject(
+  base: string,
+  token: string,
+  ref: string | undefined
+): Promise<{ id: string; name: string }> {
   const { projects } = await fetchJson<{ projects: ProjectRow[] }>(
     base,
     token,
@@ -77,8 +100,8 @@ export async function resolveProjectId(
 
   if (!ref) {
     if (visible.length === 0) throw new Error('workspace has no projects yet.')
-    if (visible.length === 1) return visible[0]!.id
-    throw new Error('workspace has multiple projects; pass --project <slug>.')
+    if (visible.length === 1) return visible[0]!
+    throw new MultipleProjectsError()
   }
 
   const needle = ref.trim().toLowerCase()
@@ -88,7 +111,7 @@ export async function resolveProjectId(
   if (!match) {
     throw new Error(`project "${ref}" not found. Try \`lumo project list\`.`)
   }
-  return match.id
+  return match
 }
 
 interface TeamRow {
@@ -209,46 +232,57 @@ export async function resolveSprintId(
 /**
  * Resolve a milestone `<identifier>`:
  * - If it's a UUID, return as-is (project not fetched).
- * - Otherwise, resolve the project (via `--project <ref>` or auto-select),
- *   list its milestones, and match by name case-insensitively.
+ * - Otherwise match it — by id, slug (the web URL segment, LUM-1230) or name,
+ *   case-insensitively — against the milestones of the project given by
+ *   `--project` (or the workspace's only project). With no `--project` in a
+ *   multi-project workspace the whole workspace is searched (LUM-1230), so a
+ *   slug works without naming the project unless it is ambiguous.
+ * More than one match is an error listing the candidates by slug.
  */
 export async function resolveMilestoneId(
   base: string,
   token: string,
   identifier: string,
   projectRef: string | undefined
-): Promise<{ id: string; name: string; projectId: string }> {
+): Promise<{
+  id: string
+  name: string
+  projectId: string
+  /** LUM-1233: the URL slug (the milestone test-case handle prefix); null when unknown. */
+  slug: string | null
+}> {
   if (isUuid(identifier)) {
     // Caller will fetch /api/milestones/<id> to learn the projectId & name.
-    return { id: identifier, name: '', projectId: '' }
+    return { id: identifier, name: '', projectId: '', slug: null }
   }
 
-  const projectId = await resolveProjectId(base, token, projectRef)
+  let projectId: string | null = null
+  try {
+    projectId = await resolveProjectId(base, token, projectRef)
+  } catch (err) {
+    if (!(err instanceof MultipleProjectsError)) throw err
+  }
   const { milestones } = await fetchJson<{ milestones: MilestoneRow[] }>(
     base,
     token,
-    `/api/projects/${projectId}/milestones?filter=all`
+    projectId
+      ? `/api/projects/${projectId}/milestones?filter=all`
+      : '/api/milestones/workspace?filter=all'
   )
-  // Exact id match first (milestone ids are cuids, unique).
-  const byId = milestones.find(m => m.id === identifier)
-  if (byId) {
-    return { id: byId.id, name: byId.name, projectId }
-  }
-  // Then by name (case-insensitive). Names are NOT unique within a project
-  // (only slug is), so reject an ambiguous name rather than silently picking
-  // the first match.
-  const needle = identifier.trim().toLowerCase()
-  const hits = milestones.filter(m => m.name.toLowerCase() === needle)
-  if (hits.length === 0) {
+  const match = matchMilestoneRef(identifier, milestones)
+  if (match.kind === 'not-found') {
     throw new Error(
-      `no milestone matches "${identifier}" in this project. Try \`lumo milestone list\`.`
+      `no milestone matches "${identifier}" ${projectId ? 'in this project' : 'in this workspace'}. Try \`lumo milestone list\`.`
     )
   }
-  if (hits.length > 1) {
-    const ids = hits.map(h => h.id).join(', ')
-    throw new Error(
-      `ambiguous milestone name "${identifier}" matches ${hits.length} milestones; re-run with the id: ${ids}`
-    )
+  if (match.kind === 'ambiguous') {
+    throw new Error(ambiguousMilestoneError(identifier, match.candidates))
   }
-  return { id: hits[0]!.id, name: hits[0]!.name, projectId }
+  const m = match.milestone
+  return {
+    id: m.id,
+    name: m.name,
+    projectId: projectId ?? m.projectId ?? '',
+    slug: m.slug ?? null,
+  }
 }

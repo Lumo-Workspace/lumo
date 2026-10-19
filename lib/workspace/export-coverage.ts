@@ -53,6 +53,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   PullRequest: MIRROR,
   PrSecurityScan: 'scan output derived from repository code',
   PrFindingThread: 'GitHub review-thread bookkeeping for scan findings',
+  // LUM-1154: claim / rate-limit rows only; no question or answer text.
+  PrChatRequest: 'GitHub PR chat claim and rate-limit bookkeeping (no text)',
   // LUM-1131: the learning's text is its Memory row, which is exported.
   PrReviewLearning:
     'repository scope of a PR-review learning; its text is the exported Memory',
@@ -69,6 +71,10 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   // LUM-932: operational audit of a token-usage correction (revert data for
   // Session usage columns), derived from telemetry — not workspace content.
   UsageResyncAudit: TELEMETRY,
+  // LUM-1234: Lumo's own per-workspace monthly LLM spend ledger for cost caps;
+  // operational metadata (feature, month, cost), no customer content.
+  WorkspaceLlmSpend:
+    "internal LLM cost ledger for Lumo's own spend caps — operational metadata, no customer content",
   Worktree: TELEMETRY,
   MemoryStaleAnchorReport: TELEMETRY,
   LineageEdge: TELEMETRY,

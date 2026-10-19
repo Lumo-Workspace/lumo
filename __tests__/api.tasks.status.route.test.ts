@@ -62,7 +62,7 @@ describe('GET /api/tasks/[id]/status', () => {
     const res = await GET(req(), params('LUM-42'))
 
     expect(mockFindByIdentifier).toHaveBeenCalledWith('w-1', 'LUM', 42)
-    expect(mockStatus).toHaveBeenCalledWith('t-1')
+    expect(mockStatus).toHaveBeenCalledWith('t-1', 'w-1')
     expect(res.status).toBe(200)
     // LUM-942: v2 report, padded with empty v1 fields so old CLIs still render.
     const body = await res.json()

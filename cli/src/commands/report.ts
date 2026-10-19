@@ -1,4 +1,5 @@
-import { NONE, fmtCount, fmtTokens } from '../lib/format'
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { NONE, fmtCount, fmtLedger, fmtTokens } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -13,10 +14,14 @@ import {
   stringWidth,
   terminalWidth,
 } from '../lib/ui'
-import { renderListTable, type ListRenderOptions } from '../lib/list-table'
+import {
+  childCell,
+  renderListTable,
+  type ListRenderOptions,
+} from '../lib/list-table'
 
 /**
- * LUM-1100 — `lumo report`: token usage + tasks completed over a window of
+ * LUM-1100 — `lumo usage show --tasks` (formerly `lumo report`): token usage + tasks completed over a window of
  * local calendar days. Local copies of the server's ReportResponse shape:
  * the CLI is a separate package and must NOT import from the app `types/`.
  */
@@ -95,7 +100,9 @@ function shiftDay(day: string, plusDays: number): string {
  */
 export function resolveReportWindow(
   opts: { since?: string | undefined; until?: string | undefined },
-  now: Date
+  now: Date,
+  /** LUM-1233 3e: `usage show` without `--tasks` defaults to 30 days. */
+  defaultDays: number = DEFAULT_REPORT_DAYS
 ): { ok: true; window: ReportWindow } | { ok: false; error: string } {
   const today = localDayLabel(now.toISOString())
   const named = (v: string): string | null => {
@@ -117,7 +124,7 @@ export function resolveReportWindow(
     untilDay = d
   }
 
-  let sinceDay = shiftDay(untilDay, -(DEFAULT_REPORT_DAYS - 1))
+  let sinceDay = shiftDay(untilDay, -(defaultDays - 1))
   if (opts.since !== undefined) {
     const rel = RELATIVE_RE.exec(opts.since.trim().toLowerCase())
     if (rel) {
@@ -172,7 +179,7 @@ const MODEL_WIDTH = 40
 /** Narrowest the MODEL / MEMBER column is cut to on a tight TTY. */
 const MIN_LABEL_WIDTH = 12
 
-/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — `lumo cost` kinds. */
+/** INPUT / OUTPUT / CACHE WRITE / CACHE READ / TOTAL cells — the `usage show` kinds. */
 function kindCells(
   t: ReportTokenTotalsDto,
   fmt: (n: number) => string
@@ -184,6 +191,61 @@ function kindCells(
     fmt(t.cacheRead),
     fmt(t.total),
   ]
+}
+
+/**
+ * LUM-1232 batch A — the two token tables piped: TAB-separated rows (no
+ * header), plain integers (N-2), `-` for an empty cell (V-1) and each
+ * per-model child row keyed `member/model` so it stands alone (L-6).
+ */
+function pipeTables(data: ReportResponseDto): string[] {
+  const n = (v: number) => fmtLedger(v, false)
+  const out: string[] = []
+  if (data.team.byModel.length > 0) {
+    out.push('', 'By model')
+    out.push(
+      renderListTable(
+        data.team.byModel.map(m => [
+          sanitizeField(m.model),
+          ...kindCells(m, n),
+        ]),
+        { header: ['MODEL', ...TOKEN_HEADERS], tty: false }
+      )
+    )
+  }
+  if (data.byMember.length > 0) {
+    const rows: string[][] = []
+    for (const m of data.byMember) {
+      const name = sanitizeField(m.label)
+      rows.push([
+        name,
+        NONE,
+        NONE,
+        NONE,
+        NONE,
+        m.sessions === 0 && m.tokens.total === 0 ? NONE : n(m.tokens.total),
+        m.unmeteredSessions > 0
+          ? `${m.sessions} (${m.unmeteredSessions} unmetered)`
+          : String(m.sessions),
+        String(m.completedCount),
+      ])
+      for (const c of m.byModel ?? [])
+        rows.push([
+          childCell(name, sanitizeField(c.model), false),
+          ...kindCells(c, n),
+          NONE,
+          NONE,
+        ])
+    }
+    out.push('', 'By member')
+    out.push(
+      renderListTable(rows, {
+        header: ['MEMBER', ...TOKEN_HEADERS, 'SESSIONS', 'DONE'],
+        tty: false,
+      })
+    )
+  }
+  return out
 }
 
 /**
@@ -262,9 +324,9 @@ function tokenTables(
     return out
   }
 
-  const exact = render(fmtCount)
   const tty = opts.tty ?? Boolean(process.stdout.isTTY)
-  if (!tty) return exact
+  if (!tty) return pipeTables(data)
+  const exact = render(fmtCount)
   const width = opts.width ?? terminalWidth()
   const overflows = (blocks: string[]) =>
     blocks.some(block => block.split('\n').some(l => stringWidth(l) > width))
@@ -293,7 +355,8 @@ function tokenTables(
   }
   return [
     ...compact,
-    'Abbreviated to fit the terminal; exact values: lumo report --json',
+    // LUM-1233 3e: kept within a 76-column terminal with the longer name.
+    'Abbreviated to fit; exact values: lumo usage show --tasks --json',
   ]
 }
 
@@ -360,11 +423,7 @@ export function formatReport(
     out.push(heading('Completed tasks', { color }))
     out.push('No tasks completed in this window.')
   } else {
-    const shown =
-      ct.items.length < ct.total
-        ? ` (showing ${ct.items.length} of ${ct.total}; raise --limit for more)`
-        : ` (${ct.total})`
-    out.push(heading(`Completed tasks${shown}`, { color }))
+    out.push(heading(`Completed tasks (${ct.total})`, { color }))
     out.push(
       // LUM-1089 list shape: header + width-fitted title on a TTY only.
       renderListTable(
@@ -375,7 +434,7 @@ export function formatReport(
           sanitizeField(i.title),
         ]),
         {
-          header: ['TASK', 'DONE', 'ASSIGNEE', 'TITLE'],
+          header: ['ID', 'DONE', 'ASSIGNEE', 'TITLE'],
           flex: 3,
           color,
           ...(opts.tty !== undefined ? { tty: opts.tty } : {}),
@@ -383,6 +442,16 @@ export function formatReport(
         }
       )
     )
+    // LUM-1232 PG-1: the paging footer. `report` pages by --limit only, so
+    // the second line names the limit that shows every row.
+    if (ct.items.length < ct.total) {
+      out.push(
+        `Showing 1-${ct.items.length} of ${ct.total}.`,
+        ct.total <= MAX_LIMIT
+          ? `All rows: add --limit ${ct.total}`
+          : `More rows: add --limit ${MAX_LIMIT} (the maximum); --json carries the same page`
+      )
+    }
   }
   return out.join('\n')
 }
@@ -409,7 +478,7 @@ export async function report(opts: {
       console.error(
         `Error: invalid --limit "${opts.limit}" (expected an integer 1–${MAX_LIMIT})`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
 

@@ -128,6 +128,18 @@ describe('collectLocalDiff (real git)', () => {
     expect(paths(d)).toEqual(['staged.ts'])
   })
 
+  it('reads a diff larger than the 1 MiB spawnSync default', () => {
+    const big = Array.from(
+      { length: 40_000 },
+      (_, i) => `export const value${i} = "${'x'.repeat(40)}"`
+    ).join('\n')
+    write('big.ts', `${big}\n`)
+    git(sb.main, 'add', 'big.ts')
+    const d = collectLocalDiff({ kind: 'staged' }, sb.main)
+    const bigFile = d.files.find(f => f.path === 'big.ts')
+    expect(bigFile?.lines).toHaveLength(40_000)
+  })
+
   it('paths are repo-relative when run from a subdirectory', () => {
     write('sub/inner.ts', 'export const i = 1\n')
     const d = collectLocalDiff({ kind: 'default' }, path.join(sb.main, 'sub'))

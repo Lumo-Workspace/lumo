@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -7,6 +8,11 @@ import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
 import { resolveSessionId } from '../lib/session-id'
 import { AUTH_INVALID_REASON, errNotLoggedIn } from '../lib/errors'
+import {
+  matchRef,
+  refMatchError,
+  shortRef,
+} from '../../../shared/src/short-ref'
 
 export interface FindingDispositionOptions {
   falsePositive?: boolean
@@ -52,7 +58,7 @@ export function describeFindingRulings(
   const note = ctx.note ? ` · note: "${oneLine(ctx.note)}"` : ''
   const lines = findings.map(
     f =>
-      `${oneLine(f.id)} [${oneLine(f.severity)}] ${oneLine(f.title)} — ${oneLine(f.ruleId)} at ${oneLine(where(f))} (PR #${f.prNumber}, ${f.blocking ? 'blocks DONE' : 'advisory'}): ${f.disposition ?? 'OPEN'} → ${ruling}${note}`
+      `${oneLine(shortRef(f.id))} [${oneLine(f.severity)}] ${oneLine(f.title)} — ${oneLine(f.ruleId)} at ${oneLine(where(f))} (PR #${f.prNumber}, ${f.blocking ? 'blocks DONE' : 'advisory'}): ${f.disposition ?? 'OPEN'} → ${ruling}${note}`
   )
   const blocking = findings.filter(f => f.blocking).length
   lines.push(
@@ -102,7 +108,7 @@ export async function findingDisposition(
     console.error(
       'Error: pass exactly one of --false-positive or --accepted-risk (the ruling to record).'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ruling: FindingRuling = options.falsePositive
     ? 'FALSE_POSITIVE'
@@ -145,18 +151,21 @@ export async function findingDisposition(
     )
     return 1
   }
-  const missing = ids.filter(id => !read.findings.some(f => f.id === id))
-  if (missing.length > 0) {
+  // LUM-1230: each arg is the 8-char short ref `task status` prints, a unique
+  // id prefix (6+) or the full id. A miss or an ambiguous ref writes nothing.
+  const picked = pickFindings(ids, read.findings)
+  if (!picked.ok) {
     console.error(
-      `Error: finding ${missing.map(sanitizeField).join(', ')} not found on ${taskId} — nothing was written. Ids are listed by \`lumo task status ${taskId}\`.`
+      `Error: ${sanitizeField(picked.error)} on ${taskId} — nothing was written. Refs are listed by \`lumo task status ${taskId}\`.`
     )
     return 1
   }
-  const selected = ids.map(id => read.findings.find(f => f.id === id)!)
+  const selected = picked.findings
   const already = selected.filter(f => f.disposition === ruling)
   const todo = selected.filter(f => f.disposition !== ruling)
   const skipped = already.map(
-    f => `Finding ${sanitizeField(f.id)} is already ${ruling} — skipped.`
+    f =>
+      `Finding ${sanitizeField(shortRef(f.id))} is already ${ruling} — skipped.`
   )
   if (todo.length === 0) {
     for (const line of skipped) process.stdout.write(`${line}\n`)
@@ -196,12 +205,12 @@ export async function findingDisposition(
     if (posted.status === 'error') {
       failed++
       console.error(
-        `✗ ${sanitizeField(f.id)}: disposition rejected — ${posted.reason}`
+        `✗ ${sanitizeField(shortRef(f.id))}: disposition rejected — ${posted.reason}`
       )
       continue
     }
     process.stdout.write(
-      `✓ ${sanitizeField(f.id)} → ${ruling}${f.blocking ? ` (no longer blocks DONE on ${taskId})` : ''}\n`
+      `✓ ${sanitizeField(shortRef(f.id))} → ${ruling}${f.blocking ? ` (no longer blocks DONE on ${taskId})` : ''}\n`
     )
   }
   process.stdout.write(
@@ -209,6 +218,43 @@ export async function findingDisposition(
   )
   await printStatusDigest(base, creds.token, taskId)
   return failed > 0 ? 1 : undefined
+}
+
+/**
+ * LUM-1230: resolve every typed ref against the task's findings. Pure. A
+ * ref that matches nothing, is too short or matches several findings fails
+ * the whole batch (listing the candidates) — never a silent pick. Two refs
+ * naming the same finding select it once.
+ */
+export function pickFindings(
+  refs: string[],
+  findings: FindingForDisposition[]
+):
+  | { ok: true; findings: FindingForDisposition[] }
+  | { ok: false; error: string } {
+  const out: FindingForDisposition[] = []
+  const errors: string[] = []
+  for (const ref of refs) {
+    const m = matchRef(ref, findings, f => f.id)
+    if (m.kind === 'found') {
+      if (!out.includes(m.item)) out.push(m.item)
+      continue
+    }
+    errors.push(
+      m.kind === 'not-found'
+        ? `finding ${ref} not found`
+        : refMatchError(
+            'finding',
+            ref,
+            m,
+            f => f.id,
+            f => f.title
+          )
+    )
+  }
+  return errors.length > 0
+    ? { ok: false, error: errors.join('; ') }
+    : { ok: true, findings: out }
 }
 
 type ReadResult =

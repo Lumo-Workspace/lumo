@@ -30,15 +30,21 @@ export const EVIDENCE_MAX_BYTES = 10 * 1024 * 1024 // 10 MB — 与 /api/upload/
 /** LUM-1011: 单步耗时上限（一天）——防呆，不是业务规则。 */
 export const MAX_STEP_DURATION_MS = 86_400_000
 
+/** LUM-1211: SKIP 必须说明为什么没检查这一步。 */
+export const MAX_SKIP_REASON_LEN = 200
+
 /**
- * LUM-1011: 一步的显式结论。只有 PASS / FAIL——「没到达」「没逐步记录」不是
- * 上报出来的，是读端从**缺席**推出来的，所以这里不给它们值。
+ * LUM-1011 / LUM-1211: 一步的显式结论。PASS / FAIL / SKIP 都是**上报**出来的；
+ * 「没到达」「没逐步记录」是读端从缺席推出来的，这里不给它们值。
+ * SKIP = 本次没检查这一步，必须带 reason（跨字段规则在 service）。
  */
 export const stepResultEntrySchema = z.object({
   phase: z.enum(['STEPS', 'VERIFICATION']),
   /** 0-based。CLI 表面是 1-based，转换在 CLI 侧完成。 */
   index: z.number().int().nonnegative(),
-  status: z.enum(['PASS', 'FAIL']),
+  status: z.enum(['PASS', 'FAIL', 'SKIP']),
+  /** LUM-1211: 只属于 SKIP。 */
+  reason: z.string().trim().min(1).max(MAX_SKIP_REASON_LEN).nullish(),
   durationMs: z
     .number()
     .int()
@@ -190,16 +196,3 @@ export const disposeDefectBodySchema = z
 
 export type DefectReceiptRequest = z.infer<typeof defectReceiptRequestSchema>
 export type DisposeDefectBody = z.infer<typeof disposeDefectBodySchema>
-
-/**
- * LUM-819 (D): 一次抽查复核。`.strict()`：body 里多一个字段（比如有人想顺手
- * 塞一个 reviewedBy）直接 400，复核人只从会话身份取。
- */
-export const runReviewBodySchema = z
-  .object({
-    accepted: z.boolean(),
-    note: z.string().trim().max(4_000).nullish(),
-  })
-  .strict()
-
-export type RunReviewBody = z.infer<typeof runReviewBodySchema>

@@ -257,6 +257,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
       {
         prNumber: 13,
@@ -276,6 +277,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
     ])
   })
@@ -313,6 +315,7 @@ describe('LUM-735 scans array', () => {
         prTooLarge: null,
         huntOverCap: null,
         judgeOverCap: null,
+        judgePartial: null,
       },
     ])
   })
@@ -682,5 +685,51 @@ describe('LUM-988 verifier-rejected findings are never asked of the agent', () =
     const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
     expect(state.findings.map(f => f.id)).toEqual(['ok'])
     expect(state.scans[0]!.openFindings).toBe(1)
+  })
+})
+
+describe('LUM-1234 agent-behavior findings stay out of the agent reminders', () => {
+  const rh = (over: object = {}) =>
+    finding({
+      id: 'rh',
+      scanId: 's1',
+      kind: 'REWARD_HACK',
+      ruleId: 'reward-hack/TEST_TAMPERING',
+      severity: 'MEDIUM',
+      provenance: 'LLM_JUDGE',
+      line: null,
+      title: 'Agent behavior: Weakened or bypassed tests in src/a.test.ts',
+      ...over,
+    })
+
+  it('the session-start section neither lists nor counts them as security findings', async () => {
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([
+      scan({ findings: [finding({ scanId: 's1' }), rh()] }),
+    ])
+    const out = await prSecurityReminderService.buildSessionStartSection(
+      't-1',
+      'LUM-7'
+    )
+    expect(out).toContain(
+      '## ⚠ Undispositioned security findings (1 · 1 block DONE)'
+    )
+    expect(out).not.toContain('reward-hack/')
+    expect(out).not.toContain('Agent behavior')
+
+    latest.mockResolvedValue([scan({ findings: [rh()] })])
+    expect(
+      await prSecurityReminderService.buildSessionStartSection('t-1', 'LUM-7')
+    ).toBe('')
+  })
+
+  it('a fresh scan with only an agent-behavior finding renders no PreToolUse reminder, and is still stamped', async () => {
+    unnotified.mockResolvedValueOnce([
+      { id: 's1', pullRequestId: 'pr1', headSha: 'abcdef0123456' },
+    ])
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([scan({ findings: [rh()] })])
+    expect(await prSecurityReminderService.buildAgentReminder('t-1')).toBeNull()
+    expect(mark).toHaveBeenCalledWith(['s1'], expect.any(Date))
   })
 })

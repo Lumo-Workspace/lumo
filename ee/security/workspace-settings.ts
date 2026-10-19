@@ -28,8 +28,12 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityScanEnabled: z.boolean().optional(),
     securityAiReviewEnabled: z.boolean().optional(),
     securityHuntEnabled: z.boolean().optional(),
+    // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
+    securityRewardHackEnabled: z.boolean().optional(),
     // LUM-1130: the PR reviewer's request-changes workflow (default off).
     securityRequestChangesEnabled: z.boolean().optional(),
+    // LUM-1142: the PR's author may resolve / approve by command (default on).
+    securityAllowAuthorApproval: z.boolean().optional(),
     // LUM-1134: the learnings scope — local | global | auto (default auto).
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).
@@ -43,7 +47,9 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
       'securityScanEnabled',
       'securityAiReviewEnabled',
       'securityHuntEnabled',
+      'securityRewardHackEnabled',
       'securityRequestChangesEnabled',
+      'securityAllowAuthorApproval',
       'securityLearningsScope',
       'securityReviewAutoPauseAfter',
     ],
@@ -56,7 +62,10 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     column === 'securityPolicy' && value === null ? Prisma.DbNull : value,
   // LUM-866: which scan layers the platform allows at all — the settings
   // page shows a layer the env turned off as off and not toggleable.
-  meFields: () => ({ securityPlatform: platformSecurityCeiling() }),
+  // LUM-1234: per workspace — the reward-hack layer rolls out by allowlist.
+  meFields: ({ workspaceId }) => ({
+    securityPlatform: platformSecurityCeiling(process.env, workspaceId),
+  }),
   // LUM-901: the claim faithfulness judge sends the merged PR diff to a
   // model, so it is part of the workspace's AI review.
   async aiReviewEnabled(workspaceId) {

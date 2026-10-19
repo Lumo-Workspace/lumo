@@ -66,9 +66,10 @@ const base: LineageResponse = {
 describe('formatLineageMarkdown', () => {
   it('renders the totals banner, the group cost once, and per-fragment outcomes', () => {
     const out = formatLineageMarkdown(base)
-    expect(out).toContain('# Lineage: LUM-1')
+    expect(out).toContain('LUM-1  ')
     expect(out).toContain('Add lineage')
-    expect(out).toContain('1,800') // grouped-thousands cost
+    // LUM-1232 N-2: summary lines are compact (exact counts are in --json).
+    expect(out).toMatch(/Tokens:\s+1.8K \(input 1K · output 500/)
     expect(out).toContain('Session sess-1234')
     expect(out).toContain('[MERGED] MEMORY')
     expect(out).toContain('use the service layer')
@@ -102,12 +103,12 @@ describe('formatLineageMarkdown', () => {
       groups: [],
     }
     const out = formatLineageMarkdown(empty)
-    expect(out).toContain('# Lineage: LUM-1')
+    expect(out).toContain('LUM-1  ')
     expect(out).toContain('not measured')
     expect(out).toContain('no session was ever bound')
     // It must NOT claim zero cost, and must not print the totals banner.
     expect(out).not.toContain('No lineage edges recorded yet')
-    expect(out).not.toContain('## Totals')
+    expect(out).not.toContain('\nTotals\n')
   })
 
   // LUM-559: a session with cost but no edges surfaces as an edgeless group.
@@ -151,7 +152,7 @@ describe('formatLineageMarkdown', () => {
       ],
     }
     const out = formatLineageMarkdown(costOnly)
-    expect(out).toContain('## Totals')
+    expect(out).toContain('\nTotals\n')
     expect(out).toContain('Session sess-abc')
     expect(out).toContain('25') // the cost is shown
     expect(out).toContain('not captured') // honest note for the empty trail
@@ -204,10 +205,10 @@ describe('formatLineageMarkdown', () => {
       ],
     }
     const out = formatLineageMarkdown(sessionOnly)
-    expect(out).toContain('## Session sess-abc · 2026-06-02')
-    expect(out).toContain('**Cost**: (no captured cost)')
+    expect(out).toContain('\nSession sess-abc · 2026-06-02\n')
+    expect(out).toMatch(/^  Cost:\s+-$/m)
     // UNKNOWN:1 > 0 → outcomeSummary returns "1 UNKNOWN" → suffix IS present
-    expect(out).toContain('**Fragments** (1: 1 UNKNOWN):')
+    expect(out).toMatch(/^  Fragments:\s+1 \(1 UNKNOWN\)$/m)
     expect(out).toContain('[UNKNOWN] WEB_LINK — Some article')
   })
 })
@@ -268,7 +269,7 @@ describe('formatLineageMarkdown disclosure funnel', () => {
   it('renders the totals funnel line with INDEX-scoped pull%', () => {
     const out = formatLineageMarkdown(withDisclosure)
     expect(out).toContain(
-      '- Disclosure funnel: 3 impressions · 2 INDEX (67%) · 1 pulled (50% of INDEX) · 1 used (33%)'
+      '  Disclosure funnel:  3 impressions · 2 INDEX (67%) · 1 pulled (50% of INDEX) · 1 used (33%)'
     )
   })
 
@@ -329,7 +330,7 @@ describe('formatSignalHealth disclosure funnel', () => {
   it('renders a workspace disclosure funnel line', () => {
     const out = formatSignalHealth(signalBase)
     expect(out).toContain(
-      '- Disclosure funnel: 277 impressions · 277 INDEX (100%) · 0 pulled (0% of INDEX) · 12 used (4%)'
+      '  Disclosure funnel: 277 impressions · 277 INDEX (100%) · 0 pulled (0% of INDEX) · 12 used (4%)'
     )
   })
 

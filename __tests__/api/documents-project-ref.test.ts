@@ -19,7 +19,7 @@ jest.mock('@/lib/services', () => ({
   },
 }))
 
-import { POST } from '@/app/api/documents/route'
+import { GET, POST } from '@/app/api/documents/route'
 import { PATCH } from '@/app/api/documents/[id]/route'
 import { requireIdentity } from '@/lib/auth'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -201,5 +201,41 @@ describe('PATCH /api/documents/[id] — projectRef resolution', () => {
     const callArgs = mockUpdateDoc.mock.calls[0]
     expect(callArgs[3]).not.toHaveProperty('projectId')
     expect(callArgs[3]).toHaveProperty('title', 'Renamed')
+  })
+})
+
+describe('GET /api/documents — projectRef filter (LUM-1233 follow-up)', () => {
+  const mockList = documentService.listDocuments as jest.Mock
+  const get = (qs: string) =>
+    GET(new NextRequest(`http://localhost/api/documents${qs}`))
+
+  beforeEach(() => mockList.mockResolvedValue([]))
+
+  it('resolves projectRef and filters by that project', async () => {
+    mockFindProjects.mockResolvedValueOnce([
+      { id: 'proj_a', name: 'Alpha', description: null },
+      { id: 'proj_b', name: 'Bravo', description: null },
+    ])
+    const res = await get('?projectRef=bravo&visibility=PRIVATE')
+    expect(res.status).toBe(200)
+    expect(mockList).toHaveBeenCalledWith('ws_1', 'member_1', {
+      visibility: 'PRIVATE',
+      projectId: 'proj_b',
+    })
+  })
+
+  it('an unknown ref is a 404, never the unfiltered list', async () => {
+    mockFindProjects.mockResolvedValueOnce([
+      { id: 'proj_a', name: 'Alpha', description: null },
+    ])
+    const res = await get('?projectRef=nope')
+    expect(res.status).toBe(404)
+    expect(mockList).not.toHaveBeenCalled()
+  })
+
+  it('without projectRef nothing is resolved', async () => {
+    await get('')
+    expect(mockFindProjects).not.toHaveBeenCalled()
+    expect(mockList).toHaveBeenCalledWith('ws_1', 'member_1', {})
   })
 })

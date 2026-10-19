@@ -36,6 +36,19 @@ export interface GrammarFlag {
   description: string
 }
 
+/**
+ * LUM-1233 batch 4 (CX-1): a command's Codex sandbox class, declared with
+ * `.codex()` where the command is defined (cli/src/lib/command-class.ts).
+ * Structural copy so the grammar tooling does not import the CLI's types.
+ */
+export type GrammarCodexClass =
+  | { serverOnly: true; localFiles: 'none' }
+  | {
+      serverOnly: false
+      localFiles: 'none' | 'reads' | 'writes'
+      detail: string
+    }
+
 export interface GrammarCommand {
   /** Positional arguments declared on the command. */
   arguments: Array<{ name: string; required: boolean; variadic: boolean }>
@@ -53,11 +66,21 @@ export interface GrammarCommand {
    */
   isInvokable: boolean
   description: string
+  /**
+   * LUM-1233 batch 4: the Codex class declared on this node; a class on a
+   * group covers every command below it. Absent when an ancestor declares it.
+   */
+  codex?: GrammarCodexClass
 }
 
 export interface CliGrammar {
   /** cli/package.json version the snapshot was generated from. */
   cliVersion: string
+  /**
+   * LUM-1233 3g (GF-1): flags defined once on the program and accepted by
+   * every command (`--project <ref>`, `--no-hints`). Absent on older snapshots.
+   */
+  globalFlags?: Record<string, GrammarFlag>
   /** Command path (tokens joined by space, root `lumo` omitted) → node. */
   commands: Record<string, GrammarCommand>
 }
@@ -119,6 +142,8 @@ export interface CommandLike {
    * look identical through `commands`/`options`/`registeredArguments`.
    */
   _actionHandler?: unknown
+  /** LUM-1233 batch 4: set by `LumoCommand.codex()`. */
+  codexClass?: GrammarCodexClass | undefined
 }
 
 /**
@@ -184,6 +209,7 @@ function toGrammarCommand(cmd: CommandLike): GrammarCommand {
     hasSubcommands: cmd.commands.length > 0,
     isInvokable: typeof cmd._actionHandler === 'function',
     description: cmd.description(),
+    ...(cmd.codexClass ? { codex: cmd.codexClass } : {}),
   }
 }
 
@@ -196,16 +222,40 @@ export function extractGrammar(
   cliVersion: string
 ): CliGrammar {
   const commands: Record<string, GrammarCommand> = {}
-  const visit = (cmd: CommandLike, path: string[]) => {
+  // LUM-1233 batch 4: every leaf needs a Codex class (its own or a group's),
+  // and a class is declared once on a path — never again below it.
+  const unclassified: string[] = []
+  const doubled: string[] = []
+  const visit = (cmd: CommandLike, path: string[], covered: boolean) => {
     for (const sub of cmd.commands) {
       // commander stores the name without arg placeholders; `.command('update
       // <id>')` yields name() === 'update'.
       const subPath = [...path, sub.name()]
-      commands[subPath.join(' ')] = toGrammarCommand(sub)
-      visit(sub, subPath)
+      const key = subPath.join(' ')
+      commands[key] = toGrammarCommand(sub)
+      if (sub.codexClass && covered) doubled.push(key)
+      const nowCovered = covered || sub.codexClass !== undefined
+      if (sub.commands.length === 0 && !nowCovered) unclassified.push(key)
+      visit(sub, subPath, nowCovered)
     }
   }
-  visit(root, [])
+  visit(root, [], false)
+  if (unclassified.length > 0 || doubled.length > 0) {
+    throw new Error(
+      [
+        ...(unclassified.length > 0
+          ? [
+              `Commands without a Codex class — add .codex(SERVER_ONLY | readsLocalFile(flag) | writesLocal(what) | sandboxed(why)) where each is defined (cli/src/lib/command-class.ts): ${unclassified.join(', ')}`,
+            ]
+          : []),
+        ...(doubled.length > 0
+          ? [
+              `Codex class declared again below a group that already has one: ${doubled.join(', ')}`,
+            ]
+          : []),
+      ].join('\n')
+    )
+  }
 
   const sorted: Record<string, GrammarCommand> = {}
   for (const key of Object.keys(commands).sort()) {
@@ -216,5 +266,42 @@ export function extractGrammar(
     }
     sorted[key] = { ...node, flags: sortedFlags }
   }
-  return { cliVersion, commands: sorted }
+  // The program's own options are the global flags (minus --version, which is
+  // ROOT_FLAGS, and hidden ones).
+  const globalFlags: Record<string, GrammarFlag> = {}
+  for (const opt of [...root.options].sort((a, b) =>
+    (a.long ?? a.flags).localeCompare(b.long ?? b.flags)
+  )) {
+    if (opt.hidden || opt.long === '--version') continue
+    const flag = toGrammarFlag(opt)
+    globalFlags[flag.long] = flag
+  }
+  return { cliVersion, globalFlags, commands: sorted }
+}
+
+/** Where emit-grammar writes the Codex classes the CLI reads at run time. */
+export const CODEX_CLASSES_FILE = 'cli/src/lib/codex-classes.generated.ts'
+
+/**
+ * LUM-1233 batch 4: the TypeScript module the CLI's Codex rules are built
+ * from — every node with a declared class, sorted by path. The CLI package
+ * does not ship grammar.json, so the classes travel as source. Unformatted;
+ * emit-grammar runs it through prettier.
+ */
+export function codexClassesSource(grammar: CliGrammar): string {
+  const entries = Object.entries(grammar.commands)
+    .filter(([, n]) => n.codex !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([p, n]) => `${JSON.stringify(p)}: ${JSON.stringify(n.codex)},`)
+  return [
+    '// Generated by scripts/cli-grammar/emit-grammar.ts from the `.codex()`',
+    '// classes declared in cli/src/index.ts (LUM-1233 batch 4). Do not edit;',
+    '// change the declaration and re-run emit-grammar.',
+    "import type { CodexClass } from './command-class'",
+    '',
+    'export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {',
+    ...entries,
+    '}',
+    '',
+  ].join('\n')
 }

@@ -126,7 +126,7 @@ beforeEach(() => {
   mockTopology.mockResolvedValue(null)
   mockWeighted.mockReset()
   mockCloseGate.mockReset()
-  mockCloseGate.mockResolvedValue({ held: 0, unresolvedCriteria: 0, cases: [] })
+  mockCloseGate.mockResolvedValue({ held: 0, cases: [] })
   mockWeighted.mockResolvedValue(emptyWeighted)
 })
 
@@ -541,7 +541,6 @@ describe('GET /api/milestones/[id] closeGate (LUM-1135)', () => {
     arrange()
     mockCloseGate.mockResolvedValue({
       held: 1,
-      unresolvedCriteria: 0,
       cases: [],
     })
     const res = await GET(new Request('http://x/m') as any, params)

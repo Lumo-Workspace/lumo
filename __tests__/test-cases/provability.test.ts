@@ -27,6 +27,7 @@ function run(over: Partial<CeilingRun> = {}): CeilingRun {
     // LUM-819: 本文件测的是环境 / 未观察两条轴，默认附一条证据，免得零证据
     // 这条第三轴抢先封顶。零证据的断言在 test-case-ceiling.no-evidence.test.ts。
     evidenceCount: 1,
+    stepResults: [],
     ...over,
   }
 }
@@ -160,5 +161,45 @@ describe('UNPROVEN is never persisted', () => {
     // 封顶结论是推导出来的，存下来第二天就是谎话（同 deriveRunFreshness 不落列）。
     expect(fields).not.toMatch(/\bUNPROVEN\b/)
     expect(fields).not.toMatch(/effectiveResult|cappedResult|ceiling/i)
+  })
+})
+
+describe('skipped steps (LUM-1211)', () => {
+  const skippedRun = {
+    result: 'PASS' as const,
+    environment: 'LOCAL' as const,
+    unprovenVerification: [],
+    evidenceCount: 1,
+    stepResults: [
+      { phase: 'STEPS', index: 0, text: 'a', status: 'PASS' },
+      { phase: 'STEPS', index: 1, text: 'b', status: 'SKIP', reason: 'no DB' },
+    ],
+  }
+  it('caps a PASS with a skipped step at UNPROVEN(skipped)', () => {
+    expect(deriveRunCeiling(skippedRun, { requiredEnvironment: null })).toEqual(
+      {
+        effective: 'UNPROVEN',
+        reason: 'skipped',
+        skipped: [{ phase: 'STEPS', index: 1, text: 'b', reason: 'no DB' }],
+      }
+    )
+  })
+  it('unobserved outranks skipped', () => {
+    expect(
+      deriveRunCeiling(
+        { ...skippedRun, unprovenVerification: [{ index: 0, text: 'v' }] },
+        { requiredEnvironment: null }
+      )
+    ).toMatchObject({ effective: 'UNPROVEN', reason: 'unobserved' })
+  })
+  it('skipped outranks no-evidence', () => {
+    expect(
+      (
+        deriveRunCeiling(
+          { ...skippedRun, evidenceCount: 0 },
+          { requiredEnvironment: null }
+        ) as { reason: string }
+      ).reason
+    ).toBe('skipped')
   })
 })

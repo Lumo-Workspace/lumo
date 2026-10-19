@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
@@ -15,6 +16,7 @@ interface MilestoneListRow {
   id: string
   name: string
   sortOrder: number
+  slug?: string | null
 }
 
 export async function milestoneMove(
@@ -25,17 +27,17 @@ export async function milestoneMove(
     console.error(
       'Error: usage: lumo milestone move <ref> --before <ref> | --after <ref>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const hasBefore = typeof opts.before === 'string' && opts.before.length > 0
   const hasAfter = typeof opts.after === 'string' && opts.after.length > 0
   if (hasBefore && hasAfter) {
     console.error('Error: --before and --after are mutually exclusive')
-    return 1
+    return EXIT_USAGE
   }
   if (!hasBefore && !hasAfter) {
     console.error('Error: specify --before <ref> or --after <ref>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -68,6 +70,7 @@ export async function milestoneMove(
     id: m.id,
     name: m.name,
     sortOrder: m.sortOrder,
+    slug: m.slug ?? null,
   }))
 
   const position: 'before' | 'after' = hasBefore ? 'before' : 'after'

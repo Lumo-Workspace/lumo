@@ -28,7 +28,11 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const comments = await commentService.getComments(id)
+    // LUM-1232 G2: each comment carries `authorName` (never just an actor id).
+    const comments = await commentService.getCommentsWithAuthors(
+      id,
+      identity.workspaceId
+    )
 
     return NextResponse.json({ comments })
   } catch (error) {

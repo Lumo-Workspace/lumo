@@ -24,8 +24,6 @@ export function pathToPage(
     return { page: 'document-editor', projectSlug: docId }
   }
   if (rest.startsWith('/documents')) return { page: 'documents' }
-  if (rest.startsWith('/run-reviews')) return { page: 'run-reviews' }
-  if (rest.startsWith('/dashboard')) return { page: 'dashboard' }
   if (rest.startsWith('/inbox')) return { page: 'inbox' }
   if (rest.startsWith('/projects/')) {
     const after = rest.slice('/projects/'.length)

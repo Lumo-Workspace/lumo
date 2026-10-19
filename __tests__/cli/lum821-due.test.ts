@@ -71,14 +71,14 @@ describe('task create --due', () => {
     expect(sentBody()).not.toHaveProperty('parentRef')
   })
   it('rejects an impossible due date before any network call', async () => {
-    expect(await taskCreate('Sub', { due: '2026-02-30' })).toBe(1)
+    expect(await taskCreate('Sub', { due: '2026-02-30' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 
 describe('task update --due validation', () => {
   it('rejects a malformed day before any network call', async () => {
-    expect(await taskUpdate('LUM-9', { due: 'tomorrow' })).toBe(1)
+    expect(await taskUpdate('LUM-9', { due: 'tomorrow' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

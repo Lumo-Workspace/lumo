@@ -1,4 +1,5 @@
 import { fmtCount } from '../lib/format'
+import { JSON_VERSION, stringifyJson } from '../lib/json-output'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -31,15 +32,16 @@ interface ResyncResponse {
 const n = fmtCount
 
 /**
- * `lumo usage resync [--apply] [--json]` (LUM-932) — recompute token usage
+ * `lumo usage resync [--dry-run] [--json]` (LUM-932) — recompute token usage
  * from local deduped transcripts and ask the server to correct historical
- * (inflated) rows. Dry run unless `--apply`. Sends numbers only.
+ * (inflated) rows. LUM-1233 3e (Q7): applies when called; `--dry-run`
+ * previews (the former default; `--apply` was removed). Sends numbers only.
  */
 export async function usageResync(options?: {
-  apply?: boolean
+  dryRun?: boolean
   json?: boolean
 }): Promise<number | void> {
-  const apply = options?.apply === true
+  const apply = options?.dryRun !== true
   const creds = readCredentials()
   if (!creds) {
     console.error(errNotLoggedIn())
@@ -115,7 +117,7 @@ export async function usageResync(options?: {
 
   if (options?.json) {
     process.stdout.write(
-      JSON.stringify({ dryRun: !apply, results }, null, 2) + '\n'
+      stringifyJson({ version: JSON_VERSION, dryRun: !apply, results })
     )
     if (batchError) {
       console.error(batchError)
@@ -126,7 +128,7 @@ export async function usageResync(options?: {
 
   const lines: string[] = []
   if (!apply)
-    lines.push('Dry run — nothing written. Re-run with --apply to write.')
+    lines.push('Dry run — nothing written. Re-run without --dry-run to write.')
   lines.push(
     `Sent ${results.length} of ${sessions.length} session(s) with usage.`
   )

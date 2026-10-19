@@ -1,7 +1,7 @@
 /** @jest-environment node */
 /**
- * LUM-1134 — the workspace learnings scope (CodeRabbit's
- * `knowledge_base.learnings.scope`): which repositories' learnings a review
+ * LUM-1134 — the workspace learnings scope:
+ * which repositories' learnings a review
  * reads, and how `auto` follows the reviewed repository's visibility.
  */
 import {

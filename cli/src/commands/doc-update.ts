@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import {
   extractErrorMessage,
@@ -15,6 +16,7 @@ import { resolveTagRefs } from '../lib/tag-resolver'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
 import { cmd, hint } from '../lib/feedback'
+import { docHandle } from '../lib/doc-handle'
 
 export interface UpdateDocOptions {
   title?: string
@@ -36,12 +38,14 @@ export interface UpdateDocOptions {
 
 export function formatUpdatedDocLine(doc: {
   id: string
+  /** LUM-1230: printed instead of the id. */
+  slug?: string | null
   title: string
   url: string
   tags?: string[]
 }): string {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
-  const head = `Updated ${doc.id} "${escaped}"  ${doc.url}`
+  const head = `Updated ${docHandle(doc.id, doc.slug)} "${escaped}"  ${doc.url}`
   if (doc.tags && doc.tags.length > 0) {
     return `${head}\nTags: ${doc.tags.map(sanitizeField).join(', ')}`
   }
@@ -54,7 +58,7 @@ export async function docUpdate(
 ): Promise<number | void> {
   if (!reference) {
     console.error('Error: missing <doc>. Usage: lumo doc update <doc> [flags]')
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -75,7 +79,7 @@ export async function docUpdate(
     console.error(
       'Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const id = await lookupDocId(apiUrl, creds.token, reference)
@@ -88,7 +92,7 @@ export async function docUpdate(
   if (opts.title !== undefined) {
     if (opts.title.trim().length === 0) {
       console.error('Error: --title cannot be empty')
-      return 1
+      return EXIT_USAGE
     }
     body.title = opts.title.trim()
   }
@@ -98,7 +102,7 @@ export async function docUpdate(
       console.error(
         `Error: invalid scope "${opts.scope}". Allowed: personal, workspace`
       )
-      return 1
+      return EXIT_USAGE
     }
     body.visibility = v
   }
@@ -124,7 +128,7 @@ export async function docUpdate(
       console.error(
         `Error: --if-revision must be a non-negative integer (got "${opts.ifRevision}")`
       )
-      return 1
+      return EXIT_USAGE
     }
     body.ifRevision = Number(opts.ifRevision)
   }
@@ -238,8 +242,15 @@ export async function docUpdate(
       ? (document.docTags ?? []).map(t => t.name)
       : undefined
 
-  const lineDoc: { id: string; title: string; url: string; tags?: string[] } = {
+  const lineDoc: {
+    id: string
+    slug?: string | null
+    title: string
+    url: string
+    tags?: string[]
+  } = {
     id: document.id,
+    slug: document.slug,
     title: document.title,
     url: docUrlStr,
   }

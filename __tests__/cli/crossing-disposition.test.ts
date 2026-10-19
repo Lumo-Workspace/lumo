@@ -379,13 +379,13 @@ describe('crossing disposition', () => {
     expect(writes()).toHaveLength(0)
 
     stderr = []
-    expect(await crossingDisposition('cx-1', {})).toBe(1)
+    expect(await crossingDisposition('cx-1', {})).toBe(2)
     expect(
       await crossingDisposition('cx-1', {
         falsePositive: true,
         confirmed: true,
       })
-    ).toBe(1)
+    ).toBe(2)
     expect(stderr.join('\n')).toContain(
       'exactly one of --false-positive or --confirmed'
     )
@@ -522,7 +522,7 @@ describe('crossing disposition', () => {
         confirm: true,
         receipt: R1,
       })
-    ).toBe(1)
+    ).toBe(2)
     expect(stderr.join('\n')).toContain(
       '--confirm-read and --confirm are separate steps'
     )

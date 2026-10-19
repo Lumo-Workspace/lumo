@@ -72,7 +72,10 @@ import {
   HUNT_WRAP_UP_TEXT_CHARS,
   type HuntStepTrace,
 } from '@/ee/security/services/security-hunt.config'
-import { HUNT_SHELL_COMMANDS } from '@/ee/security/security-scan/hunt/shell-allowlist'
+import {
+  HUNT_SHELL_COMMANDS,
+  checkHuntCommand,
+} from '@/ee/security/security-scan/hunt/shell-allowlist'
 import { stepClipNote } from '@/ee/security/security-scan/hunt/step-output'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
@@ -489,6 +492,42 @@ describe('LUM-739 hunt service', () => {
     expect(worked.wrapUpWarnings).toBeUndefined()
   })
 
+  // LUM-1226 — the client drops an invalid candidate on its own instead of
+  // losing the call; the counts must reach the audit row and a deploy log.
+  it('LUM-1226 huntBatch carries submission counts out of the client and logs them', async () => {
+    const submission = {
+      calls: 1,
+      submitted: 3,
+      kept: 2,
+      dropped: 1,
+      reasons: ['cwe'],
+    }
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'done',
+      submission,
+    })
+    const out = await securityHuntService.huntBatch(batchInput())
+    expect(out.submission).toEqual(submission)
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^\[security-hunt\] candidates scan=\S+ task=\S+ submitted=3 kept=2 dropped=1 calls=1 reasons=cwe$/
+      )
+    )
+    ;(logger.info as jest.Mock).mockClear()
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+    })
+    const never = await securityHuntService.huntBatch(batchInput())
+    expect(never.submission).toBeUndefined()
+    expect(logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('[security-hunt] candidates')
+    )
+  })
+
   it('huntBatch records what the agent asked the shell for, refusals included', async () => {
     // Across 46 production tasks the agent never called `submit_candidates` on
     // its own, and the audit could not tell "spent the allowance mapping" from
@@ -797,6 +836,126 @@ describe('LUM-739 hunt service', () => {
     expect(out.shell.commands).toHaveLength(HUNT_SHELL_LOG_MAX)
     // …but the COUNT is not capped: it is the thing the diagnosis turns on.
     expect(out.shell.calls).toBe(HUNT_SHELL_LOG_MAX + 6)
+  })
+
+  // LUM-1200 follow-up #2 — production (probe PR 63): plain prose in the
+  // trace read `I'll a…(len 156)` and quoted shell arguments were masked in
+  // the scan JSON. The narration gets the prose pass, commands the
+  // finding-prose pass; secrets are still masked in both.
+  it('huntBatch keeps prose and ordinary quoted arguments readable in the trace and commands', async () => {
+    shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
+    const narration =
+      "I'll read src/probe/order.ts to see how 'parseQuantity' is used by orderTotal."
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<unknown>
+        onStep: (s: HuntStepTrace) => void
+      }) => {
+        input.onStep({ i: 1, tool: 'run_shell', text: narration })
+        input.onStep({
+          i: 2,
+          tool: 'run_shell',
+          text: `The store sets password = "hunter2hunter2" and ${FAKE_AWS_KEY}.`,
+        })
+        await input.runShell("rg -n 'parseQuantity' src/probe")
+        await input.runShell(`rg -n 'Zx9Qw3Lp7Vb2Nm5Rt8Ky' src`)
+        await input.runShell(`rg -n 'correcthorsebattery' src # the token`)
+        return {
+          candidates: [],
+          tokens: 10,
+          stopped: 'budget',
+          wrapUp: { ran: true, submitted: 0, text: narration, tokens: 1 },
+        }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.trace[0]!.text).toBe(narration)
+    expect(out.wrapUp!.text).toBe(narration)
+    expect(out.trace[1]!.text).not.toContain('hunter2hunter2')
+    expect(out.trace[1]!.text).not.toContain(FAKE_AWS_KEY)
+    expect(out.shell.commands.map(c => c.cmd)).toEqual([
+      "rg -n 'parseQuantity' src/probe",
+      "rg -n 'Zx9Q…(len 20)' src",
+      "rg -n 'corr…(len 19)' src # the token",
+    ])
+  })
+
+  // LUM-1200 follow-up #3 — production TC9 (lumo-agent-test#65 / #66): 12
+  // search commands were recorded as `rg -A 10 "expo…(len 33)"` (an
+  // identifier holding a credential word masked every quoted argument), and
+  // a fenced code block in the narration as one masked span.
+  it('huntBatch records identifier search patterns and fenced code readable, secrets masked', async () => {
+    shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
+    const fenced =
+      'Looking at the code analysis:\n\n```typescript\nexport function createSession(user: string, now: number) {\n  const token = Math.random().toString(36).slice(2);\n  return token;\n}\n```\n\nThe vulnerability is clear.'
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<unknown>
+        onStep: (s: HuntStepTrace) => void
+      }) => {
+        input.onStep({ i: 1, tool: 'run_shell', text: fenced })
+        await input.runShell(
+          'rg -A 10 "export function checkSessionToken" src/services/session-store.ts'
+        )
+        await input.runShell('grep -n "session/check|token" src/server.ts')
+        await input.runShell(
+          `${['TO', 'KEN'].join('')}="correcthorsebattery" node check.js`
+        )
+        return {
+          candidates: [],
+          tokens: 10,
+          stopped: 'budget',
+          wrapUp: { ran: true, submitted: 0, text: fenced, tokens: 1 },
+        }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.trace[0]!.text).toBe(fenced)
+    expect(out.wrapUp!.text).toBe(fenced)
+    expect(out.shell.commands.map(c => c.cmd)).toEqual([
+      'rg -A 10 "export function checkSessionToken" src/services/session-store.ts',
+      'grep -n "session/check|token" src/server.ts',
+      'TOKEN="corr…(len 19)" node check.js',
+    ])
+  })
+
+  // LUM-1200 follow-up #4 — production TC12 (lumo-agent-test#67 r4): a
+  // refused command's reason masked the segment it quotes
+  // (`xargs grep -l "isSe…(len 27)"`) while `cmd` kept it.
+  it('huntBatch records a refused command reason as readable as its cmd, secrets masked', async () => {
+    const readable =
+      'rg -l "createSession" src | xargs grep -l "isSessionValid|checkSessionToken"'
+    const secret = `rg -n "${['correct', 'horse', 'battery'].join('')}" src > o.txt`
+    const keyed = `grep -rn password src ; ${secret}`
+    shellMock.mockImplementation(async ({ command }: { command: string }) => {
+      const check = checkHuntCommand(command)
+      return check.ok
+        ? { output: '', compressTokens: 0 }
+        : { output: '', compressTokens: 0, denied: true, error: check.reason }
+    })
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell(readable)
+        await input.runShell(keyed)
+        return { candidates: [], tokens: 10, stopped: 'budget' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    const [first, second] = out.shell.commands
+    expect(first!.cmd).toBe(readable)
+    expect(first!.reason).toBe(
+      'segment is not read-only: xargs grep -l "isSessionValid|checkSessionToken"'
+    )
+    expect(first!.reason).not.toContain('…(len')
+    // A credential word elsewhere in the command masks the quoted segment.
+    expect(second!.reason).toContain('"corr…(len 19)"')
+    expect(second!.reason).not.toContain('correcthorse')
   })
 
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
@@ -1351,6 +1510,37 @@ describe('LUM-739 hunt service', () => {
     expect(row!.evidence).toBe(
       'app/api/x/route.ts#POST → lib/s.ts#svc.run → lib/s.ts#prisma.$queryRawUnsafe@5'
     )
+  })
+
+  it('LUM-1200: toHuntFindingRows keeps an ordinary quoted phrase in the claim and detail', () => {
+    const [row] = toHuntFindingRows('s1', [
+      {
+        ...candidate,
+        claim: "Files marked 'do not merge' build a shell command from dir",
+        falsifierReason: "the 'do not merge' label guards nothing",
+      },
+    ])
+    expect(row!.title).toBe(
+      "Files marked 'do not merge' build a shell command from dir"
+    )
+    expect(row!.detail).toContain("the 'do not merge' label guards nothing")
+  })
+
+  it('LUM-1200 follow-up (probe PR 60): inline code in a claim about tokens renders intact', () => {
+    const [row] = toHuntFindingRows('s1', [
+      {
+        ...candidate,
+        claim:
+          'Session validation uses `expiresAt > now || token.length > 0`, so expired sessions stay valid',
+        falsifierReason:
+          'isSessionValid returns `session.expiresAt > now || session.token.length > 0` directly',
+      },
+    ])
+    expect(row!.title).toContain('`expiresAt > now || token.length > 0`')
+    expect(row!.detail).toContain(
+      '`session.expiresAt > now || session.token.length > 0`'
+    )
+    expect(row!.title).not.toContain('…(len')
   })
 
   it('persist inherits dispositions and stamps RAN or PARTIAL with a capped audit', async () => {

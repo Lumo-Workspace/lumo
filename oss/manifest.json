@@ -765,22 +765,22 @@
       "file": "components/landing/home/lumo-terminal.tsx",
       "type": "replace",
       "pattern": "^// What working with Lumo actually looks like[\\s\\S]*?^// because the agent does not get to close its own task\\.\\n",
-      "replacement": "// What working with Lumo actually looks like inside a coding agent: you point it\n// at a task with one command, it runs prechecks, then drives the lumo CLI as\n// tool calls (attach + context → test-case runs → wrapup) and reports back —\n// the real agent transcript shape, kept model-/tool-neutral (\"coding agent\").\n// Commands are the genuine ones: `lumo task testcase run <task>/TC<n> --result\n// <r> --env <e> [--evidence-file …]` and `lumo task wrapup <task>` match\n// cli/src/commands/ (wrapup output abridged). The run ends IN_REVIEW with a\n// boundary crossing still open, because the agent does not get to close its\n// own task.\n",
-      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the header comment that names `lumo pr scan`"
+      "replacement": "// What working with Lumo actually looks like inside a coding agent: you point it\n// at a task with one command, it runs prechecks, then drives the lumo CLI as\n// tool calls (attach + context → test-case runs → status) and reports back —\n// the real agent transcript shape, kept model-/tool-neutral (\"coding agent\").\n// Commands are the genuine ones: `lumo task testcase run <task>/TC<n> --result\n// <r> --env <e> [--evidence-file …]` and `lumo task status <task>` match\n// cli/src/commands/ (status output abridged). The run ends IN_REVIEW with a\n// boundary crossing still open, because the agent does not get to close its\n// own task.\n",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the header comment that names `lumo pr show`"
     },
     {
       "file": "components/landing/home/lumo-terminal.tsx",
       "type": "replace",
-      "pattern": "^  \\{\\n    kind: 'say',\\n    text: 'Cases pass\\. Scanning the PR before I hand it back\\.',\\n  \\},\\n  \\{\\n    kind: 'tool',\\n    cmd: 'lumo pr scan 482',\\n[\\s\\S]*?\\n  \\},\\n",
+      "pattern": "^  \\{\\n    kind: 'say',\\n    text: 'Cases pass\\. Scanning the PR before I hand it back\\.',\\n  \\},\\n  \\{\\n    kind: 'tool',\\n    cmd: 'lumo pr show 482',\\n[\\s\\S]*?\\n  \\},\\n",
       "replacement": "  {\n    kind: 'say',\n    text: 'Cases pass. Wrapping up before I hand it back.',\n  },\n",
-      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the `lumo pr scan` step of the demo"
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the `lumo pr show` step of the demo"
     },
     {
       "file": "components/landing/home/lumo-terminal.tsx",
       "type": "replace",
-      "pattern": "      '\\[2/4\\] Security scans      PR #482 · 8 open, 2 blocking',\\n      '\\[3/4\\] Boundary crossings  none open',",
-      "replacement": "      '[3/4] Boundary crossings  1 undispositioned: 1 blocking DONE',",
-      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the wrapup's scan line; the open item is the run's boundary crossing"
+      "pattern": "      'Security scans      PR #482 · 8 open, 2 blocking',\\n      'Boundary crossings  none open',",
+      "replacement": "      'Boundary crossings  1 undispositioned: 1 blocking DONE',",
+      "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the status scan line; the open item is the run's boundary crossing"
     },
     {
       "file": "components/landing/home/lumo-terminal.tsx",
@@ -807,7 +807,7 @@
       "file": "components/landing/home/compare.tsx",
       "type": "replace",
       "pattern": "^// One column per lane Lumo covers:[\\s\\S]*?^// the agent's work really pass\\?\\) and security \\(did it ship a hole\\?\\) follow\\.\\n",
-      "replacement": "// One column per neighbouring lane: Linear for tracking, QA Wolf for QA,\n// CodeRabbit for PR review — the best-known name in each (LUM-827 follow-up).\n// PR review is not part of this edition, so the table compares tracking, QA\n// and the agent guardrails it ships. The QA group opens with the specialist's\n// home-turf rows (Lumo honestly takes ✗ there), so the column reads like its\n// product, not like a quiz written for Lumo; Lumo's own rows follow.\n// Issue tracking comes first to answer \"can it replace our tracker?\"; QA (did\n// the agent's work really pass?) and the guardrails (what did it do?) follow.\n",
+      "replacement": "// One column per neighbouring lane: Linear for tracking, QA Wolf for QA,\n// the leading PR reviewer for PR review — the best-known name in each (LUM-827 follow-up).\n// PR review is not part of this edition, so the table compares tracking, QA\n// and the agent guardrails it ships. The QA group opens with the specialist's\n// home-turf rows (Lumo honestly takes ✗ there), so the column reads like its\n// product, not like a quiz written for Lumo; Lumo's own rows follow.\n// Issue tracking comes first to answer \"can it replace our tracker?\"; QA (did\n// the agent's work really pass?) and the guardrails (what did it do?) follow.\n",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the comment that sells PR review and security as a Lumo lane"
     },
     {
@@ -1072,9 +1072,9 @@
     },
     {
       "id": "plugin-feature:landing-terminal",
-      "pattern": "pr scan|[Ss]can(ning)? the PR|Security scans|[Ss]can findings|findings",
+      "pattern": "pr (scan|show|review)|[Ss]can(ning)? the PR|Security scans|[Ss]can findings|findings",
       "files": ["components/landing/home/lumo-terminal.tsx"],
-      "reason": "LUM-1081: guards the lumo-terminal.tsx transforms (the `lumo pr scan` demo)"
+      "reason": "LUM-1081: guards the lumo-terminal.tsx transforms (the `lumo pr show` demo)"
     },
     {
       "id": "plugin-feature:landing-compare",

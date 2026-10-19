@@ -7,13 +7,20 @@ offline set, judges it with the benchmark's own step3 judge, and scores it the
 way the dashboard does. LUM-988's Done-when bar is F1 ≥ 50% and F2 ≥ 60% on
 the Core profile with the Opus 4.5 judge.
 
-| File                                          | What it does                                                                                                                                                    |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prepare.ts`                                  | Per PR: the unified diff and the PR-head content of every changed (not removed) file, via `gh`.                                                                 |
-| `replay.ts`                                   | Runs the shipped stage-A sequence per PR: over-cap check → `judgeDiffTier` → `packSecurityDiff` → `loadReviewContext` → `redactForInjection` → `judgeSecurity`. |
-| `score.py`                                    | Injects each run as a pseudo-tool, judges it with step3 (Opus 4.5 via the AI Gateway), prints Core-profile P / R / F1 / F2 next to the leaderboard.             |
-| `pr-key.ts`                                   | The one PR-url → directory-name function both TS scripts use.                                                                                                   |
-| `results-sonnet55.json`, `score-sonnet55.txt` | The runs recorded on the LUM-988 PR (raw findings + scores).                                                                                                    |
+| File                                          | What it does                                                                                                                                                                                                                                                                                              |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prepare.ts`                                  | Per PR: the unified diff and the PR-head content of every changed (not removed) file, via `gh`.                                                                                                                                                                                                           |
+| `replay.ts`                                   | Runs the shipped stage-A sequence per PR: default path filters → size-cap plan (`planPartialReview`) → `judgeDiffTier` → `packSecurityDiff` → `loadReviewContext` → `redactForInjection` → `judgeSecurity` (with the diagram schema where production asks for it). The first steps are `review-input.ts`. |
+| `score.py`                                    | Injects each run as a pseudo-tool, judges it with step3 (Opus 4.5 via the AI Gateway), prints Core-profile P / R / F1 / F2 next to the leaderboard.                                                                                                                                                       |
+| `pr-key.ts`                                   | The one PR-url → directory-name function both TS scripts use.                                                                                                                                                                                                                                             |
+| `replay-policy.ts`                            | The removal policy in replay terms: production's `verifierAppliesTo` over the review kind (verify.ts, rank.ts).                                                                                                                                                                                           |
+| `results-sonnet55.json`, `score-sonnet55.txt` | The runs recorded on the LUM-988 PR (raw findings + scores).                                                                                                                                                                                                                                              |
+
+`replay.ts --ids <url,…>` replays only those PRs; `--server-config <checkouts
+root>` (LUM-1208) adds the server config files the PR does not change, listed
+and read from the `collect.ts` checkouts at hashX (production lists them through
+the contents API at the head), and records `serverConfigFiles` / `serverConfigChars`
+per run.
 
 Two differences from production, both deliberate: files come from the
 `prepare.ts` snapshot instead of `readRepoFile` (same content: PR head), and
@@ -66,8 +73,8 @@ with the leaderboard rows in `score-sonnet55.txt`):
 | 3          | 40.4%     | 75.9%     | 52.7%     | 64.6%     | 8/11     |
 | **pooled** | **39.8%** | **73.8%** | **51.7%** | **63.0%** |          |
 
-For reference on the same 50 PRs: Qodo Extended 65.8 / 65.1, CodeRabbit
-42.2 / 51.1 (F1 / F2). Latency median 17 s, max 42 s; prompt median ~91k chars.
+For reference on the same 50 PRs: Qodo Extended 65.8 / 65.1, the
+lowest-precision leaderboard bot 42.2 / 51.1 (F1 / F2). Latency median 17 s, max 42 s; prompt median ~91k chars.
 
 Ablation, not shipped (`results-sonnet55-reworded.json`): with the schema's
 `detail` / `findings` descriptions generalised away from LUM-975's

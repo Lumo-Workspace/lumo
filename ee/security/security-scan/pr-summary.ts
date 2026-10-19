@@ -5,7 +5,7 @@
  *
  * The text is model-authored over an untrusted diff and is published on a
  * public PR, so it is treated like any other untrusted field: known secrets
- * are redacted, and everything that would make GitHub act on it — @mentions,
+ * (and quoted credential-shaped or keyed values) are redacted, and everything that would make GitHub act on it — @mentions,
  * links, images, HTML (including our own `<!-- lumo-security:… -->` markers,
  * which a forged copy could hijack), headings, line breaks — is neutralised.
  * `cleanPrSummary` runs at write time (stage A) and `parsePrSummary` re-runs
@@ -13,13 +13,19 @@
  * by hand still cannot reach the PR raw. The pass is idempotent.
  */
 import { sanitizeField } from '@/shared/src/sanitize'
-import { redactKnownSecrets } from '@/lib/security-scan/scan-secrets'
+import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 
 export interface PrSummary {
   /** One sentence: what the PR does. */
   intent: string
   /** At most `PR_SUMMARY_MAX_CHANGES` short bullets. */
   changes: string[]
+  /**
+   * LUM-1151 — set when the summary is an earlier review's, kept because it
+   * could not be refreshed: the commit it describes. Absent = the scan's own
+   * head.
+   */
+  describesSha?: string
 }
 
 export const PR_SUMMARY_MAX_CHANGES = 3
@@ -71,21 +77,33 @@ export function neutralizeSummaryText(raw: string, maxChars: number): string {
 
 function cleanText(raw: unknown, maxChars: number): string | null {
   if (typeof raw !== 'string') return null
-  const text = neutralizeSummaryText(redactKnownSecrets(raw), maxChars)
+  // LUM-1200: the prose pass — a quoted phrase is masked only when it looks
+  // like (or is keyed as) a credential, never just for being quoted.
+  const text = neutralizeSummaryText(redactSummaryText(raw), maxChars)
   return text.length > 0 ? text : null
 }
 
 /** Redacted, neutralised and capped, or null when nothing usable is left. */
 export function cleanPrSummary(raw: unknown): PrSummary | null {
   if (!raw || typeof raw !== 'object') return null
-  const r = raw as { intent?: unknown; changes?: unknown }
+  const r = raw as {
+    intent?: unknown
+    changes?: unknown
+    describesSha?: unknown
+  }
   const intent = cleanText(r.intent, PR_SUMMARY_INTENT_MAX_CHARS)
   if (!intent) return null
   const changes = (Array.isArray(r.changes) ? r.changes : [])
     .map(c => cleanText(c, PR_SUMMARY_CHANGE_MAX_CHARS))
     .filter((c): c is string => c !== null)
     .slice(0, PR_SUMMARY_MAX_CHANGES)
-  return { intent, changes }
+  // LUM-1151: only a commit sha — anything else is dropped.
+  const sha =
+    typeof r.describesSha === 'string' &&
+    /^[0-9a-f]{7,40}$/i.test(r.describesSha)
+      ? r.describesSha
+      : null
+  return sha ? { intent, changes, describesSha: sha } : { intent, changes }
 }
 
 /** The stored Json column, read back through the same pass. */

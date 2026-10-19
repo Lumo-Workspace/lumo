@@ -43,6 +43,33 @@ import {
   parsePrCommand,
   prCommandHandle,
 } from '@/ee/security/services/pr-command-parse'
+import {
+  mentionsHandle,
+  routeConversationComment,
+} from '@/ee/security/security-scan/pr-chat'
+import { authoredDescriptionChanged } from '@/ee/security/security-scan/pr-description-summary'
+
+/**
+ * LUM-1148 — PURE: an `edited` event on an open PR that changed its title or
+ * description (what the pre-merge checks read).
+ */
+export function isChecksEdit(event: {
+  action: string
+  state: string
+  reviewFacts?: { title: string | null; body: string | null }
+  reviewFactsBefore?: { title: string | null; body: string | null }
+}): boolean {
+  if (event.action !== 'edited' || event.state !== 'open') return false
+  const before = event.reviewFactsBefore
+  const after = event.reviewFacts
+  if (!before || !after) return false
+  // LUM-1151: Lumo writing its summary into the description is not an
+  // author edit — it must not re-run the checks (a model call per edit).
+  return (
+    before.title !== after.title ||
+    authoredDescriptionChanged(before.body, after.body, prCommandHandle())
+  )
+}
 
 export const securityPlugin: LumoServerPlugin = {
   id: 'security',
@@ -55,6 +82,12 @@ export const securityPlugin: LumoServerPlugin = {
         const { listOpenBlockingFindings } =
           await import('@/ee/security/services/pr-security-scan-gate')
         return listOpenBlockingFindings(taskId)
+      },
+      // LUM-1186: the Done gate's "not scanned" vs "clear".
+      async checked(taskId) {
+        const { prSecurityScanRepository } =
+          await import('@/ee/security/repositories/pr-security-scan.repository')
+        return prSecurityScanRepository.anyScanForTask(taskId)
       },
     })
 
@@ -84,7 +117,7 @@ export const securityPlugin: LumoServerPlugin = {
     // harmless. Registered with waitUntil so the runtime keeps the function
     // alive until the dispatch settles.
     //
-    // LUM-1133: a PR without a task is reviewed too, as CodeRabbit does — if
+    // LUM-1133: a PR without a task is reviewed too (auto-review filters) — if
     // the workspace confirmed the repository and its per-repository settings
     // allow it (default: on, drafts wait for ready_for_review). The decision
     // reads the database, so it loads lazily, off the webhook's static graph.
@@ -107,11 +140,31 @@ export const securityPlugin: LumoServerPlugin = {
             }
           })()
         )
-      if (!shouldScanOnPrEvent(action, state)) return
+      // LUM-1148: a title / description edit re-runs the pre-merge checks
+      // (a failed title check is fixed by an edit, not a push).
+      if (isChecksEdit(event))
+        waitUntil(
+          (async () => {
+            try {
+              const { preMergeChecksService } =
+                await import('@/ee/security/services/pre-merge-checks.service')
+              await preMergeChecksService.recheckAfterEdit(pullRequestId)
+            } catch (error) {
+              logger.warn(
+                `[security] pre-merge recheck failed pr=${pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
+              )
+            }
+          })()
+        )
+      const reviewEvent = shouldScanOnPrEvent(action, state)
       if (taskId !== null) {
-        waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
+        if (reviewEvent)
+          waitUntil(dispatchPrSecurityScan(pullRequestId, 'PR_EVENT'))
         return
       }
+      // LUM-1143: for a task-less PR, a label / title / description / base
+      // change can newly let it through the repository's review filters.
+      if (!reviewEvent && event.reviewFactsBefore === undefined) return
       waitUntil(
         (async () => {
           try {
@@ -154,15 +207,29 @@ export const securityPlugin: LumoServerPlugin = {
     })
 
     // LUM-1129: `@<app> review | full review | pause | resume | resolve` in a
-    // PR conversation comment. The ordinary comment is dropped here,
-    // synchronously; a command loads the service (GitHub clients) lazily.
+    // PR conversation comment. LUM-1154: any other mention of the App is a
+    // question, answered by the chat service. The ordinary comment is dropped
+    // here, synchronously; a command or a question loads its service (GitHub
+    // clients, the model) lazily.
     api.on('github.issueComment', event => {
       if (event.action !== 'created') return
       const handle = prCommandHandle()
-      if (!handle || !parsePrCommand(event.comment.body, handle)) return
+      if (!handle) return
+      const route = routeConversationComment(
+        event.comment.body,
+        handle,
+        parsePrCommand(event.comment.body, handle)
+      )
+      if (!route) return
       waitUntil(
         (async () => {
           try {
+            if (route === 'chat') {
+              const { applyConversationQuestion } =
+                await import('@/ee/security/services/pr-chat.service')
+              await applyConversationQuestion(event)
+              return
+            }
             const { applyPrCommentCommand } =
               await import('@/ee/security/services/pr-command.service')
             await applyPrCommentCommand(event)
@@ -178,16 +245,28 @@ export const securityPlugin: LumoServerPlugin = {
     // LUM-1131: a human reply in one of Lumo's finding threads — answered,
     // and when it says the finding is intentional / not applicable, the
     // thread is closed for this PR and a learning stored for later reviews.
-    // Dynamic import: the reply service reaches the model client.
+    // LUM-1154: a question in such a thread gets a grounded answer, and a
+    // review-line comment elsewhere that mentions the App is answered too.
+    // Dynamic import: the reply and chat services reach the model client.
     api.on('github.reviewComment', event => {
-      if (event.action !== 'created' || event.comment.inReplyToId === null)
-        return
+      if (event.action !== 'created') return
+      const handle = prCommandHandle()
+      const mentioned =
+        handle !== null && mentionsHandle(event.comment.body, handle)
+      if (event.comment.inReplyToId === null && !mentioned) return
       waitUntil(
         (async () => {
           try {
-            const { applyThreadReply } =
-              await import('@/ee/security/services/pr-thread-reply.service')
-            await applyThreadReply(event)
+            if (event.comment.inReplyToId !== null) {
+              const { applyThreadReply } =
+                await import('@/ee/security/services/pr-thread-reply.service')
+              const outcome = await applyThreadReply(event)
+              if (outcome !== 'not_lumo_thread') return
+            }
+            if (!mentioned) return
+            const { applyLineMention } =
+              await import('@/ee/security/services/pr-chat.service')
+            await applyLineMention(event)
           } catch (error) {
             logger.warn(
               `[security] thread reply failed pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`

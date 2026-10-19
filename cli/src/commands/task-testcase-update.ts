@@ -1,8 +1,8 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiContext, apiCall } from '../lib/test-case-api'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 import { sanitizeField } from '../lib/sanitize'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 
 export interface TestCaseUpdateOptions {
   title?: string
@@ -11,26 +11,6 @@ export interface TestCaseUpdateOptions {
   verify?: string[]
   expected?: string
   requiresEnv?: string
-}
-
-export async function taskTestCaseUpdate(
-  handle: string | undefined,
-  options: TestCaseUpdateOptions
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase update LUM-42/TC3 --title "…"'
-    )
-    return 1
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return 1
-  }
-  return testCaseUpdateInScope(taskScope(split.task), split.caseRef, options)
 }
 
 export async function testCaseUpdateInScope(
@@ -64,7 +44,7 @@ export async function testCaseUpdateInScope(
     console.error(
       'Error: provide at least one field to update (--title / --setup / --step / --verify / --expected / --requires-env).'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const ctx = apiContext()

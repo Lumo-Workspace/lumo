@@ -131,9 +131,212 @@ test('findLayerMetaByFingerprints reads the layer facts from the PR findings', a
   ])
 })
 
+test('findIdentitiesByFingerprints reads line, title and evidence of the newest row', async () => {
+  await harness.insert('pr_security_findings', {
+    id: 'f-id-1',
+    scanId: 'scan1',
+    kind: 'CORRECTNESS',
+    ruleId: 'review:doc_mismatch',
+    severity: 'LOW',
+    provenance: 'LLM_JUDGE',
+    filePath: 'scripts/probe.ts',
+    line: 3,
+    title: 'console.log used in scripts',
+    detail: 'd',
+    evidence: "console.log('probe')",
+    fingerprint: 'fp-id',
+  })
+  await expect(
+    repo.findIdentitiesByFingerprints('pr', ['fp-id', 'nope'])
+  ).resolves.toEqual([
+    {
+      fingerprint: 'fp-id',
+      ruleId: 'review:doc_mismatch',
+      provenance: 'LLM_JUDGE',
+      filePath: 'scripts/probe.ts',
+      line: 3,
+      title: 'console.log used in scripts',
+      severity: 'LOW',
+      evidence: "console.log('probe')",
+    },
+  ])
+  await expect(repo.findIdentitiesByFingerprints('pr', [])).resolves.toEqual([])
+})
+
 test('the scan row keeps judgeReviewScope as JSON', async () => {
   const rows = await harness.query<{ judgeReviewScope: unknown }>(
     `select "judgeReviewScope" from pr_security_scans where id = 'scan1'`
   )
   expect(rows[0]!.judgeReviewScope).toEqual(['a.ts'])
+})
+
+test('LUM-1127 follow-up #2: the thread row keeps its finding identity (hashes) across re-points and updates', async () => {
+  await repo.upsert({ ...base, fingerprint: 'fp-legacy', commentId: '700' })
+  const identity = {
+    identityRuleId: 'review:data_integrity',
+    identityLine: 30,
+    identitySeverity: 'MEDIUM' as const,
+    identityEvidenceHash: '0123456789abcdef0123456789abcdef',
+    identityTitleTokens: ['aaa111', 'bbb222'],
+  }
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-ident',
+    commentId: '701',
+    ...identity,
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)!
+  // A row recorded without an identity reads as "not recorded".
+  expect(await byFp('fp-legacy')).toEqual(
+    expect.objectContaining({
+      identityRuleId: null,
+      identityLine: null,
+      identitySeverity: null,
+      identityEvidenceHash: null,
+      identityTitleTokens: [],
+    })
+  )
+  expect(await byFp('fp-ident')).toEqual(expect.objectContaining(identity))
+
+  // Re-pointed without an identity: the recorded one stays.
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-ident',
+    commentId: '702',
+  })
+  expect(await byFp('fp-ident')).toEqual(
+    expect.objectContaining({ commentId: '702', ...identity })
+  )
+
+  // Carried to a relabelled finding: the identity moves on.
+  const row = await byFp('fp-ident')
+  await repo.update(row.id, {
+    identityRuleId: 'review:logic_error',
+    identityLine: 31,
+    identityTitleTokens: ['ccc333'],
+  })
+  expect(await byFp('fp-ident')).toEqual(
+    expect.objectContaining({
+      identityRuleId: 'review:logic_error',
+      identityLine: 31,
+      identitySeverity: 'MEDIUM',
+      identityTitleTokens: ['ccc333'],
+    })
+  )
+})
+
+test('LUM-1127 follow-up #3: a carry is kept on the row (aliases), a resolved thread covers its aliases, and a merged duplicate row is deleted', async () => {
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-orig',
+    commentId: '800',
+  })
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-dup',
+    commentId: '801',
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)
+  const orig = (await byFp('fp-orig'))!
+  // A row recorded before the column existed reads as "no aliases".
+  expect(orig.aliasFingerprints).toEqual([])
+  await repo.update(orig.id, {
+    aliasFingerprints: ['fp-relabelled', 'fp-dup'],
+    state: 'RESOLVED_BY_USER',
+    resolvedByLogin: 'alice',
+  })
+  expect((await byFp('fp-orig'))!.aliasFingerprints).toEqual([
+    'fp-relabelled',
+    'fp-dup',
+  ])
+  const resolved = await repo.findResolvedByUserFingerprints(['pr'])
+  expect(
+    ['fp-orig', 'fp-relabelled', 'fp-dup'].every(fp =>
+      resolved.get('pr')!.has(fp)
+    )
+  ).toBe(true)
+
+  await repo.delete((await byFp('fp-dup'))!.id)
+  expect(await byFp('fp-dup')).toBeUndefined()
+  // Deleting a row that is already gone is a no-op.
+  await expect(repo.delete('missing')).resolves.toBeUndefined()
+})
+
+test('LUM-1127 follow-up #4: the thread row keeps the union of identities it carried (JSON), across re-points and updates', async () => {
+  const v1 = {
+    ruleId: 'review:logic_error',
+    line: 31,
+    evidenceHash: 'k1.e1',
+    titleTokens: ['k1.a', 'k1.b'],
+  }
+  const v2 = {
+    ruleId: 'review:api_misuse',
+    line: 31,
+    evidenceHash: null,
+    titleTokens: ['k1.c'],
+    crowded: true,
+  }
+  await repo.upsert({
+    ...base,
+    fingerprint: 'fp-hist-legacy',
+    commentId: '900',
+  })
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '901',
+    identityRuleId: 'review:logic_error',
+    identityTitleTokens: ['k1.a', 'k1.b'],
+    identityHistory: [v1],
+  })
+  const byFp = async (fp: string) =>
+    (await repo.findByPullRequest('pr')).find(r => r.fingerprint === fp)!
+  // A row written before the column existed reads as "no history".
+  expect((await byFp('fp-hist-legacy')).identityHistory).toEqual([])
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1])
+
+  const row = await byFp('fp-hist')
+  await repo.update(row.id, { identityHistory: [v1, v2] })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  // An update that does not name it keeps it.
+  await repo.update(row.id, { state: 'ADDRESSED' })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  // Re-pointed without an identity: kept; with one: replaced as given.
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '902',
+  })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v1, v2])
+  await repo.upsert({
+    ...base,
+    provenance: 'LLM_JUDGE',
+    kind: 'CORRECTNESS',
+    fingerprint: 'fp-hist',
+    commentId: '903',
+    identityRuleId: 'review:api_misuse',
+    identityHistory: [v2],
+  })
+  expect((await byFp('fp-hist')).identityHistory).toEqual([v2])
+  // Malformed entries (hand edit) are skipped on read.
+  await harness.query(
+    `update pr_finding_threads set "identityHistory" = '[{"ruleId":1},{"ruleId":"r","line":null,"evidenceHash":null,"titleTokens":["t"]}]'::jsonb where fingerprint = 'fp-hist'`
+  )
+  expect((await byFp('fp-hist')).identityHistory).toEqual([
+    { ruleId: 'r', line: null, evidenceHash: null, titleTokens: ['t'] },
+  ])
 })

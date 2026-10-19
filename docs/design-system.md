@@ -44,7 +44,7 @@ in components — add or extend a token.
 | `--destructive-foreground` | `#ffffff` | `#ffffff` | Text on destructive                                     |
 | `--border`                 | `#e2e8f0` | `#2a2a2a` | Default border, dividers, scrollbar thumb               |
 | `--input`                  | `#ffffff` | `#1a1a1a` | Form input background                                   |
-| `--ring`                   | `#a1a1aa` | `#71717a` | Focus ring (see [Focus rings](#focus-rings))            |
+| `--ring`                   | `#3b82f6` | `#3b82f6` | Focus ring (see [Focus rings](#focus-rings))            |
 
 ### Semantic status tokens
 
@@ -221,9 +221,10 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 ## Focus rings
 
-- Token: `--ring` (= `#a1a1aa` light, `#71717a` dark).
-- Base style is set globally: `outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent)`.
-- For component focus, prefer Tailwind `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` (shadcn pattern) — never roll a hard-coded ring color.
+- Token: `--ring: var(--focus-ring)`, where `--focus-ring` = `oklch(0.6231 0.188 259.813)` (`#3b82f6`, blue). Defined once in `:root` with no `.dark` override, so it is identical in light and dark (LUM-262). `--sidebar-ring` derives from `--focus-ring` too.
+- Base style is set globally in `@layer base`: `* { @apply border-border outline-ring/50; }` — this only sets the outline **colour** (`--ring` at 50%); it doesn't draw an outline by itself.
+- Primitives (`Button`, `Badge`, `Textarea`) use `focus-visible:ring-[3px] focus-visible:ring-ring/50` plus `focus-visible:border-ring`. `Input` and `Select` only switch the border to `border-ring` (no ring shadow). Never roll a hard-coded ring colour.
+- Borderless document-style fields (title / description inputs in create modals, inline table edits, the memory and milestone dialogs) deliberately get no ring (`focus:ring-0 outline-none`) — focus reads from the caret, not a box.
 
 ## Motion
 
@@ -268,6 +269,12 @@ Observed convention (top of stack last):
 
 Avoid arbitrary `z-[1]` etc. — pick a tier above.
 
+### Overlay (scrim)
+
+Every modal surface — Dialog, AlertDialog, Sheet and the workspace `Modal` —
+uses the same scrim: `bg-black/50`, **no** `backdrop-blur`, in both themes.
+Don't hand-roll a different tint or blur on a new overlay.
+
 ## Shadows / Elevation
 
 阴影走 token 化的 elevation 分级 —— `:root` 与 `.dark` 各定义一组(暗色更强,
@@ -275,11 +282,15 @@ Avoid arbitrary `z-[1]` etc. — pick a tier above.
 Tailwind 内置 `shadow` / `shadow-xs…2xl` 或硬编码 `shadow-[..]`(由 `lint:tokens`
 拦截);`shadow-none` 允许;`drop-shadow-*`(filter)不受此规则约束。
 
-| 工具类               | 用途     | 组件                                                           |
-| -------------------- | -------- | -------------------------------------------------------------- |
-| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          |
-| `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu |
-| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          |
+| 工具类               | 用途     | 组件                                                           | 亮色值                                                                  | 暗色值                                                                  |
+| -------------------- | -------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          | `0 1px 2px 0 rgb(0 0 0 / 0.05)`(单层发丝阴影,同 shadcn `shadow-xs`)     | `0 1px 2px 0 rgb(0 0 0 / 0.3)`                                          |
+| `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu | `0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12)`    | `0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55)`    |
+| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          | `0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18)` | `0 8px 16px -4px rgb(0 0 0 / 0.55), 0 12px 24px -6px rgb(0 0 0 / 0.65)` |
+
+elevation-1 刻意只有一层很淡的阴影,让静态控件读起来是平的(LUM-1241);层次主要靠
+1px 边框。因此控件本身必须不依赖阴影也能看清 —— 例如 Switch 未选中轨道用 `bg-border`
+而不是 `bg-input`(亮色 `--input` 是白色输入框底色)。
 
 底层值在 `app/globals.css` 的 `--elevation-1/2/3`(`:root`/`.dark`)。调整观感改
 那里即可,组件不碰。landing 专用的 `--shadow-mockup` 仍在 `landing.css`。

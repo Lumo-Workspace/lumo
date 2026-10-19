@@ -89,7 +89,9 @@ describe('the envelopes say what is actually being decided', () => {
   it('step 1 names the case, the run and the evidence behind it', () => {
     const lines = describeDefectRead(SUBJECT, 'KNOWN_DEFECT', 'ship it')
     expect(lines.join('\n')).toContain('LUM-42/TC3 "Footer keeps the nav row"')
-    expect(lines.join('\n')).toContain('run-9')
+    // LUM-1230: the run is named as "latest run", never by its cuid.
+    expect(lines.join('\n')).toContain('Latest run recorded')
+    expect(lines.join('\n')).not.toContain('run-9')
     expect(lines.join('\n')).toContain('2 evidence entries')
     expect(lines.join('\n')).toContain('Note: ship it')
   })

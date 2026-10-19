@@ -1,3 +1,5 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { fmtEnum } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
@@ -242,7 +244,7 @@ export function partitionLinkedPrs(prs: LinkedPr[]): {
 }
 
 function formatPrLine(pr: LinkedPr): string {
-  const state = (pr.state ?? 'unknown').padEnd(7)
+  const state = fmtEnum(pr.state).padEnd(7)
   const title = pr.title ? sanitizeField(pr.title) : '(untitled)'
   const url = pr.url ? `  ${pr.url}` : ''
   return `#${pr.number}  ${state}  ${title}${url}`
@@ -271,7 +273,7 @@ export function describeDoneTransition(
   const { unmerged } = partitionLinkedPrs(prs)
   if (unmerged.length > 0) {
     const summary = unmerged
-      .map(pr => `#${pr.number} ${pr.state ?? 'unknown'}`)
+      .map(pr => `#${pr.number} ${fmtEnum(pr.state)}`)
       .join(', ')
     lines.push(
       `⚠ ${unmerged.length} linked pull request${unmerged.length === 1 ? '' : 's'} not merged: ${summary}`
@@ -534,7 +536,7 @@ async function runTaskUpdate(
     console.error(
       'Error: missing <identifier>. Usage: lumo task update <LUM-42> [options]'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // CLI-side mutex check: --tag/--tag-id (bulk replace) vs --add-tag/--add-tag-id/--remove-tag/--remove-tag-id (incremental)
@@ -550,7 +552,7 @@ async function runTaskUpdate(
     console.error(
       'Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   // LUM-646: collapse --claimable / --not-claimable into one tri-state
@@ -559,7 +561,7 @@ async function runTaskUpdate(
     console.error(
       'Error: --claimable and --not-claimable are mutually exclusive'
     )
-    return 1
+    return EXIT_USAGE
   }
   let claimable: boolean | undefined
   if (opts.claimable) claimable = true
@@ -570,7 +572,7 @@ async function runTaskUpdate(
     console.error(
       `Error: --due expects a valid YYYY-MM-DD date (or "" to clear), got "${opts.due}"`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let status: Status | undefined
@@ -580,7 +582,7 @@ async function runTaskUpdate(
       console.error(
         `Error: invalid status "${opts.status}". Allowed: ${ALLOWED_STATUSES.map(s => s.toLowerCase()).join(', ')}`
       )
-      return 1
+      return EXIT_USAGE
     }
     status = n
   }
@@ -592,7 +594,7 @@ async function runTaskUpdate(
       console.error(
         `Error: invalid priority "${opts.priority}". Allowed: low, medium, high, urgent`
       )
-      return 1
+      return EXIT_USAGE
     }
     priority = n
   }
@@ -612,7 +614,7 @@ async function runTaskUpdate(
     console.error(
       'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --due, --tag, --add-tag, --remove-tag)'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -781,6 +783,8 @@ async function runTaskUpdate(
             base,
             token: creds.token,
             identifier,
+            apiUrl,
+            workspaceSlug: creds.workspaceSlug ?? '',
           })
         const statusSummary = await fetchStatusDigest(
           base,

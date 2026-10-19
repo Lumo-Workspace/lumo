@@ -192,7 +192,7 @@ export const taskDependencyRepository = {
     })
   },
 
-  /** LUM-645 `lumo next` 拓扑感知:触及给定任务任一端的已确认 BLOCKS 边,带两端状态。 */
+  /** LUM-645 `lumo status --next` 拓扑感知:触及给定任务任一端的已确认 BLOCKS 边,带两端状态。 */
   async findConfirmedBlocksEdgesTouching(taskIds: string[]) {
     if (taskIds.length === 0) return []
     return prisma.taskDependency.findMany({

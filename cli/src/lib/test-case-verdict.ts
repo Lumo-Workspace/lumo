@@ -9,6 +9,8 @@
  * 它渲染成一行。一份规则一处实现。
  */
 
+import { sanitizeField } from './sanitize'
+
 export type FailureCause =
   | 'IMPLEMENTATION_DEFECT'
   | 'CASE_OUTDATED'
@@ -118,6 +120,16 @@ export type RunCeiling =
       reason: 'unobserved'
       unobserved: Array<{ index: number; text: string }>
     }
+  | {
+      effective: 'UNPROVEN'
+      reason: 'skipped'
+      skipped: Array<{
+        phase: 'STEPS' | 'VERIFICATION'
+        index: number
+        text: string
+        reason: string
+      }>
+    }
   | { effective: 'UNPROVEN'; reason: 'no-evidence' }
   | { effective: 'FAIL' }
   | { effective: 'BLOCKED' }
@@ -138,20 +150,79 @@ export interface RunOutcome {
  */
 export function formatRunOutcome(outcome: RunOutcome): string {
   const head = `Recorded ${outcome.handle}: ${outcome.reported} on ${outcome.environment}`
-  const ceiling = outcome.ceiling
-  if (ceiling.effective !== 'UNPROVEN') return head
+  return head + formatCeilingSuffix(outcome.ceiling)
+}
 
-  if (ceiling.reason === 'environment') {
-    return `${head} → UNPROVEN (this case only proves anything on ${ceiling.requiredEnvironment})`
+/**
+ * LUM-1185: 封顶结论的那截尾巴——` → UNPROVEN (原因)`；没被封顶时是空串。
+ * `testcase run` 的回显与 `testcase show/list` 的 run 行共用这一份措辞。
+ * 服务端回传的 ceiling 形状不认识（旧服务端 / 新原因）时同样返回空串，
+ * 绝不编一个结论出来。
+ */
+export function formatCeilingSuffix(ceiling: unknown): string {
+  if (!ceiling || typeof ceiling !== 'object') return ''
+  const c = ceiling as RunCeiling
+  if (c.effective !== 'UNPROVEN') return ''
+
+  if (c.reason === 'environment') {
+    return ` → UNPROVEN (this case only proves anything on ${sanitizeField(String(c.requiredEnvironment))})`
   }
-  if (ceiling.reason === 'no-evidence') {
-    return `${head} → UNPROVEN (no evidence attached — nobody else can re-read this PASS)`
+  if (c.reason === 'no-evidence') {
+    return ' → UNPROVEN (no evidence attached — nobody else can re-read this PASS)'
   }
-  // 下标回到 1-based 的表面。
-  const items = ceiling.unobserved
-    .map(u => `#${u.index + 1} ${u.text}`)
-    .join('; ')
-  return `${head} → UNPROVEN (unobserved verification: ${items})`
+  if (c.reason === 'skipped' && Array.isArray(c.skipped)) {
+    const skippedItems = c.skipped
+      .map(
+        s =>
+          `${s.phase === 'STEPS' ? 's' : 'v'}${s.index + 1} ${sanitizeField(s.text)} — ${sanitizeField(s.reason)}`
+      )
+      .join('; ')
+    return ` → UNPROVEN (skipped: ${skippedItems})`
+  }
+  if (c.reason === 'unobserved' && Array.isArray(c.unobserved)) {
+    // 下标回到 1-based 的表面。
+    const items = c.unobserved
+      .map(u => `#${u.index + 1} ${sanitizeField(u.text)}`)
+      .join('; ')
+    return ` → UNPROVEN (unobserved verification: ${items})`
+  }
+  return ' → UNPROVEN'
+}
+
+/**
+ * LUM-1185: `testcase list` 一行里放得下的短版封顶尾巴——只给原因类别与条数，
+ * 细节留给 `show`。没被封顶 / 形状不认识 → 空串。
+ */
+export function formatCeilingShort(ceiling: unknown): string {
+  if (!ceiling || typeof ceiling !== 'object') return ''
+  const c = ceiling as RunCeiling
+  if (c.effective !== 'UNPROVEN') return ''
+  if (c.reason === 'environment')
+    return ` → UNPROVEN (only proves on ${sanitizeField(String(c.requiredEnvironment))})`
+  if (c.reason === 'no-evidence') return ' → UNPROVEN (no evidence)'
+  if (c.reason === 'skipped' && Array.isArray(c.skipped))
+    return ` → UNPROVEN (${c.skipped.length} skipped)`
+  if (c.reason === 'unobserved' && Array.isArray(c.unobserved))
+    return ` → UNPROVEN (${c.unobserved.length} unobserved)`
+  return ' → UNPROVEN'
+}
+
+/** 存储枚举 → 命令行短词（`--cause` 的反向）。 */
+const CAUSE_LABELS: Record<FailureCause, string> = {
+  IMPLEMENTATION_DEFECT: 'defect',
+  CASE_OUTDATED: 'outdated',
+  EXTERNAL_BLOCK: 'external',
+  UNKNOWN: 'unknown',
+}
+
+/**
+ * LUM-1185: 一条 FAIL 的归因，用 `--cause` 的同一套短词打出来（`cause: defect`）。
+ * 非 FAIL / 旧服务端 / 不认识的值 → null，什么都不打。
+ */
+export function formatCauseTag(attribution: unknown): string | null {
+  if (typeof attribution !== 'string') return null
+  const word = CAUSE_LABELS[attribution as FailureCause]
+  return word ? `cause: ${word}` : null
 }
 
 export type RequiredEnvResolution =

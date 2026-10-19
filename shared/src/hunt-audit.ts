@@ -1,5 +1,5 @@
 /**
- * LUM-788 — the per-task hunt read-out, shared by the CLI (`lumo pr scan
+ * LUM-788 — the per-task hunt read-out, shared by the CLI (`lumo pr show
  * --full`) and the lum739 analysis script. One implementation: the CLI is a
  * separate package that cannot import `lib/` or `scripts/`, and a second copy
  * of this printer is exactly how the audit lost four fields to "computed,
@@ -45,6 +45,10 @@ export interface ShellDetailTask {
     tool?: string
     text?: string
     inputTokens?: number
+    /** LUM-1224 — the part of `inputTokens` read from the prompt cache. */
+    cacheReadTokens?: number
+    /** LUM-1224 — the part of `inputTokens` written to the prompt cache. */
+    cacheWriteTokens?: number
     outputTokens?: number
     reasoningTokens?: number
     finishReason?: string
@@ -81,15 +85,46 @@ function oneLine(text: string, max: number): string {
 }
 
 /**
+ * LUM-1224 — one task's prompt-cache totals over its trace steps:
+ * `    cache: read N / write M of X input`. Null when no step carries either
+ * counter (a row from before they existed, or a provider that reports
+ * none), so such a task prints exactly as before. A reported zero still
+ * prints: "under the cache minimum" and "not measured" must not read alike.
+ */
+function traceCacheLine(
+  trace: NonNullable<ShellDetailTask['trace']>
+): string | null {
+  let seen = false
+  let read = 0
+  let write = 0
+  let input = 0
+  for (const st of trace) {
+    input += st.inputTokens ?? 0
+    if (typeof st.cacheReadTokens === 'number') {
+      seen = true
+      read += st.cacheReadTokens
+    }
+    if (typeof st.cacheWriteTokens === 'number') {
+      seen = true
+      write += st.cacheWriteTokens
+    }
+  }
+  return seen
+    ? `    cache: read ${read} / write ${write} of ${input} input`
+    : null
+}
+
+/**
  * The per-task listing for EVERY task handed in, idle ones included — the
- * `lumo pr scan --full` shape. A task that never asked the shell for anything
+ * `lumo pr show --full` shape. A task that never asked the shell for anything
  * still has a stop line, a model and the sites it was briefed on, and "this
  * task ran two steps and submitted nothing" is a fact the reader came for.
  *
  * Lines per task: a header (`t1 done · <model> · 3 sites · 2 cmds (gate
  * refused …)`), one line per command (`✗` = the gate refused it, with its
- * reason), one line per trace step, then the stop arithmetic and the
- * wrap-up outcome — each only when the row carries it.
+ * reason), one line per trace step, the task's prompt-cache totals
+ * (LUM-1224), then the stop arithmetic and the wrap-up outcome — each only
+ * when the row carries it.
  */
 export function formatHuntTaskDetail(
   tasks: ShellDetailTask[],
@@ -123,6 +158,8 @@ export function formatHuntTaskDetail(
         `    #${st.i ?? '?'} tool=${st.tool ?? '(none)'} in=${st.inputTokens ?? '?'} out=${st.outputTokens ?? '?'}${st.reasoningTokens ? ` reasoning=${st.reasoningTokens}` : ''}${st.elidedChars ? ` elided=${st.elidedChars}` : ''}${st.finishReason ? ` finish=${st.finishReason}` : ''}${st.text ? ` "${oneLine(st.text, 160)}"` : ''}`
       )
     }
+    const cache = traceCacheLine(t.trace ?? [])
+    if (cache) out.push(cache)
     if (t.stop) {
       const s = t.stop
       out.push(

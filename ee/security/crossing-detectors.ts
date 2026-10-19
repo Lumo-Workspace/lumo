@@ -8,8 +8,8 @@
  *     on the built-in credential stores (LUM-963), and the LUM-466 LLM
  *     confirmation of action-category candidates that matched only as prose;
  *   - `policyRuleDetector`: the project's compiled rules (LUM-590) —
- *     PROJECT_RULE_VIOLATION from action predicates (cmd-substr / push-target,
- *     LUM-751 / LUM-772) and SENSITIVE_PATH_READ from the project's read globs.
+ *     PROJECT_RULE_VIOLATION from action predicates (cmd-substr / push-target
+ *     / path-delete, LUM-751 / LUM-772 / LUM-1236) and SENSITIVE_PATH_READ from the project's read globs.
  *
  * The code moved here verbatim from `lib/services/boundary-detector.service.ts`;
  * the core keeps the pipeline (reading the event, evasion pass, clipping,
@@ -46,6 +46,16 @@ import {
 } from '@/ee/security/boundary-crossing/sensitive-read'
 import { matchActionRule } from '@/ee/security/boundary-crossing/action-rule-match'
 import { matchPushTarget } from '@/ee/security/boundary-crossing/push-target-match'
+import {
+  migrationOpsIn,
+  parseMigrationCommandValue,
+} from '@/ee/security/boundary-crossing/migration-command-match'
+import { isDestructiveDbSegment } from '@/lib/boundary-crossing/destructive-db'
+import {
+  matchPathDelete,
+  parsePathDeleteValue,
+  pathsCoveredByMigrationBuiltin,
+} from '@/lib/boundary-crossing/path-delete'
 // NOTE: the LLM client (`@/lib/llm/action-confirm-client`) is loaded LAZILY
 // inside its cached wrapper — it pulls in the heavy `ai` / `@ai-sdk/gateway`
 // SDK, and a static import would drag that into every module that loads the
@@ -196,6 +206,45 @@ export async function confirmActionCandidates(
 // --- LUM-590: project action-rule predicates ----------------------------------
 
 /**
+ * LUM-1236: a `path-delete` rule mapped to MIGRATION_FILE_DELETED whose paths
+ * all lie under prisma/migrations is judged by the built-in detector alone —
+ * it reads the same deletes (lib/boundary-crossing/path-delete), so one real
+ * deletion is one crossing and one ruling, not two. Pure.
+ */
+export function isCoveredByBuiltinDetector(rule: PolicyRule): boolean {
+  return (
+    rule.mappedCategory === 'MIGRATION_FILE_DELETED' &&
+    rule.predicate?.type === 'path-delete' &&
+    pathsCoveredByMigrationBuiltin(parsePathDeleteValue(rule.predicate.value))
+  )
+}
+
+/**
+ * LUM-1236 follow-up: does this `migration-command` rule report an operation
+ * of `command` no earlier rule reported? Segments the built-in
+ * DESTRUCTIVE_DB_COMMAND reports are skipped for a rule mapped to it. Records
+ * what it reports in `reported` (`migrate-dev@production` and `migrate-dev`
+ * are the same operation).
+ */
+function newMigrationOps(
+  rule: PolicyRule,
+  value: string,
+  command: string,
+  reported: Set<string>
+): boolean {
+  const ops = migrationOpsIn(
+    parseMigrationCommandValue(value),
+    command,
+    rule.mappedCategory === 'DESTRUCTIVE_DB_COMMAND'
+      ? { skipSegment: isDestructiveDbSegment }
+      : {}
+  ).map(op => op.replace(/@production$/, ''))
+  const fresh = ops.filter(op => !reported.has(op))
+  for (const op of fresh) reported.add(op)
+  return fresh.length > 0
+}
+
+/**
  * Test a set of compiled PolicyRules against a hook event's command and return
  * any crossings (LUM-590). Only deterministic action rules with a cmd-substr /
  * push-target predicate are handled here — path-glob action predicates are
@@ -213,6 +262,12 @@ export function detectProjectActionCrossings(
   const command = event.command
   if (!command) return []
   const out: DetectedCrossing[] = []
+  // LUM-1236 follow-up: migration operations already reported for this
+  // command. A rules file states the migration ban several times (a Dev line,
+  // a Production line, a Forbidden bullet) and the compiler keeps them as
+  // separate rules; one `UPDATE _prisma_migrations` is one crossing — the
+  // first rule (source order) that names the operation reports it.
+  const reportedOps = new Set<string>()
   for (const r of rules) {
     if (r.kind !== 'action' || r.tier !== 'deterministic' || !r.predicate)
       continue
@@ -224,12 +279,22 @@ export function detectProjectActionCrossings(
     // LUM-772: a push prohibition compiles to `push-target` and is judged on
     // the push's OWN destination (a feature push next to `gh pr create --base
     // main` is not a push to main).
+    // LUM-1236: a "never delete files in <path>" rule compiles to
+    // `path-delete` and is judged on the operands of the delete itself.
+    // LUM-1236 follow-up: a migration-command rule skips the segments the
+    // built-in DESTRUCTIVE_DB_COMMAND already reports (`migrate reset`, a
+    // forced `db push`, DROP / TRUNCATE) — one action, one crossing.
+    if (isCoveredByBuiltinDetector(r)) continue
     const hit =
       p.type === 'cmd-substr'
         ? matchActionRule(p.value, command)
         : p.type === 'push-target'
           ? matchPushTarget(p.value, command)
-          : false
+          : p.type === 'path-delete'
+            ? matchPathDelete(p.value, command)
+            : p.type === 'migration-command'
+              ? newMigrationOps(r, p.value, command, reportedOps)
+              : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',

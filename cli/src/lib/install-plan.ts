@@ -9,6 +9,7 @@ import {
   isLumoHookCommand,
   LUMO_HOOK_EVENTS,
   mergeLumoHooks,
+  RETIRED_LUMO_HOOK_EVENTS,
   type MergeStats,
 } from './hooks-template'
 import { isLumoSkillSource } from './install-locations'
@@ -119,7 +120,7 @@ export interface HooksMergePlan {
   existing: unknown
   merged: ReturnType<typeof mergeLumoHooks>['merged']
   stats: MergeStats
-  /** Whether merging writes the file (missing, or a Lumo entry added/updated). */
+  /** Whether merging writes the file (missing, or a Lumo entry added/updated/removed). */
   writes: boolean
 }
 
@@ -151,7 +152,10 @@ export function planHooksMerge(
     agentToken,
     events
   )
-  const changed = stats.addedEvents.length + stats.updatedEvents.length
+  const changed =
+    stats.addedEvents.length +
+    stats.updatedEvents.length +
+    stats.removedEvents.length
   return {
     exists,
     raw,
@@ -177,7 +181,7 @@ export type GitHookInstallPlan =
     }
 
 /**
- * What `lumo init --project` does to the repo's prepare-commit-msg: create
+ * What `lumo init --scope project` does to the repo's prepare-commit-msg: create
  * it, append the Lumo block to a foreign hook, replace a stale block, or
  * nothing. A configured `core.hooksPath` is never written.
  */
@@ -216,7 +220,10 @@ export function projectClaudeSettingsTarget(
   }
   const hooks = (parsed as { hooks?: unknown } | null)?.hooks
   if (!hooks || typeof hooks !== 'object') return null
-  for (const [event, slug] of LUMO_HOOK_EVENTS) {
+  for (const [event, slug] of [
+    ...LUMO_HOOK_EVENTS,
+    ...RETIRED_LUMO_HOOK_EVENTS,
+  ]) {
     const groups = (hooks as Record<string, unknown>)[event]
     if (!Array.isArray(groups)) continue
     for (const g of groups) {

@@ -120,26 +120,6 @@
         ]
       }
     ],
-    "WorktreeCreate": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook worktree-create --agent claude-code"
-          }
-        ]
-      }
-    ],
-    "WorktreeRemove": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook worktree-remove --agent claude-code"
-          }
-        ]
-      }
-    ],
     "FileChanged": [
       {
         "hooks": [

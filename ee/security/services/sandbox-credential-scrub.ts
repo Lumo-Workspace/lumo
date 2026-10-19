@@ -3,8 +3,8 @@
  * cloned with is not readable from inside it, before anything that reads the
  * checkout runs there. The hunt ran this from day one; the managed scan did
  * not, and its scanners read repository-controlled config (`.gitleaks.toml`,
- * `osv-scanner.toml`, `trivy.yaml` → repository Rego) — the CodeRabbit 2025
- * class. Both now call `scrubSandboxCredentials` right after the clone.
+ * `osv-scanner.toml`, `trivy.yaml` → repository Rego) — the 2025
+ * scanner-config credential-leak class. Both now call `scrubSandboxCredentials` right after the clone.
  *
  * Every setup command here is a fixed argv, never `sh -c`: nothing
  * model- or repository-supplied reaches them.

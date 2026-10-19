@@ -73,20 +73,27 @@ describe('computeMoveOrder', () => {
 // Milestone names are NOT unique within a project (only slug is). A name that
 // matches >1 milestone must error instead of silently picking the first.
 const DUP: MilestoneRef[] = [
-  { id: 'm-a', name: 'Beta', sortOrder: 0 },
-  { id: 'm-b', name: 'Beta', sortOrder: 1 },
-  { id: 'm-c', name: 'Gamma', sortOrder: 2 },
+  { id: 'm-a', name: 'Beta', sortOrder: 0, slug: 'beta' },
+  { id: 'm-b', name: 'Beta', sortOrder: 1, slug: 'beta-2' },
+  { id: 'm-c', name: 'Gamma', sortOrder: 2, slug: 'gamma' },
 ]
 
 describe('resolveOrderedIds — ambiguous name', () => {
-  it('errors when a name matches >1 milestone, listing candidate ids', () => {
+  it('errors when a name matches >1 milestone, listing candidates by slug (LUM-1230)', () => {
     const r = resolveOrderedIds(['Beta', 'Beta', 'Gamma'], DUP)
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.error).toMatch(/ambiguous/i)
-      expect(r.error).toContain('m-a')
-      expect(r.error).toContain('m-b')
+      expect(r.error).toContain('beta ("Beta")')
+      expect(r.error).toContain('beta-2 ("Beta")')
+      expect(r.error).not.toContain('m-a')
     }
+  })
+
+  it('LUM-1230: resolves the duplicate-named milestones by slug', () => {
+    // The exact slug wins over the (duplicated) name; `Beta` stays a name.
+    const r = resolveOrderedIds(['beta-2', 'beta', 'gamma'], DUP)
+    expect(r).toEqual({ ok: true, orderedIds: ['m-b', 'm-a', 'm-c'] })
   })
 
   it('still resolves an ambiguously-named milestone when referenced by id', () => {

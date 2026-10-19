@@ -46,6 +46,7 @@ const ALL_OFF = {
   securityScanEnabled: false,
   securityAiReviewEnabled: false,
   securityHuntEnabled: false,
+  securityRewardHackEnabled: false,
 }
 
 beforeEach(() => {
@@ -58,12 +59,18 @@ beforeEach(() => {
 })
 
 describe('switchesForUpdate', () => {
-  it('expands { all } to all three switches', () => {
+  it('expands { all } to every layer switch', () => {
     expect(switchesForUpdate({ all: false })).toEqual(ALL_OFF)
     expect(switchesForUpdate({ all: true })).toEqual({
       securityScanEnabled: true,
       securityAiReviewEnabled: true,
       securityHuntEnabled: true,
+      securityRewardHackEnabled: true,
+    })
+  })
+  it('LUM-1234 passes the reward-hack switch through, alone', () => {
+    expect(switchesForUpdate({ securityRewardHackEnabled: false })).toEqual({
+      securityRewardHackEnabled: false,
     })
   })
   it('passes single switches through', () => {
@@ -165,6 +172,42 @@ describe('LUM-1130 request-changes workflow setting', () => {
       (await securityScanSettingsService.get(CALLER)).switches
         .securityRequestChangesEnabled
     ).toBe(true)
+  })
+})
+
+describe('LUM-1142 author approval setting', () => {
+  it('passes the switch through and `all` never touches it', () => {
+    expect(
+      switchesForUpdate({ securityAllowAuthorApproval: false })
+    ).toMatchObject({ securityAllowAuthorApproval: false })
+    expect(switchesForUpdate({ all: false })).not.toHaveProperty(
+      'securityAllowAuthorApproval'
+    )
+  })
+  it('reads ON by default and as stored', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityAllowAuthorApproval
+    ).toBe(true)
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue({
+      ...ALL_OFF,
+      securityAllowAuthorApproval: false,
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).switches
+        .securityAllowAuthorApproval
+    ).toBe(false)
+  })
+  it('a MEMBER cannot change it (403, nothing written)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityAllowAuthorApproval: false,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
   })
 })
 

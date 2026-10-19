@@ -5,7 +5,10 @@ import { taskRepository, viewRepository } from '@/lib/repositories'
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { liftTaskTags } from '@/lib/api/task-shape'
 import { zodError } from '@/lib/api/helpers'
-import { taskQueryService } from '@/lib/services/task-query.service'
+import {
+  taskListFilters,
+  taskQueryService,
+} from '@/lib/services/task-query.service'
 import { myTaskFiltersSchema } from '@/lib/validation/schemas'
 import { readPageParams } from '@/lib/validation/pagination'
 
@@ -26,6 +29,11 @@ import { readPageParams } from '@/lib/validation/pagination'
  *   statuses (comma-separated), milestoneIds (comma-separated),
  *   projectName (exact, case-insensitive)
  *   → adds `total` (whole filtered set) and `nextCursor` (null on the last page).
+ * LUM-1233 (the old `task search` filters, all optional and ANDed):
+ *   assignee=any (every assignee) | assigneeActorIds + unassigned=1 (ORed),
+ *   priorities, tagIds, projectIds (comma-separated), q + match=exact|fuzzy,
+ *   dueAfter / dueBefore (instants) → also adds `truncated` (a fuzzy `q` hit
+ *   the ranking cap, so `total` is a floor).
  */
 function parseList(
   searchParams: URLSearchParams,
@@ -48,36 +56,66 @@ export async function GET(req: Request) {
     if (!paging.ok) return zodError(paging)
 
     const actorId = await getHumanActorId(identity.memberId)
-    if (!actorId) {
-      return NextResponse.json({
-        tasks: [],
-        myTasksViewId: null,
-        ...(paging.page ? { total: 0, nextCursor: null } : {}),
-      })
-    }
-    // LUM-646: `lumo next --claimable` asks for the extra F2 budget signal so
+    // LUM-646: `lumo status --next --claimable` asks for the extra F2 budget signal so
     // the autonomy gate can drop over-budget tasks. Only computed on request —
-    // the default `lumo next` payload stays lean.
+    // the default `lumo status --next` payload stays lean.
     const wantBudget = searchParams.get('claimable') === '1'
 
     let tasks: Awaited<ReturnType<typeof taskRepository.findAssignedTasks>>
-    let pageInfo: { total: number; nextCursor: string | null } | null = null
+    let pageInfo: {
+      total: number
+      nextCursor: string | null
+      truncated: boolean
+    } | null = null
     if (paging.page) {
       const filters = myTaskFiltersSchema.safeParse({
         statuses: parseList(searchParams, 'statuses'),
         milestoneIds: parseList(searchParams, 'milestoneIds'),
         projectName: searchParams.get('projectName') ?? undefined,
+        projectIds: parseList(searchParams, 'projectIds'),
+        priorities: parseList(searchParams, 'priorities'),
+        assigneeActorIds: parseList(searchParams, 'assigneeActorIds'),
+        unassigned: searchParams.get('unassigned') === '1' ? true : undefined,
+        assignee: searchParams.get('assignee') ?? undefined,
+        tagIds: parseList(searchParams, 'tagIds'),
+        q: searchParams.get('q') ?? undefined,
+        match: searchParams.get('match') ?? undefined,
+        dueAfter: searchParams.get('dueAfter') ?? undefined,
+        dueBefore: searchParams.get('dueBefore') ?? undefined,
       })
       if (!filters.success) return zodError(filters)
-      const result = await taskQueryService.findAssignedPage(
+      const { match, ...rest } = filters.data
+      const query = {
+        ...rest,
+        ...(match === 'fuzzy' ? { fuzzy: true } : {}),
+        ...(sprintIds ? { sprintIds } : {}),
+      }
+      // "My tasks" for a member with no actor: nothing to list (as before).
+      if (!actorId && !taskListFilters(null, query)) {
+        return NextResponse.json({
+          tasks: [],
+          myTasksViewId: null,
+          total: 0,
+          nextCursor: null,
+          truncated: false,
+        })
+      }
+      const result = await taskQueryService.findTaskListPage(
         identity.workspaceId,
         actorId,
-        { ...filters.data, ...(sprintIds ? { sprintIds } : {}) },
+        query,
         paging.page
       )
       tasks = result.tasks
-      pageInfo = { total: result.total, nextCursor: result.nextCursor }
+      pageInfo = {
+        total: result.total,
+        nextCursor: result.nextCursor,
+        truncated: result.truncated,
+      }
     } else {
+      if (!actorId) {
+        return NextResponse.json({ tasks: [], myTasksViewId: null })
+      }
       tasks = await taskRepository.findAssignedTasks(
         actorId,
         sprintIds ? { sprintIds } : {}
@@ -94,7 +132,7 @@ export async function GET(req: Request) {
     const taskOrders = await viewRepository.findTaskOrders(myView.id)
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
-    // LUM-645: per-task dependency-topology counts for `lumo next` ranking.
+    // LUM-645: per-task dependency-topology counts for `lumo status --next` ranking.
     // blockedByOpenCount — confirmed BLOCKS edges whose blocker is unfinished;
     // unblocksOpenCount — open tasks this one directly releases when done.
     const depEdges =

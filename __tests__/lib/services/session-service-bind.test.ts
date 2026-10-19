@@ -149,7 +149,7 @@ describe('sessionService.bindSessionToTask', () => {
 
     expect(
       taskDependencyService.buildBlockerWarningSectionForTask
-    ).toHaveBeenCalledWith('task_1', 'LUM-42')
+    ).toHaveBeenCalledWith('task_1', 'LUM-42', undefined)
     if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.blockerWarningSection).toBe(
       '## ⚠ Dependency alerts\n- This task is blocked by LUM-7'

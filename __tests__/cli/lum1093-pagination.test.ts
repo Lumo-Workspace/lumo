@@ -26,8 +26,8 @@ import {
   buildTaskListPath,
   pageFromResponse,
   taskList,
+  taskListCommand,
 } from '@/cli/src/commands/task-list'
-import { searchCommand, taskSearch } from '@/cli/src/commands/task-search'
 import { milestoneList } from '@/cli/src/commands/milestone-list'
 import { docList, formatDocListRowsAsTree } from '@/cli/src/commands/doc-list'
 import {
@@ -43,7 +43,7 @@ import { formatProjectList } from '@/cli/src/commands/project-list'
 import { formatShareListRows } from '@/cli/src/commands/doc-share-list'
 
 const FOOTER = /^Showing (\d+)-(\d+) of (\d+)\.$/m
-const NEXT = /^Hint: next page with `(lumo [^`]*--cursor (\d+))`$/m
+const NEXT = /^Next page: (lumo .*--cursor (\d+))$/m
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -96,10 +96,7 @@ describe('paginate + pageFooter', () => {
     expect(p.nextCursor).toBe('50')
     expect(
       pageFooter({ ...p, shown: p.items.length }, 'lumo task list')
-    ).toEqual([
-      'Showing 1-50 of 120.',
-      'Hint: next page with `lumo task list --cursor 50`',
-    ])
+    ).toEqual(['Showing 1-50 of 120.', 'Next page: lumo task list --cursor 50'])
   })
 
   it('last page: range only, no next-page command', () => {
@@ -115,7 +112,7 @@ describe('paginate + pageFooter', () => {
 describe('buildCommand', () => {
   it('drops empty flags, repeats arrays and shell-quotes values', () => {
     expect(
-      buildCommand('task search', [
+      buildCommand('task list', [
         ['--status', ['todo', 'done']],
         ['--project', 'My Proj'],
         ['--exact', true],
@@ -123,7 +120,7 @@ describe('buildCommand', () => {
         ['--all', false],
       ])
     ).toBe(
-      "lumo task search --status todo --status done --project 'My Proj' --exact"
+      "lumo task list --status todo --status done --project 'My Proj' --exact"
     )
   })
 
@@ -176,7 +173,7 @@ describe('task list paging', () => {
   it('sends filters + page server-side', () => {
     const u = new URL(
       `http://x${buildTaskListPath(
-        { status: 'TODO', project: 'lumo', milestoneId: 'm1' },
+        { statuses: ['TODO'], project: 'lumo', milestoneId: 'm1' },
         { limit: 50, offset: 50 }
       )}`
     )
@@ -243,7 +240,7 @@ describe('task list paging', () => {
     }))
     const page = pageFromResponse(
       { tasks },
-      { status: 'TODO', project: 'lumo' },
+      { statuses: ['TODO'], project: 'lumo' },
       { limit: 20, offset: 0 }
     )
     expect(page.total).toBe(35)
@@ -252,7 +249,7 @@ describe('task list paging', () => {
   })
 })
 
-describe('task search paging', () => {
+describe('task list --assignee any --search paging (was task search)', () => {
   let out: string
   let fetchMock: jest.Mock
   beforeEach(() => {
@@ -267,7 +264,7 @@ describe('task search paging', () => {
       if (u.pathname === '/api/workspaces/members') {
         return json({ members: [], agentActors: [] })
       }
-      if (u.pathname === '/api/tasks/workspace') {
+      if (u.pathname === '/api/tasks/me') {
         const limit = Number(u.searchParams.get('limit'))
         const offset = Number(u.searchParams.get('cursor') ?? 0)
         const total = 75
@@ -285,6 +282,7 @@ describe('task search paging', () => {
           })),
           total,
           nextCursor: offset + n < total ? String(offset + n) : null,
+          truncated: false,
         })
       }
       throw new Error(`unexpected ${u}`)
@@ -294,31 +292,35 @@ describe('task search paging', () => {
   afterEach(() => jest.restoreAllMocks())
 
   it('pages server-side and prints the next-page command with the query', async () => {
-    await taskSearch('oauth bug', { status: ['todo'] })
+    await taskList({
+      assignee: ['any'],
+      search: 'oauth bug',
+      status: ['todo'],
+    })
     const call = fetchMock.mock.calls
       .map(c => new URL(String(c[0])))
-      .find(u => u.pathname === '/api/tasks/workspace')!
+      .find(u => u.pathname === '/api/tasks/me')!
     expect(call.searchParams.get('limit')).toBe('50')
     expect(call.searchParams.get('cursor')).toBeNull()
     expect(FOOTER.exec(out)!.slice(1)).toEqual(['1', '50', '75'])
     expect(NEXT.exec(out)![1]).toBe(
-      "lumo task search 'oauth bug' --status todo --cursor 50"
+      "lumo task list --assignee any --search 'oauth bug' --status todo --cursor 50"
     )
     expect(out).not.toMatch(/result capped/)
   })
 
   it('--cursor fetches the next page; last page has no next command', async () => {
-    await taskSearch(undefined, { cursor: '50' })
+    await taskList({ assignee: ['any'], cursor: '50' })
     const call = fetchMock.mock.calls
       .map(c => new URL(String(c[0])))
-      .find(u => u.pathname === '/api/tasks/workspace')!
+      .find(u => u.pathname === '/api/tasks/me')!
     expect(call.searchParams.get('cursor')).toBe('50')
     expect(FOOTER.exec(out)!.slice(1)).toEqual(['51', '75', '75'])
     expect(out).not.toMatch(NEXT)
   })
 
   it('--json adds total and nextCursor (truncated kept)', async () => {
-    await taskSearch(undefined, { json: true, limit: '5' })
+    await taskList({ assignee: ['any'], json: true, limit: '5' })
     const body = JSON.parse(out)
     expect(body).toMatchObject({ total: 75, nextCursor: '5', truncated: false })
     expect(body.tasks).toHaveLength(5)
@@ -346,11 +348,11 @@ describe('task search paging', () => {
         truncated: true,
       })
     }) as unknown as typeof fetch
-    await taskSearch('serch', {})
+    await taskList({ assignee: ['any'], search: 'serch' })
     expect(FOOTER.exec(out)!.slice(1)).toEqual(['1', '50', '500'])
     expect(out).toContain('(result capped at 500 — narrow the filters)')
     out = ''
-    await taskSearch('serch', { json: true })
+    await taskList({ assignee: ['any'], search: 'serch', json: true })
     expect(JSON.parse(out)).toMatchObject({
       truncated: true,
       total: 500,
@@ -358,17 +360,18 @@ describe('task search paging', () => {
     })
   })
 
-  it('searchCommand keeps every filter', () => {
+  it('taskListCommand keeps every filter', () => {
     expect(
-      searchCommand(undefined, {
+      taskListCommand({
         assignee: ['me'],
+        search: 'oauth',
         tag: ['bug'],
         project: 'lumo',
         limit: '20',
         exact: true,
       })
     ).toBe(
-      'lumo task search --assignee me --tag bug --project lumo --limit 20 --exact'
+      'lumo task list --assignee me --search oauth --tag bug --project lumo --limit 20 --exact'
     )
   })
 })
@@ -462,7 +465,7 @@ describe('milestone list / doc list paging (client-side)', () => {
   })
 })
 
-describe('task comments list paging', () => {
+describe('task show --comments paging', () => {
   const threads: CommentNode[] = Array.from({ length: 55 }, (_, i) => ({
     id: `c${String(i).padStart(8, '0')}`,
     authorActorId: 'a',
@@ -480,7 +483,7 @@ describe('task comments list paging', () => {
     expect(out).not.toContain('comment 51')
     expect(FOOTER.exec(out)!.slice(1)).toEqual(['1', '50', '55'])
     expect(NEXT.exec(out)![1]).toBe(
-      'lumo task comments list LUM-1 --full --cursor 50'
+      'lumo task show LUM-1 --comments --full --cursor 50'
     )
     expect(out.lastIndexOf('</untrusted-linked-context>')).toBeLessThan(
       out.indexOf('Showing')
@@ -508,16 +511,12 @@ describe('task history paging (newest page first)', () => {
     expect(p1.items[0]!.id).toBe('a70')
     expect(p1.items[49]!.id).toBe('a119')
     expect(p1.nextCursor).toBe('50')
-    expect(
-      pageFooter(
-        { ...p1, shown: 50 },
-        'lumo task history LUM-1',
-        'earlier entries'
-      )
-    ).toEqual([
-      'Showing 71-120 of 120.',
-      'Hint: earlier entries with `lumo task history LUM-1 --cursor 50`',
-    ])
+    expect(pageFooter({ ...p1, shown: 50 }, 'lumo task history LUM-1')).toEqual(
+      [
+        'Showing 71-120 of 120.',
+        'Next page: lumo task history LUM-1 --cursor 50',
+      ]
+    )
     const p3 = historyPage(all, { limit: 50, offset: 100 })
     expect(p3.items.map(a => a.id)).toEqual(
       Array.from({ length: 20 }, (_, i) => `a${i}`)
@@ -533,7 +532,7 @@ describe('project list / doc share-list use the shared table (LUM-1089)', () => 
       { id: 'p2', name: 'idea', isIdea: true },
     ]
     expect(formatProjectList(projects, { tty: false, color: false })).toBe(
-      'my-project  My Project'
+      'my-project\tMy Project'
     )
     const tty = formatProjectList(projects, {
       tty: true,
@@ -550,8 +549,8 @@ describe('project list / doc share-list use the shared table (LUM-1089)', () => 
       { displayName: 'Bob Wong', role: 'VIEWER' },
     ]
     expect(formatShareListRows(rows, { tty: false, color: false })).toEqual([
-      'Alice     EDITOR',
-      'Bob Wong  VIEWER',
+      'Alice\tEDITOR',
+      'Bob Wong\tVIEWER',
     ])
     expect(
       formatShareListRows(rows, { tty: true, color: false, width: 80 })[0]

@@ -95,7 +95,7 @@ function env(bundledBody = 'v2 body', cliVersion = '2.0.0') {
 }
 
 describe('commander registration', () => {
-  it('registers init and a hidden setup alias that share options and action', () => {
+  it('registers init with --scope; the setup alias is gone (LUM-1233 3g)', () => {
     const prev = process.env.LUMO_CLI_INTROSPECT
     process.env.LUMO_CLI_INTROSPECT = '1'
 
@@ -113,19 +113,11 @@ describe('commander registration', () => {
     const initCmd = program.commands.find(c => c.name() === 'init')
     const setupCmd = program.commands.find(c => c.name() === 'setup')
     expect(initCmd?._hidden).toBeFalsy()
-    expect(setupCmd?._hidden).toBe(true)
+    expect(setupCmd).toBeUndefined()
     const flags = (c?: { options: Array<{ long?: string }> }) =>
       c?.options.map(o => o.long).sort()
-    expect(flags(initCmd)).toEqual(flags(setupCmd))
     expect(flags(initCmd)).toEqual(
-      [
-        '--agent',
-        '--dry-run',
-        '--force',
-        '--project',
-        '--upgrade',
-        '--user',
-      ].sort()
+      ['--agent', '--dry-run', '--force', '--scope', '--upgrade'].sort()
     )
     // LUM-1118: --upgrade survives only as a hidden flag printing the removal.
     expect(initCmd?.options.find(o => o.long === '--upgrade')?.hidden).toBe(
@@ -137,7 +129,7 @@ describe('commander registration', () => {
 describe('init (fresh project install)', () => {
   it('writes marker and registry records for skill, settings and git hook', async () => {
     const e = env()
-    expect(await init({ project: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project' }, e.deps)).toBe(0)
     const skillDir = join(e.project, '.claude', 'skills', 'lumo')
     const marker = readMarker(skillDir)
     expect(marker).toMatchObject({
@@ -172,7 +164,7 @@ describe('init (fresh project install)', () => {
     execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
       cwd: e.project,
     })
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     expect(readFileSync(join(skillDir, 'SKILL.md'), 'utf8')).toBe('v2 body')
     expect(stdout).toContain('git diff')
   })
@@ -237,7 +229,7 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
     writeSkill(userSkill, 'v1 body') // legacy: no marker
     ;(skillVersionHashes as Record<string, string>)[hashSkillDir(userSkill)] =
       '1.0.0'
-    expect(await init({ user: true, agent: 'claude-code' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user', agent: 'claude-code' }, e.deps)).toBe(0)
     expect(readFileSync(join(userSkill, 'SKILL.md'), 'utf8')).toBe('v2 body')
     expect(readMarker(userSkill)?.version).toBe('2.0.0')
     expect(readRegistry().installs).toContainEqual(
@@ -255,7 +247,7 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
     writeSkill(userSkill, 'v1 body')
     ;(skillVersionHashes as Record<string, string>)[hashSkillDir(userSkill)] =
       '1.0.0'
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     expect(readMarker(userSkill)?.version).toBe('1.0.0')
     expect(readRegistry().installs).toContainEqual(
       expect.objectContaining({ kind: 'skill', agent: 'codex' })
@@ -266,7 +258,7 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
     const e = env()
     const skill = join(e.home, '.claude', 'skills', 'lumo')
     writeSkill(skill, 'hand edited')
-    await init({ user: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'user', agent: 'claude-code' }, e.deps)
     expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe('hand edited')
     expect(existsSync(join(skill, '.lumo-install.json'))).toBe(false)
     expect(readRegistry().installs.some(r => r.kind === 'skill')).toBe(false)
@@ -286,23 +278,23 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
         installedAt: 'x',
       })
     )
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe('newer body')
     expect(stdout).toContain('run lumo update')
   })
 
   it('re-merges hooks into a project settings.json that lost them', async () => {
     const e = env()
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     const settings = join(e.project, '.claude', 'settings.json')
     writeFileSync(settings, '{}\n')
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     expect(readFileSync(settings, 'utf8')).toContain('hooks')
   })
 
   it('brings a behind project install (skill, Claude hooks, Codex hooks + rule) to the current CLI', async () => {
     const e = env('v1 body', '1.0.0')
-    expect(await init({ project: true }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project' }, e.deps)).toBe(0)
     writeFileSync(join(e.bundled, 'SKILL.md'), 'v2 body')
     const settings = join(e.project, '.claude', 'settings.json')
     const s = JSON.parse(readFileSync(settings, 'utf8'))
@@ -317,7 +309,7 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
 
     stdout = ''
     expect(
-      await init({ project: true }, { ...e.deps, cliVersion: '2.0.0' })
+      await init({ scope: 'project' }, { ...e.deps, cliVersion: '2.0.0' })
     ).toBe(0)
     for (const dir of ['.claude', '.agents']) {
       const skill = join(e.project, dir, 'skills', 'lumo')
@@ -352,7 +344,7 @@ describe('fix round 1', () => {
     const e = env()
     ;(readCliVersion as jest.Mock).mockReturnValueOnce(null)
     const { cliVersion: _omit, ...deps } = e.deps
-    expect(await init({ project: true }, deps)).toBe(1)
+    expect(await init({ scope: 'project' }, deps)).toBe(1)
     expect(readRegistry().installs).toEqual([])
   })
 
@@ -366,14 +358,14 @@ describe('fix round 1', () => {
     execFileSync('git', ['commit', '-q', '--no-gpg-sign', '-m', 'x'], {
       cwd: e.project,
     })
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(readMarker(skill)?.version).toBe('1.0.0')
     expect(stdout).toContain('git diff')
   })
 
   it('notes git diff only when re-merging actually changes a tracked settings.json', async () => {
     const e = env()
-    await init({ project: true }, e.deps)
+    await init({ scope: 'project' }, e.deps)
     const file = join(e.project, '.claude', 'settings.json')
     const json = JSON.parse(readFileSync(file, 'utf8'))
     delete json.hooks[Object.keys(json.hooks)[0]!]
@@ -383,16 +375,16 @@ describe('fix round 1', () => {
       cwd: e.project,
     })
     stdout = ''
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(stdout).toContain('settings.json is tracked by git')
     // second run changes nothing -> no note
     stdout = ''
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(stdout).not.toContain('settings.json is tracked by git')
   })
 })
 
-describe('re-running init --project and the git hook', () => {
+describe('re-running init --scope project and the git hook', () => {
   const STALE =
     '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
 
@@ -401,7 +393,9 @@ describe('re-running init --project and the git hook', () => {
     const hook = join(e.project, '.git', 'hooks', 'prepare-commit-msg')
     mkdirSync(join(hook, '..'), { recursive: true })
     writeFileSync(hook, `${STALE}echo mine\n`)
-    expect(await init({ project: true, agent: 'claude-code' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', agent: 'claude-code' }, e.deps)).toBe(
+      0
+    )
     const text = readFileSync(hook, 'utf8')
     expect(text).toContain(HOOK_SCRIPT_BLOCK)
     expect(text).not.toContain('\nold\n')
@@ -414,7 +408,7 @@ describe('re-running init --project and the git hook', () => {
     mkdirSync(join(hook, '..'), { recursive: true })
     writeFileSync(hook, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
     const before = readFileSync(hook, 'utf8')
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(readFileSync(hook, 'utf8')).toBe(before)
   })
 
@@ -426,7 +420,7 @@ describe('re-running init --project and the git hook', () => {
     const hook = join(e.project, '.husky', 'prepare-commit-msg')
     mkdirSync(join(hook, '..'), { recursive: true })
     writeFileSync(hook, STALE)
-    await init({ project: true, agent: 'claude-code' }, e.deps)
+    await init({ scope: 'project', agent: 'claude-code' }, e.deps)
     expect(readFileSync(hook, 'utf8')).toBe(STALE)
   })
 
@@ -446,7 +440,10 @@ describe('re-running init --project and the git hook', () => {
   it('prints one auto-update line telling how to turn it off', async () => {
     await withAutoUpdateOn(async () => {
       const e = env()
-      await init({ project: true }, { ...e.deps, isGlobalInstall: () => true })
+      await init(
+        { scope: 'project' },
+        { ...e.deps, isGlobalInstall: () => true }
+      )
       const lines = stdout.split('\n').filter(l => l.includes('Auto-update'))
       expect(lines).toHaveLength(1)
       expect(lines[0]).toContain('on')
@@ -457,7 +454,10 @@ describe('re-running init --project and the git hook', () => {
   it('says auto-update is skipped for a non-global install (npm link / npx)', async () => {
     await withAutoUpdateOn(async () => {
       const e = env()
-      await init({ project: true }, { ...e.deps, isGlobalInstall: () => false })
+      await init(
+        { scope: 'project' },
+        { ...e.deps, isGlobalInstall: () => false }
+      )
       const lines = stdout.split('\n').filter(l => l.includes('Auto-update'))
       expect(lines).toEqual([
         'Auto-update: on, but skipped for this install (not a global npm install — e.g. npm link or npx); update it yourself',
@@ -471,7 +471,7 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
 
   it('init --agent codex --project writes .codex/hooks.json and records it as codex-hooks', async () => {
     const e = env()
-    expect(await init({ project: true, agent: 'codex' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'project', agent: 'codex' }, e.deps)).toBe(0)
     const file = codexFile(e.project)
     const parsed = JSON.parse(readFileSync(file, 'utf8'))
     expect(Object.keys(parsed.hooks).sort()).toEqual(
@@ -492,22 +492,22 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
 
   it('re-running init --agent codex leaves the hooks file byte-identical', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     const file = codexFile(e.home)
     // Formatting a user tool might apply: a rewrite would normalize it.
     const custom = JSON.stringify(JSON.parse(readFileSync(file, 'utf8')))
     writeFileSync(file, custom)
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     expect(readFileSync(file, 'utf8')).toBe(custom)
   })
 
   it('re-running init leaves a complete Codex hooks file alone (no re-trust)', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     const file = codexFile(e.home)
     const before = readFileSync(file, 'utf8')
     stdout = ''
-    expect(await init({ user: true, agent: 'codex' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user', agent: 'codex' }, e.deps)).toBe(0)
     expect(readFileSync(file, 'utf8')).toBe(before)
     expect(stdout).toContain(`hooks already wired in (agent=codex): ${file}`)
     expect(stdout).not.toContain('re-trust')
@@ -515,7 +515,7 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
 
   it('re-running init rewrites Codex hooks only when the Lumo event set differs, then names the events to re-trust', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     const file = codexFile(e.home)
     const parsed = JSON.parse(readFileSync(file, 'utf8'))
     delete parsed.hooks.Interrupt
@@ -523,7 +523,7 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
     parsed.hooks.Stop.push({ hooks: [{ type: 'command', command: 'mine' }] })
     writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
     stdout = ''
-    expect(await init({ user: true, agent: 'codex' }, e.deps)).toBe(0)
+    expect(await init({ scope: 'user', agent: 'codex' }, e.deps)).toBe(0)
     const after = JSON.parse(readFileSync(file, 'utf8'))
     expect(after.hooks.Interrupt[0].hooks[0].command).toBe(
       'lumo hook interrupt --agent codex'
@@ -537,7 +537,7 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
 
   it('a fresh Codex hooks file needs a first trust, not a re-trust', async () => {
     const e = env()
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     expect(stdout).toContain('Codex runs these hooks only after you trust them')
     expect(stdout).not.toContain('Events to trust again')
   })
@@ -552,20 +552,20 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
         hooks: { Stop: [{ hooks: [{ type: 'command', command: 'mine' }] }] },
       })
     )
-    await init({ user: true, agent: 'codex', dryRun: true }, e.deps)
+    await init({ scope: 'user', agent: 'codex', dryRun: true }, e.deps)
     expect(stdout).toContain(
       '⚠ Codex runs these hooks only after you trust them — events:'
     )
     expect(stdout).not.toContain('trust these hooks again')
     stdout = ''
-    await init({ user: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'user', agent: 'codex' }, e.deps)
     expect(stdout).toContain('Codex runs these hooks only after you trust them')
     expect(stdout).not.toContain('Events to trust again')
   })
 
   it('prints the git-diff note when re-running init changes a tracked Codex hooks file', async () => {
     const e = env()
-    await init({ project: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'project', agent: 'codex' }, e.deps)
     const file = codexFile(e.project)
     const json = JSON.parse(readFileSync(file, 'utf8'))
     delete json.hooks[Object.keys(json.hooks)[0]!]
@@ -575,11 +575,11 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
       cwd: e.project,
     })
     stdout = ''
-    await init({ project: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'project', agent: 'codex' }, e.deps)
     expect(stdout).toContain('hooks.json is tracked by git')
     expect(stdout).toContain('re-trust')
     stdout = ''
-    await init({ project: true, agent: 'codex' }, e.deps)
+    await init({ scope: 'project', agent: 'codex' }, e.deps)
     expect(stdout).not.toContain('hooks.json is tracked by git')
   })
 })

@@ -1,10 +1,13 @@
 /**
- * LUM-1131 — a human reply in one of Lumo's finding threads (CodeRabbit
- * "learnings" parity).
+ * LUM-1131 — a human reply in one of Lumo's finding threads
+ * ("learnings").
  *
  *   · Lumo answers a trusted human's reply once, with a short templated
  *     comment — the reply's text never reaches what Lumo posts, except as
- *     the cleaned learning sentence it echoes back.
+ *     the cleaned learning sentence it echoes back. LUM-1154: a reply that
+ *     asks a question (and is not a learning — the gate keeps precedence)
+ *     gets a grounded answer from the chat service instead
+ *     (`pr-chat.service`), when its author has write access.
  *   · A reply that says the finding is intentional / not applicable (the
  *     deterministic gate AND the model agree) closes that thread for this
  *     PR and, for an AI-review finding, stores a learning: a PROJECT
@@ -34,13 +37,10 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memoryManagementService } from '@/lib/services/memory-management.service'
 import { conventionContentSchema } from '@/lib/memory/schemas'
 import {
-  guardInjectedText,
-  guardPromptLineText,
-} from '@/lib/security-scan/inject-guard'
-import {
   prFindingThreadRepository,
   type FindingThreadRow,
 } from '@/ee/security/repositories/pr-finding-thread.repository'
+import { threadFingerprints } from '@/ee/security/security-scan/thread-fingerprints'
 import { prReviewLearningRepository } from '@/ee/security/repositories/pr-review-learning.repository'
 import {
   prSecurityScanRepository,
@@ -56,14 +56,19 @@ import {
 } from '@/ee/security/services/pr-finding-thread.service'
 import {
   buildAckReply,
+  buildClassifierInput,
   buildLearningReply,
   buildScannerReply,
   canTeach,
+  REPLY_NOTE_MARKER,
   decideLearningDetailed,
   normalizePathGlob,
   screenReplyDetailed,
 } from '@/ee/security/security-scan/thread-reply'
 import { classifyWithRetry } from '@/ee/security/security-scan/thread-reply-retry'
+import { wantsThreadAnswer } from '@/ee/security/security-scan/pr-chat'
+import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
+import { answerQuestion } from '@/ee/security/services/pr-chat.service'
 import type { ThreadReplyVerdict } from '@/ee/security/llm/thread-reply-client'
 
 export interface ThreadReplyEvent {
@@ -89,6 +94,7 @@ export type ThreadReplyOutcome =
   | 'ignored_untrusted'
   | 'duplicate'
   | 'acknowledged'
+  | 'answered'
   | 'closed_scanner'
   | 'learning_added'
   | 'closed_no_learning'
@@ -127,15 +133,7 @@ async function askModel(
   try {
     const { classifyThreadReply } =
       await import('@/ee/security/llm/thread-reply-client')
-    const guarded = guardInjectedText(body)
-    const input = {
-      finding: {
-        ruleId: guardPromptLineText(finding.ruleId),
-        title: guardPromptLineText(finding.title),
-        filePath: guardPromptLineText(finding.filePath),
-      },
-      reply: { text: guarded.text, notices: guarded.notices },
-    }
+    const input = buildClassifierInput(finding, body)
     const result = await classifyWithRetry((timeoutMs, attempt) =>
       classifyThreadReply({
         ...input,
@@ -160,15 +158,24 @@ async function askModel(
   }
 }
 
-/** The finding behind the thread on the PR's latest scan, if still there. */
+/**
+ * The finding behind the thread on the PR's latest scan, if still there —
+ * under the thread's own fingerprint or one it was carried to (LUM-1127
+ * follow-up #3), the newest first.
+ */
 async function latestFinding(
   pullRequestId: string,
-  fingerprint: string
+  row: FindingThreadRow
 ): Promise<FindingRow | null> {
   const [scan] = await prSecurityScanRepository.findLatestByPullRequestIds([
     pullRequestId,
   ])
-  return scan?.findings.find(f => f.fingerprint === fingerprint) ?? null
+  if (!scan) return null
+  for (const fp of threadFingerprints(row).reverse()) {
+    const f = scan.findings.find(x => x.fingerprint === fp)
+    if (f) return f
+  }
+  return null
 }
 
 async function blockingFindingId(
@@ -276,7 +283,13 @@ async function projectIdFor(event: ThreadReplyEvent): Promise<string | null> {
   )
 }
 
-/** Store the learning: the memory and its repository scope, in one transaction. */
+/**
+ * Store the learning: the memory and its repository scope, in one
+ * transaction. LUM-1157: every reviewed repository of the workspace gets
+ * learnings — when neither the PR's task nor a project link names a Lumo
+ * project, the memory has no project and is scoped to the workspace and the
+ * repository by its `PrReviewLearning` row alone.
+ */
 async function storeLearning(input: {
   event: ThreadReplyEvent
   row: FindingThreadRow
@@ -284,11 +297,11 @@ async function storeLearning(input: {
   memberId: string | null
   learning: string
   pathGlob: string | null
-}): Promise<'stored' | 'no_project' | 'failed'> {
+}): Promise<{ stored: 'stored' | 'failed'; inProject: boolean }> {
   const { event, row, login, learning, pathGlob } = input
   const replyId = String(event.comment.id)
   const projectId = await projectIdFor(event)
-  if (!projectId) return 'no_project'
+  const inProject = projectId !== null
   const scope = `Lumo AI review of ${event.repo}${pathGlob ? `, files matching ${pathGlob}` : ''} — from @${login}'s reply on ${event.repo}#${event.prNumber} (finding ${row.ruleId})`
   try {
     await memoryManagementService.createReviewLearning(
@@ -320,12 +333,12 @@ async function storeLearning(input: {
         )
       }
     )
-    return 'stored'
+    return { stored: 'stored', inProject }
   } catch (error) {
     logger.warn(
       `[pr-thread-reply] learning not stored pr=${event.pullRequestId}: ${error instanceof Error ? error.message : String(error)}`
     )
-    return 'failed'
+    return { stored: 'failed', inProject }
   }
 }
 
@@ -340,6 +353,53 @@ async function releaseClaim(
     logger.warn(
       `[pr-thread-reply] claim release failed fp=${row.fingerprint}: ${error instanceof Error ? error.message : String(error)}`
     )
+  }
+}
+
+/**
+ * LUM-1154 — answer a question asked in a Lumo finding thread. `null` when
+ * the chat did not take it (no write access, an injection signal, nothing
+ * asked): the caller then posts the usual acknowledgement. Throws when the
+ * answer could not be posted, like the other replies here.
+ */
+async function answerInThread(
+  event: ThreadReplyEvent,
+  gh: GithubCtx,
+  row: FindingThreadRow,
+  login: string
+): Promise<ThreadReplyOutcome | null> {
+  const finding = await latestFinding(event.pullRequestId, row)
+  const blockingId = await blockingFindingId(event.workspaceId, finding)
+  const outcome = await answerQuestion({
+    workspaceId: event.workspaceId,
+    pullRequestId: event.pullRequestId,
+    repo: event.repo,
+    prNumber: event.prNumber,
+    source: 'review',
+    commentId: event.comment.id,
+    login,
+    body: event.comment.body,
+    focus: {
+      path: row.filePath,
+      line: finding?.line ?? null,
+      diffHunk: null,
+    },
+    finding,
+    blockingFindingId: blockingId,
+    marker: REPLY_NOTE_MARKER,
+    post: body => postReply(gh, row, body),
+  })
+  switch (outcome) {
+    case 'empty':
+    case 'ignored_injection':
+    case 'unauthorized':
+      return null
+    case 'duplicate':
+      return 'duplicate'
+    case 'failed':
+      throw new Error('chat answer failed')
+    default:
+      return 'answered'
   }
 }
 
@@ -408,11 +468,17 @@ export async function applyThreadReply(
     const label = screened.label
     if (label !== 'LEARNING') {
       logNoLearning(event, 'gate', label, screened.reason)
+      // LUM-1154: a question gets a grounded answer instead of the template.
+      // The learning gate ran first and keeps its precedence.
+      if (wantsThreadAnswer(comment.body, label, prCommandHandle())) {
+        const answered = await answerInThread(event, gh, row, login)
+        if (answered !== null) return answered
+      }
       await postReply(gh, row, buildAckReply(label, login))
       return 'acknowledged'
     }
 
-    const finding = await latestFinding(event.pullRequestId, row.fingerprint)
+    const finding = await latestFinding(event.pullRequestId, row)
     const blockingId = await blockingFindingId(event.workspaceId, finding)
 
     // Learnings shape the AI review only: a scanner / hunt finding gets the
@@ -438,12 +504,14 @@ export async function applyThreadReply(
     )
     let learning: string | null
     let pathGlob: string | null
-    let stored: 'stored' | 'no_project' | 'failed'
+    let stored: 'stored' | 'failed'
+    let inProject: boolean
     if (prior) {
       const parsed = conventionContentSchema.safeParse(prior.content)
       learning = parsed.success ? parsed.data.rule : null
       pathGlob = prior.pathGlob
       stored = 'stored'
+      inProject = prior.projectId !== null
     } else {
       const verdict = await askModel(
         {
@@ -459,7 +527,7 @@ export async function applyThreadReply(
       pathGlob = learning
         ? normalizePathGlob(verdict?.pathGlob, row.filePath)
         : null
-      stored = learning
+      const result = learning
         ? await storeLearning({
             event,
             row,
@@ -468,7 +536,9 @@ export async function applyThreadReply(
             learning,
             pathGlob,
           })
-        : 'failed'
+        : { stored: 'failed' as const, inProject: false }
+      stored = result.stored
+      inProject = result.inProject
     }
     if (!learning) {
       await postReply(gh, row, buildAckReply('OTHER', login))
@@ -484,6 +554,7 @@ export async function applyThreadReply(
         repo: event.repo,
         pathGlob,
         stored,
+        inProject,
         closed,
         blockingFindingId: blockingId,
       })

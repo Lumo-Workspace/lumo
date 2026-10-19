@@ -28,9 +28,19 @@ describe('buildCreatePayload', () => {
 })
 
 describe('formatCreatedMilestoneLine', () => {
-  it('renders id + name', () => {
+  it('renders name + slug, never the id (LUM-1230)', () => {
+    expect(
+      formatCreatedMilestoneLine({
+        id: 'cmv95ivuj000l06jvjrs7b7z1',
+        name: 'Q3 Launch',
+        slug: 'q3-launch',
+      })
+    ).toBe('Created milestone "Q3 Launch"  q3-launch')
+  })
+
+  it('prints no handle when an older server sends no slug', () => {
     expect(formatCreatedMilestoneLine({ id: 'm-1', name: 'Q3 Launch' })).toBe(
-      'Created milestone "Q3 Launch"  m-1'
+      'Created milestone "Q3 Launch"'
     )
   })
 })

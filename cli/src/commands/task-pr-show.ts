@@ -1,7 +1,14 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatPrShow } from '../lib/tier2-render'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonInline } from '../lib/json-guard'
 
 interface PullRequest {
   id: string
@@ -38,11 +45,12 @@ interface PrResponse {
  */
 export async function taskPrShow(
   identifier: string | undefined,
-  prNumber: string | undefined
+  prNumber: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !prNumber) {
     console.error('Error: usage: lumo task pr show <LUM-42> <number>')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -71,6 +79,7 @@ export async function taskPrShow(
     return 1
   }
   if (res.status === 400) {
+    // The server rejected it after a request was sent: exit 1, not a usage 2.
     console.error(`Error: invalid PR number "${prNumber}"`)
     return 1
   }
@@ -85,7 +94,31 @@ export async function taskPrShow(
     return 1
   }
 
-  const { pullRequest: pr, note } = (await res.json()) as PrResponse
+  const {
+    pullRequest: pr,
+    note,
+    liveDiffAvailable,
+  } = (await res.json()) as PrResponse
+  if (opts.json) {
+    // Title and branch names are guarded inline, as in the text view.
+    emitJson(
+      detailEnvelope(
+        'pullRequest',
+        stripInternalFields({
+          ...pr,
+          title: guardJsonInline(pr.title),
+          headBranch: guardJsonInline(pr.headBranch),
+          baseBranch: guardJsonInline(pr.baseBranch),
+        }),
+        {
+          task: identifier,
+          liveDiffAvailable: liveDiffAvailable ?? null,
+          note: note ?? null,
+        }
+      )
+    )
+    return
+  }
   // LUM-998: the PR title is guarded inline.
   console.log(formatPrShow(pr, note))
 }

@@ -150,14 +150,374 @@ export function maskQuotedCredentials(text: string): string {
 }
 
 /**
+ * LUM-1200 — the narrowest quoted-span pass, for prose a model wrote about a
+ * whole PR (the PR summary's intent and change bullets). `maskQuotedValues`
+ * masked every quoted phrase of 8+ chars there — production rendered
+ * `marked 'do not merge'` as `marked 'do n…(len 12)'` — and
+ * `maskQuotedCredentials` would still mask every quoted phrase in any summary
+ * that so much as mentions a token, which a summary of an auth change always
+ * does. Same tokenizer and fail-closed rules (unpaired opener, marker spans,
+ * contraction apostrophes); a CLOSED span of 8+ chars is masked only when:
+ * - it holds a redaction marker (a registry hit) — see `maskQuotedCredentials`;
+ * - any whitespace-separated piece of it is credential-shaped
+ *   (`isCredentialShapedToken`); or
+ * - it FOLLOWS a credential key: the text right before the opening quote ends
+ *   in credential vocabulary plus at most two connectors (`password is "…"`,
+ *   `token: '…'`, `API_KEY="…"`, `"password": "…"`, `the secret "…"`); or
+ * - it ASSIGNS a credential key inside itself — quoted code such as
+ *   `` `const pw = 'correcthorse'` `` (LUM-1200 follow-up: finding prose
+ *   quotes code inline, so the key and its value can share one span). A key
+ *   merely read (`token.length > 0`) is not an assignment and stays.
+ * Residual, honestly named: a shapeless passphrase quoted further away from
+ * its key (`the password, as before, is "…"`) is kept. Registry shapes are
+ * redacted before this pass runs, as for the other two.
+ */
+export function maskQuotedKeyedValues(text: string, source?: string): string {
+  return maskQuotedSpans(
+    text,
+    (content, before) => {
+      if (
+        (REDACTION_TOKEN_TEST_RE.test(content) &&
+          !isEchoedMarkerSpan(content, source)) ||
+        content.split(/\s+/).some(isCredentialShapedToken)
+      )
+        return true
+      // LUM-1200 follow-up #5 — a code expression (`Math.random()…`,
+      // `process.env.X`) after or assigned to a credential key is no
+      // credential literal: kept, its own string literals judged instead.
+      const assigned = credentialAssignment(content, true)
+      if (assigned === 'value') return true
+      const keyBefore =
+        CREDENTIAL_KEY_BEFORE_RE.test(normalizeVocab(before)) &&
+        !isPlaceholderValue(content)
+      if (keyBefore && !isCodeExpression(content)) return true
+      if (keyBefore || assigned === 'code') return maskCodeLiterals(content)
+      return false
+    },
+    true,
+    true,
+    true
+  )
+}
+
+/**
+ * LUM-1200 follow-up #5 — production TC15 (probe PR 69): the hunt model's own
+ * code in trace prose was masked — `` tokens: `Math…(len 39)` `` (the span
+ * `Math.random().toString(36).substring(2)` followed "tokens:") and
+ * `` `cons…(len 50)` `` (`const token = Math.random().toString(36).slice(2);`
+ * assigns a credential key). A value that is a code expression names how a
+ * credential is obtained, not the credential.
+ *
+ * True only when the whole text reads as ONE JavaScript-style expression —
+ * identifiers, numbers, string literals, member access, calls, indexing,
+ * operators, `new` / `await` / `typeof` before a call or member access
+ * (`new Foo(…)`, `await bar(…)`, `await this.x`; before a bare word they make
+ * the text no code) — with no two operands side by side (prose:
+ * `correct horse battery`), balanced brackets, and a code mark no literal
+ * has: a call or index (`f(…)`, `a[…]`), `new` / `await`, a logical,
+ * comparison or ternary operator, or a member chain off a runtime root
+ * (`process.env.X`, `req.query.token`, `crypto.…`). Fail closed — not code:
+ * a dotted or dashed word run with no such mark (`correct.horse.battery`,
+ * `correct-horse-battery`), an identifier that is credential-shaped, random
+ * or mixes letters and digits in a run of 6+ (`hunter2x`), a number of 8+
+ * digits, any character outside the grammar. String literals inside are
+ * allowed here and masked by `maskCodeLiterals`. Residual, honestly named: a
+ * secret that is itself a well-formed call of plain words (`hunter(two)`)
+ * after a credential key reads as code.
+ */
+export function isCodeExpression(raw: string): boolean {
+  const text = raw.trim().replace(/;$/, '').trim()
+  if (text.length === 0) return false
+  const tokens = tokenizeCode(text)
+  if (!tokens) return false
+  let hasMark = false
+  const depth: string[] = []
+  let ternary = 0
+  let prev: CodeToken | null = null
+  for (let i = 0; i < tokens.length; i += 1) {
+    const t = tokens[i]!
+    const prevIsOperand =
+      prev !== null &&
+      (prev.kind === 'id' ||
+        prev.kind === 'num' ||
+        prev.kind === 'str' ||
+        prev.text === ')' ||
+        prev.text === ']')
+    if (t.kind === 'id' || t.kind === 'num' || t.kind === 'str') {
+      if (prevIsOperand) return false
+      if (t.kind === 'id') {
+        if (CODE_PREFIX_KEYWORDS.has(t.text)) {
+          // Only before a real call or member access (`new Foo(`,
+          // `await bar(`, `await this.x`): `new <word>` / `await <word>` is
+          // judged as the word it is — possibly a secret.
+          const target = tokens[i + 1]
+          const after = tokens[i + 2]?.text
+          if (
+            target?.kind !== 'id' ||
+            CODE_PREFIX_KEYWORDS.has(target.text) ||
+            (after !== '(' && after !== '.' && after !== '?.')
+          )
+            return false
+          hasMark = true
+          prev = { kind: 'op', text: t.text }
+          continue
+        }
+        if (!isCodeIdentifier(t.text)) return false
+        if (
+          i === 0 &&
+          tokens[1]?.text === '.' &&
+          CODE_RUNTIME_ROOTS.has(t.text)
+        )
+          hasMark = true
+      }
+      if (t.kind === 'num' && t.text.replace(/\D/g, '').length >= 8)
+        return false
+      prev = t
+      continue
+    }
+    switch (t.text) {
+      case '.':
+      case '?.': {
+        const next = tokens[i + 1]
+        if (!next || next.kind !== 'id' || (t.text === '.' && !prevIsOperand))
+          return false
+        break
+      }
+      case '(':
+      case '[':
+        if (prevIsOperand) hasMark = true
+        else if (t.text === '[') return false
+        depth.push(t.text)
+        break
+      case ')':
+      case ']':
+        if (depth.pop() !== (t.text === ')' ? '(' : '[')) return false
+        break
+      case ',':
+        if (depth.length === 0 || !prevIsOperand) return false
+        break
+      case '?':
+        ternary += 1
+        hasMark = true
+        if (!prevIsOperand) return false
+        break
+      case ':':
+        if (ternary === 0 || !prevIsOperand) return false
+        ternary -= 1
+        break
+      case '!':
+      case '~':
+        if (prevIsOperand) return false
+        break
+      default:
+        if (CODE_MARK_OPERATORS.has(t.text)) hasMark = true
+        // A binary operator needs an operand before it; `+` / `-` may also
+        // be unary.
+        if (!prevIsOperand && t.text !== '-' && t.text !== '+') return false
+    }
+    prev = t
+  }
+  if (depth.length > 0 || ternary !== 0) return false
+  const last = tokens[tokens.length - 1]!
+  const endsOperand =
+    last.kind === 'id' ||
+    last.kind === 'num' ||
+    last.kind === 'str' ||
+    last.text === ')' ||
+    last.text === ']'
+  return endsOperand && hasMark
+}
+
+interface CodeToken {
+  kind: 'id' | 'num' | 'str' | 'op'
+  text: string
+}
+
+const CODE_TOKEN_RE =
+  /\s+|([A-Za-z_$][\w$]*)|(\d+(?:\.\d+)?)|('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|(\?\.|===|!==|==|!=|<=|>=|&&|\|\||\?\?|[-+*/%<>!?:~,.()[\]])/y
+
+/** `text` as code tokens; null when any character is outside the grammar. */
+function tokenizeCode(text: string): CodeToken[] | null {
+  const tokens: CodeToken[] = []
+  CODE_TOKEN_RE.lastIndex = 0
+  while (CODE_TOKEN_RE.lastIndex < text.length) {
+    const m = CODE_TOKEN_RE.exec(text)
+    if (!m) return null
+    if (m[1] !== undefined) tokens.push({ kind: 'id', text: m[1] })
+    else if (m[2] !== undefined) tokens.push({ kind: 'num', text: m[2] })
+    else if (m[3] !== undefined) tokens.push({ kind: 'str', text: m[3] })
+    else if (m[4] !== undefined) tokens.push({ kind: 'op', text: m[4] })
+  }
+  return tokens.length > 0 ? tokens : null
+}
+
+/** Keywords that start an operand: `new X()`, `await f()`. */
+const CODE_PREFIX_KEYWORDS = new Set(['new', 'await', 'typeof'])
+
+/** Operators a literal never holds: logical and comparison. */
+const CODE_MARK_OPERATORS = new Set([
+  '&&',
+  '||',
+  '??',
+  '===',
+  '!==',
+  '==',
+  '!=',
+  '<=',
+  '>=',
+  '<',
+  '>',
+])
+
+/** Objects a bare member chain reads from at runtime (`process.env.X`). */
+const CODE_RUNTIME_ROOTS = new Set([
+  'process',
+  'req',
+  'request',
+  'res',
+  'response',
+  'ctx',
+  'context',
+  'this',
+  'crypto',
+  'Math',
+  'Date',
+  'JSON',
+  'Buffer',
+  'Number',
+  'String',
+  'Object',
+  'Array',
+  'window',
+  'document',
+  'globalThis',
+  'self',
+  'os',
+  'env',
+  'event',
+  'props',
+  'params',
+  'headers',
+])
+
+/** An identifier, not a value: no credential shape, randomness or 6+ letters-and-digits run. */
+function isCodeIdentifier(id: string): boolean {
+  if (isCredentialShapedToken(id) || isRandomLettersToken(id)) return false
+  return !id
+    .split(/[^A-Za-z0-9]+/)
+    .some(
+      run =>
+        run.length >= MIN_MIXED_RUN && /[A-Za-z]/.test(run) && /\d/.test(run)
+    )
+}
+
+/**
+ * The string literals inside a code expression, each of `MIN_QUOTED_LEN`+
+ * chars masked (fail closed — a key's value may be built from one:
+ * `Buffer.from('…')`, `getToken() || '…'`); an unpaired quote masks the rest.
+ * False when nothing changed (the span is kept as it is).
+ */
+function maskCodeLiterals(content: string): string | false {
+  const masked = maskQuotedSpans(content, MASK_EVERY_SPAN, false)
+  return masked === content ? false : masked
+}
+
+/**
+ * LUM-1200 follow-up #4 — a span whose redaction marker the model ECHOED
+ * rather than one this call planted. The hunt model reads tool output that
+ * was already masked (`'/ses…(len 14)'`) and quotes it back in its narration
+ * (`` `if (url.startsWith('/ses…(len 14)'))` ``); the marker rule then masked
+ * the whole quoted code as `` `if (…(len 36)` ``. A span is an echo when it
+ * stands verbatim in the text as the model wrote it (`source`, before the
+ * registry pass): the registry pass changed nothing inside it, so the marker
+ * hides nothing this text revealed — the model never had that value. The
+ * span is then judged like any other (shape, key, assignment). A marker the
+ * registry pass planted in this call changes the span, so the span is never
+ * in `source` and is still masked whole (it may hide a second value).
+ */
+function isEchoedMarkerSpan(content: string, source?: string): boolean {
+  return (
+    source !== undefined &&
+    source.includes(content) &&
+    !echoedMarkerNeighbourIsValue(content)
+  )
+}
+
+/**
+ * Only the echoed marker itself is exempt: the text glued to it and the
+ * words on either side are still read as possible values beside it (a
+ * second value the registry missed — `postgres://u:hunt…(len 13)@h/d?t=…`).
+ * A neighbour counts as a value when it is credential-shaped or random, holds
+ * an `=` / `:` followed by 8+ value characters, or holds an 8+ character
+ * letters/digits run that is no camelCase identifier (`correcthorsebattery`;
+ * `startsWith` is code).
+ */
+function echoedMarkerNeighbourIsValue(content: string): boolean {
+  const pieces = content
+    .replace(TOKEN_WITH_PREFIX_RE, MARKER_SENTINEL)
+    .split(/\s+/)
+  const neighbours: string[] = []
+  pieces.forEach((piece, i) => {
+    if (!piece.includes(MARKER_SENTINEL)) return
+    neighbours.push(...piece.split(MARKER_SENTINEL))
+    if (i > 0) neighbours.push(pieces[i - 1]!)
+    if (i < pieces.length - 1) neighbours.push(pieces[i + 1]!)
+  })
+  return neighbours.some(
+    n =>
+      !n.includes(MARKER_SENTINEL) &&
+      (isCredentialShapedToken(n) ||
+        isRandomLettersToken(n) ||
+        VALUE_AFTER_OPERATOR_RE.test(n) ||
+        n
+          .split(/[^A-Za-z0-9]+/)
+          .some(r => r.length >= MIN_QUOTED_LEN && !/[a-z][A-Z]/.test(r)))
+  )
+}
+
+const MARKER_SENTINEL = '\u0000'
+
+/** An `=` / `:` (not `://`) followed by a value of 8+ characters. */
+const VALUE_AFTER_OPERATOR_RE = /(?:=|:(?!\/\/))[A-Za-z0-9_+/.~-]{8,}/
+
+/** How far back from an opening quote `maskQuotedKeyedValues` looks for its key. */
+const KEY_WINDOW = 48
+
+/**
  * Credential words, matched on `normalizeVocab` output so `apiKey`,
  * `API_KEY` and `api-key` all read as `api key`. Plain `key` is deliberately
  * absent — React reviews say "key" constantly — so only the compounds that
  * name a credential count (`signing key`, `ssh key`, `license key` …); a
  * credential-shaped value next to a bare "key" is still masked by shape.
  */
-const CREDENTIAL_VOCAB_RE =
-  /\b(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|auth|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)\b/
+const CREDENTIAL_VOCAB_SOURCE =
+  '(?:pass(?:words?|wd|phrases?|codes?)?|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|auth|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)'
+const CREDENTIAL_VOCAB_RE = new RegExp(`\\b${CREDENTIAL_VOCAB_SOURCE}\\b`)
+
+/**
+ * LUM-1200 — credential vocabulary ending the text before an opening quote,
+ * optionally closed by its own quote (a JSON / dict key: `"password": "…"`),
+ * followed by at most two connectors (`is`, `=`, `:`, `to` …) — the quote
+ * then holds that credential's value. The bare words `pass` and `auth` are
+ * ordinary prose (`make CI pass 'lint'`), so they count only before an
+ * assignment (`pass: '…'`, `auth = "…"`). Matched on `normalizeVocab` output.
+ */
+const CREDENTIAL_KEY_SOURCE =
+  '(?:pass(?:words?|wd|phrases?|codes?)|pwd|pw|secrets?|tokens?|credentials?|bearer|authorization|(?:api|private|access|secret|signing|encryption|decryption|master|license|licence|session|ssh|gpg|pgp|client|service|account|deploy|webhook|app) ?keys?)'
+const CREDENTIAL_KEY_BEFORE_RE = new RegExp(
+  `(?:\\b${CREDENTIAL_KEY_SOURCE}["'\`]?\\s*(?:(?:is|was|equals|of|to|as|=>|[=:,])\\s*){0,2}|\\b(?:pass|auth)["'\`]?\\s*(?:=>|[=:])\\s*)$`
+)
+
+/**
+ * LUM-1200 follow-up — a credential key assigned inside a quoted span
+ * (`pw = '…'`, `apiKey: "…"`, `password => …`); the bare `pass` / `auth`
+ * count only here too, as in `CREDENTIAL_KEY_BEFORE_RE`. A comparison
+ * (`token == x`, `token >= 0`) or a property read (`token.length`) is not
+ * an assignment.
+ */
+const CREDENTIAL_KEY_ASSIGNED_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*(?:=>|=(?!=)|:)`
+)
 
 function normalizeVocab(text: string): string {
   return text
@@ -166,11 +526,446 @@ function normalizeVocab(text: string): string {
     .toLowerCase()
 }
 
+/**
+ * LUM-1200 follow-up #2 — a value that stands for one rather than being one,
+ * in exactly these shapes (anything else is a value, and is masked):
+ *   · filler: an ellipsis (`...`, `…`), `xxx` / `***` runs, or nothing;
+ *   · a named placeholder — `<name>`, `{name}`, `{{name}}`, `${NAME}`,
+ *     `$NAME` — whose name is letters joined by `_` / `-` / one space (no
+ *     digits, at most 40 chars) and reads, as a whole, as a credential word
+ *     with at most `your` / `my` / `the` before it and `here` / `value`
+ *     after it: `<your token>`, `{token}`, `${API_KEY}`, `$SESSION_KEY`.
+ * Production (probe PR 63): the linked requirement
+ * `` `GET /session/check?token=...` `` rendered as `` `GET …(len 28)` `` in
+ * the PR summary. Always read on the RAW value (never `normalizeVocab`
+ * output, which splits `xxx-real` into `xxx real`); only the name, once
+ * extracted whole, is normalised to be read.
+ */
+const PLACEHOLDER_FILLER_RE = /^(?:\.{2,}|…+|x{3,}|X{3,}|\*{3,}|)$/
+const NAMED_PLACEHOLDER_RE =
+  /^(?:<([^<>]*)>|\{\{([^{}]*)\}\}|\$?\{([^{}]*)\}|\$([A-Za-z_][A-Za-z_]*))$/
+const PLACEHOLDER_NAME_RE = /^[A-Za-z]+(?:[ _-][A-Za-z]+)*$/
+const PLACEHOLDER_NAME_WORDS_RE = new RegExp(
+  `^(?:(?:your|my|the) )?${CREDENTIAL_VOCAB_SOURCE}(?: (?:here|value))?$`
+)
+
+function isPlaceholderValue(raw: string): boolean {
+  const quoted = /^(["'`])([\s\S]*)\1$/.exec(raw)
+  const v = quoted ? quoted[2]! : raw
+  if (PLACEHOLDER_FILLER_RE.test(v)) return true
+  const m = NAMED_PLACEHOLDER_RE.exec(v)
+  const name = m?.[1] ?? m?.[2] ?? m?.[3] ?? m?.[4]
+  if (name === undefined || name.length > 40) return false
+  if (!PLACEHOLDER_NAME_RE.test(name)) return false
+  return PLACEHOLDER_NAME_WORDS_RE.test(normalizeVocab(name))
+}
+
+/**
+ * Every `key = value` / `key: value` / `key => value` in the RAW span, the
+ * value taken whole: a quoted string or a bracketed placeholder shape, else
+ * up to whitespace or `&,;)]}` — and always up to one of those (or the end):
+ * text glued after a closing quote or bracket (`<token>realsecret`) is part
+ * of the value, which is then no placeholder.
+ */
+const RAW_ASSIGNMENT_RE =
+  /([A-Za-z0-9_$.-]+)["'`]?\s*(?:=>|=(?!=)|:)\s*("[^"]*"|'[^']*'|`[^`]*`|<[^<>]*>|\{\{[^{}]*\}\}|\$?\{[^{}]*\}|[^\s&,;)\]}]*)(?=$|[\s&,;)\]}])/g
+const CREDENTIAL_KEY_END_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)$`
+)
+const CREDENTIAL_KEY_ASSIGNED_ALL_RE = new RegExp(
+  CREDENTIAL_KEY_ASSIGNED_RE.source,
+  'g'
+)
+
+/**
+ * Does the span assign a credential key a real value? Keys are found as
+ * `CREDENTIAL_KEY_ASSIGNED_RE` finds them; each value is read from the raw
+ * span (`RAW_ASSIGNMENT_RE`) and exempt only when it is a placeholder.
+ * Fail closed: when the raw read does not account for every assignment the
+ * key pass sees, the span counts as assigning one.
+ */
+function assignsCredentialValue(content: string): boolean {
+  return credentialAssignment(content, false) === 'value'
+}
+
+/**
+ * What the span assigns its credential keys: `none` (no key, or only
+ * placeholders), `value` (a real value — or an assignment the raw read
+ * cannot account for: fail closed), or `code` (LUM-1200 follow-up #5, only
+ * with `allowCode`: every non-placeholder value is a code expression running
+ * to the end of its statement — `token = Math.random().toString(36)` — and
+ * none starts with a string literal).
+ */
+function credentialAssignment(
+  content: string,
+  allowCode: boolean
+): 'none' | 'value' | 'code' {
+  const keyed = [
+    ...normalizeVocab(content).matchAll(CREDENTIAL_KEY_ASSIGNED_ALL_RE),
+  ].length
+  if (keyed === 0) return 'none'
+  const values: Array<{ value: string; start: number }> = []
+  for (const m of content.matchAll(RAW_ASSIGNMENT_RE))
+    if (CREDENTIAL_KEY_END_RE.test(normalizeVocab(m[1]!)))
+      values.push({
+        value: m[2]!,
+        start: m.index! + m[0].length - m[2]!.length,
+      })
+  if (values.length !== keyed) return 'value'
+  let code = false
+  for (const { value, start } of values) {
+    if (isPlaceholderValue(value)) continue
+    if (
+      allowCode &&
+      !/^["'`]/.test(value) &&
+      isCodeExpression(statementValue(content, start))
+    ) {
+      code = true
+      continue
+    }
+    return 'value'
+  }
+  return code ? 'code' : 'none'
+}
+
+/**
+ * The value starting at `start`, up to the end of its statement: a `;`, `,`
+ * or line break outside brackets and quotes, a closing bracket it did not
+ * open, or the end of the span.
+ */
+function statementValue(content: string, start: number): string {
+  let depth = 0
+  let quote: string | null = null
+  for (let i = start; i < content.length; i += 1) {
+    const ch = content[i]!
+    if (quote) {
+      if (ch === '\\') i += 1
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') quote = ch
+    else if (ch === '(' || ch === '[' || ch === '{') depth += 1
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth === 0) return content.slice(start, i)
+      depth -= 1
+    } else if (depth === 0 && (ch === ';' || ch === ',' || ch === '\n'))
+      return content.slice(start, i)
+  }
+  return content.slice(start)
+}
+/** A Markdown code fence (`maskQuotedKeyedValues` reads the block inside it as code). */
+const FENCE = '```'
+
+/**
+ * LUM-1200 follow-up #3 — the pass for a shell command the hunt model ran
+ * (`rg -A 10 "export function checkSessionToken" src`). `maskQuotedCredentials`
+ * masked every quoted argument once the command named a credential anywhere
+ * — and it reads identifiers word by word, so `checkSessionToken` named one:
+ * production (probe PR 65) recorded 12 search commands as `rg -A 10
+ * "expo…(len 33)"`. A command's quoted argument is a search pattern or a
+ * literal; it is masked only when:
+ * - it holds a redaction marker, or a piece of it is credential-shaped
+ *   (`isCredentialShapedToken`) or a long mixed-case random run
+ *   (`isRandomLettersToken`);
+ * - it is assigned to a credential key (`TOKEN="…"`, `password: '…'`,
+ *   `--api-key="…"`, `--password '…'`), or assigns one inside itself
+ *   (`'password=…'`, `"Authorization: Bearer …"`) with a real value; or
+ * - the command's UNQUOTED text says a credential word as a word of its own
+ *   (`# the token`, `--password`) — then every quoted argument is masked, as
+ *   before. Identifiers (`checkSessionToken`, `SESSION_TOKEN`), paths
+ *   (`src/token.ts`) and quoted search patterns (`"token"`) never count.
+ * Registry shapes are redacted before this pass runs, as for the others.
+ */
+export function maskQuotedCommandArgs(
+  command: string,
+  wholeCommand: string = command
+): string {
+  // LUM-1200 follow-up #4 — `command` may be a piece of a longer command (a
+  // refused segment quoted in the gate's reason); a credential word said
+  // anywhere in the whole command masks every quoted argument of the piece.
+  if (CREDENTIAL_VOCAB_RE.test(standaloneWords(wholeCommand))) {
+    return maskQuotedSpans(command, MASK_EVERY_SPAN, false)
+  }
+  return maskQuotedSpans(
+    command,
+    (content, before) =>
+      REDACTION_TOKEN_TEST_RE.test(content) ||
+      content
+        .split(/\s+/)
+        .some(t => isCredentialShapedToken(t) || isRandomLettersToken(t)) ||
+      ((CREDENTIAL_KEY_ASSIGN_BEFORE_RE.test(normalizeVocab(before)) ||
+        isCredentialFlagBefore(before)) &&
+        !isPlaceholderValue(content)) ||
+      assignsCredentialValue(content) ||
+      CREDENTIAL_KEY_STATED_RE.test(content.toLowerCase()),
+    false
+  )
+}
+
+/**
+ * LUM-1200 follow-up #6 — the pass for one line of shell / tool output the
+ * hunt model or the verifier reads (`rg`, `sed -n`, `cat` over the checkout).
+ * User ruling 2026-10-16: that output is code, and the strict
+ * `maskQuotedValues` pass masked every string literal in it — production
+ * (lumo-agent-test#67 round 3) showed the hunt `if
+ * (url.startsWith('/ses…(len 14)'))` and the model spent ~10 steps trying to
+ * read the route back. Code-aware instead, the same family as the review
+ * context and the finding-prose passes: a string literal of 8+ chars is
+ * masked only when
+ * - it holds a redaction marker (a registry hit — a second value may sit
+ *   beside it), or a piece of it is credential-shaped
+ *   (`isCredentialShapedToken`) or a long mixed-case random run;
+ * - it is a credential key's value: the key, then at most two connectors,
+ *   ends the text before the quote (`password: '…'`, `API_KEY="…"`,
+ *   `"client_secret": "…"`, `--password '…'`), or the key is compared with it
+ *   (`token === '…'`) — unless it is a named placeholder (`'<your token>'`);
+ * - it assigns a credential key a real value inside itself
+ *   (`'password=…'`, `"Authorization: Bearer …"`).
+ * Then `maskUnquotedCredentialValues` covers the unquoted forms (`.env`,
+ * YAML). Unpaired openers still mask the rest of the line (fail closed).
+ * Routes, import paths, SQL text and log messages stay readable — a log
+ * message that merely names a credential (`'Invalid session token'`) too.
+ * Residual, honestly named: a shapeless passphrase inside a sentence-like
+ * literal with no key before it (`log('the password is correcthorse')`) is
+ * kept; registry shapes are redacted before this pass runs.
+ */
+export function maskQuotedCodeValues(line: string): string {
+  const quoted = maskQuotedSpans(
+    line,
+    (content, before) => {
+      if (
+        REDACTION_TOKEN_TEST_RE.test(content) ||
+        content
+          .split(/\s+/)
+          .some(t => isCredentialShapedToken(t) || isRandomLettersToken(t))
+      )
+        return true
+      const key = normalizeVocab(before)
+      if (
+        (CREDENTIAL_KEY_BEFORE_RE.test(key) ||
+          CREDENTIAL_KEY_COMPARED_BEFORE_RE.test(key) ||
+          isCredentialFlagBefore(before)) &&
+        !isPlaceholderValue(content)
+      )
+        return true
+      return assignsCredentialValue(content)
+    },
+    true
+  )
+  return maskUnquotedCredentialValues(quoted)
+}
+
+/**
+ * A credential key compared with the literal that follows: `token === '…'`,
+ * `apiKey != "…"`. Matched on `normalizeVocab` output.
+ */
+const CREDENTIAL_KEY_COMPARED_BEFORE_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*[!=]==?\\s*$`
+)
+
+/**
+ * An unquoted `key = value` / `key: value` in code or config: the key, the
+ * operator (not `==`, not `://`), and a value of 8+ characters running to
+ * whitespace or a delimiter.
+ */
+const UNQUOTED_ASSIGNMENT_RE =
+  /([A-Za-z0-9_$.-]+)(["'`]?[ \t]*(?:=(?![=>])|:(?!\/\/))[ \t]*)([^\s"'`,;&)\]{}]{8,})/g
+
+/** A redaction token with its ≤ 4-char prefix at the start of the text. */
+const REDACTION_TOKEN_AT_START_RE = /^[^\s"'`]{0,4}…\(len \d+\)/
+
+/** A shell / env reference standing in for a value: `$TOKEN`, `${API_KEY}`. */
+const ENV_REFERENCE_RE = /^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/
+
+/**
+ * LUM-1200 follow-up #6 — the unquoted half of `maskQuotedCodeValues`: in a
+ * `.env` line, YAML or an object literal the value has no quotes to judge.
+ * An unquoted value is masked when it is credential-shaped or random after
+ * ANY key (`JWT_SECRET=…`, `seed: …`), and after a credential key whenever it
+ * is not code: a code expression (`z.string().min(8)`,
+ * `req.headers.authorization?.slice(7)`), a member path or identifier that
+ * reads as one (`config.apiKey`, `ApiKeyConfig`), an env reference
+ * (`${API_KEY}`) or a named placeholder is kept. Fail closed: a plain
+ * lower-case word run (`correcthorsebattery`) or a dotted word run
+ * (`correct.horse.battery`) after a credential key is masked.
+ */
+function maskUnquotedCredentialValues(line: string): string {
+  return line.replace(
+    UNQUOTED_ASSIGNMENT_RE,
+    (whole, key: string, op: string, value: string, at: number) => {
+      // LUM-1200 follow-up #7 — a value the registry already redacted
+      // (`SECRET_KEY=djan…(len 38)`) is masked once: its `djan…(len` prefix
+      // is no fresh 8+ char value (`djan…(len 9) 38)` before).
+      if (
+        REDACTION_TOKEN_TEST_RE.test(value) ||
+        REDACTION_TOKEN_AT_START_RE.test(
+          line.slice(at + key.length + op.length)
+        )
+      )
+        return whole
+      const shaped =
+        isCredentialShapedToken(value) || isRandomLettersToken(value)
+      if (!shaped) {
+        if (!CREDENTIAL_KEY_END_RE.test(normalizeVocab(key))) return whole
+        if (
+          isPlaceholderValue(value) ||
+          ENV_REFERENCE_RE.test(value) ||
+          isCodeIdentifierPath(value) ||
+          isCodeExpression(
+            statementValue(line, at + key.length + op.length).trim()
+          )
+        )
+          return whole
+      }
+      return `${key}${op}${redactSecret(value)}`
+    }
+  )
+}
+
+/**
+ * A member path or identifier that reads as code, not as a value: every
+ * segment a code identifier, and at least one with a camelCase / PascalCase
+ * hump (`config.apiKey`, `ApiKeyConfig`, `this.sessionToken`).
+ */
+function isCodeIdentifierPath(value: string): boolean {
+  const segments = value.split('.')
+  if (!segments.every(s => /^[A-Za-z_$][\w$]*$/.test(s) && isCodeIdentifier(s)))
+    return false
+  return segments.some(s => /[a-z][A-Z]/.test(s) || /^[A-Z][a-z]/.test(s))
+}
+
+/**
+ * Letters and digits both, and — when it holds a `/` (a path such as
+ * `src/v2/handlers` looks alike) — a letters+digits run of `MIN_MIXED_RUN`+.
+ */
+function isUnquotedKeyRun(run: string): boolean {
+  if (!/[A-Za-z]/.test(run) || !/\d/.test(run)) return false
+  if (!run.includes('/')) return true
+  return run
+    .split(/[^A-Za-z0-9]+/)
+    .some(r => r.length >= MIN_MIXED_RUN && /[A-Za-z]/.test(r) && /\d/.test(r))
+}
+
+/**
+ * A credential word stated as having a value inside a quoted argument
+ * (`echo "the password is hunter"`). Read on the raw lower-cased text, so a
+ * key inside an identifier (`checkSessionToken is called`) is no key.
+ */
+const CREDENTIAL_KEY_STATED_RE = new RegExp(
+  `\\b${CREDENTIAL_KEY_SOURCE}\\s+(?:is|was|equals)\\s+\\S`
+)
+
+/**
+ * The inside of a fenced code block (`maskQuotedKeyedValues`): its quoted
+ * values judged one by one as the pass judges any span, then every unquoted
+ * run that reads as a generated value masked too — a key / digest of
+ * `MIN_KEY_LEN`+ key-alphabet chars mixing letters and digits, or a long
+ * mixed-case random run. Code (`Math.random().toString(36)`,
+ * `new Uint8Array(32)`) stays readable.
+ */
+function maskFencedCode(
+  code: string,
+  shouldMask: (content: string, before: string) => boolean | string,
+  skipContractions: boolean
+): string {
+  return maskQuotedSpans(code, shouldMask, skipContractions, false).replace(
+    UNQUOTED_KEY_RUN_RE,
+    run =>
+      isUnquotedKeyRun(run) || isRandomLettersToken(run)
+        ? redactSecret(run)
+        : run
+  )
+}
+
+/**
+ * The words a command says outside its quoted arguments, lower-cased and
+ * space-joined — leaving out every argument that is a path or expression
+ * (holds `/` or `.`) or a code identifier (camelCase, `snake_case`, letters
+ * mixed with digits). `--api-key` reads as `api key`.
+ */
+function standaloneWords(command: string): string {
+  const words: string[] = []
+  for (const arg of unquotedText(command).split(/\s+/)) {
+    if (arg.length === 0 || /[/.]/.test(arg) || isIdentifierLike(arg)) continue
+    for (const w of arg.toLowerCase().split(/[^a-z0-9]+/))
+      if (w.length > 0) words.push(w)
+  }
+  return words.join(' ')
+}
+
+function isIdentifierLike(arg: string): boolean {
+  const word = arg.replace(/^[^A-Za-z0-9_$]+|[^A-Za-z0-9_$]+$/g, '')
+  return (
+    /[a-z][A-Z]/.test(word) ||
+    /[A-Za-z0-9]_[A-Za-z0-9]/.test(word) ||
+    (/[A-Za-z]/.test(word) && /\d/.test(word))
+  )
+}
+
+/** `command` with every quoted span (and an unterminated quote's tail) left out. */
+function unquotedText(command: string): string {
+  let out = ''
+  let i = 0
+  while (i < command.length) {
+    const ch = command[i]!
+    if (!isQuoteChar(ch)) {
+      out += ch
+      i += 1
+      continue
+    }
+    const close = findClosingQuote(command, i, ch)
+    if (close === -1) return out
+    out += ' '
+    i = close + 1
+  }
+  return out
+}
+
+/**
+ * A credential key, then an explicit assignment, ending the text before an
+ * opening quote: `TOKEN=`, `apiKey: `, `"password": `. Unlike
+ * `CREDENTIAL_KEY_BEFORE_RE`, a key with no operator (`checkSessionToken "…"`)
+ * is not an assignment.
+ */
+const CREDENTIAL_KEY_ASSIGN_BEFORE_RE = new RegExp(
+  `\\b(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)["'\`]?\\s*(?:=>|=|:)\\s*$`
+)
+
+/** A credential-named flag right before the quote: `--password '…'`, `--api-key="…"`. */
+function isCredentialFlagBefore(before: string): boolean {
+  const m = /(?:^|\s)--?([A-Za-z][A-Za-z0-9_-]*)(?:=|\s+)$/.exec(before)
+  if (!m) return false
+  return new RegExp(`(?:^| )(?:${CREDENTIAL_KEY_SOURCE}|pass|auth)$`).test(
+    normalizeVocab(m[1]!)
+  )
+}
+
+/** Shortest letters-only run read as a random value (`isRandomLettersToken`). */
+const MIN_RANDOM_LETTERS = 16
+
+/**
+ * A letters-only value of `MIN_RANDOM_LETTERS`+ chars whose case is mixed
+ * the way a random string's is — at least a quarter of it upper case and a
+ * quarter lower case (`QwErTyUiOpAsDfGhJk`) — where an identifier has one
+ * capital per word (`checkSessionToken`: 2 of 17).
+ */
+function isRandomLettersToken(raw: string): boolean {
+  const token = raw.replace(WRAPPING_PUNCT_RE, '')
+  if (token.length < MIN_RANDOM_LETTERS || !/^[A-Za-z]+$/.test(token))
+    return false
+  const upper = token.replace(/[^A-Z]/g, '').length
+  const lower = token.length - upper
+  return upper >= token.length / 4 && lower >= token.length / 4
+}
+
 /** Shortest mixed letters+digits run read as credential-shaped (`hunter2`-length passwords). */
 const MIN_MIXED_RUN = 6
 
 /** Shortest base64 / dashed key read as credential-shaped as a whole. */
 const MIN_KEY_LEN = 16
+
+/** An unquoted run of the key alphabet long enough to be a key (`maskFencedCode`). */
+const UNQUOTED_KEY_RUN_RE = new RegExp(`[A-Za-z0-9+/=_-]{${MIN_KEY_LEN},}`, 'g')
 
 /** The base64 / base64url / dashed-key alphabet, and nothing else. */
 const KEY_ALPHABET_RE = /^[A-Za-z0-9+/=_-]+$/
@@ -209,49 +1004,144 @@ function isCredentialShapedToken(raw: string): boolean {
 }
 
 /**
- * The tokenizer behind both passes; `shouldMask` decides only for a closed
- * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only. Unpaired
+ * The tokenizer behind every pass; `shouldMask` decides only for a closed
+ * span of `MIN_QUOTED_LEN`+ chars that is not redaction-only, given the
+ * span's content and the `KEY_WINDOW` chars before its opening quote. Unpaired
  * openers are masked regardless of `shouldMask` (fail closed).
- * `skipContractions` is the free-text pass's `isContractionApostrophe` rule.
+ * `skipContractions` is the free-text and code passes' rule set: a
+ * contraction or possessive apostrophe opens no span
+ * (`isContractionApostrophe`, `isPossessiveApostrophe`), and the
+ * ambiguous-pairing fallback starts at the first quote of the style the
+ * tokenizer met OUTSIDE every span — never inside a span that already closed
+ * (LUM-1200 follow-up #7). The blanket pass keeps `indexOf`: AI-review
+ * fingerprints are keyed on its output.
  */
 function maskQuotedSpans(
   line: string,
-  shouldMask: (content: string) => boolean,
-  skipContractions: boolean
+  shouldMask: (content: string, before: string) => boolean | string,
+  skipContractions: boolean,
+  fences = false,
+  looseBackticks = false
 ): string {
   let out = ''
   let i = 0
+  let maskShapedAfter = false
+  const firstOutside: Partial<Record<string, number>> = {}
   while (i < line.length) {
     const ch = line[i]!
+    if (fences && line.startsWith(FENCE, i)) {
+      // LUM-1200 follow-up #3 — a fenced code block is code, not one quoted
+      // span: its own quoted values are judged one by one. Unterminated, the
+      // rest of the text is the block (judged the same way).
+      const close = line.indexOf(FENCE, i + FENCE.length)
+      const inner = line.slice(
+        i + FENCE.length,
+        close === -1 ? undefined : close
+      )
+      out += `${FENCE}${maskFencedCode(inner, shouldMask, skipContractions)}`
+      if (close === -1) return out
+      out += FENCE
+      i = close + FENCE.length
+      continue
+    }
+    if (isQuoteChar(ch) && firstOutside[ch] === undefined) firstOutside[ch] = i
     if (
       !isQuoteChar(ch) ||
-      (skipContractions && isContractionApostrophe(line, i))
+      (skipContractions &&
+        (isContractionApostrophe(line, i) || isPossessiveApostrophe(line, i)))
     ) {
       out += ch
       i += 1
       continue
     }
     const close = findClosingQuote(line, i, ch)
+    if (close === -1 && looseBackticks && ch === '`') {
+      // LUM-1200 follow-up #4 — prose: an unpaired backtick is a stray mark,
+      // not the start of a value running to the end of the text (production:
+      // a hunt finding's whole falsifier explanation became `toke…(len 447)).
+      // Not the first backtick: the pairing before it was a guess, so a
+      // value may sit outside every span — shaped words are masked anywhere.
+      if (line.indexOf('`') < i) maskShapedAfter = true
+      const loose = looseBacktick(line, i, shouldMask)
+      out += loose.text
+      i = loose.next
+      continue
+    }
     if (close === -1) {
-      // `indexOf` also finds a skipped contraction apostrophe, so a skip
-      // that leaves the pairing odd still masks from that apostrophe on.
-      const firstIdx = line.indexOf(ch)
+      // A skipped contraction / possessive apostrophe counts as met, so a
+      // skip that leaves the pairing odd still masks from that apostrophe
+      // on. LUM-1200 follow-up #7 — production TC19: `indexOf` found the
+      // `'` inside a closed backtick span (`` `if (url.startsWith('/ses… ``)
+      // and masked 855 chars of trace prose from there.
+      const firstIdx = skipContractions
+        ? (firstOutside[ch] ?? i)
+        : line.indexOf(ch)
       // Ambiguous pairing: fall back to masking the whole region.
       if (firstIdx < i) {
-        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
+        return `${maskQuotedSpans(line.slice(0, firstIdx), shouldMask, skipContractions, fences, looseBackticks)}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
       }
       return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
     }
     const content = line.slice(i + 1, close)
-    out +=
+    // A string verdict is the span's content with only part of it masked.
+    const verdict =
       content.length >= MIN_QUOTED_LEN &&
       !isRedactionOnlyContent(content) &&
-      shouldMask(content)
-        ? `${ch}${redactSecret(content)}${ch}`
-        : line.slice(i, close + 1)
+      shouldMask(content, line.slice(Math.max(0, i - KEY_WINDOW), i))
+    out +=
+      typeof verdict === 'string'
+        ? `${ch}${verdict}${ch}`
+        : verdict
+          ? `${ch}${redactSecret(content)}${ch}`
+          : line.slice(i, close + 1)
     i = close + 1
   }
-  return out
+  return maskShapedAfter ? maskShapedWords(out) : out
+}
+
+/**
+ * LUM-1200 follow-up #4 — the prose pass's unpaired backtick at `idx`: kept
+ * as a plain character, and the text after it is read on as prose (its other
+ * quoted spans judged as usual). Fail closed where a value could follow the
+ * stray mark: the run after it up to the end of its sentence or line is
+ * judged as a span's content would be — every word in it for shape and
+ * randomness, the credential key before the mark, an assignment inside it —
+ * and masked whole on that verdict, so a secret a few words on (or a
+ * multi-word passphrase after `password is`) is not let through.
+ */
+function looseBacktick(
+  line: string,
+  idx: number,
+  shouldMask: (content: string, before: string) => boolean | string
+): { text: string; next: number } {
+  const rest = line.slice(idx + 1)
+  const end = SENTENCE_END_RE.exec(rest)
+  const region = end ? rest.slice(0, end.index) : rest
+  const masked =
+    region.trim().length >= MIN_QUOTED_LEN &&
+    !isRedactionOnlyContent(region) &&
+    (shouldMask(region, line.slice(Math.max(0, idx - KEY_WINDOW), idx)) ||
+      region.split(/\s+/).some(isRandomLettersToken))
+  return masked
+    ? { text: `\`${redactSecret(region)}`, next: idx + 1 + region.length }
+    : { text: '`', next: idx + 1 }
+}
+
+/** Where a stray backtick's region ends: a line break, or `.` / `!` / `?` before whitespace. */
+const SENTENCE_END_RE = /\n|[.!?](?=\s|$)/
+
+/**
+ * Every whitespace-separated word that reads as a generated value
+ * (`isCredentialShapedToken`, `isRandomLettersToken`) masked; redaction
+ * tokens are left as they are.
+ */
+function maskShapedWords(text: string): string {
+  return text.replace(/\S+/g, word =>
+    !REDACTION_TOKEN_TEST_RE.test(word) &&
+    (isCredentialShapedToken(word) || isRandomLettersToken(word))
+      ? redactSecret(word)
+      : word
+  )
 }
 
 /** Python / SQL string-literal prefixes a quote may follow: `b'…'`, `rb'…'`, `X'…'`. */
@@ -272,6 +1162,22 @@ function isContractionApostrophe(line: string, idx: number): boolean {
   if (!word || (word !== 'I' && word.length < 2) || STRING_PREFIX_RE.test(word))
     return false
   return /^(?:s|t|re|ve|ll|d|m)(?![A-Za-z0-9_])/i.test(line.slice(idx + 1))
+}
+
+/**
+ * LUM-1200 follow-up #7 — a `'` closing a word of 2+ letters and followed by
+ * whitespace, punctuation or the end of the text is a plural possessive
+ * (`users'`, `sessions' map`), not an opener. Read as an opener it paired
+ * with the next quote — leaving a value after that quote outside every span
+ * (`the users' key is '<value>` kept the value raw) — or, unpaired, sent the
+ * text to the ambiguous-pairing fallback. A string-literal prefix (`b'`,
+ * `rb'`) or a single letter still opens. Only consulted outside a span.
+ */
+function isPossessiveApostrophe(line: string, idx: number): boolean {
+  if (line[idx] !== "'") return false
+  const word = /[A-Za-z]+$/.exec(line.slice(0, idx))?.[0]
+  if (!word || word.length < 2 || STRING_PREFIX_RE.test(word)) return false
+  return /^(?:$|[\s.,;:!?)\]}])/.test(line.slice(idx + 1))
 }
 
 /**

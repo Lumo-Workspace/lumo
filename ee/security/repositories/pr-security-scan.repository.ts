@@ -14,8 +14,12 @@ import type {
   SecretDowngradeReason,
 } from '@/ee/security/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
+import { isSettledForManualReview } from '@/ee/security/security-scan/review-control'
 import type { JudgeBudget } from '@/ee/security/security-scan/judge-budget'
 import type { PrSummary } from '@/ee/security/security-scan/pr-summary'
+import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagram'
+import type { ReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
+import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
   mergePartialCauses,
   type PartialCause,
@@ -35,6 +39,8 @@ export type FindingKind =
   | 'DEPENDENCY'
   // LUM-988: AI-review correctness finding (never blocking).
   | 'CORRECTNESS'
+  // LUM-1234: reward-hack layer finding (LLM_JUDGE, advisory only).
+  | 'REWARD_HACK'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
@@ -92,6 +98,18 @@ export interface NewFindingInput {
   suggestedDisposition?: FindingDisposition | null
   suggestedReason?: string | null
   suggestionOutcome?: SuggestionOutcome | null
+  /**
+   * LUM-1150 (LLM_JUDGE rows only) — the validated one-click fix. Omitted
+   * rather than null (Prisma Json columns take `Prisma.JsonNull`). Never
+   * carried to a later scan: its line range belongs to this head.
+   */
+  codeSuggestion?: CodeSuggestion
+  /**
+   * LUM-1147 (LLM_JUDGE rows only) — the glob of the path instruction this
+   * finding applies, verified against the instructions sent for its file.
+   * Commented inline under chill / assertive whatever the severity.
+   */
+  pathInstruction?: string | null
 }
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
@@ -135,11 +153,26 @@ export interface FinalizeScanInput {
    */
   prSummary?: PrSummary | null
   /**
+   * LUM-1155 — the cleaned call-flow diagram. Absent/null leaves the column
+   * alone, like `prSummary` (`restart` is what clears it).
+   */
+  sequenceDiagram?: SequenceDiagram | null
+  /**
    * LUM-1127 — the paths an incremental AI review read on this head; null =
    * the whole PR diff. Absent = leave the column alone. The PR write-back
    * only resolves a judge finding's thread for a file inside this scope.
    */
   judgeReviewScope?: string[] | null
+  /**
+   * LUM-1152 follow-up — 'full' (a requested full review) or 'incremental';
+   * null = the AI review did not run. Absent = leave the column alone.
+   */
+  judgeReviewMode?: 'full' | 'incremental' | null
+  /**
+   * LUM-1215 — what the path filters left out of the AI review on this head;
+   * null = nothing. Absent = leave the column alone.
+   */
+  reviewPathSkips?: ReviewPathSkips | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -256,11 +289,13 @@ export interface ScanWithFindings {
   judgeBudget?: unknown
   /** LUM-911 — when the code fields were scrubbed; null/absent = still held. */
   codeScrubbedAt?: Date | null
+  /** LUM-1148 — the pre-merge checks' results Json, raw (absent on an old mock). */
+  preMergeChecks?: unknown
   findings: FindingRow[]
 }
 
 /**
- * LUM-788 — one finding as the by-PR scan read-out (`lumo pr scan`) loads
+ * LUM-788 — one finding as the by-PR scan read-out (`lumo pr show`) loads
  * it. `evidence` is absent by construction, the same P8 rule as
  * `ReviewFindingRow`: the read-out is printed into an agent's terminal, and
  * a column the query never loads is a column no renderer can leak.
@@ -268,7 +303,7 @@ export interface ScanWithFindings {
 export type ReadoutFindingRow = Omit<FindingRow, 'evidence'>
 
 /**
- * LUM-788 — one scan row with everything `lumo pr scan` prints: the layer
+ * LUM-788 — one scan row with everything `lumo pr show` prints: the layer
  * facts, the findings (without evidence), the raw hunt audit and the token
  * spend. Same columns as `ScanWithFindings` minus the write-path-only ones
  * (`agentNotifiedAt`, `summaryCommentId`, `suggestedAt`, `suggestionTokens`).
@@ -296,6 +331,8 @@ export interface ScanReadoutRow {
   /** LUM-832 — the causes, and the hunt job (its file-cap count). */
   partialCauses: string[]
   huntJob: unknown
+  /** LUM-1215 — raw Json (`parseReviewPathSkips`); absent on older fixtures. */
+  reviewPathSkips?: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -324,7 +361,12 @@ export type ReviewFindingRow = Pick<
   | 'suggestedDisposition'
   | 'verifierVerdict'
   | 'verifierReason'
->
+> & {
+  /** LUM-1150 — the stored suggestion Json, raw; read with `parseCodeSuggestion`. */
+  codeSuggestion?: unknown
+  /** LUM-1147 — the path instruction glob the finding applies (null = none). */
+  pathInstruction?: string | null
+}
 
 /**
  * LUM-735 Task 2 — one scan with everything the PR write-back renders: its
@@ -346,6 +388,8 @@ export interface ScanForReview {
   judgeBudget: unknown
   /** LUM-849: raw Json — read with `parsePrSummary`. */
   prSummary: unknown
+  /** LUM-1155: raw Json — read with `parseSequenceDiagram`; absent on older fixtures. */
+  sequenceDiagram?: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -360,6 +404,30 @@ export interface ScanForReview {
    * whole diff. Optional so older fixtures still type-check (absent = null).
    */
   judgeReviewScope?: unknown
+  /**
+   * LUM-1146 — raw Json: how `.lumo.yaml` was read (`parseRepoConfigNotice`).
+   * Optional so older fixtures still type-check (absent = not read).
+   */
+  repoConfig?: unknown
+  /**
+   * LUM-1215 — raw Json: what the path filters skipped
+   * (`parseReviewPathSkips`). Optional so older fixtures still type-check
+   * (absent = nothing recorded).
+   */
+  reviewPathSkips?: unknown
+  /**
+   * LUM-1148 — raw Json: the pre-merge checks' results
+   * (`parsePreMergeChecksRecord`). Optional so older fixtures still
+   * type-check (absent = no check ran).
+   */
+  preMergeChecks?: unknown
+  /** LUM-1147 — the review profile the scan ran with (null/absent = chill). */
+  reviewProfile?: string | null
+  /**
+   * LUM-1151 — where the high-level summary goes for this review
+   * (null/absent = the PR description).
+   */
+  highLevelSummary?: string | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -369,6 +437,10 @@ export interface ScanForReview {
     /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
     state?: string
     workspaceId: string
+    /** LUM-1148 — the per-PR override (absent / null = not overridden). */
+    preMergeOverrideBy?: string | null
+    preMergeOverrideAt?: Date | null
+    preMergeOverrideSha?: string | null
     task: { number: number; team: { identifier: string } } | null
     /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
     workspace: {
@@ -413,7 +485,10 @@ export type JudgeFindingForVerify = Pick<
   | 'title'
   | 'detail'
   | 'evidence'
->
+> & {
+  /** LUM-1210 — the verified path instruction it applies; outside the policy. */
+  pathInstruction: string | null
+}
 
 export interface FindingSummary {
   severity: string
@@ -453,6 +528,41 @@ async function withSerializableRetry<T>(
       if (attempt >= attempts || !isSerializationFailure(error)) throw error
     }
   }
+}
+
+/**
+ * LUM-1150 — what `persistResult` saw of the other writer. The managed run
+ * writes its layers (external / supplyChain) BEFORE its one PR sync, so a
+ * layer already settled when stage A persists means that sync may have run
+ * on a row without stage A's result (the "still running" summary of probe
+ * PR #59): stage A must sync itself. Still PENDING inside this SERIALIZABLE
+ * transaction means the run's write — and so its sync — comes after this
+ * commit and reads stage A's result.
+ */
+export interface PersistResultOutcome {
+  managedLayerLanded: boolean
+  /**
+   * LUM-1234 — the row's `startedAt` as this write saw it: the run token a
+   * background layer started from this result carries (a restart moves it).
+   */
+  startedAt?: Date
+}
+
+/** LUM-1150 — has the managed run (or a sweep / supersede) settled a layer it owns? */
+export function managedLayerLanded(stages: ScanStages | null): boolean {
+  // The states only the managed side writes — the same ones
+  // `mergeIngestOwnedStages` keeps over stage A's PENDING.
+  const external = stages?.external
+  const supplyChain = stages?.supplyChain
+  return (
+    external === 'RAN' ||
+    external === 'FAILED' ||
+    external === 'SUPERSEDED' ||
+    supplyChain === 'RAN' ||
+    supplyChain === 'FAILED' ||
+    supplyChain === 'SKIPPED' ||
+    supplyChain === 'SUPERSEDED'
+  )
 }
 
 /**
@@ -649,6 +759,7 @@ async function scrubScans(scanIds: string[], huntAudit: HuntAuditScrub) {
         callChain: Prisma.DbNull,
         detail: '',
         suggestedReason: null,
+        codeSuggestion: Prisma.DbNull,
       },
     })
     // Read before the clear below: the counts are kept from this copy.
@@ -665,6 +776,8 @@ async function scrubScans(scanIds: string[], huntAudit: HuntAuditScrub) {
         huntAudit: Prisma.DbNull,
         huntJob: Prisma.DbNull,
         prSummary: Prisma.DbNull,
+        // LUM-1155: model-written over the code, like the summary.
+        sequenceDiagram: Prisma.DbNull,
         codeScrubbedAt: new Date(),
       },
     })
@@ -995,16 +1108,7 @@ export const prSecurityScanRepository = {
         current.startedAt.getTime() !== expectedStartedAt.getTime()
       )
         return false
-      if (
-        manual &&
-        (!current ||
-          !['CLEAN', 'FINDINGS', 'FAILED'].includes(current.status) ||
-          Object.values((current.stages as ScanStages | null) ?? {}).includes(
-            'PENDING'
-          ) ||
-          (current.verifierStartedAt && !current.verifiedAt))
-      )
-        return false
+      if (manual && !isSettledForManualReview(current)) return false
       const external = (current?.stages as ScanStages | null)?.external
       // Snapshot human rulings under the same serializable lock as the
       // restart. A concurrent disposition forces a retry with fresh data.
@@ -1025,6 +1129,10 @@ export const prSecurityScanRepository = {
           truncated: false,
           // LUM-849: the re-run's judge writes its own description.
           prSummary: Prisma.DbNull,
+          // LUM-1155: and its own diagram.
+          sequenceDiagram: Prisma.DbNull,
+          // LUM-1215: and its own path-filter skips.
+          reviewPathSkips: Prisma.DbNull,
           // LUM-745: a superseded layer carries no result and no rows —
           // preserving it would leave the re-run permanently "superseded".
           stages:
@@ -1038,13 +1146,31 @@ export const prSecurityScanRepository = {
           finishedAt: null,
           verifierStartedAt: null,
           verifiedAt: null,
+          judgeReviewMode: null,
           huntJob: Prisma.DbNull,
           huntAudit: Prisma.DbNull,
           huntRunId: null,
           huntAttempts: 0,
+          // LUM-1234: the re-run writes its own reward-hack verdict; the old
+          // state would vouch for rows the restart just deleted.
+          rewardHackState: Prisma.DbNull,
         },
       })
       return snapshot ?? true
+    })
+  },
+
+  /** LUM-1152 follow-up — what a deferred manual review waits on. */
+  async findManualRestartState(id: string) {
+    return prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        stages: true,
+        verifierStartedAt: true,
+        verifiedAt: true,
+        judgeReviewMode: true,
+      },
     })
   },
 
@@ -1116,8 +1242,8 @@ export const prSecurityScanRepository = {
     scanId: string,
     findings: NewFindingInput[],
     final: FinalizeScanInput
-  ): Promise<void> {
-    await withSerializableRetry(async tx => {
+  ): Promise<PersistResultOutcome> {
+    return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
         select: {
@@ -1125,6 +1251,7 @@ export const prSecurityScanRepository = {
           partial: true,
           partialCauses: true,
           error: true,
+          startedAt: true,
         },
       })
       const {
@@ -1148,6 +1275,23 @@ export const prSecurityScanRepository = {
           ...(final.prSummary
             ? {
                 prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(final.sequenceDiagram
+            ? {
+                sequenceDiagram:
+                  final.sequenceDiagram as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(final.judgeReviewMode !== undefined
+            ? { judgeReviewMode: final.judgeReviewMode }
+            : {}),
+          ...(final.reviewPathSkips !== undefined
+            ? {
+                reviewPathSkips:
+                  final.reviewPathSkips === null
+                    ? Prisma.DbNull
+                    : (final.reviewPathSkips as unknown as Prisma.InputJsonValue),
               }
             : {}),
           ...(final.judgeReviewScope !== undefined
@@ -1187,6 +1331,12 @@ export const prSecurityScanRepository = {
           where: { id: scanId },
           data: { status: 'FINDINGS' },
         })
+      }
+      return {
+        managedLayerLanded: managedLayerLanded(
+          (current?.stages as ScanStages | null) ?? null
+        ),
+        ...(current?.startedAt ? { startedAt: current.startedAt } : {}),
       }
     })
   },
@@ -1321,6 +1471,170 @@ export const prSecurityScanRepository = {
           ...(extra.error !== undefined ? { error: extra.error } : {}),
         },
       })
+    })
+  },
+
+  /**
+   * LUM-1234 — what the reward-hack layer needs of its scan row: the PR, the
+   * workspace, and the scan start (the session window's end).
+   */
+  async findForRewardHack(scanId: string): Promise<{
+    id: string
+    pullRequestId: string
+    workspaceId: string
+    startedAt: Date
+  } | null> {
+    return prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: {
+        id: true,
+        pullRequestId: true,
+        workspaceId: true,
+        startedAt: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — the most recent scan of the same PR started before `before`
+   * (the asking scan's own `startedAt`; the table has no creation time) that
+   * stored a reward-hack verdict (non-null `rewardHackState`). Null if none.
+   */
+  async findPreviousScanForPr(
+    pullRequestId: string,
+    beforeScanId: string,
+    before: Date
+  ): Promise<{ id: string; rewardHackState: unknown } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: beforeScanId },
+        startedAt: { lt: before },
+        rewardHackState: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, rewardHackState: true },
+    })
+  },
+
+  /** LUM-1234 — one scan's REWARD_HACK rows, in the shape a copy needs. */
+  async findRewardHackFindings(
+    scanId: string
+  ): Promise<
+    Array<
+      Pick<
+        NewFindingInput,
+        | 'kind'
+        | 'ruleId'
+        | 'severity'
+        | 'provenance'
+        | 'filePath'
+        | 'line'
+        | 'title'
+        | 'detail'
+        | 'evidence'
+        | 'fingerprint'
+      >
+    >
+  > {
+    return prisma.prSecurityFinding.findMany({
+      where: { scanId, kind: 'REWARD_HACK' },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        kind: true,
+        ruleId: true,
+        severity: true,
+        provenance: true,
+        filePath: true,
+        line: true,
+        title: true,
+        detail: true,
+        evidence: true,
+        fingerprint: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-1234 — the reward-hack layer's ONE write: its rows, its state and its
+   * stage, in one transaction, compare-and-set on the run token. The write
+   * lands only while the row is the run the layer was started for
+   * (`startedAt === runToken`) and the layer is still PENDING — a restart
+   * moves `startedAt`, a sweep settles the stage, and either way a stale
+   * runner's late write is a no-op (false). Same lock order as
+   * `persistHuntResult`: scan UPDATE first; `status` flips to FINDINGS only
+   * when rows land; `partial` stays monotone.
+   */
+  async persistRewardHackResult(
+    scanId: string,
+    runToken: Date,
+    result: {
+      findings: NewFindingInput[]
+      stage: 'RAN' | 'PARTIAL' | 'SKIPPED' | 'FAILED' | 'DISABLED'
+      partialCauses: PartialCause[]
+      /** Omitted = the state column is left alone. */
+      state?: {
+        version: string
+        watermark: Record<string, string>
+        findingFingerprints: string[]
+        costUsd: number
+        truncated: boolean
+      }
+    }
+  ): Promise<boolean> {
+    return withSerializableRetry(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: {
+          stages: true,
+          partial: true,
+          partialCauses: true,
+          startedAt: true,
+        },
+      })
+      const stages = (current?.stages as ScanStages | null) ?? {}
+      if (
+        !current ||
+        current.startedAt.getTime() !== runToken.getTime() ||
+        stages.rewardHack !== 'PENDING'
+      )
+        return false
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages: { ...stages, rewardHack: result.stage },
+          ...mergePartial(current, result.partialCauses),
+          ...(result.state
+            ? {
+                rewardHackState:
+                  result.state as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(result.findings.length > 0 ? { status: 'FINDINGS' } : {}),
+        },
+      })
+      if (result.findings.length > 0)
+        await tx.prSecurityFinding.createMany({ data: result.findings })
+      return true
+    })
+  },
+
+  /**
+   * LUM-1234 — scans whose reward-hack layer has sat PENDING since before
+   * `before` (by the scan's `startedAt`): its runner died without settling.
+   */
+  async findStalePendingRewardHacks(
+    before: Date,
+    limit: number
+  ): Promise<Array<{ id: string; startedAt: Date }>> {
+    return prisma.prSecurityScan.findMany({
+      where: {
+        stages: { path: ['rewardHack'], equals: 'PENDING' },
+        startedAt: { lt: before },
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: { id: true, startedAt: true },
     })
   },
 
@@ -1644,6 +1958,7 @@ export const prSecurityScanRepository = {
         huntAudit: true,
         judgeBudget: true,
         prSummary: true,
+        sequenceDiagram: true,
         partial: true,
         error: true,
         summaryCommentId: true,
@@ -1651,6 +1966,11 @@ export const prSecurityScanRepository = {
         verifierStartedAt: true,
         verifiedAt: true,
         judgeReviewScope: true,
+        repoConfig: true,
+        reviewPathSkips: true,
+        preMergeChecks: true,
+        reviewProfile: true,
+        highLevelSummary: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -1670,6 +1990,8 @@ export const prSecurityScanRepository = {
             suggestedDisposition: true,
             verifierVerdict: true,
             verifierReason: true,
+            codeSuggestion: true,
+            pathInstruction: true,
           },
         },
         pullRequest: {
@@ -1681,6 +2003,10 @@ export const prSecurityScanRepository = {
             // LUM-1140: the off-mode withdrawal only touches an open PR.
             state: true,
             workspaceId: true,
+            // LUM-1148: the per-PR override of the pre-merge checks.
+            preMergeOverrideBy: true,
+            preMergeOverrideAt: true,
+            preMergeOverrideSha: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
@@ -1732,6 +2058,19 @@ export const prSecurityScanRepository = {
   },
 
   /**
+   * LUM-1186 — does any linked PR of the task have a scan at all? The Done
+   * gate's "not scanned" vs "clear" (same set as the web's `latest !== null`).
+   * One indexed id read, no findings hydrated.
+   */
+  async anyScanForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.prSecurityScan.findFirst({
+      where: { pullRequest: { taskId } },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * The newest scan per PR, findings included — at most one row per id.
    * `distinct` on top of `orderBy: startedAt desc` keeps the first (newest)
    * row of each `pullRequestId` group; without it this read every scan ever
@@ -1751,7 +2090,7 @@ export const prSecurityScanRepository = {
   /**
    * LUM-788 — a PR's scans newest-first (one row per pushed head), each with
    * its findings minus `evidence`. `take` = null reads the whole history
-   * (`lumo pr scan --all`); the default read passes 1 for the latest head.
+   * (`lumo pr show --all`); the default read passes 1 for the latest head.
    */
   async listByPullRequest(
     pullRequestId: string,
@@ -1781,6 +2120,7 @@ export const prSecurityScanRepository = {
         judgeBudget: true,
         partialCauses: true,
         huntJob: true,
+        reviewPathSkips: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2074,6 +2414,7 @@ export const prSecurityScanRepository = {
         title: true,
         detail: true,
         evidence: true,
+        pathInstruction: true,
       },
     })
     return rows as JudgeFindingForVerify[]
@@ -2240,6 +2581,154 @@ export const prSecurityScanRepository = {
     return others > 0
   },
 
+  /** LUM-1148: the pre-merge checks' results on this scan's head (null clears). */
+  async setPreMergeChecks(
+    scanId: string,
+    record: object | null
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: {
+        preMergeChecks:
+          record === null ? Prisma.DbNull : (record as Prisma.InputJsonValue),
+      },
+    })
+  },
+
+  /**
+   * LUM-1148: this scan's stored pre-merge check results, raw (null = none
+   * or no such scan). Read back by the runner when a model call fails, so an
+   * earlier failure of the same head is kept rather than overwritten.
+   */
+  async findPreMergeChecks(scanId: string): Promise<unknown> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: { preMergeChecks: true },
+    })
+    return row?.preMergeChecks ?? null
+  },
+
+  /**
+   * LUM-1148: the PR's newest scan — its head and whether pre-merge checks
+   * ran on it — for a re-check after the title / description changed.
+   */
+  async findLatestChecksTarget(pullRequestId: string): Promise<{
+    id: string
+    headSha: string
+    preMergeChecks: unknown
+  } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, headSha: true, preMergeChecks: true },
+    })
+  },
+
+  /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
+  async setRepoConfig(scanId: string, repoConfig: object): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { repoConfig: repoConfig as Prisma.InputJsonValue },
+    })
+  },
+
+  /** LUM-1147 — the review profile in force for this scan (for the write-back). */
+  async setReviewProfile(scanId: string, reviewProfile: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { reviewProfile },
+    })
+  },
+
+  /** LUM-1151 — where this scan's high-level summary goes (for the write-back). */
+  async setHighLevelSummary(
+    scanId: string,
+    highLevelSummary: string
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { highLevelSummary },
+    })
+  },
+
+  /**
+   * LUM-1151 — for `@<app> summary`: the newest scan of the PR that carries
+   * a summary, else the newest scan at all (so the reply can say which
+   * review had none); null when the PR was never scanned.
+   */
+  async findLatestSummaryByPullRequest(pullRequestId: string): Promise<{
+    id: string
+    headSha: string
+    prSummary: unknown
+    highLevelSummary: string | null
+  } | null> {
+    const select = {
+      id: true,
+      headSha: true,
+      prSummary: true,
+      highLevelSummary: true,
+    } as const
+    const withSummary = await prisma.prSecurityScan.findFirst({
+      where: { pullRequestId, prSummary: { not: Prisma.DbNull } },
+      orderBy: { startedAt: 'desc' },
+      select,
+    })
+    if (withSummary) return withSummary
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select,
+    })
+  },
+
+  /**
+   * LUM-1155 — for `@<app> diagram`: the PR's newest scan (the one whose
+   * summary comment the diagram goes into); null when never scanned.
+   */
+  async findLatestForDiagram(
+    pullRequestId: string
+  ): Promise<{ id: string; headSha: string } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, headSha: true },
+    })
+  },
+
+  /** LUM-1155 — store a cleaned diagram on a scan (null clears it). */
+  async setSequenceDiagram(
+    scanId: string,
+    diagram: SequenceDiagram | null
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: {
+        sequenceDiagram: diagram
+          ? (diagram as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      },
+    })
+  },
+
+  /**
+   * LUM-1151 — the newest OTHER scan of the PR that carries a summary: what
+   * an incremental review keeps when its whole-PR summary cannot be made.
+   */
+  async findPreviousPrSummary(
+    pullRequestId: string,
+    excludeScanId: string
+  ): Promise<{ headSha: string; prSummary: unknown } | null> {
+    return prisma.prSecurityScan.findFirst({
+      where: {
+        pullRequestId,
+        id: { not: excludeScanId },
+        prSummary: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { headSha: true, prSummary: true },
+    })
+  },
+
   async setSummaryCommentId(
     scanId: string,
     summaryCommentId: string
@@ -2247,6 +2736,84 @@ export const prSecurityScanRepository = {
     await prisma.prSecurityScan.update({
       where: { id: scanId },
       data: { summaryCommentId },
+    })
+  },
+
+  /**
+   * LUM-1150 — claim the right to post these finding rows' inline comments;
+   * returns the ids this caller won. Each row is one conditional update, so
+   * of two concurrent write-backs exactly one sees count 1 (Postgres
+   * re-checks the WHERE once the other's row lock is released). A claim
+   * taken before `staleBefore` is treated as abandoned and can be won again.
+   */
+  async claimInlineComments(
+    findingIds: string[],
+    staleBefore: Date
+  ): Promise<Set<string>> {
+    const won = new Set<string>()
+    for (const id of findingIds) {
+      const { count } = await prisma.prSecurityFinding.updateMany({
+        where: {
+          id,
+          OR: [
+            { inlineCommentClaimedAt: null },
+            { inlineCommentClaimedAt: { lt: staleBefore } },
+          ],
+        },
+        data: { inlineCommentClaimedAt: new Date() },
+      })
+      if (count === 1) won.add(id)
+    }
+    return won
+  },
+
+  /** LUM-1150 — give claims back after a post that did not land. */
+  async releaseInlineCommentClaims(findingIds: string[]): Promise<void> {
+    if (findingIds.length === 0) return
+    await prisma.prSecurityFinding.updateMany({
+      where: { id: { in: findingIds } },
+      data: { inlineCommentClaimedAt: null },
+    })
+  },
+
+  /**
+   * LUM-1150 — claim the right to CREATE this PR's summary comment. Returns
+   * the claim's `claimedAt` (the holder's token for the release) when this
+   * caller won, null when a live claim is held elsewhere. The insert is the
+   * claim (the primary key lets exactly one of two concurrent callers in);
+   * a claim taken before `staleBefore` is abandoned and taken over by one
+   * conditional update.
+   */
+  async claimSummaryComment(
+    pullRequestId: string,
+    staleBefore: Date
+  ): Promise<Date | null> {
+    const claimedAt = new Date()
+    try {
+      await prisma.prSecuritySummaryClaim.create({
+        data: { pullRequestId, claimedAt },
+      })
+      return claimedAt
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'P2002') throw error
+    }
+    const { count } = await prisma.prSecuritySummaryClaim.updateMany({
+      where: { pullRequestId, claimedAt: { lt: staleBefore } },
+      data: { claimedAt },
+    })
+    return count === 1 ? claimedAt : null
+  },
+
+  /**
+   * LUM-1150 — give the summary claim back. Only the holder's own claim
+   * (same `claimedAt`) goes: one a later writer took over stays.
+   */
+  async releaseSummaryCommentClaim(
+    pullRequestId: string,
+    claimedAt: Date
+  ): Promise<void> {
+    await prisma.prSecuritySummaryClaim.deleteMany({
+      where: { pullRequestId, claimedAt },
     })
   },
 
@@ -2283,6 +2850,15 @@ export const prSecurityScanRepository = {
         data: { managedRunId, stages },
       })
     })
+  },
+
+  /** LUM-1150 — the scan's status alone (null when the row is gone). */
+  async findStatusById(id: string): Promise<ScanStatus | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { status: true },
+    })
+    return row ? (row.status as ScanStatus) : null
   },
 
   /** The per-layer JSON alone — the sandbox step's entry guard. */

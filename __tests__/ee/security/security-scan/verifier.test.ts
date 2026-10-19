@@ -5,7 +5,9 @@ import {
   VERIFIER_HOLD_MS,
   applyRankerPolicy,
   applyVerifierPolicy,
+  isRankerExempt,
   isVerifierRejected,
+  rankerMayReject,
   verifierAppliesTo,
   verifierHolding,
   verifierKindOf,
@@ -122,12 +124,48 @@ describe('LUM-988 verifier rules', () => {
 
 describe('LUM-988 ranker policy', () => {
   const rows = [
-    { id: 'low', kind: 'CORRECTNESS', severity: 'MEDIUM' },
-    { id: 'keep', kind: 'CORRECTNESS', severity: 'LOW' },
-    { id: 'high', kind: 'CORRECTNESS', severity: 'HIGH' },
-    { id: 'sec', kind: 'VULNERABILITY', severity: 'LOW' },
-    { id: 'gone', kind: 'CORRECTNESS', severity: 'LOW' },
-    { id: 'unranked', kind: 'CORRECTNESS', severity: 'LOW' },
+    {
+      id: 'low',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
+    },
+    {
+      id: 'keep',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
+    },
+    {
+      id: 'high',
+      kind: 'CORRECTNESS',
+      severity: 'HIGH',
+      ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
+    },
+    {
+      id: 'sec',
+      kind: 'VULNERABILITY',
+      severity: 'LOW',
+      ruleId: 'vuln:xss',
+      filePath: 'src/a.ts',
+    },
+    {
+      id: 'gone',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
+    },
+    {
+      id: 'unranked',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+      filePath: 'src/a.ts',
+    },
   ]
 
   it('rejects only an applicable row ranked below the threshold, with a marked reason', () => {
@@ -162,6 +200,122 @@ describe('LUM-988 ranker policy', () => {
       new Set()
     )
     expect(out).toEqual([])
+  })
+
+  it('LUM-1194: never removes a test_defect finding, however low it is ranked', () => {
+    const out = applyRankerPolicy(
+      [
+        {
+          id: 't',
+          kind: 'CORRECTNESS',
+          severity: 'LOW',
+          ruleId: 'review:test_defect',
+          filePath: 'src/a.ts',
+        },
+        {
+          id: 'd',
+          kind: 'CORRECTNESS',
+          severity: 'LOW',
+          ruleId: 'review:doc_mismatch',
+          filePath: 'src/a.ts',
+        },
+      ],
+      [
+        { id: 't', p: 0, reason: 'test tidiness' },
+        { id: 'd', p: 0, reason: 'minor' },
+      ],
+      new Set()
+    )
+    expect(out.map(v => v.findingId)).toEqual(['d'])
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'LOW',
+        ruleId: 'review:test_defect',
+        filePath: 'src/a.ts',
+      })
+    ).toBe(false)
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'LOW',
+        ruleId: 'review:logic_error',
+        filePath: 'src/a.ts',
+      })
+    ).toBe(true)
+    expect(
+      rankerMayReject({
+        kind: 'CORRECTNESS',
+        severity: 'HIGH',
+        ruleId: 'review:logic_error',
+        filePath: 'src/a.ts',
+      })
+    ).toBe(false)
+    // The verifier still judges test findings: only the ranker's prior is off.
+    expect(verifierAppliesTo({ kind: 'CORRECTNESS', severity: 'LOW' })).toBe(
+      true
+    )
+  })
+
+  it('LUM-1194: a finding that cites a test file is a test finding, whatever its kind', () => {
+    const race = {
+      id: 'r',
+      kind: 'CORRECTNESS',
+      severity: 'MEDIUM',
+      ruleId: 'review:concurrency',
+      filePath: 'pkg/cache/upstream/cache_test.go',
+    }
+    expect(rankerMayReject(race)).toBe(false)
+    expect(
+      applyRankerPolicy(
+        [race],
+        [{ id: 'r', p: 7, reason: 'test only' }],
+        new Set()
+      )
+    ).toEqual([])
+    expect(isRankerExempt('concurrency', 'src/__tests__/a.test.ts')).toBe(true)
+    expect(isRankerExempt('test_defect', 'src/a.rs')).toBe(true)
+    expect(isRankerExempt('logic_error', 'src/latest.ts')).toBe(false)
+  })
+
+  it('LUM-1194 + LUM-1210: a test-file finding that also carries a path-instruction claim is removed by neither', () => {
+    const both = {
+      id: 'b',
+      kind: 'CORRECTNESS',
+      severity: 'LOW',
+      ruleId: 'review:logic_error',
+      filePath: 'src/__tests__/a.test.ts',
+      pathInstruction: 'src/**/*.test.ts',
+    }
+    const testOnly = { ...both, id: 't', pathInstruction: null }
+    const instructionOnly = { ...both, id: 'i', filePath: 'src/a.ts' }
+    const plain = { ...testOnly, id: 'p', filePath: 'src/a.ts' }
+    expect(rankerMayReject(both)).toBe(false)
+    expect(verifierAppliesTo(both)).toBe(false)
+    // Each exemption on its own: the test finding is still the verifier's.
+    expect(verifierAppliesTo(testOnly)).toBe(true)
+    expect(rankerMayReject(testOnly)).toBe(false)
+    expect(rankerMayReject(instructionOnly)).toBe(false)
+    expect(rankerMayReject(plain)).toBe(true)
+    const rows = [both, testOnly, instructionOnly, plain]
+    expect(
+      applyRankerPolicy(
+        rows,
+        rows.map(r => ({ id: r.id, p: 0, reason: 'low' })),
+        new Set()
+      ).map(v => v.findingId)
+    ).toEqual(['p'])
+    expect(
+      applyVerifierPolicy(
+        rows,
+        rows.map(r => ({
+          id: r.id,
+          verdict: 'REJECTED' as const,
+          reason: 'r',
+          defaulted: false,
+        }))
+      ).map(v => v.findingId)
+    ).toEqual(['t', 'p'])
   })
 
   it('the threshold is the one measured on the replay', () => {

@@ -100,19 +100,10 @@ export const BOUNDARY_CROSSINGS_ANCHOR = 'boundary-crossings'
 export const TEST_CASES_ANCHOR = 'dossier-tests'
 
 /**
- * LUM-819: DOM id of one test-case run. A spot-check card links here so the
- * reviewer lands on that exact run with the task's full context around it;
- * the Test cases section expands its case and scrolls the run into view.
+ * LUM-819: DOM id of one test-case run. A `#run-<id>` link lands on that
+ * exact run with the task's full context around it; the Test cases section
+ * expands its case and scrolls the run into view.
  */
 export function runAnchorId(runId: string): string {
   return `run-${runId}`
-}
-
-/** Deep link into a task's Record tab, landing on one test-case run. */
-export function testRunHref(
-  workspaceUrl: string,
-  taskIdentifier: string,
-  runId: string
-): string {
-  return `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}/${TAB_SLUGS.dossier}#${runAnchorId(runId)}`
 }

@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
@@ -13,6 +14,7 @@ interface MilestoneListRow {
   id: string
   name: string
   sortOrder: number
+  slug?: string | null
 }
 
 export async function milestoneReorder(
@@ -23,7 +25,7 @@ export async function milestoneReorder(
     console.error(
       'Error: usage: lumo milestone reorder <ref...> [--project <ref>]'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -55,6 +57,7 @@ export async function milestoneReorder(
     id: m.id,
     name: m.name,
     sortOrder: m.sortOrder,
+    slug: m.slug ?? null,
   }))
 
   const resolved = resolveOrderedIds(refs, refRows)

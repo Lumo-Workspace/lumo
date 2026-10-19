@@ -11,7 +11,7 @@ describe('formatSprintList', () => {
     expect(formatSprintList([])).toBe('No sprints.')
   })
 
-  it('renders fixed-width rows with #number, date range, name', () => {
+  it('renders rows with #number, date range, name', () => {
     const rows: SprintRow[] = [
       {
         id: 'sp-4',
@@ -41,9 +41,9 @@ describe('formatSprintList', () => {
     const out = formatSprintList(rows)
     const lines = out.split('\n')
     expect(lines).toHaveLength(3)
-    // Status column is padded to the longest status ("ACTIVE" = 6, "CLOSED" = 6, "DRAFT" = 5 → pad to 6)
-    expect(lines[0]).toBe('DRAFT   #4  2026-05-27..2026-06-09  Sprint 4')
-    expect(lines[1]).toBe('ACTIVE  #3  2026-05-13..2026-05-26  Sprint 3')
-    expect(lines[2]).toBe('CLOSED  #2  2026-04-29..2026-05-12  Sprint 2')
+    // Piped (LUM-1232 L-3): fields TAB-separated, no padding.
+    expect(lines[0]).toBe('DRAFT\t#4\t2026-05-27 → 2026-06-09\tSprint 4')
+    expect(lines[1]).toBe('ACTIVE\t#3\t2026-05-13 → 2026-05-26\tSprint 3')
+    expect(lines[2]).toBe('CLOSED\t#2\t2026-04-29 → 2026-05-12\tSprint 2')
   })
 })

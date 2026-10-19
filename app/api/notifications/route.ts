@@ -1,32 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth/identity'
 import { getHumanActorId } from '@/lib/actor'
 import { notificationService } from '@/lib/services/notification.service'
+import { zodError } from '@/lib/api/helpers'
+import { notificationListQuerySchema } from '@/lib/validation/notification'
 
 /**
- * GET /api/notifications — return unread notifications for the current user.
+ * GET /api/notifications — return notifications for the current user.
  * Enriched with actor info (Clerk), task info, and comment preview.
+ *
+ * LUM-1192: browser session or API key (`lumo status --inbox`). Scoped to the
+ * credential's workspace — a Bearer key's own workspace, or the session's
+ * active one — and to the caller's own Actor in it.
+ *
+ * LUM-1233: `?unread=1` returns only unread notifications (filtered before the
+ * newest-50 cap); `unreadCount` still counts the unread rows returned. Without
+ * it, every notification as before (the web inbox).
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ notifications: [], unreadCount: 0 })
-    }
+    const query = notificationListQuerySchema.safeParse({
+      unread: request.nextUrl.searchParams.get('unread') ?? undefined,
+    })
+    if (!query.success) return zodError(query)
 
     // Resolve current user's Actor ID to query notifications
-    const recipientActorId = await getHumanActorId(ws.member.id)
+    const recipientActorId = await getHumanActorId(identity.memberId)
     if (!recipientActorId) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
     }
 
     const rawNotifications = await notificationService.getNotifications(
       recipientActorId,
-      ws.workspaceId
+      identity.workspaceId,
+      { unreadOnly: query.data.unread }
     )
 
     if (rawNotifications.length === 0) {

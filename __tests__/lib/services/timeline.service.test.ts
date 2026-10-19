@@ -14,6 +14,20 @@ jest.mock('@/lib/repositories/comment.repository', () => ({
   },
 }))
 
+const mockFindLabelFields = jest.fn()
+jest.mock('@/lib/repositories/actor.repository', () => ({
+  actorRepository: {
+    findLabelFieldsByIds: (...a: unknown[]) => mockFindLabelFields(...a),
+  },
+}))
+const mockProfiles = jest.fn()
+jest.mock('@/lib/utils/clerk-helpers', () => ({
+  lookupClerkProfiles: (...a: unknown[]) => mockProfiles(...a),
+}))
+jest.mock('@/lib/logger', () => ({
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+}))
+
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { timelineService } from '@/lib/services/timeline.service'
@@ -21,7 +35,11 @@ import { timelineService } from '@/lib/services/timeline.service'
 const mockFindActivities = activityRepository.findByTaskId as jest.Mock
 const mockFindComments = commentRepository.findByTaskId as jest.Mock
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockFindLabelFields.mockResolvedValue([])
+  mockProfiles.mockResolvedValue(new Map())
+})
 
 describe('timelineService.getTimeline', () => {
   it('merges activities and comments sorted by createdAt ASC', async () => {
@@ -52,7 +70,10 @@ describe('timelineService.getTimeline', () => {
       },
     ])
 
-    const result = await timelineService.getTimeline('task-1', { limit: 30 })
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 30,
+      workspaceId: 'ws-1',
+    })
 
     expect(result.items).toHaveLength(3)
     expect(result.items[0]!.id).toBe('a1')
@@ -77,7 +98,10 @@ describe('timelineService.getTimeline', () => {
     mockFindActivities.mockResolvedValue(activities)
     mockFindComments.mockResolvedValue([])
 
-    const result = await timelineService.getTimeline('task-1', { limit: 30 })
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 30,
+      workspaceId: 'ws-1',
+    })
 
     expect(result.items.length).toBeLessThanOrEqual(30)
     expect(result.hasMore).toBe(true)
@@ -88,10 +112,119 @@ describe('timelineService.getTimeline', () => {
     mockFindActivities.mockResolvedValue([])
     mockFindComments.mockResolvedValue([])
 
-    const result = await timelineService.getTimeline('task-1', { limit: 30 })
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 30,
+      workspaceId: 'ws-1',
+    })
 
     expect(result.items).toEqual([])
     expect(result.hasMore).toBe(false)
     expect(result.nextCursor).toBeNull()
+  })
+
+  it('LUM-1238: comment entries and their replies carry authorName from the caller workspace', async () => {
+    mockFindActivities.mockResolvedValue([])
+    mockFindComments.mockResolvedValue([
+      {
+        id: 'c1',
+        body: 'scan',
+        createdAt: new Date('2026-01-01T11:00:00Z'),
+        authorActorId: 'gh-bot',
+        parentId: null,
+        replies: [
+          {
+            id: 'r1',
+            body: 'reply',
+            createdAt: new Date('2026-01-01T11:05:00Z'),
+            authorActorId: 'member-1',
+            parentId: 'c1',
+          },
+        ],
+      },
+      {
+        id: 'c2',
+        body: 'orphan',
+        createdAt: new Date('2026-01-01T12:00:00Z'),
+        authorActorId: 'gone',
+        parentId: null,
+        replies: [],
+      },
+    ])
+    mockFindLabelFields.mockResolvedValue([
+      {
+        id: 'gh-bot',
+        type: 'GITHUB_USER',
+        externalIdentity: 'github:uselumo[bot]',
+        member: null,
+        agent: null,
+      },
+      {
+        id: 'member-1',
+        type: 'MEMBER',
+        externalIdentity: null,
+        member: { clerkId: 'u1' },
+        agent: null,
+      },
+    ])
+    mockProfiles.mockResolvedValue(new Map([['u1', { name: 'Chao Li' }]]))
+
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 30,
+      workspaceId: 'ws-1',
+    })
+
+    expect(mockFindLabelFields).toHaveBeenCalledWith('ws-1', [
+      'gh-bot',
+      'member-1',
+      'gone',
+    ])
+    const c1 = result.items.find(i => i.id === 'c1')!
+    expect(c1.authorName).toBe('@uselumo[bot]')
+    expect((c1.replies as { authorName: unknown }[])[0]!.authorName).toBe(
+      'Chao Li'
+    )
+    expect(result.items.find(i => i.id === 'c2')!.authorName).toBeNull()
+  })
+
+  it('LUM-1238: only looks up authors of comments on the returned page', async () => {
+    mockFindActivities.mockResolvedValue([])
+    mockFindComments.mockResolvedValue([
+      {
+        id: 'c1',
+        body: 'first',
+        createdAt: new Date('2026-01-01T10:00:00Z'),
+        authorActorId: 'on-page',
+        parentId: null,
+        replies: [
+          {
+            id: 'r1',
+            body: 'reply',
+            createdAt: new Date('2026-01-01T10:01:00Z'),
+            authorActorId: 'reply-author',
+            parentId: 'c1',
+          },
+        ],
+      },
+      {
+        id: 'c2',
+        body: 'later',
+        createdAt: new Date('2026-01-02T10:00:00Z'),
+        authorActorId: 'next-page',
+        parentId: null,
+        replies: [],
+      },
+    ])
+
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 1,
+      workspaceId: 'ws-1',
+    })
+
+    expect(result.items.map(i => i.id)).toEqual(['c1'])
+    expect(mockFindLabelFields).toHaveBeenCalledTimes(1)
+    expect(mockFindLabelFields).toHaveBeenCalledWith('ws-1', [
+      'on-page',
+      'reply-author',
+    ])
   })
 })

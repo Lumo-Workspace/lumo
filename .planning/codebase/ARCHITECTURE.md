@@ -168,7 +168,6 @@
   - `projects/` → list projects
   - `projects/[projectSlug]/` → project detail
   - `my-tasks/` → user's assigned tasks
-  - `dashboard/` → workspace overview
   - `documents/` → document browser
   - `documents/[docId]/` → document editor
 

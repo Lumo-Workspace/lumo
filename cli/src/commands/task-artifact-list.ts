@@ -1,10 +1,13 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { emptyState } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { shortRef } from '../../../shared/src/short-ref'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface ArtifactRow {
   id: string
@@ -16,13 +19,14 @@ export interface ArtifactRow {
 }
 
 export async function taskArtifactList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
       'Error: missing <task>. Usage: lumo task artifact list <LUM-42>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -59,6 +63,10 @@ export async function taskArtifactList(
   }
 
   const { artifacts } = (await res.json()) as { artifacts: ArtifactRow[] }
+  if (opts.json) {
+    emitJson(listEnvelope('artifacts', stripInternalFields(artifacts)))
+    return
+  }
   if (artifacts.length === 0) {
     process.stdout.write(emptyState('artifacts', identifier) + '\n')
     return
@@ -76,12 +84,13 @@ export function formatArtifactList(
 ): string {
   return renderListTable(
     artifacts.map(a => [
-      a.id,
+      // LUM-1230: the 8-char short ref show/update/rm take (the API keeps full ids).
+      shortRef(a.id),
       sanitizeField(a.kind),
       AGENT_LABELS[a.agent] ?? sanitizeField(a.agent),
       sanitizeField(a.source),
       sanitizeField(a.title),
     ]),
-    { header: ['ID', 'KIND', 'AGENT', 'SOURCE', 'TITLE'], flex: 4, ...opts }
+    { header: ['REF', 'KIND', 'AGENT', 'SOURCE', 'TITLE'], flex: 4, ...opts }
   )
 }

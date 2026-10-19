@@ -45,7 +45,15 @@ export const STOCK_TABLES: readonly StockTable[] = [
   {
     label: 'PrSecurityScan',
     delegate: 'prSecurityScan',
-    fields: ['error', 'huntAudit', 'stages', 'prSummary', 'huntJob'],
+    fields: [
+      'error',
+      'huntAudit',
+      'stages',
+      'prSummary',
+      'huntJob',
+      // LUM-1155: model-written labels over the code.
+      'sequenceDiagram',
+    ],
     workspaceField: 'workspaceId',
   },
   {
@@ -123,7 +131,7 @@ export const STOCK_TABLES: readonly StockTable[] = [
   {
     label: 'TestCaseRun',
     delegate: 'testCaseRun',
-    fields: ['evidence', 'note', 'failedStepText', 'actual'],
+    fields: ['evidence', 'note', 'failedStepText', 'actual', 'stepResults'],
   },
   {
     label: 'PrCommentSyncJob',

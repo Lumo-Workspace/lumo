@@ -125,7 +125,7 @@ async function statusLine(agent: string, sid: string): Promise<string> {
 }
 
 const RULES_NOTE =
-  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
 
 describe('committed Lumo install behind the CLI', () => {
   it('Claude Code: one reminder with the fix command, once per session', async () => {
@@ -148,7 +148,7 @@ describe('committed Lumo install behind the CLI', () => {
     skill(repo, '.agents', '1.69.0')
     commit()
     expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --project\`, then commit the changes in a PR, then restart the session`
+      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --scope project\`, then commit the changes in a PR, then restart the session`
     )
     // later SessionStarts of the session fall back to the plain skill hint
     expect(await statusLine('codex', 's1')).toBe(
@@ -158,6 +158,36 @@ describe('committed Lumo install behind the CLI', () => {
 
   it('an uncommitted (untracked) stale install: no reminder', async () => {
     staleRules()
+    expect(await statusLine('claude-code', 's1')).toBe(
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
+    )
+  })
+
+  it('an uncommitted settings file with a retired WorktreeCreate hook: named once, without the PR step (LUM-1235)', async () => {
+    const file = path.join(repo, '.claude', 'settings.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        hooks: {
+          WorktreeCreate: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'lumo hook worktree-create --agent claude-code',
+                },
+              ],
+            },
+          ],
+        },
+      })
+    )
+    const note =
+      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
+    expect(await statusLine('claude-code', 's1')).toBe(
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
+    )
     expect(await statusLine('claude-code', 's1')).toBe(
       `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )

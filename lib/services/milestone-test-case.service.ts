@@ -17,9 +17,15 @@ import {
   executorResolver,
   fail,
   resolveRunFields,
+  runVerdictOf,
+  type RunVerdict,
   type TestCaseAttribution,
   type TestCaseRunWithExecutor,
 } from '@/lib/services/test-case-core'
+import {
+  summarizeTestCases,
+  type TestCasesSummary,
+} from '@/lib/test-cases/case-summary'
 import { parseCaseRef } from '@/lib/test-cases/case-ref'
 import type { RunCeiling } from '@/lib/test-cases/provability'
 import type {
@@ -29,7 +35,8 @@ import type {
 } from '@/lib/validation/test-case'
 
 export type MilestoneTestCaseWithRuns = TestCaseRow & {
-  runs: TestCaseRunWithExecutor[]
+  /** LUM-1185: 每条 run 带推导判定（封顶结论 + 逐步报告），CLI 只渲染。 */
+  runs: Array<TestCaseRunWithExecutor & RunVerdict>
 }
 
 async function authorize(milestoneId: string, memberId: string) {
@@ -104,6 +111,8 @@ export const milestoneTestCaseService = {
   ): Promise<{
     testCases: MilestoneTestCaseWithRuns[]
     gate: MilestoneCloseGate
+    /** LUM-1185: 与任务列表同一口径的 N/M passing 汇总。 */
+    summary: TestCasesSummary
   }> {
     await authorize(milestoneId, memberId)
     const [cases, runs, gate] = await Promise.all([
@@ -112,16 +121,15 @@ export const milestoneTestCaseService = {
       milestoneCloseGateService.read(milestoneId),
     ])
     const executedBy = await executorResolver([...runs.values()].flat())
-    return {
-      testCases: cases.map(c => ({
-        ...c,
-        runs: (runs.get(c.id) ?? []).map(r => ({
-          ...r,
-          executedBy: executedBy(r),
-        })),
+    const testCases = cases.map(c => ({
+      ...c,
+      runs: (runs.get(c.id) ?? []).map(r => ({
+        ...r,
+        executedBy: executedBy(r),
+        ...runVerdictOf(r, c),
       })),
-      gate,
-    }
+    }))
+    return { testCases, gate, summary: summarizeTestCases(testCases) }
   },
 
   async getDetail(milestoneId: string, caseRef: string, memberId: string) {
@@ -131,7 +139,11 @@ export const milestoneTestCaseService = {
     const executedBy = await executorResolver(runs)
     return {
       testCase,
-      runs: runs.map(r => ({ ...r, executedBy: executedBy(r) })),
+      runs: runs.map(r => ({
+        ...r,
+        executedBy: executedBy(r),
+        ...runVerdictOf(r, testCase),
+      })),
       // Same response shape as the task detail: a milestone run binds no PR
       // (commitSha only), so the list is always empty — but it is present.
       pullRequests: [],

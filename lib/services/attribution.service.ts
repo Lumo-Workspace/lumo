@@ -92,6 +92,20 @@ function rawSignalsOf(e: FamilyEvent): AttributionSignal[] {
   return [...fromPayload().filter(s => s.kind === 'NOTIFICATION'), ...stored]
 }
 
+/**
+ * LUM-1237: an UNBOUND root with at least one subagent that attached a task
+ * itself (`lumo session attach` inside the subagent) is an orchestration
+ * host — its own turns are attributed only by work output (see
+ * attribute-turns). Pure.
+ */
+export function isOrchestrationHost(family: {
+  sessions: Pick<FamilySession, 'taskId' | 'bindingSource'>[]
+}): boolean {
+  const [root, ...children] = family.sessions
+  if (!root || root.taskId) return false
+  return children.some(c => c.taskId !== null && c.bindingSource === 'ATTACH')
+}
+
 function rootPromptCount(family: SessionFamily, rootId: string): number {
   return family.events.filter(
     e => e.sessionId === rootId && e.type === 'USER_PROMPT_SUBMIT'
@@ -195,6 +209,8 @@ async function inferFamily(
 
   const segments = attributeTurns({
     rootSessionId: root.id,
+    // LUM-1237: an unbound root hosting a self-attached subagent orchestrates.
+    orchestrationHost: !opts.ignoreExplicit && isOrchestrationHost(family),
     sessions: family.sessions.map(s => ({
       id: s.id,
       parentSessionId: s.parentSessionId,
@@ -531,6 +547,9 @@ async function firstResolvedTask(
  *      boundary detector runs on the same task the pre-tool event had;
  *   5. the event's PROMPT signal, resolved (only when nothing else applies);
  *   6. null.
+ * LUM-1237: an event of an orchestration-host ROOT (an unbound root hosting a
+ * self-attached subagent) skips the task-naming `lumo` command (3) and the
+ * PROMPT (5): naming a task while orchestrating is not working on it.
  */
 export async function provisionalTaskFor(input: {
   workspaceId: string
@@ -556,8 +575,20 @@ export async function provisionalTaskFor(input: {
   )
   if (open) return open
 
+  // Only a root whose event names a task can change the answer — skip the
+  // host lookup for every other event.
+  const host =
+    parentSessionId === null &&
+    signals.some(s => s.kind === 'LUMO_CMD' || s.kind === 'PROMPT') &&
+    (await attributionRepository.hasSelfAttachedChild(workspaceId, sessionId))
+
   const strong = signals
-    .filter(s => STRONG_KINDS.has(s.kind) && s.kind !== 'BRANCH')
+    .filter(
+      s =>
+        STRONG_KINDS.has(s.kind) &&
+        s.kind !== 'BRANCH' &&
+        !(host && s.kind === 'LUMO_CMD')
+    )
     .sort(
       (a, b) =>
         PROVISIONAL_ORDER.indexOf(a.kind) - PROVISIONAL_ORDER.indexOf(b.kind)
@@ -575,6 +606,7 @@ export async function provisionalTaskFor(input: {
     if (pre) return pre
   }
 
+  if (host) return null
   return firstResolvedTask(
     workspaceId,
     signals.filter(s => s.kind === 'PROMPT')
@@ -611,7 +643,58 @@ const NOTHING_MOVED = {
   backfilledPostToolEventIds: [] as string[],
 }
 
+/** LUM-1237: what a recompute of one family would change, without writing. */
+export interface FamilyRecomputePreview {
+  rootSessionId: string
+  /** The stored segment rows differ from a fresh compute. */
+  segmentsChanged: boolean
+  /** Root INFERRED segment task ids, stored vs freshly computed. */
+  rootTasksBefore: string[]
+  rootTasksAfter: string[]
+  /** Events whose task attribution would change, and how many to no task. */
+  eventsRetagged: number
+  eventsToNoTask: number
+  /** Undispositioned crossings on those events (they move with them). */
+  openCrossingsMoved: number
+}
+
+const rootInferredTasks = (
+  rows: Array<Pick<SegmentRow, 'sessionId' | 'taskId' | 'source'>>,
+  rootId: string
+): string[] =>
+  rows
+    .filter(r => r.sessionId === rootId && r.source === 'INFERRED')
+    .map(r => r.taskId)
+
 export const attributionService = {
+  /**
+   * LUM-1237 history recompute: preview a family recompute (dry run). Null
+   * when the family is not found.
+   */
+  async previewFamily(
+    sessionId: string
+  ): Promise<FamilyRecomputePreview | null> {
+    const rootId = parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
+    const plan = await computeFamilyRows(rootId)
+    if (!plan) return null
+    const existing = await attributionRepository.listFamilySegments(
+      plan.familyIds
+    )
+    return {
+      rootSessionId: rootId,
+      segmentsChanged: !sameSegments(plan.rows, existing),
+      rootTasksBefore: rootInferredTasks(existing, rootId),
+      rootTasksAfter: rootInferredTasks(plan.rows, rootId),
+      eventsRetagged: plan.eventTaskChanges.length,
+      eventsToNoTask: plan.eventTaskChanges.filter(c => c.taskId === null)
+        .length,
+      openCrossingsMoved:
+        await attributionRepository.countOpenCrossingsForEvents(
+          plan.eventTaskChanges.map(c => c.eventId)
+        ),
+    }
+  },
+
   /** Recompute every segment of the family containing `sessionId` (root or child id). Null when not found. */
   async recomputeFamily(sessionId: string): Promise<RecomputeResult | null> {
     const rootId = parseChildSessionId(sessionId)?.parentSessionId ?? sessionId

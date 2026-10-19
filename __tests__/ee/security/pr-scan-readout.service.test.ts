@@ -560,6 +560,69 @@ describe('prScanReadoutService.getForPullRequest', () => {
     expect(hunt.tasks[0]!.shell).toMatchObject({ calls: 24, repeated: 6 })
   })
 
+  it('LUM-1224 carries each trace step’s prompt-cache read/write tokens', async () => {
+    // The hunt records how much of every step's input came from the prompt
+    // cache; a read-out that copies only the other counters leaves the saving
+    // unobservable from `lumo pr scan --json`.
+    listScans.mockResolvedValue([
+      scan({
+        huntAudit: {
+          candidates: 0,
+          rejected: [],
+          falsifierRejects: 0,
+          planned: [{ id: 't1' }],
+          tasks: [
+            {
+              taskId: 't1',
+              category: 'idor',
+              stopped: 'done',
+              trace: [
+                {
+                  i: 1,
+                  tool: 'run_shell',
+                  inputTokens: 5_000,
+                  cacheWriteTokens: 4_200,
+                  outputTokens: 200,
+                },
+                {
+                  i: 2,
+                  tool: 'run_shell',
+                  inputTokens: 6_000,
+                  cacheReadTokens: 4_200,
+                  cacheWriteTokens: 900,
+                  outputTokens: 150,
+                },
+                // A row written before the cache counters existed.
+                { i: 3, tool: 'submit_candidates', inputTokens: 7_000 },
+                { i: 4, cacheReadTokens: 'lots' },
+              ],
+            },
+          ],
+        },
+      }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1224,
+      all: false,
+    })
+    const trace = view.scans[0]!.hunt!.tasks[0]!.trace!
+    expect(trace[0]).toEqual({
+      i: 1,
+      tool: 'run_shell',
+      inputTokens: 5_000,
+      cacheWriteTokens: 4_200,
+      outputTokens: 200,
+    })
+    expect(trace[1]).toMatchObject({
+      cacheReadTokens: 4_200,
+      cacheWriteTokens: 900,
+    })
+    expect(trace[2]).not.toHaveProperty('cacheReadTokens')
+    expect(trace[2]).not.toHaveProperty('cacheWriteTokens')
+    // Wrong shape is dropped, not trusted.
+    expect(trace[3]).toEqual({ i: 4 })
+  })
+
   it('returns hunt: null when the scan has no hunt layer and no audit', async () => {
     listScans.mockResolvedValue([
       scan({ stages: { secrets: 'RAN', judge: 'RAN' }, huntAudit: null }),
@@ -569,6 +632,32 @@ describe('prScanReadoutService.getForPullRequest', () => {
       all: false,
     })
     expect(view.scans[0]!.hunt).toBeNull()
+  })
+})
+
+describe('LUM-1215 path-filter skips in the read-out', () => {
+  it('carries the recorded skips, each path terminal-sanitised; null when none', async () => {
+    listScans.mockResolvedValue([
+      scan({
+        reviewPathSkips: {
+          builtIn: { count: 2, paths: ['dist/a.js', 'dist/\u001b[31mb.js'] },
+          configured: { count: 1 },
+        },
+      }),
+      scan({ reviewPathSkips: null }),
+      scan({ reviewPathSkips: { builtIn: 'junk' } }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1013,
+      all: true,
+    })
+    const first = view.scans[0]!.reviewPathSkips!
+    expect(first.builtIn.count).toBe(2)
+    expect(first.builtIn.paths[0]).toBe('dist/a.js')
+    expect(first.builtIn.paths[1]).not.toContain('\u001b')
+    expect(first.configured.count).toBe(1)
+    expect(view.scans[1]!.reviewPathSkips).toBeNull()
+    expect(view.scans[2]!.reviewPathSkips).toBeNull()
   })
 })
 

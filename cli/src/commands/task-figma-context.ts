@@ -1,8 +1,17 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { formatFigmaContext } from '../lib/tier2-render'
 import { reportPull } from '../lib/report-pull'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { sanitizeField } from '../lib/sanitize'
+import { refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonInline } from '../lib/json-guard'
 
 interface FigmaMetadata {
   id: string
@@ -24,7 +33,7 @@ interface FigmaContextResponse {
 }
 
 /**
- * `lumo task figma context <LUM-N> <link-id>`
+ * `lumo task figma show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline Figma card. Reads the cached design
  * metadata (file/frame name, url, thumbnail, last sync) from
@@ -34,11 +43,12 @@ interface FigmaContextResponse {
  */
 export async function taskFigmaContext(
   identifier: string | undefined,
-  linkId: string | undefined
+  linkId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !linkId) {
-    console.error('Error: usage: lumo task figma context <LUM-42> <link-id>')
-    return 1
+    console.error('Error: usage: lumo task figma show <LUM-42> <ref>')
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -66,6 +76,17 @@ export async function taskFigmaContext(
     console.error(errAuth())
     return 1
   }
+  // LUM-1230: an ambiguous (409) or too-short (400) short ref — the server
+  // message lists the candidates / the minimum length.
+  if (res.status === 409 || res.status === 400) {
+    console.error(
+      await refLookupError(
+        res,
+        `could not resolve Figma link "${sanitizeField(linkId)}"`
+      )
+    )
+    return 1
+  }
   if (res.status === 404) {
     console.error(
       `Error: task ${identifier} or figma link ${linkId} not found in workspace ${creds.workspaceSlug}`
@@ -73,15 +94,39 @@ export async function taskFigmaContext(
     return 1
   }
   if (!res.ok) {
-    console.error(errHttp('figma context', res.status))
+    console.error(errHttp('figma show', res.status))
     return 1
   }
 
-  const { metadata, note } = (await res.json()) as FigmaContextResponse
-  // LUM-998: file / frame name and sync error are guarded inline.
-  console.log(formatFigmaContext(metadata, note))
+  const { metadata, note, designContextAvailable } =
+    (await res.json()) as FigmaContextResponse
+  if (opts.json) {
+    // The same inline guard as the text view, on the same three fields.
+    emitJson(
+      detailEnvelope(
+        'figmaLink',
+        stripInternalFields({
+          ...metadata,
+          fileName: guardJsonInline(metadata.fileName),
+          frameName: guardJsonInline(metadata.frameName),
+          lastSyncError: guardJsonInline(metadata.lastSyncError),
+        }),
+        {
+          designContextAvailable: designContextAvailable ?? null,
+          note: note ?? null,
+        }
+      )
+    )
+  } else {
+    // LUM-998: file / frame name and sync error are guarded inline.
+    console.log(formatFigmaContext(metadata, note))
+  }
 
-  // LUM-500: stamp the disclosure funnel. The linkId arg == lineage FIGMA
-  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
-  await reportPull({ fragmentType: 'FIGMA', fragmentId: linkId })
+  // LUM-500: stamp the disclosure funnel with the lineage FIGMA fragmentId —
+  // the resolved id the server echoes (the arg may be a short ref, LUM-1230).
+  // Fire-and-forget — never blocks output, swallows failures.
+  await reportPull({
+    fragmentType: 'FIGMA',
+    fragmentId: metadata?.id ?? linkId,
+  })
 }

@@ -74,16 +74,20 @@ describe('lumo task template list', () => {
     expect(await taskTemplateList()).toBeUndefined()
     expect(calls[0]?.url).toBe('https://api.lumo.test/api/task-templates')
     expect(out).toContain(
-      'agent-brief  Agent brief [built-in] — Goal, non-goals'
+      'agent-brief\tAgent brief\tbuilt-in\tGoal, non-goals\n'
     )
-    expect(out).toContain('bug-report   Bug report\n')
+    expect(out).toContain('bug-report\tBug report\tworkspace\t-\n')
     expect(out).toContain('--template <key>')
   })
 
   it('--json includes the Markdown content', async () => {
     serve({ templates })
     await taskTemplateList({ json: true })
-    expect(JSON.parse(out)[1]).toEqual(templates[1])
+    const body = JSON.parse(out)
+    expect(body.version).toBe(1)
+    expect(body.total).toBe(2)
+    expect(body.nextCursor).toBeNull()
+    expect(body.templates[1]).toEqual(templates[1])
   })
 
   it('an empty catalog says so', () => {
@@ -115,7 +119,7 @@ describe('lumo task create --template', () => {
     serve({})
     expect(
       await taskCreate('T', { template: 'agent-brief', description: 'x' })
-    ).toBe(1)
+    ).toBe(2)
     expect(err).toContain('either --description or --template')
     expect(calls).toHaveLength(0)
   })
@@ -150,7 +154,7 @@ describe('lumo task decide', () => {
 
   it('missing text is a usage error', async () => {
     serve({})
-    expect(await taskDecide('LUM-42', '  ')).toBe(1)
+    expect(await taskDecide('LUM-42', '  ')).toBe(2)
     expect(calls).toHaveLength(0)
   })
 })

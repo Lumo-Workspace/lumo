@@ -1,0 +1,39 @@
+{
+  "_note": "LUM-1236 follow-up: the lum1236 recompile of the production `lumo` project (compiledAt 2026-10-18T06:39:45.532Z) of an UNCHANGED CLAUDE.md. `source` is the Database Migrations section of CLAUDE.md verbatim. `previousRules` holds the rule that was deterministic+blocking before the recompile: its id and text are exact (id = sha256(text)[0:16], read from the POLICY_WEAKENING rows X953/X954); its category is reconstructed — only a rule mapped to a built-in is blocking, and DESTRUCTIVE_DB_COMMAND is the one built-in that fits. `lum1236Raw` are the two rules as the lum1236 compile left them (both NO_CHECKER per GET /api/workspaces/me/policy-coverage): an action rule with no predicate and no built-in. The model's exact tier/assertion for them is not readable without the production database; both shapes that end in NO_CHECKER (semantic with an assertion, deterministic without a predicate) are covered.",
+  "source": "## Database Migrations\n\n- **Dev**: schema changes are applied locally via `prisma migrate dev`. If the dev DB has stale checksum drift on a previously-applied migration (Prisma rejects with P3008 / P3012), the workaround is: hand-write the SQL into `prisma/migrations/<timestamp>_<name>/migration.sql`, apply with `npx prisma db execute --file <path>`, record with `npx prisma migrate resolve --applied <name>`, then `npx prisma generate`. **Never** `prisma migrate reset` or direct-UPDATE `_prisma_migrations` without explicit user approval.\n- **Production**: migrations are normally applied **only** by CI/CD running `prisma migrate deploy` on deploy — that is the default path. Do not apply a migration to production manually unless the user **explicitly authorizes it in the current session** (a generic standing approval doesn't count). Even with authorization: (a) confirm the exact migration(s) about to apply and call out any data-destructive steps before running anything, (b) use **only** `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations`, (c) verify with `prisma migrate status` against the prod URL afterward.\n- A merged PR with a new migration ≠ production is migrated. Production is migrated only after the deploy completes. After merging a schema-change PR, verify the migration applied on prod (deploy log, or `prisma migrate status` against the prod URL).\n- When opening a PR with a schema change, mention in the description what production needs (e.g. \"requires `migrate deploy` on next deploy\", or call out any data-deletion the migration performs).\n\n## Destructive Migrations\n\nDropping/renaming a column, table or enum value takes two releases: stop using it, then drop. Guard + rollback: [`docs/database-migrations.md`](docs/database-migrations.md).\n",
+  "previousRules": [
+    {
+      "id": "2b687fb274ed60e1",
+      "text": "Never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations` in production",
+      "kind": "action",
+      "tier": "deterministic",
+      "mappedCategory": "DESTRUCTIVE_DB_COMMAND",
+      "severity": "HIGH",
+      "blocking": true
+    }
+  ],
+  "lum1236Raw": [
+    {
+      "text": "In production: use only prisma migrate deploy — never migrate dev, db push, migrate reset, or direct edits to _prisma_migrations",
+      "kind": "action",
+      "tier": "semantic",
+      "assertion": "Production migrations are applied only with prisma migrate deploy",
+      "severity": "HIGH",
+      "blocking": false,
+      "polarity": "require"
+    },
+    {
+      "text": "Never direct-UPDATE _prisma_migrations without explicit user approval",
+      "kind": "action",
+      "tier": "semantic",
+      "assertion": "No direct UPDATE of _prisma_migrations without explicit user approval",
+      "severity": "HIGH",
+      "blocking": false,
+      "polarity": "forbid"
+    }
+  ],
+  "noCheckerIds": {
+    "724a56aa8d15e1c1": "In production: use only prisma migrate deploy — never migrate dev, db push, migrate reset, or direct edits to _prisma_migrations",
+    "d0a822cd596f9363": "Never direct-UPDATE _prisma_migrations without explicit user approval"
+  }
+}

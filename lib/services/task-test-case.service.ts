@@ -6,10 +6,6 @@ import {
   type TestCaseRunRow,
 } from '@/lib/repositories/test-case.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import {
-  testCaseReviewService,
-  type RunReviewSummary,
-} from '@/lib/services/test-case-review.service'
 import type {
   CreateTestCaseBody,
   UpdateTestCaseBody,
@@ -30,9 +26,15 @@ import {
   fail,
   resolveActorId,
   resolveRunFields,
+  runVerdictOf,
+  type RunVerdict,
   type TestCaseAttribution,
   type TestCaseRunWithExecutor,
 } from '@/lib/services/test-case-core'
+import {
+  summarizeTestCases,
+  type TestCasesSummary,
+} from '@/lib/test-cases/case-summary'
 
 export { deriveRunFreshness, type RunFreshness, type TaskPullRequestSnapshot }
 export { deriveRunCeiling, type RunCeiling }
@@ -45,9 +47,21 @@ export type { TestCaseAttribution, TestCaseRunWithExecutor }
  * 撒谎（LUM-801 的 TC1 就是这么 FAIL 的）。
  */
 export type TestCaseWithRuns = TestCaseRow & {
-  /** LUM-819 返工：每条 run 带上它的最新抽查复核（null = 没人抽到过）。 */
-  runs: Array<TestCaseRunWithExecutor & { review: RunReviewSummary | null }>
+  /**
+   * LUM-1185：每条 run 带上推导出的封顶结论与逐步报告（RunVerdict）。
+   * `review` 恒为 null（LUM-1231，见 TaskTestCaseRunView）。
+   */
+  runs: TaskTestCaseRunView[]
 }
+
+/**
+ * 读端的一条 run：落库列 + 执行人 + 推导判定（LUM-1185）。
+ *
+ * LUM-1231：抽查功能已删除，`review` 恒为 null。键保留只为 `--json` 契约不断
+ * （外部脚本可能读它）；与 `TestCaseRunReview` 表一起在两步迁移里删。
+ */
+export type TaskTestCaseRunView = TestCaseRunWithExecutor &
+  RunVerdict & { review: null }
 
 /** LUM-1135: task routes only ever resolve task-owned cases; a milestone case here is a 404. */
 export function taskIdOf(row: { taskId: string | null }): string {
@@ -65,46 +79,57 @@ export const taskTestCaseService = {
   async listForTask(taskId: string): Promise<{
     testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
+    /** LUM-1185: 与 web Record 行同源的汇总（N/M passing、拦 DONE 的缺陷）。 */
+    summary: TestCasesSummary
   }> {
     const runsPromise = testCaseRepository.runsPerCase(taskId)
     // 执行人解析只依赖 runs，与其余读并行，不在它们之后再串一次 Clerk 往返。
-    const [cases, runs, executedBy, pullRequests, reviews] = await Promise.all([
+    const [cases, runs, executedBy, pullRequests] = await Promise.all([
       testCaseRepository.listForTask(taskId),
       runsPromise,
       (async () =>
         executorResolver([...(await runsPromise).values()].flat()))(),
       testCaseRepository.listTaskPullRequests(taskId),
-      testCaseReviewService.latestForTask(taskId),
     ])
-    return {
-      testCases: cases.map(c => ({
-        ...c,
-        runs: (runs.get(c.id) ?? []).map(r => ({
-          ...r,
-          executedBy: executedBy(r),
-          review: reviews.get(r.id) ?? null,
-        })),
+    const testCases = cases.map(c => ({
+      ...c,
+      runs: (runs.get(c.id) ?? []).map(r => ({
+        ...r,
+        executedBy: executedBy(r),
+        review: null,
+        ...runVerdictOf(r, c),
       })),
+    }))
+    return {
+      testCases,
       pullRequests,
+      summary: summarizeTestCases(testCases),
     }
   },
 
   async getDetail(testCaseId: string): Promise<{
     testCase: TestCaseRow
-    runs: TestCaseRunWithExecutor[]
+    runs: TaskTestCaseRunView[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
     const testCase = await testCaseRepository.findById(testCaseId)
     if (!testCase) fail('Test case not found', 404)
+    const taskId = taskIdOf(testCase)
     const [runs, pullRequests] = await Promise.all([
       testCaseRepository.listRuns(testCaseId),
-      testCaseRepository.listTaskPullRequests(taskIdOf(testCase)),
+      testCaseRepository.listTaskPullRequests(taskId),
     ])
     // 陈旧性在**读端**推导（deriveRunFreshness），不落列。
     const executedBy = await executorResolver(runs)
     return {
       testCase,
-      runs: runs.map(r => ({ ...r, executedBy: executedBy(r) })),
+      runs: runs.map(r => ({
+        ...r,
+        executedBy: executedBy(r),
+        // LUM-1185: 详情与列表同一份读端形状——推导判定（review 恒 null）。
+        review: null,
+        ...runVerdictOf(r, testCase),
+      })),
       pullRequests,
     }
   },

@@ -26,6 +26,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!task)
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
-  const status = await taskStatusService.statusForTask(task.id)
+  const status = await taskStatusService.statusForTask(
+    task.id,
+    identity.workspaceId
+  )
   return NextResponse.json(withLegacyV1Fields(status))
 }

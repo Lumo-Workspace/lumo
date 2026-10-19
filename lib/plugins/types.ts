@@ -67,6 +67,12 @@ export interface DoneBlocker {
 export interface DoneGateContributor {
   id: string
   openBlockers(taskId: string): Promise<DoneBlocker[]>
+  /**
+   * LUM-1186: the plugin has a result for this task (the Done gate row reads
+   * "clear", not "not scanned"). Optional — a contributor without it is never
+   * reported as checked. Read-only display; the gate decision never reads it.
+   */
+  checked?(taskId: string): Promise<boolean>
 }
 
 // ── agent context ────────────────────────────────────────────────────────────
@@ -118,6 +124,19 @@ export interface AgentContextContributor {
 
 // ── core events ──────────────────────────────────────────────────────────────
 
+/** LUM-1143 — a pull_request payload's facts the auto-review filters read. */
+export interface PullRequestReviewFacts {
+  baseBranch: string | null
+  /** The repository's default branch (`repository.default_branch`). */
+  defaultBranch: string | null
+  /** Label names. */
+  labels: string[]
+  title: string | null
+  /** The PR description. */
+  body: string | null
+  authorLogin: string | null
+}
+
 export interface CoreEvents {
   /**
    * A pull_request webhook event, after the PR row is stored. LUM-1133: every
@@ -135,6 +154,22 @@ export interface CoreEvents {
     repo: string
     prNumber: number
     isDraft: boolean
+    /**
+     * LUM-1143: what the per-repository review filters read, off the
+     * payload. Optional: an emitter without it filters nothing (fail-open).
+     */
+    reviewFacts?: PullRequestReviewFacts
+    /**
+     * LUM-1143: for labeled / unlabeled / edited — the facts before the
+     * change (GitHub's `label` / `changes`). Absent when the event changed
+     * nothing a filter reads.
+     */
+    reviewFactsBefore?: PullRequestReviewFacts
+    /**
+     * LUM-1146: the commit the PR's base branch points at (`base.sha`) —
+     * where the repository config file is read. Absent = not read.
+     */
+    baseSha?: string | null
   }
   /** A branch push (not a tag, not a deletion). */
   'github.push': {
@@ -201,6 +236,12 @@ export interface CoreEvents {
       user: { login?: string; type?: string } | null
       /** GitHub `author_association`, raw; null when absent. */
       authorAssociation: string | null
+      /** LUM-1154: the file the comment sits on (absent on older emitters). */
+      path?: string | null
+      /** LUM-1154: its line in the PR head; null when outdated. */
+      line?: number | null
+      /** LUM-1154: the diff hunk GitHub shows above the comment, untrusted. */
+      diffHunk?: string | null
     }
   }
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
@@ -328,8 +369,9 @@ export interface WorkspaceSettingsContributor {
    * column. The audit diff still sees the validated value.
    */
   toColumnWrite?(column: string, value: unknown): unknown
-  /** Extra top-level fields of `GET /api/workspaces/me`. */
-  meFields?(): Record<string, unknown>
+  /** Extra top-level fields of `GET /api/workspaces/me`, for the caller's
+   *  workspace (null when not known). */
+  meFields?(ctx: { workspaceId: string | null }): Record<string, unknown>
   /**
    * Whether the workspace lets AI review send its code to a model (the claim
    * faithfulness judge asks). Every contributor must agree; with none the

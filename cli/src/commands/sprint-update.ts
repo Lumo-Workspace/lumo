@@ -1,15 +1,19 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { fmtCalendarDay } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { queueSummaryRefresh } from '../lib/summary-aspect'
 
 export interface UpdateSprintOptions {
   team?: string
   name?: string
   start?: string
   end?: string
+  /** LUM-1233 3j: queue AI summary regeneration (was `sprint summary --retry`). */
+  refreshSummary?: boolean
 }
 
 interface UpdatePayload {
@@ -71,23 +75,23 @@ export async function sprintUpdate(
   // Reject empty strings — these fields can't be cleared.
   if (opts.name !== undefined && opts.name === '') {
     console.error('Error: --name cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (opts.start !== undefined && opts.start === '') {
     console.error('Error: --start cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
   if (opts.end !== undefined && opts.end === '') {
     console.error('Error: --end cannot be empty.')
-    return 1
+    return EXIT_USAGE
   }
 
   const { payload, flagsGiven } = buildSprintUpdatePayload(opts)
-  if (flagsGiven.length === 0) {
+  if (flagsGiven.length === 0 && !opts.refreshSummary) {
     console.error(
-      'Error: provide at least one field to update (--name, --start, --end)'
+      'Error: provide at least one field to update (--name, --start, --end) or --refresh-summary'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -115,6 +119,23 @@ export async function sprintUpdate(
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
     return 1
+  }
+
+  if (opts.refreshSummary) {
+    const failed = await queueSummaryRefresh(
+      base,
+      creds.token,
+      'sprints',
+      sprintId
+    )
+    if (failed) {
+      console.error(`Error: ${failed}`)
+      return 1
+    }
+    process.stdout.write(
+      `Queued summary regeneration for sprint ${sanitizeField(identifier)} — read it with \`lumo sprint show ${sanitizeField(identifier)} --summary\` once it is done.\n`
+    )
+    if (flagsGiven.length === 0) return
   }
 
   // Fetch current values to populate the before-snapshot for the summary.

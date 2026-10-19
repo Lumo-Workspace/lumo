@@ -10,7 +10,12 @@
  */
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
-import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
+import {
+  collectDoneGateBlockers,
+  readDoneGatePluginRow,
+} from '@/lib/plugins/done-gate'
+import { summarizeTestCases } from '@/lib/test-cases/case-summary'
+import type { DoneGateInputs } from '@/lib/acceptance/done-gate'
 import { logger } from '@/lib/logger'
 import { countEvidence, deriveRunCeiling } from '@/lib/test-cases/provability'
 import {
@@ -75,6 +80,7 @@ async function collectTestCasePlane(
           unprovenVerification: (latest.unprovenVerification ??
             []) as unknown as Array<{ index: number; text: string }>,
           evidenceCount: countEvidence(latest.evidence),
+          stepResults: latest.stepResults,
         },
         { requiredEnvironment: testCase.requiredEnvironment }
       )
@@ -152,4 +158,100 @@ export async function readDoneVerdict(
   return computeDoneVerdict(
     await collectDoneVerdictSnapshot(taskId, workspaceId)
   )
+}
+
+/** Settle one plane: its value, or `null` after logging why it failed. */
+async function settle<T>(plane: string, taskId: string, read: Promise<T>) {
+  try {
+    return { plane, value: await read }
+  } catch (error) {
+    logger.warn('done-gate: plane unavailable', {
+      plane,
+      taskId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return { plane, value: null }
+  }
+}
+
+/** Crossing counts for the gate row — same blocking rule as the DONE gate. */
+async function readCrossingCounts(taskId: string, workspaceId: string) {
+  const all = await boundaryCrossingRepository.findGateFieldsByTask(taskId)
+  const open = all.filter(c => c.disposition == null)
+  const candidates = open.filter(c => !c.advisory)
+  // The workspace switch is read only when it can change the answer.
+  const gateEnabled =
+    candidates.length === 0 ||
+    (await boundaryCrossingRepository.isGateEnabledForWorkspace(workspaceId))
+  return {
+    crossingsOpen: open.length,
+    crossingsBlocking: candidates.filter(
+      c => gateEnabled || c.severity === 'HIGH'
+    ).length,
+    crossingsTotal: all.length,
+  }
+}
+
+/** Test-case counts — `summarizeTestCases`, the web Record tab's summary. */
+async function readTestCounts(taskId: string) {
+  const [cases, runsByCase] = await Promise.all([
+    testCaseRepository.listForTask(taskId),
+    testCaseRepository.runsPerCase(taskId),
+  ])
+  return summarizeTestCases(
+    cases.map(c => ({ ...c, runs: runsByCase.get(c.id) ?? [] }))
+  )
+}
+
+/**
+ * LUM-1186 — the reads behind the Done gate (crossings / security / tests
+ * rows) for the task-status read model. `doneGateReadout` then derives the
+ * gate with the same pure `deriveDoneGate` the web Record tab runs. Each read
+ * applies the DONE gate's own blocking rule (crossings: `computeDoneVerdict`'s
+ * rule; security: the plugin blockers `readDoneVerdict` refuses on; tests:
+ * latest run per case is an undispositioned IMPLEMENTATION_DEFECT), so the
+ * headline says "blocked" exactly when the 409 would.
+ *
+ * Fail-closed: any plane that cannot be read makes the whole gate
+ * `confirmed: false` — a headline built on a missing plane could say "ready"
+ * while the 409 says otherwise. Never throws.
+ */
+export async function readDoneGateInputs(
+  taskId: string,
+  workspaceId: string
+): Promise<DoneGateInputs> {
+  const [crossings, security, tests] = await Promise.all([
+    settle(
+      'boundary crossings',
+      taskId,
+      readCrossingCounts(taskId, workspaceId)
+    ),
+    settle('security findings', taskId, readDoneGatePluginRow(taskId)),
+    settle('test cases', taskId, readTestCounts(taskId)),
+  ])
+  if (
+    crossings.value === null ||
+    security.value === null ||
+    tests.value === null
+  ) {
+    return {
+      confirmed: false,
+      unconfirmed: [crossings, security, tests]
+        .filter(p => p.value === null)
+        .map(p => p.plane),
+    }
+  }
+  return {
+    confirmed: true,
+    counts: {
+      ...crossings.value,
+      securityBlocking: security.value.blocking,
+      testsBlocking: tests.value.blocking.length,
+    },
+    opts: {
+      securityScanned: security.value.checked,
+      showSecurity: security.value.present,
+      tests: { total: tests.value.total, passing: tests.value.passing },
+    },
+  }
 }

@@ -7,7 +7,7 @@
  * Runs inside the /api/internal/pr-security-scan worker (300s), never inline.
  *
  * Secrets never reach a row: scanSecrets redacts before returning, and every
- * free-text field the LLM judge authors goes through redactFindingText.
+ * free-text field the LLM judge authors is redacted (`redactFindingProse`).
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
@@ -48,6 +48,8 @@ import {
   fetchReviewChangedPaths,
 } from '@/lib/integrations/github/contents'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
+import { isPrReviewIgnored } from './pr-ignore-directive'
+import { startDeferredManualReview } from './security-deferred-review-start'
 import { autoReviewAdmissionService } from '@/ee/security/services/auto-review-admission.service'
 import {
   DEFAULT_AUTO_PAUSE_AFTER,
@@ -56,13 +58,27 @@ import {
   type ReviewBudgetView,
 } from '@/ee/security/security-scan/review-control'
 import type { SecretDowngradeReason } from '@/ee/security/security-scan/types'
-import { reviewContextBudget } from '@/ee/security/security-scan/review-context'
+import {
+  packedFileBody,
+  reviewContextBudget,
+} from '@/ee/security/security-scan/review-context'
 import { loadReviewLearnings } from '@/ee/security/services/review-learnings.service'
+import {
+  SERVER_CONFIG_MAX_CHARS,
+  planServerConfigContext,
+} from '@/ee/security/security-scan/server-config-context'
 import { reviewContextService } from './review-context.service'
 import { isReviewVerifierEnabled } from './review-verifier.config'
 import { verifierAppliesTo } from '@/ee/security/security-scan/verifier'
 import type { ReviewVerifierJob } from './review-verifier.service'
 import { isBugKind } from '@/ee/security/security-scan/review-kinds'
+import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
+import { validateCodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
+import {
+  createFindingAnchor,
+  type FindingAnchorMethod,
+} from '@/ee/security/security-scan/finding-anchor'
+import { rightSideLinesWithNumbers } from '@/lib/diff/diff-lines'
 import {
   addedLinesWithNumbers,
   scanSecrets,
@@ -94,9 +110,43 @@ import {
   type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
 import { isManagedScanEnabled } from './security-managed-scan.config'
+import { isRewardHackEnabledForWorkspace } from './security-reward-hack.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
+import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-review-setting.repository'
+import { repoConfigService } from './repo-config.service'
+import { preMergeChecksService } from './pre-merge-checks.service'
+import { REPO_CONFIG_FIELDS } from '@/ee/security/security-scan/repo-config'
+import type { RepoConfigFile } from '@/ee/security/validation/repo-config'
+import type { RepoReviewSettingValues } from '@/ee/security/security-scan/auto-review-policy'
+import { DEFAULT_REVIEW_PROFILE } from '@/ee/security/security-scan/review-profile'
+import {
+  diffFileStats,
+  prWholeSummaryService,
+  type WholeSummaryResult,
+} from './pr-whole-summary.service'
+import {
+  cleanSequenceDiagram,
+  DEFAULT_SEQUENCE_DIAGRAMS,
+  sequenceDiagramEligible,
+  type SequenceDiagram,
+} from '@/ee/security/security-scan/sequence-diagram'
+import {
+  DEFAULT_HIGH_LEVEL_SUMMARY,
+  parseHighLevelSummary,
+} from '@/ee/security/security-scan/pr-description-summary'
+import {
+  planPathInstructions,
+  verifyPathInstructionClaim,
+  renderToneInstructions,
+} from '@/ee/security/security-scan/path-instructions'
+import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
+import {
+  filterReviewableDiff,
+  pathFilterSkips,
+  reviewablePathPredicate,
+} from '@/ee/security/security-scan/reviewable-path'
 import { loadSecurityLayers } from './security-workspace-switches.service'
 import {
   recordHuntStartBestEffort,
@@ -114,6 +164,11 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { JUDGE_DIFF_BUDGET_TIERS } from '@/ee/security/security-scan/truncate'
 import {
+  JUDGE_MAX_REVIEWED_FILES,
+  planPartialReview,
+} from '@/ee/security/security-scan/partial-review'
+import type { JudgeOverCapRecord } from '@/ee/security/security-scan/judge-budget'
+import {
   hasSizeNotice,
   scanSizeCaps,
   type ScanSizeCaps,
@@ -124,9 +179,11 @@ import {
   SCAN_STAGE_KEYS,
   isOwnedUnfinished,
   isReviewRateLimited,
+  isReviewIgnored,
   scanCoverageState,
   type HuntOverCapInput,
   type JudgeOverCapInput,
+  type JudgePartialInput,
   type PartialCause,
   type PrTooLargeInput,
   type ScanCoverageState,
@@ -228,14 +285,16 @@ export interface SecurityScanView {
   huntProgress: HuntBatchProgress | null
   /**
    * LUM-832 — the hunt did not run: the diff touched more source files than
-   * it runs on (CodeRabbit-style notice). null otherwise.
+   * it runs on (file-cap notice). null otherwise.
    */
   huntOverCap: HuntOverCapInput | null
   /**
    * LUM-832 — the AI review did not run: the diff was over its size cap
-   * (CodeRabbit-style notice). null otherwise.
+   * (size-cap notice). null otherwise.
    */
   judgeOverCap: JudgeOverCapInput | null
+  /** LUM-1144 — the AI review ran on part of an over-cap diff (skipped files named). null otherwise. */
+  judgePartial: JudgePartialInput | null
   /**
    * LUM-1079 — the whole PR was too large to scan (more changed files than
    * GitHub returns a diff for, or GitHub refused the diff): no layer ran.
@@ -248,6 +307,11 @@ export interface SecurityScanView {
    * cap), not paused: the next push is reviewed. Present only when true.
    */
   reviewRateLimited?: true
+  /**
+   * LUM-1152 — the paused AI layers were skipped because the PR description
+   * carries `@<app> ignore`. Present only when true.
+   */
+  reviewIgnored?: true
   /**
    * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
    * which gets the owned line. False when a size cap is the only gap: that
@@ -454,7 +518,11 @@ function toFindingView(
     filePath: f.filePath,
     line: f.line,
     title: f.title,
-    detail: f.detail,
+    // LUM-1234: a REWARD_HACK row's detail is the judge's prose, which may
+    // describe what the agent sessions show — every reader of this view (the
+    // panel, the CLI, agents) gets the fixed title only; the evidence view
+    // serves the prose to viewers who may open those sessions.
+    detail: f.kind === 'REWARD_HACK' ? '' : f.detail,
     evidence: f.evidence,
     fingerprint: f.fingerprint,
     externalRef: f.externalRef,
@@ -527,6 +595,9 @@ function toScanView(
     ...sizeCaps,
     ...(isReviewRateLimited(s.partialCauses)
       ? { reviewRateLimited: true as const }
+      : {}),
+    ...(isReviewIgnored(s.partialCauses)
+      ? { reviewIgnored: true as const }
       : {}),
     ownedUnfinished: isOwnedUnfinished({
       status: s.status,
@@ -748,6 +819,181 @@ async function releaseKeptVmBestEffort(job: ReviewVerifierJob): Promise<void> {
 }
 
 /**
+ * LUM-1143 — the repository's path filters; a failed read falls back to the
+ * built-in exclusions only (never a failed scan over a settings read).
+ */
+async function repoPathFiltersBestEffort(
+  workspaceId: string,
+  repo: string
+): Promise<string[]> {
+  try {
+    return await repoReviewSettingRepository.findPathFilters(
+      workspaceId,
+      repo.toLowerCase()
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] path filters unavailable repo=${repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return []
+  }
+}
+
+/**
+ * LUM-1147 — the repository's stored review style; a failed read (or no
+ * row) is the defaults — never a failed scan over a settings read.
+ */
+async function repoReviewStyleBestEffort(
+  workspaceId: string,
+  repo: string
+): Promise<ReviewStyle> {
+  try {
+    const row = await repoReviewSettingRepository.findReviewStyle(
+      workspaceId,
+      repo.toLowerCase()
+    )
+    // LUM-1151: a row read without the column (older fixtures) = default.
+    if (row)
+      return {
+        ...row,
+        highLevelSummary: parseHighLevelSummary(row.highLevelSummary),
+        // LUM-1155: likewise — a row without the column = default (on).
+        sequenceDiagrams:
+          typeof row.sequenceDiagrams === 'boolean'
+            ? row.sequenceDiagrams
+            : DEFAULT_SEQUENCE_DIAGRAMS,
+      }
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] review style unavailable repo=${repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  return {
+    pathInstructions: [],
+    reviewProfile: DEFAULT_REVIEW_PROFILE,
+    toneInstructions: null,
+    highLevelSummary: DEFAULT_HIGH_LEVEL_SUMMARY,
+    sequenceDiagrams: DEFAULT_SEQUENCE_DIAGRAMS,
+  }
+}
+
+type ReviewStyle = Pick<
+  RepoReviewSettingValues,
+  | 'pathInstructions'
+  | 'reviewProfile'
+  | 'toneInstructions'
+  | 'highLevelSummary'
+  | 'sequenceDiagrams'
+>
+
+/** What one scan's review reads from the repository's settings. */
+export interface ScanReviewSettings extends ReviewStyle {
+  pathFilters: string[]
+}
+
+/** PURE — a field's file value over the stored one (file > stored). */
+function fileOver<K extends 'pathFilters' | keyof ReviewStyle>(
+  file: RepoConfigFile | null,
+  key: K,
+  stored: ScanReviewSettings[K]
+): ScanReviewSettings[K] {
+  const fromFile = file
+    ? (REPO_CONFIG_FIELDS[key].read(file) as ScanReviewSettings[K] | undefined)
+    : undefined
+  // `null` from the file (e.g. a blank tone) is a value: it clears.
+  return fromFile !== undefined ? fromFile : stored
+}
+
+/**
+ * LUM-1146 — the path filters the review reads: `.lumo.yaml` on the PR's
+ * BASE commit wins over the repository's stored filters (the PR's own copy
+ * is only checked). How the file was read goes on the row for the PR
+ * summary. LUM-1147: the review style (path instructions, profile, tone)
+ * resolves the same way, and the profile in force goes on the row for the
+ * write-back. Never fails the scan — any failure falls back to the stored
+ * settings.
+ */
+async function reviewSettingsBestEffort(
+  pr: { workspaceId: string; repo: string; number: number },
+  scanId: string,
+  headSha: string,
+  diff: string
+): Promise<ScanReviewSettings> {
+  const [pathFilters, style] = await Promise.all([
+    repoPathFiltersBestEffort(pr.workspaceId, pr.repo),
+    repoReviewStyleBestEffort(pr.workspaceId, pr.repo),
+  ])
+  let settings: ScanReviewSettings = { pathFilters, ...style }
+  try {
+    const { file, notice } = await repoConfigService.forPullRequest({
+      workspaceId: pr.workspaceId,
+      repo: pr.repo,
+      prNumber: pr.number,
+      headSha,
+      diff,
+    })
+    try {
+      await prSecurityScanRepository.setRepoConfig(scanId, notice)
+    } catch (error) {
+      logger.warn(
+        `[pr-security-scan] repo config notice not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    settings = {
+      pathFilters: fileOver(file, 'pathFilters', settings.pathFilters),
+      pathInstructions: fileOver(
+        file,
+        'pathInstructions',
+        settings.pathInstructions
+      ),
+      reviewProfile: fileOver(file, 'reviewProfile', settings.reviewProfile),
+      toneInstructions: fileOver(
+        file,
+        'toneInstructions',
+        settings.toneInstructions
+      ),
+      highLevelSummary: fileOver(
+        file,
+        'highLevelSummary',
+        settings.highLevelSummary
+      ),
+      sequenceDiagrams: fileOver(
+        file,
+        'sequenceDiagrams',
+        settings.sequenceDiagrams
+      ),
+    }
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] repo config unavailable repo=${pr.repo}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  try {
+    await prSecurityScanRepository.setReviewProfile(
+      scanId,
+      settings.reviewProfile
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] review profile not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  // LUM-1151: where this review's high-level summary goes (the write-back
+  // reads it; a missed write reads as the default).
+  try {
+    await prSecurityScanRepository.setHighLevelSummary(
+      scanId,
+      settings.highLevelSummary
+    )
+  } catch (error) {
+    logger.warn(
+      `[pr-security-scan] high-level summary setting not stored scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+  return settings
+}
+
+/**
  * LUM-1079 — `fetchPrDiff` flags GitHub's "diff too large" refusal (406)
  * with `diffTooLarge: true` on the error it throws.
  */
@@ -793,13 +1039,16 @@ async function changedFilesBestEffort(pr: {
  */
 async function finishTooLarge(
   scanId: string,
-  tooLarge: PrTooLargeInput
+  tooLarge: PrTooLargeInput,
+  workspaceId: string
 ): Promise<RunScanResult> {
   logger.info(
     `[pr-security-scan] PR too large to scan scan=${scanId} reason=${tooLarge.reason} files=${tooLarge.changedFiles ?? '?'}`
   )
   const stages: ScanStages = {}
   for (const key of SCAN_STAGE_KEYS) stages[key] = 'SKIPPED'
+  // LUM-1234 (R10): a layer the platform does not offer has no key at all.
+  if (!isRewardHackEnabledForWorkspace(workspaceId)) delete stages.rewardHack
   await prSecurityScanRepository.finalize(scanId, {
     status: 'FAILED',
     judgeStatus: null,
@@ -812,11 +1061,43 @@ async function finishTooLarge(
   return { deduped: false, scanId, status: 'FAILED', findings: 0 }
 }
 
+/**
+ * LUM-1234 — run the reward-hack layer. Dynamic import: keeps the layer's
+ * model client and session reads out of stage A's static graph. The runner
+ * never throws; a failed import is stamped FAILED so the layer never sits
+ * PENDING for a run that does not exist.
+ */
+async function startRewardHackLayer(
+  scanId: string,
+  runToken: Date | undefined
+): Promise<void> {
+  try {
+    const { runRewardHackLayer } = await import('./reward-hack-layer.service')
+    await runRewardHackLayer(scanId, {}, runToken ? { runToken } : {})
+  } catch (error) {
+    logger.error(
+      `[pr-security-scan] reward-hack layer not started scan=${scanId}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    if (runToken)
+      await prSecurityScanRepository.persistRewardHackResult(scanId, runToken, {
+        findings: [],
+        stage: 'FAILED',
+        partialCauses: [],
+      })
+    else
+      await prSecurityScanRepository.mergeStages(scanId, {
+        rewardHack: 'FAILED',
+      })
+  }
+}
+
 export const prSecurityScanService = {
   async run(input: {
     pullRequestId: string
     trigger: ScanTrigger
     reviewMode?: 'incremental' | 'full'
+    /** LUM-1152 follow-up: dispatched by a deferred manual review. */
+    deferred?: boolean
   }): Promise<RunScanResult> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     if (!pr) return { skipped: true, reason: 'pr_not_found' }
@@ -850,8 +1131,22 @@ export const prSecurityScanService = {
           existing.id,
           true
         )
-        if (!Array.isArray(claimed))
+        if (!Array.isArray(claimed)) {
+          // LUM-1152 follow-up: the head's scan is still in flight. Its AI
+          // layers may be held (ignore / pause / hourly cap), so the review
+          // asked for waits for it to settle instead of being dropped — once.
+          if (!input.deferred)
+            await startDeferredManualReview({
+              pullRequestId: pr.id,
+              scanId: existing.id,
+              reviewMode: input.reviewMode,
+            })
+          else
+            logger.info(
+              `[pr-security-scan] deferred manual ${input.reviewMode} review deduplicated pr=${pr.id} scan=${existing.id}: the head's scan is in flight again`
+            )
           return { deduped: true, scanId: existing.id }
+        }
         manualFindings = claimed
         scanId = existing.id
       } else {
@@ -910,11 +1205,15 @@ export const prSecurityScanService = {
       // refusal (406) as the backstop. Never our FAILED "didn't finish".
       const changedFiles = await changedFilesBestEffort(pr)
       if (changedFiles !== null && changedFiles > GITHUB_DIFF_MAX_FILES)
-        return await finishTooLarge(scanId, {
-          reason: 'FILE_LIMIT',
-          changedFiles,
-          capFiles: GITHUB_DIFF_MAX_FILES,
-        })
+        return await finishTooLarge(
+          scanId,
+          {
+            reason: 'FILE_LIMIT',
+            changedFiles,
+            capFiles: GITHUB_DIFF_MAX_FILES,
+          },
+          pr.workspaceId
+        )
       let diff: string
       try {
         diff = await fetchPrDiff({
@@ -924,11 +1223,15 @@ export const prSecurityScanService = {
         })
       } catch (error) {
         if (!isPrDiffTooLargeError(error)) throw error
-        return await finishTooLarge(scanId, {
-          reason: 'DIFF_REFUSED',
-          changedFiles,
-          capFiles: GITHUB_DIFF_MAX_FILES,
-        })
+        return await finishTooLarge(
+          scanId,
+          {
+            reason: 'DIFF_REFUSED',
+            changedFiles,
+            capFiles: GITHUB_DIFF_MAX_FILES,
+          },
+          pr.workspaceId
+        )
       }
       const files = addedLinesWithNumbers(diff)
       // The PR diff endpoint follows a moving ref. Refuse a push that raced
@@ -944,23 +1247,39 @@ export const prSecurityScanService = {
       // Reserved only once the diff is proven to be this head's: a push that
       // raced the read must not spend a round on a head nobody reviewed.
       // LUM-1137: every push, until N reviewed commits, under an hourly cap.
+      // LUM-1152: `@<app> ignore` in the description skips the automatic AI
+      // layers before the budget is touched; the deterministic layers run.
+      // LUM-1234 (R12): the reward-hack layer is an automatic AI layer too —
+      // but only for a PR with a task (no task = no sessions = SKIPPED), so a
+      // task-less PR in a reward-hack-only workspace spends no review slot.
+      const aiLayers =
+        layers.aiReview || layers.hunt || (layers.rewardHack && !!pr.taskId)
+      const automaticAi = aiLayers && input.reviewMode === undefined
+      const ignored = automaticAi && (await isPrReviewIgnored(pr))
       const admission =
-        (layers.aiReview || layers.hunt) && input.reviewMode === undefined
+        automaticAi && !ignored
           ? await autoReviewAdmissionService.admit(pr, headSha)
           : null
       const aiAllowed =
-        (layers.aiReview || layers.hunt) &&
+        aiLayers &&
         (input.reviewMode !== undefined || admission?.allowed === true)
       reservedHead = aiAllowed && input.reviewMode === undefined
       const reviewAllowed = layers.aiReview && aiAllowed
-      const reviewPaused = (layers.aiReview || layers.hunt) && !aiAllowed
+      const reviewPaused = aiLayers && !aiAllowed
       if (reviewPaused)
         partialCauses.push(
-          admission?.rateLimited ? 'AI_REVIEW_RATE_LIMITED' : 'AI_REVIEW_PAUSED'
+          ignored
+            ? 'AI_REVIEW_IGNORED'
+            : admission?.rateLimited
+              ? 'AI_REVIEW_RATE_LIMITED'
+              : 'AI_REVIEW_PAUSED'
         )
       let reviewDiff = diff
       // Paths whose PR-diff sections the judge reviews; null = the whole diff.
       let reviewScope: Set<string> | null = null
+      // LUM-1151: the AI review reads only the files changed since its last
+      // complete review — its own summary would describe that slice.
+      let incrementalSlice = false
       if (reviewAllowed && input.reviewMode !== 'full') {
         const baseline = await prReviewControlRepository.baseline(pr.id, scanId)
         if (baseline) {
@@ -972,7 +1291,10 @@ export const prSecurityScanService = {
               head: headSha,
             })
             reviewDiff = affectedReviewDiff(diff, paths)
-            if (reviewDiff !== diff) reviewScope = new Set(paths)
+            if (reviewDiff !== diff) {
+              reviewScope = new Set(paths)
+              incrementalSlice = true
+            }
           } catch {
             logger.info(
               `[pr-security-scan] incremental baseline unavailable pr=${pr.id}: full review`
@@ -980,7 +1302,77 @@ export const prSecurityScanService = {
           }
         }
       }
+      // LUM-1143 — the repository's path filters (LUM-1146: `.lumo.yaml` on
+      // the base commit first; built-in: lockfiles, generated code, build
+      // output) decide what the AI review and the hunt read. The secret scan
+      // and graph rules still see every file.
+      // LUM-1147: and the review style the AI review reads.
+      const reviewSettings = await reviewSettingsBestEffort(
+        pr,
+        scanId,
+        headSha,
+        diff
+      )
+      const isReviewable = reviewablePathPredicate(reviewSettings.pathFilters)
+      // LUM-1215: what the filters left out of the whole PR, for the
+      // summary — a built-in default never hides a file silently. Only when
+      // the AI review may run: a paused / turned-off review skipped nothing.
+      const reviewPathSkips = reviewAllowed
+        ? pathFilterSkips(
+            files.map(f => f.path),
+            reviewSettings.pathFilters
+          )
+        : null
+      const reviewable = filterReviewableDiff(reviewDiff, isReviewable)
+      if (reviewable.excluded.length > 0) {
+        reviewDiff = reviewable.diff
+        reviewScope = new Set(reviewable.kept)
+      }
       const reviewFiles = addedLinesWithNumbers(reviewDiff)
+      const huntFiles = files.filter(f => isReviewable(f.path))
+      // LUM-1151 (user ruling) — the high-level summary always describes
+      // the WHOLE PR: an incremental review gets a separate, budgeted
+      // summary-only call over the whole reviewable diff, alongside the
+      // review. Never rejects; a full review keeps the AI review's own.
+      // LUM-1155 — the call-flow diagram rides on the call this review
+      // already makes (the AI review, or the whole-PR summary call of an
+      // incremental review): asked for only when the repository wants
+      // diagrams and the whole reviewable PR is not trivial.
+      const diagramWanted =
+        reviewAllowed &&
+        reviewSettings.sequenceDiagrams &&
+        sequenceDiagramEligible(
+          diffFileStats(filterReviewableDiff(diff, isReviewable).diff)
+        )
+      const wholeSummary: Promise<WholeSummaryResult> | null = incrementalSlice
+        ? prWholeSummaryService.summarizeWithDiagram({
+            pullRequestId: pr.id,
+            scanId,
+            diff,
+            isReviewable,
+            tone: renderToneInstructions(
+              reviewSettings.toneInstructions,
+              guardPromptLineText
+            ),
+            ...(diagramWanted ? { withSequenceDiagram: true } : {}),
+          })
+        : null
+      // LUM-1148 — the pre-merge checks run alongside the review, on every
+      // head the AI review is allowed to read (the whole PR diff, not the
+      // incremental scope). Never rejects; awaited before the result lands.
+      const preMergeChecks = reviewAllowed
+        ? preMergeChecksService.run(
+            {
+              scanId,
+              pullRequestId: pr.id,
+              workspaceId: pr.workspaceId,
+              repo: pr.repo,
+              prNumber: pr.number,
+              headSha,
+            },
+            diff
+          )
+        : Promise.resolve(null)
 
       // ── A1: deterministic secret scan (pure) ────────────────────────────
       const secretHits = scanSecrets(files)
@@ -1061,16 +1453,18 @@ export const prSecurityScanService = {
       // reads `sites` off it to decide which files fit in its budget. Pure and
       // cheap; the hunt flag only decides whether the VM is kept alive.
       const triggerFirstPass =
-        files.length > 0
+        huntFiles.length > 0
           ? evaluateHuntTrigger({
-              files,
+              files: huntFiles,
               hasHighFinding: secretHigh,
               hasOpenL4Crossing: hasOpenCrossing,
             })
           : null
       // LUM-832: over the file cap the hunt will not run, so its VM is not
       // kept alive for it either.
-      const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
+      // LUM-1143: the hunt reads only reviewable source files.
+      const huntSourcePaths = touchedSourcePaths.filter(isReviewable)
+      const huntOverCap = huntSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
         layers.hunt &&
         aiAllowed &&
@@ -1098,6 +1492,9 @@ export const prSecurityScanService = {
       // external findings on it — posting one here as well would put a second,
       // already-stale summary on the PR (the marker upsert only dedupes across
       // syncs, not against a sync that has not happened yet).
+      // LUM-1150: "a minute from now" is not a promise — a run that lands
+      // before this stage A persists has already synced; see the write-back
+      // below.
       let managedRunStarted = false
       // LUM-745: a prefixed reason for an external layer stage A itself
       // decided (the hourly cap) — carried into persistResult so the panel,
@@ -1201,6 +1598,9 @@ export const prSecurityScanService = {
       // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
       let judgeStatus: JudgeStatus = 'SKIPPED'
       let truncated = false
+      // The judge's own budget cut files (JUDGE_TRUNCATED) — unlike the size
+      // cap's partial review (LUM-1144), its scope is not recorded per file.
+      let packTruncated = false
       // LUM-814: what the budget pass decided, for the scan row. null until
       // the pass actually runs — a scan with no files never had a budget, and
       // "not recorded" is the honest reading of that, not a budget of zero.
@@ -1208,30 +1608,63 @@ export const prSecurityScanService = {
       // LUM-849: the judge's own description of the PR, for the summary
       // comment. Only a judge that answered writes one.
       let prSummary: PrSummary | null = null
+      // LUM-1155: the cleaned call-flow diagram, when one was asked for.
+      let sequenceDiagram: SequenceDiagram | null = null
       const judgeRows: NewFindingInput[] = []
-      // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top
-      // tier is not reviewed at all: no model call, no tokens. The customer is
-      // told the change is too large and how to get the review (narrow the
-      // scope or split the PR); the numbers are on `judgeBudget`.
+      // LUM-832 / LUM-1144 — the AI review's cap: at most the top tier's
+      // characters and `JUDGE_MAX_REVIEWED_FILES` files of the REVIEWABLE
+      // diff (path filters already applied, so lockfiles and generated files
+      // never count). Over it, the files that fit are reviewed and the rest
+      // skipped by name — unless more than a quarter would be skipped: then
+      // the review does not run at all (no model call, no tokens) and the
+      // customer is told how to get it (narrow the scope or split the PR).
       const judgeCapChars =
         JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
       // LUM-866: AI review off for the workspace = the judge is SKIPPED —
       // no model call, and no over-cap notice for a review nobody asked for.
-      const judgeOverCap =
-        reviewAllowed &&
-        reviewFiles.length > 0 &&
-        reviewDiff.length > judgeCapChars
-      if (judgeOverCap) {
+      const reviewPlan =
+        reviewAllowed && reviewFiles.length > 0
+          ? planPartialReview(reviewDiff, {
+              maxChars: judgeCapChars,
+              maxFiles: JUDGE_MAX_REVIEWED_FILES,
+              priorityPaths:
+                triggerFirstPass?.sites.map(site => site.path) ?? [],
+            })
+          : null
+      const judgeOverCap = reviewPlan?.kind === 'OVER_CAP'
+      const partialOverCap = reviewPlan?.kind === 'PARTIAL'
+      const overCap: JudgeOverCapRecord | null =
+        reviewPlan && reviewPlan.kind !== 'WHOLE'
+          ? {
+              files: reviewPlan.totalFiles,
+              capFiles: JUDGE_MAX_REVIEWED_FILES,
+              capChars: judgeCapChars,
+              skippedPaths: reviewPlan.skipped,
+            }
+          : null
+      if (reviewPlan?.kind === 'OVER_CAP') {
         judgeBudget = {
           diffChars: reviewDiff.length,
           tierChars: judgeCapChars,
           reviewedChars: 0,
           coveredFiles: 0,
-          droppedFiles: reviewFiles.length,
+          droppedFiles: reviewPlan.totalFiles,
+          ...(overCap ? { overCap } : {}),
         }
         partialCauses.push('JUDGE_OVER_CAP')
         logger.info(
-          `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${diff.length} cap=${judgeCapChars}: not run`
+          `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${reviewDiff.length} cap=${judgeCapChars} files=${reviewPlan.totalFiles} capFiles=${JUDGE_MAX_REVIEWED_FILES} wouldSkip=${reviewPlan.skipped.length}: not run`
+        )
+      }
+      // What the judge reads: the reviewable diff, or its in-cap part.
+      let judgeDiff = reviewDiff
+      if (reviewPlan?.kind === 'PARTIAL') {
+        judgeDiff = reviewPlan.diff
+        // Only the files actually read may close a finding (LUM-1127).
+        reviewScope = new Set(reviewPlan.reviewed)
+        partialCauses.push('JUDGE_PARTIAL_OVER_CAP')
+        logger.info(
+          `[pr-security-scan] judge partial pr=${pr.id} sha=${headSha} diffChars=${reviewDiff.length} files=${reviewPlan.totalFiles} reviewed=${reviewPlan.reviewed.length} skipped=${reviewPlan.skipped.length}`
         )
       }
       if (reviewAllowed && reviewFiles.length > 0 && !judgeOverCap) {
@@ -1242,28 +1675,36 @@ export const prSecurityScanService = {
         // LUM-758 拿改动源文件数选档、发的却是字符预算，于是文件少而胖的 PR
         // 比文件多而瘦的 PR 拿到更少的预算；`judgeDiffTier` 现在只收 diff，
         // 再把别的量喂进来是 tsc 错误。天花板（180k / 180s）不动。
-        const tier = judgeDiffTier(reviewDiff)
-        const capped = packSecurityDiff(reviewDiff, {
+        const tier = judgeDiffTier(judgeDiff)
+        const capped = packSecurityDiff(judgeDiff, {
           priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
           maxChars: tier.chars,
         })
-        truncated = capped.truncated
+        packTruncated = capped.truncated
+        truncated = capped.truncated || partialOverCap
         // LUM-814: recorded whether or not it truncated — the untruncated
         // case is the one the old `truncated` boolean could say nothing
         // about, and it is where the near-misses live.
+        // LUM-1144: `diffChars` is the REVIEWABLE diff the tier was chosen
+        // from (path filters / incremental scope applied), never the raw PR
+        // diff — a filtered lockfile is not review input. Files the size cap
+        // skipped count as dropped; filtered files are in neither number.
         judgeBudget = {
-          diffChars: diff.length,
+          diffChars: reviewDiff.length,
           tierChars: tier.chars,
           reviewedChars: capped.reviewedChars,
           coveredFiles: capped.covered.length,
-          droppedFiles: capped.dropped.length,
+          droppedFiles:
+            capped.dropped.length +
+            (reviewPlan?.kind === 'PARTIAL' ? reviewPlan.skipped.length : 0),
+          ...(overCap ? { overCap } : {}),
         }
-        if (truncated) {
+        if (capped.truncated) {
           // Coverage owed: the tier is a budget we chose (LUM-811), and the
           // dropped files are ours to review, not the PR's to shrink.
           partialCauses.push('JUDGE_TRUNCATED')
           logger.info(
-            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${diff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
+            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${judgeDiff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
         }
         // LUM-988 — the PR-head content of the files the review covers, as
@@ -1282,12 +1723,73 @@ export const prSecurityScanService = {
           pullRequestId: pr.id,
           reviewedPaths: capped.covered,
         })
+        // LUM-1147 — the owners' instructions for the files this review
+        // reads, and the tone: guarded, bounded, and paid for out of the
+        // same context budget as the learnings.
+        const { text: pathInstructions, sent: sentInstructions } =
+          planPathInstructions(
+            reviewSettings.pathInstructions,
+            capped.covered,
+            guardPromptLineText
+          )
+        const tone = renderToneInstructions(
+          reviewSettings.toneInstructions,
+          guardPromptLineText
+        )
+        // LUM-1208 — when the reviewed lines start or configure a server,
+        // the config files next to it that the PR does not change (a
+        // Trunk.toml binding 0.0.0.0), read-only: ≤ 8k chars, masked, paid
+        // for first out of the same context budget. No trigger, no token.
+        const serverConfigPlan = planServerConfigContext(capped.text)
+        const serverConfig =
+          serverConfigPlan.triggers.length > 0
+            ? await reviewContextService.loadServerConfig({
+                workspaceId: pr.workspaceId,
+                repo: pr.repo,
+                headSha,
+                plan: serverConfigPlan,
+                changedPaths: files.map(f => f.path),
+                maxChars: Math.min(
+                  SERVER_CONFIG_MAX_CHARS,
+                  reviewContextBudget(
+                    capped.text.length +
+                      learnings.length +
+                      pathInstructions.length +
+                      tone.length
+                  )
+                ),
+              })
+            : null
+        if (serverConfig?.error) {
+          logger.warn(
+            `[pr-security-scan] server config context unavailable pr=${pr.id} sha=${headSha}: ${serverConfig.error}`
+          )
+        }
+        const serverConfigText = serverConfig?.text ?? ''
+        if (serverConfig && serverConfig.included.length > 0 && judgeBudget) {
+          judgeBudget = {
+            ...judgeBudget,
+            serverConfig: {
+              paths: serverConfig.included,
+              chars: serverConfigText.length,
+            },
+          }
+          logger.info(
+            `[pr-security-scan] server config context pr=${pr.id} sha=${headSha} chars=${serverConfigText.length} files=${serverConfig.included.join(' ')}`
+          )
+        }
         const context = await reviewContextService.load({
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
           paths: capped.covered,
-          maxChars: reviewContextBudget(capped.text.length + learnings.length),
+          maxChars: reviewContextBudget(
+            capped.text.length +
+              learnings.length +
+              pathInstructions.length +
+              tone.length +
+              serverConfigText.length
+          ),
         })
         if (context.error) {
           logger.warn(
@@ -1303,17 +1805,46 @@ export const prSecurityScanService = {
           // it. Secrets are stage A's job (deterministic, above); the judge
           // still sees the `AKIA…(len 20)` shape if it wants to reason about
           // a hardcoded credential, it just never sees the value.
-          const { findings, prSummary: rawSummary } = await judgeSecurity({
+          const {
+            findings,
+            prSummary: rawSummary,
+            sequenceDiagram: rawDiagram,
+          } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
             timeoutMs: tier.timeoutMs,
             // Customer files entering a prompt: same mask as the diff.
             context: redactForInjection(context.text).text,
             ...(learnings ? { learnings } : {}),
+            ...(pathInstructions ? { pathInstructions } : {}),
+            ...(tone ? { tone } : {}),
+            // LUM-1208: masked by the loader, like the file context here.
+            ...(serverConfigText ? { serverConfig: serverConfigText } : {}),
+            // LUM-1155: an incremental slice's diagram would describe the
+            // slice — that review's diagram comes from the whole-PR call.
+            ...(diagramWanted && !incrementalSlice
+              ? { withSequenceDiagram: true }
+              : {}),
           })
           judgeStatus = 'RAN'
           // Model text headed for a public PR: redacted and neutralised here,
           // and again on read (`parsePrSummary`).
           prSummary = cleanPrSummary(rawSummary)
+          if (diagramWanted && !incrementalSlice)
+            sequenceDiagram = cleanSequenceDiagram(rawDiagram)
+          // LUM-1212: a finding the model returned without a line gets the
+          // line its quoted evidence sits on (exact, else none — never a
+          // guess). The fingerprint below still keys on the model's own
+          // output, so an existing finding keeps its identity.
+          const anchorLine = createFindingAnchor(
+            rightSideLinesWithNumbers(diff)
+          )
+          const modelLines: Array<number | null> = []
+          const anchored: Record<FindingAnchorMethod, number> = {
+            model: 0,
+            evidence: 0,
+            hunk: 0,
+            none: 0,
+          }
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             // LUM-988: a correctness finding is CORRECTNESS / `review:<kind>`,
@@ -1330,18 +1861,51 @@ export const prSecurityScanService = {
             // line wherever it likes — a title quoting the key, a detail
             // spelling it out, a hallucinated path with a token in it — so
             // redacting one field left the raw secret in the other three.
-            // `redactFindingText` runs every pattern over the text and ends
-            // with the quoted-span pass; LUM-1013: the free-text variant, so
-            // quoted prose stays readable while credential talk and
-            // credential-shaped quoted values are still masked.
+            // Every pass runs every pattern over the text and ends with a
+            // quoted-span pass; LUM-1013 / LUM-1200: the prose variants, so
+            // quoted prose and inline code stay readable while
+            // credential-shaped and credential-keyed values are still masked.
             const filePath = redactKnownSecrets(j.filePath)
-            const title = redactFindingText(j.title)
+            // LUM-1200 follow-up: the title and detail are prose about the
+            // code (`redactFindingProse`); the evidence is the code line itself and
+            // keeps the stricter pass.
+            const title = redactFindingProse(j.title, isCredential)
             const evidence = redactFindingText(j.evidence)
             // The fingerprint keeps the blanket-masked evidence it has always
             // been keyed on (still redacted, never raw), so findings from
             // scans before LUM-1013 keep their key and a human's
-            // FALSE_POSITIVE is still inherited.
+            // FALSE_POSITIVE is still inherited — and, with no evidence, the
+            // title it has always fallen back to.
             const fingerprintEvidence = redactKnownSecrets(j.evidence)
+            const fingerprintTitle = redactFindingText(j.title)
+            const anchor = anchorLine({
+              line: j.line,
+              filePath,
+              evidence: j.evidence,
+            })
+            anchored[anchor.method]++
+            modelLines.push(j.line)
+            // LUM-1150: the one-click fix, only when its range is exactly
+            // this head's added lines around the finding; else none.
+            const codeSuggestion = validateCodeSuggestion({
+              suggestion: j.suggestion,
+              line: anchor.line,
+              severity: j.severity,
+              filePath,
+              evidence: j.evidence,
+              files,
+              // The file as read at this head (the review's context), so a
+              // name imported outside the diff is known to be in scope.
+              fileText: packedFileBody(context, filePath),
+            })
+            // LUM-1147: the path instruction the model says this finding
+            // applies — kept only when it was sent and matches this file.
+            const pathInstruction = verifyPathInstructionClaim(
+              j.instruction,
+              filePath,
+              sentInstructions,
+              guardPromptLineText
+            )
             judgeRows.push({
               scanId,
               kind: isCredential
@@ -1353,9 +1917,9 @@ export const prSecurityScanService = {
               severity: j.severity,
               provenance: 'LLM_JUDGE',
               filePath,
-              line: j.line,
+              line: anchor.line,
               title,
-              detail: redactFindingText(j.detail),
+              detail: redactFindingProse(j.detail, isCredential),
               evidence,
               // LUM-988: keyed on the quoted line, not the re-worded title;
               // repeats are made positional below.
@@ -1363,16 +1927,25 @@ export const prSecurityScanService = {
                 ruleId,
                 filePath,
                 fingerprintEvidence,
-                title
+                fingerprintTitle
               ),
               externalRef: null,
               disposition: null,
+              ...(codeSuggestion ? { codeSuggestion } : {}),
+              ...(pathInstruction ? { pathInstruction } : {}),
             })
           }
           // LUM-988: one key per finding, by position (see positionalFingerprints).
-          positionalFingerprints(judgeRows).forEach((fp, i) => {
+          // LUM-1212: the position is the MODEL's line, as before the anchor.
+          positionalFingerprints(
+            judgeRows.map((r, i) => ({ ...r, line: modelLines[i] ?? null }))
+          ).forEach((fp, i) => {
             judgeRows[i]!.fingerprint = fp
           })
+          if (anchored.evidence + anchored.hunk + anchored.none > 0)
+            logger.info(
+              `[pr-security-scan] anchored line-less findings pr=${pr.id} sha=${headSha} evidence=${anchored.evidence} hunk=${anchored.hunk} none=${anchored.none}`
+            )
         } catch (error) {
           // FAIL-SOFT for the judge only: the deterministic result still lands,
           // and UNAVAILABLE is stamped so the panel never reads as a full pass.
@@ -1403,7 +1976,9 @@ export const prSecurityScanService = {
       const seen = new Set(judgeRows.map(row => row.fingerprint))
       // A complete judge pass over a finding's file that does not report it
       // again closes it: that file was re-read, not merely left out of scope.
-      const judgeCompleted = judgeStatus === 'RAN' && !truncated
+      // LUM-1144: a partial review over the size cap closes only within its
+      // reviewed files (`reviewScope`); a skipped file is never re-read.
+      const judgeCompleted = judgeStatus === 'RAN' && !packTruncated
       for (const finding of carried) {
         if (finding.verifierVerdict === 'REJECTED') continue
         if (seen.has(finding.fingerprint)) continue
@@ -1437,6 +2012,14 @@ export const prSecurityScanService = {
           falsifierVerdict: finding.falsifierVerdict,
           persisting: finding.persisting,
           inheritedFromFindingId: finding.id,
+          // LUM-1147: still the finding a path instruction asked for — only
+          // while that instruction is still configured for its file.
+          pathInstruction: verifyPathInstructionClaim(
+            finding.pathInstruction,
+            finding.filePath,
+            reviewSettings.pathInstructions,
+            guardPromptLineText
+          ),
           ...(Array.isArray(finding.callChain)
             ? {
                 callChain: finding.callChain as Array<{
@@ -1470,7 +2053,7 @@ export const prSecurityScanService = {
       // judge's rows exist. `hasOpenCrossing` is reused rather than re-read —
       // one query, and a trigger that cannot disagree with itself mid-scan.
       const huntTrigger = evaluateHuntTrigger({
-        files,
+        files: huntFiles,
         hasHighFinding:
           secretHigh || judgeRows.some(r => r.severity === 'HIGH'),
         hasOpenL4Crossing: hasOpenCrossing,
@@ -1478,7 +2061,7 @@ export const prSecurityScanService = {
       const huntWanted =
         layers.hunt &&
         aiAllowed &&
-        files.length > 0 &&
+        huntFiles.length > 0 &&
         huntTrigger.hunt &&
         !huntOverCap
       // Off (LUMO_SECURITY_HUNT=off, or the workspace's hunt switch — LUM-866)
@@ -1490,17 +2073,39 @@ export const prSecurityScanService = {
       // off — the layer is shown as off in settings rather than vanishing,
       // so a reader can tell "not checked" from "nothing to check".
       else if (layers.huntTurnedOff) stages.hunt = 'DISABLED'
+      // LUM-1234: the reward-hack layer ("Agent behavior") reads the agent
+      // sessions behind the PR, so a PR with no task has nothing to judge.
+      // It runs after this result is persisted (below), like the hunt. With
+      // the platform switch off (LUMO_REWARD_HACK) there is no layer at all,
+      // as for the hunt: a NOT_CONFIGURED key would read every scan as
+      // unfinished while the layer is not offered.
+      // R12: held by the same pause / ignore / hourly cap as the AI review.
+      if (layers.rewardHack)
+        stages.rewardHack = !pr.taskId
+          ? 'SKIPPED'
+          : !aiAllowed
+            ? 'PAUSED'
+            : 'PENDING'
+      else if (layers.rewardHackTurnedOff) stages.rewardHack = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
-      // run (like CodeRabbit's file limit): recorded, with the numbers the
+      // run (an industry-standard file cap): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
         layers.hunt &&
         aiAllowed &&
-        files.length > 0 &&
+        huntFiles.length > 0 &&
         huntTrigger.hunt &&
         huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
 
+      // LUM-1148: the checks' results are on the row before the write-back.
+      await preMergeChecks
+      // LUM-1151: an incremental slice's summary never reaches the PR.
+      if (wholeSummary) {
+        const whole = await wholeSummary
+        prSummary = whole.summary
+        sequenceDiagram = whole.sequenceDiagram
+      }
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions(
@@ -1527,32 +2132,48 @@ export const prSecurityScanService = {
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
-      await prSecurityScanRepository.persistResult(scanId, rows, {
-        ...(manualFindings !== undefined
-          ? { replaceStageAFindings: true }
-          : {}),
-        status,
-        judgeStatus,
-        truncated,
-        judgeBudget,
-        prSummary,
-        // LUM-1127: which files this head's AI review read — the PR
-        // write-back only resolves a judge thread for a file it covered.
-        judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
-        stages,
-        partialCauses,
-        ...(huntSkippedForCap
-          ? {
-              huntAudit: {
-                overCap: {
-                  sourceFiles: touchedSourcePaths.length,
-                  capFiles: HUNT_MAX_HUNTED_FILES,
+      const persisted = await prSecurityScanRepository.persistResult(
+        scanId,
+        rows,
+        {
+          ...(manualFindings !== undefined
+            ? { replaceStageAFindings: true }
+            : {}),
+          status,
+          judgeStatus,
+          truncated,
+          judgeBudget,
+          prSummary,
+          // LUM-1155: like prSummary — null leaves the column alone.
+          sequenceDiagram,
+          // LUM-1127: which files this head's AI review read — the PR
+          // write-back only resolves a judge thread for a file it covered.
+          judgeReviewScope: reviewScope ? [...reviewScope].sort() : null,
+          // LUM-1215: the files the path filters skipped (null = none).
+          reviewPathSkips,
+          // LUM-1152 follow-up: a deferred full review is satisfied only by a
+          // full one (user ruling).
+          judgeReviewMode:
+            judgeStatus === 'RAN'
+              ? input.reviewMode === 'full'
+                ? 'full'
+                : 'incremental'
+              : null,
+          stages,
+          partialCauses,
+          ...(huntSkippedForCap
+            ? {
+                huntAudit: {
+                  overCap: {
+                    sourceFiles: huntSourcePaths.length,
+                    capFiles: HUNT_MAX_HUNTED_FILES,
+                  },
                 },
-              },
-            }
-          : {}),
-        ...(externalError ? { error: externalError } : {}),
-      })
+              }
+            : {}),
+          ...(externalError ? { error: externalError } : {}),
+        }
+      )
       // LUM-896: the token was checked against the confirmed list when it
       // was minted; the list may have narrowed since.
       await scrubScanIfRepositoryUnconfirmed(scanId)
@@ -1578,7 +2199,8 @@ export const prSecurityScanService = {
           // source files it could have fired in. Short circuit A needs it to
           // tell a `stage-a:high` PR that touched code from one that touched
           // none, and the planner needs it to place a signal at all.
-          touchedSourcePaths,
+          // LUM-1143: only the reviewable ones (path filters).
+          touchedSourcePaths: huntSourcePaths,
           // LUM-758 follow-up: the SAME walk's located hits — which rule fired,
           // in which file, on which added line. Computed already; discarding it
           // is what made the agent re-derive it with `rg` on its own budget.
@@ -1595,10 +2217,7 @@ export const prSecurityScanService = {
         // in risk-ordered batches across runs. The plan rides on the job from
         // the first run, so the covered share is readable (0 of N) the moment
         // the hunt starts.
-        const huntBatches = planHuntBatches(
-          touchedSourcePaths,
-          huntTrigger.sites
-        )
+        const huntBatches = planHuntBatches(huntSourcePaths, huntTrigger.sites)
         if (huntBatches) {
           huntJob.batches = huntBatches
           huntJob.batchIndex = 0
@@ -1637,6 +2256,10 @@ export const prSecurityScanService = {
         })
       }
       if (keptVm && !vmConsumerStarted) await releaseKeptVmBestEffort(keptVm)
+      // LUM-1234: the row is settled — the reward-hack layer runs in the
+      // background and syncs the PR summary itself when its verdict lands.
+      if (stages.rewardHack === 'PENDING')
+        waitUntil(startRewardHackLayer(scanId, persisted?.startedAt))
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
@@ -1657,7 +2280,16 @@ export const prSecurityScanService = {
         )
       )
       // LUM-739: same rule for a started hunt run — it syncs when it lands.
-      if ((!managedRunStarted && !huntRunStarted) || blocksDone) {
+      // LUM-1150: unless the managed run already landed — its one sync may
+      // have read the row before this result was on it (probe PR #59: the
+      // summary stayed "still running"). The hunt starts only after the
+      // persist above, so its sync always reads the result.
+      // `?.`: a caller's mock may resolve nothing.
+      const managedAlreadyLanded = persisted?.managedLayerLanded === true
+      if (
+        (!huntRunStarted && (!managedRunStarted || managedAlreadyLanded)) ||
+        blocksDone
+      ) {
         waitUntil(securityPrReviewService.sync(scanId))
       }
       return { deduped: false, scanId, status, findings: rows.length }
@@ -1672,6 +2304,8 @@ export const prSecurityScanService = {
         await prReviewControlRepository.release(pr.id, headSha)
       // LUM-739: a hunt that was never started must not read as "scanning".
       if (stages.hunt === 'PENDING') delete stages.hunt
+      // LUM-1234: nor the reward-hack layer, which starts after the persist.
+      if (stages.rewardHack === 'PENDING') delete stages.rewardHack
       await prSecurityScanRepository.finalize(scanId, {
         status: 'FAILED',
         judgeStatus: null,

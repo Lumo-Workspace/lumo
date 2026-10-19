@@ -69,7 +69,13 @@ it('GET lists the confirmed repositories for any member', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual({
     canEdit: false,
-    repositories: [{ repo: 'acme/app', autoReview: true, reviewDrafts: false }],
+    repositories: [
+      expect.objectContaining({
+        repo: 'acme/app',
+        autoReview: true,
+        reviewDrafts: false,
+      }),
+    ],
   })
 })
 
@@ -79,7 +85,7 @@ it('PATCH by an OWNER changes the repository and writes a CLI audit event', asyn
   expect(repoReviewSettingRepository.upsert).toHaveBeenCalledWith(
     'ws_1',
     'acme/app',
-    { autoReview: false, reviewDrafts: false },
+    expect.objectContaining({ autoReview: false, reviewDrafts: false }),
     { autoReview: false }
   )
   const [event] = m(recordAuditEvent).mock.calls[0]

@@ -425,6 +425,17 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-1186 — every crossing on the task, open and dispositioned, with only
+   * the columns the Done gate row counts on.
+   */
+  async findGateFieldsByTask(taskId: string) {
+    return prisma.boundaryCrossing.findMany({
+      where: { taskId },
+      select: { disposition: true, advisory: true, severity: true },
+    })
+  },
+
+  /**
    * ALL crossings on a task including dispositioned ones (LUM-435 read model) —
    * dispositioned crossings (CONFIRMED especially) stay on record, never hidden.
    */
@@ -663,6 +674,22 @@ export const boundaryCrossingRepository = {
 
   async findById(id: string) {
     return prisma.boundaryCrossing.findUnique({ where: { id }, select: SELECT })
+  },
+
+  /**
+   * LUM-1232 G1: the fields a `<TEAM>-X<n>` ref is built from, for the given
+   * ids in one workspace (ids from another workspace are simply not returned).
+   */
+  async findRefFieldsByIds(workspaceId: string, ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.boundaryCrossing.findMany({
+      where: { id: { in: ids }, workspaceId },
+      select: {
+        id: true,
+        number: true,
+        task: { select: { team: { select: { identifier: true } } } },
+      },
+    })
   },
 
   /**

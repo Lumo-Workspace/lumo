@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth/identity'
 import { requireWorkspaceByUrl, zodError } from '@/lib/api/helpers'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { draftService } from '@/lib/services/draft.service'
@@ -9,27 +10,33 @@ import {
   projectDraftDataSchema,
 } from '@/lib/validation/schemas'
 
+/**
+ * GET /api/drafts — the caller's own drafts in the credential's workspace.
+ *
+ * LUM-1192: browser session or API key (`lumo status --drafts`). Drafts are
+ * personal: only rows the caller's Actor created are returned. The optional
+ * `workspaceUrl` must name the credential's workspace (a Bearer key's own, or
+ * the session's active one), else 404 — it never moves the scope.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    const wsResult = await requireWorkspaceByUrl(userId, workspaceUrl)
-    if (wsResult instanceof NextResponse) return wsResult
+    if (workspaceUrl && workspaceUrl !== identity.workspaceSlug) {
+      return NextResponse.json(
+        { error: 'Workspace not found' },
+        { status: 404 }
+      )
+    }
 
-    const { member } = wsResult
-
-    const actor = await memberRepository.findActorByMemberId(member.id)
+    const actor = await memberRepository.findActorByMemberId(identity.memberId)
     if (!actor) {
       return NextResponse.json({ drafts: [] })
     }
 
-    const drafts = await draftService.listDrafts(
-      wsResult.workspace.id,
-      actor.id
-    )
+    const drafts = await draftService.listDrafts(identity.workspaceId, actor.id)
 
     return NextResponse.json({ drafts })
   } catch {

@@ -4,7 +4,7 @@
  * LUM-649: the `lumo milestone changelog` renderer — a structured markdown
  * changelog with baseline-annotated headline counts, per-DONE-task sections
  * (merged PRs + claim provenance), and honest explicit lines for the no-PR /
- * no-claim cases. `--json` is a raw passthrough of the structured payload.
+ * no-claim cases. `--json` is the structured payload plus `version`.
  */
 import {
   formatMilestoneChangelog,
@@ -119,9 +119,10 @@ describe('milestone changelog renderer', () => {
     expect(md).toContain('LUM-3')
     expect(md).toMatch(/not synthesized/i)
 
-    // --json is a raw passthrough of the structured payload, unchanged.
+    // --json is the structured payload, every field unchanged, plus the
+    // envelope `version` (batch C).
     expect(renderChangelogOutput(cl, { json: true })).toBe(
-      JSON.stringify(cl, null, 2)
+      JSON.stringify({ version: 1, ...cl }, null, 2)
     )
     // Default (no --json) renders the markdown.
     expect(renderChangelogOutput(cl, {})).toBe(md)

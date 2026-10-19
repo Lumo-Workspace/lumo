@@ -1,12 +1,15 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
 import { formatWebBody } from '../lib/tier2-render'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { detailEnvelope, emitJson } from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
 
 /**
- * `lumo task web show <LUM-N> <link-id>`
+ * `lumo task web show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline WebLink card. Fetches the page body
  * (cached, or fetched behind the SSRF guard on first read) from
@@ -14,11 +17,12 @@ import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
  */
 export async function taskWebShow(
   identifier: string | undefined,
-  linkId: string | undefined
+  linkId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !linkId) {
-    console.error('Error: usage: lumo task web show <LUM-42> <link-id>')
-    return 1
+    console.error('Error: usage: lumo task web show <LUM-42> <ref>')
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -68,14 +72,27 @@ export async function taskWebShow(
     return 1
   }
 
-  const { body, redactedSecrets } = (await res.json()) as {
+  const { id, body, redactedSecrets } = (await res.json()) as {
+    /** LUM-1230: the resolved link id (absent on an older server). */
+    id?: string
     body: string | null
     redactedSecrets?: number
   }
-  // LUM-998: fenced + guarded; the redaction count is the first notice.
-  console.log(formatWebBody(body, redactedSecrets))
+  if (opts.json) {
+    // The body gets the guard of the text view's fence body.
+    emitJson(
+      detailEnvelope('webLink', {
+        id: id ?? null,
+        body: guardJsonBlock(body),
+        redactedSecrets: redactedSecrets ?? null,
+      })
+    )
+  } else {
+    // LUM-998: fenced + guarded; the redaction count is the first notice.
+    console.log(formatWebBody(body, redactedSecrets))
+  }
 
-  // LUM-500: stamp the disclosure funnel. The linkId arg == lineage WEB_LINK
-  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
-  await reportPull({ fragmentType: 'WEB_LINK', fragmentId: linkId })
+  // LUM-500: stamp the disclosure funnel with the lineage WEB_LINK fragmentId —
+  // the resolved id, not a short ref (LUM-1230). Fire-and-forget.
+  await reportPull({ fragmentType: 'WEB_LINK', fragmentId: id ?? linkId })
 }

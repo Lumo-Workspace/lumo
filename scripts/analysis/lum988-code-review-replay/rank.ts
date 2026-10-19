@@ -22,10 +22,12 @@ import { rankFindings } from '@/ee/security/llm/review-ranker-client'
 import {
   RANKER_DIFF_MAX_CHARS,
   RANKER_TIMEOUT_MS,
+  isRankerExempt,
 } from '@/ee/security/security-scan/verifier'
 import { citedDiff } from '@/ee/security/services/review-verifier.service'
 import { redactForInjection } from '../../../lib/security-scan/scan-secrets'
 import { prKey } from './pr-key'
+import { replayVerifierAppliesTo } from './replay-policy'
 
 function opt(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`)
@@ -63,25 +65,6 @@ function citedFiles(dir: string, paths: string[], max: number): string {
   return out
 }
 
-// verify.ts SECURITY_KINDS: production never lets the verifier remove these.
-const SECURITY_KINDS = new Set([
-  'sql_injection',
-  'command_injection',
-  'xss',
-  'ssrf',
-  'path_traversal',
-  'insecure_deserialization',
-  'auth_bypass',
-  'unsafe_eval',
-  'weak_crypto',
-  'hardcoded_credential',
-  'csrf',
-  'clickjacking_or_insecure_headers',
-  'origin_or_host_validation',
-  'open_redirect',
-  'authz_logic',
-])
-
 interface Finding {
   kind: string
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
@@ -90,6 +73,8 @@ interface Finding {
   title: string
   detail: string
   evidence: string
+  /** LUM-1210 — verified path instruction: outside the removal policy. */
+  pathInstruction?: string | null
 }
 
 type Recorded = Record<string, { runs: Array<{ findings?: Finding[] }> }>
@@ -115,12 +100,17 @@ async function main(): Promise<void> {
         .map((f, i) => ({ f, id: `f${i}` }))
         .filter(({ f, id }) => {
           const r = v.get(id)
-          const applicable =
-            f.severity !== 'HIGH' && !SECURITY_KINDS.has(f.kind)
-          return !(applicable && r?.verdict === 'REJECTED')
+          return !(replayVerifierAppliesTo(f) && r?.verdict === 'REJECTED')
         })
-      if (kept.length === 0) {
-        out[url] = { ranking: [], skipped: 'no findings' }
+      // Production skips the call when nothing left is the ranker's to
+      // remove (`rankerMayReject`: no applicable row, or only test findings).
+      if (
+        !kept.some(
+          ({ f }) =>
+            replayVerifierAppliesTo(f) && !isRankerExempt(f.kind, f.filePath)
+        )
+      ) {
+        out[url] = { ranking: [], skipped: 'nothing the ranker may remove' }
         continue
       }
       const diff = redactForInjection(

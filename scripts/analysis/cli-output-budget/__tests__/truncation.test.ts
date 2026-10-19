@@ -83,7 +83,7 @@ describe('output-budget primitive', () => {
     const thread = formatCommentThread(comments, { identifier: 'LUM-428' })
     expect(estimateTokens(thread)).toBeLessThanOrEqual(OUTPUT_TOKEN_BUDGET)
     expect(thread).toContain(POINTER)
-    expect(thread).toContain('lumo task comments list LUM-428 --full')
+    expect(thread).toContain('lumo task show LUM-428 --comments --full')
     // --full is the honest escape hatch the pointer advertises: no cap.
     const full = formatCommentThread(comments, {
       identifier: 'LUM-428',
@@ -124,7 +124,7 @@ describe('output-budget primitive', () => {
     )
     expect(estimateTokens(ctx)).toBeLessThanOrEqual(OUTPUT_TOKEN_BUDGET)
     expect(ctx).toContain(POINTER)
-    expect(ctx).toContain('lumo task comments list LUM-428 --full')
+    expect(ctx).toContain('lumo task show LUM-428 --comments --full')
   })
 
   it('doc show --raw/--section and doc diff stay byte-faithful on a large doc', () => {

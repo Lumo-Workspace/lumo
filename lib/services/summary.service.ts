@@ -1,8 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { summaryRepository } from '@/lib/repositories/summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
-import { aggregateWorkspaceStats } from '@/lib/summaries/stats'
-import { generateWorkspaceReport } from '@/lib/summaries/report'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,22 +12,9 @@ interface GetSummariesOptions {
 // ── Summary Service ─────────────────────────────────────────────────────────
 
 export const summaryService = {
-  /** Fetch paginated workspace summaries. */
-  async getWorkspaceSummaries(
-    workspaceId: string,
-    options: GetSummariesOptions
-  ) {
-    return summaryRepository.findWorkspaceSummaries(workspaceId, options)
-  },
-
   /** Fetch paginated project summaries. */
   async getProjectSummaries(projectId: string, options: GetSummariesOptions) {
     return summaryRepository.findProjectSummaries(projectId, options)
-  },
-
-  /** Find workspaces eligible for summary generation. */
-  async findSummaryEnabledWorkspaces(workspaceId?: string) {
-    return summaryRepository.findSummaryEnabledWorkspaces(workspaceId)
   },
 
   /** Create a project summary record. */
@@ -45,41 +30,6 @@ export const summaryService = {
       tldr,
       report,
     })
-  },
-
-  /** Create a workspace summary record. */
-  async createWorkspaceSummary(
-    workspaceId: string,
-    stats: Prisma.InputJsonValue,
-    tldr: string,
-    report: string
-  ) {
-    return summaryRepository.createWorkspaceSummary({
-      workspaceId,
-      stats,
-      tldr,
-      report,
-    })
-  },
-
-  /** Check if a workspace is due for summary generation based on frequency. */
-  isDueForGeneration(frequency: string, lastGenerated: Date | null): boolean {
-    if (!lastGenerated) return true
-
-    const now = new Date()
-    const diffMs = now.getTime() - lastGenerated.getTime()
-    const diffHours = diffMs / (1000 * 60 * 60)
-
-    switch (frequency) {
-      case 'DAILY':
-        return diffHours >= 24
-      case 'EVERY_TWO_DAYS':
-        return diffHours >= 48
-      case 'WEEKLY':
-        return diffHours >= 168
-      default:
-        return true
-    }
   },
 
   async requestGeneration(
@@ -110,56 +60,12 @@ export const summaryService = {
   },
 
   /**
-   * Generate workspace summaries for all eligible workspaces (called by cron).
-   * Project-level reports are no longer generated — see the note inside.
+   * Daily cron housekeeping: drop generation-job rows older than 7 days.
+   * LUM-1228: the cron generates nothing — the workspace briefing it used to
+   * write (LLM) lost its last readers with the Dashboard. Returns the count.
    */
-  async generateCronSummaries() {
-    const workspaces = await this.findSummaryEnabledWorkspaces()
-    const results = []
-
-    for (const workspace of workspaces) {
-      const lastGenerated = workspace.summaries[0]?.generatedAt ?? null
-      if (!this.isDueForGeneration(workspace.summaryFrequency, lastGenerated)) {
-        results.push({ workspaceId: workspace.id, skipped: true })
-        continue
-      }
-
-      // LUM-699 retired the project-level report: the project Signal tab reads
-      // live stats and renders no prose, and nothing else in the product (UI,
-      // Slack, digests) consumes a project summary. Generating one per project
-      // per cycle was an LLM call per project whose only reader was the
-      // database. Workspace reports are unaffected — those are still rendered
-      // on the Dashboard.
-      const workspaceStats = await aggregateWorkspaceStats(workspace.id)
-      const { tldr, report } = await generateWorkspaceReport(workspaceStats, {
-        workspaceName: workspace.name,
-        // LUM-1117: the workspace's one language field.
-        locale: workspace.defaultLocale,
-      })
-
-      const workspaceSummary = await this.createWorkspaceSummary(
-        workspace.id,
-        workspaceStats as unknown as Prisma.InputJsonValue,
-        tldr,
-        report
-      )
-      await generationJobRepository
-        .create('workspace', workspace.id)
-        .then(job =>
-          generationJobRepository.updateStatus(
-            job.id,
-            'completed',
-            workspaceSummary.id
-          )
-        )
-
-      results.push({
-        workspaceId: workspace.id,
-        workspaceSummaryId: workspaceSummary.id,
-      })
-    }
-
-    await generationJobRepository.deleteOlderThan(7)
-    return results
+  async pruneGenerationJobs(): Promise<number> {
+    const { count } = await generationJobRepository.deleteOlderThan(7)
+    return count
   },
 }

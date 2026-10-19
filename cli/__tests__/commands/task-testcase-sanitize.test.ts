@@ -18,11 +18,13 @@ jest.mock('../../src/lib/status-digest', () => ({
 }))
 
 import { readCredentials } from '../../src/lib/config'
-import { taskTestCaseAdd } from '../../src/commands/task-testcase-add'
-import { taskTestCaseUpdate } from '../../src/commands/task-testcase-update'
-import { taskTestCaseList } from '../../src/commands/task-testcase-list'
-import { taskTestCaseShow } from '../../src/commands/task-testcase-show'
 import { formatStepResultLines } from '../../src/lib/test-case-steps'
+import {
+  testCaseAdd,
+  testCaseList,
+  testCaseShow,
+  testCaseUpdate,
+} from '../../src/commands/testcase'
 
 // Built at runtime so no control byte sits in the source file.
 const ESC = String.fromCharCode(0x1b)
@@ -60,7 +62,7 @@ afterEach(() => {
 describe('testcase add', () => {
   it('strips control characters from the server-returned title', async () => {
     respond({ testCase: { id: 'c1', number: 3, title: evil('Login works') } })
-    await taskTestCaseAdd('LUM-1', {
+    await testCaseAdd('task', 'LUM-1', {
       title: 'Login works',
       step: ['open'],
       expected: 'ok',
@@ -75,7 +77,7 @@ describe('testcase add', () => {
 describe('testcase update', () => {
   it('strips control characters from the server-returned title', async () => {
     respond({ testCase: { number: 4, title: evil('Renamed') } })
-    await taskTestCaseUpdate('LUM-1/TC4', { title: 'Renamed' })
+    await testCaseUpdate('task', 'LUM-1/TC4', { title: 'Renamed' })
     const out = printed()
     expect(out).toContain('Updated LUM-1/TC4 "[31mRenamed[0m2J"')
     expect(out).not.toContain(ESC)
@@ -96,7 +98,7 @@ describe('testcase list', () => {
         },
       ],
     })
-    await taskTestCaseList('LUM-1')
+    await testCaseList('task', 'LUM-1', {})
     const out = printed()
     expect(out).toContain('Listed')
     expect(out).not.toContain(ESC)
@@ -117,7 +119,7 @@ describe('testcase list', () => {
         },
       ],
     })
-    await taskTestCaseList('LUM-1')
+    await testCaseList('task', 'LUM-1', {})
     const lines = printed().split('\n')
     expect(lines).toHaveLength(1)
     expect(lines[0]!.split('\t')).toEqual([
@@ -148,9 +150,9 @@ describe('testcase list', () => {
         },
       ],
     })
-    await taskTestCaseList('LUM-1')
+    await testCaseList('task', 'LUM-1', {})
     const out = printed()
-    expect(out).toContain('PASS on [31mLOCAL[0m2J (2026-10-13)')
+    expect(out).toContain('PASS on [31mLOCAL[0m2J 2026-10-13T12:00:00Z')
     expect(out).not.toContain(ESC)
     expect(out).not.toContain(CSI8)
   })
@@ -177,14 +179,14 @@ describe('testcase list', () => {
         },
       ],
     })
-    await taskTestCaseList('LUM-1')
+    await testCaseList('task', 'LUM-1', {})
     const lines = printed().split('\n')
     expect(lines).toHaveLength(1)
     expect(lines[0]!.split('\t')).toEqual([
       'TC2',
       'Ok',
       '1 steps / 0 verify',
-      'PASS on LOCAL (2026-10-13) by Ada TC3 Lovelace',
+      'PASS on LOCAL 2026-10-13T12:00:00Z by Ada TC3 Lovelace',
     ])
   })
 })
@@ -228,7 +230,7 @@ describe('testcase show', () => {
       ],
       pullRequests: [],
     })
-    await taskTestCaseShow('LUM-1/TC2')
+    await testCaseShow('task', 'LUM-1/TC2', {})
     const out = printed()
     for (const word of [
       'Title',

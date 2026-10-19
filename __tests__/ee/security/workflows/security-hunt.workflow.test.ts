@@ -152,6 +152,7 @@ const batch = (
     trace: unknown[]
     stop: unknown
     wrapUp: unknown
+    submission: unknown
     compress: {
       calls: number
       noOpCalls: number
@@ -1066,6 +1067,47 @@ it('LUM-781 carries trace, stop and wrapUp onto both the first-pass and retry au
     trace: [{ i: 1, tool: 'submit_candidates' }],
     stop,
     wrapUp: { ran: false, skipped: 'submitted' },
+  })
+})
+
+// LUM-1226 — a candidate that breaks the contract is dropped on its own now;
+// the submitted / kept / dropped counts are what make that readable.
+it('LUM-1226 carries submission counts onto both the first-pass and retry audit rows', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+      { id: 't2', objective: 'o2', category: 'ssrf', startingPoints: [] },
+    ],
+    reason: 'two signals',
+    by: 'model',
+    tokens: 100,
+  })
+  const submission = {
+    calls: 1,
+    submitted: 3,
+    kept: 2,
+    dropped: 1,
+    reasons: ['cwe'],
+  }
+  hunt
+    .mockImplementationOnce(async () => batch({ submission }))
+    .mockImplementationOnce(async () => batch({ stopped: 'timeout' }))
+    .mockImplementationOnce(async () =>
+      batch({ submission: { ...submission, dropped: 0, reasons: undefined } })
+    )
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  expect(rows[0]).toMatchObject({ taskId: 't1', submission })
+  const timedOut = rows.find(
+    (r: { taskId: string; stopped: string }) =>
+      r.taskId === 't2' && r.stopped === 'timeout'
+  )!
+  expect(timedOut.submission).toBeUndefined()
+  expect(rows[rows.length - 1]).toMatchObject({
+    taskId: 't2',
+    submission: { kept: 2, dropped: 0 },
   })
 })
 

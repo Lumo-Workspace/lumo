@@ -2,7 +2,7 @@
 
 ### Task ↔ Spec Artifacts
 
-Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail definition ("spec") layer and are injected into `lumo task context`.
+Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail definition ("spec") layer and are injected into `lumo task show --full`.
 
 #### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source> --agent <agent>`
 
@@ -17,45 +17,49 @@ lumo task artifact add LUM-42 --kind plan --title "Implementation plan" --file d
 
 Output: `Added [spec] "Spec" to LUM-42`
 
-#### `lumo task artifact update <task> <artifact-id> [--kind <kind>] [--title <title>] [--source <source>] [--agent <agent>]`
+#### `lumo task artifact update <task> <artifact> [--kind <kind>] [--title <title>] [--source <source>] [--agent <agent>]`
 
-Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, `source`, and `agent`** — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. The `<artifact-id>` is the cuid in column 1 of `artifact list`. `--agent` accepts the same valid values and aliases as `artifact add`: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
+Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, `source`, and `agent`** — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task show --full` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates. `--agent` accepts the same valid values and aliases as `artifact add`: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
 
 ```bash
-lumo task artifact update LUM-42 cma_xxx --kind plan              # re-classify spec → plan
-lumo task artifact update LUM-42 cma_xxx --source "Spec Kit"      # fix the framework label
-lumo task artifact update LUM-42 cma_xxx --title "Final spec" --source OpenSpec
-lumo task artifact update LUM-42 cma_xxx --agent cursor           # fix the agent label
+lumo task artifact update LUM-42 pskvl3sh --kind plan              # re-classify spec → plan
+lumo task artifact update LUM-42 pskvl3sh --source "Spec Kit"      # fix the framework label
+lumo task artifact update LUM-42 pskvl3sh --title "Final spec" --source OpenSpec
+lumo task artifact update LUM-42 pskvl3sh --agent cursor           # fix the agent label
 ```
 
 Output: `Updated [plan] "Final spec" (OpenSpec) on LUM-42`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 #### `lumo task artifact list <task>`
 
-Lists artifacts on the task in order: `<id>  <kind>  <agent>  <source>  <title>`, columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id. Prints `No artifacts on <task>.` when there are none.
+`--json` prints `{ version, artifacts, total, nextCursor }` (full ids; internal columns such as `order` are left out).
+
+Lists artifacts on the task in order: `<ref>  <kind>  <agent>  <source>  <title>` (`<ref>` = the 8-char short ref the other artifact commands take; header `REF`), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the ref. Prints `No artifacts on <task>.` when there are none.
 
 ```bash
 lumo task artifact list LUM-42
 ```
 
-#### `lumo task artifact show <task> <artifact-id>`
+#### `lumo task artifact show <task> <artifact>`
 
-Prints one artifact's key:value header (id, kind, title, agent, source, order, task) followed by the full content body. The `<artifact-id>` is the cuid in column 1 of `artifact list`.
+`--json` prints `{ version, artifact, task }` (the artifact with its full id and content).
 
-```bash
-lumo task artifact show LUM-42 cma_xxx
-```
-
-#### `lumo task artifact rm <task> <artifact-id> --confirm`
-
-Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact cma_xxx "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. On success prints `Removed <artifact-id> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
+Prints one artifact's key:value header (ref, kind, title, agent, source, order, task) followed by the full content body. `<artifact>` is the 8-char short ref (the id's last 8 characters) in column 1 of `artifact list` and in the `task show --full` hint; a unique id prefix of 6+ characters or the full id also work, and an ambiguous ref errors with the candidates.
 
 ```bash
-lumo task artifact rm LUM-42 cma_xxx            # exit 4 + envelope
-lumo task artifact rm LUM-42 cma_xxx --confirm  # after the user approved
+lumo task artifact show LUM-42 pskvl3sh
 ```
 
-When to suggest: after running a spec/plan workflow in Claude Code, offer to record the product(s) with `task artifact add` (one call per artifact) — always pass `--source` with the framework you used. Use `task artifact list` to see what's already recorded, `task artifact show` to inspect a single artifact's content, `task artifact update` to fix a wrong kind/title/source without re-uploading, and `task artifact rm` to drop one that's wrong or stale.
+#### `lumo task artifact delete <task> <artifact> --confirm`
+
+Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact pskvl3sh "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). On success prints `Removed <artifact> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
+
+```bash
+lumo task artifact delete LUM-42 pskvl3sh            # exit 4 + envelope
+lumo task artifact delete LUM-42 pskvl3sh --confirm  # after the user approved
+```
+
+When to suggest: after running a spec/plan workflow in Claude Code, offer to record the product(s) with `task artifact add` (one call per artifact) — always pass `--source` with the framework you used. Use `task artifact list` to see what's already recorded, `task artifact show` to inspect a single artifact's content, `task artifact update` to fix a wrong kind/title/source without re-uploading, and `task artifact delete` to drop one that's wrong or stale.
 
 ### Task ↔ Figma Designs
 
@@ -84,24 +88,26 @@ without re-calling Figma.
 
 #### `lumo task figma list <task>` — list attachments
 
+`--json` prints `{ version, figmaLinks, total, nextCursor }`.
+
 ```
 $ lumo task figma list LUM-42
-cfl_xxx1  Onboarding     Welcome screen    2026-05-28
-cfl_xxx2  Design System  Button / Primary  2026-05-27
-cfl_xxx3  Onboarding     (file-level)      2026-05-20  ⚠ thumbnail stale
+a1b2c3d4  Onboarding     Welcome screen    2026-05-28
+e5f6g7h8  Design System  Button / Primary  2026-05-27
+i9j0k1l2  Onboarding     (file-level)      2026-05-20  ⚠ thumbnail stale
 ```
 
-Columns are sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the frame name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the id.
+Columns are sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the frame name is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the ref (the 8-char short ref `figma context` / `figma rm` take; header `REF`).
 
 `⚠ thumbnail stale` appears when `thumbnailFetchedAt > 25 days`.
 
-#### `lumo task figma rm <task> <link-id-or-url>` — remove an attachment
+#### `lumo task figma remove <task> <link>` — remove an attachment
 
-Accepts a `cfl_*` cuid or the original URL. Idempotent (`Not linked: ...` + exit 0 when no match).
+Accepts the original URL, the 8-char short ref from `figma list`, a unique id prefix (6+ chars) or the full id. Idempotent (`Not linked: ...` + exit 0 when nothing matches); an ambiguous ref removes nothing and exits 1 listing the candidates.
 
 ```bash
-lumo task figma rm LUM-42 cfl_xxx1
-lumo task figma rm LUM-42 "https://www.figma.com/design/abc123/Onboarding?node-id=1-234"
+lumo task figma remove LUM-42 a1b2c3d4
+lumo task figma remove LUM-42 "https://www.figma.com/design/abc123/Onboarding?node-id=1-234"
 ```
 
 #### `lumo task figma refresh <task>` — manual refresh

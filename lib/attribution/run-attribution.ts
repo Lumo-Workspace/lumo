@@ -233,6 +233,13 @@ export interface RunAttributionSummary {
   approximate: boolean
 }
 
+/** A run some of whose work on the task is explicitly bound (LUM-1237). */
+export function isBoundRun(
+  a: Pick<RunAttribution, 'mode' | 'subagents'>
+): boolean {
+  return a.mode !== 'INFERRED' || a.subagents.some(s => s.source !== 'INFERRED')
+}
+
 export function summarizeRunAttributions(
   attributions: (RunAttribution | null)[]
 ): RunAttributionSummary {
@@ -241,9 +248,62 @@ export function summarizeRunAttributions(
   let approximate = false
   for (const a of attributions) {
     if (!a) continue
-    if (a.mode === 'INFERRED') inferred++
-    else explicit++
+    // LUM-1237: a run counts as bound when any of its work on the task comes
+    // from an explicit binding — the root's own, or a subagent that attached
+    // (or inherited) the task — even if its root is also auto-detected here.
+    if (isBoundRun(a)) explicit++
+    else inferred++
     if (a.approximate) approximate = true
   }
   return { explicit, inferred, approximate }
+}
+
+/**
+ * The weakest confidence across a run's segments and subagents — the badge
+ * suffix the web shows on an auto-detected run ("Auto-detected · Medium
+ * confidence"). null when the run has neither. Shared with the CLI run report
+ * (LUM-1188).
+ */
+export function weakestConfidence(
+  attribution: Pick<RunAttribution, 'segments' | 'subagents'>
+): AttributionConfidenceName | null {
+  const all = [...attribution.segments, ...attribution.subagents]
+  if (all.length === 0) return null
+  return all.some(x => x.confidence === 'MEDIUM') ? 'MEDIUM' : 'HIGH'
+}
+
+export interface SubagentGroup {
+  sub: RunSubagentView
+  count: number
+  members: EvidenceView[][]
+}
+
+/**
+ * Collapse look-alike subagents (same type, source, confidence, follows-parent
+ * flag and deduped signal set) into one row with a count, first-seen order.
+ * The web attribution panel and the CLI run report render these groups.
+ */
+export function groupSubagents(subagents: RunSubagentView[]): SubagentGroup[] {
+  const groups = new Map<string, SubagentGroup>()
+  for (const sub of subagents) {
+    const signature = dedupeEvidence(sub.evidence)
+      .map(e => `${e.kind}:${e.identifier}`)
+      .sort()
+      .join(',')
+    const key = [
+      sub.agentType ?? '',
+      sub.source,
+      sub.confidence,
+      sub.followsParent,
+      signature,
+    ].join('|')
+    const g = groups.get(key)
+    if (g) {
+      g.count += 1
+      g.members.push(sub.evidence)
+    } else {
+      groups.set(key, { sub, count: 1, members: [sub.evidence] })
+    }
+  }
+  return [...groups.values()]
 }

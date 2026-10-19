@@ -21,7 +21,7 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/services/milestone.service', () => ({
   generateMilestoneRetro: jest.fn().mockResolvedValue(undefined),
 }))
-// LUM-643: the rollup consults the exit-criteria close gate — default to an
+// LUM-1135: the rollup consults the test-case close gate — default to an
 // empty contract (gate open) so pre-existing rollup behavior is unchanged.
 const mockCountHeld = jest.fn().mockResolvedValue(0)
 jest.mock('@/lib/services/milestone-close-gate.service', () => ({

@@ -1,9 +1,11 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { docHandle } from '../lib/doc-handle'
 
 const ALLOWED_ROLES = ['VIEWER', 'EDITOR', 'MANAGER'] as const
 type Role = (typeof ALLOWED_ROLES)[number]
@@ -27,9 +29,9 @@ export async function docShare(
 ): Promise<number | void> {
   if (!docRef || !memberRef) {
     console.error(
-      'Error: usage: lumo doc share <doc> <member> [--role viewer|editor|manager]'
+      'Error: usage: lumo doc update <doc> --add-member <member> [--role viewer|editor|manager]'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   let role: Role = 'VIEWER'
@@ -39,7 +41,7 @@ export async function docShare(
       console.error(
         `Error: invalid role "${opts.role}". Allowed: viewer, editor, manager`
       )
-      return 1
+      return EXIT_USAGE
     }
     role = normalized
   }
@@ -95,6 +97,6 @@ export async function docShare(
   }
 
   console.log(
-    `Shared ${docId} ↔ ${sanitizeField(result.member.displayName)} (${role})`
+    `Shared ${docHandle(docId)} ↔ ${sanitizeField(result.member.displayName)} (${role})`
   )
 }

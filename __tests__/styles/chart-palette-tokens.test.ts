@@ -68,19 +68,3 @@ describe('chart palette tokens (globals.css)', () => {
     }
   })
 })
-
-describe('summary charts consume the --chart-* palette', () => {
-  const files = [
-    '../../app/workspace/[workspaceUrl]/components/summary/CompletionTrendChart.tsx',
-    '../../app/workspace/[workspaceUrl]/components/summary/MemberWorkloadChart.tsx',
-  ]
-
-  it.each(files)('%s uses bg-chart-* and no raw brand fill', file => {
-    const src = readFileSync(join(__dirname, file), 'utf8')
-    expect(src).toMatch(/\bbg-chart-[1-5]\b/)
-    // The old fills were bg-green-400 / bg-blue-500.
-    expect(src).not.toMatch(
-      /\bbg-(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/
-    )
-  })
-})

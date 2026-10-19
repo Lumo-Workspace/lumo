@@ -53,7 +53,8 @@ export function ReplyItem({
   const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
 
-  const ra = resolveCommentAuthor(reply, members, agentActors)
+  const unknownAuthor = intl.formatMessage({ id: 'comment.unknownAuthor' })
+  const ra = resolveCommentAuthor(reply, members, agentActors, unknownAuthor)
   const rIsAuthor = !ra.isAgent && reply.authorActorId === currentActorId
   const rIsEditing = tc.editingCommentId === reply.id
   const rIsDeleting = tc.deletingCommentId === reply.id
@@ -67,8 +68,8 @@ export function ReplyItem({
         c => c.id === reply.quotedCommentId
       )
     : null
-  const quotedAuthor = quoted
-    ? members.find(m => m.actorId === quoted.authorActorId)
+  const quotedAuthorName = quoted
+    ? resolveCommentAuthor(quoted, members, agentActors, unknownAuthor).name
     : null
 
   return (
@@ -110,7 +111,7 @@ export function ReplyItem({
           <>
             {quoted && (
               <CommentQuote
-                authorName={quotedAuthor?.name ?? 'Unknown'}
+                authorName={quotedAuthorName ?? unknownAuthor}
                 text={previewCommentText(quoted.body)}
                 onClick={() => tc.scrollToComment(reply.quotedCommentId!)}
                 variant='in-reply'

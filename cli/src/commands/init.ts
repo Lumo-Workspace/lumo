@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -21,7 +22,6 @@ import {
 } from '../lib/codex-rules'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import { HOOK_SCRIPT_BLOCK } from '../lib/git-hook-template'
-import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
@@ -43,10 +43,11 @@ import {
   type SpawnSyncFn,
 } from '../lib/auto-update'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
+import { parseInstallScope } from '../lib/install-scope'
 
-type InitOptions = {
-  user?: boolean
-  project?: boolean
+export type InitOptions = {
+  /** LUM-1233 3g (Q6): `user | project` (was the booleans --user / --project). */
+  scope?: string
   force?: boolean
   agent?: string
   upgrade?: boolean
@@ -83,7 +84,7 @@ type Scope = 'user' | 'project'
 
 /** LUM-1118: `lumo init --upgrade` is gone; re-running init refreshes an install. */
 export const UPGRADE_REMOVED =
-  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--user` / `--project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
+  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--scope user|project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
@@ -136,13 +137,16 @@ export async function init(
 ): Promise<number> {
   if (options.upgrade) {
     process.stderr.write(`Error: ${UPGRADE_REMOVED}\n`)
-    return 1
+    return EXIT_USAGE
   }
-  if (options.user && options.project) {
+  if (
+    options.scope !== undefined &&
+    parseInstallScope(options.scope) === null
+  ) {
     process.stderr.write(
-      'Error: --user and --project are mutually exclusive.\n'
+      `Error: invalid --scope "${options.scope}". Valid values: user, project.\n`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const agentResult = initAgentTokens(options.agent)
@@ -163,8 +167,7 @@ export async function init(
   const cwd = deps.cwd ?? process.cwd()
   const bundled = deps.bundledSkillDir ?? bundledSkillDir()
 
-  const scope = await resolveScope(options, tokens)
-  if (!scope) return 130
+  const scope = resolveScope(options)
 
   const root = scope === 'user' ? homeDir : cwd
   if (options.dryRun) {
@@ -328,37 +331,18 @@ export function skillInstallDir(root: string, agentToken: string): string {
     : path.join(root, '.claude', 'skills', 'lumo')
 }
 
-/** The interactive scope question, naming every directory init will write. */
-export function scopePrompt(tokens: readonly string[]): string {
-  const dirs = (base: string) =>
-    tokens
-      .map(t =>
-        t === 'codex' ? `${base}/.agents + ${base}/.codex` : `${base}/.claude`
-      )
-      .filter((d, i, all) => all.indexOf(d) === i)
-      .join(', ')
-  return `Install Lumo for [u]ser (${dirs('~')}) or [p]roject (${dirs('.')})? [u/P]: `
-}
-
-async function resolveScope(
-  options: InitOptions,
-  tokens: readonly string[]
-): Promise<Scope | null> {
-  if (options.user) return 'user'
-  if (options.project) return 'project'
-
-  if (!process.stdin.isTTY) {
-    process.stdout.write(
-      'No --user/--project flag given and stdin is not a TTY. Defaulting to --project.\n'
-    )
-    return 'project'
-  }
-
-  const answer = (await promptLine(scopePrompt(tokens))).toLowerCase()
-  if (answer === 'u' || answer === 'user') return 'user'
-  if (answer === '' || answer === 'p' || answer === 'project') return 'project'
-  process.stderr.write(`Unrecognized choice "${answer}". Aborting.\n`)
-  return null
+/**
+ * The scope init installs into: `--scope`, else `project` — never an
+ * interactive question (LUM-1233 follow-up, CF-1: no prompt anywhere), on a
+ * TTY or not. The default is said in one line so it is never a surprise.
+ */
+export function resolveScope(options: InitOptions): Scope {
+  const given = parseInstallScope(options.scope)
+  if (given) return given
+  process.stdout.write(
+    'No --scope given: installing for this repo (--scope project). Pass --scope user to install for every project.\n'
+  )
+  return 'project'
 }
 
 function isInstalledResult(r: SkillInstallResult): boolean {
@@ -495,7 +479,7 @@ function writeSkillMarker(
  * Merge the Lumo hook entries into a hooks file — Claude Code's
  * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
  * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
- * entry was added or updated, so re-running init leaves it byte-identical
+ * entry was added, updated or removed (a retired event, LUM-1235), so re-running init leaves it byte-identical
  * (Codex re-asks for trust after any change).
  */
 export function mergeHooksFile(
@@ -506,7 +490,10 @@ export function mergeHooksFile(
 ): { path: string; stats: MergeStats } {
   const plan = planHooksMerge(settingsPath, agentToken, events)
   const { exists, merged, stats } = plan
-  const changed = stats.addedEvents.length + stats.updatedEvents.length
+  const changed =
+    stats.addedEvents.length +
+    stats.updatedEvents.length +
+    stats.removedEvents.length
   const tracked = exists && isPathGitTracked(settingsPath)
   if (plan.writes) {
     if (!exists) fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
@@ -520,9 +507,13 @@ export function mergeHooksFile(
     )
   } else {
     process.stdout.write(
-      `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
+      `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length}${stats.removedEvents.length > 0 ? `, removed ${stats.removedEvents.length}` : ''})\n`
     )
   }
+  if (stats.removedEvents.length > 0)
+    process.stdout.write(
+      `  removed retired Lumo hooks: ${stats.removedEvents.join(', ')} (they replaced Claude Code's own worktree creation)\n`
+    )
   if (tracked && changed > 0) process.stdout.write(gitDiffNote(settingsPath))
   return { path: settingsPath, stats }
 }

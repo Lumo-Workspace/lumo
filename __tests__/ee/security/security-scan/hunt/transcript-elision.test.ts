@@ -3,6 +3,7 @@ import type { ModelMessage } from 'ai'
 import {
   elideOlderToolResults,
   elisionStub,
+  stablePrefixEnd,
 } from '@/ee/security/security-scan/hunt/transcript'
 import {
   HUNT_ELIDE_KEEP_STEPS,
@@ -166,5 +167,34 @@ describe('LUM-787 transcript elision (pure)', () => {
     expect(elideOlderToolResults(messages, 2).elided).toBe(1)
     expect(elideOlderToolResults(messages, 0).elided).toBe(3)
     expect(elideOlderToolResults(messages, 5).elided).toBe(0)
+  })
+
+  // LUM-1224 — the cache breakpoint goes on the last message the NEXT step
+  // will send byte for byte; past it, that step elides a result this one
+  // still sends whole.
+  it('stablePrefixEnd: the opening alone, then the assistant message before the result the next step elides', () => {
+    const opening: ModelMessage = { role: 'user', content: 'task' }
+    expect(stablePrefixEnd([opening])).toBe(0)
+    expect(stablePrefixEnd([opening, ...step('a', big('a'))])).toBe(1)
+    expect(
+      stablePrefixEnd([opening, ...step('a', big('a')), ...step('b', big('b'))])
+    ).toBe(3)
+    // Fewer steps than are kept whole: the next step elides nothing yet.
+    expect(stablePrefixEnd([opening, ...step('a', big('a'))], 2)).toBe(2)
+    expect(stablePrefixEnd([opening, ...step('a', big('a'))], 0)).toBe(2)
+    expect(stablePrefixEnd([], 1)).toBe(-1)
+  })
+
+  it('stablePrefixEnd: what one step sends up to it is exactly what the next step sends', () => {
+    for (const keep of [0, 1, 2, 3]) {
+      const transcript: ModelMessage[] = [{ role: 'user', content: 'task' }]
+      for (const id of ['a', 'b', 'c', 'd', 'e']) {
+        const now = elideOlderToolResults(transcript, keep).messages
+        const end = stablePrefixEnd(transcript, keep)
+        transcript.push(...step(id, big(id)))
+        const next = elideOlderToolResults(transcript, keep).messages
+        expect(next.slice(0, end + 1)).toEqual(now.slice(0, end + 1))
+      }
+    }
   })
 })

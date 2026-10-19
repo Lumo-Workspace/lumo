@@ -23,7 +23,11 @@ function switchOf(value: unknown, fallback = true): boolean {
 function isPlatformCeiling(value: unknown): value is PlatformSecurityCeiling {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
-  return typeof v.hunt === 'boolean' && typeof v.sandbox === 'boolean'
+  return (
+    typeof v.hunt === 'boolean' &&
+    typeof v.rewardHack === 'boolean' &&
+    typeof v.sandbox === 'boolean'
+  )
 }
 
 export function SecuritySettingsSection({
@@ -41,10 +45,17 @@ export function SecuritySettingsSection({
           securityScanEnabled: switchOf(workspace.securityScanEnabled),
           securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
           securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
+          securityRewardHackEnabled: switchOf(
+            workspace.securityRewardHackEnabled
+          ),
           // LUM-1130: off unless the workspace turned it on.
           securityRequestChangesEnabled: switchOf(
             workspace.securityRequestChangesEnabled,
             false
+          ),
+          // LUM-1142: on unless the workspace turned it off.
+          securityAllowAuthorApproval: switchOf(
+            workspace.securityAllowAuthorApproval
           ),
           // LUM-1134: auto unless the workspace chose otherwise.
           securityLearningsScope: parseLearningsScope(
@@ -56,6 +67,7 @@ export function SecuritySettingsSection({
           ),
         }}
         huntAvailable={platform.hunt}
+        rewardHackAvailable={platform.rewardHack}
         sandboxAvailable={platform.sandbox}
       />
       {/* LUM-1133: automatic review per connected repository. */}

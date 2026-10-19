@@ -1,3 +1,6 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { parseInstallScope } from '../lib/install-scope'
+import { stringifyJson, withVersion } from '../lib/json-output'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -118,7 +121,7 @@ export async function skillStatus(
   if (!env) return 1
   const status = buildSkillStatus(env.cliVersion, env.homeDir, env.cwd)
   if (options.json) {
-    env.out(JSON.stringify(status, null, 2) + '\n')
+    env.out(stringifyJson(withVersion(status)))
     return 0
   }
   env.out(`Lumo skill copies (CLI ${env.cliVersion})\n\n`)
@@ -169,8 +172,8 @@ export function shellQuote(p: string): string {
 // ── skill update ───────────────────────────────────────────────────────────
 
 export type SkillUpdateOptions = {
-  user?: boolean
-  project?: boolean
+  /** LUM-1233 3g (Q6): `user | project` (was the booleans --user / --project). */
+  scope?: string
   agent?: string
   dryRun?: boolean
   force?: boolean
@@ -273,9 +276,14 @@ export async function skillUpdate(
   deps: SkillDeps = {}
 ): Promise<number> {
   const err = deps.err ?? ((s: string) => void process.stderr.write(s))
-  if (options.user && options.project) {
-    err('Error: --user and --project are mutually exclusive.\n')
-    return 1
+  if (
+    options.scope !== undefined &&
+    parseInstallScope(options.scope) === null
+  ) {
+    err(
+      `Error: invalid --scope "${options.scope}". Valid values: user, project.\n`
+    )
+    return EXIT_USAGE
   }
   let agent: string | undefined
   if (options.agent !== undefined) {
@@ -284,7 +292,7 @@ export async function skillUpdate(
       err(
         `Error: Unknown agent "${options.agent}". Valid agents: ${VALID_AGENT_TOKENS.join(', ')}.\n`
       )
-      return 1
+      return EXIT_USAGE
     }
     agent = ENUM_TO_TOKEN[e]
   }
@@ -297,7 +305,7 @@ export async function skillUpdate(
     )
     return 1
   }
-  const scope = options.user ? 'user' : options.project ? 'project' : undefined
+  const scope = parseInstallScope(options.scope) ?? undefined
   const dryRun = options.dryRun === true
   const found = sortCopies(
     collectSkillCopies({
@@ -323,7 +331,7 @@ export async function skillUpdate(
   for (const l of found) {
     if (!isOtherRepoCopy(l, here)) continue
     env.out(
-      `· ${displayPath(l.path, env.homeDir)}: in another repo — not written; run \`cd ${shellQuote(skillCopyRepoRoot(l.path))} && lumo skill update --project\` there\n`
+      `· ${displayPath(l.path, env.homeDir)}: in another repo — not written; run \`cd ${shellQuote(skillCopyRepoRoot(l.path))} && lumo skill update --scope project\` there\n`
     )
   }
   if (copies.length === 0) {

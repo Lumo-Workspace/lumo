@@ -14,6 +14,7 @@ import type {
   RepoReviewSettings,
   RepoReviewSettingsUpdate,
 } from '@/ee/security/services/repo-review-settings.service'
+import type { RhEvidenceView } from '@/ee/security/services/reward-hack-evidence.service'
 
 export const SECURITY_API = {
   workspaceSecurityScan: '/api/workspaces/me/security-scan',
@@ -24,6 +25,8 @@ export const SECURITY_API = {
     `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
   securityFindingsBulkDisposition: (taskId: string) =>
     `/api/tasks/${taskId}/security-findings/bulk-disposition`,
+  rewardHackEvidence: (taskId: string, findingId: string) =>
+    `/api/tasks/${taskId}/security-findings/${findingId}/reward-hack-evidence`,
 } as const
 
 export const securityScanClient = {
@@ -76,6 +79,13 @@ export const securityScanClient = {
         method: 'POST',
         body,
       }
+    )
+  },
+
+  /** LUM-1234: the evidence behind one REWARD_HACK finding (web only). */
+  rewardHackEvidence(taskId: string, findingId: string) {
+    return apiFetch<RhEvidenceView>(
+      SECURITY_API.rewardHackEvidence(taskId, findingId)
     )
   },
 

@@ -1,4 +1,6 @@
-import { emptyState, fmtTimestamp } from '../lib/format'
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { NONE, emptyState, fmtTimestamp } from '../lib/format'
+import { fetchActorNames } from '../lib/crossing-records'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -17,10 +19,14 @@ import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
   buildCommand,
   pageFooter,
+  pageJson,
   paginate,
   parsePageArgs,
   type PageArgs,
 } from '../lib/pagination'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
+import type { OutputSink } from '../lib/output-sink'
 
 interface ResolveResponse {
   id: string
@@ -30,6 +36,8 @@ interface ResolveResponse {
 export interface CommentNode {
   id: string
   authorActorId: string | null
+  /** LUM-1232: the author's display name from the server; absent on older servers. */
+  authorName?: string | null
   body: string
   createdAt: string
   replies?: CommentNode[]
@@ -43,9 +51,10 @@ export interface CommentThreadOptions {
   identifier?: string | undefined
   /** Override the token ceiling (tests). */
   maxTokens?: number | undefined
-  /** The `lumo <…>` sub-command the fetch-more pointer advertises. Defaults to
-   *  the task thread. */
-  fetchCommand?: string | undefined
+  /** Actor id → member / agent name (LUM-1232 G2). When given, an author is
+   *  printed by name, or `-` when the directory cannot name it — never as a
+   *  raw actor id. */
+  actorNames?: Map<string, string> | undefined
 }
 
 /**
@@ -69,11 +78,24 @@ export function commentPlainText(html: string): string {
 }
 
 /** Render one comment (and its nested replies) as an indented text block. */
-function renderCommentBlock(c: CommentNode, indent: string): string {
+function renderCommentBlock(
+  c: CommentNode,
+  indent: string,
+  names?: Map<string, string>
+): string {
   const lines: string[] = []
-  const author = sanitizeField(c.authorActorId ?? 'unknown')
+  const id = c.authorActorId
+  const author = sanitizeField(
+    c.authorName
+      ? c.authorName
+      : id === null
+        ? NONE
+        : names
+          ? (names.get(id) ?? NONE)
+          : id
+  )
   // `#<short id>` is the handle `task comment --reply-to` and
-  // `task comments edit/rm` take (LUM-821).
+  // `task comment update/delete` take (LUM-821).
   lines.push(
     `${indent}#${shortCommentId(c.id)} · ${author} · ${fmtTimestamp(c.createdAt)}`
   )
@@ -83,7 +105,7 @@ function renderCommentBlock(c: CommentNode, indent: string): string {
   }
   for (const reply of c.replies ?? []) {
     lines.push('')
-    lines.push(renderCommentBlock(reply, indent + '  '))
+    lines.push(renderCommentBlock(reply, indent + '  ', names))
   }
   return lines.join('\n')
 }
@@ -100,10 +122,9 @@ export function formatCommentThread(
   opts: CommentThreadOptions = {}
 ): string {
   if (comments.length === 0) return emptyState('comments')
-  const blocks = comments.map(c => renderCommentBlock(c, ''))
+  const blocks = comments.map(c => renderCommentBlock(c, '', opts.actorNames))
   if (opts.full) return fenceCommentThread(blocks.join(COMMENT_SEPARATOR))
   const id = opts.identifier ?? '<LUM-N>'
-  const fetchCommand = opts.fetchCommand ?? 'task comments list'
   const capped = truncateUnitsToBudget({
     units: blocks,
     // The fence (tags, preamble, up to two notices) is printed on top of the
@@ -113,7 +134,7 @@ export function formatCommentThread(
       (opts.maxTokens ?? OUTPUT_TOKEN_BUDGET) - FENCE_RESERVE_TOKENS
     ),
     unitNoun: 'comments',
-    fetchHint: `read the whole thread with: lumo ${fetchCommand} ${id} --full`,
+    fetchHint: `read the whole thread with: lumo task show ${id} --comments --full`,
     separator: COMMENT_SEPARATOR,
   })
   if (!capped.truncated) return fenceCommentThread(capped.text)
@@ -132,7 +153,7 @@ const FENCE_RESERVE_TOKENS = 250
 
 /**
  * LUM-998: a comment body is any workspace member's text — the same surface
- * `task context` already fences as linked context. The thread prints inside
+ * `task show --full` already fences as linked context. The thread prints inside
  * one `<untrusted-linked-context>` block, wrapper tags defanged and
  * directive-shaped content flagged at the head; nothing is dropped.
  */
@@ -156,6 +177,36 @@ export interface TaskCommentListOptions {
   full?: boolean | undefined
   limit?: string | undefined
   cursor?: string | undefined
+  json?: boolean | undefined
+}
+
+/** A comment for `--json`: the body guarded as the text view's fence body. */
+function commentJson(c: CommentNode): CommentNode {
+  return {
+    ...c,
+    body: guardJsonBlock(c.body),
+    ...(c.replies ? { replies: c.replies.map(commentJson) } : {}),
+  }
+}
+
+/**
+ * The `--json` envelope for one page of top-level threads (replies nested
+ * under their parent); `--full` alone is every thread on one page.
+ */
+export function commentListJson(
+  comments: CommentNode[],
+  page: PageArgs | null,
+  task: string
+): Record<string, unknown> {
+  const p = page
+    ? paginate(comments, page)
+    : { items: comments, total: comments.length, nextCursor: null }
+  return listEnvelope(
+    'comments',
+    stripInternalFields(p.items.map(commentJson)),
+    pageJson(p),
+    { task }
+  )
 }
 
 /**
@@ -179,15 +230,20 @@ export function formatCommentPage(
   comments: CommentNode[],
   page: PageArgs | null,
   identifier: string,
-  opts: TaskCommentListOptions
+  opts: TaskCommentListOptions,
+  actorNames?: Map<string, string>
 ): string {
   if (!page)
-    return formatCommentThread(comments, { full: opts.full, identifier })
+    return formatCommentThread(comments, {
+      full: opts.full,
+      identifier,
+      actorNames,
+    })
   const p = paginate(comments, page)
   const footer = pageFooter(
     { ...p, shown: p.items.length },
     buildCommand(
-      `task comments list ${shellQuote(sanitizeField(identifier))}`,
+      `task show ${shellQuote(sanitizeField(identifier))} --comments`,
       [
         ['--full', opts.full],
         ['--limit', opts.limit],
@@ -197,22 +253,27 @@ export function formatCommentPage(
   const body =
     p.items.length === 0
       ? '(no comments on this page)'
-      : formatCommentThread(p.items, { full: opts.full, identifier })
+      : formatCommentThread(p.items, {
+          full: opts.full,
+          identifier,
+          actorNames,
+        })
   return [body, ...footer].join('\n')
 }
 
 export async function taskCommentList(
   identifier: string | undefined,
-  opts: TaskCommentListOptions = {}
+  opts: TaskCommentListOptions = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier) {
-    console.error('Error: usage: lumo task comments list <LUM-42>')
-    return 1
+    console.error('Error: usage: lumo task show <LUM-42> --comments')
+    return EXIT_USAGE
   }
   const paging = commentPageArgs(opts)
   if (!paging.ok) {
     console.error(`Error: ${paging.error}`)
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -280,11 +341,26 @@ export async function taskCommentList(
   }
 
   const { comments } = (await res.json()) as { comments: CommentNode[] }
-  if (!comments || comments.length === 0) {
-    console.log(emptyState('comments'))
+  if (opts.json) {
+    emitJson(
+      commentListJson(comments ?? [], paging.page, resolved.identifier),
+      out
+    )
     return
   }
-  console.log(
-    formatCommentPage(comments, paging.page, resolved.identifier, opts)
+  if (!comments || comments.length === 0) {
+    out.write(emptyState('comments') + '\n')
+    return
+  }
+  // LUM-1232 G2: authors by name from the member directory, not actor ids.
+  const actorNames = await fetchActorNames(base, creds.token)
+  out.write(
+    formatCommentPage(
+      comments,
+      paging.page,
+      resolved.identifier,
+      opts,
+      actorNames
+    ) + '\n'
   )
 }

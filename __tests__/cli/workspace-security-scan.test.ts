@@ -207,7 +207,7 @@ describe('workspaceSecurityScan', () => {
   it('--json prints the payload', async () => {
     serve([{ body: ALL_ON }])
     await workspaceSecurityScan({ json: true })
-    expect(JSON.parse(out)).toEqual(ALL_ON)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...ALL_ON })
   })
 })
 
@@ -279,6 +279,75 @@ describe('LUM-1130 --request-changes', () => {
 
   it('an older server without the field prints no request-changes line', () => {
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Request-changes/)
+  })
+})
+
+describe('LUM-1142 --allow-author-approval', () => {
+  const AA_ON: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityAllowAuthorApproval: true },
+  }
+  const AA_OFF: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityAllowAuthorApproval: false },
+  }
+
+  it('maps the flag and refuses it with --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ allowAuthorApproval: 'off' })).toEqual({
+      securityAllowAuthorApproval: false,
+    })
+    expect(() =>
+      buildSecurityScanUpdate({ disableAll: true, allowAuthorApproval: 'on' })
+    ).toThrow(/--allow-author-approval/)
+    expect(() =>
+      buildSecurityScanUpdate({ allowAuthorApproval: 'maybe' })
+    ).toThrow(/--allow-author-approval takes on or off/)
+  })
+
+  it('turning it on (widening who can approve) and off are gated; leaving it alone is not', () => {
+    const on = describeGatedChanges(AA_OFF.switches, {
+      securityAllowAuthorApproval: true,
+    })
+    expect(on.join('\n')).toMatch(
+      /Will turn ON: PR authors may resolve \/ approve by command/
+    )
+    const off = describeGatedChanges(AA_ON.switches, {
+      securityAllowAuthorApproval: false,
+    })
+    expect(off.join('\n')).toMatch(
+      /Will turn OFF: PR authors may resolve \/ approve by command/
+    )
+    expect(
+      describeGatedChanges(AA_ON.switches, {
+        securityAllowAuthorApproval: true,
+      })
+    ).toEqual([])
+    expect(describeGatedChanges(AA_OFF.switches, { all: true })).toEqual([])
+  })
+
+  it('--allow-author-approval on without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: AA_OFF }])
+    expect(await workspaceSecurityScan({ allowAuthorApproval: 'on' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+  })
+
+  it('--allow-author-approval off --confirm PATCHes the switch and prints it', async () => {
+    serve([{ body: AA_ON }, { body: AA_OFF }])
+    expect(
+      await workspaceSecurityScan({
+        allowAuthorApproval: 'off',
+        confirm: true,
+      })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityAllowAuthorApproval: false,
+    })
+    expect(out).toMatch(/PR authors may resolve \/ approve by command: off/)
+  })
+
+  it('an older server without the field prints no author line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/PR authors/)
   })
 })
 
@@ -382,5 +451,78 @@ describe('LUM-1137 --auto-pause-after', () => {
       /Automatic review: every push · pauses after 5 reviewed commits/
     )
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Automatic review/)
+  })
+})
+
+describe('LUM-1234 --reward-hack (Agent behavior)', () => {
+  const WITH_RH: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityRewardHackEnabled: true },
+    platform: { ...ALL_ON.platform, rewardHack: true },
+    effective: { ...ALL_ON.effective, rewardHack: true },
+  }
+
+  it('maps the flag and refuses it with --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ rewardHack: 'off' })).toEqual({
+      securityRewardHackEnabled: false,
+    })
+    expect(() => buildSecurityScanUpdate({ rewardHack: 'maybe' })).toThrow(
+      /--reward-hack takes on or off/
+    )
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, rewardHack: 'on' })
+    ).toThrow(/--reward-hack/)
+  })
+
+  it('turning it off is gated — alone and through --disable-all', () => {
+    expect(
+      describeTurnOffs(WITH_RH.switches, { securityRewardHackEnabled: false })
+    ).toContain('Will turn OFF: Agent behavior (reward-hack check)')
+    expect(describeTurnOffs(WITH_RH.switches, { all: false })).toContain(
+      'Will turn OFF: Agent behavior (reward-hack check)'
+    )
+    expect(
+      describeTurnOffs(WITH_RH.switches, { securityRewardHackEnabled: true })
+    ).toEqual([])
+  })
+
+  it('--reward-hack off without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: WITH_RH }])
+    const code = await workspaceSecurityScan({ rewardHack: 'off' })
+    expect(code).toBe(4)
+    expect(calls.some(c => c.init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('--reward-hack off --confirm PATCHes the switch', async () => {
+    serve([
+      { body: WITH_RH },
+      {
+        body: {
+          ...WITH_RH,
+          switches: { ...WITH_RH.switches, securityRewardHackEnabled: false },
+          effective: { ...WITH_RH.effective, rewardHack: false },
+        },
+      },
+    ])
+    await workspaceSecurityScan({ rewardHack: 'off', confirm: true })
+    const patch = calls.find(c => c.init?.method === 'PATCH')!
+    expect(JSON.parse(String(patch.init!.body))).toEqual({
+      securityRewardHackEnabled: false,
+    })
+    expect(out).toMatch(/Agent behavior\s+off\s+on\s+no/)
+  })
+
+  it('shows its row with the platform ceiling; an older server shows none', () => {
+    expect(formatSecurityScanSettings(WITH_RH)).toMatch(
+      /Agent behavior\s+on\s+on\s+yes/
+    )
+    expect(
+      formatSecurityScanSettings({
+        ...WITH_RH,
+        platform: { ...WITH_RH.platform, rewardHack: false },
+        effective: { ...WITH_RH.effective, rewardHack: false },
+      })
+    ).toMatch(/Agent behavior\s+on\s+off\s+no/)
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Agent behavior/)
   })
 })

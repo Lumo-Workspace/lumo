@@ -6,11 +6,10 @@ import {
   type ModelUsage,
 } from '@/lib/services/model-cost'
 import {
-  activeDurationMsBySession,
-  activeDurationMsBySessionTask,
+  activeDurationMsByRunTask,
+  runKeyOf,
   type AttributedTurnEvent,
 } from '@/lib/agent-run/active-time'
-import { parseChildSessionId } from '@/lib/session/child-session-id'
 
 /**
  * Sprint "Team performance" fold — per-member token / agent-time / runs rollup
@@ -187,7 +186,7 @@ export function computeSprintTeamPerformance(
     const tokens = flatTokens(s)
     tokenByMember.set(member, (tokenByMember.get(member) ?? 0) + tokens)
     const roots = runRootsByMember.get(member) ?? new Set<string>()
-    roots.add(parseChildSessionId(s.id)?.parentSessionId ?? s.id)
+    roots.add(runKeyOf(s.id))
     runRootsByMember.set(member, roots)
 
     const models = toModelCosts(
@@ -216,30 +215,30 @@ export function computeSprintTeamPerformance(
   }
 
   // ---- Active time (same stream + single rounding as the sprint total) ---
-  const memberBySession = new Map<string, string | null>()
+  // LUM-1237: timed per RUN (root session + subagents) and task — a
+  // background subagent's own turns count, overlap within a run's task counts
+  // once — bucketed by each EVENT's task (LUM-932: one unattached session can
+  // span several tasks); the session's task is only the fallback.
+  const memberByRun = new Map<string, string | null>()
   const taskBySession = new Map<string, string | null>()
   for (const s of sessionRows) {
-    memberBySession.set(s.id, s.workspaceMemberId)
+    const run = runKeyOf(s.id)
+    if ((memberByRun.get(run) ?? null) === null)
+      memberByRun.set(run, s.workspaceMemberId)
     if (!taskBySession.has(s.id)) taskBySession.set(s.id, s.taskId)
   }
-  const msBySession = activeDurationMsBySession(turnEvents)
   const msByMember = new Map<string | null, number>()
-  let totalMs = 0
-  for (const [sessionId, ms] of msBySession) {
-    totalMs += ms
-    const member = memberBySession.get(sessionId) ?? null
-    msByMember.set(member, (msByMember.get(member) ?? 0) + ms)
-  }
-  // (member → (taskId → ms)) for the per-task active-time apportionment,
-  // bucketed by each EVENT's task (LUM-932: one unattached session can span
-  // several tasks); the session's task is only the fallback.
+  // (member → (taskId → ms)) for the per-task active-time apportionment.
   const msByMemberTask = new Map<string | null, Map<string, number>>()
-  for (const g of activeDurationMsBySessionTask(
+  let totalMs = 0
+  for (const g of activeDurationMsByRunTask(
     turnEvents,
     sessionId => taskBySession.get(sessionId) ?? null
   )) {
+    totalMs += g.ms
+    const member = memberByRun.get(g.runKey) ?? null
+    msByMember.set(member, (msByMember.get(member) ?? 0) + g.ms)
     if (g.taskId === null) continue
-    const member = memberBySession.get(g.sessionId) ?? null
     const perTask = msByMemberTask.get(member) ?? new Map<string, number>()
     perTask.set(g.taskId, (perTask.get(g.taskId) ?? 0) + g.ms)
     msByMemberTask.set(member, perTask)

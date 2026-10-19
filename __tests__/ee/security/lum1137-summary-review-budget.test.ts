@@ -70,6 +70,7 @@ test('web stage reason: rate-limited vs paused', () => {
     stages: { judge: 'PAUSED' } as never,
     huntOverCap: null,
     judgeOverCap: null,
+    judgePartial: null,
     huntProgress: null,
   }
   expect(stageReason('judge', scan)?.id).toBe('securityScan.stageReason.PAUSED')

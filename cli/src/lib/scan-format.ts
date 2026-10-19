@@ -1,29 +1,40 @@
-import { fmtCount } from './format'
+import { fmtCount, fmtPercent } from './format'
 import { sanitizeField } from './sanitize'
 import {
   formatQueueExits,
-  SCAN_STAGE_KEYS,
+  SCAN_STAGE_DISPLAY_ORDER,
   SCAN_UNFINISHED_NOTE,
   SCANNING_OFF_NOTE,
   PR_TOO_LARGE_STATUS,
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatJudgePartial,
   formatPrTooLarge,
+  formatReviewPathSkips,
   formatTurnedOffNote,
   isOwnedUnfinished,
-  isReviewRateLimited,
-  RATE_LIMITED_STAGE_LABEL,
+  heldStageLabel,
   scanStageLabel,
   scanStageStateLabel,
   turnedOffLayers,
+  type JudgeOverCapInput,
+  type JudgePartialInput,
+  type ReviewPathSkipsInput,
 } from '../../../shared/src/security-scan'
 import type { Field } from './report-layout'
+
+/** LUM-832 / LUM-1144 — the AI review did not run: over its size cap. */
+export type JudgeOverCapLine = JudgeOverCapInput
+/** LUM-1144 — the AI review read part of an over-cap diff. */
+export type JudgePartialLine = JudgePartialInput
+/** LUM-1215 — what the path filters left out of the AI review. */
+export type ReviewPathSkipsLine = ReviewPathSkipsInput
 import { renderTable } from './ui'
 
 /**
  * LUM-788 — the scan-line grammar shared by `lumo task status` (one line per
- * linked PR, LUM-735) and `lumo pr scan` (one block per scan). Extracted so
+ * linked PR, LUM-735) and `lumo pr show` (one block per scan). Extracted so
  * the two surfaces cannot name a layer, a state or a queue exit two
  * different ways; the display labels themselves come from
  * `shared/src/security-scan.ts`, the same map the GitHub PR summary and the
@@ -46,7 +57,9 @@ export interface ScanLayerLineInput {
   /** LUM-832 — the hunt did not run: over its file cap. Absent on an older server. */
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
   /** LUM-832 — the AI review did not run: over its size cap. Absent on an older server. */
-  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  judgeOverCap?: JudgeOverCapLine | null | undefined
+  /** LUM-1144 — the AI review read part of an over-cap diff. Absent on an older server. */
+  judgePartial?: JudgePartialLine | null | undefined
   /** LUM-1079 — the whole PR was too large to scan. Absent on an older server. */
   prTooLarge?: PrTooLargeLine | null | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
@@ -114,20 +127,20 @@ export interface ScanLayerRow {
  * The layer segments of `formatScanLayerTail` as rows — same keys, same
  * order, same words — for the reports that print one labelled row per layer
  * (LUM-1091). Stage rows only for keys present, in secrets/external/
- * supplyChain/judge/hunt order; the `(N external findings)` count only
+ * supplyChain/judge/rewardHack/hunt display order; the `(N external findings)` count only
  * decorates Code scan, the dependency count (with its already-on-main share)
  * only Dependencies, and each only when N > 0.
  */
 export function scanLayerRows(s: ScanLayerLineInput): ScanLayerRow[] {
   const rows: ScanLayerRow[] = []
-  for (const key of SCAN_STAGE_KEYS) {
+  for (const key of SCAN_STAGE_DISPLAY_ORDER) {
     const state = s.stages[key]
     if (!state) continue
-    // LUM-1137: a paused layer of a rate-limited scan says so.
+    // LUM-1137 / LUM-1152: a paused layer of a rate-limited or ignored
+    // scan says so.
     const head =
-      state === 'PAUSED' && isReviewRateLimited(s.partialCauses)
-        ? RATE_LIMITED_STAGE_LABEL
-        : scanStageStateLabel(state)
+      (state === 'PAUSED' ? heldStageLabel(s.partialCauses) : null) ??
+      scanStageStateLabel(state)
     let value = head
     if (key === 'external' && s.externalFindings > 0) {
       const noun = s.externalFindings === 1 ? 'finding' : 'findings'
@@ -157,7 +170,9 @@ export function scanLayerNotes(s: ScanLayerLineInput): string[] {
   if (
     isOwnedUnfinished({
       ...s,
-      hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap || s.prTooLarge),
+      hasSizeNotice: Boolean(
+        s.huntOverCap || s.judgeOverCap || s.judgePartial || s.prTooLarge
+      ),
     })
   )
     notes.push(SCAN_UNFINISHED_NOTE)
@@ -182,7 +197,7 @@ export interface ScanFieldExtras {
   judgeBudget?: JudgeBudgetLine | null
   /** LUM-762 — the hunt's per-task table under Exploit paths. */
   hunt?: HuntCoverageInput | null
-  /** `pr scan` — the AI review has not covered every file yet. */
+  /** `pr show` — the AI review has not covered every file yet. */
   truncated?: boolean
 }
 
@@ -191,7 +206,7 @@ export interface ScanFieldExtras {
  * budget and the hunt's per-task table nested under their own layer), then
  * `Note` / `Queue` rows for the scan-wide notes. The scrubbed external
  * reason rides on the Code scan row it explains. Shared by `task status`,
- * `task wrapup` and `pr scan`, so the three cannot drift.
+ * `pr show` and `task show --scans`, so they cannot drift.
  */
 export function scanFields(
   s: ScanLayerLineInput,
@@ -208,9 +223,16 @@ export function scanFields(
     }
     if (r.key === 'judge') {
       const sub: string[] = []
-      if (extras.truncated) sub.push('AI review has not covered every file yet')
+      // LUM-1156: a size-capped partial review is a limit on the change,
+      // told as the PR summary tells it — never "not covered … yet".
+      if (s.judgePartial)
+        sub.push(
+          `over the size limit — reviewed ${fmtCount(s.judgePartial.reviewedFiles)} of ${fmtCount(s.judgePartial.totalFiles)} reviewable files`
+        )
+      else if (extras.truncated)
+        sub.push('AI review has not covered every file yet')
       if (extras.judgeBudget !== undefined)
-        sub.push(formatJudgeBudgetLine(extras.judgeBudget))
+        sub.push(formatJudgeBudgetLine(extras.judgeBudget, s.judgePartial))
       if (sub.length > 0) f.sub = sub
     }
     if (r.key === 'hunt' && extras.hunt && extras.hunt.categories.length > 0)
@@ -236,19 +258,42 @@ export function scanFields(
 /**
  * LUM-832 — the size-cap notices, one line each under the scan line, in the
  * same words as the PR summary: a layer over its cap did not run, and how to
- * get it (CodeRabbit's shape). Empty when no layer was skipped for size.
+ * get it. Empty when no layer was skipped for size.
  */
 export function formatSizeCapLines(s: {
   huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
-  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+  judgeOverCap?: JudgeOverCapLine | null | undefined
+  /** LUM-1144 — the AI review read part of an over-cap diff. Absent on an older server. */
+  judgePartial?: JudgePartialLine | null | undefined
   prTooLarge?: PrTooLargeLine | null | undefined
 }): string[] {
   const lines: string[] = []
   // LUM-1079: the whole PR was too large — why, and what to do.
   if (s.prTooLarge) lines.push(formatPrTooLarge(s.prTooLarge))
   if (s.judgeOverCap) lines.push(formatJudgeOverCap(s.judgeOverCap))
+  // LUM-1144: file names are repository text — terminal-sanitised.
+  if (s.judgePartial)
+    lines.push(
+      formatJudgePartial(s.judgePartial, {
+        renderPath: p => sanitizeField(p).slice(0, 200),
+      })
+    )
   if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
   return lines
+}
+
+/**
+ * LUM-1215 — the files the path filters left out of the AI review, in the
+ * PR summary's words: the built-in defaults' skips named (terminal-safe),
+ * the repository's own counted. Empty when none (or an older server).
+ */
+export function formatPathSkipLines(s: {
+  reviewPathSkips?: ReviewPathSkipsLine | null | undefined
+}): string[] {
+  if (!s.reviewPathSkips) return []
+  return formatReviewPathSkips(s.reviewPathSkips, {
+    renderPath: p => sanitizeField(p).slice(0, 200),
+  })
 }
 
 /**
@@ -307,15 +352,28 @@ export interface JudgeBudgetLine {
   reviewedChars: number
   coveredFiles: number
   droppedFiles: number
+  /** LUM-1208 — read-only server config the review got; absent = none. */
+  serverConfig?: { paths: string[]; chars: number }
+}
+
+/** LUM-1208 — ` · server config 1 file (255 chars, read-only): a/Trunk.toml`. */
+function serverConfigSegment(b: JudgeBudgetLine): string {
+  const c = b.serverConfig
+  if (!c || c.paths.length === 0) return ''
+  const n = c.paths.length
+  return ` · server config ${fmtCount(n)} file${n === 1 ? '' : 's'} (${fmtCount(c.chars)} chars, read-only): ${c.paths.join(', ')}`
 }
 
 /**
  * LUM-814 — one line of budget arithmetic under the layer line:
  *
- *   `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
+ *   `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left (2%)`
  *   `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 ·
  *    12 of 41 files dropped, 30.9% of the diff unreviewed`
  *   `AI review budget: not recorded on this scan`
+ *   `AI review budget: diff 305,874 chars · size limit 180,000 chars, 150 files ·
+ *    over by 125,874 · reviewed 3 of 4 files, 1 left out for size (99.8% of the diff)`
+ *    (LUM-1156 — a size-capped partial review)
  *
  * It is unconditional by design. `truncated` alone cannot tell a PR that
  * spent 2% of its tier from one that spent 98%, and the near-miss is exactly
@@ -337,9 +395,32 @@ export interface JudgeBudgetLine {
  * Headed by the same display label as the layer's own segment (LUM-763), so
  * the two lines cannot name the layer two different ways.
  */
-export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
+export function formatJudgeBudgetLine(
+  b: JudgeBudgetLine | null,
+  partial?: JudgePartialLine | null
+): string {
   const head = `${scanStageLabel('judge')} budget`
   if (b === null) return `${head}: not recorded on this scan`
+  // LUM-1156: a size-capped partial review is measured against the size
+  // limit the customer is told about, not the internal tier the reviewed
+  // part happened to fit in.
+  if (partial) {
+    const left = partial.totalFiles - partial.reviewedFiles
+    const outPct =
+      b.diffChars > 0
+        ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
+        : 0
+    const parts = [
+      `diff ${fmtCount(b.diffChars)} chars`,
+      `size limit ${fmtCount(partial.capChars)} chars, ${fmtCount(partial.capFiles)} files`,
+    ]
+    if (b.diffChars > partial.capChars)
+      parts.push(`over by ${fmtCount(b.diffChars - partial.capChars)}`)
+    parts.push(
+      `reviewed ${fmtCount(partial.reviewedFiles)} of ${fmtCount(partial.totalFiles)} files, ${fmtCount(left)} left out for size (${fmtPercent(outPct)} of the diff)`
+    )
+    return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
+  }
   const parts = [
     `diff ${fmtCount(b.diffChars)} chars`,
     `tier ${fmtCount(b.tierChars)}`,
@@ -355,14 +436,14 @@ export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
         ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
         : 0
     parts.push(
-      `${fmtCount(b.droppedFiles)} of ${fmtCount(total)} files dropped, ${unreviewed.toFixed(1)}% of the diff unreviewed`
+      `${fmtCount(b.droppedFiles)} of ${fmtCount(total)} files dropped, ${fmtPercent(unreviewed)} of the diff unreviewed`
     )
   } else {
     const left = Math.max(0, b.tierChars - b.diffChars)
     const pct = b.tierChars > 0 ? (left / b.tierChars) * 100 : 0
-    parts.push(`${fmtCount(left)} left, ${pct.toFixed(1)}%`)
+    parts.push(`${fmtCount(left)} left (${fmtPercent(pct)})`)
   }
-  return `${head}: ${parts.join(' · ')}`
+  return `${head}: ${parts.join(' · ')}${serverConfigSegment(b)}`
 }
 
 /** LUM-762 — one planned task's coverage row (shape frozen for older CLIs). */

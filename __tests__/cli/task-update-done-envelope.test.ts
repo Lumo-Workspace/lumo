@@ -190,11 +190,11 @@ describe('task update done envelope', () => {
     expect(changes[0]).toContain('My \\"quoted\\" Task')
     expect(changes).toContain('Status: IN_REVIEW → DONE')
     expect(changes.find(c => c.startsWith('#926'))).toMatch(
-      /^#926\s+merged\s+refactor: done\s+https:\/\/github\.com\/o\/r\/pull\/926$/
+      /^#926\s+MERGED\s+refactor: done\s+https:\/\/github\.com\/o\/r\/pull\/926$/
     )
-    expect(changes.find(c => c.startsWith('#930'))).toMatch(/^#930\s+open/)
+    expect(changes.find(c => c.startsWith('#930'))).toMatch(/^#930\s+OPEN/)
     const last = changes[changes.length - 1]
-    expect(last).toMatch(/^⚠ 1 linked pull request not merged: #930 open/)
+    expect(last).toMatch(/^⚠ 1 linked pull request not merged: #930 OPEN/)
 
     const none = describeDoneTransition(
       { identifier: 'LUM-1', title: 'T', status: 'TODO' },
@@ -215,7 +215,7 @@ describe('task update done envelope', () => {
     const env = envelope()
     expect(env.changes).toContain('Status: IN_REVIEW → DONE')
     expect(
-      env.changes.some(c => c.startsWith('#926') && /merged/.test(c))
+      env.changes.some(c => c.startsWith('#926') && /MERGED/.test(c))
     ).toBe(true)
     expect(env.changes.some(c => c.startsWith('⚠'))).toBe(false)
     expect(env.confirmCommand).toBe(
@@ -233,7 +233,7 @@ describe('task update done envelope', () => {
     expect(code).toBe(4)
     const env = envelope()
     const last = env.changes[env.changes.length - 1]
-    expect(last).toMatch(/^⚠ 1 linked pull request not merged: #930 open/)
+    expect(last).toMatch(/^⚠ 1 linked pull request not merged: #930 OPEN/)
     expect(last).not.toContain('#926')
     expect(patchCalls()).toHaveLength(0)
   })

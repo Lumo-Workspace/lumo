@@ -1,8 +1,7 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { printStatusDigest } from '../lib/status-digest'
-import { splitCaseHandle } from '../lib/test-case-handle'
 import { emitConfirmation } from '../lib/confirmation'
-import { taskScope, type TestCaseScope } from '../lib/test-case-scope'
+import type { TestCaseScope } from '../lib/test-case-scope'
 import {
   checkStep,
   describeDefectRead,
@@ -57,30 +56,6 @@ interface IssuedReceipt {
  * 裁的永远是该用例**最新那条** run:闸门只看最新一条,对旧 run 下裁定清不掉任何
  * 东西,服务端会以 409 拒绝。
  */
-export async function taskTestCaseDisposition(
-  handle: string | undefined,
-  options: TestCaseDispositionOptions = {}
-): Promise<number | void> {
-  if (!handle) {
-    console.error(
-      'Error: missing <task/case>. Usage: lumo task testcase disposition LUM-42/TC3 --known-defect'
-    )
-    return 1
-  }
-  const split = splitCaseHandle(handle)
-  if (!split) {
-    console.error(
-      `Error: invalid handle "${handle}". Expected <task>/TC<n>, e.g. LUM-42/TC3.`
-    )
-    return 1
-  }
-  return testCaseDispositionInScope(
-    taskScope(split.task),
-    split.caseRef,
-    options
-  )
-}
-
 /**
  * LUM-1135: the same three-step handshake for any scope. On a milestone the
  * ruling clears the close gate instead of a task's DONE.
@@ -134,7 +109,7 @@ export async function testCaseDispositionInScope(
   }
   if (latest.disposition) {
     process.stdout.write(
-      `${handle} run ${latest.id} is already dispositioned (${latest.disposition.disposition}) — nothing to do.\n`
+      `${handle}'s latest run is already dispositioned (${latest.disposition.disposition}) — nothing to do.\n`
     )
     return
   }
@@ -226,7 +201,7 @@ export async function testCaseDispositionInScope(
   if (!wrote.ok) return 1
 
   process.stdout.write(
-    `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. ${
+    `Dispositioned ${subject.caseHandle}'s latest run: ${ruling.target}. ${
       scope.kind === 'task'
         ? 'That run no longer blocks DONE.'
         : ruling.target === 'KNOWN_DEFECT'

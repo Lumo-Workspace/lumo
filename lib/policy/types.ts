@@ -4,12 +4,28 @@
  * `git push` whose own destination is one of them (lib/boundary-crossing/
  * push-target-match). Replaces the target-blind `cmd-substr: "git push"` a
  * "never push to main" rule used to compile to.
+ *
+ * `path-delete` (LUM-1236): compiler-derived too — the value is a
+ * comma-separated list of repository paths and the predicate matches a command
+ * that deletes or moves a file under one of them (lib/boundary-crossing/
+ * path-delete). Replaces the path-blind `cmd-substr: "rm"` a "never delete
+ * files in <path>" rule compiled to.
+ *
+ * `migration-command` (LUM-1236 follow-up): compiler-derived — the value is a
+ * comma-separated list of forbidden migration operations (`migrate-dev`,
+ * `migrate-dev@production`, `migrate-reset`, `db-push`,
+ * `migrations-table-write`) and the predicate matches a command that runs one
+ * of them (ee/security/boundary-crossing/migration-command-match). A
+ * "never `migrate dev`, `db push`, … in production" rule keeps a checker
+ * however the model words or classifies it.
  */
 export type PredicateType =
   | 'path-glob'
   | 'cmd-substr'
   | 'diff-regex'
   | 'push-target'
+  | 'path-delete'
+  | 'migration-command'
 
 export interface RulePredicate {
   type: PredicateType

@@ -48,7 +48,7 @@ it('rejects a non-numeric --limit before any network call', async () => {
   const fetchSpy = jest.spyOn(global, 'fetch')
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const code = await memoryTaskList('LUM-1', { limit: 'foo' })
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(fetchSpy).not.toHaveBeenCalled()
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/invalid --limit/))
 })
@@ -71,8 +71,8 @@ it('resolves LUM-N, GETs memories, prints the formatted list', async () => {
   expect(calls[0]).toContain('/api/tasks/resolve/LUM-1')
   expect(calls[1]).toContain('/api/tasks/t1/memories')
   const printed = out.mock.calls[0]![0] as string
-  expect(printed).toMatch(/cmd_a\s+TASK\s+TRAP\s+alpha\s+auto/)
-  expect(printed).toMatch(/cmd_b\s+TASK\s+DECISION\s+beta\s+manual/)
+  expect(printed).toContain('cmd_a\tTASK\tTRAP\tauto\talpha')
+  expect(printed).toContain('cmd_b\tTASK\tDECISION\tmanual\tbeta')
 })
 
 it('filters by --category (case-insensitive)', async () => {
@@ -131,6 +131,6 @@ it('errors when no arg and no binding', async () => {
   delete process.env.CLAUDE_CODE_SESSION_ID
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
   const code = await memoryTaskList(undefined, {})
-  expect(code).toBe(1)
+  expect(code).toBe(2)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/no task bound/i))
 })

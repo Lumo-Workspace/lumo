@@ -250,6 +250,47 @@ describe('manual memory write paths', () => {
     expect(mockSupersede).not.toHaveBeenCalled()
   })
 
+  it('LUM-1157: a learning with no project still runs the injection gate (no project policy is read) and stores projectId null', async () => {
+    const link = jest.fn()
+    await expect(
+      memoryManagementService.createReviewLearning(
+        {
+          projectId: null,
+          workspaceId: 'w1',
+          actorMemberId: null,
+          content: {
+            summary: POISON.summary,
+            rule: POISON.summary,
+            scope: 'Lumo AI review of o/r',
+          },
+        },
+        link
+      )
+    ).rejects.toMatchObject({ status: 422 })
+    noWrites()
+    expect(link).not.toHaveBeenCalled()
+
+    mockLatestPolicy.mockClear()
+    await memoryManagementService.createReviewLearning(
+      {
+        projectId: null,
+        workspaceId: 'w1',
+        actorMemberId: null,
+        content: {
+          summary: 'PR review learning: fixture tokens',
+          rule: 'Fixture tokens in test/ are fake by design.',
+          scope: 'Lumo AI review of o/r',
+        },
+      },
+      jest.fn().mockResolvedValue(undefined)
+    )
+    expect(mockLatestPolicy).not.toHaveBeenCalled()
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'w1', projectId: null }),
+      expect.anything()
+    )
+  })
+
   it('names the conflicting rule id when the project policy forbids it', async () => {
     mockLatestPolicy.mockResolvedValue({
       rules: [

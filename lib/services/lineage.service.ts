@@ -93,7 +93,7 @@ export interface LineageDto {
     }
     /**
      * LUM-523: Top-5 most expensive operations (tools) for this task, by token
-     * cost. A compact quick view; the full breakdown lives in `lumo cost --task`.
+     * cost. A compact quick view; the full breakdown lives in `lumo usage show --task`.
      */
     topOperations: {
       tool: string
@@ -475,7 +475,7 @@ export const lineageService = {
     }
 
     // LUM-523: per-task "most expensive operations" Top-5 quick view. Reuses
-    // the per-operation attribution; the full breakdown lives in `lumo cost --task`.
+    // the per-operation attribution; the full breakdown lives in `lumo usage show --task`.
     const { operationCostService } =
       await import('@/lib/services/operation-cost.service')
     const opCost = await operationCostService.getOperationCost(workspaceId, {

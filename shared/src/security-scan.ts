@@ -40,9 +40,26 @@ export const SCAN_STAGE_KEYS = [
   'supplyChain',
   'judge',
   'hunt',
+  // LUM-1234: appended, never inserted — stored keys are a persisted contract.
+  'rewardHack',
 ] as const
 
 export type ScanStageKeyName = (typeof SCAN_STAGE_KEYS)[number]
+
+/**
+ * LUM-1234 — the order the layers are shown in, which is not the stored key
+ * order: `rewardHack` was appended to the stored keys but reads best between
+ * AI review and Exploit paths. Every display loop (PR comment, CLI, web)
+ * uses this; persistence and validation keep `SCAN_STAGE_KEYS`.
+ */
+export const SCAN_STAGE_DISPLAY_ORDER: readonly ScanStageKeyName[] = [
+  'secrets',
+  'external',
+  'supplyChain',
+  'judge',
+  'rewardHack',
+  'hunt',
+]
 
 /** The states a layer can be in. `ScanStageState` in `lib/security-scan/types.ts` derives from this. */
 export const SCAN_STAGE_STATES = [
@@ -76,6 +93,7 @@ export const SCAN_STAGE_LABELS: Record<ScanStageKeyName, string> = {
   external: 'Code scan',
   supplyChain: 'Dependencies',
   judge: 'AI review',
+  rewardHack: 'Agent behavior',
   hunt: 'Exploit paths',
 }
 
@@ -97,6 +115,8 @@ export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
   // LUM-988: a general code review, not a security-only pass.
   judge:
     'an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
+  rewardHack:
+    'whether the agent sessions behind this PR gamed tests, metrics or checks instead of doing the task',
   hunt: 'traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
 }
 
@@ -235,17 +255,23 @@ export const PARTIAL_CAUSES = [
   'AI_REVIEW_PAUSED',
   /**
    * LUM-1137 — automatic AI review was over the hourly cap for the PR's
-   * author (CodeRabbit-style rate limit). The next push after the window is
+   * author (per-author rate limit). The next push after the window is
    * reviewed; a manual review is not limited.
    */
   'AI_REVIEW_RATE_LIMITED',
+  /**
+   * LUM-1152 — the PR description carries `@<app> ignore`, so the automatic
+   * AI review and hunt were skipped (the deterministic layers ran). Removing
+   * it reviews the next push; a manual review is not affected.
+   */
+  'AI_REVIEW_IGNORED',
   /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
   'HUNT_INCOMPLETE',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
   'HUNT_FALSIFIER_OVERFLOW',
   /**
    * The diff touched more source files than the hunt runs on
-   * (`HUNT_MAX_HUNTED_FILES`, like CodeRabbit's file limit), so the hunt did
+   * (`HUNT_MAX_HUNTED_FILES`, an industry-standard file cap), so the hunt did
    * not run. The customer is told so, and how to get it (`formatHuntOverCap`).
    * (Rows before that change: the hunt covered a corner of the diff.)
    */
@@ -260,10 +286,18 @@ export const PARTIAL_CAUSES = [
   'JUDGE_TRUNCATED',
   /**
    * The diff was larger than the AI review runs on (its top tier), so the AI
-   * review did not run — like CodeRabbit skipping an over-limit review. The
+   * review did not run — an over-limit review is skipped. The
    * customer is told so, and how to get it (`formatJudgeOverCap`).
    */
   'JUDGE_OVER_CAP',
+  /**
+   * LUM-1144 — the diff was over the AI review's size cap (files or
+   * characters) but at most a quarter of its reviewable files fell outside
+   * it: the AI review ran on the files that fit and skipped the rest, which
+   * are named to the customer (`formatJudgePartial`). `stages.judge` is
+   * PARTIAL: a partly reviewed head is never "checked".
+   */
+  'JUDGE_PARTIAL_OVER_CAP',
   /** The graph rules could not read the subgraph they check. */
   'GRAPH_READ_FAILED',
   /** A managed / pushed scanner report was cut at the finding cap. */
@@ -276,6 +310,29 @@ export const PARTIAL_CAUSES = [
    * PR or narrow its scope (`formatPrTooLarge`). Never our "didn't finish".
    */
   'PR_TOO_LARGE',
+  /**
+   * LUM-1234 — the workspace reached this month's spend ceiling for the
+   * reward-hack layer (`LUMO_REWARD_HACK_MONTHLY_CAP_USD`, a budget WE set):
+   * the agent sessions were not judged. Never told as checked.
+   */
+  'REWARD_HACK_MONTHLY_CAP',
+  /**
+   * LUM-1234 — the agent sessions were longer than the reward-hack layer's
+   * input cap: the earliest tool output was cut (or, when even that could
+   * not fit, nothing was judged).
+   */
+  'REWARD_HACK_INPUT_CAP',
+  /**
+   * LUM-1234 — some of this PR's agent-session events were already pruned
+   * by retention (or deleted), so that part of the work could not be judged.
+   */
+  'REWARD_HACK_PRUNED',
+  /**
+   * LUM-1234 — the judge flagged more items than the reward-hack layer's
+   * refute cap (`REWARD_HACK_MAX_REFUTES`, a budget WE set): the items past
+   * it were neither checked nor reported.
+   */
+  'REWARD_HACK_REFUTE_CAP',
 ] as const
 
 export type PartialCause = (typeof PARTIAL_CAUSES)[number]
@@ -300,15 +357,21 @@ export type PartialCauseClass =
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   AI_REVIEW_PAUSED: 'USER_CONTROLLED',
   AI_REVIEW_RATE_LIMITED: 'USER_CONTROLLED',
+  AI_REVIEW_IGNORED: 'USER_CONTROLLED',
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
   HUNT_OVERSIZED: 'COVERAGE_OWED',
   JUDGE_TRUNCATED: 'COVERAGE_OWED',
   JUDGE_OVER_CAP: 'COVERAGE_OWED',
+  JUDGE_PARTIAL_OVER_CAP: 'COVERAGE_OWED',
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
   PR_TOO_LARGE: 'CHANGE_TOO_LARGE',
+  REWARD_HACK_MONTHLY_CAP: 'COVERAGE_OWED',
+  REWARD_HACK_INPUT_CAP: 'COVERAGE_OWED',
+  REWARD_HACK_PRUNED: 'COVERAGE_OWED',
+  REWARD_HACK_REFUTE_CAP: 'COVERAGE_OWED',
 }
 
 export function isPartialCause(value: unknown): value is PartialCause {
@@ -445,7 +508,7 @@ export function formatHuntProgress(p: HuntProgressInput): string {
 /**
  * LUM-832 — a layer over its size cap does not run at all (no tokens spent),
  * and the customer is told the change is too large, with the way to get the
- * layer: narrow the review scope or split the PR. Deliberately CodeRabbit's
+ * layer: narrow the review scope or split the PR. Deliberately the industry-standard
  * shape — a limit on the size of the CHANGE, stated plainly — and the only
  * customer lines that ask something of the customer: our own faults and
  * shortfalls stay owned (`SCAN_UNFINISHED_NOTE`). The web panel says the same
@@ -463,24 +526,129 @@ export function formatHuntOverCap(c: HuntOverCapInput): string {
 }
 
 export interface JudgeOverCapInput {
-  /** Characters in the diff. */
+  /** Characters in the reviewable diff. */
   diffChars: number
   /** The most the AI review runs on. */
   capChars: number
+  /**
+   * LUM-1144 — reviewable files in the diff, and the most one review reads.
+   * Absent on rows before the file cap existed.
+   */
+  files?: number
+  capFiles?: number
 }
 
 function thousands(n: number): string {
   return n.toLocaleString('en-US')
 }
 
+/** LUM-1144 — over the cap by file count alone (the characters fit). */
+export function isJudgeOverCapByFiles(c: JudgeOverCapInput): boolean {
+  return (
+    c.files !== undefined &&
+    c.capFiles !== undefined &&
+    c.files > c.capFiles &&
+    c.diffChars <= c.capChars
+  )
+}
+
 export function formatJudgeOverCap(c: JudgeOverCapInput): string {
+  if (isJudgeOverCapByFiles(c))
+    return `This PR changes ${thousands(c.files!)} reviewable files; AI review runs on up to ${thousands(c.capFiles!)}, and more than a quarter of them would be left out, so it did not run. To get it, narrow the review scope or split the PR.`
   return `This PR's diff is ${thousands(c.diffChars)} characters; AI review runs on up to ${thousands(c.capChars)}, so it did not run. To get it, narrow the review scope or split the PR.`
+}
+
+/**
+ * LUM-1144 — the AI review ran on the files within its size cap and skipped
+ * the rest. The skipped paths are repository file names (customer-chosen
+ * text): every caller renders them through its own escaper.
+ */
+export interface JudgePartialInput {
+  /** Reviewable files the AI review read. */
+  reviewedFiles: number
+  /** Reviewable files in the diff (after path filters). */
+  totalFiles: number
+  /** The cap: most files, most characters. */
+  capFiles: number
+  capChars: number
+  /** Files not reviewed, in diff order. */
+  skippedPaths: string[]
+}
+
+/** Skipped paths named in a notice; the rest are counted. */
+export const JUDGE_PARTIAL_MAX_NAMED = 10
+
+export function formatJudgePartial(
+  p: JudgePartialInput,
+  opts: {
+    /** Renders one path (markdown code span, terminal-safe text, …). */
+    renderPath?: (path: string) => string
+    /** How to get the rest reviewed; defaults to the CLI / web wording. */
+    howTo?: string
+  } = {}
+): string {
+  const render = opts.renderPath ?? ((path: string) => path)
+  const named = p.skippedPaths.slice(0, JUDGE_PARTIAL_MAX_NAMED).map(render)
+  const rest = p.skippedPaths.length - named.length
+  const list = `${named.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`
+  const howTo =
+    opts.howTo ??
+    'split the PR, or narrow it and request a full review (`lumo pr review <number> --full`)'
+  return `This PR is over the AI review's size limit (${thousands(p.capFiles)} files, ${thousands(p.capChars)} characters), so AI review covered ${thousands(p.reviewedFiles)} of ${thousands(p.totalFiles)} reviewable files. Not reviewed: ${list}. To get them reviewed, ${howTo}.`
+}
+
+/**
+ * LUM-1215 — what the path filters left out of the AI review: the built-in
+ * defaults' skips (count + the first paths, in diff order) and the
+ * repository's own filters' (count only — the customer chose those). Paths
+ * are repository file names: every caller renders them through its own
+ * escaper.
+ */
+export interface ReviewPathSkipsInput {
+  builtIn: { count: number; paths: string[] }
+  configured: { count: number }
+}
+
+/** Built-in-skipped paths named in the notice; the rest are counted. */
+export const REVIEW_PATH_SKIPS_MAX_NAMED = 5
+
+function fileCount(n: number): string {
+  return `${thousands(n)} ${n === 1 ? 'file' : 'files'}`
+}
+
+/**
+ * LUM-1215 — the notice lines (0–2): the files the built-in defaults skipped,
+ * named, with how to have them reviewed; then the repository's own filters'
+ * count. Never a warning about the PR — a choice of what to read, said so.
+ */
+export function formatReviewPathSkips(
+  s: ReviewPathSkipsInput,
+  opts: { renderPath?: (path: string) => string } = {}
+): string[] {
+  const render = opts.renderPath ?? ((path: string) => path)
+  const lines: string[] = []
+  if (s.builtIn.count > 0) {
+    const named = s.builtIn.paths
+      .slice(0, REVIEW_PATH_SKIPS_MAX_NAMED)
+      .map(render)
+    const rest = s.builtIn.count - named.length
+    const list = `${named.join(', ')}${rest > 0 ? ` and ${thousands(rest)} more` : ''}`
+    lines.push(
+      `Not AI-reviewed by default (lockfiles, generated code, build output and vendored dependencies): ${fileCount(s.builtIn.count)} — ${list}. To have them reviewed, add include globs for them to \`path_filters\` (in \`.lumo.yaml\` or the repository's review settings); once any include is listed, only matching files are reviewed.`
+    )
+  }
+  if (s.configured.count > 0)
+    lines.push(
+      `Not AI-reviewed by this repository's path filters: ${fileCount(s.configured.count)}.`
+    )
+  return lines
 }
 
 /** The causes that mean "the change was over a size cap", not a fault of ours. */
 const SIZE_CAP_CAUSES: ReadonlySet<string> = new Set([
   'HUNT_OVERSIZED',
   'JUDGE_OVER_CAP',
+  'JUDGE_PARTIAL_OVER_CAP',
 ])
 
 /**
@@ -499,8 +667,14 @@ export function isUnfinishedOnlyBySize(s: {
   if (s.status === 'FAILED') return false
   if (s.partialCauses.length === 0) return false
   if (!s.partialCauses.every(c => SIZE_CAP_CAUSES.has(c))) return false
-  return !Object.values(s.stages).some(
-    state => state !== undefined && UNFINISHED_STAGE_STATES.has(state)
+  // LUM-1144: a judge left PARTIAL by the size cap is that cap's gap, told
+  // by its own notice — not a shortfall of ours.
+  const partialBySize = s.partialCauses.includes('JUDGE_PARTIAL_OVER_CAP')
+  return !Object.entries(s.stages).some(
+    ([key, state]) =>
+      state !== undefined &&
+      UNFINISHED_STAGE_STATES.has(state) &&
+      !(key === 'judge' && state === 'PARTIAL' && partialBySize)
   )
 }
 
@@ -512,6 +686,7 @@ export function isUnfinishedOnlyBySize(s: {
 const REVIEW_HOLD_CAUSES: ReadonlySet<string> = new Set([
   'AI_REVIEW_PAUSED',
   'AI_REVIEW_RATE_LIMITED',
+  'AI_REVIEW_IGNORED',
 ])
 
 /** LUM-1137 — the paused layers of this scan were rate-limited. */
@@ -524,6 +699,30 @@ export function isReviewRateLimited(
 /** LUM-1137 — a PAUSED layer of a rate-limited scan, in words. */
 export const RATE_LIMITED_STAGE_LABEL =
   'rate-limited — automatic review resumes within the hour'
+
+/** LUM-1152 — the paused AI layers were skipped by `@<app> ignore`. */
+export function isReviewIgnored(
+  partialCauses: ReadonlyArray<string> | null | undefined
+): boolean {
+  return (partialCauses ?? []).includes('AI_REVIEW_IGNORED')
+}
+
+/** LUM-1152 — a PAUSED layer of a scan the PR description ignores, in words. */
+export const IGNORED_STAGE_LABEL =
+  'skipped — the PR description asks Lumo to ignore this PR'
+
+/**
+ * The words for a PAUSED layer whose hold has its own reason (ignored,
+ * rate-limited); null = the plain paused label. One rule for the PR
+ * summary and the CLI.
+ */
+export function heldStageLabel(
+  partialCauses: ReadonlyArray<string> | null | undefined
+): string | null {
+  if (isReviewIgnored(partialCauses)) return IGNORED_STAGE_LABEL
+  if (isReviewRateLimited(partialCauses)) return RATE_LIMITED_STAGE_LABEL
+  return null
+}
 
 /**
  * LUM-832 — should the customer get the owned "not finished on our side"
@@ -678,15 +877,31 @@ export function isCodeReviewFinding(ruleId: string): boolean {
 }
 
 /**
- * `3 security findings`, `2 bugs`, or `1 security finding · 2 bugs` — the
- * count phrase for a set of findings, split by `isCodeReviewFinding`.
+ * LUM-1234 — the reward-hack layer's ("Agent behavior") advisory findings
+ * carry `reward-hack/<KIND>` rule ids: about how the agent sessions behind a
+ * PR worked, not about the code's security — never tagged or counted as a
+ * security finding.
+ */
+export const REWARD_HACK_RULE_PREFIX = 'reward-hack/'
+
+export function isRewardHackFinding(ruleId: string): boolean {
+  return ruleId.startsWith(REWARD_HACK_RULE_PREFIX)
+}
+
+/**
+ * `3 security findings`, `2 bugs`, `1 agent-behavior finding`, or a mix like
+ * `1 security finding · 2 bugs` — the count phrase for a set of findings,
+ * split by `isCodeReviewFinding` / `isRewardHackFinding`.
  */
 export function findingCountPhrase(ruleIds: readonly string[]): string {
   const bugs = ruleIds.filter(isCodeReviewFinding).length
-  const security = ruleIds.length - bugs
+  const agent = ruleIds.filter(isRewardHackFinding).length
+  const security = ruleIds.length - bugs - agent
   const parts: string[] = []
-  if (security > 0 || bugs === 0)
+  if (security > 0 || (bugs === 0 && agent === 0))
     parts.push(`${security} security finding${security === 1 ? '' : 's'}`)
   if (bugs > 0) parts.push(`${bugs} bug${bugs === 1 ? '' : 's'}`)
+  if (agent > 0)
+    parts.push(`${agent} agent-behavior finding${agent === 1 ? '' : 's'}`)
   return parts.join(' · ')
 }

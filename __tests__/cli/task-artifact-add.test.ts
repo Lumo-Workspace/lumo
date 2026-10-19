@@ -33,7 +33,7 @@ describe('taskArtifactAdd', () => {
       file: 'f.md',
       source: 'superpowers',
     })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
   })
 
   it('errors when --source is missing', async () => {
@@ -43,7 +43,7 @@ describe('taskArtifactAdd', () => {
       title: 'Spec',
       file: 'f.md',
     })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -78,7 +78,7 @@ describe('taskArtifactAdd', () => {
       file: 'f.md',
       source: 'superpowers',
     })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
   it('errors on an invalid --agent without calling the API', async () => {
@@ -90,7 +90,7 @@ describe('taskArtifactAdd', () => {
       source: 'superpowers',
       agent: 'devin',
     })
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

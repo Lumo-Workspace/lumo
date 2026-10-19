@@ -156,6 +156,7 @@ async function statusJson(deps: SkillDeps) {
   out = ''
   expect(await skillStatus({ json: true }, deps)).toBe(0)
   return JSON.parse(out) as {
+    version: number
     schemaVersion: number
     cliVersion: string
     skills: Array<Record<string, unknown>>
@@ -229,7 +230,9 @@ describe('lumo skill status', () => {
       'cliVersion',
       'schemaVersion',
       'skills',
+      'version',
     ])
+    expect(s.version).toBe(1)
     expect(s.schemaVersion).toBe(SKILL_STATUS_SCHEMA_VERSION)
     expect(s.schemaVersion).toBe(1)
     expect(s.cliVersion).toBe(CLI)
@@ -416,7 +419,7 @@ describe('lumo skill update', () => {
     git(w.project, 'commit', '-qm', 'init')
     const head = git(w.project, 'rev-parse', 'HEAD')
 
-    expect(await skillUpdate({ project: true }, w.deps)).toBe(0)
+    expect(await skillUpdate({ scope: 'project' }, w.deps)).toBe(0)
 
     expect(git(w.project, 'rev-parse', 'HEAD')).toBe(head)
     expect(git(w.project, 'status', '--porcelain')).toContain(
@@ -431,21 +434,21 @@ describe('lumo skill update', () => {
     managedSkill(w.userCodex, '1.0.0')
     managedSkill(w.projClaude, '1.0.0')
 
-    expect(await skillUpdate({ user: true, agent: 'codex' }, w.deps)).toBe(0)
+    expect(await skillUpdate({ scope: 'user', agent: 'codex' }, w.deps)).toBe(0)
     expect(readMarker(w.userCodex)!.version).toBe(CLI)
     expect(readMarker(w.userClaude)!.version).toBe('1.0.0')
     expect(readMarker(w.projClaude)!.version).toBe('1.0.0')
 
-    expect(await skillUpdate({ project: true }, w.deps)).toBe(0)
+    expect(await skillUpdate({ scope: 'project' }, w.deps)).toBe(0)
     expect(readMarker(w.projClaude)!.version).toBe(CLI)
     expect(readMarker(w.userClaude)!.version).toBe('1.0.0')
   })
 
-  it('rejects --user with --project and an unknown agent', async () => {
+  it('rejects an invalid --scope and an unknown agent', async () => {
     const w = world()
-    expect(await skillUpdate({ user: true, project: true }, w.deps)).toBe(1)
-    expect(err).toContain('mutually exclusive')
-    expect(await skillUpdate({ agent: 'nope' }, w.deps)).toBe(1)
+    expect(await skillUpdate({ scope: 'both' }, w.deps)).toBe(2)
+    expect(err).toContain('invalid --scope "both"')
+    expect(await skillUpdate({ agent: 'nope' }, w.deps)).toBe(2)
     expect(err).toContain('Unknown agent "nope"')
   })
 
@@ -483,8 +486,8 @@ describe('lumo skill update', () => {
     }
 
     it.each([
-      ['--project --force', { project: true, force: true }],
-      ['--project', { project: true }],
+      ['--project --force', { scope: 'project', force: true }],
+      ['--project', { scope: 'project' }],
       ['no scope --force', { force: true }],
     ])(
       '%s updates only the current repo; the other repo is byte-identical',
@@ -517,7 +520,7 @@ describe('lumo skill update', () => {
 
       expect(
         await skillUpdate(
-          { project: true, force: true, dryRun: true, agent: 'codex' },
+          { scope: 'project', force: true, dryRun: true, agent: 'codex' },
           w.deps
         )
       ).toBe(0)
@@ -536,7 +539,7 @@ describe('lumo skill update', () => {
       const other = otherRepo()
       const before = snapshot(other.root)
 
-      expect(await skillUpdate({ user: true, force: true }, w.deps)).toBe(0)
+      expect(await skillUpdate({ scope: 'user', force: true }, w.deps)).toBe(0)
 
       expect(snapshot(other.root)).toEqual(before)
       expect(readMarker(w.userClaude)!.version).toBe(CLI)
@@ -563,7 +566,7 @@ describe('lumo skill update', () => {
       // From the worktree: the main checkout's copy is "another repo".
       expect(
         await skillUpdate(
-          { project: true, force: true, agent: 'codex' },
+          { scope: 'project', force: true, agent: 'codex' },
           { ...w.deps, cwd: wt }
         )
       ).toBe(0)
@@ -577,7 +580,7 @@ describe('lumo skill update', () => {
       out = ''
       expect(
         await skillUpdate(
-          { project: true, force: true, agent: 'codex' },
+          { scope: 'project', force: true, agent: 'codex' },
           w.deps
         )
       ).toBe(0)
@@ -591,7 +594,9 @@ describe('lumo skill update', () => {
       const other = otherRepo()
       const before = snapshot(other.root)
 
-      expect(await skillUpdate({ project: true, force: true }, w.deps)).toBe(0)
+      expect(await skillUpdate({ scope: 'project', force: true }, w.deps)).toBe(
+        0
+      )
 
       expect(snapshot(other.root)).toEqual(before)
       expect(out).toContain(`· ${other.claude}: in another repo`)

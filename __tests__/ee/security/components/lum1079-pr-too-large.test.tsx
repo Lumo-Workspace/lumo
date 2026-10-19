@@ -76,6 +76,7 @@ function view(over: Partial<SecurityScanView>): SecurityScanView {
     huntProgress: null,
     huntOverCap: null,
     judgeOverCap: null,
+    judgePartial: null,
     ...over,
   } as SecurityScanView
   const causes = (over as { partialCauses?: string[] }).partialCauses ?? []

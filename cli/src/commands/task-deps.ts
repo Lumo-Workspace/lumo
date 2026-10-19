@@ -1,3 +1,5 @@
+import { emptyState } from '../lib/format'
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -8,6 +10,8 @@ import {
 } from '../lib/confirmation'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import { successLine } from '../lib/feedback'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
+import type { OutputSink } from '../lib/output-sink'
 
 interface ResolveResponse {
   id: string
@@ -54,8 +58,7 @@ export function resolveEdgeSelector(
  * (shared files / task mention) is summarized inline.
  */
 export function formatDepsList(identifier: string, edges: DepEdge[]): string {
-  if (edges.length === 0)
-    return `Dependencies for ${identifier}: no dependency edges.`
+  if (edges.length === 0) return emptyState('dependencies', identifier)
   const lines: string[] = [
     `Dependencies for ${identifier} (${edges.length})`,
     '',
@@ -89,7 +92,7 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
   ])
   section('SUGGESTED (pending confirmation)', suggested, e => [
     `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} "${e.other.title}" ${e.other.status}${evidence(e)}`,
-    `      confirm: lumo task deps confirm ${identifier} ${shortId(e.id)} (add --reverse if direction is flipped; false positive: dismiss)`,
+    `      confirm: lumo task dep confirm ${identifier} ${shortId(e.id)} (add --reverse if direction is flipped; false positive: dismiss)`,
   ])
   section('DISMISSED', dismissed, e => [
     `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} · dismissed`,
@@ -264,11 +267,13 @@ async function resolveTaskAndEdge(
 
 /** `lumo task deps list <LUM-N>` */
 export async function taskDepsList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { json?: boolean } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!identifier) {
-    console.error('Error: usage: lumo task deps list <LUM-42>')
-    return 1
+    console.error('Error: usage: lumo task show <LUM-42> --deps')
+    return EXIT_USAGE
   }
   const ctx = getCtx()
   if (typeof ctx === 'number') return ctx
@@ -276,21 +281,33 @@ export async function taskDepsList(
   if (typeof task === 'number') return task
   const edges = await fetchDeps(ctx, task.id)
   if (typeof edges === 'number') return edges
+  if (opts.json) {
+    emitJson(
+      listEnvelope(
+        'dependencies',
+        stripInternalFields(edges),
+        {},
+        { task: task.identifier }
+      ),
+      out
+    )
+    return
+  }
   // Whole-block sanitization (session-attach style): edge titles, reasons and
   // sample paths are server-controlled free text.
-  console.log(sanitizeField(formatDepsList(task.identifier, edges)))
+  out.write(sanitizeField(formatDepsList(task.identifier, edges)) + '\n')
 }
 
-/** `lumo task deps add <LUM-N> --blocked-by <LUM-M>` */
+/** `lumo task dep add <LUM-N> --blocked-by <LUM-M>` */
 export async function taskDepsAdd(
   identifier: string | undefined,
   opts: { blockedBy?: string }
 ): Promise<number | void> {
   if (!identifier || !opts.blockedBy) {
     console.error(
-      'Error: usage: lumo task deps add <LUM-42> --blocked-by <LUM-9>'
+      'Error: usage: lumo task dep add <LUM-42> --blocked-by <LUM-9>'
     )
-    return 1
+    return EXIT_USAGE
   }
   const ctx = getCtx()
   if (typeof ctx === 'number') return ctx
@@ -315,7 +332,7 @@ export function formatDepsAdded(identifier: string, blockedBy: string): string {
   })
 }
 
-/** `lumo task deps confirm <LUM-N> <edge> [--reverse]` */
+/** `lumo task dep confirm <LUM-N> <edge> [--reverse]` */
 export async function taskDepsConfirm(
   identifier: string | undefined,
   selector: string | undefined,
@@ -323,9 +340,9 @@ export async function taskDepsConfirm(
 ): Promise<number | void> {
   if (!identifier || !selector) {
     console.error(
-      'Error: usage: lumo task deps confirm <LUM-42> <edge> [--reverse]'
+      'Error: usage: lumo task dep confirm <LUM-42> <edge> [--reverse]'
     )
-    return 1
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
@@ -364,14 +381,14 @@ export function formatDepsConfirmed(
   })
 }
 
-/** `lumo task deps dismiss <LUM-N> <edge>` */
+/** `lumo task dep dismiss <LUM-N> <edge>` */
 export async function taskDepsDismiss(
   identifier: string | undefined,
   selector: string | undefined
 ): Promise<number | void> {
   if (!identifier || !selector) {
-    console.error('Error: usage: lumo task deps dismiss <LUM-42> <edge>')
-    return 1
+    console.error('Error: usage: lumo task dep dismiss <LUM-42> <edge>')
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
@@ -397,7 +414,7 @@ export function formatDepsDismissed(edge: DepEdge): string {
   })
 }
 
-/** The changes[] block for the `task deps rm` confirmation envelope. */
+/** The changes[] block for the `task dep remove` confirmation envelope. */
 export function describeDepsRm(identifier: string, edge: DepEdge): string[] {
   const dir = edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
   return [
@@ -408,15 +425,17 @@ export function describeDepsRm(identifier: string, edge: DepEdge): string[] {
   ]
 }
 
-/** `lumo task deps rm <LUM-N> <edge> --confirm` */
+/** `lumo task dep remove <LUM-N> <edge> --confirm` */
 export async function taskDepsRm(
   identifier: string | undefined,
   selector: string | undefined,
   opts: ConfirmFlags
 ): Promise<number | void> {
   if (!identifier || !selector) {
-    console.error('Error: usage: lumo task deps rm <LUM-42> <edge> --confirm')
-    return 1
+    console.error(
+      'Error: usage: lumo task dep remove <LUM-42> <edge> --confirm'
+    )
+    return EXIT_USAGE
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
@@ -425,7 +444,7 @@ export async function taskDepsRm(
   // which row would go; without --confirm nothing is sent.
   if (!isConfirmed(opts)) {
     return emitConfirmation({
-      command: 'task deps rm',
+      command: 'task dep remove',
       changes: describeDepsRm(task.identifier, edge),
     })
   }

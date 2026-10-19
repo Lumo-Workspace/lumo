@@ -39,26 +39,21 @@ export const HALLUCINATION_CASES: AstCase[] = [
   },
   {
     raw: 'lumo project memory list --project lumo 2>&1',
-    expect: 'unknown-flag',
-    offending: '--project',
-    note: 'project is a positional on memory commands, not a flag',
+    expect: 'unknown-command',
+    offending: 'memory',
+    note: 'LUM-1233 3b: `project memory` was removed — it is `memory list --scope project`',
   },
   {
-    raw: 'lumo sprint list --project lumo 2>&1',
-    expect: 'unknown-flag',
-    offending: '--project',
-  },
-  {
-    raw: 'lumo project memory add lumo --category procedural --content $BODY 2>&1',
+    raw: 'lumo memory add --scope project --category procedural --content $BODY 2>&1',
     expect: 'unknown-flag',
     offending: '--content',
     note: 'memory is structured fields; --content never existed',
   },
   {
-    raw: 'lumo task comment LUM-345 --body Follow-up PR: https://github.com/Lumo-Workspace/lumo/pull/451 2>&1',
+    raw: 'lumo task comment add --task LUM-345 --body Follow-up PR: https://github.com/Lumo-Workspace/lumo/pull/451 2>&1',
     expect: 'unknown-flag',
     offending: '--body',
-    note: 'body is positional on task comment',
+    note: 'body is positional on task comment add (LUM-1233 3j: was task comment <task> <body>)',
   },
   {
     raw: 'lumo auth status 2>&1',
@@ -82,6 +77,11 @@ export const HALLUCINATION_CASES: AstCase[] = [
 ]
 
 export const VALID_CASES: AstCase[] = [
+  {
+    raw: 'lumo sprint list --project lumo 2>&1',
+    expect: 'valid',
+    note: 'LUM-1233 3g: --project is global — every command accepts it (sprint list ignores it)',
+  },
   { raw: 'lumo task update LUM-100 --status in_progress', expect: 'valid' },
   {
     raw: 'lumo task artifact add LUM-122 --kind spec --title Context-injection tiering spec --file docs/specs/design.md --source Superpowers --agent claude-code 2>&1',
@@ -89,7 +89,7 @@ export const VALID_CASES: AstCase[] = [
     note: 'LUM-420: --source is an open e.g. example list (opaque free text), not a closed enum — 135 real Superpowers calls were misflagged before',
   },
   {
-    raw: 'lumo task memory add LUM-352 --category DECISION "Chose option B over option A" 2>&1',
+    raw: 'lumo memory add --task LUM-352 --category DECISION --what "Chose option B over option A" 2>&1',
     expect: 'valid',
     note: 'LUM-420: runtime lowercases --category before validating; uppercase variants are legal constructions',
   },
@@ -104,12 +104,15 @@ export const VALID_CASES: AstCase[] = [
     note: 'short aliases resolve to long flags incl. enum check',
   },
   { raw: 'lumo task status LUM-343 --full', expect: 'valid' },
-  { raw: 'lumo task wrapup LUM-343', expect: 'valid' },
+  { raw: 'lumo task show LUM-343 --full --comments', expect: 'valid' },
   {
     raw: 'lumo crossing explain cr-abc123 --note "false positive"',
     expect: 'valid',
   },
-  { raw: 'lumo task comment LUM-345 "multi word body here"', expect: 'valid' },
+  {
+    raw: 'lumo task comment add "multi word body here" --task LUM-345',
+    expect: 'valid',
+  },
   {
     raw: 'lumo task list --status done > /tmp/tasks.txt',
     expect: 'valid',
@@ -134,7 +137,10 @@ export const VALID_CASES: AstCase[] = [
     note: 'repeatable flags',
   },
   { raw: 'lumo task update LUM-9 --status=done', expect: 'valid' },
-  { raw: 'lumo memory rm cmq7pwqod000p04lgv0crvqox --yes', expect: 'valid' },
+  {
+    raw: 'lumo memory delete cmq7pwqod000p04lgv0crvqox --confirm',
+    expect: 'valid',
+  },
   {
     raw: 'lumo help task',
     expect: 'valid',
@@ -146,12 +152,12 @@ export const VALID_CASES: AstCase[] = [
     note: 'dynamic command token — statically unjudgeable, never flagged',
   },
   {
-    raw: 'lumo task comment LUM-345 "body mentioning --verbose and --status DONE"',
+    raw: 'lumo task comment add "body mentioning --verbose and --status DONE" --task LUM-345',
     expect: 'valid',
     note: 'quoted free text must not leak fake flags/enums (quoting preserved since LUM-413)',
   },
   {
-    raw: 'lumo task comment LUM-1 unquoted body --chart-* (prose debris)',
+    raw: 'lumo task comment add unquoted body --chart-* (prose debris)',
     expect: 'valid',
     note: 'dirty flag-shaped tokens are extraction noise, skipped not judged',
   },

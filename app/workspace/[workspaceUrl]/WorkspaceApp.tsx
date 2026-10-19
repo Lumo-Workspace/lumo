@@ -44,7 +44,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { WorkspaceModals } from './components/WorkspaceModals'
 import { WorkspacePageRouter } from './components/WorkspacePageRouter'
 
-export default function DashboardApp() {
+export default function WorkspaceApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const pathname = usePathname()
 

@@ -261,6 +261,7 @@ export const miscRepository = {
         document: {
           select: {
             id: true,
+            slug: true,
             title: true,
             updatedAt: true,
             summary: true,

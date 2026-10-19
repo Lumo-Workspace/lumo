@@ -5,6 +5,11 @@ import { fmtCalendarDay, fmtDay, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import {
   fieldLines,
   labelWidth,
   reportWidth,
@@ -13,10 +18,29 @@ import {
   type Field,
 } from '../lib/report-layout'
 import { taskTableSection } from '../lib/detail-layout'
-import { colorEnabled, terminalWidth, truncate } from '../lib/ui'
+import { formatSummaryAspect, readSummary } from '../lib/summary-aspect'
+import {
+  isSprintBurnupData,
+  isSprintTeamPerformanceData,
+  sprintBurnupLines,
+  sprintTeamPerformanceLines,
+  type ReadFailure,
+  type SprintBurnupData,
+  type SprintTeamPerformanceData,
+} from '../lib/sprint-metrics'
+import {
+  colorEnabled,
+  enumColor,
+  heading,
+  terminalWidth,
+  truncate,
+} from '../lib/ui'
 
 export interface ShowSprintOptions {
   team?: string
+  json?: boolean
+  /** LUM-1233 3j (AF-1): the AI summary (was `sprint summary`). */
+  summary?: boolean
 }
 
 export interface SprintShowData {
@@ -42,6 +66,12 @@ export interface SprintBlockers {
   stalledTaskIds: SprintBlockerItem[]
   failingAgentTaskIds: SprintBlockerItem[]
   staleOpenPrNumbers: number[]
+}
+
+/** LUM-1190: the burnup / team-performance reads (each may have failed). */
+export interface SprintMetrics {
+  burnup?: SprintBurnupData | ReadFailure | undefined
+  teamPerformance?: SprintTeamPerformanceData | ReadFailure | undefined
 }
 
 const BLOCKER_LABELS = {
@@ -82,19 +112,24 @@ function blockerItem(i: SprintBlockerItem): string {
 
 /**
  * LUM-1090 — `sprint show` as a detail view: `Label:  value` rows padded to
- * the widest label, a `Blockers` section with one blocker per line, and the
- * `Tasks (N)` table. Plain text unless `opts` turns colour on.
+ * the widest label, a `Blockers` section with one blocker per line, the
+ * LUM-1190 `Burnup` and `Team performance` sections, and the `Tasks (N)`
+ * table. Plain text unless `opts` turns colour on.
  */
 export function formatSprintShow(
   s: SprintShowData,
   progress: { done: number; total: number },
   tasks: TaskRow[],
   topBlockers?: SprintBlockers,
-  opts: DetailOptions = {}
+  opts: DetailOptions = {},
+  metrics: SprintMetrics = {}
 ): string {
+  // LUM-1232 D-1: `#<n>  <name>` first; the status coloured on a TTY (E-2).
+  const titleLine = heading(`#${s.number}  ${sanitizeField(s.name)}`, {
+    color: opts.color === true,
+  })
   const header: Field[] = [
-    { label: 'Sprint', value: `#${s.number} ${sanitizeField(s.name)}` },
-    { label: 'Status', value: s.status },
+    { label: 'Status', value: enumColor(s.status, opts.color === true) },
     { label: 'Team', value: sanitizeField(s.team.name) },
     { label: 'Start', value: fmtCalendarDay(s.startDate) },
     { label: 'End', value: fmtCalendarDay(s.endDate) },
@@ -102,16 +137,19 @@ export function formatSprintShow(
     { label: 'Closed', value: fmtDay(s.closedAt) },
   ]
   const progressRow: Field[] = [
-    { label: 'Progress', value: `${progress.done} / ${progress.total}` },
+    { label: 'Progress', value: `${progress.done}/${progress.total}` },
   ]
   // One label width across both groups, so the values share a column.
   const labelW = labelWidth([...header, ...progressRow])
   const lines = [
+    titleLine,
     ...fieldLines(header, 0, opts, labelW),
     '',
     ...fieldLines(progressRow, 0, opts, labelW),
   ]
   if (topBlockers) lines.push(...blockerLines(topBlockers, opts))
+  lines.push(...sprintBurnupLines(metrics.burnup, opts))
+  lines.push(...sprintTeamPerformanceLines(metrics.teamPerformance, opts))
   lines.push(
     ...taskTableSection(tasks, 'None — no task is in this sprint.', opts)
   )
@@ -144,6 +182,26 @@ export async function sprintShow(
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
+
+  // LUM-1190: the two secondary reads start now, in parallel with the main
+  // ones. They are fail-soft — fetchSecondary never rejects, a failed or
+  // malformed one renders `Could not read (…)` in its section — so one going
+  // wrong cannot fail the whole show (and an early return below just drops them).
+  const summaryRead = opts.summary
+    ? readSummary(base, creds.token, 'sprints', sprintId)
+    : Promise.resolve(undefined)
+  const secondary = Promise.all([
+    fetchSecondary(
+      `${base}/api/sprints/${sprintId}/burnup`,
+      creds.token,
+      isSprintBurnupData
+    ),
+    fetchSecondary(
+      `${base}/api/sprints/${sprintId}/team-performance`,
+      creds.token,
+      isSprintTeamPerformanceData
+    ),
+  ])
 
   // Fetch sprint details and tasks in parallel.
   let sprintRes: Response
@@ -183,11 +241,70 @@ export async function sprintShow(
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
+  const [burnup, teamPerformance] = await secondary
+  const summary = await summaryRead
+  if (opts.json) {
+    // A failed secondary read is `{ error }` here, as the text view's
+    // `Could not read (…)` line.
+    emitJson(
+      detailEnvelope(
+        'sprint',
+        stripInternalFields(sprint),
+        stripInternalFields({
+          progress,
+          topBlockers: topBlockers ?? null,
+          tasks,
+          burnup,
+          teamPerformance,
+          ...(summary !== undefined ? { summary } : {}),
+        })
+      )
+    )
+    return
+  }
+
   process.stdout.write(
-    formatSprintShow(sprint, progress, tasks, topBlockers, {
-      width: terminalWidth(),
-      color: colorEnabled(),
-      tty: Boolean(process.stdout.isTTY),
-    }) + '\n'
+    formatSprintShow(
+      sprint,
+      progress,
+      tasks,
+      topBlockers,
+      {
+        width: terminalWidth(),
+        color: colorEnabled(),
+        tty: Boolean(process.stdout.isTTY),
+      },
+      { burnup, teamPerformance }
+    ) +
+      (summary !== undefined
+        ? '\n' +
+          [
+            ...sectionHeading('Summary', { color: colorEnabled() }),
+            ...formatSummaryAspect(summary),
+          ].join('\n')
+        : '') +
+      '\n'
   )
+}
+
+/**
+ * GET a secondary payload. Never rejects: a network error, a non-2xx status,
+ * an unparsable body or one that fails `isValid` all come back as a
+ * {@link ReadFailure}.
+ */
+export async function fetchSecondary<T>(
+  url: string,
+  token: string,
+  isValid: (body: unknown) => body is T
+): Promise<T | ReadFailure> {
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return { error: `HTTP ${res.status}` }
+    const body: unknown = await res.json()
+    return isValid(body) ? body : { error: 'unexpected response shape' }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }

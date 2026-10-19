@@ -5,6 +5,7 @@
 // payload captured before the change (`attach-before.txt` / `context-before.txt`
 // are the verbatim CLI output). The budgets are absolute numbers derived from
 // those baselines — never a comparison against origin/main.
+import { fmtInstant } from '../../cli/src/lib/format'
 import fs from 'fs'
 import path from 'path'
 import type { RenderableMemory } from '@/lib/memory/render'
@@ -161,7 +162,14 @@ describe('LUM-844 start-of-session output budget', () => {
         `${head}${renderSessionRecapFence(body)}\n\n`
     )
     expect(noted).not.toBe(fenced)
-    expect(renderContext({ full: true })).toBe(noted)
+    // LUM-1232 (T-1/T-2): session recaps carry the absolute last-activity
+    // time instead of a relative one; nothing else in the line changes.
+    const absolute = noted.replace(
+      /(### Session \w+ · )just now( · )/,
+      `$1${fmtInstant((fixture.sessions as Array<{ lastActivityAt: string }>)[0]?.lastActivityAt)}$2`
+    )
+    expect(absolute).not.toBe(noted)
+    expect(renderContext({ full: true })).toBe(absolute)
   })
 
   it('attach output on the LUM-844 fixture is at most half the baseline', async () => {
@@ -185,15 +193,17 @@ describe('LUM-844 start-of-session output budget', () => {
     })
     expect(attach).toContain('## ⚠ Blocked by LUM-1 (IN_PROGRESS)')
     expect(attach).toContain('## Security findings (1 undispositioned)')
-    expect(attach).toContain('lumo task context LUM-844')
+    expect(attach).toContain('lumo task show LUM-844 --full')
 
     const context = renderContext({ currentSessionId: fixture.sessionId })
     expect(context).toContain(String(fixture.task.descriptionMarkdown))
     expect(context).toContain(fixture.testCaseSection)
     expect(context).toContain('<untrusted-team-memory>')
-    expect(context).toContain('lumo memory show <id>')
+    expect(context).toContain('lumo memory show <ref>')
     for (const m of fixture.memories) {
-      expect(context).toContain(`· ${m.id}`)
+      // LUM-1230: short ref, not the bare cuid.
+      expect(context).toContain(`· ${m.id.slice(-8)}`)
+      expect(context).not.toContain(m.id)
     }
     // Traps still lead, as in the full rendering.
     expect(context.indexOf('- Trap ')).toBeLessThan(
@@ -205,7 +215,7 @@ describe('LUM-844 start-of-session output budget', () => {
     const def = renderContext({})
     expect(def).not.toContain('Workaround:')
     expect(def).not.toContain('## Memory usefulness')
-    expect(def).toContain('lumo task context LUM-844 --full')
+    expect(def).toContain('lumo task show LUM-844 --full --memory')
 
     const full = renderContext({ full: true })
     expect(full).toContain(memorySection)

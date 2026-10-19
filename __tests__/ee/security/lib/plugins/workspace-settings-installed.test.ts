@@ -19,8 +19,12 @@ const SECURITY_COLUMNS = [
   'securityScanEnabled',
   'securityAiReviewEnabled',
   'securityHuntEnabled',
+  // LUM-1234: the reward-hack layer switch.
+  'securityRewardHackEnabled',
   // LUM-1130: the request-changes workflow.
   'securityRequestChangesEnabled',
+  // LUM-1142: the PR's author may resolve / approve by command.
+  'securityAllowAuthorApproval',
   // LUM-1134: the learnings scope.
   'securityLearningsScope',
   // LUM-1137: pause automatic review after N reviewed commits.
@@ -44,6 +48,24 @@ describe('installed (the security plugin)', () => {
     const row = Object.fromEntries(WORKSPACE_COLUMNS.map(c => [c, `v-${c}`]))
     expect(settings.serializeWorkspaceSettings(row)).toEqual(row)
     expect(Object.keys(settings.pluginMeFields())).toEqual(['securityPlatform'])
+  })
+
+  it("LUM-1234: the platform ceiling it serves is the viewing workspace's", () => {
+    const saved = { ...process.env }
+    process.env.LUMO_REWARD_HACK = 'on'
+    process.env.LUMO_REWARD_HACK_WORKSPACES = 'ws-listed'
+    try {
+      const platform = (id: string) =>
+        (
+          settings.pluginMeFields([], id).securityPlatform as {
+            rewardHack: boolean
+          }
+        ).rewardHack
+      expect(platform('ws-listed')).toBe(true)
+      expect(platform('ws-other')).toBe(false)
+    } finally {
+      process.env = saved
+    }
     expect(
       settings.unownedWorkspaceColumns({ securityScanEnabled: false })
     ).toEqual([])
@@ -115,7 +137,9 @@ describe('installed (the security plugin)', () => {
         'securityScanEnabled',
         'securityAiReviewEnabled',
         'securityHuntEnabled',
+        'securityRewardHackEnabled',
         'securityRequestChangesEnabled',
+        'securityAllowAuthorApproval',
         'securityLearningsScope',
         'securityReviewAutoPauseAfter',
       ].sort()

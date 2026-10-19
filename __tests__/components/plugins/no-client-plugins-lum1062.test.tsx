@@ -92,7 +92,7 @@ jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 
 import { TaskDossier } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier'
 import { RecordDoneGate } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordDoneGate'
-import { deriveDoneGate } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/done-gate'
+import { deriveDoneGate } from '@/lib/acceptance/done-gate'
 import { deriveRecordGaps } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/record-gaps'
 import { PullRequestsSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/sections/PullRequestsSection'
 import { DataRetentionSection } from '@/app/workspace/[workspaceUrl]/components/settings/DataRetentionSection'

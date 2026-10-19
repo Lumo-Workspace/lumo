@@ -664,6 +664,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(batch.stop ? { stop: batch.stop } : {}),
           ...(batch.wrapUp ? { wrapUp: batch.wrapUp } : {}),
+          // LUM-1226 — submitted / kept / dropped, per attempt.
+          ...(batch.submission ? { submission: batch.submission } : {}),
         })
         outcomes[task.id] = {
           stopped: batch.stopped,
@@ -734,6 +736,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(retry.stop ? { stop: retry.stop } : {}),
           ...(retry.wrapUp ? { wrapUp: retry.wrapUp } : {}),
+          // LUM-1226 — submitted / kept / dropped, per attempt.
+          ...(retry.submission ? { submission: retry.submission } : {}),
         })
         outcomes[task.id] = {
           stopped: retry.stopped,
@@ -761,7 +765,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         // LUM-832 — and sorted by WHY. Our infrastructure → HUNT_INCOMPLETE,
         // retried once below. Our budget → HUNT_BUDGET_SHORT: a retry with
         // the same budget would hit the same wall, so the layer simply ends
-        // unfinished (parity with CodeRabbit, not more).
+        // unfinished (industry parity, not more).
         const shortfall =
           outcome === undefined ? 'infra' : huntShortfall(outcome)
         if (shortfall === 'infra') addCause(partialCauses, 'HUNT_INCOMPLETE')

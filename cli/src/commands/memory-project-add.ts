@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -7,6 +8,7 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { shortRef } from '../../../shared/src/short-ref'
 
 interface AddOptions extends MemoryFlags {
   category?: string
@@ -21,7 +23,7 @@ export async function memoryProjectAdd(
     console.error(
       'Error: --category <trap|decision|convention|procedural> is required.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const built = buildMemoryContent(options.category, options)
   if (!built.ok) {
@@ -37,7 +39,7 @@ export async function memoryProjectAdd(
       console.error(
         `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
       )
-      return 1
+      return EXIT_USAGE
     }
     agent = normalized
   }
@@ -60,7 +62,7 @@ export async function memoryProjectAdd(
       console.error(
         'Error: no <project-ref> given and no task bound to this session.\nPass a project, or run `lumo session attach <LUM-N>`.'
       )
-      return 1
+      return EXIT_USAGE
     }
     const r = await resolveBoundProjectId(apiUrl, creds.token, bound)
     if (!r.ok) {
@@ -115,7 +117,9 @@ export async function memoryProjectAdd(
       memory?: { id?: string }
     }
     if (typeof b.outcome === 'string') outcome = b.outcome
-    if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
+    // LUM-1230: print the 8-char short ref, never the bare cuid.
+    if (b.memory && typeof b.memory.id === 'string')
+      memId = shortRef(b.memory.id)
   } catch {
     /* keep defaults */
   }

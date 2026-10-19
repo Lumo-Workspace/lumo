@@ -1,6 +1,6 @@
 /**
- * LUM-1056 / LUM-1137 — the automatic-review budget of one PR, CodeRabbit's
- * `auto_incremental_review` + `auto_pause_after_reviewed_commits`: every push
+ * LUM-1056 / LUM-1137 — the automatic-review budget of one PR
+ * (incremental review of every push, auto-paused after N reviewed commits): every push
  * is reviewed until N commits have been reviewed (default 5; 0 = never
  * pause). A head is reserved once; its retries cost nothing. Failed attempts
  * keep their reservation; a superseded head is released (a later next head
@@ -126,7 +126,7 @@ export function withoutHead(
   }
 }
 
-/** What the scan panel, `lumo pr scan` and the CLI read about the budget.
+/** What the scan panel, `lumo pr show` and the CLI read about the budget.
  *  `rounds` keeps its LUM-1056 name; it now counts reviewed commits. */
 export interface ReviewBudgetView {
   paused: boolean
@@ -178,4 +178,64 @@ export function affectedReviewDiff(
       return path !== undefined && affected.has(path)
     })
     .join('')
+}
+
+/** What `isSettledForManualReview` reads off a scan row. */
+export interface ManualReviewRestartRow {
+  status: string
+  stages: unknown
+  verifierStartedAt: Date | null
+  verifiedAt: Date | null
+  /** LUM-1152 follow-up: 'full' | 'incremental' | null (absent = unknown). */
+  judgeReviewMode?: string | null
+}
+
+/**
+ * LUM-1152 follow-up — may a manual review restart this head's scan in place
+ * now? Only once the scan has settled: a finished status, no layer still
+ * PENDING (the managed scanners, the hunt) and no verifier running. A manual
+ * review asked for earlier is deferred until then, not dropped
+ * (`security-deferred-review`). PURE.
+ */
+export function isSettledForManualReview(
+  row: ManualReviewRestartRow | null
+): boolean {
+  if (!row) return false
+  if (!['CLEAN', 'FINDINGS', 'FAILED'].includes(row.status)) return false
+  const stages =
+    row.stages && typeof row.stages === 'object'
+      ? Object.values(row.stages as Record<string, unknown>)
+      : []
+  if (stages.includes('PENDING')) return false
+  return !(row.verifierStartedAt && !row.verifiedAt)
+}
+
+/**
+ * LUM-1152 follow-up — what a deferred manual review does with the scan it
+ * waited on: keep waiting, dispatch (the scan's AI review did not run — held
+ * by ignore / pause / hourly cap, failed, skipped — or the scan is gone /
+ * FAILED), or nothing (the scan's own AI review ran, RAN or PARTIAL, and is
+ * the review asked for — for a FULL request only a full review counts; a
+ * repeated request while one runs deduplicates). PURE.
+ */
+export type DeferredReviewDecision = 'wait' | 'dispatch' | 'covered'
+
+export function deferredReviewDecision(
+  row: ManualReviewRestartRow | null,
+  reviewMode: 'incremental' | 'full'
+): DeferredReviewDecision {
+  if (!row) return 'dispatch'
+  if (!isSettledForManualReview(row)) return 'wait'
+  if (row.status === 'FAILED') return 'dispatch'
+  const judge =
+    row.stages && typeof row.stages === 'object'
+      ? (row.stages as Record<string, unknown>).judge
+      : undefined
+  // Only an AI review that ran covers the request; held, failed or skipped
+  // ones do not.
+  if (judge !== 'RAN' && judge !== 'PARTIAL') return 'dispatch'
+  // User ruling: a requested full review is satisfied only by a full one —
+  // an automatic (incremental) review on the same head is not enough.
+  if (reviewMode === 'full' && row.judgeReviewMode !== 'full') return 'dispatch'
+  return 'covered'
 }

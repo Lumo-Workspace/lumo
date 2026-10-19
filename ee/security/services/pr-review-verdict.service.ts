@@ -6,7 +6,8 @@
  *     standing review, decide, then request changes or approve. An approval
  *     re-reads the PR's head right before submitting and gives up if it
  *     moved; after approving it dismisses Lumo's earlier "changes requested"
- *     reviews so GitHub stops showing them.
+ *     reviews so GitHub stops showing them (`approveAndDismiss` — shared by
+ *     both approval paths, and confirmed from a fresh review listing).
  *   · `approveByCommand` — `@<app> approve` (the caller has already checked
  *     the asker, the mode and the blocking findings).
  *   · `withdrawChangeRequests` — LUM-1140: the mode is off, so Lumo's
@@ -24,6 +25,7 @@ import {
 } from '@/lib/integrations/github/pr-comment-client'
 import {
   canSubmitApproval,
+  changeRequestsSupersededBy,
   decideReviewVerdict,
   standingLumoReview,
   type VerdictScan,
@@ -46,6 +48,7 @@ function plural(n: number, one: string, many: string): string {
 export function buildRequestChangesBody(input: {
   openThreads: number
   blocking: number
+  failingChecks?: number
 }): string {
   const parts: string[] = []
   if (input.openThreads > 0)
@@ -60,10 +63,22 @@ export function buildRequestChangesBody(input: {
         'findings that block DONE'
       )
     )
+  const checks = input.failingChecks ?? 0
+  // LUM-1148: failed `error` pre-merge checks.
+  if (checks > 0)
+    parts.push(
+      plural(checks, 'failed pre-merge check', 'failed pre-merge checks')
+    )
   return [
     `🛡️ Lumo requests changes — ${parts.join(' · ')}.`,
     '',
     "Lumo approves once its latest complete review leaves nothing open: push a fix or resolve the threads; findings that block DONE are cleared only by a disposition in Lumo (`lumo finding disposition` or the PR's security panel).",
+    ...(checks > 0
+      ? [
+          '',
+          'Failed `error` pre-merge checks clear when they pass on a later push or edit, or when a reviewer overrides them on this PR — an override never clears a finding.',
+        ]
+      : []),
     '',
     VERDICT_MARKER,
   ].join('\n')
@@ -94,6 +109,8 @@ export interface VerdictSyncInput {
   openThreads: number
   blocking: number
   unpostedActionable: number
+  /** LUM-1148: failed `error` pre-merge checks not overridden (absent = 0). */
+  failingChecks?: number
 }
 
 export type VerdictOutcome =
@@ -106,10 +123,6 @@ export type VerdictOutcome =
 export type ApproveByCommandResult =
   | { ok: true; sha: string }
   | { ok: false; reason: 'head_moved' }
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 /**
  * GitHub said slow down (primary or secondary rate limit): a
@@ -156,7 +169,27 @@ export function describeGithubFailure(error: unknown): string {
       break
     }
   }
+  // GitHub's `errors` detail of a 422 — what `message` alone does not say.
+  const detail = githubErrorsOf(error)
+  if (detail) parts.push(`errors=${detail}`)
   return parts.join(' ').slice(0, 500)
+}
+
+/** GitHub's `errors` field of a failed response, as one line ('' if none). */
+function githubErrorsOf(error: Error): string {
+  const body = (error as { body?: unknown }).body
+  if (!body || typeof body !== 'object') return ''
+  const errors = (body as { errors?: unknown }).errors
+  if (!Array.isArray(errors)) return ''
+  return errors
+    .map(e =>
+      typeof e === 'string'
+        ? e
+        : e && typeof e === 'object' && 'message' in e
+          ? String((e as { message: unknown }).message)
+          : JSON.stringify(e)
+    )
+    .join('; ')
 }
 
 /**
@@ -172,7 +205,56 @@ export function isTransientGithubFailure(error: unknown): boolean {
   return error instanceof TypeError
 }
 
-/** Approve `sha`, then dismiss Lumo's earlier change requests. */
+/**
+ * After the APPROVE submit: which change requests to dismiss, read from a
+ * fresh listing (`changeRequestsSupersededBy`). GitHub can answer the submit
+ * with an error yet record the approval (probe lumo-agent-test#61: a 422,
+ * approval on the PR) — the listing, not the submit's answer, says whether
+ * Lumo approved. Throws `submitError` when no approval landed.
+ */
+async function supersededChangeRequests(
+  input: {
+    repo: Repo
+    prNumber: number
+    token: string
+    sha: string
+    changesRequestedIds: number[]
+    seenReviewIds: number[]
+  },
+  submitError: unknown
+): Promise<number[]> {
+  let reviews: Awaited<ReturnType<typeof prCommentClient.listReviews>>
+  try {
+    reviews = await prCommentClient.listReviews(input)
+  } catch (error) {
+    if (submitError !== null) throw submitError
+    logger.warn(
+      `[pr-review-verdict] re-list after approving failed pr=#${input.prNumber}: ${describeGithubFailure(error)}`
+    )
+    return input.changesRequestedIds
+  }
+  const ids = changeRequestsSupersededBy(
+    reviews,
+    input.sha,
+    input.seenReviewIds
+  )
+  if (ids === null) {
+    if (submitError !== null) throw submitError
+    // Approved, but the listing does not show it yet: dismiss what stood.
+    return input.changesRequestedIds
+  }
+  if (submitError !== null)
+    logger.warn(
+      `[pr-review-verdict] approval recorded despite a failed submit pr=#${input.prNumber} head=${short(input.sha)}: ${describeGithubFailure(submitError)}`
+    )
+  return ids
+}
+
+/**
+ * Approve `sha`, then dismiss Lumo's earlier change requests — on every
+ * approval path, also when GitHub answered the submit with an error but
+ * recorded the approval.
+ */
 async function approveAndDismiss(input: {
   repo: Repo
   prNumber: number
@@ -180,16 +262,25 @@ async function approveAndDismiss(input: {
   sha: string
   body: string
   changesRequestedIds: number[]
+  /** Every review listed before the submit (an earlier approval is not this one). */
+  seenReviewIds: number[]
 }): Promise<void> {
-  await prCommentClient.submitReview({
-    repo: input.repo,
-    prNumber: input.prNumber,
-    token: input.token,
-    commitId: input.sha,
-    body: input.body,
-    event: 'APPROVE',
-  })
-  for (const reviewId of input.changesRequestedIds) {
+  let submitError: unknown = null
+  try {
+    await prCommentClient.submitReview({
+      repo: input.repo,
+      prNumber: input.prNumber,
+      token: input.token,
+      commitId: input.sha,
+      body: input.body,
+      event: 'APPROVE',
+    })
+  } catch (error) {
+    if (isRateLimited(error)) throw error
+    submitError = error
+  }
+  const toDismiss = await supersededChangeRequests(input, submitError)
+  for (const reviewId of toDismiss) {
     try {
       await prCommentClient.dismissReview({
         repo: input.repo,
@@ -200,7 +291,7 @@ async function approveAndDismiss(input: {
       })
     } catch (error) {
       logger.warn(
-        `[pr-review-verdict] dismiss failed pr=#${input.prNumber} review=${reviewId}: ${describe(error)}`
+        `[pr-review-verdict] dismiss failed pr=#${input.prNumber} review=${reviewId}: ${describeGithubFailure(error)}`
       )
     }
   }
@@ -210,13 +301,12 @@ export const prReviewVerdictService = {
   async apply(input: VerdictSyncInput): Promise<VerdictOutcome> {
     const where = `pr=#${input.prNumber} head=${short(input.headSha)}`
     try {
-      const standing = standingLumoReview(
-        await prCommentClient.listReviews({
-          repo: input.repo,
-          prNumber: input.prNumber,
-          token: input.token,
-        })
-      )
+      const listed = await prCommentClient.listReviews({
+        repo: input.repo,
+        prNumber: input.prNumber,
+        token: input.token,
+      })
+      const standing = standingLumoReview(listed)
       const verdict = decideReviewVerdict({
         enabled: true,
         headSha: input.headSha,
@@ -224,6 +314,7 @@ export const prReviewVerdictService = {
         openThreads: input.openThreads,
         blocking: input.blocking,
         unpostedActionable: input.unpostedActionable,
+        failingChecks: input.failingChecks ?? 0,
         standing,
       })
       if (verdict.kind === 'NONE') return 'none'
@@ -258,11 +349,14 @@ export const prReviewVerdictService = {
         sha: input.headSha,
         body: buildApproveBody(input.headSha),
         changesRequestedIds: standing.changesRequestedIds,
+        seenReviewIds: listed.map(r => r.id),
       })
       logger.info(`[pr-review-verdict] approved ${where}`)
       return 'approved'
     } catch (error) {
-      logger.warn(`[pr-review-verdict] failed ${where}: ${describe(error)}`)
+      logger.warn(
+        `[pr-review-verdict] failed ${where}: ${describeGithubFailure(error)}`
+      )
       return 'failed'
     }
   },
@@ -280,9 +374,8 @@ export const prReviewVerdictService = {
     login: string
     sha: string
   }): Promise<ApproveByCommandResult> {
-    const standing = standingLumoReview(
-      await prCommentClient.listReviews(input)
-    )
+    const listed = await prCommentClient.listReviews(input)
+    const standing = standingLumoReview(listed)
     const live = await prCommentClient.getPullRequestHead(input)
     if (!canSubmitApproval(input.sha, live))
       return { ok: false, reason: 'head_moved' }
@@ -293,6 +386,7 @@ export const prReviewVerdictService = {
       sha: input.sha,
       body: buildApproveBody(input.sha, input.login),
       changesRequestedIds: standing.changesRequestedIds,
+      seenReviewIds: listed.map(r => r.id),
     })
     return { ok: true, sha: input.sha }
   },

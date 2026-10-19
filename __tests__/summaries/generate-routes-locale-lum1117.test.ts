@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1117 — the on-demand summary routes write the report in the
+ * LUM-1117 — the on-demand project summary route writes the report in the
  * workspace's default language (`defaultLocale`), not the retired
  * summary-only language column (dropped in phase 2).
  */
@@ -31,16 +31,13 @@ jest.mock('@/lib/api/helpers', () => ({
 jest.mock('@/lib/services/summary.service', () => ({
   summaryService: {
     requestGeneration: jest.fn(async () => ({ jobId: 'job1' })),
-    createWorkspaceSummary: jest.fn(async () => ({ id: 's1' })),
     createProjectSummary: jest.fn(async () => ({ id: 's2' })),
   },
 }))
 jest.mock('@/lib/services/stats.service', () => ({
-  getWorkspaceStats: jest.fn(async () => ({})),
   getProjectStats: jest.fn(async () => ({})),
 }))
 jest.mock('@/lib/summaries/report', () => ({
-  generateWorkspaceReport: jest.fn(async () => ({ tldr: 't', report: 'r' })),
   generateProjectReport: jest.fn(async () => ({ tldr: 't', report: 'r' })),
 }))
 jest.mock('@/lib/repositories/generation-job.repository', () => ({
@@ -56,30 +53,12 @@ jest.mock('@/lib/repositories/stats.repository', () => ({
   },
 }))
 
-import { POST as postWorkspace } from '@/app/api/summaries/generate/workspace/route'
 import { POST as postProject } from '@/app/api/summaries/generate/project/[projectId]/route'
-import {
-  generateProjectReport,
-  generateWorkspaceReport,
-} from '@/lib/summaries/report'
+import { generateProjectReport } from '@/lib/summaries/report'
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockPending.length = 0
-})
-
-it('the workspace report is written in defaultLocale', async () => {
-  const res = await postWorkspace(
-    new NextRequest('http://localhost/api/summaries/generate/workspace', {
-      method: 'POST',
-    })
-  )
-  expect(res.status).toBe(202)
-  await Promise.all(mockPending)
-  expect(generateWorkspaceReport).toHaveBeenCalledWith(expect.anything(), {
-    workspaceName: 'Acme',
-    locale: 'zh-CN',
-  })
 })
 
 it('the project report is written in the workspace defaultLocale', async () => {

@@ -1,4 +1,6 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
+import { emitJson, withVersion } from '../lib/json-output'
 import { missingPluginMessage } from '../lib/plugin-route'
 import {
   emitConfirmation,
@@ -11,8 +13,12 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   scan?: string
   aiReview?: string
   hunt?: string
+  /** LUM-1234 — the Agent behavior (reward-hack) layer. */
+  rewardHack?: string
   /** LUM-1130 — the request-changes / approve workflow. */
   requestChanges?: string
+  /** LUM-1142 — the PR's author may resolve / approve by command. */
+  allowAuthorApproval?: string
   /** LUM-1134 — local | global | auto (which repositories' learnings). */
   learningsScope?: string
   /** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
@@ -25,6 +31,29 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   repos?: boolean
   review?: string
   drafts?: string
+  /** LUM-1143: the per-repository auto-review filters. */
+  baseBranches?: string[]
+  labels?: string[]
+  ignoreTitle?: string[]
+  ignoreUsers?: string[]
+  descriptionKeyword?: string
+  pathFilter?: string[]
+  /** LUM-1148: the per-repository pre-merge checks. */
+  titleCheck?: string
+  titleRequirements?: string
+  descriptionCheck?: string
+  overrideReviewersOnly?: string
+  /** LUM-1149: the linked task / issue assessment. */
+  issueAssessment?: string
+  taskDetailsOnPublicRepos?: string
+  /** LUM-1147: the per-repository review style. */
+  profile?: string
+  tone?: string
+  pathInstruction?: string[]
+  /** LUM-1151: where the high-level PR summary goes. */
+  summary?: string
+  /** LUM-1155: the call-flow diagram in the walkthrough (on | off). */
+  sequenceDiagrams?: string
 }
 
 /** The stored switches, as GET/PATCH /api/workspaces/me/security-scan return them. */
@@ -32,15 +61,19 @@ export interface SecurityScanSwitches {
   securityScanEnabled: boolean
   securityAiReviewEnabled: boolean
   securityHuntEnabled: boolean
+  /** LUM-1234 — absent on a server older than the layer (no row shown). */
+  securityRewardHackEnabled?: boolean
   /** LUM-1130 — absent on a server older than the workflow (reads as off). */
   securityRequestChangesEnabled?: boolean
+  /** LUM-1142 — absent on a server older than the setting (reads as on). */
+  securityAllowAuthorApproval?: boolean
   /** LUM-1134 — absent on a server older than the setting (reads as auto). */
   securityLearningsScope?: LearningsScope
   /** LUM-1137 — absent on a server older than the setting (reads as 5). */
   securityReviewAutoPauseAfter?: number
 }
 
-/** LUM-1134 — CodeRabbit's `knowledge_base.learnings.scope` values. */
+/** LUM-1134 — the learnings scope values (which repositories' learnings a review reads). */
 export type LearningsScope = 'local' | 'global' | 'auto'
 const LEARNINGS_SCOPES: readonly LearningsScope[] = ['local', 'global', 'auto']
 
@@ -52,12 +85,14 @@ type OnOffSwitch = Exclude<
 
 export interface SecurityScanSettingsView {
   switches: SecurityScanSwitches
-  platform: { managedScan: boolean; hunt: boolean }
+  /** `rewardHack` (LUM-1234) is absent on a server older than the layer. */
+  platform: { managedScan: boolean; hunt: boolean; rewardHack?: boolean }
   effective: {
     scan: boolean
     managedScan: boolean
     aiReview: boolean
     hunt: boolean
+    rewardHack?: boolean
   }
   /** OWNER may change the switches; absent on a server older than this flag. */
   canEdit?: boolean
@@ -71,7 +106,9 @@ const SWITCH_LABELS: Record<OnOffSwitch, string> = {
   securityScanEnabled: 'Security scan (master)',
   securityAiReviewEnabled: 'AI review',
   securityHuntEnabled: 'Exploit-path hunt',
+  securityRewardHackEnabled: 'Agent behavior (reward-hack check)',
   securityRequestChangesEnabled: 'Request-changes workflow',
+  securityAllowAuthorApproval: 'PR authors may resolve / approve by command',
 }
 
 function parseOnOff(flag: string, value: string): boolean {
@@ -116,10 +153,20 @@ export function buildSecurityScanUpdate(
     singles.securityAiReviewEnabled = parseOnOff('--ai-review', opts.aiReview)
   if (opts.hunt !== undefined)
     singles.securityHuntEnabled = parseOnOff('--hunt', opts.hunt)
+  if (opts.rewardHack !== undefined)
+    singles.securityRewardHackEnabled = parseOnOff(
+      '--reward-hack',
+      opts.rewardHack
+    )
   if (opts.requestChanges !== undefined)
     singles.securityRequestChangesEnabled = parseOnOff(
       '--request-changes',
       opts.requestChanges
+    )
+  if (opts.allowAuthorApproval !== undefined)
+    singles.securityAllowAuthorApproval = parseOnOff(
+      '--allow-author-approval',
+      opts.allowAuthorApproval
     )
   if (opts.learningsScope !== undefined)
     singles.securityLearningsScope = parseLearningsScope(opts.learningsScope)
@@ -135,7 +182,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --request-changes / --learnings-scope / --auto-pause-after'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after'
       )
     }
     return { all }
@@ -152,6 +199,8 @@ function targetSwitches(
       securityScanEnabled: update.all,
       securityAiReviewEnabled: update.all,
       securityHuntEnabled: update.all,
+      // LUM-1234: the server's `all` sets the reward-hack switch too.
+      securityRewardHackEnabled: update.all,
     }
   }
   return update as Partial<SecurityScanSwitches>
@@ -212,6 +261,18 @@ export function describeGatedChanges(
       'Lumo dismisses its standing “Changes requested” reviews on this workspace’s open PRs (in the background; a PR it misses is dismissed at its next review) and posts comment-only reviews from then on — it does not approve, and reviews by people are untouched'
     )
   }
+  // LUM-1142: turning author approval ON widens who may resolve Lumo's
+  // threads and approve by command — the PR's own author (turning it off is
+  // gated like every turn-off above).
+  if (
+    target.securityAllowAuthorApproval === true &&
+    current.securityAllowAuthorApproval !== true
+  ) {
+    lines.push(
+      'Will turn ON: PR authors may resolve / approve by command — the PR’s author (with write access) can run `@uselumo resolve` and `@uselumo approve` on their own PR; approve still needs the request-changes workflow on and no finding that blocks Done',
+      'Workspace-wide (every member’s PRs); branch protection that requires approvals may count Lumo’s approval'
+    )
+  }
   // LUM-1134: `global` lets a PUBLIC repository's review read learnings from
   // the workspace's private repositories — confirmed like any widening.
   const scopeNow = current.securityLearningsScope ?? 'auto'
@@ -256,6 +317,14 @@ export function formatSecurityScanSettings(
       s.effective.hunt,
     ],
   ]
+  // LUM-1234: only a server that knows the layer reports its switch.
+  if (s.switches.securityRewardHackEnabled !== undefined)
+    rows.push([
+      'Agent behavior',
+      s.switches.securityRewardHackEnabled,
+      s.platform.rewardHack ?? null,
+      s.effective.rewardHack ?? false,
+    ])
   const w = Math.max(...rows.map(r => r[0].length))
   const lines = [
     `${'Layer'.padEnd(w)}  Setting  Platform  Runs`,
@@ -268,6 +337,11 @@ export function formatSecurityScanSettings(
     lines.push(
       '',
       `Request-changes workflow: ${onOff(s.switches.securityRequestChangesEnabled)}`
+    )
+  }
+  if (s.switches.securityAllowAuthorApproval !== undefined) {
+    lines.push(
+      `PR authors may resolve / approve by command: ${onOff(s.switches.securityAllowAuthorApproval)}`
     )
   }
   if (s.switches.securityLearningsScope !== undefined) {
@@ -291,7 +365,7 @@ const PATH = '/api/workspaces/me/security-scan'
 const NO_PLUGIN = missingPluginMessage('workspace security-scan', 'security')
 
 /**
- * `lumo workspace security-scan` (LUM-1002) — show the PR security-scan
+ * `lumo workspace security-scan show|update` (LUM-1002; split in LUM-1233 3j) — show the PR security-scan
  * switches, or change them (OWNER only). Turning anything off is gated by
  * the confirmation protocol: without `--confirm` it exits 4 with an envelope.
  */
@@ -332,7 +406,10 @@ export async function workspaceSecurityScan(
     }
     const changes = describeGatedChanges(current.data.switches, update)
     if (changes.length > 0 && !isConfirmed(opts)) {
-      return emitConfirmation({ command: 'workspace security-scan', changes })
+      return emitConfirmation({
+        command: 'workspace security-scan update',
+        changes,
+      })
     }
     const r = await apiCall<SecurityScanSettingsView>(
       ctx,
@@ -346,9 +423,32 @@ export async function workspaceSecurityScan(
   }
 
   if (opts.json) {
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    emitJson(withVersion(result))
     return
   }
   if (update) process.stdout.write('Security scan settings saved.\n\n')
   process.stdout.write(formatSecurityScanSettings(result) + '\n')
+}
+
+/** Options of `security-scan update` that are not a setting. */
+const NOT_A_SETTING = new Set(['repo', 'repos', 'json', 'confirm'])
+
+/**
+ * `lumo workspace security-scan update` (LUM-1233 3j; formerly
+ * `workspace security-scan --<setting> …`). At least one setting, or it is a
+ * usage error — reading is `security-scan show`.
+ */
+export async function workspaceSecurityScanUpdate(
+  opts: WorkspaceSecurityScanOptions = {}
+): Promise<number | void> {
+  const settings = Object.entries(opts).filter(
+    ([k, v]) => v !== undefined && !NOT_A_SETTING.has(k)
+  )
+  if (settings.length === 0) {
+    console.error(
+      'Error: nothing to change — pass a setting (e.g. --scan on). Read the settings with `lumo workspace security-scan show`.'
+    )
+    return EXIT_USAGE
+  }
+  return workspaceSecurityScan(opts)
 }

@@ -1,3 +1,4 @@
+import type { CliCommandNames } from '@/lib/cli/command-names'
 import type { TaskArtifactAgent } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -14,6 +15,10 @@ import { collectSessionStartSections } from '@/lib/plugins/agent-context'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import type { TaskStatusForNextSteps } from '@/lib/context/render/next-steps'
+import {
+  ambiguousMilestoneError,
+  matchMilestoneRef,
+} from '@/shared/src/milestone-ref'
 
 interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
@@ -21,6 +26,8 @@ interface BindSessionToTaskInput {
   taskIdentifier: string
   /** LUM-1051: coding agent recorded when this attach creates the row. */
   agent?: TaskArtifactAgent
+  /** LUM-1233: the commands the caller's CLI has (legacy names by default). */
+  commands?: CliCommandNames
 }
 
 export type BindSessionToTaskResult = {
@@ -49,6 +56,8 @@ interface BindSessionToMilestoneInput {
   sessionId: string
   /** Milestone reference: exact id, or a case-insensitive name/slug match. */
   milestoneRef: string
+  /** LUM-1233: the commands the caller's CLI has (legacy names by default). */
+  commands?: CliCommandNames
 }
 
 export type BindSessionToMilestoneResult = {
@@ -93,9 +102,9 @@ export type SessionStatusResult =
 
 /**
  * Resolve a milestone reference workspace-wide (LUM-640): exact id first, then
- * a case-insensitive name/slug match across the workspace's active milestones.
- * Ambiguous references are rejected with the candidate list (the workspace
- * convention for user-supplied identifiers) — the caller retries with the id.
+ * the slug, then a case-insensitive name across the workspace's active
+ * milestones (LUM-1230). Ambiguous references are rejected with the candidate
+ * list by slug (the workspace convention for user-supplied identifiers).
  */
 async function resolveMilestoneInWorkspace(
   workspaceId: string,
@@ -117,11 +126,10 @@ async function resolveMilestoneInWorkspace(
     workspaceId,
     'active'
   )
-  const lowered = ref.toLowerCase()
-  const matches = candidates.filter(
-    m => m.name.toLowerCase() === lowered || m.slug.toLowerCase() === lowered
-  )
-  if (matches.length === 0) {
+  // LUM-1230: slug first (the web URL segment, unique per project), then a
+  // case-insensitive name — shared with the CLI's own milestone lookup.
+  const match = matchMilestoneRef(ref, candidates)
+  if (match.kind === 'not-found') {
     throw Object.assign(
       new Error(
         `No milestone matches "${milestoneRef}" in this workspace. Try \`lumo milestone list\`.`
@@ -129,23 +137,13 @@ async function resolveMilestoneInWorkspace(
       { status: 404 }
     )
   }
-  if (matches.length > 1) {
-    const list = matches.map(m => `${m.id} "${m.name}"`).join(', ')
+  if (match.kind === 'ambiguous') {
     throw Object.assign(
-      new Error(
-        `Milestone reference "${milestoneRef}" is ambiguous — matches: ${list}. Use the milestone id.`
-      ),
+      new Error(ambiguousMilestoneError(milestoneRef, match.candidates)),
       { status: 400 }
     )
   }
-  const only = matches[0]
-  if (!only) {
-    // Unreachable (length === 1) — satisfies noUncheckedIndexedAccess.
-    throw Object.assign(new Error('Milestone resolution failed'), {
-      status: 500,
-    })
-  }
-  return { id: only.id, name: only.name }
+  return { id: match.milestone.id, name: match.milestone.name }
 }
 
 export const sessionService = {
@@ -154,6 +152,7 @@ export const sessionService = {
     sessionId,
     taskIdentifier,
     agent,
+    commands,
   }: BindSessionToTaskInput): Promise<BindSessionToTaskResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -304,7 +303,8 @@ export const sessionService = {
       // the dependency warning (LUM-172).
       taskDependencyService.buildBlockerWarningSectionForTask(
         task.id,
-        task.identifier
+        task.identifier,
+        commands
       ),
       // LUM-737 / LUM-1061: plugin sections (the security plugin's open PR
       // findings). Best-effort — a plugin read failure must not break attach.
@@ -342,6 +342,7 @@ export const sessionService = {
     identity,
     sessionId,
     milestoneRef,
+    commands,
   }: BindSessionToMilestoneInput): Promise<BindSessionToMilestoneResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -427,7 +428,8 @@ export const sessionService = {
       const { stewardContextService } =
         await import('@/lib/services/steward-context.service')
       const built = await stewardContextService.buildStewardSections(
-        milestone.id
+        milestone.id,
+        commands
       )
       stewardMemorySection = built.section
       // LUM-648: birth one cross-milestone learning edge per prior-milestone

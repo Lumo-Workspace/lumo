@@ -126,8 +126,12 @@ describe('formatMemoryList', () => {
   ]
   it('renders id-first rows with auto/manual source and a headline', () => {
     const out = formatMemoryList(rows as any)
-    expect(out).toMatch(/cmd_x\s+TASK\s+TRAP\s+enum mid-migration fails\s+auto/)
-    expect(out).toMatch(/cmd_y\s+PROJECT\s+CONVENTION\s+use Zod\s+manual/)
+    expect(out).toBe(
+      [
+        'cmd_x\tTASK\tTRAP\tauto\tenum mid-migration fails',
+        'cmd_y\tPROJECT\tCONVENTION\tmanual\tuse Zod',
+      ].join('\n')
+    )
   })
   it('handles an empty list', () => {
     expect(formatMemoryList([])).toBe('No memories.')

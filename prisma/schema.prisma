@@ -456,20 +456,26 @@ model Workspace {
   securityScanEnabled     Boolean           @default(true)
   securityAiReviewEnabled Boolean           @default(true)
   securityHuntEnabled     Boolean           @default(true)
-  // LUM-1130: the PR reviewer's request-changes workflow (CodeRabbit's
-  // `reviews.request_changes_workflow`). Off by default: on, Lumo's review is
+  // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
+  securityRewardHackEnabled Boolean         @default(true)
+  // LUM-1130: the PR reviewer's request-changes workflow.
+  // Off by default: on, Lumo's review is
   // "Changes requested" while a Lumo thread or a DONE-blocking finding is
   // open, and Lumo approves once the latest head's complete review leaves
   // nothing open.
   securityRequestChangesEnabled Boolean @default(false)
+  // LUM-1142: author approval. On by default:
+  // the PR's author may `@uselumo resolve` / `approve` their own PR; off,
+  // only other write-access accounts may.
+  securityAllowAuthorApproval Boolean @default(true)
   // LUM-1134: which repositories' PR-review learnings (LUM-1131) the AI
-  // review reads — CodeRabbit's `knowledge_base.learnings.scope`. "local" =
+  // review reads. "local" =
   // the reviewed repository only; "global" = every repository of this
   // workspace; "auto" (default) = local for a public repository, global for a
   // private one, local when the visibility is unknown. Never across
   // workspaces. A CHECK constraint keeps it to those three values.
   securityLearningsScope String @default("auto")
-  // LUM-1137: CodeRabbit's `auto_pause_after_reviewed_commits` — automatic
+  // LUM-1137: auto-pause after reviewed commits — automatic
   // AI review (and exploit-path discovery) of every push pauses on a PR once
   // this many commits have been reviewed; 0 = never pause. A PR's own
   // `--resume --limit` (PullRequest.reviewCommitLimit) overrides it. A CHECK
@@ -488,6 +494,7 @@ model Workspace {
   usageResyncAudits   UsageResyncAudit[]
   auditEvents         AuditEvent[]
   subprocessorNotices SubprocessorNoticeDelivery[]
+  llmSpend            WorkspaceLlmSpend[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -1163,9 +1170,9 @@ model Milestone {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  // LUM-643: explicit human override of the exit-criteria close gate. Stamped
-  // when a human closes the milestone while exit criteria are unresolved
-  // (unadjudicated or NOT_MET). Records the most recent override; never
+  // LUM-643/1135: explicit human override of the close gate. Stamped when a
+  // human closes the milestone while milestone test cases still hold it.
+  // Records the most recent override; never
   // auto-cleared, so the trail survives a later reopen.
   completedOverrideAt         DateTime?
   completedOverrideByMemberId String?
@@ -1179,9 +1186,8 @@ model Milestone {
   // LUM-640: steward-session implementation-artifact crossings recorded against
   // this milestone (no task to attach to — the steward session is task-less).
   boundaryCrossings     BoundaryCrossing[]
-  // LUM-643: milestone-level exit criteria (the close contract).
-  exitCriteria          MilestoneExitCriterion[]
-  // LUM-1135: milestone-level test cases — the close contract that replaces exitCriteria.
+  // LUM-1135: milestone-level test cases — the close contract (exit criteria
+  // were dropped in LUM-1141).
   testCases               TestCase[]
   testCaseRuns            TestCaseRun[]
   testCaseRunDispositions TestCaseRunDisposition[]
@@ -1199,54 +1205,6 @@ model Milestone {
   @@index([projectId, sortOrder])
   @@index([projectId, archivedAt])
   @@map("milestones")
-}
-
-/// LUM-643: adjudication verdict on a milestone exit criterion. Two-valued —
-/// there is no machine PASS at milestone level; a steward (or human) reads the
-/// milestone's real state and adjudicates. null verdict = not yet adjudicated.
-enum MilestoneExitVerdict {
-  MET
-  NOT_MET
-}
-
-/// LUM-643: milestone-level exit criterion — the close contract, mirroring the
-/// task-level AcceptanceCriterion shape where it transfers. No checkpointer /
-/// verification rounds: milestone criteria are adjudicated (裁定), not
-/// machine-verified. referentKind is REQUIRED (the contract postdates the
-/// LUM-602 discipline, so there is no legacy-null bucket) and the grounding
-/// gate is enforced at adjudication time: a MET on EXTERNAL_FACT must carry an
-/// evidence pointer, and PENDING_OUTCOME can never be adjudicated MET.
-model MilestoneExitCriterion {
-  id              String                    @id @default(cuid())
-  milestoneId     String
-  statement       String
-  referentKind    ReferentKind
-  source          AcceptanceCriterionSource
-  // Drafting session provenance (LUM-640 steward attribution), FK-less.
-  sourceSessionId String?
-
-  // Adjudication (裁定). Re-adjudication overwrites in place — the stamped
-  // who/when always describes the latest verdict.
-  verdict           MilestoneExitVerdict?
-  verdictNote       String?
-  // Evidence pointer backing a MET verdict — required for EXTERNAL_FACT.
-  verdictEvidence   String?
-  verdictByMemberId String?
-  // Adjudicating session provenance (LUM-640 steward attribution), FK-less.
-  verdictSessionId  String?
-  verdictAt         DateTime?
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  // Soft-delete tombstone: an adjudicated criterion is tombstoned (not
-  // hard-deleted) on contract replace so the verdict trail survives.
-  deletedAt DateTime?
-
-  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-
-  @@index([milestoneId])
-  @@index([milestoneId, deletedAt])
-  @@map("milestone_exit_criteria")
 }
 
 model SprintSummary {
@@ -1558,6 +1516,8 @@ enum PrSecurityFindingKind {
   // LUM-988: a non-security finding from the AI review (logic bug, error
   // handling, doc mismatch, weak test…). Always LLM_JUDGE, so never blocking.
   CORRECTNESS
+  // LUM-1234: a reward-hack a session left in the PR (LLM_JUDGE, advisory only).
+  REWARD_HACK
 }
 
 enum PrSecurityFindingSeverity {
@@ -1589,10 +1549,10 @@ enum PrFindingThreadState {
 // LUM-1127: one row per (PR, finding fingerprint) Lumo commented on inline —
 // the durable identity of the GitHub review thread across head commits, so a
 // later scan can resolve it as addressed, honour a human resolve, and reopen
-// it on regression (CodeRabbit's thread lifecycle). Findings themselves stay
+// it on regression (the usual review-thread lifecycle). Findings themselves stay
 // per scan (`PrSecurityFinding`); the thread is per PR.
 /// LUM-1133 — per-repository automatic PR review settings for a workspace
-/// (CodeRabbit `reviews.auto_review`: enabled, drafts). No row = the defaults:
+/// (auto-review filters: enabled, drafts). No row = the defaults:
 /// every PR of a confirmed repository is reviewed, drafts are skipped until
 /// they are marked ready. Governs PRs without a Lumo task; task-linked PRs keep
 /// their scan (the DONE gate's evidence).
@@ -1601,10 +1561,49 @@ model RepositoryReviewSetting {
   workspaceId  String
   /// Lower-cased `owner/name`.
   repo         String
-  autoReview   Boolean  @default(true)
-  reviewDrafts Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  autoReview          Boolean  @default(true)
+  reviewDrafts        Boolean  @default(false)
+  /// LUM-1143 — per-repository auto-review filters (precedence in
+  /// ee/security/security-scan/auto-review-policy.ts). Regexes on the PR's
+  /// base branch; the default branch is always included.
+  baseBranches        String[] @default([])
+  /// What an EMPTY `baseBranches` reviews: `all_branches` (repositories
+  /// connected before LUM-1143, backfilled) or `default_branch_only` (newly
+  /// connected repositories).
+  emptyBaseBranchesMeans String  @default("default_branch_only")
+  /// `label` = review only PRs carrying one (opts in when autoReview is
+  /// off); `!label` = skip PRs carrying it.
+  labels              String[] @default([])
+  /// Case-insensitive substrings of the PR title that skip the review.
+  ignoreTitleKeywords String[] @default([])
+  /// Exact, case-sensitive author logins never auto-reviewed.
+  ignoreUsernames     String[] @default([])
+  /// With autoReview off: PRs whose description contains this are reviewed.
+  descriptionKeyword  String?
+  /// Globs over changed paths for the AI review and hunt (`!glob`
+  /// excludes), on top of the built-in lockfile / generated exclusions.
+  pathFilters         String[] @default([])
+  /// LUM-1148 — the pre-merge checks: { title: { mode, requirements },
+  /// description: { mode }, customChecks: [{ name, mode, instructions }],
+  /// overrideRequestedReviewersOnly } (ee/security/security-scan/
+  /// pre-merge-checks.ts). null = the defaults.
+  preMergeChecks      Json?
+  /// LUM-1147 — review style. `[{ path, instructions }]`: extra review
+  /// instructions for files matching `path` (glob), sent to the AI review.
+  pathInstructions    Json     @default("[]")
+  /// quiet | chill | assertive — which findings get inline comments
+  /// (ee/security/security-scan/review-profile.ts).
+  reviewProfile       String   @default("chill")
+  /// ≤250 chars: how the AI review words its findings. null = none.
+  toneInstructions    String?
+  /// LUM-1151 — where the high-level summary goes: description | comment
+  /// | off (ee/security/security-scan/pr-description-summary.ts).
+  highLevelSummary    String   @default("description")
+  /// LUM-1155 — a sequence diagram of the PR's call flow in the summary
+  /// comment's walkthrough (ee/security/security-scan/sequence-diagram.ts).
+  sequenceDiagrams    Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -1634,6 +1633,26 @@ model PrFindingThread {
   // LUM-1131: GitHub REST id of the last human reply Lumo answered in this
   // thread — a redelivered webhook for the same reply is not answered twice.
   lastReplyId     String?
+  // LUM-1127 follow-up #2: the identity of the finding the thread stands for
+  // (its own, or the relabelled one it was carried to), kept here because a
+  // full re-review of the same head replaces the scan's finding rows. No code
+  // is stored: the quoted line and the title words are HMAC-hashed with a
+  // server key (tagged with its key id). identityRuleId null = not recorded.
+  identityRuleId       String?
+  identityLine         Int?
+  identitySeverity     PrSecurityFindingSeverity?
+  identityEvidenceHash String?
+  identityTitleTokens  String[]                    @default([])
+  // LUM-1127 follow-up #3: the fingerprints this thread was carried to (the
+  // same issue relabelled by a later review), oldest first. `fingerprint`
+  // stays the thread's original (dispositions / learnings look it up); a
+  // finding under any of these already has this thread — never a new comment.
+  aliasFingerprints    String[]                    @default([])
+  // LUM-1127 follow-up #4: every identity the thread has carried (the union,
+  // never overwritten; capped) as [{ ruleId, line, evidenceHash, titleTokens,
+  // crowded? }] — hashes only, same key as above. A new finding is matched
+  // against the best of them, so one later rewording never decides alone.
+  identityHistory      Json                        @default("[]")
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
@@ -1664,7 +1683,7 @@ model PrReviewLearning {
   // GitHub REST id of the human reply the learning came from.
   sourceReplyId       String
   authorLogin         String
-  // CodeRabbit parity: a learning applies only to its source PR until that
+  // Learnings scope: a learning applies only to its source PR until that
   // PR merges; set when the merge is seen. Readers also treat a merged
   // source PR as repository-wide (a missed merge event changes nothing).
   repoWideAt          DateTime?
@@ -1676,6 +1695,33 @@ model PrReviewLearning {
   @@index([workspaceId, repo])
   @@index([sourcePullRequestId])
   @@map("pr_review_learnings")
+}
+
+// LUM-1154: a question a human asked Lumo on a pull request — a reply in a
+// Lumo finding thread, an @-mention on a code line, or an @-mention in the PR
+// conversation. One row per GitHub comment: the claim that keeps a
+// redelivered webhook from answering twice, and the count that bounds how
+// many answers one PR gets per hour. Holds no question or answer text.
+model PrChatRequest {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  pullRequestId String
+  // "review" (a review-line comment) or "issue" (a PR conversation comment):
+  // GitHub numbers the two kinds separately.
+  source        String
+  // GitHub REST id of the human's comment.
+  commentId     String
+  authorLogin   String
+  // CLAIMED → ANSWERED | RATE_LIMITED | FAILED.
+  status        String   @default("CLAIMED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, source, commentId])
+  @@index([pullRequestId, createdAt])
+  @@map("pr_chat_requests")
 }
 
 enum PrSecurityFindingDisposition {
@@ -1720,6 +1766,21 @@ enum PrSecuritySecretDowngrade {
 enum PrSecuritySuggestionOutcome {
   CONFIRMED
   OVERRULED
+}
+
+/// LUM-1150 follow-up — at most one write-back at a time may CREATE a PR's
+/// security summary comment. Two syncs that both found no summary (e.g. the
+/// hunt and the verifier finishing together) each created one; the second
+/// stayed stale. A row is a held claim; `claimedAt` doubles as the holder's
+/// token, so a release never drops a claim a later writer took over. A claim
+/// older than the TTL belongs to a writer that died and is taken over. One
+/// row per PullRequest row (= per workspace, LUM-924).
+model PrSecuritySummaryClaim {
+  pullRequestId String      @id
+  claimedAt     DateTime
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@map("pr_security_summary_claims")
 }
 
 model PrSecurityScan {
@@ -1775,6 +1836,8 @@ model PrSecurityScan {
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
   huntAudit         Json?
+  // LUM-1234: reward-hack layer state (cost caps, truncation, session coverage).
+  rewardHackState   Json?
   // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
   // started for this row; null = no managed run (BYO, disabled, or start()
   // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
@@ -1819,6 +1882,40 @@ model PrSecurityScan {
   // from before this column). The PR write-back resolves a judge finding's
   // thread as addressed only when its file was in this scope.
   judgeReviewScope  Json?
+  // LUM-1152 follow-up: how the AI review on this head was asked for —
+  // "full" (a requested full review) or "incremental" (automatic, or a
+  // requested incremental one); null = the AI review did not run here (or a
+  // row from before this column). A deferred full review is satisfied only
+  // by a "full" one.
+  judgeReviewMode   String?
+  // LUM-1146: how the repository config file (`.lumo.yaml`) was read for
+  // this scan — { baseRef, base: { status, sha, problems, unknownKeys },
+  // prBranch } (ee/security/security-scan/repo-config.ts). The PR summary
+  // reports an invalid / unreadable file and ignored keys from it. null =
+  // not read (a row from before this column, or the scan stopped earlier).
+  repoConfig        Json?
+  // LUM-1148: the pre-merge checks' results on this head — { headSha, ranAt,
+  // results: [{ id, name, kind, mode, verdict, explanation, resolution }] }
+  // (ee/security/security-scan/pre-merge-checks.ts). null = no check ran.
+  preMergeChecks    Json?
+  // LUM-1147: the review profile in force when the scan ran (quiet | chill
+  // | assertive) — which findings the write-back comments inline. null =
+  // chill (rows from before this column).
+  reviewProfile     String?
+  // LUM-1151: where the high-level summary goes for this scan's review
+  // (description | comment | off). null = description (rows from before
+  // this column).
+  highLevelSummary  String?
+  // LUM-1155: the cleaned call-flow diagram ({ participants, steps }) the
+  // walkthrough renders as Mermaid. null = none (off, trivial PR, none
+  // drawn). Model-written over the diff: scrubbed with prSummary.
+  sequenceDiagram   Json?
+  // LUM-1215: what the path filters left out of the AI review on this head —
+  // { builtIn: { count, paths[≤20] }, configured: { count } }
+  // (ee/security/security-scan/reviewable-path.ts). The summary names the
+  // built-in skips so a default never hides a file silently. null = nothing
+  // skipped, or a row from before this column. Paths only, never content.
+  reviewPathSkips   Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1888,6 +1985,22 @@ model PrSecurityFinding {
   // credential. Null on every non-secret row and on a hit that was not
   // downgraded — never inferred from `detail` (see SecretDowngradeReason).
   secretDowngrade        PrSecuritySecretDowngrade?
+  // LUM-1150 (LLM_JUDGE rows only): the one-click fix the inline comment
+  // carries as a GitHub suggestion block — { startLine, endLine, code },
+  // validated against this head's added lines before it is stored. Model
+  // output about customer code: scrubbed with the other code fields.
+  codeSuggestion         Json?
+  // LUM-1147 (LLM_JUDGE rows only): the glob of the repository path
+  // instruction this finding applies — the model's claim, kept only when that
+  // instruction was sent for this finding's file. Such a finding is commented
+  // inline under chill and assertive whatever its severity (quiet: summary).
+  pathInstruction        String?
+  // LUM-1150: when a PR write-back claimed this row's inline comment. Every
+  // writer of a scan (stage A, hunt, managed run, verifier) syncs it, often
+  // at the same moment; each claims a row before posting it, so only one of
+  // them posts. A claim older than the sync's TTL can be taken over (a
+  // writer that died between claiming and posting).
+  inlineCommentClaimedAt DateTime?
   createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
@@ -2065,6 +2178,12 @@ model PullRequest {
   // LUM-1137: this PR's own pause-after-N-reviewed-commits, set only by
   // `--resume --limit` / `@uselumo resume`; null = the workspace setting.
   reviewCommitLimit Int?
+  // LUM-1148: `@uselumo ignore pre-merge checks` — who overrode this PR's
+  // pre-merge checks, when, and at which head. null = not overridden. Per
+  // PR; never clears a finding that blocks DONE.
+  preMergeOverrideBy   String?
+  preMergeOverrideAt   DateTime?
+  preMergeOverrideSha  String?
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)
@@ -2109,7 +2228,11 @@ model PullRequest {
   mirroredComments PrCommentMirror[]
   securityScans    PrSecurityScan[]
   findingThreads   PrFindingThread[]
+  // LUM-1154
+  chatRequests     PrChatRequest[]
   testCaseRuns     TestCaseRun[]
+  // LUM-1150: the single-writer claim on creating this PR's summary comment.
+  securitySummaryClaim PrSecuritySummaryClaim?
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
   // installation can each confirm the same repository and track its PRs.
@@ -2778,7 +2901,7 @@ model HookEvent {
 // coding session (Session.taskId lifetime lock, LUM-459). STEWARD = a
 // governance session bound to a MILESTONE (Session.milestoneId): it plans and
 // accepts (task create/update, deps confirm/dismiss, milestone add/remove,
-// milestone exit criteria, all reads) but is gated out of implementation
+// milestone test cases, all reads) but is gated out of implementation
 // actions (dispatching a task to itself → 409); implementation artifacts it produces
 // anyway are recorded as STEWARD_IMPLEMENTATION_ARTIFACT boundary crossings.
 enum SessionRole {
@@ -3044,7 +3167,7 @@ enum MemoryStatus {
 model Memory {
   id                String                       @id @default(cuid())
   workspaceId       String
-  projectId         String
+  projectId         String?
   taskId            String?
   scope             MemoryScope
   category          MemoryCategory
@@ -3089,7 +3212,7 @@ model Memory {
   contentSignals Json?
 
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task            Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
   milestone       Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
@@ -3674,30 +3797,6 @@ model TaskForecastSnapshot {
   @@map("task_forecast_snapshots")
 }
 
-// ─── Acceptance enums still used by MilestoneExitCriterion (LUM-643) ────
-// Task-level acceptance criteria + verification runs were removed in LUM-942.
-
-/// Provenance of a criterion — the key feedback-loop signal. AGENT_DRAFT =
-/// initial contract drafted by the agent (round 0); HUMAN_EDIT = a human
-/// revision (possibly transcribed by the agent from a conversation, with
-/// attribution); REVIEW_ADDED = a gap found during review, appended in place
-/// at the round it surfaced.
-enum AcceptanceCriterionSource {
-  AGENT_DRAFT
-  HUMAN_EDIT
-  REVIEW_ADDED
-}
-
-/// What a criterion anchors — the only dimension that determines independence
-/// (LUM-602). Agent-declared, one of these three; UNVERIFIED_ASSERTION is a
-/// falsifier-derived effective kind (shared/src/referent-kind.ts), never stored.
-/// Mirrors REFERENT_KIND_DECLARABLE in shared/src/referent-kind.ts — keep in sync.
-enum ReferentKind {
-  EXTERNAL_FACT
-  AGENT_CONSTRUCTED_STATE
-  PENDING_OUTCOME
-}
-
 // ─── TaskDependency (LUM-172 检测优于声明) ──────────────────────────────────
 // Migration: 20260610015440_add_task_dependencies
 // LUM-172: task dependency edges (检测优于声明) — initial schema.
@@ -4008,6 +4107,9 @@ model TestCaseRunDisposition {
 ///
 /// 只认浏览器会话（Clerk）：复核是「某个人亲眼看过证据并裁定」，bearer 身份在
 /// 路由解析 body 之前就被 403（与 human-verdict 同一条信任边界）。
+///
+/// LUM-1231：抽查功能已删除，产品不再读写这张表。按两步迁移（CLAUDE.md
+/// 「Destructive Migrations」）在后续 release 里删表与两个反向关系。
 model TestCaseRunReview {
   id            String  @id @default(cuid())
   testCaseRunId String
@@ -4353,4 +4455,18 @@ model AuthRateLimit {
 
   @@index([lastRequest])
   @@map("auth_rate_limits")
+}
+
+// LUM-1234: per-workspace monthly LLM spend per feature (month = YYYY-MM, UTC).
+model WorkspaceLlmSpend {
+  id          String    @id @default(cuid())
+  workspaceId String
+  feature     String
+  month       String
+  usdMicros   BigInt    @default(0)
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, feature, month])
+  @@map("workspace_llm_spend")
 }

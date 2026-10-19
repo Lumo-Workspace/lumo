@@ -1,16 +1,19 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { errHttp, errNotLoggedIn } from '../lib/errors'
+import { REF_ERROR_STATUSES, refLookupError } from '../lib/ref-error'
+import { shortRef } from '../../../shared/src/short-ref'
 
 export async function memoryPromote(
   memoryId: string | undefined
 ): Promise<number | void> {
   if (!memoryId) {
     console.error(
-      'Error: missing <memoryId>. Usage: lumo memory promote <memoryId>'
+      'Error: missing <memory>. Usage: lumo memory update <memory> --scope project'
     )
-    return 1
+    return EXIT_USAGE
   }
   const creds = readCredentials()
   if (!creds) {
@@ -36,14 +39,29 @@ export async function memoryPromote(
     )
     return 1
   }
-  if (res.status === 404) {
+  if (res.status === 409) {
+    // 409 is either "already project-scoped" or (LUM-1230) an ambiguous ref
+    // whose message lists the candidates.
+    const msg = await refLookupError(
+      res,
+      'this memory is already project-scoped.'
+    )
     console.error(
-      `Error: memory ${memoryId} not found — pass the full memory id (cuid) from \`lumo task memory list\` / \`lumo project memory list\`; truncated id prefixes are not resolved`
+      /ambiguous/i.test(msg)
+        ? msg
+        : 'Error: this memory is already project-scoped.'
     )
     return 1
   }
-  if (res.status === 409) {
-    console.error('Error: this memory is already project-scoped.')
+  if (REF_ERROR_STATUSES.has(res.status)) {
+    // LUM-1230: the server resolves a short ref / unique prefix and explains
+    // a miss or an ambiguous ref; the fallback covers an older server.
+    console.error(
+      await refLookupError(
+        res,
+        `memory ${sanitizeField(memoryId)} not found — pass the ref shown by \`lumo memory list\` / \`lumo memory list --scope project\``
+      )
+    )
     return 1
   }
   if (res.status !== 200) {
@@ -59,8 +77,15 @@ export async function memoryPromote(
     )
     return 1
   }
+  let promotedRef = sanitizeField(memoryId)
+  try {
+    const b = (await res.json()) as { memory?: { id?: unknown } }
+    if (typeof b.memory?.id === 'string') promotedRef = shortRef(b.memory.id)
+  } catch {
+    /* keep what was typed */
+  }
   process.stdout.write(
-    `Promoted ${memoryId} to PROJECT — every agent on this project now sees it.\n` +
+    `Promoted ${promotedRef} to PROJECT — every agent on this project now sees it.\n` +
       'Promote only lessons that recur across 2+ tasks.\n'
   )
 }

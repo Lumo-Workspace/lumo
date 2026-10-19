@@ -22,8 +22,12 @@ import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-co
 import { HUNT_MODEL } from '@/lib/ai/models'
 import { isModelUnavailableError } from '@/ee/security/security-scan/hunt/model-unavailable'
 import { readRepoFile } from '@/lib/integrations/github/contents'
+import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   redactKnownSecrets,
+  redactShellCommand,
+  redactShellReason,
+  redactSummaryText,
   inheritDispositions,
   mechanicalVerify,
 } from '@/ee/security/security-scan'
@@ -54,6 +58,8 @@ import {
   newStepLedger,
 } from '@/ee/security/security-scan/hunt/step-output'
 import { normalizeCommand } from '@/ee/security/security-scan/hunt/progress'
+import { formatTraceCache } from '@/ee/security/security-scan/hunt/trace-cache'
+import { formatHuntSubmission as formatSubmission } from '@/ee/security/security-scan/hunt/candidate'
 import { plannedTaskCap } from '@/ee/security/security-scan/hunt/allocation'
 import {
   isTransientPlanError,
@@ -144,6 +150,19 @@ function clean(text: string, max: number): string {
   return redactKnownSecrets(text).replace(CONTROL_CHARS, '').slice(0, max)
 }
 
+/**
+ * LUM-1200 — `clean` for the model's prose about the finding (its claim and
+ * the precondition / falsifier text): the prose quoted-span pass, so an
+ * ordinary quoted phrase or inline code (`expiresAt > now || token.length >
+ * 0`) is not masked as a credential, as for the AI review's title and detail
+ * (`redactFindingProse`; registry secrets, credential-shaped and
+ * credential-keyed values are still masked). Paths and the call chain stay
+ * on `clean`. The fingerprint is computed before this, from the candidate.
+ */
+function cleanProse(text: string, max: number): string {
+  return redactFindingProse(text).replace(CONTROL_CHARS, '').slice(0, max)
+}
+
 /** Pure; exported for tests. Spec §8 "Verify → finding". */
 export function toHuntFindingRows(
   scanId: string,
@@ -159,8 +178,8 @@ export function toHuntFindingRows(
       provenance: 'LLM_JUDGE',
       filePath: clean(f.sink.file, PATH_MAX),
       line: f.sink.line,
-      title: clean(f.claim, TITLE_MAX),
-      detail: clean(
+      title: cleanProse(f.claim, TITLE_MAX),
+      detail: cleanProse(
         `${f.precondition}\n\nFalsifier: INCONCLUSIVE — ${f.falsifierReason}\nEntry: ${f.entry.symbol} (${f.entry.file}:${f.entry.line})`,
         DETAIL_MAX
       ),
@@ -696,6 +715,25 @@ export const securityHuntService = {
     // the client's `onStep` callback so a timeout keeps every step that
     // completed before the window closed; redacted and clipped HERE because
     // this is where every other model-authored string gets persisted.
+    //
+    // LUM-1200 follow-up #2 — which pass, per recorded field:
+    //   · step `text` / wrap-up `text` — the model's own narration: the prose
+    //     pass (`redactSummaryText`: registry secrets, credential-shaped and
+    //     credential-keyed quoted values masked). The blanket pass masked
+    //     plain prose from an apostrophe on (`I'll a…(len 156)`).
+    //   · shell `cmd` — model-authored, but its quoted arguments are often
+    //     literals copied from what it read: the command pass
+    //     (`redactShellCommand`, LUM-1200 follow-up #3) — `rg -n
+    //     'parseQuantity'` and `rg "export function checkSessionToken"` stay
+    //     readable; a credential-shaped literal, a credential key's value
+    //     (`rg 'token=…'`) and every quoted argument of a command that says a
+    //     credential word outside its quotes (`# the token`) are masked.
+    //   · a refused command's `reason` — the gate's sentence, then the
+    //     refused segment quoted from the command (LUM-1200 follow-up #4,
+    //     `redactShellReason`): the quoted command text gets the command pass
+    //     (judged against the whole command, so it reads as `cmd` does), the
+    //     sentence the prose pass. The strict pass masked `grep -l
+    //     "isSessionValid|…"` there while `cmd` kept it.
     const trace: HuntStepTrace[] = []
     // LUM-787 — the per-step output ledger. The SDK runs a step's tool calls
     // and THEN fires the step hook, so the hook is the step boundary: reset
@@ -711,7 +749,7 @@ export const securityHuntService = {
         ...step,
         ...(step.text
           ? {
-              text: redactKnownSecrets(step.text).slice(
+              text: redactSummaryText(step.text).slice(
                 0,
                 HUNT_TRACE_TEXT_CHARS
               ),
@@ -741,7 +779,7 @@ export const securityHuntService = {
     const clipWrapUp = (w: HuntWrapUpFacts): HuntWrapUpFacts => ({
       ...w,
       ...(w.text
-        ? { text: redactKnownSecrets(w.text).slice(0, HUNT_WRAP_UP_TEXT_CHARS) }
+        ? { text: redactSummaryText(w.text).slice(0, HUNT_WRAP_UP_TEXT_CHARS) }
         : {}),
     })
     try {
@@ -816,7 +854,7 @@ export const securityHuntService = {
           const entryIndex = shell.commands.length
           if (entryIndex < HUNT_SHELL_LOG_MAX) {
             shell.commands.push({
-              cmd: redactKnownSecrets(command).slice(0, HUNT_SHELL_LOG_CHARS),
+              cmd: redactShellCommand(command).slice(0, HUNT_SHELL_LOG_CHARS),
             })
           }
           const out = await runHuntShell({ handle, task: input.task, command })
@@ -831,7 +869,7 @@ export const securityHuntService = {
             const entry = shell.commands[entryIndex]!
             entry.denied = true
             if (out.error !== undefined) {
-              entry.reason = redactKnownSecrets(out.error).slice(
+              entry.reason = redactShellReason(out.error, command).slice(
                 0,
                 HUNT_SHELL_LOG_CHARS
               )
@@ -889,6 +927,18 @@ export const securityHuntService = {
         wrapUpDeadlineAt: started + input.timeBudgetMs,
         onStep,
       })
+      // LUM-1224 — how much of the search's input the prompt cache served,
+      // where a deploy log keeps it (the per-step split is in the trace).
+      logger.info(
+        `[security-hunt] cache scan=${input.job.scanId} task=${input.task.id} ${formatTraceCache(trace)}`
+      )
+      // LUM-1226 — a candidate that breaks the contract is dropped on its
+      // own now; this line is where a deploy log shows that it happened.
+      if (out.submission) {
+        logger.info(
+          `[security-hunt] candidates scan=${input.job.scanId} task=${input.task.id} ${formatSubmission(out.submission)}`
+        )
+      }
       return {
         candidates: out.candidates,
         // The hunt model's tokens PLUS the compressions its commands paid
@@ -905,6 +955,7 @@ export const securityHuntService = {
         trace,
         ...(out.stop ? { stop: out.stop } : {}),
         ...(out.wrapUp ? { wrapUp: clipWrapUp(out.wrapUp) } : {}),
+        ...(out.submission ? { submission: out.submission } : {}),
         compress,
         ...vm,
       }

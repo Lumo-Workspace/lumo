@@ -4,6 +4,12 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSessionId } from '../lib/session-id'
 import { NOT_LOGGED_IN_MESSAGE, errAuth, errHttp } from '../lib/errors'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import type { OutputSink } from '../lib/output-sink'
 
 interface SignalRow {
   id: string
@@ -33,10 +39,12 @@ async function authBase(): Promise<
  * plus its backing rejection signals.
  */
 export async function outcomeShow(
-  taskId: string | undefined
+  taskId: string | undefined,
+  opts: { json?: boolean } = {},
+  out: OutputSink = process.stdout
 ): Promise<number | void> {
   if (!taskId || taskId.trim() === '') {
-    console.error('Error: a task is required: lumo outcome show <task>')
+    console.error('Error: a task is required: lumo task show <task> --outcome')
     return 1
   }
   const auth = await authBase()
@@ -69,13 +77,20 @@ export async function outcomeShow(
     verdict: 'REJECTED' | 'INCONCLUSIVE'
     signals: SignalRow[]
   }
+  if (opts.json) {
+    emitJson(
+      detailEnvelope('outcome', stripInternalFields(well), { task: taskId }),
+      out
+    )
+    return
+  }
 
   const mark = well.verdict === 'REJECTED' ? '✗' : '·'
-  process.stdout.write(
+  out.write(
     `${mark} Outcome well — ${sanitizeField(taskId)}: ${well.verdict}\n`
   )
   if (well.verdict === 'INCONCLUSIVE') {
-    process.stdout.write(
+    out.write(
       '  No rejection on record. INCONCLUSIVE ≠ satisfied — the well only ' +
         'asserts rejection; silence is not a pass.\n'
     )
@@ -84,7 +99,7 @@ export async function outcomeShow(
   for (const s of well.signals) {
     const when = fmtDay(s.occurredAt ?? s.detectedAt)
     const note = s.evidence?.note ? ` — ${sanitizeField(s.evidence.note)}` : ''
-    process.stdout.write(
+    out.write(
       `  ${when}  ${sanitizeField(s.kind)} (${sanitizeField(s.source)})${note}\n`
     )
   }

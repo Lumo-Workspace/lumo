@@ -42,7 +42,7 @@ describe('CLI command grammar', () => {
     expect(flags).not.toContain('--force')
   })
 
-  it('LUM-733/942: removed commands are gone from the grammar, neighbours kept', () => {
+  it('LUM-733/942/1141: removed commands are gone from the grammar, neighbours kept', () => {
     const REMOVED = [
       'verdict',
       'fidelity',
@@ -57,15 +57,28 @@ describe('CLI command grammar', () => {
       'criteria',
       'criteria audit',
       'outcome rate',
-    ]
-    const KEPT = [
-      'outcome show',
-      'crossing explain',
-      'task status',
-      'task wrapup',
+      // LUM-1141
+      'milestone criteria',
       'milestone criteria set',
       'milestone criteria list',
       'milestone criteria verdict',
+      // LUM-1233: one way to read a task (`task show` aspects, `task status`)
+      'task context',
+      'task wrapup',
+      'task comments list',
+      'task history',
+      'task scans',
+      'task runs',
+      'task lineage',
+      'task deps list',
+      'outcome',
+      'outcome show',
+    ]
+    const KEPT = [
+      'crossing explain',
+      'task status',
+      'task show',
+      'milestone testcase add',
     ]
     const names = Object.keys(cmds)
     for (const r of REMOVED) expect(names).not.toContain(r)

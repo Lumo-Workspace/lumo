@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
@@ -166,13 +167,13 @@ export async function crossingDisposition(
     console.error(
       'Error: pass exactly one of --false-positive or --confirmed (the ruling to record).'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (options.confirmRead && options.confirm) {
     console.error(
       'Error: --confirm-read and --confirm are separate steps — run them one at a time, each from the envelope the previous step printed.'
     )
-    return 1
+    return EXIT_USAGE
   }
   const note = options.note?.trim() || undefined
   const rawReceipt = options.receipt?.trim() || undefined

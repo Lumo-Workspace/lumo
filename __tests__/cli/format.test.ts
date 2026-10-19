@@ -1,7 +1,8 @@
 /**
  * @jest-environment node
  */
-import { formatDuration, relativeTime } from '@/cli/src/lib/format'
+import * as format from '@/cli/src/lib/format'
+import { formatDuration } from '@/cli/src/lib/format'
 
 describe('formatDuration', () => {
   it('floors sub-minute at 1s and rounds seconds', () => {
@@ -17,19 +18,8 @@ describe('formatDuration', () => {
   })
 })
 
-describe('relativeTime', () => {
-  const now = new Date('2026-06-01T12:00:00Z')
-  it('just now under a minute', () => {
-    expect(relativeTime(new Date('2026-06-01T11:59:30Z'), now)).toBe('just now')
-  })
-  it('minutes / hours / days', () => {
-    expect(relativeTime(new Date('2026-06-01T11:30:00Z'), now)).toBe('30m ago')
-    expect(relativeTime(new Date('2026-06-01T10:00:00Z'), now)).toBe('2h ago')
-    expect(relativeTime(new Date('2026-05-30T12:00:00Z'), now)).toBe(
-      '2 days ago'
-    )
-    expect(relativeTime(new Date('2026-05-31T12:00:00Z'), now)).toBe(
-      'yesterday'
-    )
+describe('relative time is retired (LUM-1232, absolute time only)', () => {
+  it('format.ts no longer exports relativeTime', () => {
+    expect('relativeTime' in format).toBe(false)
   })
 })

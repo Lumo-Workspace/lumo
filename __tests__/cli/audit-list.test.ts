@@ -105,7 +105,7 @@ describe('lumo audit list', () => {
     expect(auditQuery({}, true)).toBe('')
   })
 
-  it('lumo audit list: prints one aligned row per event and the next-page hint', async () => {
+  it('lumo audit list: prints one row per event and the next-page line', async () => {
     serve(page)
     expect(await auditList({ action: 'member', since: '7d' })).toBeUndefined()
     expect(calls[0]?.url).toBe(
@@ -115,22 +115,19 @@ describe('lumo audit list', () => {
       (calls[0]?.init?.headers as Record<string, string>).Authorization
     ).toBe('Bearer tok')
     expect(out).toContain(
-      `${fmtTimestamp('2026-10-04T15:54:00.000Z')}  member.role_changed     Alice Chen <alice@example.com>  member m_2   WEB     203.0.113.9`
+      `${fmtTimestamp('2026-10-04T15:54:12.000Z')}\tmember.role_changed\tAlice Chen <alice@example.com>\tmember m_2\tWEB\t203.0.113.9`
     )
     expect(out).toContain(
-      `${fmtTimestamp('2026-10-03T01:02:00.000Z')}  github_app.uninstalled  system                          integration  SYSTEM  -`
-    )
-    expect(out).toContain(
-      'Hint: more events with `lumo audit list --action member --since 7d --cursor CUR123`'
+      `${fmtTimestamp('2026-10-03T01:02:03.000Z')}\tgithub_app.uninstalled\tsystem\tintegration\tSYSTEM\t-\nShowing 1-2.\nNext page: lumo audit list --action member --since 7d --cursor CUR123\n`
     )
   })
 
   // LUM-1116: values are shell-quoted only when they need it.
-  it('lumo audit list: next-page hint carries bare values, quoting only unsafe ones', async () => {
+  it('lumo audit list: next-page line carries bare values, quoting only unsafe ones', async () => {
     serve(page)
     await auditList({ limit: '2', actor: 'Alice Chen' })
     expect(out).toContain(
-      "Hint: more events with `lumo audit list --actor 'Alice Chen' --limit 2 --cursor CUR123`"
+      "Next page: lumo audit list --actor 'Alice Chen' --limit 2 --cursor CUR123"
     )
     expect(out).not.toContain('"2"')
   })
@@ -138,7 +135,7 @@ describe('lumo audit list', () => {
   it('lumo audit list: --json prints the page as returned', async () => {
     serve(page)
     await auditList({ json: true })
-    expect(JSON.parse(out)).toEqual(page)
+    expect(JSON.parse(out)).toEqual({ version: 1, ...page, total: null })
   })
 
   it('lumo audit list: an empty log says so', () => {

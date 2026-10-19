@@ -158,3 +158,59 @@ export async function promoteLearningsOnMerge(
     at
   )
 }
+
+/** LUM-1157 — at most this many learnings are listed. */
+export const REVIEW_LEARNINGS_LIST_LIMIT = 200
+
+/** Listed in place of a learning whose memory no longer has learning content. */
+export const UNREADABLE_LEARNING = '(content not readable as a learning)'
+
+export interface ReviewLearningView {
+  /** The learning's memory id — `lumo memory rm <id>` deletes it. */
+  id: string
+  repo: string
+  pathGlob: string | null
+  learning: string
+  ruleId: string
+  authorLogin: string
+  /** Applies to every PR of the repository (its source PR merged). */
+  repositoryWide: boolean
+  /** false = scoped to the workspace + repository only (no Lumo project). */
+  inProject: boolean
+  createdAt: string
+}
+
+/**
+ * LUM-1157 — the workspace's PR-review learnings (ACTIVE memories), newest
+ * first, optionally one repository's. Lists learnings of repositories linked
+ * to no Lumo project too: they appear in no project's memory, so this is
+ * where they are found. Any member may read.
+ */
+export async function listReviewLearnings(
+  workspaceId: string,
+  repo: string | null
+): Promise<{ learnings: ReviewLearningView[] }> {
+  const rows = await prReviewLearningRepository.listActiveForWorkspace(
+    workspaceId,
+    repo,
+    REVIEW_LEARNINGS_LIST_LIMIT
+  )
+  // A row whose content no longer reads as a learning is still listed (the
+  // review skips it, but it can be found and deleted) — never dropped after
+  // the cap, which would hide newer learnings behind it.
+  const learnings: ReviewLearningView[] = rows.map(r => {
+    const parsed = conventionContentSchema.safeParse(r.content)
+    return {
+      id: r.memoryId,
+      repo: r.repo,
+      pathGlob: r.pathGlob,
+      learning: parsed.success ? parsed.data.rule : UNREADABLE_LEARNING,
+      ruleId: r.ruleId,
+      authorLogin: r.authorLogin,
+      repositoryWide: r.repoWideAt !== null,
+      inProject: r.projectId !== null,
+      createdAt: r.createdAt.toISOString(),
+    }
+  })
+  return { learnings }
+}

@@ -6,13 +6,13 @@ import { NextRequest } from 'next/server'
 // Only the service call is mocked: the real route handler and the real
 // requireCronAuth (lib/api/cron-auth) decide the outcome.
 jest.mock('@/lib/services/summary.service', () => ({
-  summaryService: { generateCronSummaries: jest.fn() },
+  summaryService: { pruneGenerationJobs: jest.fn() },
 }))
 
 import { GET } from '@/app/api/summaries/generate/route'
 import { summaryService } from '@/lib/services/summary.service'
 
-const mockGenerate = summaryService.generateCronSummaries as jest.Mock
+const mockGenerate = summaryService.pruneGenerationJobs as jest.Mock
 
 function req(authHeader?: string) {
   return new NextRequest('http://localhost/api/summaries/generate', {
@@ -25,7 +25,7 @@ const ORIGINAL_SECRET = process.env.CRON_SECRET
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockGenerate.mockResolvedValue([])
+  mockGenerate.mockResolvedValue(0)
 })
 
 afterAll(() => {
@@ -39,7 +39,7 @@ describe('GET /api/summaries/generate — cron auth (LUM-981)', () => {
       delete process.env.CRON_SECRET
     })
 
-    it('fails closed on `Bearer undefined`: 401 and no summaries generated', async () => {
+    it('fails closed on `Bearer undefined`: 401 and nothing pruned', async () => {
       const res = await GET(req('Bearer undefined'))
       expect(res.status).toBe(401)
       expect(mockGenerate).not.toHaveBeenCalled()
@@ -76,11 +76,11 @@ describe('GET /api/summaries/generate — cron auth (LUM-981)', () => {
     })
 
     it('runs the cron with the correct secret: 200 and service called', async () => {
-      mockGenerate.mockResolvedValue([{ workspaceId: 'w1' }])
+      mockGenerate.mockResolvedValue(2)
       const res = await GET(req('Bearer test-secret'))
       expect(res.status).toBe(200)
       expect(mockGenerate).toHaveBeenCalledTimes(1)
-      expect(await res.json()).toEqual({ results: [{ workspaceId: 'w1' }] })
+      expect(await res.json()).toEqual({ pruned: 2 })
     })
   })
 })

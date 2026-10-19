@@ -54,6 +54,11 @@ import { isReversible, severityFor } from '@/lib/boundary-crossing/taxonomy'
 import { sensitivePathGlobsFromRules } from '@/lib/boundary-crossing/policy-rule-paths'
 import { forbiddenRuleSourceService } from '@/lib/services/forbidden-rule-source.service'
 import { uploadStaysLocal } from '@/lib/boundary-crossing/url-hosts'
+import { matchDestructiveDb } from '@/lib/boundary-crossing/destructive-db'
+import {
+  MIGRATIONS_PATH,
+  protectedPathDeletions,
+} from '@/lib/boundary-crossing/path-delete'
 import {
   matchSelfStartedProcesses,
   selfStopPatterns,
@@ -229,42 +234,20 @@ const WORKTREE_PATH_SEGMENT = /(?:^|\/)\.worktrees\//
  * only segment(s) that invoke `rm`/`git rm`, and require the migration path to
  * appear in that segment's args AFTER the rm verb — the path must actually be a
  * delete target, not just co-occur elsewhere in the line.
+ *
+ * LUM-1236: the operand analysis is shared with the project `path-delete`
+ * predicate (lib/boundary-crossing/path-delete) — a "never delete files in
+ * prisma/migrations/" project rule is judged by this detector alone, so it must
+ * see every real delete of that path: `mv` / `git mv` away, `find … -delete` /
+ * `-exec rm`, `… | xargs rm`, quoted operands, a `cd` into the directory, a
+ * recursive delete of a parent directory, the directory itself without a
+ * trailing slash. It reads the RAW command (its own verb scoping drops print /
+ * search / authoring carriers and non-interpreter heredoc bodies), so a
+ * pipeline stays intact for `xargs`.
  */
 function matchMigrationDelete(cmd: string): boolean {
-  for (const seg of splitCommandSegments(cmd)) {
-    const m = seg.match(/(?:^|[\s(])(?:rm|git\s+rm)\b/)
-    if (!m) continue
-    const args = seg.slice((m.index ?? 0) + m[0].length)
-    const deletesMigration = args
-      .split(/\s+/)
-      .some(
-        tok =>
-          tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
-      )
-    if (deletesMigration) return true
-  }
-  return false
-}
-
-/** Tool-specific irreversibles — fire on any executing segment. */
-const DB_TOOL_RESET =
-  /prisma\s+migrate\s+reset|\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/
-/** Generic SQL drop/truncate phrases. */
-const DB_DDL_PHRASE = /\bdrop\s+(?:database|table)\b|\btruncate\s+table\b/i
-
-/**
- * Irreversible / data-destroying DB commands. LUM-751: segment-scoped and
- * print/search-aware — only EXECUTING segments (see
- * lib/boundary-crossing/command-shape) are tested, so a `grep` / `echo` /
- * `git log --grep` naming DDL, the same grep inside a `bash -c '…'` wrapper, or
- * a PR body / commit message never trips it, while `psql -c "…"`,
- * `mysql -e "…"` and `prisma migrate reset` still do. (Re-instates the LUM-426
- * print-or-search exclusion that the prose gate had absorbed, deterministic
- * this time — no LLM round-trip for the obvious shapes.)
- */
-function matchDestructiveDb(cmd: string): boolean {
-  return executingSegments(cmd).some(
-    seg => DB_TOOL_RESET.test(seg) || DB_DDL_PHRASE.test(seg)
+  return protectedPathDeletions(cmd, [MIGRATIONS_PATH]).some(
+    d => !WORKTREE_PATH_SEGMENT.test(d.matched)
   )
 }
 
@@ -783,7 +766,7 @@ function decodeBase64Segments(cmd: string): string[] {
  *  fingerprint below. */
 const CORE_COMMAND_MATCHERS: ReadonlyArray<CrossingCommandMatcher> = [
   { category: 'PUSH_TO_PROTECTED_BRANCH', fn: matchProtectedPush },
-  { category: 'MIGRATION_FILE_DELETED', fn: matchMigrationDelete },
+  { category: 'MIGRATION_FILE_DELETED', fn: matchMigrationDelete, raw: true },
   { category: 'DESTRUCTIVE_DB_COMMAND', fn: matchDestructiveDb },
   { category: 'NEW_NPM_DEPENDENCY', fn: matchNewNpmDependency },
   // LUM-1063: the action classes are core matchers; a plugin may add the

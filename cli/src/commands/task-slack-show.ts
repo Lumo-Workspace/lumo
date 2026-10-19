@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { reportPull } from '../lib/report-pull'
@@ -6,13 +7,21 @@ import {
   type SlackSnapshotMessage,
 } from '../lib/tier2-render'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { sanitizeField } from '../lib/sanitize'
+import { refLookupError } from '../lib/ref-error'
+import {
+  detailEnvelope,
+  emitJson,
+  stripInternalFields,
+} from '../lib/json-output'
+import { guardJsonBlock } from '../lib/json-guard'
 
 interface SlackSnapshot {
   messages?: SlackSnapshotMessage[]
 }
 
 /**
- * `lumo task slack show <LUM-N> <context-id>`
+ * `lumo task slack show <LUM-N> <ref>`
  *
  * Tier-2 retrieval for the cheap inline Slack card. Fetches the stored thread
  * snapshot (no live Slack call) from
@@ -22,11 +31,12 @@ interface SlackSnapshot {
  */
 export async function taskSlackShow(
   identifier: string | undefined,
-  contextId: string | undefined
+  contextId: string | undefined,
+  opts: { json?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier || !contextId) {
-    console.error('Error: usage: lumo task slack show <LUM-42> <context-id>')
-    return 1
+    console.error('Error: usage: lumo task slack show <LUM-42> <ref>')
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -54,6 +64,17 @@ export async function taskSlackShow(
     console.error(errAuth())
     return 1
   }
+  // LUM-1230: an ambiguous (409) or too-short (400) short ref — the server
+  // message lists the candidates / the minimum length.
+  if (res.status === 409 || res.status === 400) {
+    console.error(
+      await refLookupError(
+        res,
+        `could not resolve Slack context "${sanitizeField(contextId)}"`
+      )
+    )
+    return 1
+  }
   if (res.status === 404) {
     console.error(
       `Error: task ${identifier} or slack context ${contextId} not found in workspace ${creds.workspaceSlug}`
@@ -65,14 +86,41 @@ export async function taskSlackShow(
     return 1
   }
 
-  const { snapshot, redactedSecrets } = (await res.json()) as {
+  const { id, snapshot, redactedSecrets } = (await res.json()) as {
+    /** LUM-1230: the resolved context id (absent on an older server). */
+    id?: string
     snapshot: SlackSnapshot | null
     redactedSecrets?: number
   }
-  // LUM-998: fenced + guarded; the redaction count is the first notice.
-  console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
+  if (opts.json) {
+    // Message text gets the guard of the text view's fence body.
+    emitJson(
+      detailEnvelope(
+        'slackContext',
+        stripInternalFields({
+          id: id ?? null,
+          snapshot: snapshot
+            ? {
+                ...snapshot,
+                messages: (snapshot.messages ?? []).map(m => ({
+                  ...m,
+                  text: guardJsonBlock(m.text),
+                })),
+              }
+            : null,
+          redactedSecrets: redactedSecrets ?? null,
+        })
+      )
+    )
+  } else {
+    // LUM-998: fenced + guarded; the redaction count is the first notice.
+    console.log(formatSlackSnapshot(snapshot?.messages ?? [], redactedSecrets))
+  }
 
-  // LUM-500: stamp the disclosure funnel. The contextId arg == lineage
-  // SLACK_CONTEXT fragmentId. Fire-and-forget — never blocks, swallows failures.
-  await reportPull({ fragmentType: 'SLACK_CONTEXT', fragmentId: contextId })
+  // LUM-500: stamp the disclosure funnel with the lineage SLACK_CONTEXT
+  // fragmentId — the resolved id, not a short ref (LUM-1230). Fire-and-forget.
+  await reportPull({
+    fragmentType: 'SLACK_CONTEXT',
+    fragmentId: id ?? contextId,
+  })
 }

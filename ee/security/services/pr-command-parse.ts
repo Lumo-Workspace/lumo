@@ -1,6 +1,6 @@
 /**
  * LUM-1129 — reading a reviewer command off a PR conversation comment,
- * CodeRabbit-style (`@coderabbitai review`): a line that starts with the
+ * the usual PR-bot form (`@<app> review`): a line that starts with the
  * App's mention handle, followed by the command.
  *
  * Pure (env read aside) and dependency-free, so the plugin's event handler
@@ -14,6 +14,10 @@ export type PrCommand =
   | 'resume'
   | 'resolve'
   | 'approve'
+  | 'ignore pre-merge checks'
+  | 'configuration'
+  | 'summary'
+  | 'diagram'
   | 'help'
 
 export interface ParsedPrCommand {
@@ -30,6 +34,12 @@ export const PR_COMMANDS: readonly PrCommand[] = [
   'resume',
   'resolve',
   'approve',
+  // LUM-1148: the per-PR override of the pre-merge checks.
+  'ignore pre-merge checks',
+  'configuration',
+  'summary',
+  // LUM-1155: draw the call-flow diagram again.
+  'diagram',
   'help',
 ]
 

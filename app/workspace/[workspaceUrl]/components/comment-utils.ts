@@ -14,10 +14,20 @@ export interface CommentAuthorInfo {
   imageUrl: string | undefined
 }
 
+/**
+ * Non-agent comments resolve as: workspace member (keeps avatar + current
+ * name) → the API's `authorName` (e.g. `@uselumo[bot]` on PR-mirrored
+ * comments, LUM-1238) → `fallbackName`, a localized label from the caller.
+ */
 export function resolveCommentAuthor(
-  comment: { type?: string; authorActorId: string | null },
+  comment: {
+    type?: string
+    authorActorId: string | null
+    authorName?: string | null
+  },
   members: WorkspaceMemberInfo[],
-  agentActors: AgentActorInfo[]
+  agentActors: AgentActorInfo[],
+  fallbackName: string
 ): CommentAuthorInfo {
   const isAgent = comment.type === 'AGENT'
 
@@ -34,7 +44,7 @@ export function resolveCommentAuthor(
   }
 
   const author = members.find(m => m.actorId === comment.authorActorId)
-  const name = author?.name ?? 'Unknown'
+  const name = author?.name ?? (comment.authorName || fallbackName)
   return {
     isAgent: false,
     name,

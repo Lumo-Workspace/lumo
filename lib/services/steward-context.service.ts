@@ -1,3 +1,7 @@
+import {
+  LEGACY_CLI_COMMANDS,
+  type CliCommandNames,
+} from '@/lib/cli/command-names'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import {
@@ -50,21 +54,15 @@ export const stewardContextService = {
    * they go through wrapUntrustedMemory (sanitize + guardInjectedText + the
    * untrusted-boundary framing). Best-effort: '' on any failure.
    */
-  async buildTestCaseSection(milestoneId: string): Promise<string> {
+  async buildTestCaseSection(
+    milestoneId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
+  ): Promise<string> {
     try {
       const { milestoneCloseGateService } =
         await import('@/lib/services/milestone-close-gate.service')
       const gate = await milestoneCloseGateService.read(milestoneId)
-      const criteriaLine =
-        gate.unresolvedCriteria > 0
-          ? `${gate.unresolvedCriteria} deprecated exit criteri${gate.unresolvedCriteria === 1 ? 'on holds' : 'a hold'} this milestone open — adjudicate with \`lumo milestone criteria verdict\`, or replace with test cases (\`lumo milestone testcase add\`).`
-          : null
-      if (gate.cases.length === 0) {
-        // No cases, but legacy criteria still hold the gate — say so (dual read).
-        return criteriaLine
-          ? ['## Milestone close contract', '', criteriaLine].join('\n')
-          : ''
-      }
+      if (gate.cases.length === 0) return ''
       const lines = gate.cases.map(c => {
         const state =
           c.state === 'open'
@@ -74,13 +72,16 @@ export const stewardContextService = {
       })
       const wrapped = wrapUntrustedMemory(lines.join('\n'))
       if (!wrapped) return ''
+      // LUM-1233 3a: a CLI with the `<slug>/TC<n>` handle gets the real slug.
+      const slug = commands.testCaseHandle
+        ? ((await milestoneRepository.findById(milestoneId))?.slug ?? null)
+        : null
       return [
         '## Milestone test cases (close contract)',
         '',
         gate.held === 0
           ? 'Nothing holds the close gate — every case has passed or its proven defect was accepted.'
-          : `${gate.held} item(s) hold this milestone open. Once all its tasks are DONE, run the end-to-end cases: \`lumo milestone testcase run <milestone> TC<n> --result … --env …\`.`,
-        ...(criteriaLine ? [criteriaLine] : []),
+          : `${gate.held} item(s) hold this milestone open. Once all its tasks are DONE, run the end-to-end cases: \`${commands.milestoneTestCaseRun(slug)}\`.`,
         '',
         wrapped,
       ].join('\n')
@@ -91,11 +92,12 @@ export const stewardContextService = {
 
   /** Memory section + test-case section for a steward session, blank-line joined. */
   async buildStewardSections(
-    milestoneId: string
+    milestoneId: string,
+    commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<{ section: string; memories: InjectedMilestoneMemory[] }> {
     const [memory, testCases] = await Promise.all([
       this.buildMilestoneMemorySection(milestoneId),
-      this.buildTestCaseSection(milestoneId),
+      this.buildTestCaseSection(milestoneId, commands),
     ])
     return {
       section: [memory.section, testCases].filter(Boolean).join('\n\n'),

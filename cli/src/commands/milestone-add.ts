@@ -1,3 +1,4 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
@@ -46,7 +47,7 @@ export async function milestoneAdd(
   const refs = dedupeTaskRefs(tasks)
   if (refs.length === 0) {
     console.error('Error: provide at least one task (e.g. `LUM-1 LUM-2`).')
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()

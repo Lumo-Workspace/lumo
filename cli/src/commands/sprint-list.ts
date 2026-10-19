@@ -1,10 +1,12 @@
-import { emptyState, fmtCalendarDay } from '../lib/format'
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { emptyState, fmtDayRange } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { renderListTable, type ListRenderOptions } from '../lib/list-table'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
+import { emitJson, listEnvelope, stripInternalFields } from '../lib/json-output'
 
 export interface SprintRow {
   id: string
@@ -23,6 +25,7 @@ export interface SprintListOptions {
   team?: string | undefined
   status?: string | undefined
   limit?: string | undefined
+  json?: boolean | undefined
 }
 
 const VALID_STATUSES = ['DRAFT', 'ACTIVE', 'CLOSED'] as const
@@ -41,7 +44,7 @@ export function formatSprintList(
     rows.map(r => [
       r.status,
       `#${r.number}`,
-      `${fmtCalendarDay(r.startDate)}..${fmtCalendarDay(r.endDate)}`,
+      fmtDayRange(r.startDate, r.endDate),
       sanitizeField(r.name),
     ]),
     { header: ['STATUS', 'SPRINT', 'DATES', 'NAME'], flex: 3, ...opts }
@@ -59,7 +62,7 @@ export async function sprintList(
       console.error(
         `Error: invalid --status "${options.status}". Valid values: draft | active | closed`
       )
-      return 1
+      return EXIT_USAGE
     }
   }
 
@@ -69,7 +72,7 @@ export async function sprintList(
     console.error(
       `Error: invalid --limit "${options.limit}" (expected a positive integer)`
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -111,5 +114,9 @@ export async function sprintList(
   }
 
   const data = (await res.json()) as SprintsResponse
+  if (options.json) {
+    emitJson(listEnvelope('sprints', stripInternalFields(data.sprints)))
+    return
+  }
   process.stdout.write(formatSprintList(data.sprints) + '\n')
 }

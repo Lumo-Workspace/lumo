@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import {
@@ -49,13 +50,36 @@ const DIFF_FLAGS = [
   '--dst-prefix=b/',
 ]
 
-function gitDiff(root: string, args: string[]): string {
-  const r = runGit([...DIFF_FLAGS, ...args], root)
-  if (r.error) throw r.error
+/**
+ * Output cap for the diff and the untracked-file list. `spawnSync` defaults to
+ * 1 MiB, which a large branch (or a merge in progress) passes easily.
+ */
+export const GIT_OUTPUT_MAX_BYTES = 512 * 1024 * 1024
+
+/** Run git for a large output; throws an actionable error past the cap. */
+function gitLarge(root: string, args: string[], what: string): string {
+  const r = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: GIT_OUTPUT_MAX_BYTES,
+    timeout: 120_000,
+  })
+  if (r.error) {
+    if ((r.error as NodeJS.ErrnoException).code === 'ENOBUFS') {
+      throw new Error(
+        `${what} is larger than ${GIT_OUTPUT_MAX_BYTES / 1024 / 1024} MiB — narrow it with --staged or --since <ref>`
+      )
+    }
+    throw r.error
+  }
   if (r.status !== 0) {
-    throw new Error((r.stderr || '').trim() || 'git diff failed')
+    throw new Error((r.stderr || '').trim() || `git ${args[0] ?? ''} failed`)
   }
   return r.stdout ?? ''
+}
+
+function gitDiff(root: string, args: string[]): string {
+  return gitLarge(root, [...DIFF_FLAGS, ...args], 'The diff')
 }
 
 /** True when the buffer looks binary (a NUL byte in its first 8000 bytes, git's own test). */
@@ -76,7 +100,8 @@ export function fileAsAdded(relPath: string, content: string): AddedFile {
 }
 
 function untrackedFiles(root: string, skipped: string[]): AddedFile[] {
-  const out = gitOutput(
+  const out = gitLarge(
+    root,
     [
       '-c',
       'core.quotePath=false',
@@ -85,7 +110,7 @@ function untrackedFiles(root: string, skipped: string[]): AddedFile[] {
       '--exclude-standard',
       '-z',
     ],
-    root
+    'The untracked file list'
   )
   const files: AddedFile[] = []
   for (const rel of out.split('\0').filter(Boolean)) {

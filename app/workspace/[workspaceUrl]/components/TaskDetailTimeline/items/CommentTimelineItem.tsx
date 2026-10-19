@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import type { TimelineCommentEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
 import { resolveCommentAuthor } from '../../comment-utils'
@@ -17,8 +18,14 @@ export function CommentTimelineItem({
   members,
   agentActors,
 }: CommentTimelineItemProps) {
+  const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
-  const ca = resolveCommentAuthor(entry as any, members, agentActors)
+  const ca = resolveCommentAuthor(
+    entry,
+    members,
+    agentActors,
+    intl.formatMessage({ id: 'comment.unknownAuthor' })
+  )
 
   return (
     <div className='flex gap-2.5 py-2'>

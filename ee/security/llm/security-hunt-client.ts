@@ -37,6 +37,8 @@ import {
   stepCountIs,
   hasToolCall,
   type LanguageModel,
+  type ToolCallRepairFunction,
+  type ToolSet,
 } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
@@ -50,6 +52,7 @@ import {
 import {
   type HuntStepTrace,
   type HuntStopFacts,
+  type HuntSubmissionFacts,
   type HuntWrapUpFacts,
   type HuntToolProbe,
 } from '@/ee/security/services/security-hunt.config'
@@ -61,8 +64,10 @@ import {
 import { redactPromptLine } from '@/lib/security-scan/inject-guard'
 import { HUNT_SHELL_COMMANDS } from '@/ee/security/security-scan/hunt/shell-allowlist'
 import {
+  admitHuntSubmission,
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
+  HUNT_CANDIDATES_PER_TASK_MAX,
   type HuntCategory,
 } from '@/ee/security/security-scan/hunt/candidate'
 import {
@@ -74,7 +79,11 @@ import {
   HUNT_WRAP_UP_MIN_MS,
   HUNT_WRAP_UP_TIMEOUT_MS,
 } from '@/ee/security/services/security-hunt.config'
-import { elideOlderToolResults } from '@/ee/security/security-scan/hunt/transcript'
+import {
+  elideOlderToolResults,
+  stablePrefixEnd,
+} from '@/ee/security/security-scan/hunt/transcript'
+import { markCacheBreakpoint } from '@/lib/ai/prompt-cache'
 import {
   lastStepTokens,
   nextStepTokens,
@@ -267,6 +276,56 @@ Call submit_candidates now with the candidates you have ALREADY verified by read
 
 An empty list is correct and expected if you did not verify anything. Do not invent a candidate to fill the list, do not submit a suspicion you did not confirm by reading the code, and do not name a symbol or line number you did not see.`
 
+/**
+ * LUM-1226 — what the model is SHOWN for one candidate: the full contract,
+ * limits included, exactly as it was when the tool validated against it.
+ * The limits stay as guidance; they are no longer what decides.
+ */
+const CANDIDATE_JSON_SCHEMA: Record<string, unknown> = {
+  ...z.toJSONSchema(HuntCandidateSchema, { target: 'draft-7', io: 'input' }),
+}
+// The dialect marker belongs on the root document, not on a nested item.
+delete CANDIDATE_JSON_SCHEMA.$schema
+
+/**
+ * LUM-1226 — the `submit_candidates` input as the SDK validates it, before
+ * `execute`: only that `candidates` is a list. It used to be the list of
+ * `HuntCandidateSchema` itself, and the SDK rejects a tool call as a whole —
+ * so one claim over 400 characters, one malformed CWE or one candidate too
+ * many voided every candidate of the task, with no retry under the forced
+ * tool choice. Each candidate is now cut to its limits and checked on its own
+ * in `execute` (`admitHuntSubmission`), and only an invalid one is dropped.
+ *
+ * `.meta()` carries the candidate's JSON Schema to the provider, so what the
+ * model is told is unchanged; `z.unknown()` is what is enforced.
+ */
+export const SubmitCandidatesInputSchema = z.object({
+  candidates: z
+    .array(z.unknown().meta(CANDIDATE_JSON_SCHEMA))
+    .meta({ maxItems: HUNT_CANDIDATES_PER_TASK_MAX }),
+})
+
+/**
+ * LUM-1226 — `candidates` sent as a JSON-encoded STRING of the list (the
+ * malformed shape Haiku 4.5 produced for the verifier's `submit_verdicts`).
+ * The string is parsed back into the list and the SDK re-validates the call;
+ * any other invalid input, and every other tool, is left alone (null).
+ */
+export const repairCandidatesToolCall: ToolCallRepairFunction<
+  ToolSet
+> = async ({ toolCall }) => {
+  if (toolCall.toolName !== 'submit_candidates') return null
+  try {
+    const input = JSON.parse(toolCall.input) as Record<string, unknown>
+    if (typeof input.candidates !== 'string') return null
+    const candidates: unknown = JSON.parse(input.candidates)
+    if (!Array.isArray(candidates)) return null
+    return { ...toolCall, input: JSON.stringify({ ...input, candidates }) }
+  } catch {
+    return null
+  }
+}
+
 export interface HuntClientOutput {
   candidates: unknown[]
   tokens: number
@@ -288,6 +347,11 @@ export interface HuntClientOutput {
   stop: HuntStopFacts
   /** LUM-781 — what the hand-over did, or why it was not made. */
   wrapUp: HuntWrapUpFacts
+  /**
+   * LUM-1226 — what `submit_candidates` was sent and what survived it, summed
+   * over every call. Absent when the tool never ran.
+   */
+  submission?: HuntSubmissionFacts
 }
 
 /**
@@ -305,12 +369,20 @@ export function traceOfStep(
       inputTokens?: number | undefined
       outputTokens?: number | undefined
       outputTokenDetails?: { reasoningTokens?: number | undefined } | undefined
+      inputTokenDetails?:
+        | {
+            cacheReadTokens?: number | undefined
+            cacheWriteTokens?: number | undefined
+          }
+        | undefined
     }
   }
 ): HuntStepTrace {
   const tool = step.toolCalls?.[0]?.toolName
   const text = step.text?.trim()
   const reasoning = step.usage?.outputTokenDetails?.reasoningTokens
+  const cacheRead = step.usage?.inputTokenDetails?.cacheReadTokens
+  const cacheWrite = step.usage?.inputTokenDetails?.cacheWriteTokens
   return {
     i,
     ...(tool ? { tool } : {}),
@@ -318,6 +390,8 @@ export function traceOfStep(
     ...(typeof step.usage?.inputTokens === 'number'
       ? { inputTokens: step.usage.inputTokens }
       : {}),
+    ...(typeof cacheRead === 'number' ? { cacheReadTokens: cacheRead } : {}),
+    ...(typeof cacheWrite === 'number' ? { cacheWriteTokens: cacheWrite } : {}),
     ...(typeof step.usage?.outputTokens === 'number'
       ? { outputTokens: step.usage.outputTokens }
       : {}),
@@ -518,6 +592,7 @@ export async function huntTask(
   input: HuntClientInput
 ): Promise<HuntClientOutput> {
   const submitted: unknown[] = []
+  let submission: HuntSubmissionFacts | undefined
 
   const tools = {
     run_shell: tool({
@@ -538,12 +613,26 @@ export async function huntTask(
     submit_candidates: tool({
       description:
         'Submit the final candidates for this task (may be empty). Call exactly once, when done.',
-      inputSchema: z.object({
-        candidates: z.array(HuntCandidateSchema).max(10),
-      }),
+      inputSchema: SubmitCandidatesInputSchema,
       execute: async ({ candidates }) => {
-        submitted.push(...candidates)
-        return { accepted: candidates.length }
+        const tally = admitHuntSubmission(candidates)
+        submitted.push(...tally.kept)
+        const reasons = [
+          ...new Set([...(submission?.reasons ?? []), ...tally.reasons]),
+        ]
+        submission = {
+          calls: (submission?.calls ?? 0) + 1,
+          submitted: (submission?.submitted ?? 0) + tally.submitted,
+          kept: (submission?.kept ?? 0) + tally.kept.length,
+          dropped: (submission?.dropped ?? 0) + tally.dropped,
+          ...(reasons.length > 0 ? { reasons } : {}),
+        }
+        return {
+          accepted: tally.kept.length,
+          ...(tally.dropped > 0
+            ? { dropped: tally.dropped, invalid: tally.reasons }
+            : {}),
+        }
       },
     }),
   }
@@ -610,6 +699,7 @@ export async function huntTask(
     // went to waiting, not analysis. Fail fast; the workflow's retry pass
     // re-runs the category with a fresh window.
     maxRetries: HUNT_CLIENT_MAX_RETRIES,
+    experimental_repairToolCall: repairCandidatesToolCall,
     stopWhen: [
       // The budget is checked BETWEEN steps, so `spent >= budget` lets the step
       // that crosses the line run to completion and bills it in full. That is
@@ -676,10 +766,20 @@ export async function huntTask(
     // gauge. Step 1 is sent untouched — nothing to elide, nothing spent — so
     // the opening call stays byte-identical to what every scan before this
     // sent.
+    //
+    // LUM-1224 — plus one prompt-cache breakpoint per step, on the last
+    // message the next step will re-send unchanged (`stablePrefixEnd`): the
+    // opening prompt, then the latest assistant message (the result after it
+    // is stubbed next step, and the gauge is never re-sent). The next step
+    // then reads that prefix from the cache. Only the marker is added.
     prepareStep: ({ steps, messages }) => {
       const { messages: elided, elidedChars } = elideOlderToolResults(messages)
       pendingElidedChars = elidedChars
-      if (steps.length === 0) return undefined
+      const sent = markCacheBreakpoint(
+        elidedChars > 0 ? elided : messages,
+        stablePrefixEnd(messages)
+      )
+      if (steps.length === 0) return { messages: sent }
       const stepsLeft = stepsLeftForecast(
         steps,
         input.tokenBudget,
@@ -687,7 +787,7 @@ export async function huntTask(
       )
       return {
         messages: [
-          ...(elidedChars > 0 ? elided : messages),
+          ...sent,
           {
             role: 'user',
             content: renderBudgetLine(
@@ -825,6 +925,7 @@ export async function huntTask(
         // search was just made to respect.
         stopWhen: stepCountIs(1),
         maxRetries: HUNT_CLIENT_MAX_RETRIES,
+        experimental_repairToolCall: repairCandidatesToolCall,
         abortSignal: AbortSignal.timeout(wrapUpMs),
       })
       tokens += wrap.totalUsage.totalTokens ?? 0
@@ -892,5 +993,6 @@ export async function huntTask(
     ...(wrapWarnings.length > 0 ? { wrapUpWarnings: wrapWarnings } : {}),
     stop,
     wrapUp,
+    ...(submission ? { submission } : {}),
   }
 }

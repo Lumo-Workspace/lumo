@@ -1,8 +1,9 @@
+import { EXIT_USAGE } from '../lib/exit-codes'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { apiContext } from '../lib/test-case-api'
-import { fetchThread, pickComment } from '../lib/comment-ref'
+import { fetchThread, pickComment, shortCommentId } from '../lib/comment-ref'
 import { errAuth, errHttp, errNotLoggedIn } from '../lib/errors'
 
 interface ResolveResponse {
@@ -19,7 +20,7 @@ interface CommentResponse {
 }
 
 /**
- * `lumo task comment <LUM-N> <body>`
+ * `lumo task comment add <body> [--task <LUM-N>]` (LUM-1233 3j; was `task comment <LUM-N> <body>`)
  *
  * Two HTTP calls: resolve LUM-N → task DB id, then POST the comment to
  * `/api/tasks/:id/comments`. The comments endpoint accepts both Clerk and
@@ -36,15 +37,15 @@ export async function taskComment(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <identifier>. Usage: lumo task comment <LUM-42> "comment body"'
+      'Error: missing <identifier>. Usage: lumo task comment add "comment body" --task <LUM-42>'
     )
-    return 1
+    return EXIT_USAGE
   }
   if (!body || body.trim().length === 0) {
     console.error(
-      'Error: missing <body>. Usage: lumo task comment <LUM-42> "comment body"'
+      'Error: missing <body>. Usage: lumo task comment add "comment body" --task <LUM-42>'
     )
-    return 1
+    return EXIT_USAGE
   }
 
   const creds = readCredentials()
@@ -154,7 +155,7 @@ export async function taskComment(
   const data = (await postRes.json()) as CommentResponse
   process.stdout.write(
     parentId
-      ? `Replied on ${resolved.identifier} to #${parentId.slice(0, 8)}  (comment ${data.comment.id})\n`
-      : `Commented on ${resolved.identifier}  (comment ${data.comment.id})\n`
+      ? `Replied on ${resolved.identifier} to #${shortCommentId(parentId)}  (comment #${shortCommentId(data.comment.id)})\n`
+      : `Commented on ${resolved.identifier}  (comment #${shortCommentId(data.comment.id)})\n`
   )
 }

@@ -15,7 +15,7 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
-import { prScan } from '@/cli/src/commands/pr-scan'
+import { prShow } from '@/cli/src/commands/pr-scan'
 import { workspaceSecurityScan } from '@/cli/src/commands/workspace-security-scan'
 import {
   isMissingPluginRoute,
@@ -56,13 +56,13 @@ describe('isMissingPluginRoute', () => {
   })
 })
 
-describe('lumo pr scan', () => {
+describe('lumo pr show', () => {
   it('says the security plugin is not installed when the route is missing', async () => {
     global.fetch = jest.fn(async () =>
       htmlNotFound()
     ) as unknown as typeof fetch
-    expect(await prScan('12')).toBe(1)
-    expect(err).toBe(missingPluginMessage('pr scan', 'security'))
+    expect(await prShow('12')).toBe(1)
+    expect(err).toBe(missingPluginMessage('pr show', 'security'))
     expect(err).toMatch(/not available on this Lumo server/)
   })
 
@@ -70,7 +70,7 @@ describe('lumo pr scan', () => {
     global.fetch = jest.fn(async () =>
       jsonNotFound('PR not found')
     ) as unknown as typeof fetch
-    expect(await prScan('12')).toBe(1)
+    expect(await prShow('12')).toBe(1)
     expect(err).toMatch(/PR #12 not found in workspace lumo/)
   })
 })

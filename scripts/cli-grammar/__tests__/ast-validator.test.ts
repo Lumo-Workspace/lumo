@@ -85,7 +85,7 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
     ],
     ['lumo task update LUM-9 --priority HIGH', '--priority uppercase'],
     [
-      'lumo task memory add LUM-9 --category DECISION "body"',
+      'lumo memory add --task LUM-9 --category DECISION --what body',
       '--category uppercase',
     ],
     [
@@ -106,7 +106,7 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
     ['lumo task update LUM-9 --status bogus', 'bogus'],
     ['lumo task update LUM-9 --status BOGUS', 'BOGUS'],
     ['lumo task update LUM-9 --priority critical', 'critical'],
-    ['lumo task memory add LUM-9 --category lesson "body"', 'lesson'],
+    ['lumo memory add --task LUM-9 --category lesson --what body', 'lesson'],
   ])('still flags genuinely unknown values: %s', (raw, offending) => {
     const v = validateSegment(raw, grammar)
     expect(v.kind).toBe('illegal-enum')
@@ -118,11 +118,24 @@ describe('AST validator — invokable parent commands', () => {
   // LUM-706: commander lets a parent hold both an action and subcommands, so
   // "has subcommands" never implies "needs a subcommand". Reading it that way
   // reported the primary usage of every parent-with-action as unknown-command.
+  // LUM-1233 3f: `priority` was the last real invokable parent (CS-2 removed
+  // it), so the case is pinned on a synthetic copy of that node.
+  const invokable: CliGrammar = {
+    ...grammar,
+    commands: {
+      ...grammar.commands,
+      priority: {
+        ...grammar.commands.priority!,
+        arguments: [{ name: 'text', required: false, variadic: false }],
+        isInvokable: true,
+      },
+    },
+  }
   it.each([
     ['lumo priority', 'priority'],
     ['lumo priority "Ship the billing MVP."', 'priority'],
   ])('accepts bare %s on an invokable parent', (raw, commandPath) => {
-    expect(validateSegment(raw, grammar)).toMatchObject({
+    expect(validateSegment(raw, invokable)).toMatchObject({
       kind: 'valid',
       commandPath,
       offending: null,
@@ -130,7 +143,7 @@ describe('AST validator — invokable parent commands', () => {
   })
 
   it('still resolves the subcommands hanging off an invokable parent', () => {
-    expect(validateSegment('lumo priority list', grammar)).toMatchObject({
+    expect(validateSegment('lumo priority list', invokable)).toMatchObject({
       kind: 'valid',
       commandPath: 'priority list',
     })

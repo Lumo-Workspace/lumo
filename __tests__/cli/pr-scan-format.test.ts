@@ -10,7 +10,8 @@ import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   findingsBreakdown,
   formatPrScan,
-  prScan,
+  prReview,
+  prShow,
   type PrScanEntry,
   type PrScanFinding,
   type PrScanPayload,
@@ -34,7 +35,7 @@ test('LUM-1056 review controls use POST with validated mutually exclusive action
   console.error = jest.fn()
   global.fetch = fetchMock
   try {
-    await prScan('7', { repo: 'o/r', review: 'incremental' })
+    await prReview('7', { repo: 'o/r' })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://lumo.test/api/pull-requests/7/scans?repo=o%2Fr',
       expect.objectContaining({
@@ -43,9 +44,9 @@ test('LUM-1056 review controls use POST with validated mutually exclusive action
       })
     )
     fetchMock.mockClear()
-    expect(await prScan('7', { pause: true, resume: true })).toBe(1)
-    expect(await prScan('7', { resume: true, limit: '0' })).toBe(1)
-    expect(await prScan('7', { limit: '2' })).toBe(1)
+    expect(await prReview('7', { pause: true, resume: true })).toBe(2)
+    expect(await prReview('7', { resume: true, limit: '0' })).toBe(2)
+    expect(await prReview('7', { limit: '2' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   } finally {
     global.fetch = original
@@ -239,7 +240,7 @@ describe('formatPrScan', () => {
       [
         'PR #1013  feat: size the hunt by diff [LUM-787]',
         '  Repo:   Lumo-Workspace/lumo',
-        '  State:  open',
+        '  State:  OPEN',
         '  Task:   no linked task',
         '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
         '',
@@ -333,7 +334,7 @@ describe('formatPrScan', () => {
     expect(lines.slice(0, 5)).toEqual([
       'PR #1013  feat: size the hunt by diff [LUM-787]',
       '  Repo:   Lumo-Workspace/lumo',
-      '  State:  merged',
+      '  State:  MERGED',
       '  Task:   LUM-787',
       '  URL:    https://github.com/Lumo-Workspace/lumo/pull/1013',
     ])
@@ -505,7 +506,7 @@ describe('formatPrScan', () => {
         `  Started:        ${fmtTimestamp('2026-09-15T07:00:00.000Z')}`,
         '  Finished:       not finished',
         '  Trigger:        PR_EVENT',
-        '  Tokens:         not metered',
+        '  Tokens:         -',
       ].join('\n')
     )
     expect(out).toMatch(/^ {2}Findings: +none on this scan$/m)
@@ -632,8 +633,8 @@ describe('prScan (command)', () => {
   })
 
   it('rejects a non-numeric number and a malformed --repo before any request', async () => {
-    expect(await prScan('abc')).toBe(1)
-    expect(await prScan('1013', { repo: 'nope' })).toBe(1)
+    expect(await prShow('abc')).toBe(2)
+    expect(await prShow('1013', { repo: 'nope' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -644,7 +645,7 @@ describe('prScan (command)', () => {
       status: 200,
       json: async () => data,
     })
-    await prScan('1013', { repo: 'Lumo-Workspace/lumo', all: true, json: true })
+    await prShow('1013', { repo: 'Lumo-Workspace/lumo', all: true, json: true })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://lumo.test/api/pull-requests/1013/scans?repo=Lumo-Workspace%2Flumo&all=1',
       { headers: { Authorization: 'Bearer lum_test' } }
@@ -659,7 +660,7 @@ describe('prScan (command)', () => {
       status: 200,
       json: async () => payload({ redactedSecrets: 2 }),
     })
-    await prScan('1013')
+    await prShow('1013')
     expect(fetchMock).toHaveBeenCalledWith(
       'https://lumo.test/api/pull-requests/1013/scans',
       expect.anything()
@@ -677,7 +678,7 @@ describe('prScan (command)', () => {
       status: 404,
       json: async () => ({}),
     })
-    expect(await prScan('99')).toBe(1)
+    expect(await prShow('99')).toBe(1)
     expect(stderr.mock.calls[0]![0]).toBe(
       'Error: PR #99 not found in workspace lumo'
     )
@@ -691,11 +692,11 @@ describe('prScan (command)', () => {
         repos: ['a/one', 'a/two'],
       }),
     })
-    expect(await prScan('7')).toBe(1)
+    expect(await prShow('7')).toBe(1)
     expect(stderr.mock.calls.map(c => c[0])).toEqual([
       'Error: PR #7 exists in several repos — pass --repo <owner/repo>',
-      '  lumo pr scan 7 --repo a/one',
-      '  lumo pr scan 7 --repo a/two',
+      '  lumo pr show 7 --repo a/one',
+      '  lumo pr show 7 --repo a/two',
     ])
   })
 })
@@ -724,7 +725,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 0,
     })
     expect(out).toContain(
-      'AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%'
+      'AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left (2%)'
     )
     // The near-miss is visible WITHOUT --full or --json: that is the point.
     expect(out).not.toContain('not recorded')
@@ -740,7 +741,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 0,
     })
     expect(out).toContain(
-      'AI review budget: diff 168,516 chars · tier 180,000 · 11,484 left, 6.4%'
+      'AI review budget: diff 168,516 chars · tier 180,000 · 11,484 left (6%)'
     )
   })
 
@@ -753,7 +754,7 @@ describe('formatPrScan judge budget', () => {
       droppedFiles: 12,
     })
     expect(out).toContain(
-      'AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed'
+      'AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31% of the diff unreviewed'
     )
   })
 
@@ -823,6 +824,33 @@ describe('LUM-988 code-review findings in lumo pr scan', () => {
     )
     expect(out).toContain(
       '    • [HIGH] AWS access key id\n      Rule:      secret:aws-access-key-id (DETERMINISTIC)'
+    )
+  })
+})
+
+describe('LUM-1234 agent-behavior findings in lumo pr scan', () => {
+  it('leads a reward-hack/<KIND> finding with [AGENT]', () => {
+    const agent = finding({
+      id: 'f3',
+      kind: 'REWARD_HACK',
+      ruleId: 'reward-hack/SPECIAL_CASING',
+      provenance: 'LLM_JUDGE',
+      severity: 'MEDIUM',
+      title: 'Agent behavior: Special-cased the checked inputs in src/a.ts',
+      blocking: false,
+    })
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            findings: [agent],
+            counts: { ...scan().counts, findings: 1, open: 1, blocking: 0 },
+          }),
+        ],
+      })
+    )
+    expect(out).toContain(
+      '    • [AGENT] [MEDIUM] Agent behavior: Special-cased the checked inputs in src/a.ts'
     )
   })
 })

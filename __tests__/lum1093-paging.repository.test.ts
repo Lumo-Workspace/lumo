@@ -25,21 +25,25 @@ beforeEach(() => {
   mockCount.mockResolvedValue(0)
 })
 
-describe('taskRepository.findAssignedTasksPage', () => {
+describe('taskRepository.findTaskListPage (was findAssignedTasksPage)', () => {
   it('pins workspace + assignee, applies filters, pages with count', async () => {
     mockCount.mockResolvedValue(120)
     mockFindMany.mockResolvedValue([{ id: 't51' }])
-    const r = await taskRepository.findAssignedTasksPage(
+    const r = await taskRepository.findTaskListPage(
       'w1',
-      'act-1',
-      { statuses: ['TODO'], milestoneIds: ['m1'], projectName: 'Lumo' },
+      {
+        assigneeActorIds: ['act-1'],
+        statuses: ['TODO'],
+        milestoneIds: ['m1'],
+        projectName: 'Lumo',
+      },
       { offset: 50, limit: 50 }
     )
-    expect(r).toEqual({ rows: [{ id: 't51' }], total: 120 })
+    expect(r).toEqual({ rows: [{ id: 't51' }], total: 120, truncated: false })
     const args = mockFindMany.mock.calls[0]![0]
     expect(args.where).toEqual({
       workspaceId: 'w1',
-      assigneeActorId: 'act-1',
+      assigneeActorId: { in: ['act-1'] },
       status: { in: ['TODO'] },
       milestoneId: { in: ['m1'] },
       project: { name: { equals: 'Lumo', mode: 'insensitive' } },
@@ -161,16 +165,21 @@ describe('taskQueryService paging', () => {
     expect(r.tasks[0].teamIdentifier).toBe('LUM')
   })
 
-  it('findAssignedPage: last page has no next cursor', async () => {
+  it('findTaskListPage: last page has no next cursor', async () => {
     mockCount.mockResolvedValue(2)
     mockFindMany.mockResolvedValue([{ id: 'b' }])
-    const r = await taskQueryService.findAssignedPage(
+    const r = await taskQueryService.findTaskListPage(
       'w1',
       'act',
       {},
       { offset: 1, limit: 50 }
     )
-    expect(r).toEqual({ tasks: [{ id: 'b' }], total: 2, nextCursor: null })
+    expect(r).toEqual({
+      tasks: [{ id: 'b' }],
+      total: 2,
+      nextCursor: null,
+      truncated: false,
+    })
   })
 })
 

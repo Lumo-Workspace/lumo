@@ -29,7 +29,7 @@ const task: TaskRow = {
 describe('formatMilestoneShow', () => {
   it('renders milestone header + counts + task table', () => {
     const out = formatMilestoneShow(milestone, [task])
-    expect(out).toContain('Milestone:  Q3 Launch')
+    expect(out.split('\n')[0]).toBe('Q3 Launch')
     expect(out).toContain('State:      ACTIVE')
     expect(out).toContain('Completed:  -')
     expect(out).toContain('Archived:   -')
@@ -41,13 +41,27 @@ describe('formatMilestoneShow', () => {
     expect(out).toContain(
       '  By status:  TODO 1 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 3'
     )
-    expect(out).toContain('\nTasks (1)\n  LUM-42  IN_PROGRESS')
+    expect(out).toContain('\nTasks (1)\n  LUM-42\tIN_PROGRESS')
+  })
+
+  it('LUM-1230: shows the slug (the ref to type), never the id', () => {
+    const out = formatMilestoneShow(
+      {
+        ...milestone,
+        id: 'cmv95ivuj000l06jvjrs7b7z1',
+        slug: 'headless-web-cli',
+      },
+      []
+    )
+    // LUM-1232 D-1: the slug is the ref on the title line.
+    expect(out.split('\n')[0]).toBe('headless-web-cli  Q3 Launch')
+    expect(out).not.toContain('cmv95ivuj000l06jvjrs7b7z1')
   })
 
   it('renders the health light when provided, "-" when absent', () => {
     expect(
       formatMilestoneShow({ ...milestone, health: 'at-risk' }, [])
-    ).toContain('Health:     AT-RISK')
+    ).toContain('Health:     AT_RISK')
     expect(formatMilestoneShow({ ...milestone, health: null }, [])).toContain(
       'Health:     -'
     )

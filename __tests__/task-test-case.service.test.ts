@@ -12,9 +12,11 @@ import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/services/task-test-case.service'
+import { missingStepRefs } from '@/lib/services/test-case-core'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import type { Prisma } from '@prisma/client'
+import { allPass, passUntilFail } from './helpers/step-results'
 
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
@@ -38,10 +40,19 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     labelsByIds: jest.fn().mockResolvedValue(new Map()),
   },
 }))
-// LUM-819 返工：listForTask 把每条 run 的最新抽查复核带上。默认没人抽查过。
-jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
-  testCaseRunReviewRepository: { listForTask: jest.fn().mockResolvedValue([]) },
-}))
+// LUM-1231：抽查功能已删除，复核 repository 不复存在。这个 virtual 替身只用来
+// 证明读端不再碰它（run.review 恒为 null）。
+jest.mock(
+  // relative path: `@/` goes through moduleNameMapper, which rejects a
+  // virtual mock of a file that no longer exists.
+  '../lib/repositories/test-case-run-review.repository',
+  () => ({
+    testCaseRunReviewRepository: {
+      listForTask: jest.fn().mockResolvedValue([]),
+    },
+  }),
+  { virtual: true }
+)
 jest.mock('@/lib/db/transaction', () => ({
   runInTransaction: (fn: (tx: unknown) => unknown) => fn({}),
 }))
@@ -106,7 +117,11 @@ describe('recordRun — environment', () => {
   it('records the environment verbatim — no default is substituted', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'PRODUCTION' },
+      {
+        result: 'PASS',
+        environment: 'PRODUCTION',
+        stepResults: allPass(testCase),
+      },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -172,15 +187,19 @@ describe('recordRun — failure locator', () => {
     ).rejects.toMatchObject({ status: 400 })
   })
 
-  it('accepts a FAIL with no locator at all', async () => {
-    const { run } = await taskTestCaseService.recordRun(
-      testCase,
-      // LUM-808: FAIL 现在必须归因；这条测的是定位，用举证责任最轻的 UNKNOWN。
-      { result: 'FAIL', environment: 'LOCAL', failureAttribution: 'UNKNOWN' },
-      attribution
-    )
-    expect(run.failedPhase).toBeNull()
-    expect(run.failedStepText).toBeNull()
+  it('rejects a FAIL with no locator at all — LUM-1211: a FAIL must name the step it broke at', async () => {
+    await expect(
+      taskTestCaseService.recordRun(
+        testCase,
+        // LUM-808: FAIL 现在必须归因；这条测的是定位，用举证责任最轻的 UNKNOWN。
+        { result: 'FAIL', environment: 'LOCAL', failureAttribution: 'UNKNOWN' },
+        attribution
+      )
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/must report the step it broke at/),
+    })
+    expect(repo.createRun).not.toHaveBeenCalled()
   })
 
   it('snapshots the STEPS text at the located index', async () => {
@@ -192,6 +211,7 @@ describe('recordRun — failure locator', () => {
         failedPhase: 'STEPS',
         failedIndex: 1,
         failureAttribution: 'UNKNOWN',
+        stepResults: passUntilFail(testCase, { phase: 'STEPS', index: 1 }),
       },
       attribution
     )
@@ -213,6 +233,10 @@ describe('recordRun — failure locator', () => {
         failedPhase: 'VERIFICATION',
         failedIndex: 0,
         failureAttribution: 'UNKNOWN',
+        stepResults: passUntilFail(testCase, {
+          phase: 'VERIFICATION',
+          index: 0,
+        }),
       },
       attribution
     )
@@ -265,6 +289,7 @@ describe('recordRun — code coordinates', () => {
         pullRequestNumber: 7,
         commitSha: 'a'.repeat(40),
         commitDirty: true,
+        stepResults: allPass(testCase),
       },
       attribution
     )
@@ -281,7 +306,7 @@ describe('recordRun — code coordinates', () => {
   it('leaves the coordinates null when the caller gives none — never defaults dirty to false', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -299,7 +324,7 @@ describe('recordRun — provenance', () => {
   it('carries the member and session onto the row', async () => {
     await taskTestCaseService.recordRun(
       testCase,
-      { result: 'PASS', environment: 'LOCAL' },
+      { result: 'PASS', environment: 'LOCAL', stepResults: allPass(testCase) },
       attribution
     )
     expect(repo.createRun).toHaveBeenCalledWith(
@@ -428,7 +453,7 @@ describe('listForTask', () => {
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
     expect(testCases[0]!.runs.map(r => r.id)).toEqual(['r2', 'r1'])
-    // nobody spot-checked these runs → an explicit null, never undefined
+    // LUM-1231: the key stays for the --json contract, always an explicit null
     expect(testCases[0]!.runs.map(r => r.review)).toEqual([null, null])
   })
 
@@ -480,7 +505,7 @@ describe('executor', () => {
 
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
-    // one executor lookup for the whole task (the reviewer lookup is separate)
+    // one executor lookup for the whole task
     const executorCalls = labelsByIds.mock.calls.filter(([ids]) =>
       (ids as string[]).includes('m-1')
     )
@@ -570,6 +595,7 @@ describe('recordRun — step results', () => {
             index: 0,
             text: 'scroll: to the bottom of the page',
             status: 'PASS',
+            reason: null,
             durationMs: 1200,
             evidence: [],
           },
@@ -588,8 +614,12 @@ describe('recordRun — step results', () => {
     )
   })
 
-  it('stores an empty array when no step results are reported', async () => {
-    await rec(fail())
+  it('stores an empty array for a case that has no steps to report', async () => {
+    await taskTestCaseService.recordRun(
+      { ...testCase, steps: [], verification: [] },
+      { result: 'PASS', environment: 'LOCAL' },
+      attribution
+    )
     expect(repo.createRun).toHaveBeenCalledWith(
       expect.objectContaining({ stepResults: [], actual: null }),
       expect.anything()
@@ -682,5 +712,241 @@ describe('recordRun — step results', () => {
       expect.objectContaining({ result: 'PASS', failedPhase: null }),
       expect.anything()
     )
+  })
+
+  // LUM-1185: 网页记录弹窗的形状——整次文件在前、步骤文件在后，下标指进
+  // 合并后的 evidence 数组。与 CLI --step-evidence 同一契约。
+  it('stores step evidence the record dialog points at', async () => {
+    const file = (name: string) => ({
+      type: 'file',
+      url: `https://blob.example/${name}`,
+      filename: name,
+      contentType: 'image/png',
+      size: 3,
+    })
+    await rec({
+      result: 'PASS',
+      environment: 'LOCAL',
+      evidence: [file('whole.png'), file('s2.png')],
+      stepResults: [
+        { phase: 'STEPS', index: 0, status: 'PASS' },
+        { phase: 'STEPS', index: 1, status: 'PASS', evidence: [1] },
+        { phase: 'VERIFICATION', index: 0, status: 'PASS' },
+      ],
+    })
+    expect(repo.createRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stepResults: [
+          expect.objectContaining({ index: 0, evidence: [] }),
+          expect.objectContaining({ index: 1, evidence: [1] }),
+          expect.objectContaining({ phase: 'VERIFICATION', evidence: [] }),
+        ],
+      }),
+      expect.anything()
+    )
+  })
+})
+
+describe('LUM-1211 error wording and missingStepRefs', () => {
+  const attribution = { memberId: 'm', sourceSessionId: null } as never
+  const tc = {
+    steps: ['a', 'b'],
+    verification: ['x', 'y', 'z'],
+  }
+
+  it('names a step reported after the break in 1-based CLI form', async () => {
+    await expect(
+      taskTestCaseService.recordRun(
+        testCase,
+        {
+          result: 'FAIL',
+          environment: 'LOCAL',
+          failureAttribution: 'UNKNOWN',
+          failedPhase: 'STEPS',
+          failedIndex: 1,
+          stepResults: [{ phase: 'VERIFICATION', index: 0, status: 'PASS' }],
+        } as never,
+        attribution
+      )
+    ).rejects.toThrow(/^v1 is reported PASS after the run broke/)
+  })
+
+  it('PASS requires every step and verification', () => {
+    expect(missingStepRefs(tc, {}, new Set(), null)).toEqual([
+      's1',
+      's2',
+      'v1',
+      'v2',
+      'v3',
+    ])
+  })
+
+  it('counts an unproven verification index as reported', () => {
+    expect(
+      missingStepRefs(
+        tc,
+        { unprovenVerification: [1] },
+        new Set(['STEPS:0', 'STEPS:1', 'VERIFICATION:0']),
+        null
+      )
+    ).toEqual(['v3'])
+  })
+
+  it('FAIL inside verification needs everything before the break only', () => {
+    // v2 (position 2 + 1 = 3) is the break; v3 is not required.
+    expect(missingStepRefs(tc, {}, new Set(['STEPS:0']), 3)).toEqual([
+      's2',
+      'v1',
+    ])
+    expect(
+      missingStepRefs(
+        tc,
+        { unprovenVerification: [0] },
+        new Set(['STEPS:0', 'STEPS:1']),
+        3
+      )
+    ).toEqual([])
+  })
+
+  it('FAIL at the first step requires nothing before it', () => {
+    expect(missingStepRefs(tc, {}, new Set(), 0)).toEqual([])
+  })
+})
+
+// LUM-1185: 读端随每条 run 回传推导判定（封顶 + 逐步报告），列表再带 Record
+// 行同源的汇总；CLI 只渲染，不复刻规则。
+describe('read-side verdict (LUM-1185)', () => {
+  const storedRun = (over: Record<string, unknown>) => ({
+    id: 'r1',
+    testCaseId: 'tc-1',
+    result: 'PASS',
+    environment: 'LOCAL',
+    failedPhase: null,
+    failedIndex: null,
+    failedStepText: null,
+    failureAttribution: null,
+    unprovenVerification: [],
+    evidence: [],
+    stepResults: [],
+    executedByMemberId: null,
+    sourceSessionId: null,
+    disposition: null,
+    ...over,
+  })
+  const reviewRepo = jest.requireMock(
+    '../lib/repositories/test-case-run-review.repository'
+  ).testCaseRunReviewRepository.listForTask as jest.Mock
+  afterEach(() => reviewRepo.mockResolvedValue([]))
+
+  it('listForTask caps a zero-evidence PASS to UNPROVEN and reports N/M passing', async () => {
+    const proven = { ...testCase, id: 'tc-2', number: 4 }
+    repo.listForTask.mockResolvedValue([testCase, proven])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([
+        ['tc-1', [storedRun({ id: 'r1' })]],
+        [
+          'tc-2',
+          [
+            storedRun({
+              id: 'r2',
+              testCaseId: 'tc-2',
+              evidence: [{ kind: 'url', url: 'https://example.com/log' }],
+              stepResults: allPass(testCase).map(s => ({
+                ...s,
+                text: 'x',
+                reason: null,
+                durationMs: 1200,
+                evidence: [],
+              })),
+            }),
+          ],
+        ],
+      ]) as never
+    )
+
+    const res = await taskTestCaseService.listForTask('t-1')
+
+    expect(res.testCases[0]!.runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'no-evidence',
+    })
+    expect(res.testCases[1]!.runs[0]!.ceiling).toEqual({ effective: 'PASS' })
+    expect(res.testCases[1]!.runs[0]!.stepReport).toMatchObject({
+      passed: 3,
+      total: 3,
+      hasStepResults: true,
+    })
+    expect(res.summary).toMatchObject({
+      total: 2,
+      passing: 1,
+      inconclusive: 1,
+      blocking: [],
+    })
+  })
+
+  it('listForTask counts an unruled defect as blocking DONE', async () => {
+    repo.listForTask.mockResolvedValue([testCase])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([
+        [
+          'tc-1',
+          [
+            storedRun({
+              result: 'FAIL',
+              failureAttribution: 'IMPLEMENTATION_DEFECT',
+              failedPhase: 'STEPS',
+              failedIndex: 1,
+            }),
+          ],
+        ],
+      ]) as never
+    )
+
+    const res = await taskTestCaseService.listForTask('t-1')
+
+    expect(res.summary.failing).toBe(1)
+    expect(res.summary.blocking).toEqual([
+      { caseNumber: 3, title: testCase.title, runId: 'r1' },
+    ])
+    // the step report knows where it broke and what was never reached
+    expect(
+      res.testCases[0]!.runs[0]!.stepReport.rows.map(r => r.state)
+    ).toEqual(['reached', 'failed', 'notReached'])
+  })
+
+  it('getDetail carries the ceiling and step report; review is always null (LUM-1231)', async () => {
+    repo.findById.mockResolvedValue({
+      ...testCase,
+      requiredEnvironment: 'PRODUCTION',
+    })
+    repo.listRuns.mockResolvedValue([
+      storedRun({ evidence: [{ kind: 'url', url: 'https://example.com/a' }] }),
+    ] as never)
+    reviewRepo.mockResolvedValue([
+      {
+        testCaseRunId: 'r1',
+        accepted: false,
+        note: 'screenshot is of the wrong page',
+        reviewedByMemberId: 'm-9',
+        createdAt: new Date('2026-10-07T00:00:00Z'),
+      },
+    ])
+
+    const { runs } = await taskTestCaseService.getDetail('tc-1')
+
+    expect(runs[0]!.ceiling).toEqual({
+      effective: 'UNPROVEN',
+      reason: 'environment',
+      requiredEnvironment: 'PRODUCTION',
+      ranIn: 'LOCAL',
+    })
+    expect(runs[0]!.stepReport.rows.map(r => r.state)).toEqual([
+      'unrecorded',
+      'unrecorded',
+      'unrecorded',
+    ])
+    // a stored review row is no longer read: the field is null, not the review
+    expect(runs[0]!.review).toBeNull()
+    expect(reviewRepo).not.toHaveBeenCalled()
   })
 })

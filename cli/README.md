@@ -22,20 +22,20 @@ Wire up the Lumo skill + hooks for [Claude Code](https://claude.com/claude-code)
 npx @lumoai/cli init
 ```
 
-The command interactively asks whether to install for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`) or just the current project (`./.claude/`, `./.agents/`, `./.codex/`), then:
+Without `--scope` it installs for the current project (`./.claude/`, `./.agents/`, `./.codex/`); `--scope user` installs for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`). It never asks. Then it:
 
 1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/` (Claude Code) and `.agents/skills/lumo/` (Codex)
 2. Idempotently merges the Lumo hook handlers into `.claude/settings.json` and `.codex/hooks.json` (existing hooks and permissions are preserved). Codex runs hooks only after you trust them: Codex app Settings → Hooks, or `/hooks` in the Codex CLI
-3. Writes `.codex/rules/lumo.rules`, Codex rules that let the server-only `lumo` commands (they only call the Lumo API, read no arbitrary local file and write none — `task show/context/list`, `doc show/list`, `session status`, …) run outside Codex's sandbox (which has no network) without a prompt. Every other command stays sandboxed, including the `lumo` commands that change local files or start local processes (`init`, `uninstall`, `update`, `auth`, `worktree`, `memory sync/push`, `session attach`, `task update`, `hook`) or can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone criteria set`, `usage resync`): Codex asks before running those outside the sandbox. Restart Codex to load it (a project rule loads once the project is trusted)
+3. Writes `.codex/rules/lumo.rules`, Codex rules that let the server-only `lumo` commands (they only call the Lumo API, read no arbitrary local file and write none — `task show/context/list`, `doc show/list`, `session status`, …) run outside Codex's sandbox (which has no network) without a prompt. Every other command stays sandboxed, including the `lumo` commands that change local files or start local processes (`init`, `uninstall`, `update`, `auth`, `worktree`, `memory sync/push`, `session attach`, `task update`, `hook`) or can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone testcase run`, `usage resync`): Codex asks before running those outside the sandbox. Restart Codex to load it (a project rule loads once the project is trusted)
 4. Prints any remaining steps (global install, `lumo auth login`)
 
 Non-interactive flags for CI / scripts:
 
 ```bash
-npx @lumoai/cli init --project
-npx @lumoai/cli init --user --force
-npx @lumoai/cli init --project --agent codex        # only Codex
-npx @lumoai/cli init --project --agent claude-code  # only Claude Code
+npx @lumoai/cli init --scope project
+npx @lumoai/cli init --scope user --force
+npx @lumoai/cli init --scope project --agent codex        # only Codex
+npx @lumoai/cli init --scope project --agent claude-code  # only Claude Code
 ```
 
 After `init`, install the CLI globally so the agents' hooks can resolve the `lumo` binary at startup:
@@ -56,7 +56,7 @@ Auto-update is on by default: the CLI installs new releases in the background. T
 
 ### Keeping installs in sync
 
-User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --user` or `lumo init --project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
+User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --scope user` or `lumo init --scope project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
 
 ```bash
 lumo doctor      # read-only report of every Lumo install and its state

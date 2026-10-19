@@ -17,6 +17,7 @@ import { waitUntil } from '@/lib/runtime/wait-until'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 import { htmlToQuote } from '@/lib/utils/htmlToPreview'
 import { githubCommentProvenance } from '@/lib/context/reviewer-trust'
+import { withAuthorNames } from '@/lib/services/comment-author-names'
 
 /** Threads with at most this many comments are rendered inline (full text),
  *  so they never need an LLM summary. Beyond it, we cache a short summary. */
@@ -69,10 +70,26 @@ interface NotifyMentionsParams {
   waitUntil: (promise: Promise<unknown>) => void
 }
 
+// LUM-1238: author-name resolution lives in comment-author-names so the
+// timeline can share it without pulling in this service's integrations.
+export { actorLabel } from '@/lib/services/comment-author-names'
+export type { ActorLabelFields } from '@/lib/services/comment-author-names'
+
 export const commentService = {
   /** Get all top-level comments with replies for a task. */
   async getComments(taskId: string) {
     return commentRepository.findByTaskId(taskId)
+  },
+
+  /**
+   * LUM-1232 G2: the thread plus each author's display name (`authorName`:
+   * member name, agent name or `@github-login`; null when unknown), so API
+   * readers never have to show a raw actor id. Best effort — a failed lookup
+   * leaves every `authorName` null.
+   */
+  async getCommentsWithAuthors(taskId: string, workspaceId: string) {
+    const comments = await commentRepository.findByTaskId(taskId)
+    return withAuthorNames(comments, workspaceId)
   },
 
   /** Create a comment or reply with validation. Throws on validation errors. */

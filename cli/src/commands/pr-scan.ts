@@ -1,23 +1,29 @@
-import { fmtCount, fmtTimestamp } from '../lib/format'
+import { EXIT_USAGE } from '../lib/exit-codes'
+import { NONE, fmtCount, fmtEnum, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { isMissingPluginRoute, missingPluginMessage } from '../lib/plugin-route'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
+  formatPathSkipLines,
   formatSizeCapLines,
   formatScanStatus,
   formatTurnedOffLines,
   formatScanningOffLines,
   scanFields,
   type JudgeBudgetLine,
+  type JudgeOverCapLine,
+  type JudgePartialLine,
   type PrTooLargeLine,
+  type ReviewPathSkipsLine,
   type HuntCoverageInput,
 } from '../lib/scan-format'
 import {
   QUEUE_EXIT_LABELS,
   QUEUE_EXIT_REASONS,
   isCodeReviewFinding,
+  isRewardHackFinding,
   secretDowngradeNote,
   type QueueExitReason,
 } from '../../../shared/src/security-scan'
@@ -36,13 +42,10 @@ import {
   type Field,
   type LayoutOptions,
 } from '../lib/report-layout'
-import { colorEnabled, heading, terminalWidth } from '../lib/ui'
+import { colorEnabled, enumColor, heading, terminalWidth } from '../lib/ui'
 
-export interface PrScanOptions {
-  review?: 'incremental' | 'full'
-  pause?: boolean
-  resume?: boolean
-  limit?: string
+/** `lumo pr show` — read-only (LUM-1233 3d; was `pr scan`). */
+export interface PrShowOptions {
   /** `owner/repo` — needed only when the number exists in several repos. */
   repo?: string | undefined
   /** Every pushed head's scan, newest first, instead of the latest only. */
@@ -51,6 +54,16 @@ export interface PrScanOptions {
   json?: boolean | undefined
   /** Append the per-task hunt detail (commands, trace, stop, wrap-up, sites, model, diff). */
   full?: boolean | undefined
+}
+
+/** `lumo pr review` — the write half of the former `pr scan`. */
+export interface PrReviewOptions {
+  /** A full review instead of the default incremental one. */
+  full?: boolean | undefined
+  pause?: boolean | undefined
+  resume?: boolean | undefined
+  limit?: string | undefined
+  repo?: string | undefined
 }
 
 /** Mirrors `PullRequestScanReadout` served by GET /api/pull-requests/[number]/scans (v1). */
@@ -82,6 +95,12 @@ export interface PrScanFinding {
   secretDowngrade: string | null
   cwe: string | null
   reachability: string | null
+  /** LUM-1189 — the hunt's source→sink edges; absent on an older server. */
+  callChain?: Array<{ from: string; to: string }> | null
+  /** LUM-1189 — edges past the server's cap, not listed; absent on an older server. */
+  callChainOmitted?: number
+  /** LUM-1189 — why the falsifier suggested its disposition; absent on an older server. */
+  suggestedReason?: string | null
 }
 
 export interface PrScanHunt {
@@ -137,9 +156,13 @@ export interface PrScanEntry {
   /** LUM-832 — the file cap left files out; absent on an older server. */
   huntOverCap?: { sourceFiles: number; capFiles: number } | null
   /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
-  judgeOverCap?: { diffChars: number; capChars: number } | null
+  judgeOverCap?: JudgeOverCapLine | null
+  /** LUM-1144 — the AI review read part of an over-cap diff; absent on an older server. */
+  judgePartial?: JudgePartialLine | null
   /** LUM-1079 — the whole PR was too large to scan; absent on an older server. */
   prTooLarge?: PrTooLargeLine | null
+  /** LUM-1215 — what the path filters left out of the AI review; absent on an older server. */
+  reviewPathSkips?: ReviewPathSkipsLine | null
   externalFailureReason: string | null
   startedAt: string
   finishedAt: string | null
@@ -294,7 +317,12 @@ function findingStanding(f: PrScanFinding): string {
 function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
   const where = f.line == null ? f.filePath : `${f.filePath}:${f.line}`
   const note = sanitizeField(secretDowngradeNote(f.secretDowngrade))
-  const bug = isCodeReviewFinding(f.ruleId) ? '[BUG] ' : ''
+  // LUM-1234: an agent-behavior finding is `[AGENT]`, never a security one.
+  const bug = isRewardHackFinding(f.ruleId)
+    ? '[AGENT] '
+    : isCodeReviewFinding(f.ruleId)
+      ? '[BUG] '
+      : ''
   const fields: Field[] = [
     {
       label: 'Rule',
@@ -305,12 +333,59 @@ function findingLines(f: PrScanFinding, opts: LayoutOptions): string[] {
   ]
   if (f.falsifierVerdict)
     fields.push({ label: 'Falsifier', value: f.falsifierVerdict })
+  // LUM-1189: a rejection is already the row's standing; a confirmation is
+  // said here with its reason, as the web panel does.
+  if (f.verifierVerdict === 'CONFIRMED')
+    fields.push({
+      label: 'Verifier',
+      value: `CONFIRMED${f.verifierReason ? ` — "${sanitizeField(f.verifierReason)}"` : ''}`,
+    })
   if (f.disposition === null && f.suggestedDisposition)
-    fields.push({ label: 'AI suggests', value: f.suggestedDisposition })
+    fields.push({
+      label: 'AI suggests',
+      value: `${sanitizeField(f.suggestedDisposition)}${f.suggestedReason ? ` — "${sanitizeField(f.suggestedReason)}"` : ''}`,
+    })
+  const chain = f.callChain ?? []
+  const omitted = f.callChainOmitted ?? 0
+  if (chain.length > 0)
+    fields.push({
+      label: 'Call chain',
+      value: plural(chain.length + omitted, 'edge', 'edges'),
+    })
   return [
     ...bulletLines(`${bug}[${f.severity}] ${sanitizeField(f.title)}`, 4, opts),
     ...fieldLines(fields, 6, opts),
+    ...callChainLines(chain, opts, omitted),
   ]
+}
+
+/**
+ * LUM-1189 — the call chain one edge per line under its row, numbered, the
+ * same `from → to` edges the web panel lists. Hops are scanner output:
+ * sanitized here as well as on the server.
+ */
+export function callChainLines(
+  chain: ReadonlyArray<{ from: string; to: string }>,
+  opts: LayoutOptions = {},
+  /** Edges past the server's cap — said once after the list, never numbered. */
+  omitted = 0
+): string[] {
+  const lines = chain.flatMap((edge, i) =>
+    wrapLines(
+      `${i + 1}. ${sanitizeField(edge.from)} → ${sanitizeField(edge.to)}`,
+      8,
+      opts
+    )
+  )
+  if (chain.length > 0 && omitted > 0)
+    lines.push(
+      ...wrapLines(
+        `… ${plural(omitted, 'more edge', 'more edges')} not shown`,
+        8,
+        opts
+      )
+    )
+  return lines
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -318,8 +393,8 @@ function plural(n: number, one: string, many: string): string {
 }
 
 function formatTokens(n: number | null): string {
-  // null = not metered (team rule: null ≠ 0) — say so rather than print 0.
-  return n === null ? 'not metered' : fmtCount(n)
+  // null = not metered (team rule: null ≠ 0): `-`, never 0 (LUM-1232 V-1).
+  return n === null ? NONE : fmtCount(n)
 }
 
 /** The hunt's audit header (`--full`) as labelled rows (LUM-1091). */
@@ -396,7 +471,7 @@ function formatScan(
   opts: LayoutOptions
 ): string[] {
   const lines = sectionHeading(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null)}`,
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}`,
     opts
   )
   const meta: Field[] = [
@@ -420,6 +495,7 @@ function formatScan(
       partialCauses: s.partialCauses,
       huntOverCap: s.huntOverCap,
       judgeOverCap: s.judgeOverCap,
+      judgePartial: s.judgePartial,
       prTooLarge: s.prTooLarge,
       externalFindings: s.counts.externalFindings,
       dependencyFindings: s.counts.dependencyFindings,
@@ -446,9 +522,14 @@ function formatScan(
   const findingsRow: Field[] = [{ label: 'Findings', value: findingsValue }]
   const w = labelWidth([...meta, ...layers, ...findingsRow])
   lines.push(...fieldLines([...meta, ...layers], 2, opts, w))
-  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  // LUM-832: the file cap, stated plainly as a limit on the change.
   // LUM-892: layers turned off in settings — the customer's choice, said so.
-  for (const l of [...formatSizeCapLines(s), ...formatTurnedOffLines(s.stages)])
+  // LUM-1215: files the path filters skipped — a default never hides a file.
+  for (const l of [
+    ...formatSizeCapLines(s),
+    ...formatPathSkipLines(s),
+    ...formatTurnedOffLines(s.stages),
+  ])
     lines.push(...wrapLines(l, 2, opts))
   lines.push(...fieldLines(findingsRow, 2, opts, w))
   if (c.findings > 0)
@@ -478,9 +559,15 @@ export function formatPrScan(
     full?: boolean | undefined
     width?: number | undefined
     color?: boolean | undefined
+    /** LUM-1232 D-4: `false` = piped, no hard wrapping. */
+    tty?: boolean | undefined
   } = {}
 ): string {
-  const layout: LayoutOptions = { width: opts.width, color: opts.color }
+  const layout: LayoutOptions = {
+    width: opts.width,
+    color: opts.color,
+    tty: opts.tty,
+  }
   const pr = data.pullRequest
   const lines: string[] = [
     heading(`PR #${pr.number}  ${sanitizeField(pr.title)}`, {
@@ -489,7 +576,13 @@ export function formatPrScan(
     ...fieldLines(
       [
         { label: 'Repo', value: sanitizeField(pr.repo) },
-        { label: 'State', value: sanitizeField(pr.state) },
+        {
+          label: 'State',
+          value: enumColor(
+            fmtEnum(sanitizeField(pr.state)),
+            layout.color === true
+          ),
+        },
         {
           label: 'Task',
           value: pr.task ? sanitizeField(pr.task.identifier) : 'no linked task',
@@ -505,7 +598,7 @@ export function formatPrScan(
     lines.push(...wrapLines(`⚠ ${l}`, 0, layout))
   if (data.reviewControl) {
     const c = data.reviewControl
-    const base = `lumo pr scan ${pr.number} --repo ${sanitizeField(pr.repo)}`
+    const base = `lumo pr review ${pr.number} --repo ${sanitizeField(pr.repo)}`
     lines.push(...sectionHeading('AI review', layout))
     lines.push(
       ...fieldLines(
@@ -518,9 +611,9 @@ export function formatPrScan(
         2,
         layout
       ),
-      '  Run a review now (incremental or full):',
-      commandLine(`${base} --review incremental`, 4),
-      commandLine(`${base} --review full`, 4),
+      '  Run a review now (incremental, or --full):',
+      commandLine(base, 4),
+      commandLine(`${base} --full`, 4),
       '  Resume automatic review:',
       commandLine(`${base} --resume`, 4)
     )
@@ -557,110 +650,50 @@ export function formatPrScan(
   return lines.join('\n') + '\n'
 }
 
-/**
- * `lumo pr scan <number> [--repo owner/repo] [--all] [--json] [--full]`
- *
- * The security scans of one PR in the workspace, by PR number — linked to a
- * task or not. Reads `GET /api/pull-requests/:number/scans`; read-only.
- * Read-only: rule on a finding with `lumo finding disposition` (LUM-1128).
- */
-export async function prScan(
+/** The scans URL of PR `numberArg`, or a usage error. Pure. */
+function scansUrl(
+  base: string,
   numberArg: string | undefined,
-  opts: PrScanOptions = {}
-): Promise<number | void> {
-  if (!numberArg || !/^\d+$/.test(numberArg.trim())) {
-    console.error(
-      'Error: usage: lumo pr scan <number> [--repo owner/repo] [--all] [--json] [--full]'
-    )
-    return 1
-  }
-  if (opts.repo !== undefined && !/^[\w.-]+\/[\w.-]+$/.test(opts.repo)) {
-    console.error(`Error: --repo must be owner/repo, got "${opts.repo}"`)
-    return 1
-  }
-
-  const creds = readCredentials()
-  if (!creds) {
-    console.error(errNotLoggedIn())
-    return 1
-  }
-
-  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
-  const base = trimTrailingSlash(apiUrl)
+  repo: string | undefined,
+  usage: string,
+  all = false
+): { ok: true; url: string; number: string } | { ok: false; error: string } {
+  if (!numberArg || !/^\d+$/.test(numberArg.trim()))
+    return { ok: false, error: `usage: ${usage}` }
+  if (repo !== undefined && !/^[\w.-]+\/[\w.-]+$/.test(repo))
+    return { ok: false, error: `--repo must be owner/repo, got "${repo}"` }
   const query = new URLSearchParams()
-  if (opts.repo) query.set('repo', opts.repo)
-  if (opts.all) query.set('all', '1')
+  if (repo) query.set('repo', repo)
+  if (all) query.set('all', '1')
   const qs = query.toString()
-  const url = `${base}/api/pull-requests/${encodeURIComponent(numberArg.trim())}/scans${qs ? `?${qs}` : ''}`
+  const n = numberArg.trim()
+  return {
+    ok: true,
+    number: n,
+    url: `${base}/api/pull-requests/${encodeURIComponent(n)}/scans${qs ? `?${qs}` : ''}`,
+  }
+}
 
-  let res: Response
-  const actions = [opts.pause, opts.resume, opts.review !== undefined].filter(
-    Boolean
-  ).length
-  if (
-    actions > 1 ||
-    (opts.review && !['incremental', 'full'].includes(opts.review)) ||
-    (opts.limit !== undefined &&
-      (!/^\d+$/.test(opts.limit) ||
-        Number(opts.limit) < 1 ||
-        Number(opts.limit) > 100 ||
-        !(opts.pause || opts.resume)))
-  ) {
-    console.error(
-      'Error: choose one of --pause, --resume, --review incremental|full; --limit 1..100 requires --pause or --resume.'
-    )
-    return 1
-  }
-  try {
-    res = await fetch(url, {
-      headers: { Authorization: `Bearer ${creds.token}` },
-      ...(actions
-        ? {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${creds.token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: opts.pause
-                ? 'pause'
-                : opts.resume
-                  ? 'resume'
-                  : opts.review,
-              ...(opts.limit !== undefined
-                ? { limit: Number(opts.limit) }
-                : {}),
-            }),
-          }
-        : {}),
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
-  }
-  if (actions && res.ok) {
-    process.stdout.write(
-      (opts.review
-        ? `Queued ${opts.review} review for PR #${numberArg}.`
-        : `Automatic AI review ${opts.pause ? 'paused' : 'resumed (every push is reviewed again; reviewed-commit count reset)'} for PR #${numberArg}.`) +
-        '\n'
-    )
-    return
-  }
-
+/** Shared error mapping for both PR commands; returns the exit code or null. */
+async function prError(
+  res: Response,
+  number: string,
+  repo: string | undefined,
+  label: string,
+  workspaceSlug: string | undefined
+): Promise<number | null> {
   if (res.status === 401) {
     console.error(errAuth())
     return 1
   }
   // LUM-1062: no scans route at all — a server without the security plugin.
   if (isMissingPluginRoute(res)) {
-    console.error(missingPluginMessage('pr scan', 'security'))
+    console.error(missingPluginMessage(label, 'security'))
     return 1
   }
   if (res.status === 404) {
     console.error(
-      `Error: PR #${numberArg}${opts.repo ? ` in ${opts.repo}` : ''} not found in workspace ${creds.workspaceSlug}`
+      `Error: PR #${number}${repo ? ` in ${repo}` : ''} not found in workspace ${workspaceSlug}`
     )
     return 1
   }
@@ -670,18 +703,72 @@ export async function prScan(
       repos?: string[]
     }
     console.error(
-      `Error: ${sanitizeField(body.error ?? `PR #${numberArg} exists in several repos`)}`
+      `Error: ${sanitizeField(body.error ?? `PR #${number} exists in several repos`)}`
     )
-    for (const r of body.repos ?? []) {
-      console.error(`  lumo pr scan ${numberArg} --repo ${sanitizeField(r)}`)
-    }
+    for (const r of body.repos ?? [])
+      console.error(`  lumo ${label} ${number} --repo ${sanitizeField(r)}`)
     return 1
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
-    console.error(errHttp('pr scan', res.status, body.error))
+    console.error(errHttp(label, res.status, body.error))
     return 1
   }
+  return null
+}
+
+const SHOW_USAGE =
+  'lumo pr show <number> [--repo owner/repo] [--all] [--json] [--full]'
+
+/**
+ * `lumo pr show <number> [--repo owner/repo] [--all] [--json] [--full]`
+ * (LUM-1233 3d; was `pr scan`). The security scans of one PR in the
+ * workspace, by PR number — linked to a task or not. Reads
+ * `GET /api/pull-requests/:number/scans`; strictly read-only. Request or
+ * pause a review with `lumo pr review`; rule on a finding with
+ * `lumo finding disposition` (LUM-1128).
+ */
+export async function prShow(
+  numberArg: string | undefined,
+  opts: PrShowOptions = {}
+): Promise<number | void> {
+  const creds = readCredentials()
+  const target = scansUrl(
+    '',
+    numberArg,
+    opts.repo,
+    SHOW_USAGE,
+    opts.all === true
+  )
+  if (!target.ok) {
+    console.error(`Error: ${target.error}`)
+    return EXIT_USAGE
+  }
+  if (!creds) {
+    console.error(errNotLoggedIn())
+    return 1
+  }
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const url = trimTrailingSlash(apiUrl) + target.url
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  const code = await prError(
+    res,
+    target.number,
+    opts.repo,
+    'pr show',
+    creds.workspaceSlug
+  )
+  if (code !== null) return code
 
   const data = (await res.json()) as PrScanPayload
   if (opts.json) {
@@ -695,7 +782,94 @@ export async function prScan(
     formatPrScan(data, {
       full: opts.full,
       width: terminalWidth(),
+      tty: Boolean(process.stdout.isTTY),
       color: colorEnabled(),
     })
+  )
+}
+
+const REVIEW_USAGE =
+  'lumo pr review <number> [--full | --pause | --resume] [--limit <commits>] [--repo owner/repo]'
+
+/** Usage problems of the review flags (null = fine). Pure. */
+export function prReviewUsageError(opts: PrReviewOptions): string | null {
+  const modes = [opts.full, opts.pause, opts.resume].filter(Boolean).length
+  if (modes > 1) return 'choose one of --full, --pause, --resume'
+  if (opts.limit !== undefined) {
+    if (!(opts.pause || opts.resume))
+      return '--limit goes with --pause or --resume'
+    if (
+      !/^\d+$/.test(opts.limit) ||
+      Number(opts.limit) < 1 ||
+      Number(opts.limit) > 100
+    )
+      return `--limit must be 1..100, got "${opts.limit}"`
+  }
+  return null
+}
+
+/**
+ * `lumo pr review <number> [--full | --pause | --resume] [--limit N]`
+ * (LUM-1233 3d; the write half of the former `pr scan`): request an
+ * incremental (default) or full AI review without counting toward the
+ * automatic budget, or pause / resume automatic review of every push.
+ */
+export async function prReview(
+  numberArg: string | undefined,
+  opts: PrReviewOptions = {}
+): Promise<number | void> {
+  const usage = prReviewUsageError(opts)
+  if (usage) {
+    console.error(`Error: ${usage}. Usage: ${REVIEW_USAGE}`)
+    return EXIT_USAGE
+  }
+  const target = scansUrl('', numberArg, opts.repo, REVIEW_USAGE)
+  if (!target.ok) {
+    console.error(`Error: ${target.error}`)
+    return EXIT_USAGE
+  }
+  const creds = readCredentials()
+  if (!creds) {
+    console.error(errNotLoggedIn())
+    return 1
+  }
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const action = opts.pause
+    ? 'pause'
+    : opts.resume
+      ? 'resume'
+      : opts.full
+        ? 'full'
+        : 'incremental'
+  let res: Response
+  try {
+    res = await fetch(trimTrailingSlash(apiUrl) + target.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${creds.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action,
+        ...(opts.limit !== undefined ? { limit: Number(opts.limit) } : {}),
+      }),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  const code = await prError(
+    res,
+    target.number,
+    opts.repo,
+    'pr review',
+    creds.workspaceSlug
+  )
+  if (code !== null) return code
+  process.stdout.write(
+    (action === 'pause' || action === 'resume'
+      ? `Automatic AI review ${action === 'pause' ? 'paused' : 'resumed (every push is reviewed again; reviewed-commit count reset)'} for PR #${target.number}.`
+      : `Queued ${action} review for PR #${target.number}.`) + '\n'
   )
 }

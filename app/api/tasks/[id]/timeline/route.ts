@@ -40,7 +40,11 @@ export async function GET(request: NextRequest, { params }: Params) {
       }
     }
 
-    const result = await timelineService.getTimeline(id, { limit, cursor })
+    const result = await timelineService.getTimeline(id, {
+      limit,
+      cursor,
+      workspaceId: identity.workspaceId,
+    })
 
     return NextResponse.json(result)
   } catch (error) {

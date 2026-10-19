@@ -184,16 +184,15 @@ describe('lumo tag list / create', () => {
     })
   })
   it('create validates color / length before any network call', async () => {
-    expect(await tagCreate('x', { color: 'red' })).toBe(1)
+    expect(await tagCreate('x', { color: 'red' })).toBe(2)
     expect(await tagCreate('y'.repeat(31))).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })
   it('empty list reads "No tags."', () => {
     expect(formatTagList([])).toBe('No tags.')
   })
-  // LUM-1086: tag list renders through cli/src/lib/ui.ts; non-TTY bytes must
-  // stay exactly what the hand-padded version produced.
-  it('non-TTY output is byte-identical to the pre-ui.ts layout, no ESC', async () => {
+  // LUM-1086 / LUM-1232 L-3: non-TTY rows are TAB-separated, no padding.
+  it('non-TTY output is TAB-separated rows, no ESC', async () => {
     const desc = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
     Object.defineProperty(process.stdout, 'isTTY', {
       value: false,
@@ -205,9 +204,7 @@ describe('lumo tag list / create', () => {
       if (desc) Object.defineProperty(process.stdout, 'isTTY', desc)
       else delete (process.stdout as { isTTY?: boolean }).isTTY
     }
-    expect(out).toBe(
-      'bug  #ff0000  3 tasks  2 docs\nux   -        1 task   0 docs\n'
-    )
+    expect(out).toBe('bug\t#ff0000\t3 tasks\t2 docs\nux\t-\t1 task\t0 docs\n')
     expect(out).not.toContain('\u001b')
   })
   it('aligns CJK tag names by display width', () => {
@@ -222,11 +219,12 @@ describe('lumo tag list / create', () => {
           documentCount: 1,
         },
       ],
-      { color: false }
+      { color: false, tty: true, width: 200 }
     ).split('\n')
     expect(lines).toEqual([
-      '前端     -  1 task   0 docs',
-      'backend  -  2 tasks  1 doc',
+      'NAME     COLOR  TASKS    DOCS',
+      '前端     -      1 task   0 docs',
+      'backend  -      2 tasks  1 doc',
     ])
   })
   it('on a colour TTY only the usage counts are styled; layout unchanged', () => {
@@ -239,10 +237,10 @@ describe('lumo tag list / create', () => {
         documentCount: 2,
       },
     ]
-    const colored = formatTagList(rows, { color: true })
+    const colored = formatTagList(rows, { color: true, tty: true, width: 200 })
     expect(colored).toContain('\u001b[2m3 tasks')
     expect(colored.replace(/\u001b\[[0-9;]*m/g, '')).toBe(
-      formatTagList(rows, { color: false })
+      formatTagList(rows, { color: false, tty: true, width: 200 })
     )
   })
 })

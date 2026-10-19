@@ -52,6 +52,8 @@ For each concrete rule, output:
 
 A cmd-substr predicate is a PROHIBITION: the detector flags every executed command that contains the substring. NEVER attach a cmd-substr predicate to a "require" rule — running a required command (e.g. "tests + npx tsc --noEmit pass" before a PR) is compliance, not a violation. A must-do / checklist item is polarity="require", tier="semantic" with an assertion, or is ignored when nothing observable can check it.
 
+A cmd-substr predicate must name a specific command (e.g. "prisma migrate reset"), never a bare verb like "rm", "mv" or "git rm": it is matched as a whole word in every executed command. A rule forbidding deleting or renaming files under a path ("never delete files in <dir>/") is about the path: map it to a built-in category if one fits (MIGRATION_FILE_DELETED for prisma/migrations), otherwise leave the predicate out — the compiler derives a path-scoped check from the rule text.
+
 Never invent regex you are unsure of — downgrade to semantic instead.
 Ignore prose that is not an enforceable rule.
 Only classify concrete actionable rules, not explanations or context.`

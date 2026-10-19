@@ -88,11 +88,11 @@ describe('confirmation helpers', () => {
   })
 
   describe('isConfirmed', () => {
-    it('accepts --confirm and the legacy --yes alias', () => {
+    it('accepts --confirm only (LUM-1233 3i: the --yes alias is gone)', () => {
       expect(isConfirmed({ confirm: true })).toBe(true)
-      expect(isConfirmed({ yes: true })).toBe(true)
+      expect(isConfirmed({ yes: true } as never)).toBe(false)
       expect(isConfirmed({})).toBe(false)
-      expect(isConfirmed({ confirm: false, yes: false })).toBe(false)
+      expect(isConfirmed({ confirm: false })).toBe(false)
     })
   })
 

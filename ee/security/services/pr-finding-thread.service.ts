@@ -1,5 +1,5 @@
 /**
- * LUM-1127 — the lifecycle of Lumo's inline review threads, CodeRabbit-style:
+ * LUM-1127 — the lifecycle of Lumo's inline review threads:
  *
  *   · a fingerprint a COMPLETE pass of its own layer no longer reports on the
  *     new head → Lumo resolves the thread with "✅ Addressed in `<sha>`";
@@ -8,7 +8,28 @@
  *   · an addressed fingerprint reported again → the thread is unresolved with
  *     a regression note;
  *   · the comment went outdated but the finding is still reported → a fresh
- *     comment on the new line, the old thread resolved with a "moved" note.
+ *     comment on the new line, the old thread resolved with a "moved" note;
+ *   · an AI-layer fingerprint is gone but the same issue is reported under a
+ *     new one (the model relabelled its rule id, or quoted another line —
+ *     `matchSuccessors`) → the thread is carried over to the new finding:
+ *     it stays open, with no "Addressed" note and no second comment. A
+ *     thread a human resolved takes the new fingerprint over too (stays
+ *     resolved, no reply) unless the new finding blocks DONE or is more
+ *     severe; a thread Lumo addressed is re-raised (a regression).
+ *     The carry is kept on the row (`aliasFingerprints`, LUM-1127 follow-up
+ *     #3): a finding under any of a thread's fingerprints already has that
+ *     thread — whether or not the review has finished — so a sync running
+ *     mid-review never posts the relabelled finding as a second thread;
+ *   · two Lumo threads for one issue (posted before the carry was kept) →
+ *     merged: the older keeps the issue, the newer is resolved with a short
+ *     "duplicate" note (never "Addressed");
+ *   · (LUM-1127 follow-up #4) a thread keeps the union of identities it has
+ *     carried (`identityHistory`) and is matched by the best of them; a later
+ *     AI-layer finding of its layer on its line is its issue whatever the
+ *     rule id or class (`sameIssueScore` `acrossRounds`); and a thread is
+ *     never addressed while an unmatched finding of its layer is still
+ *     reported on its line — it is held open and that finding gets no
+ *     second thread (`HOLD`, logged as an ambiguous same-line finding).
  *
  * "Fixed" is strict: absence only counts when the layer that produced the
  * finding ran whole (`RAN` — never PARTIAL / PAUSED / PENDING / FAILED) on
@@ -33,9 +54,12 @@ import {
 } from '@/lib/integrations/github/review-threads'
 import {
   prFindingThreadRepository,
+  type FindingThreadPatch,
   type FindingThreadRow,
   type FindingThreadState,
+  type StoredThreadIdentity,
 } from '@/ee/security/repositories/pr-finding-thread.repository'
+import { threadFingerprints } from '@/ee/security/security-scan/thread-fingerprints'
 import type {
   FindingKind,
   FindingProvenance,
@@ -47,6 +71,19 @@ import type {
   ScanStages,
 } from '@/ee/security/security-scan/types'
 import { isVerifierRejected } from '@/ee/security/security-scan/verifier'
+import { stillReportedElsewhere } from '@/ee/security/security-scan/issue-groups'
+import {
+  addIdentityVariant,
+  crowdedFingerprints,
+  evidenceHash,
+  hashIdentity,
+  isKeyedWith,
+  matchSuccessors,
+  sameIssueScore,
+  titleTokens,
+  type FindingIdentity,
+  type IdentityVariant,
+} from '@/ee/security/security-scan/finding-successor'
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -68,6 +105,11 @@ export function buildRegressionNote(headSha: string): string {
 
 export function buildMovedNote(headSha: string): string {
   return `↪️ Moved in \`${short(headSha)}\` — the finding is still reported at a new line; continued in a new comment.\n\n${THREAD_NOTE_MARKER}`
+}
+
+/** LUM-1127 follow-up #3 — a second thread for an issue that already has one. */
+export function buildDuplicateNote(keptCommentUrl: string): string {
+  return `🔗 Duplicate — the same issue is tracked in [Lumo's earlier thread](${keptCommentUrl}), so this one is closed.\n\n${THREAD_NOTE_MARKER}`
 }
 
 /**
@@ -111,6 +153,22 @@ export interface CoverageScan {
   stages: ScanStages | null
   /** Raw Json — `parseReviewScope`. */
   judgeReviewScope?: unknown
+  /** LUM-1144 — the row's causes; a size-cap partial review is scoped. */
+  partialCauses?: ReadonlyArray<string> | null
+}
+
+/**
+ * LUM-1144 — the AI review ran on part of an over-cap diff and recorded
+ * exactly which files it read: those files were reviewed whole.
+ */
+function isScopedPartialJudge(scan: CoverageScan): boolean {
+  const causes = scan.partialCauses ?? []
+  return (
+    scan.stages?.judge === 'PARTIAL' &&
+    causes.includes('JUDGE_PARTIAL_OVER_CAP') &&
+    !causes.includes('JUDGE_TRUNCATED') &&
+    parseReviewScope(scan.judgeReviewScope) !== null
+  )
 }
 
 /**
@@ -128,7 +186,8 @@ export function layerCoveredFile(
 ): boolean {
   if (scan.status !== 'CLEAN' && scan.status !== 'FINDINGS') return false
   const layer = layerOf(t)
-  if (scan.stages?.[layer] !== 'RAN') return false
+  const scopedPartial = layer === 'judge' && isScopedPartialJudge(scan)
+  if (scan.stages?.[layer] !== 'RAN' && !scopedPartial) return false
   if (layer !== 'judge') return true
   const scope = parseReviewScope(scan.judgeReviewScope)
   return scope === null || scope.includes(t.filePath)
@@ -147,8 +206,30 @@ export type ThreadAction =
   | { kind: 'ADDRESS'; row: FindingThreadRow; threadId: string | null }
   /** Addressed, then reported again: unresolve with the regression note. */
   | { kind: 'REOPEN'; row: FindingThreadRow; threadId: string | null }
-  /** Still reported but the comment is outdated: post afresh, resolve the old one as moved. */
-  | { kind: 'REPOST'; row: FindingThreadRow; threadId: string | null }
+  /**
+   * Still reported but the comment is outdated: post afresh, resolve the old
+   * one as moved. `fingerprint` = the finding the fresh comment is for when
+   * it continues the row's under a new fingerprint; absent = the row's own.
+   */
+  | {
+      kind: 'REPOST'
+      row: FindingThreadRow
+      threadId: string | null
+      fingerprint?: string
+    }
+  /**
+   * The row's fingerprint is gone but `successor` reports the same issue:
+   * the thread keeps its state (open, or resolved by a human) and stands for
+   * `successor` (no note, no comment).
+   */
+  | { kind: 'CARRY'; row: FindingThreadRow; successor: string }
+  /**
+   * LUM-1127 follow-up #4 — the row's fingerprint is gone, nothing continues
+   * it, but `fingerprints` (unmatched findings of its layer) are still
+   * reported on its line: ambiguous — the thread stays open (no note) and
+   * those findings get no thread of their own on this sync.
+   */
+  | { kind: 'HOLD'; row: FindingThreadRow; fingerprints: string[] }
   /** State-only change (GitHub already says so, or the verifier decided). */
   | {
       kind: 'SET_STATE'
@@ -167,12 +248,38 @@ export interface ThreadPlanInput {
   headSha: string
   /** GitHub's view of the threads, by first-comment id; null = not read. */
   remote: Map<string, ReviewThreadState> | null
+  /** LUM-1147 — the review profile's inline rule; absent = chill. */
+  isInline?: ((f: ReviewFindingRow) => boolean) | undefined
+  /**
+   * LUM-1127 follow-up — line / title / evidence by fingerprint, for the
+   * threads' findings this scan no longer reports and this scan's AI-layer
+   * findings (`loadIdentities`). `null` = the lookup failed: no AI-layer
+   * thread is addressed on this sync (the next one retries). Absent = no
+   * same-issue matching (absence alone decides).
+   */
+  identities?: Map<string, FindingIdentity> | null | undefined
+  /** Does this finding block DONE (the workspace policy)? Absent = never. */
+  isBlocking?: ((f: ReviewFindingRow) => boolean) | undefined
+  /**
+   * LUM-1127 follow-up #2 — the key the stored identities are hashed with
+   * (`findingIdentityKey`); every identity is compared in that hashed form.
+   * Absent / null = no stored identity is in play (plain comparison).
+   */
+  identityKey?: string | null | undefined
 }
 
 export interface ThreadPlan {
   actions: ThreadAction[]
   /** Thread node ids learnt from GitHub, to store. */
   nodeIds: Array<{ row: FindingThreadRow; threadNodeId: string }>
+  /**
+   * LUM-1127 follow-up #2 — open AI-layer threads whose finding is gone but
+   * whose identity is unknown (nothing recorded on the row, no finding row
+   * left to read it from) while their file still has a finding that could
+   * continue them: not addressed on this sync — the same issue may still be
+   * reported under a new fingerprint.
+   */
+  unknownIdentity: FindingThreadRow[]
 }
 
 /**
@@ -186,8 +293,14 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     input.findings.filter(isVerifierRejected).map(f => f.fingerprint)
   )
   const openByFp = new Map(input.open.map(f => [f.fingerprint, f]))
+  const isInline = input.isInline ?? inlineEligible
+  const successors = successorsOf(input, present, rejected)
+  const taken = new Set(successors.values())
+  const stillReported = stillReportedOf(input, present, rejected)
+  const candidateFiles = successorCandidateFiles(input, rejected)
   const actions: ThreadAction[] = []
   const nodeIds: ThreadPlan['nodeIds'] = []
+  const unknownIdentity: FindingThreadRow[] = []
 
   for (const row of input.rows) {
     const remote = input.remote?.get(row.commentId) ?? null
@@ -211,6 +324,8 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
           state: 'RESOLVED_BY_USER',
           resolvedByLogin: remote.resolvedBy.login,
         })
+        const carry = resolvedCarry(input, row, successors.get(row.fingerprint))
+        if (carry) actions.push(carry)
         continue
       }
       if (
@@ -228,7 +343,12 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     }
 
     const fp = row.fingerprint
-    const openNow = openByFp.get(fp)
+    // LUM-1127 follow-up #3: the thread stands for its own fingerprint and
+    // every one it was carried to; the newest reported one is its finding.
+    const fps = threadFingerprints(row)
+    const reported = fps.filter(f => present.has(f))
+    const openFp = [...fps].reverse().find(f => openByFp.has(f))
+    const openNow = openFp ? openByFp.get(openFp) : undefined
 
     if (state === 'DISMISSED') {
       // The verifier's later verdict restored the comment: open again.
@@ -241,7 +361,7 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
         })
       continue
     }
-    if (rejected.has(fp)) {
+    if (reported.length > 0 && reported.every(f => rejected.has(f))) {
       if (state === 'OPEN')
         actions.push({
           kind: 'SET_STATE',
@@ -271,19 +391,76 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
       state = 'ADDRESSED'
     }
     // A human closed the conversation: never re-posted, never reopened by Lumo.
-    if (state === 'RESOLVED_BY_USER') continue
+    if (state === 'RESOLVED_BY_USER') {
+      const carry = resolvedCarry(input, row, successors.get(fp))
+      if (carry) actions.push(carry)
+      continue
+    }
 
     if (state === 'OPEN') {
-      if (
-        !present.has(fp) &&
-        // Not again on the head it was already addressed on (a human
-        // reopened it there — Lumo does not fight that).
-        row.addressedInSha !== input.headSha &&
-        layerCoveredFile(input.scan, row)
-      ) {
+      if (reported.length === 0) {
+        // The same issue may still be reported under a new fingerprint:
+        // unknown (lookup failed) → wait for the next sync; found → carry.
+        if (row.provenance === 'LLM_JUDGE' && input.identities === null)
+          continue
+        const successor = successors.get(fp)
+        if (
+          // Not again on the head it was already addressed on (a human
+          // reopened it there — Lumo does not fight that)…
+          row.addressedInSha === input.headSha ||
+          // …and never before its layer read the file whole (a sync running
+          // mid-review sees the previous pass's findings): nothing is
+          // addressed, but a finding that continues the thread is still
+          // carried — it must never get a second thread.
+          !layerCoveredFile(input.scan, row)
+        ) {
+          if (successor) actions.push({ kind: 'CARRY', row, successor })
+          continue
+        }
+        // …and when nothing says what the thread's finding was, it cannot be
+        // told apart from a relabel while the file still has a finding that
+        // could continue it: never resolved on that (fail safe). With none
+        // left in the file, no successor is possible — absence decides.
+        if (
+          !successor &&
+          row.provenance === 'LLM_JUDGE' &&
+          input.identities &&
+          !input.identities.has(fp) &&
+          candidateFiles.has(row.filePath)
+        ) {
+          unknownIdentity.push(row)
+          continue
+        }
+        if (successor) {
+          const next = openByFp.get(successor)
+          if (next && remote?.isOutdated && isInline(next))
+            actions.push({
+              kind: 'REPOST',
+              row,
+              threadId,
+              fingerprint: successor,
+            })
+          else actions.push({ kind: 'CARRY', row, successor })
+          continue
+        }
+        // LUM-1200 follow-up #2: its issue is still reported (another
+        // finding of its group, or the hunt's rewording) — left open.
+        if (stillReported.has(fp)) continue
+        // LUM-1127 follow-up #4: never addressed while an unmatched finding
+        // of its layer is still reported on its line.
+        const held = sameLineUnmatched(input, row, taken, rejected)
+        if (held.length > 0) {
+          actions.push({ kind: 'HOLD', row, fingerprints: held })
+          continue
+        }
         actions.push({ kind: 'ADDRESS', row, threadId })
-      } else if (openNow && remote?.isOutdated && inlineEligible(openNow)) {
-        actions.push({ kind: 'REPOST', row, threadId })
+      } else if (openNow && remote?.isOutdated && isInline(openNow)) {
+        actions.push({
+          kind: 'REPOST',
+          row,
+          threadId,
+          ...(openFp && openFp !== fp ? { fingerprint: openFp } : {}),
+        })
       }
       continue
     }
@@ -292,12 +469,715 @@ export function planThreadActions(input: ThreadPlanInput): ThreadPlan {
     if (openNow) {
       // An outdated thread points at code that is gone: a fresh comment on
       // the new line reads better than reopening it.
-      if (remote?.isOutdated && inlineEligible(openNow))
-        actions.push({ kind: 'REPOST', row, threadId: null })
+      if (remote?.isOutdated && isInline(openNow))
+        actions.push({
+          kind: 'REPOST',
+          row,
+          threadId: null,
+          ...(openFp && openFp !== fp ? { fingerprint: openFp } : {}),
+        })
       else actions.push({ kind: 'REOPEN', row, threadId })
     }
   }
-  return { actions, nodeIds }
+  return { actions, nodeIds, unknownIdentity }
+}
+
+/**
+ * The state `planThreadActions` will treat a row as having on this sync,
+ * from the stored state and GitHub's view (the same rules as the plan:
+ * a human resolve recorded, an unresolve reopening, Lumo's own resolve not
+ * taken for a human's).
+ */
+function effectiveState(
+  r: FindingThreadRow,
+  remote: ReviewThreadState | null
+): FindingThreadState {
+  if (r.state === 'DISMISSED') return r.state
+  if (remote) {
+    if (
+      r.state === 'OPEN' &&
+      remote.isResolved &&
+      remote.resolvedBy &&
+      !isLumoActor(remote.resolvedBy)
+    )
+      return 'RESOLVED_BY_USER'
+    if (r.state !== 'OPEN' && !remote.isResolved) return 'OPEN'
+  }
+  if (
+    r.state === 'RESOLVED_BY_USER' &&
+    isLumoActor({ login: r.resolvedByLogin }) &&
+    !(remote?.resolvedBy && !isLumoActor(remote.resolvedBy))
+  )
+    return 'ADDRESSED'
+  return r.state
+}
+
+/**
+ * Rows whose fingerprint this scan no longer reports → the current finding
+ * that reports the same issue under a new fingerprint (`matchSuccessors`).
+ * Open threads are matched first (a still-reported issue must not be
+ * resolved), then threads a human resolved (the same issue is not raised
+ * again). A thread Lumo addressed is never matched: the issue reappearing
+ * there is a regression. Only AI-layer (LLM_JUDGE) fingerprints drift; a
+ * current finding that owns a thread of its own, or that the verifier
+ * rejected, continues nothing.
+ */
+function successorsOf(
+  input: ThreadPlanInput,
+  present: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): Map<string, string> {
+  const ids = input.identities
+  if (!ids) return new Map()
+  const owned = ownedFingerprints(input.rows)
+  const byState = (state: FindingThreadState): FindingIdentity[] => {
+    const out: FindingIdentity[] = []
+    for (const r of input.rows) {
+      if (r.provenance !== 'LLM_JUDGE' || isReported(r, present)) continue
+      const remote = input.remote?.get(r.commentId) ?? null
+      if (effectiveState(r, remote) !== state) continue
+      const id = ids.get(r.fingerprint)
+      if (id) out.push(id)
+    }
+    return out
+  }
+  const comparable = comparableWith(input.identityKey ?? null)
+  const open = byState('OPEN').map(comparable)
+  const resolved = byState('RESOLVED_BY_USER').map(comparable)
+  if (open.length === 0 && resolved.length === 0) return new Map()
+  const crowded = currentCrowded(input.findings, rejected)
+  const current: FindingIdentity[] = input.findings
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        !owned.has(f.fingerprint) &&
+        !rejected.has(f.fingerprint)
+    )
+    .map(f => comparable(identityOfFinding(f, ids, crowded)))
+  const opts = { acrossRounds: true }
+  const out = matchSuccessors(open, current, opts)
+  const taken = new Set(out.values())
+  for (const [prev, next] of matchSuccessors(
+    resolved,
+    current.filter(c => !taken.has(c.fingerprint)),
+    opts
+  ))
+    out.set(prev, next)
+  return out
+}
+
+/** This round's LLM-layer findings that share their layer's line with another. */
+function currentCrowded(
+  findings: readonly ReviewFindingRow[],
+  rejected: ReadonlySet<string>
+): Set<string> {
+  return crowdedFingerprints(findings.filter(f => !rejected.has(f.fingerprint)))
+}
+
+const llmLayer = (ruleId: string): 'hunt' | 'judge' =>
+  ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
+
+/**
+ * LUM-1127 follow-up #4 — the open findings of the row's layer reported on a
+ * line the thread has stood for (its identity or any in its history) that
+ * nothing has: no thread owns them (under any fingerprint) and no thread
+ * continues into them on this sync. Needs the identities (none → matching
+ * is off: absence alone decides).
+ */
+function sameLineUnmatched(
+  input: ThreadPlanInput,
+  row: FindingThreadRow,
+  taken: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): string[] {
+  if (row.provenance !== 'LLM_JUDGE' || !input.identities) return []
+  const id = input.identities.get(row.fingerprint)
+  const lines = new Set<number>()
+  if (row.identityLine != null) lines.add(row.identityLine)
+  if (id?.line != null) lines.add(id.line)
+  for (const v of id?.history ?? []) if (v.line !== null) lines.add(v.line)
+  if (lines.size === 0) return []
+  const owned = ownedFingerprints(input.rows)
+  const layer = llmLayer(row.ruleId)
+  return input.open
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        llmLayer(f.ruleId) === layer &&
+        f.filePath === row.filePath &&
+        f.line !== null &&
+        lines.has(f.line) &&
+        !rejected.has(f.fingerprint) &&
+        !owned.has(f.fingerprint) &&
+        !taken.has(f.fingerprint)
+    )
+    .map(f => f.fingerprint)
+}
+
+/** Every fingerprint some thread stands for (its own and its aliases). */
+function ownedFingerprints(rows: readonly FindingThreadRow[]): Set<string> {
+  return new Set(rows.flatMap(threadFingerprints))
+}
+
+/** Does this scan report the thread's finding under any of its fingerprints? */
+function isReported(
+  row: FindingThreadRow,
+  present: ReadonlySet<string>
+): boolean {
+  return threadFingerprints(row).some(f => present.has(f))
+}
+
+/** Identities compare in their hashed form once a key is in play. */
+function comparableWith(
+  key: string | null
+): (f: FindingIdentity) => FindingIdentity {
+  return f => (key ? hashIdentity(f, key) : f)
+}
+
+/** A current finding as the same-issue match reads it. */
+function identityOfFinding(
+  f: ReviewFindingRow,
+  ids: ReadonlyMap<string, FindingIdentity>,
+  crowded?: ReadonlySet<string>
+): FindingIdentity {
+  return {
+    fingerprint: f.fingerprint,
+    ruleId: f.ruleId,
+    provenance: f.provenance,
+    filePath: f.filePath,
+    line: f.line,
+    title: f.title,
+    severity: f.severity,
+    evidence: ids.get(f.fingerprint)?.evidence ?? null,
+    ...(crowded?.has(f.fingerprint) ? { crowded: true } : {}),
+  }
+}
+
+export interface DuplicateMerge {
+  /** The older thread: it keeps the issue and takes the other's fingerprints. */
+  keep: FindingThreadRow
+  /** The newer thread: resolved with a duplicate note, its row dropped. */
+  drop: FindingThreadRow
+}
+
+/** GitHub comment ids grow over time: the smaller one is the older thread. */
+function isOlder(a: FindingThreadRow, b: FindingThreadRow): boolean {
+  const x = Number(a.commentId)
+  const y = Number(b.commentId)
+  if (Number.isFinite(x) && Number.isFinite(y) && x !== y) return x < y
+  return a.commentId < b.commentId
+}
+
+/**
+ * LUM-1127 follow-up #3 — two open Lumo threads for one issue (a sync before
+ * the carry was kept on the row posted the relabelled finding afresh): an
+ * open AI-layer thread whose finding this scan no longer reports, and an
+ * open thread that owns a reported finding that is the same issue
+ * (`sameIssueScore`). The older thread keeps the issue; the newer one is
+ * merged into it. Needs the identities (`loadIdentities`); none → only the
+ * merges already decided on an earlier sync (a row whose fingerprint is
+ * another thread's alias), which are always planned until finished. Pure.
+ */
+export function planDuplicateMerges(input: ThreadPlanInput): DuplicateMerge[] {
+  const out: DuplicateMerge[] = []
+  const used = new Set<string>()
+  // A merge already decided (its fingerprints were made the kept thread's
+  // aliases) but not finished — the thread close or the row delete failed:
+  // finished on this sync, whatever the scan reports. Until then the kept
+  // thread alone owns the fingerprint (the other row is left out of the plan).
+  const aliasOwner = new Map<string, FindingThreadRow>()
+  for (const r of input.rows)
+    for (const a of r.aliasFingerprints ?? [])
+      if (!aliasOwner.has(a)) aliasOwner.set(a, r)
+  const drops = new Set(
+    input.rows
+      .filter(r => {
+        const k = aliasOwner.get(r.fingerprint)
+        return k !== undefined && k.id !== r.id
+      })
+      .map(r => r.id)
+  )
+  for (const drop of input.rows) {
+    const keep = aliasOwner.get(drop.fingerprint)
+    if (!keep || keep.id === drop.id || drops.has(keep.id)) continue
+    out.push({ keep, drop })
+    used.add(keep.id)
+    used.add(drop.id)
+  }
+  const ids = input.identities
+  if (!ids) return out
+  const present = new Set(input.findings.map(f => f.fingerprint))
+  const rejected = new Set(
+    input.findings.filter(isVerifierRejected).map(f => f.fingerprint)
+  )
+  const comparable = comparableWith(input.identityKey ?? null)
+  const crowded = currentCrowded(input.findings, rejected)
+  const stateOf = (r: FindingThreadRow) =>
+    effectiveState(r, input.remote?.get(r.commentId) ?? null)
+  const openAi = input.rows.filter(
+    r => r.provenance === 'LLM_JUDGE' && stateOf(r) === 'OPEN'
+  )
+  // LUM-1127 follow-up #4: a thread Lumo addressed whose finding is reported
+  // again (this sync reopens it) is a thread of that issue too — merged with
+  // the open one rather than flipped against it.
+  const owners = input.rows.filter(
+    r =>
+      r.provenance === 'LLM_JUDGE' &&
+      (stateOf(r) === 'OPEN' ||
+        (stateOf(r) === 'ADDRESSED' && isReported(r, present)))
+  )
+  const ownerOf = new Map<string, FindingThreadRow>()
+  for (const r of owners)
+    if (!drops.has(r.id))
+      for (const f of threadFingerprints(r)) ownerOf.set(f, r)
+  for (const gone of openAi) {
+    if (used.has(gone.id) || isReported(gone, present)) continue
+    const was = ids.get(gone.fingerprint)
+    if (!was) continue
+    let best: { row: FindingThreadRow; score: number } | null = null
+    for (const f of input.findings) {
+      if (f.provenance !== 'LLM_JUDGE' || rejected.has(f.fingerprint)) continue
+      const owner = ownerOf.get(f.fingerprint)
+      if (!owner || owner.id === gone.id || used.has(owner.id)) continue
+      const score = sameIssueScore(
+        comparable(was),
+        comparable(identityOfFinding(f, ids, crowded)),
+        { acrossRounds: true }
+      )
+      if (score !== null && (!best || score > best.score))
+        best = { row: owner, score }
+    }
+    if (!best) continue
+    used.add(gone.id)
+    used.add(best.row.id)
+    out.push(
+      isOlder(gone, best.row)
+        ? { keep: gone, drop: best.row }
+        : { keep: best.row, drop: gone }
+    )
+  }
+  return out
+}
+
+/**
+ * LUM-1200 follow-up #2 — open AI-layer threads whose fingerprint is gone but
+ * whose issue an open finding of this scan still reports
+ * (`stillReportedElsewhere`): never addressed. Unlike `successorsOf`, a
+ * finding that owns a thread or continues another one counts — the question
+ * is only whether the issue is still reported. Composes with the LUM-1127
+ * duplicate merge, which runs first in `reconcile`: once the other thread
+ * owns that finding (its own fingerprint or an alias), the two threads are
+ * merged (the newer closed with a duplicate note); until then — the sync
+ * that carries the relabel — this keeps the gone thread open.
+ */
+function stillReportedOf(
+  input: ThreadPlanInput,
+  present: ReadonlySet<string>,
+  rejected: ReadonlySet<string>
+): Set<string> {
+  const out = new Set<string>()
+  const ids = input.identities
+  if (!ids) return out
+  const key = input.identityKey ?? null
+  const comparable = (f: FindingIdentity): FindingIdentity =>
+    key ? hashIdentity(f, key) : f
+  const gone: FindingIdentity[] = []
+  for (const r of input.rows) {
+    // Gone under every fingerprint the thread stands for (its aliases too).
+    if (r.provenance !== 'LLM_JUDGE' || isReported(r, present)) continue
+    const remote = input.remote?.get(r.commentId) ?? null
+    if (effectiveState(r, remote) !== 'OPEN') continue
+    const id = ids.get(r.fingerprint)
+    if (id) gone.push(comparable(id))
+  }
+  if (gone.length === 0) return out
+  const files = new Set(gone.map(g => g.filePath))
+  // Open findings only: one a human dispositioned (or the verifier
+  // rejected, or the baseline already had) keeps no other thread open.
+  const current = input.open
+    .filter(
+      f =>
+        f.provenance === 'LLM_JUDGE' &&
+        files.has(f.filePath) &&
+        !rejected.has(f.fingerprint)
+    )
+    .map(f =>
+      comparable({
+        fingerprint: f.fingerprint,
+        ruleId: f.ruleId,
+        provenance: f.provenance,
+        filePath: f.filePath,
+        line: f.line,
+        title: f.title,
+        severity: f.severity,
+        evidence: ids.get(f.fingerprint)?.evidence ?? null,
+      })
+    )
+  for (const g of gone)
+    if (stillReportedElsewhere(g, current)) out.add(g.fingerprint)
+  return out
+}
+
+/**
+ * Files holding a current AI-layer finding that could continue a thread
+ * (the `successorsOf` candidates: not owning a thread, not verifier-rejected).
+ * A same-issue match never crosses files.
+ */
+function successorCandidateFiles(
+  input: ThreadPlanInput,
+  rejected: ReadonlySet<string>
+): Set<string> {
+  const owned = ownedFingerprints(input.rows)
+  return new Set(
+    input.findings
+      .filter(
+        f =>
+          f.provenance === 'LLM_JUDGE' &&
+          !owned.has(f.fingerprint) &&
+          !rejected.has(f.fingerprint)
+      )
+      .map(f => f.filePath)
+  )
+}
+
+const SEVERITY_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const
+
+/**
+ * A thread a human resolved takes over the same issue's new fingerprint
+ * (stays resolved, no reply, no new comment) — unless the new finding blocks
+ * DONE or is more severe than the one they resolved (unknown severity → it
+ * is raised).
+ */
+function resolvedCarry(
+  input: ThreadPlanInput,
+  row: FindingThreadRow,
+  successor: string | undefined
+): ThreadAction | null {
+  if (!successor) return null
+  const next = input.findings.find(f => f.fingerprint === successor)
+  const was = input.identities?.get(row.fingerprint)?.severity
+  if (!next || !was) return null
+  if (input.isBlocking?.(next)) return null
+  if (SEVERITY_RANK[next.severity] > SEVERITY_RANK[was]) return null
+  return { kind: 'CARRY', row, successor }
+}
+
+/**
+ * LUM-1127 follow-up #3 — what the fingerprints a thread was carried to mean
+ * on this sync (each one reported now, not being re-posted):
+ *
+ *   · the thread is open (or Lumo addressed it — the plan reopens it with a
+ *     regression note): the finding already has this thread → `carried`;
+ *   · a human resolved the thread: the finding stays on it (`carried`, and
+ *     closes with it) only under the carry rule (`resolvedCarry`) — it does
+ *     not block DONE and is not more severe than what they resolved (unknown
+ *     → raised). Otherwise the thread lets go of it (`detach`) and the
+ *     finding is posted afresh, owning a thread of its own.
+ *
+ * Pure.
+ */
+export function planAliasCarries(input: {
+  rows: FindingThreadRow[]
+  findings: ReviewFindingRow[]
+  /** Each thread's state after this sync's actions, by its own fingerprint. */
+  state: ReadonlyMap<string, FindingThreadState>
+  /** Fingerprints this write-back posts afresh on purpose (REPOST). */
+  reposted: ReadonlySet<string>
+  identities: Map<string, FindingIdentity> | null | undefined
+  isBlocking?: ((f: ReviewFindingRow) => boolean) | undefined
+}): {
+  carried: Map<string, string>
+  detach: Array<{ row: FindingThreadRow; aliases: string[] }>
+} {
+  const byFp = new Map(input.findings.map(f => [f.fingerprint, f]))
+  const carried = new Map<string, string>()
+  const detach: Array<{ row: FindingThreadRow; aliases: string[] }> = []
+  for (const row of input.rows) {
+    const aliases = row.aliasFingerprints ?? []
+    const released: string[] = []
+    for (const alias of aliases) {
+      const f = byFp.get(alias)
+      if (!f || input.reposted.has(alias)) continue
+      const state = input.state.get(row.fingerprint) ?? row.state
+      if (state === 'RESOLVED_BY_USER') {
+        const was =
+          row.identitySeverity ??
+          input.identities?.get(row.fingerprint)?.severity
+        if (
+          !was ||
+          input.isBlocking?.(f) ||
+          SEVERITY_RANK[f.severity] > SEVERITY_RANK[was]
+        ) {
+          released.push(alias)
+          continue
+        }
+      }
+      carried.set(alias, row.fingerprint)
+    }
+    if (released.length > 0)
+      detach.push({ row, aliases: aliases.filter(a => !released.includes(a)) })
+  }
+  return { carried, detach }
+}
+
+/**
+ * LUM-1127 follow-up #2 — the key the thread rows' identity hashes are made
+ * with: a dedicated `LUMO_FINDING_IDENTITY_KEY`, else the deployment's
+ * `CRON_SECRET` (mandatory for the cron routes; hashed under a domain prefix).
+ * Null = not configured: no identity is recorded (the matching falls back to
+ * the finding rows), never an unkeyed hash.
+ */
+export function findingIdentityKey(
+  env: Record<string, string | undefined> = process.env
+): string | null {
+  const k = env.LUMO_FINDING_IDENTITY_KEY || env.CRON_SECRET
+  return k && k.length > 0 ? k : null
+}
+
+/**
+ * What a thread row records about the finding it stands for: keyed hashes of
+ * the quoted line and the title words, never the code or the title. The
+ * finding joins the identities the thread already carried (`prior`,
+ * `priorHistoryOf`) — LUM-1127 follow-up #4: the history is a union, never
+ * overwritten. `crowded` = another finding of its layer sat on its line.
+ */
+export function threadIdentityOf(
+  f: Pick<ReviewFindingRow, 'ruleId' | 'line' | 'severity' | 'title'>,
+  evidence: string | null,
+  key: string,
+  prior: readonly IdentityVariant[] = [],
+  crowded = false
+): Required<StoredThreadIdentity> {
+  const hash = evidenceHash(evidence, key)
+  const tokens = titleTokens(f.title, key)
+  return {
+    identityRuleId: f.ruleId,
+    identityLine: f.line,
+    identitySeverity: f.severity,
+    identityEvidenceHash: hash,
+    identityTitleTokens: tokens,
+    identityHistory: addIdentityVariant(prior, {
+      ruleId: f.ruleId,
+      line: f.line,
+      evidenceHash: hash,
+      titleTokens: tokens,
+      ...(crowded ? { crowded: true } : {}),
+    }),
+  }
+}
+
+/**
+ * The identities a row has carried, made with `key`: its history, or — a row
+ * recorded before the history was kept — its one recorded identity. Hashes
+ * made with another key are dropped (a rotated secret).
+ */
+export function priorHistoryOf(
+  row: FindingThreadRow,
+  key: string
+): IdentityVariant[] {
+  const kept = (row.identityHistory ?? []).filter(v => isKeyedWith(v, key))
+  if (kept.length > 0) return kept
+  const stored = storedIdentityOf(row, key)
+  if (!stored) return []
+  return [
+    {
+      ruleId: stored.ruleId,
+      line: stored.line,
+      evidenceHash: stored.evidenceHash ?? null,
+      titleTokens: stored.titleTokens ?? [],
+    },
+  ]
+}
+
+/**
+ * What a carried row has stood for: its history, or — nothing recorded on the
+ * row — the identity its own finding row gave (hashed), so the thread's
+ * first wording is not lost when it moves on.
+ */
+function carriedPrior(
+  row: FindingThreadRow,
+  identities: ReadonlyMap<string, FindingIdentity> | null,
+  key: string
+): IdentityVariant[] {
+  const prior = priorHistoryOf(row, key)
+  if (prior.length > 0) return prior
+  const was = identities?.get(row.fingerprint)
+  if (!was) return []
+  const h = hashIdentity(was, key)
+  return [
+    {
+      ruleId: h.ruleId,
+      line: h.line,
+      evidenceHash: h.evidenceHash ?? null,
+      titleTokens: h.titleTokens ?? [],
+    },
+  ]
+}
+
+/**
+ * Is another LLM-layer finding of `f`'s layer reported on `f`'s line — one
+ * that is not the thread's own (`own`)? Then the line holds two issues.
+ */
+function crowdedOn(
+  f: Pick<ReviewFindingRow, 'fingerprint' | 'ruleId' | 'filePath' | 'line'>,
+  findings: readonly ReviewFindingRow[],
+  own: ReadonlySet<string>
+): boolean {
+  if (f.line === null) return false
+  return findings.some(
+    g =>
+      g.provenance === 'LLM_JUDGE' &&
+      g.fingerprint !== f.fingerprint &&
+      !own.has(g.fingerprint) &&
+      g.filePath === f.filePath &&
+      g.line === f.line &&
+      llmLayer(g.ruleId) === llmLayer(f.ruleId) &&
+      !isVerifierRejected(g)
+  )
+}
+
+/**
+ * A row's recorded identity, as the same-issue match reads it; null = none
+ * recorded, or recorded with another key (a rotated secret — then it is
+ * re-recorded, and meanwhile treated as unknown, never as a mismatch).
+ */
+export function storedIdentityOf(
+  row: FindingThreadRow,
+  key: string | null
+): FindingIdentity | null {
+  if (!row.identityRuleId || !key) return null
+  const hashes = {
+    evidenceHash: row.identityEvidenceHash ?? null,
+    titleTokens: row.identityTitleTokens ?? [],
+  }
+  if (!isKeyedWith(hashes, key)) return null
+  // LUM-1127 follow-up #4: every identity it carried (made with this key).
+  const history = (row.identityHistory ?? []).filter(v => isKeyedWith(v, key))
+  return {
+    fingerprint: row.fingerprint,
+    ruleId: row.identityRuleId,
+    provenance: row.provenance,
+    filePath: row.filePath,
+    line: row.identityLine ?? null,
+    title: '',
+    ...(row.identitySeverity ? { severity: row.identitySeverity } : {}),
+    evidence: null,
+    ...hashes,
+    ...(history.length > 0 ? { history } : {}),
+    ...(history.some(v => v.crowded) ? { crowded: true } : {}),
+  }
+}
+
+const sameTokens = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((t, i) => t === b[i])
+
+const sameHistory = (
+  a: readonly IdentityVariant[],
+  b: readonly IdentityVariant[] | undefined
+): boolean => JSON.stringify(a) === JSON.stringify(b ?? [])
+
+/**
+ * The identity writes this sync owes: an AI-layer row whose own finding is
+ * reported gets its identity recorded (or its line / title / severity
+ * refreshed — the quoted line is the fingerprint's own and does not change),
+ * and a carried row takes over its successor's identity (its severity kept:
+ * a human's resolve is weighed against what they resolved). LUM-1127
+ * follow-up #4: whatever the thread is reported as — its own fingerprint or
+ * one it was carried to — joins its `identityHistory` (the union, with
+ * `crowded` when another finding of its layer shares the line); the history
+ * is never overwritten. No key → none. Pure.
+ */
+export function planIdentityWrites(input: {
+  rows: FindingThreadRow[]
+  findings: ReviewFindingRow[]
+  /** `loadIdentities`; null = the read failed (nothing new is recorded). */
+  identities: Map<string, FindingIdentity> | null
+  carried: ReadonlyArray<{ row: FindingThreadRow; successor: string }>
+  key: string | null
+}): Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> {
+  const { key } = input
+  if (!key) return []
+  const byFp = new Map(input.findings.map(f => [f.fingerprint, f]))
+  const out: Array<{ row: FindingThreadRow; patch: StoredThreadIdentity }> = []
+  const carriedRows = new Set(input.carried.map(c => c.row.id))
+  for (const row of input.rows) {
+    if (row.provenance !== 'LLM_JUDGE' || carriedRows.has(row.id)) continue
+    const own = new Set(threadFingerprints(row))
+    // The newest fingerprint of the thread reported now.
+    const reportedFp = [...threadFingerprints(row)]
+      .reverse()
+      .find(fp => byFp.has(fp))
+    if (!reportedFp) continue
+    const f = byFp.get(reportedFp)!
+    const crowded = crowdedOn(f, input.findings, own)
+    if (!storedIdentityOf(row, key)) {
+      const known = input.identities?.get(row.fingerprint)
+      if (known && reportedFp === row.fingerprint)
+        out.push({
+          row,
+          patch: threadIdentityOf(f, known.evidence, key, [], crowded),
+        })
+      continue
+    }
+    const tokens = titleTokens(f.title, key)
+    // The own fingerprint's quoted line is the recorded one; another one's is
+    // known only when this sync read it.
+    const known = input.identities?.get(reportedFp)
+    const hash =
+      reportedFp === row.fingerprint
+        ? (row.identityEvidenceHash ?? null)
+        : known
+          ? evidenceHash(known.evidence, key)
+          : null
+    const history = addIdentityVariant(priorHistoryOf(row, key), {
+      ruleId: f.ruleId,
+      line: f.line,
+      evidenceHash: hash,
+      titleTokens: tokens,
+      ...(crowded ? { crowded: true } : {}),
+    })
+    const patch: StoredThreadIdentity = {}
+    if (
+      reportedFp === row.fingerprint &&
+      (row.identityRuleId !== f.ruleId ||
+        (row.identityLine ?? null) !== f.line ||
+        row.identitySeverity !== f.severity ||
+        !sameTokens(row.identityTitleTokens ?? [], tokens))
+    )
+      Object.assign(patch, {
+        identityRuleId: f.ruleId,
+        identityLine: f.line,
+        identitySeverity: f.severity,
+        identityTitleTokens: tokens,
+      })
+    if (!sameHistory(history, row.identityHistory))
+      patch.identityHistory = history
+    if (Object.keys(patch).length > 0) out.push({ row, patch })
+  }
+  for (const { row, successor } of input.carried) {
+    const f = byFp.get(successor)
+    const known = input.identities?.get(successor)
+    if (!f || !known) continue
+    // The severity stays the thread's own (what a human resolved).
+    const was =
+      row.identitySeverity ??
+      input.identities?.get(row.fingerprint)?.severity ??
+      f.severity
+    out.push({
+      row,
+      patch: {
+        ...threadIdentityOf(
+          f,
+          known.evidence,
+          key,
+          carriedPrior(row, input.identities, key),
+          crowdedOn(f, input.findings, new Set(threadFingerprints(row)))
+        ),
+        identitySeverity: was,
+      },
+    })
+  }
+  return out
 }
 
 /** The fingerprint of a Lumo-authored thread-opening comment, else null. */
@@ -339,6 +1219,13 @@ export interface ThreadSyncContext {
   open: ReviewFindingRow[]
   /** The PR's review comments, as the write-back listed them. */
   comments: ListedComment[]
+  /**
+   * LUM-1147 — would the write-back comment this row inline (the scan's
+   * review profile)? Absent = the chill rule.
+   */
+  isInline?: (f: ReviewFindingRow) => boolean
+  /** Does this finding block DONE (the workspace policy)? Absent = never. */
+  isBlocking?: (f: ReviewFindingRow) => boolean
 }
 
 export interface ThreadReconcileResult {
@@ -346,6 +1233,11 @@ export interface ThreadReconcileResult {
   resolvedByUser: Set<string>
   /** Fingerprints whose existing comment must not stop a fresh post (moved / outdated regression). */
   repost: Map<string, { row: FindingThreadRow; oldThreadId: string | null }>
+  /**
+   * LUM-1127 follow-up — new fingerprint → the thread row it continues: the
+   * finding already has its thread (that row's), so it gets no comment.
+   */
+  carried: Map<string, string>
   /** Thread states after this sync, for the summary. */
   counts: ThreadCounts
 }
@@ -353,6 +1245,7 @@ export interface ThreadReconcileResult {
 export const NO_THREADS: ThreadReconcileResult = {
   resolvedByUser: new Set(),
   repost: new Map(),
+  carried: new Map(),
   counts: { open: 0, addressed: 0, resolved: 0 },
 }
 
@@ -371,7 +1264,9 @@ async function adoptUnknownComments(
   rows: FindingThreadRow[],
   remote: Map<string, ReviewThreadState> | null
 ): Promise<FindingThreadRow[]> {
-  const known = new Set(rows.map(r => r.fingerprint))
+  // A carried thread's aliases are known too: their comments (a duplicate
+  // merged away) are never adopted as threads of their own.
+  const known = ownedFingerprints(rows)
   // Listing is newest first: the first comment seen per fingerprint wins.
   const pending = new Map<string, ListedComment>()
   for (const c of ctx.comments) {
@@ -434,6 +1329,183 @@ async function adoptUnknownComments(
   return adopted
 }
 
+/**
+ * LUM-1127 follow-up — the identities `planThreadActions` matches with: the
+ * AI-layer threads' findings this scan no longer reports, plus this scan's
+ * AI-layer findings in the same files (for their quoted evidence). A thread's
+ * own identity is read off its row (LUM-1127 follow-up #2: a full re-review
+ * of the same head deletes the scan's earlier finding rows); a row recorded
+ * before that falls back to the newest finding row of its fingerprint. Also
+ * reads the evidence of reported findings whose row has no identity yet, so
+ * `planIdentityWrites` can record it. Nothing to match → an empty map; a
+ * failed read → null (no AI-layer thread is addressed on this sync — a
+ * still-reported issue is never resolved on a guess).
+ */
+async function loadIdentities(
+  ctx: ThreadSyncContext,
+  rows: FindingThreadRow[],
+  remote: Map<string, ReviewThreadState> | null,
+  key: string | null
+): Promise<Map<string, FindingIdentity> | null> {
+  const present = new Set(ctx.findings.map(f => f.fingerprint))
+  const gone = rows.filter(r => {
+    if (r.provenance !== 'LLM_JUDGE' || isReported(r, present)) return false
+    const s = effectiveState(r, remote?.get(r.commentId) ?? null)
+    return s === 'OPEN' || s === 'RESOLVED_BY_USER'
+  })
+  const unrecorded = rows.filter(
+    r =>
+      r.provenance === 'LLM_JUDGE' &&
+      present.has(r.fingerprint) &&
+      !storedIdentityOf(r, key)
+  )
+  if (gone.length === 0 && unrecorded.length === 0) return new Map()
+  const out = new Map<string, FindingIdentity>()
+  for (const r of gone) {
+    const stored = storedIdentityOf(r, key)
+    if (stored) out.set(r.fingerprint, stored)
+  }
+  const files = new Set(gone.map(r => r.filePath))
+  const fingerprints = [
+    ...gone.filter(r => !out.has(r.fingerprint)).map(r => r.fingerprint),
+    ...unrecorded.map(r => r.fingerprint),
+    ...ctx.findings
+      .filter(f => f.provenance === 'LLM_JUDGE' && files.has(f.filePath))
+      .map(f => f.fingerprint),
+  ]
+  if (fingerprints.length === 0) return out
+  try {
+    const found = await prFindingThreadRepository.findIdentitiesByFingerprints(
+      ctx.pullRequestId,
+      [...new Set(fingerprints)]
+    )
+    for (const f of found)
+      if (!out.has(f.fingerprint)) out.set(f.fingerprint, f)
+    return out
+  } catch (error) {
+    logger.warn(
+      `[pr-finding-thread] identity read failed pr=#${ctx.prNumber}: ${describe(error)}`
+    )
+    return null
+  }
+}
+
+/** The row's aliases with `fp` added (once; never its own fingerprint). */
+export function withAlias(row: FindingThreadRow, fp: string): string[] {
+  const aliases = row.aliasFingerprints ?? []
+  if (fp === row.fingerprint || aliases.includes(fp)) return aliases
+  return [...aliases, fp]
+}
+
+/**
+ * The kept thread's history with the merged one's added; null when that adds
+ * nothing (or neither has a history made with `key`).
+ */
+export function mergedHistory(
+  keep: FindingThreadRow,
+  drop: FindingThreadRow,
+  key: string
+): IdentityVariant[] | null {
+  const mine = priorHistoryOf(keep, key)
+  let next = mine
+  for (const v of priorHistoryOf(drop, key)) next = addIdentityVariant(next, v)
+  return JSON.stringify(next) === JSON.stringify(keep.identityHistory ?? [])
+    ? null
+    : next
+}
+
+/** The web URL of a review comment, for the duplicate note's link. */
+function commentUrl(ctx: ThreadSyncContext, commentId: string): string {
+  return `https://github.com/${ctx.repo.owner}/${ctx.repo.name}/pull/${ctx.prNumber}#discussion_r${commentId}`
+}
+
+/**
+ * LUM-1127 follow-up #3 — run the planned merges: the newer thread is
+ * resolved on GitHub with a duplicate note (no "Addressed"), its fingerprints
+ * become the older thread's aliases, and its row is dropped. Returns the rows
+ * the rest of this sync plans with. A merge that fails on GitHub leaves both
+ * rows in the table but keeps the newer one out of this sync (never
+ * "addressed" meanwhile); the next sync retries.
+ */
+async function mergeDuplicates(
+  ctx: ThreadSyncContext,
+  rows: FindingThreadRow[],
+  merges: DuplicateMerge[],
+  remote: Map<string, ReviewThreadState> | null
+): Promise<FindingThreadRow[]> {
+  if (merges.length === 0) return rows
+  const skip = new Set<string>()
+  const aliases = new Map<string, string[]>()
+  const histories = new Map<string, IdentityVariant[]>()
+  for (const { keep, drop } of merges) {
+    // Left out of this sync whatever happens below: never "addressed" or
+    // re-posted while the merge is unfinished.
+    skip.add(drop.id)
+    try {
+      // 1. Keep the decision first (idempotent): from now on the kept thread
+      //    owns the fingerprint, and every later sync finishes the merge.
+      const current = aliases.get(keep.id) ?? keep.aliasFingerprints ?? []
+      let next = current
+      for (const fp of threadFingerprints(drop))
+        next = withAlias({ ...keep, aliasFingerprints: next }, fp)
+      // LUM-1127 follow-up #4: the kept thread carries the other's identities.
+      const key = findingIdentityKey()
+      const kept = histories.get(keep.id)
+      const history = key
+        ? mergedHistory(
+            kept ? { ...keep, identityHistory: kept } : keep,
+            drop,
+            key
+          )
+        : null
+      if (next !== current || history)
+        await prFindingThreadRepository.update(keep.id, {
+          aliasFingerprints: next,
+          ...(history ? { identityHistory: history } : {}),
+        })
+      aliases.set(keep.id, next)
+      if (history) histories.set(keep.id, history)
+      // 2. Close the newer thread (once: an already resolved one gets no note).
+      const r = remote?.get(drop.commentId) ?? null
+      if (!r?.isResolved) {
+        const threadId = r?.id ?? drop.threadNodeId
+        if (!threadId) {
+          logger.info(
+            `[pr-finding-thread] duplicate fp=${drop.fingerprint} has no thread id yet — merged next sync`
+          )
+          continue
+        }
+        await reviewThreadClient.resolveThread({ threadId, token: ctx.token })
+        await reply(
+          ctx,
+          drop.commentId,
+          buildDuplicateNote(commentUrl(ctx, keep.commentId))
+        )
+      }
+      // 3. Drop its row.
+      await prFindingThreadRepository.delete(drop.id)
+      logger.info(
+        `[pr-finding-thread] merged duplicate fp=${drop.fingerprint} into fp=${keep.fingerprint} (same issue)`
+      )
+    } catch (error) {
+      logger.warn(
+        `[pr-finding-thread] duplicate merge failed fp=${drop.fingerprint}: ${describe(error)}`
+      )
+    }
+  }
+  return rows
+    .filter(r => !skip.has(r.id))
+    .map(r => {
+      const next = aliases.get(r.id)
+      const history = histories.get(r.id)
+      return {
+        ...r,
+        ...(next ? { aliasFingerprints: next } : {}),
+        ...(history ? { identityHistory: history } : {}),
+      }
+    })
+}
+
 async function readRemote(
   ctx: ThreadSyncContext
 ): Promise<Map<string, ReviewThreadState> | null> {
@@ -475,6 +1547,29 @@ async function reply(
   }
 }
 
+/** The quoted evidence of the posted AI-layer findings; null = the read failed. */
+async function postedEvidence(
+  ctx: ThreadSyncContext,
+  posted: ReviewFindingRow[]
+): Promise<Map<string, string> | null> {
+  const fps = posted
+    .filter(f => f.provenance === 'LLM_JUDGE')
+    .map(f => f.fingerprint)
+  if (fps.length === 0) return new Map()
+  try {
+    const found = await prFindingThreadRepository.findIdentitiesByFingerprints(
+      ctx.pullRequestId,
+      fps
+    )
+    return new Map(found.map(f => [f.fingerprint, f.evidence]))
+  } catch (error) {
+    logger.warn(
+      `[pr-finding-thread] evidence read failed pr=#${ctx.prNumber}: ${describe(error)}`
+    )
+    return null
+  }
+}
+
 /** Runs one action; returns the row's state afterwards. */
 async function execute(
   ctx: ThreadSyncContext,
@@ -492,7 +1587,12 @@ async function execute(
     })
     return action.state
   }
-  if (action.kind === 'REPOST') return row.state
+  if (
+    action.kind === 'REPOST' ||
+    action.kind === 'CARRY' ||
+    action.kind === 'HOLD'
+  )
+    return row.state
   if (!action.threadId) {
     logger.info(
       `[pr-finding-thread] no thread id yet fp=${row.fingerprint} — retried next sync`
@@ -574,6 +1674,25 @@ export const prFindingThreadService = {
       }
     }
 
+    const identityKey = findingIdentityKey()
+    const identities = await loadIdentities(ctx, rows, remote, identityKey)
+    // LUM-1127 follow-up #3: two threads for one issue → merge them first,
+    // so the newer one is never "addressed" while its issue is reported.
+    rows = await mergeDuplicates(
+      ctx,
+      rows,
+      planDuplicateMerges({
+        rows,
+        findings: ctx.findings,
+        open: ctx.open,
+        scan: ctx.scan,
+        headSha: ctx.headSha,
+        remote,
+        identities,
+        identityKey,
+      }),
+      remote
+    )
     const plan = planThreadActions({
       rows,
       findings: ctx.findings,
@@ -581,7 +1700,48 @@ export const prFindingThreadService = {
       scan: ctx.scan,
       headSha: ctx.headSha,
       remote,
+      isInline: ctx.isInline,
+      identities,
+      isBlocking: ctx.isBlocking,
+      identityKey,
     })
+    for (const row of plan.unknownIdentity)
+      logger.warn(
+        `[pr-finding-thread] identity unknown fp=${row.fingerprint} pr=#${ctx.prNumber} — not addressed (may be the same issue under a new fingerprint)`
+      )
+    const carriedActions = plan.actions.flatMap(a =>
+      a.kind === 'CARRY' ? [{ row: a.row, successor: a.successor }] : []
+    )
+    // One write per row: the carry kept on the row (its new alias) and the
+    // identity it now stands for.
+    const patches = new Map<
+      string,
+      { row: FindingThreadRow; patch: FindingThreadPatch }
+    >()
+    for (const { row, successor } of carriedActions)
+      patches.set(row.id, {
+        row,
+        patch: { aliasFingerprints: withAlias(row, successor) },
+      })
+    for (const { row, patch } of planIdentityWrites({
+      rows,
+      findings: ctx.findings,
+      identities,
+      carried: carriedActions,
+      key: identityKey,
+    })) {
+      const prev = patches.get(row.id)
+      patches.set(row.id, { row, patch: { ...prev?.patch, ...patch } })
+    }
+    for (const { row, patch } of patches.values()) {
+      try {
+        await prFindingThreadRepository.update(row.id, patch)
+      } catch (error) {
+        logger.warn(
+          `[pr-finding-thread] carry/identity write failed fp=${row.fingerprint}: ${describe(error)}`
+        )
+      }
+    }
     const finalState = new Map(rows.map(r => [r.fingerprint, r.state]))
     for (const { row, threadNodeId } of plan.nodeIds) {
       try {
@@ -593,12 +1753,35 @@ export const prFindingThreadService = {
       }
     }
     const repost: ThreadReconcileResult['repost'] = new Map()
+    const carried: ThreadReconcileResult['carried'] = new Map()
     for (const action of plan.actions) {
+      if (action.kind === 'HOLD') {
+        // Kept open, nothing said; the findings it holds get no thread of
+        // their own on this sync (they are this thread's until told apart).
+        for (const fp of action.fingerprints)
+          if (!carried.has(fp)) carried.set(fp, action.row.fingerprint)
+        logger.warn(
+          `[pr-finding-thread] ambiguous same-line finding pr=#${ctx.prNumber} thread fp=${action.row.fingerprint} reported=${action.fingerprints.join(',')} — kept open, not addressed`
+        )
+        continue
+      }
+      if (action.kind === 'CARRY') {
+        // No GitHub call and no state change: the thread keeps the state
+        // this sync gave it (an earlier action may have just set it).
+        carried.set(action.successor, action.row.fingerprint)
+        logger.info(
+          `[pr-finding-thread] carried fp=${action.row.fingerprint} → ${action.successor} (same issue, new fingerprint)`
+        )
+        continue
+      }
       if (action.kind === 'REPOST') {
-        repost.set(action.row.fingerprint, {
+        const fp = action.fingerprint ?? action.row.fingerprint
+        repost.set(fp, {
           row: action.row,
           oldThreadId: action.threadId,
         })
+        // Posted afresh on purpose: not suppressed as carried.
+        carried.delete(fp)
         // About to be posted afresh: an open thread from this sync on.
         finalState.set(action.row.fingerprint, 'OPEN')
         continue
@@ -614,14 +1797,45 @@ export const prFindingThreadService = {
         )
       }
     }
+    // A finding under a fingerprint a thread was carried to earlier already
+    // has that thread — mid-review or not — under the carry rules of the
+    // thread's state (`planAliasCarries`).
+    const aliasPlan = planAliasCarries({
+      rows,
+      findings: ctx.findings,
+      state: finalState,
+      reposted: new Set(repost.keys()),
+      identities,
+      isBlocking: ctx.isBlocking,
+    })
+    for (const [alias, fp] of aliasPlan.carried) carried.set(alias, fp)
+    for (const { row, aliases } of aliasPlan.detach) {
+      try {
+        await prFindingThreadRepository.update(row.id, {
+          aliasFingerprints: aliases,
+        })
+      } catch (error) {
+        // Not let go: the finding stays on the resolved thread this sync.
+        logger.warn(
+          `[pr-finding-thread] alias release failed fp=${row.fingerprint}: ${describe(error)}`
+        )
+        for (const a of row.aliasFingerprints ?? [])
+          if (!aliases.includes(a) && !carried.has(a))
+            carried.set(a, row.fingerprint)
+      }
+    }
     const resolvedByUser = new Set(
       [...finalState]
         .filter(([, s]) => s === 'RESOLVED_BY_USER')
         .map(([f]) => f)
     )
+    // A finding carried onto a thread a human resolved is resolved with it.
+    for (const [next, prev] of carried)
+      if (finalState.get(prev) === 'RESOLVED_BY_USER') resolvedByUser.add(next)
     return {
       resolvedByUser,
       repost,
+      carried,
       counts: countStates([...finalState.values()]),
     }
   },
@@ -645,11 +1859,18 @@ export const prFindingThreadService = {
         token: ctx.token,
       })
       const byFp = new Map(posted.map(f => [f.fingerprint, f]))
+      const key = findingIdentityKey()
+      const evidence = key ? await postedEvidence(ctx, posted) : null
       for (const c of comments) {
         const fp = FP_MARKER_RE.exec(c.body)?.[1]
         const f = fp ? byFp.get(fp) : undefined
         if (!fp || !f) continue
         const moved = repost.get(fp)
+        // LUM-1127 follow-up #3: a thread continued under another fingerprint
+        // (carried, then moved) stays one row — the original, re-pointed at
+        // the fresh comment with that fingerprint among its aliases.
+        const continued =
+          moved && moved.row.fingerprint !== fp ? moved.row : null
         if (moved) {
           if (moved.oldThreadId) {
             try {
@@ -665,6 +1886,35 @@ export const prFindingThreadService = {
             }
           }
         }
+        // LUM-1127 follow-up #4: a re-pointed thread keeps what it carried.
+        const prior = key && moved ? priorHistoryOf(moved.row, key) : []
+        const identity =
+          key && f.provenance === 'LLM_JUDGE' && evidence?.has(fp)
+            ? threadIdentityOf(
+                f,
+                evidence.get(fp) ?? null,
+                key,
+                prior,
+                crowdedOn(
+                  f,
+                  ctx.findings,
+                  new Set(moved ? threadFingerprints(moved.row) : [])
+                )
+              )
+            : {}
+        if (continued) {
+          await prFindingThreadRepository.update(continued.id, {
+            commentId: String(c.id),
+            threadNodeId: null,
+            state: 'OPEN',
+            resolvedByLogin: null,
+            resolvedAt: null,
+            addressedInSha: null,
+            aliasFingerprints: withAlias(continued, fp),
+            ...identity,
+          })
+          continue
+        }
         await prFindingThreadRepository.upsert({
           pullRequestId: ctx.pullRequestId,
           workspaceId: ctx.workspaceId,
@@ -676,6 +1926,9 @@ export const prFindingThreadService = {
           provenance: f.provenance,
           kind: f.kind,
           filePath: f.filePath,
+          // An AI-layer thread records what its finding was (LUM-1127
+          // follow-up #2); evidence unknown → recorded on a later sync.
+          ...identity,
         })
       }
     } catch (error) {
@@ -734,6 +1987,17 @@ export async function applyReviewThreadEvent(
     const first = event.comments.find(c => lumoThreadFingerprint(c))
     const fp = first ? lumoThreadFingerprint(first) : null
     if (!first || !fp) return 'not_lumo_thread'
+    // LUM-1127 follow-up #3: a duplicate merged into another thread — its
+    // fingerprint is that thread's alias — is not adopted back.
+    const all = await prFindingThreadRepository.findByPullRequest(
+      event.pullRequestId
+    )
+    if (
+      all.some(
+        r => r.fingerprint !== fp && (r.aliasFingerprints ?? []).includes(fp)
+      )
+    )
+      return 'unchanged'
     const [meta] = await prFindingThreadRepository.findLayerMetaByFingerprints(
       event.pullRequestId,
       [fp]
@@ -819,7 +2083,10 @@ export async function resolveThreadsByCommand(
   const open = (
     await prFindingThreadRepository.findByPullRequest(input.pullRequestId)
   ).filter(r => r.state === 'OPEN')
-  const targets = open.filter(r => !input.keep.has(r.fingerprint))
+  // A carried thread is kept open when the finding it now stands for blocks.
+  const targets = open.filter(
+    r => !threadFingerprints(r).some(f => input.keep.has(f))
+  )
   result.kept = open.length - targets.length
   if (targets.length === 0) return result
 

@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { memoryRepository } from '@/lib/repositories'
 import { memoryManagementService } from '@/lib/services'
-import { getMemoryByIdForWorkspace } from '@/lib/services/memory/memory-read.service'
+import {
+  getMemoryByIdForWorkspace,
+  resolveMemoryRef,
+} from '@/lib/services/memory/memory-read.service'
 import { patchMemoryBodySchema } from '@/lib/validation/memory'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { zodError } from '@/lib/api/helpers'
@@ -14,6 +17,7 @@ type Params = { params: Promise<{ memoryId: string }> }
 
 /**
  * GET /api/memories/[memoryId]
+ * `memoryId` may also be a short ref or unique id prefix (LUM-1230).
  * Full-card fetch for one memory (LUM-500), consumed by `lumo memory show
  * <id>`. Workspace isolation lives in the service, which collapses
  * cross-workspace and missing ids to a single 404.
@@ -22,7 +26,10 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
-    const { memoryId } = await params
+    const { memoryId: ref } = await params
+    // LUM-1230: the CLI prints 8-char short refs; resolve them (or a unique
+    // prefix) inside the caller's workspace. A full cuid passes through.
+    const memoryId = await resolveMemoryRef(ref, identity.workspaceId)
 
     const memory = await getMemoryByIdForWorkspace(
       memoryId,
@@ -48,7 +55,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
-    const { memoryId } = await params
+    const { memoryId: ref } = await params
+    // LUM-1230: the CLI prints 8-char short refs; resolve them (or a unique
+    // prefix) inside the caller's workspace. A full cuid passes through.
+    const memoryId = await resolveMemoryRef(ref, identity.workspaceId)
 
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
     if (!existing)
@@ -108,7 +118,10 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
-    const { memoryId } = await params
+    const { memoryId: ref } = await params
+    // LUM-1230: the CLI prints 8-char short refs; resolve them (or a unique
+    // prefix) inside the caller's workspace. A full cuid passes through.
+    const memoryId = await resolveMemoryRef(ref, identity.workspaceId)
 
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
     if (!existing)

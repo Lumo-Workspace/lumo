@@ -3,16 +3,13 @@
 import { useIntl, type IntlShape } from 'react-intl'
 import {
   dedupeEvidence,
+  groupSubagents,
   mergeGroupEvidence,
+  weakestConfidence,
   type DedupedEvidence,
+  type SubagentGroup,
 } from '@/lib/attribution/run-attribution'
-import type {
-  AttributionConfidenceName,
-  EvidenceView,
-  RunAttribution,
-  RunSegmentView,
-  RunSubagentView,
-} from '../../types'
+import type { RunAttribution, RunSegmentView } from '../../types'
 import {
   APPROXIMATE_LABEL,
   APPROXIMATE_NOTICE,
@@ -30,14 +27,6 @@ import {
   TURNS_MESSAGE,
   TURN_MESSAGE,
 } from './attribution-labels'
-
-function weakestConfidence(
-  attribution: RunAttribution
-): AttributionConfidenceName | null {
-  const all = [...attribution.segments, ...attribution.subagents]
-  if (all.length === 0) return null
-  return all.some(x => x.confidence === 'MEDIUM') ? 'MEDIUM' : 'HIGH'
-}
 
 export function RunAttributionBadge({
   attribution,
@@ -132,37 +121,6 @@ function SegmentRow({ intl, seg }: { intl: IntlShape; seg: RunSegmentView }) {
       ) : null}
     </div>
   )
-}
-
-interface SubagentGroup {
-  sub: RunSubagentView
-  count: number
-  members: EvidenceView[][]
-}
-
-function groupSubagents(subagents: RunSubagentView[]): SubagentGroup[] {
-  const groups = new Map<string, SubagentGroup>()
-  for (const sub of subagents) {
-    const signature = dedupeEvidence(sub.evidence)
-      .map(e => `${e.kind}:${e.identifier}`)
-      .sort()
-      .join(',')
-    const key = [
-      sub.agentType ?? '',
-      sub.source,
-      sub.confidence,
-      sub.followsParent,
-      signature,
-    ].join('|')
-    const g = groups.get(key)
-    if (g) {
-      g.count += 1
-      g.members.push(sub.evidence)
-    } else {
-      groups.set(key, { sub, count: 1, members: [sub.evidence] })
-    }
-  }
-  return [...groups.values()]
 }
 
 function SubagentRow({

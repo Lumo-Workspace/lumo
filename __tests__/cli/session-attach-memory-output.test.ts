@@ -62,7 +62,7 @@ describe('lumo session attach — memorySection stdout', () => {
     expect(outputs.some(o => o.includes('## Relevant Memory'))).toBe(false)
     expect(outputs.some(o => o.includes('## Test cases'))).toBe(false)
     expect(outputs).toContain(
-      'Hint: run `lumo task context LUM-42` for background (team memory, test cases, sources, prior sessions)'
+      'Hint: run `lumo task show LUM-42 --full` for background (team memory, test cases, sources, prior sessions)'
     )
 
     fetchSpy.mockRestore()

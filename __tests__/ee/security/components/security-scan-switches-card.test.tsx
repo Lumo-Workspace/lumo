@@ -36,7 +36,9 @@ const ALL_ON = {
   securityScanEnabled: true,
   securityAiReviewEnabled: true,
   securityHuntEnabled: true,
+  securityRewardHackEnabled: true,
   securityRequestChangesEnabled: false,
+  securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
 }
@@ -44,18 +46,20 @@ const ALL_ON = {
 function renderCard(
   initial: WorkspaceSecuritySwitches = ALL_ON,
   huntAvailable = true,
-  sandboxAvailable = true
+  sandboxAvailable = true,
+  rewardHackAvailable = true
 ) {
   return render(
     <SecurityScanSwitchesCard
       initial={initial}
       huntAvailable={huntAvailable}
+      rewardHackAvailable={rewardHackAvailable}
       sandboxAvailable={sandboxAvailable}
     />
   )
 }
 
-const toggle = (name: string) => screen.getByRole('switch', { name })
+const toggle = (name: string | RegExp) => screen.getByRole('switch', { name })
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -66,7 +70,9 @@ beforeEach(() => {
             securityScanEnabled: u.all,
             securityAiReviewEnabled: u.all,
             securityHuntEnabled: u.all,
+            securityRewardHackEnabled: u.all,
             securityRequestChangesEnabled: false,
+            securityAllowAuthorApproval: true,
             securityLearningsScope: 'auto' as const,
             securityReviewAutoPauseAfter: 5,
           }
@@ -109,7 +115,9 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityScanEnabled: true,
         securityAiReviewEnabled: true,
         securityHuntEnabled: false,
+        securityRewardHackEnabled: true,
         securityRequestChangesEnabled: false,
+        securityAllowAuthorApproval: true,
         securityLearningsScope: 'auto',
         securityReviewAutoPauseAfter: 5,
       })
@@ -135,7 +143,9 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityScanEnabled: false,
       securityAiReviewEnabled: false,
       securityHuntEnabled: false,
+      securityRewardHackEnabled: false,
       securityRequestChangesEnabled: false,
+      securityAllowAuthorApproval: true,
       securityLearningsScope: 'auto',
       securityReviewAutoPauseAfter: 5,
     })
@@ -202,6 +212,30 @@ describe('LUM-1130 request-changes workflow switch', () => {
 
   it('disable all leaves it as it is (it is not a layer)', async () => {
     renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
+    )
+  })
+})
+
+describe('LUM-1142 author approval switch', () => {
+  const aa = () => toggle('PR authors may resolve and approve by command')
+
+  it('is on by default and an OWNER turns it off with Save', async () => {
+    renderCard()
+    expect(aa()).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(aa())
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityAllowAuthorApproval: false })
+      )
+    )
+  })
+
+  it('disable all leaves it as it is', async () => {
+    renderCard()
     fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
     await waitFor(() =>
       expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
@@ -297,5 +331,43 @@ describe('LUM-1137 pause automatic review after N reviewed commits', () => {
     expect(pauseAfter().value).toBe('100')
     fireEvent.click(toggle('Security scan'))
     expect(pauseAfter()).toBeDisabled()
+  })
+})
+
+describe('LUM-1234 agent behavior (reward-hack) switch', () => {
+  const rh = () => toggle(/^Agent behavior$/)
+
+  it('is on by default and saved with the other switches', async () => {
+    renderCard()
+    expect(rh()).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(rh())
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityRewardHackEnabled: false })
+      )
+    )
+  })
+
+  it('describes the check without naming a model or vendor', () => {
+    renderCard()
+    expect(
+      screen.getByText(/gamed tests, metrics or checks/)
+    ).toBeInTheDocument()
+  })
+
+  it('reads off and locked with the scan off', () => {
+    renderCard({ ...ALL_ON, securityScanEnabled: false })
+    expect(rh()).toBeDisabled()
+    expect(rh()).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('a layer the platform has off is off, locked and explained', () => {
+    renderCard(ALL_ON, true, true, false)
+    expect(rh()).toBeDisabled()
+    expect(rh()).toHaveAttribute('aria-checked', 'false')
+    expect(
+      screen.getByText('Currently turned off for all workspaces by Lumo.')
+    ).toBeInTheDocument()
   })
 })

@@ -1,0 +1,548 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-1155 — the call-flow sequence diagram in the walkthrough. PURE parts:
+ * the model's answer is cleaned (redacted, reduced to an inert character
+ * set, bounded), Lumo renders the Mermaid itself, and the source is checked
+ * before posting. The rendered source is parsed with the REAL Mermaid
+ * parser (in a child Node process — mermaid is ESM-only and cannot load in
+ * jest), hostile labels included.
+ */
+import { execFileSync } from 'child_process'
+import { join } from 'path'
+import {
+  answeredCallIndex,
+  cleanSequenceDiagram,
+  diagramLabel,
+  isFlowFile,
+  isValidSequenceDiagramSource,
+  parseSequenceDiagram,
+  renderSequenceDiagram,
+  sequenceDiagramEligible,
+  sequenceDiagramSection,
+  SEQUENCE_DIAGRAM_FIELD_DESCRIPTION,
+  SEQUENCE_DIAGRAM_MAX_PARTICIPANTS,
+  SEQUENCE_DIAGRAM_MAX_STEPS,
+  SEQUENCE_DIAGRAM_MESSAGE_MAX_CHARS,
+} from '@/ee/security/security-scan/sequence-diagram'
+import { buildWalkthrough } from '@/ee/security/security-scan/pr-walkthrough'
+
+// Built from parts so the fixture itself is not a key-shaped literal.
+const KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
+
+/** Parse each source with the real Mermaid parser. */
+function mermaidParse(sources: string[]): Array<{
+  ok: boolean
+  type?: string | null
+  error?: string
+  arrows?: Array<{ from: string; to: string; line: string }>
+}> {
+  const out = execFileSync(
+    process.execPath,
+    [join(process.cwd(), 'test-utils', 'mermaid-parse.mjs')],
+    { input: JSON.stringify(sources), encoding: 'utf8', timeout: 60_000 }
+  )
+  return JSON.parse(out)
+}
+
+const FLOW = {
+  participants: ['Web UI', 'API route', 'Review service', 'GitHub'],
+  steps: [
+    { from: 'Web UI', to: 'API route', message: 'POST settings' },
+    { from: 'API route', to: 'Review service', message: 'update(repo)' },
+    { from: 'Review service', to: 'GitHub', message: 'fetch PR diff' },
+    {
+      from: 'Review service',
+      to: 'API route',
+      message: 'saved',
+      reply: true,
+    },
+  ],
+}
+
+/** Labels that are Mermaid syntax, markup or secrets. */
+const HOSTILE = [
+  'end',
+  'participant',
+  'loop',
+  'alt x',
+  'else',
+  'Note over P1',
+  'A->>B: injected',
+  'x;y#59;z',
+  '%%{init: {"theme":"dark"}}%%',
+  'a:b',
+  '<script>alert(1)</script>',
+  '<br/>line',
+  '[link](https://evil.example)',
+  '@someone ping',
+  '<!-- lumo-security:fp -->',
+  'x--x',
+  'a--)b',
+  '+activate',
+  '-deactivate',
+  `token ${KEY}`,
+  'autonumber',
+  'create participant Z',
+  'destroy P2',
+  'title Owned',
+  'Über 日本語 ok',
+  "it's (fine) & done?",
+  '`code`',
+  'line\nbreak',
+]
+
+describe('cleanSequenceDiagram', () => {
+  it('maps participant names to indexes and keeps the order of calls', () => {
+    const d = cleanSequenceDiagram(FLOW)!
+    expect(d.participants).toEqual([
+      'Web UI',
+      'API route',
+      'Review service',
+      'GitHub',
+    ])
+    expect(d.steps).toEqual([
+      { from: 0, to: 1, message: 'POST settings', reply: false },
+      { from: 1, to: 2, message: 'update(repo)', reply: false },
+      { from: 2, to: 3, message: 'fetch PR diff', reply: false },
+      { from: 2, to: 1, message: 'saved', reply: true },
+    ])
+  })
+
+  it('drops calls naming an unknown participant and participants no call names', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['A', 'B', 'Unused'],
+      steps: [
+        { from: 'A', to: 'B', message: 'one' },
+        { from: 'A', to: 'Nobody', message: 'lost' },
+        { from: 'B', to: 'A', message: 'two', reply: true },
+      ],
+    })!
+    expect(d.participants).toEqual(['A', 'B'])
+    expect(d.steps.map(s => s.message)).toEqual(['one', 'two'])
+  })
+
+  it('is null when there is no flow worth drawing', () => {
+    expect(cleanSequenceDiagram(null)).toBeNull()
+    expect(cleanSequenceDiagram('sequenceDiagram')).toBeNull()
+    expect(cleanSequenceDiagram({ participants: ['A'], steps: [] })).toBeNull()
+    // One call only.
+    expect(
+      cleanSequenceDiagram({
+        participants: ['A', 'B'],
+        steps: [{ from: 'A', to: 'B', message: 'x' }],
+      })
+    ).toBeNull()
+    // Only self-calls.
+    expect(
+      cleanSequenceDiagram({
+        participants: ['A', 'B'],
+        steps: [
+          { from: 'A', to: 'A', message: 'x' },
+          { from: 'A', to: 'A', message: 'y' },
+        ],
+      })
+    ).toBeNull()
+  })
+
+  it('bounds participants, calls and label length', () => {
+    const many = Array.from({ length: 20 }, (_, i) => `C${i}`)
+    const d = cleanSequenceDiagram({
+      participants: many,
+      steps: Array.from({ length: 40 }, (_, i) => ({
+        from: many[i % 8],
+        to: many[(i + 1) % 8],
+        message: 'm'.repeat(500),
+      })),
+    })!
+    expect(d.participants.length).toBeLessThanOrEqual(
+      SEQUENCE_DIAGRAM_MAX_PARTICIPANTS
+    )
+    expect(d.steps).toHaveLength(SEQUENCE_DIAGRAM_MAX_STEPS)
+    for (const s of d.steps)
+      expect(s.message.length).toBeLessThanOrEqual(
+        SEQUENCE_DIAGRAM_MESSAGE_MAX_CHARS
+      )
+  })
+
+  it('redacts secrets and drops markup, mentions and links from labels', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['Client', `Vault ${KEY}`],
+      steps: [
+        {
+          from: 'Client',
+          to: `Vault ${KEY}`,
+          message: `send ${KEY} to [x](https://evil.example) @someone <b>`,
+        },
+        { from: `Vault ${KEY}`, to: 'Client', message: 'ok', reply: true },
+      ],
+    })!
+    const text = JSON.stringify(d)
+    expect(text).not.toContain(KEY)
+    expect(text).not.toContain('https')
+    expect(text).not.toContain('@')
+    expect(text).not.toMatch(/[<>]/)
+  })
+
+  it('reads its own stored form back unchanged (idempotent)', () => {
+    const d = cleanSequenceDiagram(FLOW)!
+    expect(parseSequenceDiagram(JSON.parse(JSON.stringify(d)))).toEqual(d)
+  })
+})
+
+describe('diagramLabel', () => {
+  it('keeps plain text and strips syntax characters', () => {
+    expect(diagramLabel('fetch PR diff', 60)).toBe('fetch PR diff')
+    expect(diagramLabel('a;b#c:d', 60)).toBe('a b c d')
+    expect(diagramLabel('x-->>y', 60)).toBe('x-y')
+    expect(diagramLabel(42, 60)).toBe('')
+  })
+  it('a label cut at the limit never ends in an operator character', () => {
+    for (const op of ['-', '+', '=', '*', '&', ',']) {
+      const label = diagramLabel(`${'a'.repeat(59)}${op}b`, 60)
+      expect(label).toBe('a'.repeat(59))
+    }
+    expect(diagramLabel(`${'a'.repeat(58)} -b`, 60)).toBe('a'.repeat(58))
+  })
+
+  it('a diagram whose labels are cut at an operator validates as cleaned and is posted', () => {
+    const long = `${'a'.repeat(59)}-b`
+    const d = cleanSequenceDiagram({
+      participants: [`${'p'.repeat(39)}+q`, 'B'],
+      steps: [
+        { from: `${'p'.repeat(39)}+q`, to: 'B', message: long },
+        { from: 'B', to: `${'p'.repeat(39)}+q`, message: long, reply: true },
+      ],
+    })!
+    // The cleaned (stored) form itself is valid — no re-clean needed.
+    expect(isValidSequenceDiagramSource(renderSequenceDiagram(d))).toBe(true)
+    expect(parseSequenceDiagram(d)).toEqual(d)
+    expect(sequenceDiagramSection(d)).not.toBeNull()
+  })
+})
+
+describe('renderSequenceDiagram + isValidSequenceDiagramSource', () => {
+  it('renders the fixed grammar and validates it', () => {
+    const source = renderSequenceDiagram(cleanSequenceDiagram(FLOW)!)
+    expect(source).toBe(
+      [
+        'sequenceDiagram',
+        '    autonumber',
+        '    participant P1 as Web UI',
+        '    participant P2 as API route',
+        '    participant P3 as Review service',
+        '    participant P4 as GitHub',
+        '    P1->>P2: POST settings',
+        '    P2->>P3: update(repo)',
+        '    P3->>P4: fetch PR diff',
+        '    P3-->>P2: saved',
+      ].join('\n')
+    )
+    expect(isValidSequenceDiagramSource(source)).toBe(true)
+  })
+
+  it('rejects anything outside the grammar or the bounds', () => {
+    const ok = renderSequenceDiagram(cleanSequenceDiagram(FLOW)!)
+    expect(isValidSequenceDiagramSource('')).toBe(false)
+    expect(isValidSequenceDiagramSource('graph TD\n A-->B')).toBe(false)
+    expect(isValidSequenceDiagramSource(`${ok}\n    Note over P1: hi`)).toBe(
+      false
+    )
+    expect(isValidSequenceDiagramSource(`${ok}\n    P1->>P9: ghost`)).toBe(
+      false
+    )
+    expect(isValidSequenceDiagramSource(`${ok}\n    P1->>P2: a;b`)).toBe(false)
+    expect(
+      isValidSequenceDiagramSource(
+        ok.replace('participant P2 as API route', 'participant P2 as a%%b')
+      )
+    ).toBe(false)
+    // Only one participant / one call.
+    expect(
+      isValidSequenceDiagramSource(
+        [
+          'sequenceDiagram',
+          '    autonumber',
+          '    participant P1 as A',
+          '    P1->>P1: x',
+        ].join('\n')
+      )
+    ).toBe(false)
+  })
+
+  it('every rendered diagram parses with the real Mermaid parser, hostile labels included', () => {
+    const sources: string[] = [
+      renderSequenceDiagram(cleanSequenceDiagram(FLOW)!),
+    ]
+    HOSTILE.forEach((a, i) => {
+      const b = HOSTILE[(i + 1) % HOSTILE.length]!
+      const c = HOSTILE[(i + 5) % HOSTILE.length]!
+      const d = cleanSequenceDiagram({
+        participants: [a, b, 'Service'],
+        steps: [
+          { from: a, to: b, message: c },
+          { from: b, to: 'Service', message: a, reply: true },
+          { from: 'Service', to: a, message: b },
+        ],
+      })
+      if (!d) return
+      const source = renderSequenceDiagram(d)
+      expect(isValidSequenceDiagramSource(source)).toBe(true)
+      expect(source).not.toContain(KEY)
+      sources.push(source)
+    })
+    expect(sources.length).toBeGreaterThan(HOSTILE.length / 2)
+    const results = mermaidParse(sources)
+    results.forEach((r, i) => {
+      if (!r.ok) throw new Error(`${r.error}\n---\n${sources[i]}`)
+      expect(r.type).toBe('sequence')
+    })
+  }, 60_000)
+
+  it('the parser harness does catch broken Mermaid (the check is real)', () => {
+    const [bad] = mermaidParse(['sequenceDiagram\n    P1->>: hi'])
+    expect(bad!.ok).toBe(false)
+  }, 60_000)
+})
+
+/**
+ * LUM-1155 follow-up — Mermaid's convention: `->>` (solid) for a call,
+ * `-->>` (dashed) only for a reply to an earlier call. Production probe
+ * lumo-agent-test#58: the diagram redrawn by `@uselumo diagram` came back
+ * with every call marked `reply`, so every call was drawn dashed.
+ */
+describe('calls are solid, only replies are dashed', () => {
+  /** The redraw's answer on #58: four calls, every one marked reply. */
+  const REDRAW_58 = {
+    participants: [
+      'requestHandler',
+      'buildQuote',
+      'findUnitPrice',
+      'multiply',
+      'sum',
+    ],
+    steps: [
+      {
+        from: 'requestHandler',
+        to: 'buildQuote',
+        message: 'buildQuote(sku, quantity)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'findUnitPrice',
+        message: 'findUnitPrice(sku)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'multiply',
+        message: 'multiply(unitPrice, quantity)',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'sum',
+        message: 'sum(subtotal, 5)',
+        reply: true,
+      },
+    ],
+  }
+  /** The automatic review's answer on #58: calls, then the replies. */
+  const REVIEW_58 = {
+    participants: ['Client', 'requestHandler', 'buildQuote', 'findUnitPrice'],
+    steps: [
+      { from: 'Client', to: 'requestHandler', message: 'GET /quote' },
+      {
+        from: 'requestHandler',
+        to: 'requestHandler',
+        message: 'validate quantity',
+      },
+      {
+        from: 'requestHandler',
+        to: 'buildQuote',
+        message: 'buildQuote(sku, quantity)',
+      },
+      { from: 'buildQuote', to: 'findUnitPrice', message: 'look up price' },
+      {
+        from: 'findUnitPrice',
+        to: 'buildQuote',
+        message: 'price or undefined',
+        reply: true,
+      },
+      {
+        from: 'buildQuote',
+        to: 'requestHandler',
+        message: 'quote with total',
+        reply: true,
+      },
+      {
+        from: 'requestHandler',
+        to: 'Client',
+        message: '200 JSON or 404/400',
+        reply: true,
+      },
+    ],
+  }
+
+  it('a step marked reply with no call to answer is a call (the #58 redraw)', () => {
+    const d = cleanSequenceDiagram(REDRAW_58)!
+    expect(d.steps.map(s => s.reply)).toEqual([false, false, false, false])
+    const source = renderSequenceDiagram(d)
+    expect(source).not.toContain('-->>')
+    expect(isValidSequenceDiagramSource(source)).toBe(true)
+  })
+
+  it('a reply answering an earlier call stays a reply (the review-time diagram)', () => {
+    const d = cleanSequenceDiagram(REVIEW_58)!
+    expect(d.steps.map(s => s.reply)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+    ])
+  })
+
+  it('a reply answers one call only, the latest open one between the two', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['A', 'B'],
+      steps: [
+        { from: 'A', to: 'B', message: 'one' },
+        { from: 'B', to: 'A', message: 'r1', reply: true },
+        // Nothing left to answer: drawn as a call back.
+        { from: 'B', to: 'A', message: 'r2', reply: true },
+        // A self step is never a reply.
+        { from: 'A', to: 'A', message: 'self', reply: true },
+      ],
+    })!
+    expect(d.steps.map(s => s.reply)).toEqual([false, true, false, false])
+  })
+
+  it('a stored diagram is drawn by the same rule (read back through parse)', () => {
+    const stored = {
+      participants: ['requestHandler', 'buildQuote', 'findUnitPrice'],
+      steps: [
+        { from: 0, to: 1, message: 'buildQuote(sku, quantity)', reply: true },
+        { from: 1, to: 2, message: 'findUnitPrice(sku)', reply: true },
+      ],
+    }
+    const d = parseSequenceDiagram(stored)!
+    expect(renderSequenceDiagram(d)).not.toContain('-->>')
+  })
+
+  it('answeredCallIndex: the latest open call the other way, else -1; never changes the list', () => {
+    const open = Object.freeze(['0>1', '1>2', '0>1'])
+    expect(answeredCallIndex({ from: 1, to: 0, reply: true }, open)).toBe(2)
+    expect(answeredCallIndex({ from: 2, to: 1, reply: true }, open)).toBe(1)
+    // Not marked reply, a self step, or no call to answer: a call.
+    expect(answeredCallIndex({ from: 1, to: 0, reply: false }, open)).toBe(-1)
+    expect(answeredCallIndex({ from: 1, to: 1, reply: true }, open)).toBe(-1)
+    expect(answeredCallIndex({ from: 0, to: 1, reply: true }, open)).toBe(-1)
+    expect(open).toEqual(['0>1', '1>2', '0>1'])
+  })
+
+  it('the real Mermaid parser reads every call solid and every reply dotted', () => {
+    const [redraw, review] = mermaidParse([
+      renderSequenceDiagram(cleanSequenceDiagram(REDRAW_58)!),
+      renderSequenceDiagram(cleanSequenceDiagram(REVIEW_58)!),
+    ])
+    expect(redraw!.ok).toBe(true)
+    expect(redraw!.arrows!.map(a => a.line)).toEqual([
+      'solid',
+      'solid',
+      'solid',
+      'solid',
+    ])
+    expect(review!.ok).toBe(true)
+    expect(review!.arrows).toEqual([
+      { from: 'P1', to: 'P2', line: 'solid' },
+      { from: 'P2', to: 'P2', line: 'solid' },
+      { from: 'P2', to: 'P3', line: 'solid' },
+      { from: 'P3', to: 'P4', line: 'solid' },
+      { from: 'P4', to: 'P3', line: 'dotted' },
+      { from: 'P3', to: 'P2', line: 'dotted' },
+      { from: 'P2', to: 'P1', line: 'dotted' },
+    ])
+  }, 60_000)
+
+  it('the model is told a call is never a reply, even when it returns a value', () => {
+    expect(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION).toMatch(
+      /reply true only for a return/
+    )
+    expect(SEQUENCE_DIAGRAM_FIELD_DESCRIPTION).toMatch(
+      /a call is reply false even when it returns a value/
+    )
+  })
+})
+
+describe('the smallest flow worth drawing', () => {
+  it('two calls, one of them between different participants, is drawn', () => {
+    const d = cleanSequenceDiagram({
+      participants: ['A', 'B'],
+      steps: [
+        { from: 'A', to: 'B', message: 'build' },
+        { from: 'B', to: 'B', message: 'validate' },
+      ],
+    })
+    expect(d).not.toBeNull()
+    expect(isValidSequenceDiagramSource(renderSequenceDiagram(d!))).toBe(true)
+  })
+})
+
+describe('sequenceDiagramSection', () => {
+  it('is a mermaid-fenced walkthrough section for a stored diagram', () => {
+    const section = sequenceDiagramSection(cleanSequenceDiagram(FLOW))!
+    expect(section.title).toBe('Sequence diagram')
+    expect(section.body.startsWith('```mermaid\nsequenceDiagram\n')).toBe(true)
+    expect(section.body.endsWith('\n```')).toBe(true)
+    const walkthrough = buildWalkthrough([section])!
+    expect(walkthrough).toContain('**Sequence diagram**')
+    expect(walkthrough).toContain('```mermaid')
+  })
+
+  it('is null for no diagram or one that does not clean', () => {
+    expect(sequenceDiagramSection(null)).toBeNull()
+    expect(sequenceDiagramSection(undefined)).toBeNull()
+    expect(
+      sequenceDiagramSection({ participants: ['A'], steps: [] })
+    ).toBeNull()
+  })
+})
+
+describe('sequenceDiagramEligible (trivial PRs are skipped)', () => {
+  const f = (path: string, additions: number, deletions = 0) => ({
+    path,
+    additions,
+    deletions,
+  })
+
+  it('needs two changed source files with enough changed lines', () => {
+    expect(
+      sequenceDiagramEligible([f('src/a.ts', 15), f('lib/b.py', 10)])
+    ).toBe(true)
+    expect(sequenceDiagramEligible([f('src/a.ts', 300)])).toBe(false)
+    expect(
+      sequenceDiagramEligible([f('src/a.ts', 3), f('src/b.ts', 2, 1)])
+    ).toBe(false)
+    expect(sequenceDiagramEligible([])).toBe(false)
+  })
+
+  it('does not count tests, docs, migrations or config', () => {
+    expect(
+      sequenceDiagramEligible([
+        f('src/a.ts', 40),
+        f('__tests__/a.test.ts', 40),
+        f('docs/flow.md', 40),
+        f('prisma/migrations/1_x/migration.sql', 40),
+        f('package.json', 40),
+        f('src/a.spec.ts', 40),
+      ])
+    ).toBe(false)
+    expect(isFlowFile('src/service.ts')).toBe(true)
+    expect(isFlowFile('src/service.test.ts')).toBe(false)
+    expect(isFlowFile('README.md')).toBe(false)
+  })
+})

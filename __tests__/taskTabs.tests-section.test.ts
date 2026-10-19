@@ -10,7 +10,7 @@ import {
   TEST_CASES_ANCHOR,
   tabFromSlug,
   resolveTab,
-  testRunHref,
+  runAnchorId,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/taskTabs'
 
 describe('test cases live in the Record tab', () => {
@@ -25,10 +25,8 @@ describe('test cases live in the Record tab', () => {
     expect(TEST_CASES_ANCHOR).toBe('dossier-tests')
   })
 
-  it('links a run into the Record tab', () => {
-    expect(testRunHref('acme', 'LUM-12', 'r1')).toBe(
-      '/workspace/acme/my-tasks/LUM-12/record#run-r1'
-    )
+  it('gives each run a stable `run-<id>` anchor', () => {
+    expect(runAnchorId('r1')).toBe('run-r1')
   })
 })
 
