@@ -76,17 +76,17 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
       <div className='flex-1 min-w-0'>
         <p className='text-caption text-foreground'>{c.label}</p>
         {payload.errorCode != null && (
-          <p className='text-[11px] text-danger-text mt-0.5'>
+          <p className='text-caption text-danger-text mt-0.5'>
             {String(payload.errorCode)}
           </p>
         )}
         {payload.reason != null && (
-          <p className='text-[11px] text-warning-text mt-0.5'>
+          <p className='text-caption text-warning-text mt-0.5'>
             {String(payload.reason)}
           </p>
         )}
       </div>
-      <span className='text-[11px] text-muted-foreground shrink-0'>
+      <span className='text-caption text-muted-foreground shrink-0'>
         {new Date(entry.createdAt).toLocaleTimeString(intl.locale, {
           hour: '2-digit',
           minute: '2-digit',

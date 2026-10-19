@@ -71,14 +71,14 @@ export function DocumentHistoryModal({
       <div className='flex h-[80vh] w-full max-w-5xl overflow-hidden rounded-lg bg-background shadow-elevation-3'>
         {/* Left: timeline */}
         <aside className='w-72 shrink-0 overflow-y-auto border-r border-border p-2'>
-          <h2 className='px-2 py-2 text-sm font-semibold'>
+          <h2 className='px-2 py-2 text-body-strong'>
             {intl.formatMessage({
               id: 'documentHistory.title',
               defaultMessage: 'Version history',
             })}
           </h2>
           {loading && (
-            <p className='px-2 text-xs text-muted-foreground'>
+            <p className='px-2 text-caption text-muted-foreground'>
               {intl.formatMessage({
                 id: 'documentHistory.loading',
                 defaultMessage: 'Loading…',
@@ -91,7 +91,7 @@ export function DocumentHistoryModal({
                 <button
                   type='button'
                   onClick={() => setSelectedId(r.id)}
-                  className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted ${
+                  className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-body hover:bg-muted ${
                     selectedId === r.id ? 'bg-muted' : ''
                   }`}
                 >
@@ -103,7 +103,7 @@ export function DocumentHistoryModal({
                         aria-hidden
                       />
                     )}
-                    <span className='font-medium'>
+                    <span className='text-body-strong'>
                       {r.label ??
                         intl.formatDate(r.createdAt, {
                           dateStyle: 'medium',
@@ -111,7 +111,7 @@ export function DocumentHistoryModal({
                         })}
                     </span>
                   </span>
-                  <span className='text-xs text-muted-foreground'>
+                  <span className='text-caption text-muted-foreground'>
                     {r.author.name}
                   </span>
                 </button>
@@ -128,7 +128,7 @@ export function DocumentHistoryModal({
                 type='button'
                 onClick={onRestore}
                 disabled={!selectedId || restoring}
-                className='rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50'
+                className='rounded-md bg-primary px-3 py-1.5 text-body text-primary-foreground disabled:opacity-50'
               >
                 {intl.formatMessage({
                   id: 'documentHistory.restore',
@@ -138,7 +138,7 @@ export function DocumentHistoryModal({
               <button
                 type='button'
                 onClick={onClose}
-                className='rounded-md border border-border px-3 py-1.5 text-sm'
+                className='rounded-md border border-border px-3 py-1.5 text-body'
               >
                 {intl.formatMessage({
                   id: 'documentHistory.close',
@@ -151,7 +151,7 @@ export function DocumentHistoryModal({
             {selectedId ? (
               <RevisionDiffView oldHtml={selectedHtml} newHtml={currentHtml} />
             ) : (
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-body text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'documentHistory.selectPrompt',
                   defaultMessage:

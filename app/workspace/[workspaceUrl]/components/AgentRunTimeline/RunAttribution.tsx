@@ -45,7 +45,7 @@ export function RunAttributionBadge({
     <>
       <span
         data-testid='run-attribution-badge'
-        className='px-2 py-0.5 rounded-md border border-border text-caption leading-4 text-muted-foreground shrink-0'
+        className='px-2 py-0.5 rounded-md border border-border text-caption text-muted-foreground shrink-0'
       >
         {text}
       </span>
@@ -53,7 +53,7 @@ export function RunAttributionBadge({
         <span
           data-testid='run-approximate'
           title={intl.formatMessage(APPROXIMATE_NOTICE)}
-          className='px-2 py-0.5 rounded-md border border-border text-caption leading-4 text-warning-text shrink-0'
+          className='px-2 py-0.5 rounded-md border border-border text-caption text-warning-text shrink-0'
         >
           {intl.formatMessage(APPROXIMATE_LABEL)}
         </span>
@@ -192,7 +192,7 @@ export function RunAttributionPanel({
       ))}
       {attribution.subagents.length > 0 && (
         <div className='pt-1'>
-          <div className='text-caption font-medium text-muted-foreground'>
+          <div className='text-caption text-muted-foreground'>
             {intl.formatMessage(SUBAGENTS_MESSAGE)}
           </div>
           {groupSubagents(attribution.subagents).map(group => (

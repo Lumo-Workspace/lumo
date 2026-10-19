@@ -418,7 +418,7 @@ export function RecordRunDialog({
           accept={EVIDENCE_ALLOWED_TYPES.join(',')}
           onChange={handleFiles}
         />
-        <span className='text-[11px] text-muted-foreground'>
+        <span className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}{' '}
           {intl.formatMessage({ id: 'testCases.field.stepEvidence.hint' })}
         </span>

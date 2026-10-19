@@ -67,7 +67,7 @@ export function PrItem({ entry }: PrItemProps) {
       <div className='flex-1 min-w-0'>
         <p className='text-caption text-foreground'>{c.label}</p>
         {prTitle && (
-          <p className='text-[11px] text-muted-foreground mt-0.5 truncate'>
+          <p className='text-caption text-muted-foreground mt-0.5 truncate'>
             {prTitle}
           </p>
         )}
@@ -77,7 +77,7 @@ export function PrItem({ entry }: PrItemProps) {
           href={prUrl}
           target='_blank'
           rel='noopener noreferrer'
-          className='text-[11px] text-info-text hover:underline shrink-0'
+          className='text-caption text-info-text hover:underline shrink-0'
         >
           View
         </a>

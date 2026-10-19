@@ -123,7 +123,7 @@ export function RecordTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-xs text-muted-foreground'>
+      <div className='py-8 text-center text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'acceptance.tab.loading',
           defaultMessage: '加载中…',
@@ -134,7 +134,9 @@ export function RecordTab({
 
   if (error) {
     return (
-      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+      <div className='py-8 text-center text-caption text-danger-text'>
+        {error}
+      </div>
     )
   }
 

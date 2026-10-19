@@ -89,15 +89,15 @@ function Row({
         />
         <div className='min-w-0 flex-1'>
           <div className='flex items-baseline gap-2'>
-            <span className='truncate text-xs font-semibold text-foreground'>
+            <span className='truncate text-caption font-semibold text-foreground'>
               {author.name}
             </span>
-            <span className='shrink-0 text-[11px] text-muted-foreground'>
+            <span className='shrink-0 text-caption text-muted-foreground'>
               {fmtTimestamp(c.createdAt)}
             </span>
           </div>
           {isDeleted ? (
-            <div className='mt-0.5 text-sm italic text-muted-foreground'>
+            <div className='mt-0.5 text-body italic text-muted-foreground'>
               {intl.formatMessage({ id: 'document.commentDeleted' })}
             </div>
           ) : editing ? (
@@ -116,14 +116,14 @@ function Row({
               />
             </div>
           ) : (
-            <RichHtml className='prose-sm mt-0.5 text-sm' html={c.body} />
+            <RichHtml className='prose-sm mt-0.5 text-body' html={c.body} />
           )}
           {confirmingDelete && !editing && !isDeleted && (
-            <div className='mt-1 flex items-center gap-3 text-xs'>
+            <div className='mt-1 flex items-center gap-3 text-caption'>
               <button
                 type='button'
                 data-testid={`confirm-delete-${c.id}`}
-                className='font-medium text-danger-text'
+                className='text-danger-text'
                 onClick={() => onDelete(c.id)}
               >
                 {intl.formatMessage({ id: 'common.confirm' })}
@@ -171,7 +171,7 @@ function Row({
                       startEditing()
                       setMenuOpen(false)
                     }}
-                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-popover-foreground hover:bg-accent'
+                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-caption text-popover-foreground hover:bg-accent'
                   >
                     <Pencil className='size-3.5' />
                     {intl.formatMessage({ id: 'common.edit' })}
@@ -184,7 +184,7 @@ function Row({
                       setConfirmingDelete(true)
                       setMenuOpen(false)
                     }}
-                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-danger-text hover:bg-accent'
+                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-caption text-danger-text hover:bg-accent'
                   >
                     <Trash2 className='size-3.5' />
                     {intl.formatMessage({ id: 'common.delete' })}
@@ -227,11 +227,11 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
         className='mb-1.5 block w-full text-left'
       >
         {thread.isOrphaned ? (
-          <div className='text-xs italic text-muted-foreground'>
+          <div className='text-caption italic text-muted-foreground'>
             {intl.formatMessage({ id: 'document.commentOrphaned' })}
           </div>
         ) : thread.quotedText ? (
-          <div className='line-clamp-2 border-l-2 border-primary/50 pl-2 text-xs text-muted-foreground'>
+          <div className='line-clamp-2 border-l-2 border-primary/50 pl-2 text-caption text-muted-foreground'>
             {thread.quotedText}
           </div>
         ) : null}
@@ -261,7 +261,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
         </div>
       ))}
 
-      <div className='mt-2 flex items-center gap-3 border-t pt-2 text-xs'>
+      <div className='mt-2 flex items-center gap-3 border-t pt-2 text-caption'>
         {!replying && (
           <button
             type='button'
@@ -278,7 +278,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
           onClick={() =>
             props.onSetStatus(thread.id, resolved ? 'OPEN' : 'RESOLVED')
           }
-          className='ml-auto inline-flex items-center gap-1 rounded-md border px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-accent'
+          className='ml-auto inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-foreground transition-colors hover:bg-accent'
         >
           <Check className='size-3.5' />
           {intl.formatMessage({

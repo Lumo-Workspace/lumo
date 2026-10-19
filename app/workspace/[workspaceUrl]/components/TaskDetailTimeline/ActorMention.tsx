@@ -34,7 +34,7 @@ export function ActorMention({
   return (
     <HoverCard openDelay={300} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <span className='inline-flex items-center text-foreground font-medium cursor-pointer hover:underline'>
+        <span className='inline-flex items-center text-foreground cursor-pointer hover:underline'>
           @{name}
         </span>
       </HoverCardTrigger>
@@ -47,7 +47,7 @@ export function ActorMention({
           ) : (
             <Avatar className='size-8 shrink-0'>
               <AvatarImage src={imageUrl} />
-              <AvatarFallback className='text-[10px]'>
+              <AvatarFallback className='text-caption'>
                 {initials}
               </AvatarFallback>
             </Avatar>

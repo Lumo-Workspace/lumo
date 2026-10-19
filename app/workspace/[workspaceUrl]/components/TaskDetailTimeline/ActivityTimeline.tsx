@@ -270,7 +270,7 @@ export function ActivityTimeline({
             <button
               key={cat.id}
               onClick={() => handleFilter(cat.id)}
-              className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+              className={`px-2 py-0.5 rounded-full text-caption transition-colors ${
                 isActive
                   ? 'bg-foreground text-background'
                   : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -310,7 +310,7 @@ export function ActivityTimeline({
           <div key={group.dateKey}>
             {/* Date header */}
             <div className='flex items-center gap-2 mb-1.5'>
-              <span className='text-[11px] font-medium text-muted-foreground whitespace-nowrap'>
+              <span className='text-caption text-muted-foreground whitespace-nowrap'>
                 {formatDateHeader(group.dateKey, intl)}
               </span>
               <div className='flex-1 h-px bg-border' />

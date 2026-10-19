@@ -141,9 +141,9 @@ function TreeItemRow({
       onDragEnd={onDragEnd}
       style={{ paddingLeft: `${depth * 4 + 8}px`, paddingRight: '6px' }}
       className={cn(
-        'group relative flex items-center gap-1.5 w-full rounded-sm py-1.5 text-[13px] font-medium transition-colors cursor-pointer select-none',
+        'group relative flex items-center gap-1.5 w-full rounded-sm py-1.5 text-body transition-colors cursor-pointer select-none',
         isCurrent
-          ? 'bg-accent text-accent-foreground font-semibold'
+          ? 'bg-accent text-accent-foreground text-body-strong'
           : 'text-foreground/80 hover:bg-accent/50 hover:text-foreground',
         isDragging && 'opacity-40',
         isDropInside && 'ring-1 ring-ring bg-info-subtle'
@@ -172,7 +172,7 @@ function TreeItemRow({
             <Loader2 size={12} className='animate-spin text-muted-foreground' />
           ) : (
             <>
-              <span className='text-[13px] leading-none transition-opacity group-hover:opacity-0'>
+              <span className='text-body transition-opacity group-hover:opacity-0'>
                 {node.emoji || '📄'}
               </span>
               <ChevronRight
@@ -186,7 +186,7 @@ function TreeItemRow({
           )}
         </button>
       ) : (
-        <span className='shrink-0 flex items-center justify-center w-6 h-6 text-[13px] leading-none'>
+        <span className='shrink-0 flex items-center justify-center w-6 h-6 text-body'>
           {node.emoji || '📄'}
         </span>
       )}
@@ -549,7 +549,7 @@ export function GlobalDocTree({
         >
           <House className='size-4' />
         </button>
-        <span className='truncate text-sm font-medium text-foreground'>
+        <span className='truncate text-body-strong text-foreground'>
           {intl.formatMessage({
             id: 'documentTree.allDocs',
             defaultMessage: 'Lumo 文档',
@@ -586,7 +586,7 @@ export function GlobalDocTree({
         {/* Add root document */}
         <button
           type='button'
-          className='flex items-center gap-1.5 w-full rounded-sm py-1.5 mt-0.5 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
+          className='flex items-center gap-1.5 w-full rounded-sm py-1.5 mt-0.5 text-body text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
           style={{ paddingLeft: '8px', paddingRight: '6px' }}
           onClick={() => onAddChild(null)}
         >

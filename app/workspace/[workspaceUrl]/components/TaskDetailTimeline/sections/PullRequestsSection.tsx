@@ -66,7 +66,7 @@ export function PullRequestsSection({
                   href={pr.url}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-caption text-foreground hover:underline leading-snug block'
+                  className='text-caption text-foreground hover:underline block'
                 >
                   #{pr.number} {pr.title}
                 </a>

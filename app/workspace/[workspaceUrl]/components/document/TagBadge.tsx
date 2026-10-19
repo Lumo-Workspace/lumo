@@ -15,7 +15,7 @@ export function TagBadge({ tag }: TagBadgeProps) {
   const color = getTagColor(tag)
   return (
     <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap'
+      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-caption whitespace-nowrap'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {tag}
@@ -39,7 +39,7 @@ export function TagList({ tags, max = 3 }: TagListProps) {
         <TagBadge key={tag} tag={tag} />
       ))}
       {overflow > 0 && (
-        <span className='text-[10px] text-muted-foreground'>+{overflow}</span>
+        <span className='text-caption text-muted-foreground'>+{overflow}</span>
       )}
     </div>
   )

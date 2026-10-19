@@ -52,46 +52,46 @@ export function TopOperations({
 
   return (
     <div className='border-b border-border px-3 py-3'>
-      <div className='mb-2 text-caption font-medium text-muted-foreground'>
+      <div className='mb-2 text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'lineage.operations.title',
           defaultMessage: 'Top operations · 按 token 成本',
         })}
       </div>
-      <table className='w-full text-[11px]'>
+      <table className='w-full text-caption'>
         <thead>
           <tr className='text-muted-foreground'>
-            <th className='py-1 text-left font-medium'>
+            <th className='py-1 text-left'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.tool',
                 defaultMessage: '工具',
               })}
             </th>
-            <th className='py-1 text-right font-medium'>
+            <th className='py-1 text-right'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.output',
                 defaultMessage: '输出',
               })}
             </th>
-            <th className='py-1 text-right font-medium'>
+            <th className='py-1 text-right'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.input',
                 defaultMessage: '输入',
               })}
             </th>
-            <th className='py-1 text-right font-medium'>
+            <th className='py-1 text-right'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.cacheCreate',
                 defaultMessage: '缓存创建',
               })}
             </th>
-            <th className='py-1 text-right font-medium'>
+            <th className='py-1 text-right'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.cacheRead',
                 defaultMessage: '缓存读取',
               })}
             </th>
-            <th className='py-1 text-right font-medium'>
+            <th className='py-1 text-right'>
               {intl.formatMessage({
                 id: 'lineage.operations.col.total',
                 defaultMessage: '合计',
@@ -125,7 +125,7 @@ export function TopOperations({
                     )}
                   </td>
                   {cells(op)}
-                  <td className='py-1 text-right font-medium tabular-nums text-foreground'>
+                  <td className='py-1 text-right tabular-nums text-foreground'>
                     {intl.formatNumber(op.total)}
                   </td>
                 </tr>
@@ -147,7 +147,7 @@ export function TopOperations({
           })}
         </tbody>
       </table>
-      <p className='mt-2 text-[10px] leading-relaxed text-muted-foreground'>
+      <p className='mt-2 text-caption text-muted-foreground'>
         {intl.formatMessage(
           {
             id: 'lineage.operations.footnote',

@@ -30,8 +30,8 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
         <span
           className={
             hasMemory
-              ? 'text-caption font-semibold uppercase tracking-wide text-info-text'
-              : 'text-caption font-medium uppercase tracking-wide text-muted-foreground'
+              ? 'text-caption font-semibold uppercase text-info-text'
+              : 'text-caption uppercase text-muted-foreground'
           }
         >
           {intl.formatMessage(
@@ -43,7 +43,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           {timeRange}
         </span>
         {!turn.terminated && (
-          <span className='text-[10px] uppercase tracking-wide text-warning-text px-1.5 py-px rounded-sm bg-warning-subtle'>
+          <span className='text-caption uppercase text-warning-text px-1.5 py-px rounded-sm bg-warning-subtle'>
             {intl.formatMessage({
               id: 'agentRun.unterminatedTurn',
               defaultMessage: '未终止',
@@ -67,7 +67,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
                   )
                   .join(' · ')}
             {turn.cost.byModel.length === 1 && (
-              <span className='block text-[10px] text-muted-foreground/60'>
+              <span className='block text-caption text-muted-foreground/60'>
                 {modelLabel(intl, turn.cost.byModel[0]!.model)}
               </span>
             )}

@@ -25,14 +25,14 @@ export function MemberHoverChip({ member }: { member: WorkspaceMemberInfo }) {
           className='inline-flex cursor-default items-center gap-1.5 rounded-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring'
         >
           <MemberAvatar member={member} />
-          <span className='font-medium'>{member.name}</span>
+          <span>{member.name}</span>
         </span>
       </HoverCardTrigger>
       <HoverCardContent side='top' align='start' className='w-60 p-3'>
         <div className='flex items-center gap-3'>
           <Avatar className='size-8 shrink-0'>
             <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
-            <AvatarFallback className='text-xs font-semibold'>
+            <AvatarFallback className='text-caption font-semibold'>
               {getInitials(member.name)}
             </AvatarFallback>
           </Avatar>

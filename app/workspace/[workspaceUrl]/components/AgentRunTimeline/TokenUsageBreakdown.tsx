@@ -19,7 +19,7 @@ interface TokenUsageBreakdownProps {
 
 function GroupLabel({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <div className='mt-3 mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground first:mt-0'>
+    <div className='mt-3 mb-1 flex items-center gap-1.5 text-caption text-muted-foreground first:mt-0'>
       {icon}
       {label}
     </div>
@@ -32,8 +32,9 @@ function memberHeader(m: ModelCost) {
     <span className='flex items-center gap-1.5 text-caption font-semibold'>
       <Avatar className='size-4 shrink-0'>
         <AvatarImage src={r.imageUrl || undefined} />
-        <AvatarFallback className='text-[8px]'>
-          {initialsOf(r.name)}
+        {/* A 16px chip only fits one caption-size initial. */}
+        <AvatarFallback className='text-caption'>
+          {initialsOf(r.name).slice(0, 1)}
         </AvatarFallback>
       </Avatar>
       {r.name}
