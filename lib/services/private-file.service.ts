@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { privateFileRepository } from '@/lib/repositories/private-file.repository'
 import {
   evidencePathname,
+  feedbackEvidencePathname,
   fileRouteUrl,
   imagePathname,
   milestoneEvidencePathname,
@@ -70,6 +71,41 @@ export const privateFileService = {
   },
 
   /**
+   * LUM-1240: store one feedback evidence file under the submitting
+   * workspace's folder (`fileId` is server-chosen). `body` may be the
+   * redacted bytes of a text file. Returns the pathname and file-route URL.
+   */
+  async storeFeedbackEvidence(
+    workspaceId: string,
+    body: Blob | Buffer,
+    contentType: string,
+    origin: string
+  ): Promise<{ pathname: string; url: string }> {
+    const pathname = feedbackEvidencePathname(workspaceId, randomUUID())
+    const { putPrivateFile } = await blob()
+    await putPrivateFile(pathname, body, contentType)
+    return { pathname, url: fileRouteUrl(origin, pathname) }
+  },
+
+  /**
+   * LUM-1240: best-effort delete of blobs written for a feedback whose row
+   * was then not created. Logged and swallowed — never masks the real error.
+   */
+  async deletePrivatePathnames(pathnames: readonly string[]): Promise<void> {
+    if (pathnames.length === 0) return
+    try {
+      const { getBlobStorage } = await import('@/lib/blob/storage')
+      const storage = await getBlobStorage()
+      await storage.delete([...pathnames], 'private')
+    } catch (error) {
+      logger.warn('[private-file] orphan cleanup failed', {
+        count: pathnames.length,
+        error: (error as Error).message,
+      })
+    }
+  },
+
+  /**
    * May this request read `file`? Either path is enough:
    *
    * - `viewerWorkspaceId` (a signed-in member or API key): their workspace
@@ -84,7 +120,7 @@ export const privateFileService = {
     access: { viewerWorkspaceId: string | null; shareToken: string | null }
   ): Promise<boolean> {
     const owner =
-      file.kind === 'image'
+      file.kind === 'image' || file.kind === 'feedback-evidence'
         ? file.workspaceId
         : file.kind === 'milestone-evidence'
           ? await privateFileRepository.findMilestoneWorkspaceId(

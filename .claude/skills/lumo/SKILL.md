@@ -28,6 +28,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 | `member list` — workspace directory (`--assignee` refs)              | [members.md](references/members.md)                       |
 | `tag list/create`                                                    | [tags.md](references/tags.md)                             |
 | `audit list` (OWNER only)                                            | [audit.md](references/audit.md)                           |
+| `feedback create/list/show` — report a Lumo problem to the Lumo team | [feedback.md](references/feedback.md)                     |
 | `workspace security-scan show/update` (update: OWNER)                | [workspace-settings.md](references/workspace-settings.md) |
 | `status` (priority, inbox, drafts, next), `project show`             | [overview.md](references/overview.md)                     |
 | `task dep *` (dependency edges)                                      | [task-deps.md](references/task-deps.md)                   |
@@ -86,6 +87,10 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo member list [--json]` — members (name, email, role) + agent actors
 - `lumo tag list` / `lumo tag create <name> [--color <hex>]` — workspace tags with usage counts
 - `lumo audit list [--action] [--actor] [--since] [--until] [--json | --csv]` — sensitive workspace actions, newest first (OWNER only)
+
+### Feedback to the Lumo team — see [feedback.md](references/feedback.md)
+
+- `lumo feedback create --title <t> [--kind bug|idea|question] [--step …] [--expected] [--actual] [--evidence-file …] [--task] [--no-env]` / `feedback list [--mine]` / `feedback show FB-<n>` — report a Lumo bug, idea or question (agents may file without asking; say so), read status + Lumo team replies
 
 ### Workspace settings & overview — see [workspace-settings.md](references/workspace-settings.md), [overview.md](references/overview.md)
 

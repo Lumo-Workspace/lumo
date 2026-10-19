@@ -26,6 +26,7 @@ export type ErrorCode =
   | 'AUTH'
   | 'FORBIDDEN'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'SERVER'
   | 'NETWORK'
   | 'UNKNOWN'
@@ -109,6 +110,8 @@ export function classifyError(exitCode: number, message: string): ErrorCode {
   if (/HTTP 403|forbidden|only workspace owners/i.test(message))
     return 'FORBIDDEN'
   if (/HTTP 409|conflict/i.test(message)) return 'CONFLICT'
+  // LUM-1240: a submission limit (e.g. `lumo feedback create`).
+  if (/HTTP 429|\blimit reached\b/i.test(message)) return 'RATE_LIMITED'
   if (/HTTP 5\d\d/.test(message)) return 'SERVER'
   if (
     /could not reach|ECONNREFUSED|ENOTFOUND|fetch failed|network/i.test(message)
