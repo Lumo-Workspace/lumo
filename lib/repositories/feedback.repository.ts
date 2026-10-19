@@ -86,8 +86,15 @@ export interface FeedbackListFilter {
   take: number
 }
 
-/** Lost compare-and-set races tolerated before appendEvidence gives up. */
-export const APPEND_ATTEMPTS = 5
+/**
+ * Concurrent submissions to one workspace queue on the counter row lock, and
+ * the queueing counts against the interactive-transaction timeout (5 s by
+ * default) — with the limit re-check inside, a short burst of parallel
+ * submissions measured from a laptop to the dev database ran past it. A
+ * timed-out transaction fails closed (503), so this only trades latency for
+ * fewer spurious refusals.
+ */
+const CREATE_TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 }
 
 export type AppendEvidenceResult =
   | { status: 'appended'; row: FeedbackRow }
@@ -196,7 +203,7 @@ export const feedbackRepository = {
         },
         select: SELECT,
       })
-    })
+    }, CREATE_TX_OPTIONS)
   },
 
   /** One row by its workspace-local number; null when it is not in `workspaceId`. */
@@ -216,8 +223,9 @@ export const feedbackRepository = {
    * `evidence` still equals what was read (jsonb equality; the array only
    * ever grows, so it is its own version). A concurrent append makes the
    * write match nothing — re-read and try again, re-checking the cap — so no
-   * entry is lost and the cap holds. `conflict` after APPEND_ATTEMPTS lost
-   * races in a row.
+   * entry is lost and the cap holds. Every lost race means another append
+   * landed, and at most `maxEntries` can, so `maxEntries + 1` attempts always
+   * end in `appended` or `full`; `conflict` is only a safety net.
    */
   async appendEvidence(
     workspaceId: string,
@@ -227,7 +235,7 @@ export const feedbackRepository = {
     maxEntries: number
   ): Promise<AppendEvidenceResult> {
     const key = { workspaceId_number: { workspaceId, number } }
-    for (let attempt = 0; attempt < APPEND_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt <= maxEntries; attempt++) {
       const row = await prisma.feedback.findUnique({
         where: key,
         select: { evidence: true },
@@ -239,7 +247,14 @@ export const feedbackRepository = {
         where: {
           workspaceId,
           number,
-          evidence: { equals: row.evidence as Prisma.InputJsonValue },
+          // The column is NOT NULL, but a JSON `null` value has to be
+          // matched as JsonNull, not as a plain null.
+          evidence: {
+            equals:
+              row.evidence === null
+                ? Prisma.JsonNull
+                : (row.evidence as Prisma.InputJsonValue),
+          },
         },
         data: {
           evidence: [...current, entry] as Prisma.InputJsonArray,

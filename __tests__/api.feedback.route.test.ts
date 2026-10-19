@@ -121,8 +121,12 @@ const fakePrisma = {
           r =>
             r.workspaceId === where.workspaceId &&
             r.number === where.number &&
-            JSON.stringify(r.evidence ?? []) ===
-              JSON.stringify(where.evidence.equals)
+            JSON.stringify(r.evidence === undefined ? [] : r.evidence) ===
+              JSON.stringify(
+                where.evidence.equals === Prisma.JsonNull
+                  ? null
+                  : where.evidence.equals
+              )
         )
         if (!row) return { count: 0 }
         row.evidence = data.evidence
@@ -651,24 +655,37 @@ describe('POST /api/feedback/[ref]/evidence (one file per request)', () => {
     expect(evidence.map(e => e.filename)).not.toContain('sixth.png')
   })
 
-  it('parallel uploads keep every entry and stop at 5', async () => {
+  it('parallel uploads keep every entry and stop at 5, never a 409', async () => {
     await POST(post({ title: 'parallel' }))
-    for (let i = 0; i < 3; i++)
-      expect((await attach('FB-1', png(`${i}.png`))).status).toBe(200)
+    const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     const statuses = (
-      await Promise.all(
-        ['a', 'b', 'c'].map(n => attach('FB-1', png(`${n}.png`)))
-      )
+      await Promise.all(names.map(n => attach('FB-1', png(`${n}.png`))))
     ).map(r => r.status)
-    expect(statuses.sort()).toEqual([200, 200, 400])
-    expect(db.rows[0]!.evidence as unknown[]).toHaveLength(5)
+    expect(statuses.filter(s => s === 200)).toHaveLength(5)
+    expect(statuses.filter(s => s === 400)).toHaveLength(3)
+    const stored = db.rows[0]!.evidence as Array<{ filename: string }>
+    expect(stored).toHaveLength(5)
+    expect(new Set(stored.map(e => e.filename)).size).toBe(5)
+  })
+
+  it('a JSON null evidence value is matched as JsonNull and replaced', async () => {
+    await POST(post({ title: 'null evidence' }))
+    db.rows[0]!.evidence = null
+    expect((await attach('FB-1', png('only.png'))).status).toBe(200)
+    expect(
+      fakePrisma.feedback.updateMany.mock.calls[0]![0].where.evidence.equals
+    ).toBe(Prisma.JsonNull)
+    expect(
+      (db.rows[0]!.evidence as Array<{ filename: string }>).map(e => e.filename)
+    ).toEqual(['only.png'])
   })
 
   it('gives up with 409 after repeatedly losing the race', async () => {
     await POST(post({ title: 'busy' }))
-    for (let i = 0; i < 5; i++)
+    for (let i = 0; i < 6; i++)
       fakePrisma.feedback.updateMany.mockResolvedValueOnce({ count: 0 })
     expect((await attach('FB-1', png())).status).toBe(409)
-    expect(fakePrisma.feedback.updateMany).toHaveBeenCalledTimes(5)
+    // maxEntries + 1 attempts: each lost race is someone else's append.
+    expect(fakePrisma.feedback.updateMany).toHaveBeenCalledTimes(6)
   })
 })
