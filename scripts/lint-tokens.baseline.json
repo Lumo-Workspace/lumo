@@ -3,7 +3,7 @@
   "app/workspace/[workspaceUrl]/components/AgentRunTimeline/categorize.ts": 67,
   "app/workspace/[workspaceUrl]/components/AgentRunTimeline/TurnCard.tsx": 2,
   "app/workspace/[workspaceUrl]/components/documents/RevisionDiffView.tsx": 8,
-  "app/workspace/[workspaceUrl]/constants.ts": 8,
+  "app/workspace/[workspaceUrl]/constants.ts": 6,
   "components/security/SecurityPage.tsx": 1,
   "components/ui/sidebar/menu.tsx": 1,
   "lib/editor/link-class.ts": 1,

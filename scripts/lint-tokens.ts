@@ -198,9 +198,6 @@ const Z_ARBITRARY_RE = /\bz-\[[^\]]+\]/g
 //     data-[active=true]:font-medium (state emphasis on the active item).
 //   components/security/SecurityPage.tsx ×1 — font-medium inline link inside
 //     16px body copy (emphasis on a link, not a size tier).
-//   app/workspace/[workspaceUrl]/constants.ts ×2 — IDEA_BADGE_CLS
-//     (text-[10px] font-medium); missed by the area PRs, left for a follow-up
-//     because moving it to text-caption is a visible size change.
 // Like every rule here the scan is line-based and doesn't parse comments:
 // write prose as "the medium weight", not the class name.
 const TYPE_SCALE_SCOPE_RE = /^(?:app|components|ee)\/.+\.tsx?$/
