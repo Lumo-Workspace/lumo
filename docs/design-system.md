@@ -220,14 +220,14 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 ## Radius
 
-单一来源 `--radius: 0.75rem`;`@theme inline` 派生干净的 4px 步进档位。
+单一来源 `--radius: 0.625rem`;`@theme inline` 按 shadcn v4 默认派生档位(LUM-1251):控件保持 8px,表面 10px。
 
-| Token / utility              | calc                   | 值        |
-| ---------------------------- | ---------------------- | --------- |
-| `rounded-sm` (`--radius-sm`) | `calc(--radius − 8px)` | `0.25rem` |
-| `rounded-md` (`--radius-md`) | `calc(--radius − 4px)` | `0.5rem`  |
-| `rounded-lg` (`--radius-lg`) | `var(--radius)`        | `0.75rem` |
-| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `1rem`    |
+| Token / utility              | calc                   | 值                |
+| ---------------------------- | ---------------------- | ----------------- |
+| `rounded-sm` (`--radius-sm`) | `calc(--radius − 4px)` | `0.375rem` (6px)  |
+| `rounded-md` (`--radius-md`) | `calc(--radius − 2px)` | `0.5rem` (8px)    |
+| `rounded-lg` (`--radius-lg`) | `var(--radius)`        | `0.625rem` (10px) |
+| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `0.875rem` (14px) |
 
 **档位映射规则(哪类元素用哪档):**
 
