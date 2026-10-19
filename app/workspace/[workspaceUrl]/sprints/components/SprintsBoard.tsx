@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { sprintsClient } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
@@ -368,11 +369,21 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
               </button>
             )}
           </div>
-          <Segmented
+          <ToggleGroup
+            type='single'
+            variant='chip'
             value={statusFilter}
-            onChange={setStatusFilter}
-            options={statusChips}
-          />
+            onValueChange={v => {
+              // Single-select: ignore the '' Radix sends on re-click.
+              if (v) setStatusFilter(v as StatusFilter)
+            }}
+          >
+            {statusChips.map(c => (
+              <ToggleGroupItem key={c.value} value={c.value}>
+                {c.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <span className='ml-auto font-mono text-caption text-muted-foreground'>
             {intl.formatMessage(
               { id: 'sprints.landing.resultCount' },

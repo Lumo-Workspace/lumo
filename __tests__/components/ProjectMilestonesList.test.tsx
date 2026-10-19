@@ -149,9 +149,9 @@ describe('ProjectMilestonesTab list', () => {
   it('shows counts on the Active, Archived and All filter chips', () => {
     setup()
 
-    const chips = screen.getByRole('tablist', { name: 'Filter milestones' })
+    const chips = screen.getByRole('group', { name: 'Filter milestones' })
     const chip = (label: string) =>
-      within(chips).getByRole('tab', { name: new RegExp(`^${label}`) })
+      within(chips).getByRole('radio', { name: new RegExp(`^${label}`) })
     expect(chip('Active')).toHaveTextContent('Active2')
     expect(chip('Archived')).toHaveTextContent('Archived1')
     expect(chip('All')).toHaveTextContent('All3')
@@ -164,11 +164,11 @@ describe('ProjectMilestonesTab list', () => {
     expect(screen.getByText('Running one')).toBeInTheDocument()
     expect(screen.queryByText('Shipped one')).not.toBeInTheDocument()
 
-    fireEvent.mouseDown(within(chips).getByText('Archived'))
+    fireEvent.click(within(chips).getByText('Archived'))
     expect(screen.getByText('Shipped one')).toBeInTheDocument()
     expect(screen.queryByText('Running one')).not.toBeInTheDocument()
 
-    fireEvent.mouseDown(within(chips).getByText('All'))
+    fireEvent.click(within(chips).getByText('All'))
     expect(screen.getByText('Running one')).toBeInTheDocument()
     expect(screen.getByText('Shipped one')).toBeInTheDocument()
   })
@@ -213,8 +213,8 @@ describe('ProjectMilestonesTab list', () => {
       }),
     ])
 
-    const chips = screen.getByRole('tablist', { name: 'Filter milestones' })
-    fireEvent.mouseDown(within(chips).getByText('Archived'))
+    const chips = screen.getByRole('group', { name: 'Filter milestones' })
+    fireEvent.click(within(chips).getByText('Archived'))
     fireEvent.click(screen.getByText('archive-toggle'))
 
     expect(mockUnarchive).toHaveBeenCalledTimes(1)
@@ -273,7 +273,7 @@ describe('ProjectMilestonesTab edge states', () => {
   it('empty state copy and CTA follow the tab', () => {
     setup([])
 
-    const chips = screen.getByRole('tablist', { name: 'Filter milestones' })
+    const chips = screen.getByRole('group', { name: 'Filter milestones' })
     const ctas = () => screen.getAllByRole('button', { name: /New milestone/ })
 
     // Active — nothing is running; the header button plus the empty-state CTA.
@@ -285,7 +285,7 @@ describe('ProjectMilestonesTab edge states', () => {
 
     // Archived — you archive an existing milestone, so "create one" is not the
     // way out of this state. Only the page header keeps its button.
-    fireEvent.mouseDown(within(chips).getByText('Archived'))
+    fireEvent.click(within(chips).getByText('Archived'))
     expect(screen.getByText('No archived milestones')).toBeInTheDocument()
     expect(
       screen.getByText('Archiving puts a milestone away.')
@@ -293,7 +293,7 @@ describe('ProjectMilestonesTab edge states', () => {
     expect(ctas()).toHaveLength(1)
 
     // All — the project has no milestones at all.
-    fireEvent.mouseDown(within(chips).getByText('All'))
+    fireEvent.click(within(chips).getByText('All'))
     expect(screen.getByText('No milestones yet')).toBeInTheDocument()
     expect(ctas()).toHaveLength(2)
 

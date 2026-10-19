@@ -14,7 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import { SearchInput } from '../SearchInput'
 
 interface MemoryListToolbarProps {
@@ -116,34 +120,33 @@ export function MemoryListToolbar({
         </Select>
       </div>
 
-      <Tabs
+      {/* Single-select with no "nothing" state: re-clicking the active chip
+          (Radix reports '') keeps the current filter. */}
+      <ToggleGroup
+        type='single'
+        variant='chip'
         value={category}
-        onValueChange={value => onCategoryChange(value as MemoryCategoryFilter)}
+        onValueChange={value => {
+          if (value) onCategoryChange(value as MemoryCategoryFilter)
+        }}
+        aria-label={intl.formatMessage({ id: 'memory.list.filter.label' })}
+        data-testid='memory-category-filter'
       >
-        <TabsList
-          className='h-auto flex-wrap justify-start'
-          aria-label={intl.formatMessage({ id: 'memory.list.filter.label' })}
-          data-testid='memory-category-filter'
-        >
-          {chips.map(chip => (
-            <TabsTrigger
-              key={chip.key}
-              value={chip.key}
-              data-testid={`memory-category-chip-${chip.key}`}
-              className='gap-1.5'
-            >
-              {chip.label}
-              {/* The count is secondary to the name — one gray step down,
-                  never its own chip. */}
-              {!pending && (
-                <span className='tabular-nums text-muted-foreground'>
-                  {chip.count}
-                </span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        {chips.map(chip => (
+          <ToggleGroupItem
+            key={chip.key}
+            value={chip.key}
+            data-testid={`memory-category-chip-${chip.key}`}
+          >
+            {chip.label}
+            {/* The count is secondary to the name — one step quieter,
+                never its own chip. */}
+            {!pending && (
+              <ToggleGroupItemCount>{chip.count}</ToggleGroupItemCount>
+            )}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
     </div>
   )
 }

@@ -1,7 +1,11 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import {
   MEMBER_FILTERS,
   type MemberFilter,
@@ -26,22 +30,24 @@ export function MemberFilterTabs({
 }) {
   const intl = useIntl()
   return (
-    <Tabs value={value} onValueChange={v => onChange(v as MemberFilter)}>
-      <TabsList
-        aria-label={intl.formatMessage({ id: 'members.filter.label' })}
-        className='h-auto flex-wrap justify-start'
-      >
-        {MEMBER_FILTERS.map(f => (
-          <TabsTrigger key={f} value={f} className='gap-1.5'>
-            {intl.formatMessage({ id: LABEL_ID[f] })}
-            {counts[f] !== undefined && (
-              <span className='tabular-nums text-muted-foreground'>
-                {counts[f]}
-              </span>
-            )}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <ToggleGroup
+      type='single'
+      variant='chip'
+      value={value}
+      onValueChange={v => {
+        // Single-select: ignore the '' Radix sends when the active chip is re-clicked.
+        if (v) onChange(v as MemberFilter)
+      }}
+      aria-label={intl.formatMessage({ id: 'members.filter.label' })}
+    >
+      {MEMBER_FILTERS.map(f => (
+        <ToggleGroupItem key={f} value={f}>
+          {intl.formatMessage({ id: LABEL_ID[f] })}
+          {counts[f] !== undefined && (
+            <ToggleGroupItemCount>{counts[f]}</ToggleGroupItemCount>
+          )}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }

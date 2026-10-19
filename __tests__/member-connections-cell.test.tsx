@@ -294,15 +294,18 @@ describe('MemberFilterTabs', () => {
         onChange={onChange}
       />
     )
-    const all = screen.getByRole('tab', { name: /All/ })
-    expect(all.getAttribute('aria-selected')).toBe('true')
+    const all = screen.getByRole('radio', { name: /All/ })
+    expect(all.getAttribute('aria-checked')).toBe('true')
     expect(all.textContent).toBe('All4')
-    expect(screen.getByRole('tab', { name: /Not connected/ }).textContent).toBe(
-      'Not connected'
-    )
-    // Radix tabs activate on mousedown (and on keyboard focus), not click.
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /Needs update/ }))
+    expect(
+      screen.getByRole('radio', { name: /Not connected/ }).textContent
+    ).toBe('Not connected')
+    fireEvent.click(screen.getByRole('radio', { name: /Needs update/ }))
     expect(onChange).toHaveBeenCalledWith('needsUpdate')
+    // Single-select: re-clicking the active chip never clears the filter.
+    onChange.mockClear()
+    fireEvent.click(all)
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
 

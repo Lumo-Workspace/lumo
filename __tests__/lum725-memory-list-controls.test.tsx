@@ -222,7 +222,7 @@ it('LUM-725 memory list controls filter sort and search', () => {
 
   // Category chip narrows on its own.
   fireEvent.change(search, { target: { value: '' } })
-  fireEvent.mouseDown(within(chips).getByTestId('memory-category-chip-TRAP'))
+  fireEvent.click(within(chips).getByTestId('memory-category-chip-TRAP'))
   expect(renderedTitles(container)).toEqual([
     'Radix dialog selects the whole field',
     'Prisma drift blocks migrate dev',
@@ -239,7 +239,7 @@ it('LUM-725 memory list controls filter sort and search', () => {
   // Sorting by usage reorders the same pool: the most-judged-used memory first,
   // even though it is the oldest edit.
   fireEvent.change(search, { target: { value: '' } })
-  fireEvent.mouseDown(within(chips).getByTestId('memory-category-chip-ALL'))
+  fireEvent.click(within(chips).getByTestId('memory-category-chip-ALL'))
   fireEvent.change(screen.getByTestId('sort-select'), {
     target: { value: 'used' },
   })

@@ -6,7 +6,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupItemCount,
+} from '@/components/ui/toggle-group'
 import { copyLink } from '@/lib/utils/copyLink'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -91,21 +95,23 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   }
 
   const filterBar = (
-    <Tabs value={tab} onValueChange={value => setTab(value as Tab)}>
-      <TabsList
-        className='h-auto flex-wrap justify-start'
-        aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
-      >
-        {TABS.map(t => (
-          <TabsTrigger key={t.key} value={t.key} className='gap-1.5'>
-            {intl.formatMessage({ id: t.labelId })}
-            <span className='tabular-nums text-muted-foreground'>
-              {counts[t.key]}
-            </span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <ToggleGroup
+      type='single'
+      variant='chip'
+      value={tab}
+      onValueChange={value => {
+        // Single-select: ignore the '' Radix sends when the active chip is re-clicked.
+        if (value) setTab(value as Tab)
+      }}
+      aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
+    >
+      {TABS.map(t => (
+        <ToggleGroupItem key={t.key} value={t.key}>
+          {intl.formatMessage({ id: t.labelId })}
+          <ToggleGroupItemCount>{counts[t.key]}</ToggleGroupItemCount>
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 
   return (
