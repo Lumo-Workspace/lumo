@@ -35,6 +35,11 @@ import { useRemoveMember } from '../../hooks/useRemoveMember'
 import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -357,8 +362,10 @@ export function MembersPage() {
                   const expanded = expandedId === m.id
                   const memberConnections = connections[m.id]
                   return (
-                    <div
+                    <Collapsible
                       key={m.id}
+                      open={expanded && !connectionsUnknown}
+                      onOpenChange={open => setExpandedId(open ? m.id : null)}
                       className='border-b border-border/50 last:border-0'
                     >
                       <div
@@ -504,45 +511,39 @@ export function MembersPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : null}
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            aria-expanded={expanded}
-                            aria-label={intl.formatMessage(
-                              {
-                                id: expanded
-                                  ? 'members.details.hide'
-                                  : 'members.details.show',
-                              },
-                              { name: m.name }
-                            )}
-                            className='text-muted-foreground hover:text-foreground shrink-0'
-                            disabled={connectionsUnknown}
-                            onClick={() =>
-                              setExpandedId(expanded ? null : m.id)
-                            }
-                          >
-                            <ChevronDown
-                              size={16}
-                              className={
-                                expanded
-                                  ? 'rotate-180 transition-transform'
-                                  : 'transition-transform'
-                              }
-                            />
-                          </Button>
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant='ghost'
+                              size='icon'
+                              aria-label={intl.formatMessage(
+                                {
+                                  id: expanded
+                                    ? 'members.details.hide'
+                                    : 'members.details.show',
+                                },
+                                { name: m.name }
+                              )}
+                              className='text-muted-foreground hover:text-foreground shrink-0'
+                              disabled={connectionsUnknown}
+                            >
+                              <ChevronDown
+                                size={16}
+                                className='transition-transform group-data-[state=open]/collapsible:rotate-180'
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
                         </div>
                       </div>
 
-                      {expanded && !connectionsUnknown && (
+                      <CollapsibleContent>
                         <div className='pl-16 pr-4 pb-5'>
                           <MemberConnectionDetails
                             connections={memberConnections}
                             now={now}
                           />
                         </div>
-                      )}
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   )
                 })
               )}

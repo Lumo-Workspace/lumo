@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { formatDurationSec } from '@/lib/datetime/duration'
 import { useSprintTeamPerformance } from '../../hooks/useSprints'
 import type {
@@ -91,12 +96,14 @@ function SprintTeamPerformanceView({
           const member = row.memberId ? memberById.get(row.memberId) : undefined
           const isOpen = open.has(key)
           return (
-            <div key={key}>
+            <Collapsible
+              key={key}
+              open={isOpen}
+              onOpenChange={() => toggle(key)}
+            >
               <MemberCard
                 row={row}
                 member={member}
-                isOpen={isOpen}
-                onToggle={() => toggle(key)}
                 fmtTokens={fmtTokens}
                 sharePct={share(row.tokenCost)}
                 fmtTime={sec => formatDurationSec(intl, sec)}
@@ -105,14 +112,14 @@ function SprintTeamPerformanceView({
                   defaultMessage: 'Unattributed',
                 })}
               />
-              {isOpen && (
+              <CollapsibleContent>
                 <DrillDown
                   row={row}
                   fmtTokens={fmtTokens}
                   fmtTime={sec => formatDurationSec(intl, sec)}
                 />
-              )}
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )
         })}
       </div>
@@ -123,8 +130,6 @@ function SprintTeamPerformanceView({
 function MemberCard({
   row,
   member,
-  isOpen,
-  onToggle,
   fmtTokens,
   sharePct,
   fmtTime,
@@ -132,8 +137,6 @@ function MemberCard({
 }: {
   row: SprintMemberPerfRowDto
   member: WorkspaceMemberInfo | undefined
-  isOpen: boolean
-  onToggle: () => void
   fmtTokens: (n: number) => string
   sharePct: number
   fmtTime: (sec: number) => string
@@ -141,18 +144,9 @@ function MemberCard({
 }) {
   const intl = useIntl()
   return (
-    <button
-      type='button'
-      onClick={onToggle}
-      aria-expanded={isOpen}
-      className='flex w-full flex-col gap-2 px-3.5 py-3 text-left hover:bg-muted/30'
-    >
+    <CollapsibleTrigger className='flex w-full flex-col gap-2 px-3.5 py-3 text-left hover:bg-muted/30'>
       <div className='flex w-full min-w-0 items-center gap-2'>
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${
-            isOpen ? 'rotate-90' : ''
-          }`}
-        />
+        <ChevronRight className='size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90' />
         {member ? (
           <MemberAvatar member={member} size='sm' />
         ) : (
@@ -212,7 +206,7 @@ function MemberCard({
           )}
         </span>
       </div>
-    </button>
+    </CollapsibleTrigger>
   )
 }
 
@@ -264,19 +258,14 @@ function TaskRow({
     task.tokenCost - task.models.reduce((sum, m) => sum + m.total, 0)
   )
   return (
-    <div className='border-t border-border first:border-t-0'>
-      <button
-        type='button'
-        onClick={() => setOpen(v => !v)}
-        aria-expanded={open}
-        className='flex w-full flex-col gap-0.5 py-2 pl-3.5 pr-3 text-left hover:bg-muted/40'
-      >
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className='border-t border-border first:border-t-0'
+    >
+      <CollapsibleTrigger className='flex w-full flex-col gap-0.5 py-2 pl-3.5 pr-3 text-left hover:bg-muted/40'>
         <div className='flex w-full min-w-0 items-center gap-2'>
-          <ChevronRight
-            className={`size-3 shrink-0 text-muted-foreground transition-transform ${
-              open ? 'rotate-90' : ''
-            }`}
-          />
+          <ChevronRight className='size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90' />
           <span className='shrink-0 font-mono text-caption text-muted-foreground'>
             {task.identifier}
           </span>
@@ -297,9 +286,9 @@ function TaskRow({
             })}
           </span>
         </div>
-      </button>
+      </CollapsibleTrigger>
 
-      {open && (
+      <CollapsibleContent>
         <div className='pb-3 pl-7 pr-3'>
           {/* No model split captured (pre-LUM-298 sessions) → the remainder
               line below carries the whole spend on its own. */}
@@ -322,7 +311,7 @@ function TaskRow({
             </div>
           )}
         </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

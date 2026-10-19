@@ -61,6 +61,11 @@ import {
 } from './security-summary'
 import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { securityScanClient } from '@/ee/security/api-client'
 
@@ -202,87 +207,89 @@ function SecurityScanPanel({
           {data.prs.map(({ pr, latest, reviewControl }) => {
             const expanded = isExpanded(pr.id, latest)
             return (
-              <li
+              <Collapsible
+                asChild
                 key={pr.id}
-                data-testid={`security-pr-${pr.number}`}
-                className='py-2.5'
+                open={expanded && latest != null}
+                onOpenChange={() => toggleRow(pr.id, latest)}
               >
-                {/* A link inside a button is invalid HTML — the toggle and
+                <li data-testid={`security-pr-${pr.number}`} className='py-2.5'>
+                  {/* A link inside a button is invalid HTML — the toggle and
                     the PR link sit side by side. */}
-                <div className='flex items-center gap-2'>
-                  {/* Review F2 (a11y): the chevron is the only content,
+                  <div className='flex items-center gap-2'>
+                    {/* Review F2 (a11y): the chevron is the only content,
                       so name it after the row it opens. */}
-                  <button
-                    type='button'
-                    aria-expanded={expanded}
-                    aria-label={`#${pr.number} ${pr.title}`}
-                    data-testid={`security-pr-${pr.number}-toggle`}
-                    onClick={() => toggleRow(pr.id, latest)}
-                    className='shrink-0 text-muted-foreground hover:text-foreground'
-                  >
-                    <ChevronRight
-                      className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
-                  </button>
-                  <a
-                    href={pr.url}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    title={
-                      latest
-                        ? intl.formatMessage(
-                            { id: 'securityScan.meta' },
-                            { sha: latest.headSha.slice(0, 7) }
-                          )
-                        : undefined
-                    }
-                    className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
-                  >
-                    <span className='font-mono font-normal text-muted-foreground'>
-                      #{pr.number}
-                    </span>{' '}
-                    {pr.title}
-                  </a>
-                  <span className='shrink-0'>
-                    {data.scanningOff && showsScanningOff(latest) ? (
-                      <ScanningOffBadge />
-                    ) : (
-                      <ScanResult scan={latest} />
-                    )}
-                  </span>
-                </div>
-                {pr.repo && pr.state === 'open' && (
-                  <ReviewControls
-                    taskId={taskId}
-                    number={pr.number}
-                    repo={pr.repo}
-                    scan={latest}
-                    {...(reviewControl ? { control: reviewControl } : {})}
-                  />
-                )}
-                {pr.headSha && latest && pr.headSha !== latest.headSha && (
-                  <p className='text-caption text-muted-foreground'>
-                    {intl.formatMessage({ id: 'securityScan.review.stale' })}
-                  </p>
-                )}
-                {latest ? (
-                  <div className='mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[1.375rem]'>
-                    {STAGE_ORDER.map(key => (
-                      <StageItem key={key} stageKey={key} scan={latest} />
-                    ))}
+                    <CollapsibleTrigger
+                      aria-label={`#${pr.number} ${pr.title}`}
+                      data-testid={`security-pr-${pr.number}-toggle`}
+                      className='shrink-0 text-muted-foreground hover:text-foreground'
+                    >
+                      <ChevronRight
+                        className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90'
+                        aria-hidden
+                      />
+                    </CollapsibleTrigger>
+                    <a
+                      href={pr.url}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      title={
+                        latest
+                          ? intl.formatMessage(
+                              { id: 'securityScan.meta' },
+                              { sha: latest.headSha.slice(0, 7) }
+                            )
+                          : undefined
+                      }
+                      className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
+                    >
+                      <span className='font-mono font-normal text-muted-foreground'>
+                        #{pr.number}
+                      </span>{' '}
+                      {pr.title}
+                    </a>
+                    <span className='shrink-0'>
+                      {data.scanningOff && showsScanningOff(latest) ? (
+                        <ScanningOffBadge />
+                      ) : (
+                        <ScanResult scan={latest} />
+                      )}
+                    </span>
                   </div>
-                ) : null}
-                {expanded && latest && (
-                  <div className='pl-[1.375rem]'>
-                    <ScanDetails
+                  {pr.repo && pr.state === 'open' && (
+                    <ReviewControls
                       taskId={taskId}
-                      prNumber={pr.number}
+                      number={pr.number}
+                      repo={pr.repo}
                       scan={latest}
+                      {...(reviewControl ? { control: reviewControl } : {})}
                     />
-                  </div>
-                )}
-              </li>
+                  )}
+                  {pr.headSha && latest && pr.headSha !== latest.headSha && (
+                    <p className='text-caption text-muted-foreground'>
+                      {intl.formatMessage({ id: 'securityScan.review.stale' })}
+                    </p>
+                  )}
+                  {latest ? (
+                    <div className='mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[1.375rem]'>
+                      {STAGE_ORDER.map(key => (
+                        <StageItem key={key} stageKey={key} scan={latest} />
+                      ))}
+                    </div>
+                  ) : null}
+                  <CollapsibleContent>
+                    {latest && (
+                      <div className='pl-[1.375rem]'>
+                        <ScanDetails
+                          taskId={taskId}
+                          prNumber={pr.number}
+                          scan={latest}
+                        />
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </li>
+              </Collapsible>
             )
           })}
         </ul>
@@ -1162,7 +1169,9 @@ function FindingRow({
       : 'text-muted-foreground'
 
   return (
-    <div
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
       data-testid={`security-finding-${finding.id}`}
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
@@ -1173,19 +1182,16 @@ function FindingRow({
     >
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
         {quiet ? (
-          <button
-            type='button'
-            aria-expanded={open}
+          <CollapsibleTrigger
             data-testid='finding-toggle'
-            onClick={() => setOpen(o => !o)}
             className='flex flex-wrap items-center gap-x-2 text-left'
           >
             <ChevronRight
-              className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+              className='size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90'
               aria-hidden
             />
             <FindingHeadline finding={finding} tone={severityTone} />
-          </button>
+          </CollapsibleTrigger>
         ) : (
           <FindingHeadline finding={finding} tone={severityTone} />
         )}
@@ -1292,206 +1298,202 @@ function FindingRow({
           </span>
         )}
       </div>
-      {open ? (
-        <>
-          {/* LUM-1234: a REWARD_HACK row's detail is model prose, served
+      <CollapsibleContent>
+        {/* LUM-1234: a REWARD_HACK row's detail is model prose, served
               only by its evidence view (session access checked). */}
-          {finding.detail !== '' && (
-            <p className='mt-1 text-caption text-foreground/80'>
-              {finding.detail}
-            </p>
-          )}
-          {suggestedOpen && finding.suggestedReason && (
-            <p
-              data-testid='finding-suggested-reason'
-              className='mt-0.5 text-caption text-muted-foreground'
+        {finding.detail !== '' && (
+          <p className='mt-1 text-caption text-foreground/80'>
+            {finding.detail}
+          </p>
+        )}
+        {suggestedOpen && finding.suggestedReason && (
+          <p
+            data-testid='finding-suggested-reason'
+            className='mt-0.5 text-caption text-muted-foreground'
+          >
+            {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
+          </p>
+        )}
+        {verifierRejected && finding.verifierReason && (
+          <div
+            data-testid='finding-verifier-reason'
+            className='mt-1.5 rounded-sm bg-muted px-2 py-1.5 text-caption'
+          >
+            <span className='block text-caption uppercase text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'securityScan.verifier.reasonLabel',
+              })}
+            </span>
+            <span className='text-foreground/80'>{finding.verifierReason}</span>
+          </div>
+        )}
+        {finding.callChain && finding.callChain.length > 0 && (
+          <div className='mt-0.5'>
+            <button
+              type='button'
+              aria-expanded={chainOpen}
+              onClick={() => setChainOpen(o => !o)}
+              className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
             >
-              {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
-            </p>
-          )}
-          {verifierRejected && finding.verifierReason && (
-            <div
-              data-testid='finding-verifier-reason'
-              className='mt-1.5 rounded-sm bg-muted px-2 py-1.5 text-caption'
-            >
-              <span className='block text-caption uppercase text-muted-foreground'>
-                {intl.formatMessage({
-                  id: 'securityScan.verifier.reasonLabel',
-                })}
-              </span>
-              <span className='text-foreground/80'>
-                {finding.verifierReason}
-              </span>
-            </div>
-          )}
-          {finding.callChain && finding.callChain.length > 0 && (
-            <div className='mt-0.5'>
-              <button
-                type='button'
-                aria-expanded={chainOpen}
-                onClick={() => setChainOpen(o => !o)}
-                className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+              {intl.formatMessage({ id: 'securityScan.callChain' })}
+            </button>
+            {chainOpen && (
+              <ol
+                data-testid='finding-call-chain'
+                className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
               >
-                {intl.formatMessage({ id: 'securityScan.callChain' })}
-              </button>
-              {chainOpen && (
-                <ol
-                  data-testid='finding-call-chain'
-                  className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
-                >
-                  {finding.callChain.map((edge, i) => (
-                    <li key={i}>{`${edge.from} → ${edge.to}`}</li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          )}
-          {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
+                {finding.callChain.map((edge, i) => (
+                  <li key={i}>{`${edge.from} → ${edge.to}`}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+        {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
               evidence is read from the server, with session access checked. */}
-          {finding.kind === 'REWARD_HACK' && (
-            <RewardHackEvidence taskId={taskId} findingId={finding.id} />
-          )}
-          {finding.kind !== 'REWARD_HACK' && finding.evidence !== '' && (
-            <pre className='mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 px-2 py-1.5 font-mono text-caption text-foreground/80'>
-              {finding.evidence}
-            </pre>
-          )}
-          {finding.externalRef && (
-            <a
-              data-testid='finding-external-link'
-              href={finding.externalRef}
-              target='_blank'
-              rel='noopener noreferrer'
-              className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+        {finding.kind === 'REWARD_HACK' && (
+          <RewardHackEvidence taskId={taskId} findingId={finding.id} />
+        )}
+        {finding.kind !== 'REWARD_HACK' && finding.evidence !== '' && (
+          <pre className='mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 px-2 py-1.5 font-mono text-caption text-foreground/80'>
+            {finding.evidence}
+          </pre>
+        )}
+        {finding.externalRef && (
+          <a
+            data-testid='finding-external-link'
+            href={finding.externalRef}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
+          </a>
+        )}
+        {finding.disposition && !changing && (
+          <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+            <button
+              type='button'
+              data-testid='finding-change-ruling'
+              onClick={() => setChanging(true)}
+              className={ACTION_BUTTON}
             >
-              {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
-            </a>
-          )}
-          {finding.disposition && !changing && (
-            <div className='mt-2 flex flex-wrap items-center gap-1.5'>
-              <button
-                type='button'
-                data-testid='finding-change-ruling'
-                onClick={() => setChanging(true)}
-                className={ACTION_BUTTON}
-              >
-                {intl.formatMessage({ id: 'securityScan.action.changeRuling' })}
-              </button>
-            </div>
-          )}
-          {(!finding.disposition || changing) && (
-            <div className='mt-2 flex flex-wrap items-center gap-1.5'>
-              {pending === null ? (
-                <>
-                  <button
-                    type='button'
-                    aria-label={intl.formatMessage({
-                      id: copied
-                        ? 'securityScan.action.copied'
-                        : 'securityScan.action.copyForAgent',
-                    })}
-                    title={intl.formatMessage({
-                      id: 'securityScan.action.copyForAgent',
-                    })}
-                    onClick={copyForAgent}
-                    className={`${ACTION_BUTTON} inline-flex items-center gap-1`}
-                  >
-                    {copied ? (
-                      <Check className='size-3' aria-hidden />
-                    ) : (
-                      <Copy className='size-3' aria-hidden />
-                    )}
-                    {intl.formatMessage({
-                      id: copied
-                        ? 'securityScan.action.copied'
-                        : 'securityScan.action.copyForAgent',
-                    })}
-                  </button>
-                  {finding.disposition !== 'FALSE_POSITIVE' && (
-                    <button
-                      type='button'
-                      onClick={() => setPending('FALSE_POSITIVE')}
-                      className={ACTION_BUTTON}
-                    >
-                      {intl.formatMessage({
-                        id: 'securityScan.action.falsePositive',
-                      })}
-                    </button>
-                  )}
-                  {finding.disposition !== 'ACCEPTED_RISK' && (
-                    <button
-                      type='button'
-                      onClick={() => setPending('ACCEPTED_RISK')}
-                      className={ACTION_BUTTON}
-                    >
-                      {intl.formatMessage({
-                        id: 'securityScan.action.acceptRisk',
-                      })}
-                    </button>
-                  )}
-                  {finding.disposition && (
-                    // LUM-1128 follow-up: revert a mistaken ruling (e.g. a
-                    // CLI one) — the finding is open again and, if policy
-                    // says so, blocks DONE again. Web only.
-                    <button
-                      type='button'
-                      data-testid='finding-reopen'
-                      onClick={() => setPending('OPEN')}
-                      className={ACTION_BUTTON}
-                    >
-                      {intl.formatMessage({
-                        id: 'securityScan.action.reopen',
-                      })}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  {pending === 'OPEN' ? (
-                    <span className='text-caption text-muted-foreground'>
-                      {intl.formatMessage({
-                        id: 'securityScan.action.reopenConfirm',
-                      })}
-                    </span>
+              {intl.formatMessage({ id: 'securityScan.action.changeRuling' })}
+            </button>
+          </div>
+        )}
+        {(!finding.disposition || changing) && (
+          <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+            {pending === null ? (
+              <>
+                <button
+                  type='button'
+                  aria-label={intl.formatMessage({
+                    id: copied
+                      ? 'securityScan.action.copied'
+                      : 'securityScan.action.copyForAgent',
+                  })}
+                  title={intl.formatMessage({
+                    id: 'securityScan.action.copyForAgent',
+                  })}
+                  onClick={copyForAgent}
+                  className={`${ACTION_BUTTON} inline-flex items-center gap-1`}
+                >
+                  {copied ? (
+                    <Check className='size-3' aria-hidden />
                   ) : (
-                    <input
-                      value={note}
-                      onChange={e => setNote(e.target.value)}
-                      placeholder={intl.formatMessage({
-                        id: 'securityScan.action.notePlaceholder',
-                      })}
-                      aria-label={intl.formatMessage({
-                        id: 'securityScan.action.notePlaceholder',
-                      })}
-                      className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
-                    />
+                    <Copy className='size-3' aria-hidden />
                   )}
+                  {intl.formatMessage({
+                    id: copied
+                      ? 'securityScan.action.copied'
+                      : 'securityScan.action.copyForAgent',
+                  })}
+                </button>
+                {finding.disposition !== 'FALSE_POSITIVE' && (
                   <button
                     type='button'
-                    disabled={submitting}
-                    onClick={submit}
-                    className='text-caption text-foreground'
+                    onClick={() => setPending('FALSE_POSITIVE')}
+                    className={ACTION_BUTTON}
                   >
-                    {intl.formatMessage({ id: 'securityScan.action.confirm' })}
+                    {intl.formatMessage({
+                      id: 'securityScan.action.falsePositive',
+                    })}
                   </button>
+                )}
+                {finding.disposition !== 'ACCEPTED_RISK' && (
                   <button
                     type='button'
-                    disabled={submitting}
-                    onClick={() => {
-                      setPending(null)
-                      setChanging(false)
-                      setNote('')
-                    }}
-                    className='text-caption text-muted-foreground'
+                    onClick={() => setPending('ACCEPTED_RISK')}
+                    className={ACTION_BUTTON}
                   >
-                    {intl.formatMessage({ id: 'securityScan.action.cancel' })}
+                    {intl.formatMessage({
+                      id: 'securityScan.action.acceptRisk',
+                    })}
                   </button>
-                </>
-              )}
-            </div>
-          )}
-        </>
-      ) : null}
+                )}
+                {finding.disposition && (
+                  // LUM-1128 follow-up: revert a mistaken ruling (e.g. a
+                  // CLI one) — the finding is open again and, if policy
+                  // says so, blocks DONE again. Web only.
+                  <button
+                    type='button'
+                    data-testid='finding-reopen'
+                    onClick={() => setPending('OPEN')}
+                    className={ACTION_BUTTON}
+                  >
+                    {intl.formatMessage({
+                      id: 'securityScan.action.reopen',
+                    })}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {pending === 'OPEN' ? (
+                  <span className='text-caption text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'securityScan.action.reopenConfirm',
+                    })}
+                  </span>
+                ) : (
+                  <input
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder={intl.formatMessage({
+                      id: 'securityScan.action.notePlaceholder',
+                    })}
+                    aria-label={intl.formatMessage({
+                      id: 'securityScan.action.notePlaceholder',
+                    })}
+                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                  />
+                )}
+                <button
+                  type='button'
+                  disabled={submitting}
+                  onClick={submit}
+                  className='text-caption text-foreground'
+                >
+                  {intl.formatMessage({ id: 'securityScan.action.confirm' })}
+                </button>
+                <button
+                  type='button'
+                  disabled={submitting}
+                  onClick={() => {
+                    setPending(null)
+                    setChanging(false)
+                    setNote('')
+                  }}
+                  className='text-caption text-muted-foreground'
+                >
+                  {intl.formatMessage({ id: 'securityScan.action.cancel' })}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </CollapsibleContent>
       {error && (
         <p
           data-testid='finding-disposition-error'
@@ -1500,7 +1502,7 @@ function FindingRow({
           {error}
         </p>
       )}
-    </div>
+    </Collapsible>
   )
 }
 
