@@ -1,8 +1,9 @@
 /**
  * @jest-environment node
  *
- * LUM-821 P0: `lumo task search` — flag normalisation, assignee/tag
- * resolution and the query it sends to /api/tasks/workspace.
+ * LUM-821 P0: the search filters — flag normalisation, assignee/tag
+ * resolution and the query sent. LUM-1233 folded `task search` into
+ * `task list` (GET /api/tasks/me), so these drive `taskList`.
  */
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
@@ -14,11 +15,12 @@ jest.mock('@/cli/src/lib/config', () => ({
 }))
 
 import {
-  buildSearchQuery,
-  formatSearchTable,
+  buildTaskListPath,
+  formatTaskListWideTable,
   normalizeEnumList,
-  taskSearch,
-} from '@/cli/src/commands/task-search'
+  taskList,
+  type ListedTask,
+} from '@/cli/src/commands/task-list'
 import { resolveAssigneeRefs, type Directory } from '@/cli/src/lib/directory'
 import { localDayLabel, localDayStart } from '@/cli/src/lib/local-day'
 
@@ -101,23 +103,26 @@ describe('normalizeEnumList', () => {
   })
 })
 
-describe('buildSearchQuery', () => {
+describe('buildTaskListPath', () => {
   it('serialises every filter', () => {
-    const path = buildSearchQuery({
-      q: 'oauth bug',
-      statuses: ['TODO'],
-      priorities: ['HIGH', 'URGENT'],
-      assigneeActorIds: ['a1'],
-      unassigned: true,
-      tagIds: ['t1'],
-      projectIds: ['p1'],
-      milestoneIds: ['m1'],
-      sprintIds: ['s1'],
-      dueAfter: '2026-09-01',
-      dueBefore: '2026-09-30',
-    })
+    const path = buildTaskListPath(
+      {
+        q: 'oauth bug',
+        statuses: ['TODO'],
+        priorities: ['HIGH', 'URGENT'],
+        assigneeActorIds: ['a1'],
+        unassigned: true,
+        tagIds: ['t1'],
+        project: 'Lumo',
+        milestoneId: 'm1',
+        sprintId: 's1',
+        dueAfter: '2026-09-01',
+        dueBefore: '2026-09-30',
+      },
+      { limit: 50, offset: 0 }
+    )
     const u = new URL(`https://x${path}`)
-    expect(u.pathname).toBe('/api/tasks/workspace')
+    expect(u.pathname).toBe('/api/tasks/me')
     expect(Object.fromEntries(u.searchParams)).toEqual({
       q: 'oauth bug',
       match: 'fuzzy',
@@ -125,19 +130,20 @@ describe('buildSearchQuery', () => {
       priorities: 'HIGH,URGENT',
       assigneeActorIds: 'a1',
       tagIds: 't1',
-      projectIds: 'p1',
+      projectName: 'Lumo',
       milestoneIds: 'm1',
       sprintIds: 's1',
       unassigned: '1',
       dueAfter: '2026-09-01',
       dueBefore: '2026-09-30',
+      limit: '50',
     })
   })
 })
 
-describe('formatSearchTable', () => {
+describe('formatTaskListWideTable', () => {
   it('shows project, assignee name and due day', () => {
-    const out = formatSearchTable(
+    const out = formatTaskListWideTable(
       [
         {
           number: 42,
@@ -159,7 +165,7 @@ describe('formatSearchTable', () => {
           assigneeActorId: null,
           project: { id: 'p1', name: 'lumo' },
         },
-      ],
+      ] as ListedTask[],
       new Map([['act-alice', 'Alice']])
     )
     expect(out.split('\n')[0]).toMatch(
@@ -171,7 +177,7 @@ describe('formatSearchTable', () => {
   })
 })
 
-describe('taskSearch end-to-end (mocked fetch)', () => {
+describe('task list search filters end-to-end (mocked fetch)', () => {
   let fetchMock: jest.Mock
   let out: string
   beforeEach(() => {
@@ -205,8 +211,10 @@ describe('taskSearch end-to-end (mocked fetch)', () => {
       if (u.endsWith('/api/tags')) {
         return json({ tags: [{ id: 't-bug', name: 'bug' }] })
       }
-      if (u.includes('/api/tasks/workspace')) {
+      if (u.includes('/api/tasks/me')) {
         return json({
+          total: 1,
+          nextCursor: null,
           tasks: [
             {
               number: 1,
@@ -229,7 +237,8 @@ describe('taskSearch end-to-end (mocked fetch)', () => {
   afterEach(() => jest.restoreAllMocks())
 
   it('resolves assignee + tag and sends one server-side query', async () => {
-    const code = await taskSearch('oauth', {
+    const code = await taskList({
+      search: 'oauth',
       assignee: ['alice@x.com'],
       tag: ['BUG'],
       priority: ['high'],
@@ -237,7 +246,7 @@ describe('taskSearch end-to-end (mocked fetch)', () => {
     expect(code).toBeUndefined()
     const searchCall = fetchMock.mock.calls
       .map(c => String(c[0]))
-      .find(u => u.includes('/api/tasks/workspace'))!
+      .find(u => u.includes('/api/tasks/me'))!
     const params = new URL(searchCall).searchParams
     expect(params.get('assigneeActorIds')).toBe('act-alice')
     expect(params.get('tagIds')).toBe('t-bug')
@@ -247,30 +256,30 @@ describe('taskSearch end-to-end (mocked fetch)', () => {
   })
 
   it('never creates a tag: an unknown tag is an error and no search runs', async () => {
-    const code = await taskSearch(undefined, { tag: ['typo'] })
+    const code = await taskList({ tag: ['typo'] })
     expect(code).toBe(1)
     expect(
       fetchMock.mock.calls.some(c => String(c[0]).includes('/tags/resolve'))
     ).toBe(false)
     expect(
-      fetchMock.mock.calls.some(c => String(c[0]).includes('/tasks/workspace'))
+      fetchMock.mock.calls.some(c => String(c[0]).includes('/tasks/me'))
     ).toBe(false)
   })
 
   it('rejects a non-ISO or impossible due date before any network call', async () => {
-    expect(await taskSearch(undefined, { dueBefore: '30/09/2026' })).toBe(1)
-    expect(await taskSearch(undefined, { dueAfter: '2026-02-31' })).toBe(1)
+    expect(await taskList({ dueBefore: '30/09/2026' })).toBe(2)
+    expect(await taskList({ dueAfter: '2026-02-31' })).toBe(2)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('sends inclusive local days as a local-midnight instant window', async () => {
-    await taskSearch(undefined, {
+    await taskList({
       dueAfter: '2026-09-01',
       dueBefore: '2026-09-30',
     })
     const call = fetchMock.mock.calls
       .map(c => String(c[0]))
-      .find(u => u.includes('/api/tasks/workspace'))!
+      .find(u => u.includes('/api/tasks/me'))!
     const p = new URL(call).searchParams
     expect(p.get('dueAfter')).toBe(new Date(2026, 8, 1).toISOString())
     expect(p.get('dueBefore')).toBe(new Date(2026, 9, 1).toISOString())

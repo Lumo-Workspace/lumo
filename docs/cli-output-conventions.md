@@ -1005,7 +1005,7 @@ With `--json`, a failure prints nothing on stdout and exactly one JSON object on
   "error": {
     "code": "NOT_FOUND",
     "message": "task LUM-999999 not found in workspace lumo",
-    "hint": "list tasks with `lumo task list`, or search with `lumo task search <text>`.",
+    "hint": "list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.",
     "exitCode": 1
   }
 }
@@ -1028,7 +1028,7 @@ After (stderr):
   "error": {
     "code": "NOT_FOUND",
     "message": "task LUM-999999 not found in workspace lumo",
-    "hint": "list tasks with `lumo task list`, or search with `lumo task search <text>`.",
+    "hint": "list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.",
     "exitCode": 1
   }
 }
@@ -1095,7 +1095,7 @@ After:
 
 ```
 Error: task LUM-999999 not found in workspace lumo
-Hint: list tasks with `lumo task list`, or search with `lumo task search <text>`.
+Hint: list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.
 ```
 
 `lumo milestone show nope` already does this (`Try \`lumo milestone list\``); it moves to the `Hint:` line.

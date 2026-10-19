@@ -97,7 +97,7 @@ describe('X-2 — not-found hints', () => {
     expect(
       notFoundHint('Error: task LUM-999999 not found in workspace lumo')
     ).toBe(
-      'list tasks with `lumo task list`, or search with `lumo task search <text>`.'
+      'list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.'
     )
     expect(
       notFoundHint('Error: PR #999999 not found in workspace lumo')
@@ -152,7 +152,7 @@ describe('the stderr filter end to end (custom sink)', () => {
     finalizeErrorOutput(1)
     expect(out.join('')).toBe(
       'Error: task LUM-999999 not found in workspace lumo\n' +
-        'Hint: list tasks with `lumo task list`, or search with `lumo task search <text>`.\n'
+        'Hint: list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.\n'
     )
   })
 

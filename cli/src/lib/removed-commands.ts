@@ -531,6 +531,50 @@ const RENAME_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
+/**
+ * LUM-1233 (2026-10-19): `task search` folded into `task list`. Search
+ * spanned the whole workspace, so a call without `--assignee` gains
+ * `--assignee any`; the query words become `--search`, `-p` (search's
+ * priority short flag) becomes `--priority`, and `--exact` only survives
+ * with a query (`task list` rejects it alone).
+ */
+export function taskSearchReplacement(
+  args: string[],
+  options: string[]
+): string {
+  const query = args.join(' ').trim()
+  const flagOf = (o: string) => o.split('=')[0]!
+  const rest: string[] = []
+  for (const o of options) {
+    if (o === '-p') rest.push('--priority')
+    else if (o.startsWith('-p=')) rest.push(`--priority=${o.slice(3)}`)
+    else if (flagOf(o) === '--exact' && !query) continue
+    else rest.push(o)
+  }
+  const hasAssignee = options.some(
+    o => flagOf(o) === '--assignee' || flagOf(o) === '-a'
+  )
+  return cmd(
+    'lumo task list',
+    [],
+    [
+      ...(hasAssignee ? [] : ['--assignee', 'any']),
+      ...(query ? ['--search', query] : []),
+      ...rest,
+    ]
+  )
+}
+
+const SEARCH_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'task search',
+    optionsOf: 'task list',
+    valueFlags: ['-p'],
+    replacement: (args, _f, options) => taskSearchReplacement(args, options),
+    help: 'lumo task list',
+  },
+]
+
 export const TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task context',
@@ -607,6 +651,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...PROJECT_TOMBSTONES,
   ...CONFIRM_TOMBSTONES,
   ...RENAME_TOMBSTONES,
+  ...SEARCH_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */

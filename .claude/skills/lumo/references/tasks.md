@@ -251,38 +251,58 @@ There are no subtasks — the parent/child hierarchy and `--parent` were removed
 
 Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete`, tasks can be bound/unbound in bulk via `lumo milestone add / remove <identifier> <task...>`, and milestones can be manually reordered via `lumo milestone reorder <ref...>` / `lumo milestone move <ref> --before|--after <ref>` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
 
-### `lumo task list [flags]` — list tasks assigned to you
+### `lumo task list [flags]` — list and search tasks
 
-Default behavior: prints every task currently assigned to the authenticated user (no project / status filter), one per line. Piped / agent output (non-TTY) is one row per line with the fields separated by a single **TAB** (LUM-1232; `⇥` marks a TAB below), no header, nothing truncated, and column 1 is always the id:
+One task query (LUM-1233 folded the old `task search` into it). **Without `--assignee` it lists only your tasks**; `--assignee any` spans every member of the workspace. **A repeated flag ORs its values; different flags AND** (`--status todo --status in_progress --priority high` = (TODO or IN_PROGRESS) and HIGH). Every filter and the page run server-side (`GET /api/tasks/me`).
+
+Piped / agent output (non-TTY) is one row per line with the fields separated by a single **TAB** (LUM-1232; `⇥` marks a TAB below), no header, nothing truncated, and column 1 is always the id:
 
 ```
 LUM-42⇥IN_PROGRESS⇥HIGH⇥web⇥Fix Slack OAuth redirect
 LUM-48⇥TODO⇥MEDIUM⇥backend⇥Investigate slow query
 ```
 
-On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2), an upper-case header row comes first and only the title is cut with `…` to fit the terminal width. `task search` and `status --next` use the same table (`status --next`: `ID  STATUS  PRIORITY  WHY  TITLE`, row order is the rank).
+With `--assignee` (any value) the rows also carry the assignee and the due day: `LUM-42⇥TODO⇥HIGH⇥lumo⇥Alice⇥2026-09-30⇥Fix OAuth` (id · status · priority · project · assignee · due · title; `-` = none).
 
-| Flag                    | Type    | Notes                                                                                       |
-| ----------------------- | ------- | ------------------------------------------------------------------------------------------- |
-| `-s, --status <value>`  | enum    | Filter by status: `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive). |
-| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).                       |
-| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (slug, name or id).                                 |
-| `-n, --limit <count>`   | integer | Tasks per page (1-500, default **50**).                                                     |
-| `--cursor <cursor>`     | string  | Next page — copy it from the footer (or `nextCursor` in `--json`).                          |
-| `--json`                | boolean | `{ version, tasks, total, nextCursor, deprecatedFields }` — see **`--json` fields** below.  |
-| `--fields <list>`       | string  | With `--json`: only these comma-separated fields per task (from the list below).            |
+On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2), an upper-case header row comes first and only the title is cut with `…` to fit the terminal width. `status --next` uses the same table (`ID  STATUS  PRIORITY  WHY  TITLE`, row order is the rank).
+
+| Flag                              | Type                | Notes                                                                                                                         |
+| --------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `-a, --assignee <ref>`            | string (repeatable) | Default `me`. `any` = everyone (cannot be combined with other values), `none` = unassigned, an email, a member or agent name. |
+| `--search <text>`                 | string              | Every whitespace-separated term must match (see **Search** below). Ranked by relevance, typo-tolerant.                        |
+| `--exact`                         | boolean             | With `--search`: substring matching only, board order. Alone it is a usage error (exit 2).                                    |
+| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                                              |
+| `--priority <level>`              | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate. No short flag.                                                   |
+| `--tag <name>`                    | string (repeatable) | Tag name, case-insensitive (any of). Unknown name = error — listing never creates tags.                                       |
+| `--project <ref>`                 | string              | Global flag: project name or slug (unknown = error).                                                                          |
+| `-m, --milestone <ref>`           | string              | Milestone slug, name or id.                                                                                                   |
+| `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                                                    |
+| `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                                             |
+| `-n, --limit <count>`             | integer             | Tasks per page (1-500, default **50**).                                                                                       |
+| `--cursor <cursor>`               | string              | Next page — copy it from the footer (or `nextCursor` in `--json`).                                                            |
+| `--json`                          | boolean             | `{ version, tasks, total, nextCursor, truncated, deprecatedFields }` — see **`--json` fields** below.                         |
+| `--fields <list>`                 | string              | With `--json`: only these comma-separated fields per task (from the list below).                                              |
 
 ```bash
-lumo task list                                  # everything assigned to me
-lumo task list --status in_progress -n 10       # 10 per page, status-filtered
-lumo task list --cursor 50                      # page 2 (from the footer)
-lumo task list --project backend --status todo
-lumo task list --milestone "Q3 Launch"
+lumo task list                                        # everything assigned to me
+lumo task list --status in_progress -n 10             # 10 per page, status-filtered
+lumo task list --cursor 50                            # page 2 (from the footer)
+lumo task list --assignee any --search "oauth redirect"
+lumo task list --assignee any --search "serch filtr" --exact
+lumo task list --assignee none --status todo --priority high --priority urgent
+lumo task list --assignee alice@example.com --tag bug --sprint 3
+lumo task list --assignee any --due-before 2026-09-30 --status todo --status in_progress
 ```
+
+#### Search (`--search`)
+
+`--search` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, or as the task number (`42`, `LUM-42`). Typo tolerance is a **tiered fallback** — it only runs when what you typed matches nothing, so a correctly spelled word is never widened (`content` never pulls in "context", `form` never "from"/"for"): (1) exact substring / number; if that finds nothing, (2) typo matching of title words via Postgres `pg_trgm` for non-numeric terms of 4+ letters (`serch`, `filtr`, `dashbord`, `migraton` find their task); if that finds nothing too, (3) one swapped pair of adjacent letters (`oauht` → "OAuth"). A typo'd title word must be ≥ 4 letters and at most one letter shorter than the term. Results are ranked by a relevance score summed over the terms: task number 2.0, title substring 1.0, trigram typo 0.9 × similarity, letter swap 0.85, description substring 0.5. `--exact` switches the fallback tiers off. A ranked search covers at most 500 matches — when it hits that cap the output ends with `(result capped at 500 — narrow the filters)` and `--json` has `truncated: true`.
+
+`lumo task search …` was removed (exit 2); its error names the equivalent `task list` call with your filters and `--assignee any` (search spanned the workspace).
 
 #### `task list --json` fields
 
-The fields callers may rely on (the whitelist; `--fields` accepts exactly these): `ref` (`LUM-42`), `id`, `title`, `status`, `priority`, `project` (`{ id, name, … }`), `assignee`, `milestone`, `sprint`, `tags`, `dueDate`, `blockedByOpenCount`, `unblocksOpenCount`, `createdAt`, `updatedAt`. Bare `--json` still prints every other field the server returns, unchanged.
+The fields callers may rely on (the whitelist; `--fields` accepts exactly these): `ref` (`LUM-42`), `id`, `title`, `status`, `priority`, `project` (`{ id, name, … }`), `assignee`, `milestone`, `sprint`, `tags`, `dueDate`, `blockedByOpenCount`, `unblocksOpenCount`, `createdAt`, `updatedAt`. Bare `--json` still prints every other field the server returns, unchanged. The envelope's `truncated` is `true` only when a `--search` hit the ranking cap (`total` is then a floor).
 
 **Deprecated** (still emitted; listed in the envelope's `deprecatedFields`; removed only in a release that bumps `version`): `workspaceId`, `order`, `viewOrder`, `deletedAt`, `deletedByClerkId`, `trashRootId`, `claimSnapshot`, `claimSnapshotAt`, `claimSnapshotSessionId`, `claimSnapshotSource`. Don't build on them.
 
@@ -292,9 +312,9 @@ lumo task list --json --fields ref,title,status,dueDate
 
 `--fields` without `--json`, or an unknown field name, is a usage error (exit 2) that lists the valid names.
 
-Every filter and the page run server-side (`GET /api/tasks/me?statuses=…&milestoneIds=…&projectName=…&limit=…&cursor=…`). Against a server that predates paging the CLI filters and pages the full list itself.
+Against a server that predates paging the CLI filters (status / project / milestone) and pages the full list itself. A server that predates these filters fails the call (exit 1) instead of returning an unfiltered list when you use `--assignee`, `--priority`, `--tag`, `--search` or `--due-*`.
 
-#### Paging (LUM-1093) — shared by `task list`, `task search`, `task show --history`, `task show --comments`, `milestone list`, `doc list`
+#### Paging (LUM-1093) — shared by `task list`, `task show --history`, `task show --comments`, `milestone list`, `doc list`
 
 Lists print **50 rows per page** by default (`--limit` 1-500 changes it). When a page is not the whole result, the output ends with a fixed footer — the first line is `Showing <first>-<last> of <total>.`, the second the command for the next page:
 
@@ -311,42 +331,8 @@ The last page prints only the `Showing …` line; a result that fits on one page
 
 - The user asks "what am I working on", "what tasks do I have", "list my tasks", "show me my queue".
 - Before suggesting a status change ("mark something as done"), if no task ID is in context — run `task list` first to surface candidates.
-
-### `lumo task search [query] [flags]` — search tasks across the workspace (LUM-821)
-
-`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), paged 50 at a time (`--limit` / `--cursor`, footer as in **Paging** above; a fuzzy query ranks at most 500 matches — when it hits that cap the output still ends with `(result capped at 500 — narrow the filters)` and `--json` has `truncated: true`). `--json` prints `{ version, tasks, truncated, total, nextCursor, deprecatedFields }`; each task gains `ref` (`LUM-42`) first and keeps every server field; the internal fields named in `deprecatedFields` are the same as `task list`'s and are deprecated (still emitted, removed only with a `version` bump).
-
-`[query]` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, or as the task number (`42`, `LUM-42`). Typo tolerance is a **tiered fallback** — it only runs when what you typed matches nothing, so a correctly spelled word is never widened (`content` never pulls in "context", `form` never "from"/"for"): (1) exact substring / number; if that finds nothing, (2) typo matching of title words via Postgres `pg_trgm` for non-numeric terms of 4+ letters (`serch`, `filtr`, `dashbord`, `migraton` find their task); if that finds nothing too, (3) one swapped pair of adjacent letters (`oauht` → "OAuth"). A typo'd title word must be ≥ 4 letters and at most one letter shorter than the term. Results are ranked by a relevance score summed over the terms: task number 2.0, title substring 1.0, trigram typo 0.9 × similarity, letter swap 0.85, description substring 0.5. `--exact` switches the fallback tiers off.
-
-| Flag                              | Type                | Notes                                                                                            |
-| --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| `-a, --assignee <ref>`            | string (repeatable) | `me`, an email, a member name, an agent name, or `none` (unassigned). Repeats are ORed.          |
-| `--tag <name>`                    | string (repeatable) | Tag name, matched case-insensitively (any of). Unknown name = error — search never creates tags. |
-| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                 |
-| `-p, --priority <level>`          | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate.                                     |
-| `--project <ref>`                 | string              | Project name or slug.                                                                            |
-| `-m, --milestone <ref>`           | string              | Milestone slug, name or id.                                                                      |
-| `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
-| `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
-| `-n, --limit <count>`             | integer             | Tasks per page (1-500, default 50).                                                              |
-| `--cursor <cursor>`               | string              | Next page — from the footer or `nextCursor`.                                                     |
-| `--exact`                         | boolean             | Substring matching only, in board order (default: typo-tolerant, ranked).                        |
-| `--json`                          | boolean             | `{ tasks, truncated, total, nextCursor }`.                                                       |
-
-```bash
-lumo task search "oauth redirect"
-lumo task search "serch filtr" --exact
-lumo task search --assignee none --status todo --priority high --priority urgent
-lumo task search --assignee alice@example.com --tag bug --sprint 3
-lumo task search --due-before 2026-09-30 --status todo --status in_progress
-```
-
-Output: `LUM-42  TODO  HIGH  lumo  Alice  2026-09-30  Fix OAuth` (id · status · priority · project · assignee · due · title; `-` = none).
-
-### When to suggest `task search`
-
-- "Find the task about X", "what's unassigned", "what's Alice working on", "what's overdue / due this week", "high-priority bugs in sprint 3".
-- Before creating a task — search first to avoid a duplicate.
+- "Find the task about X", "what's unassigned", "what's Alice working on", "what's overdue / due this week", "high-priority bugs in sprint 3" — `task list --assignee any|none|<who>` with `--search` / filters.
+- Before creating a task — `task list --assignee any --search "<words>"` first to avoid a duplicate.
 
 ### `lumo task statuses [--json]` — the workflow as the server defines it
 

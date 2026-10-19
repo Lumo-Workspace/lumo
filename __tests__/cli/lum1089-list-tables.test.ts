@@ -18,7 +18,10 @@ import {
 } from '@/cli/src/lib/list-table'
 import { stringWidth } from '@/cli/src/lib/ui'
 import { formatTaskListTable, type TaskRow } from '@/cli/src/lib/format'
-import { formatSearchTable } from '@/cli/src/commands/task-search'
+import {
+  formatTaskListWideTable,
+  type ListedTask,
+} from '@/cli/src/commands/task-list'
 import { formatNextOutput } from '@/cli/src/commands/next'
 import {
   formatDocListRows,
@@ -183,7 +186,7 @@ describe('task tables (task list / search / next)', () => {
     expect(out.split('\n')).toHaveLength(1)
   })
 
-  it('task search shares the table: extra columns, CJK aligned, TTY header', () => {
+  it('task list --assignee shares the table: extra columns, CJK aligned, TTY header', () => {
     const rows = [
       {
         number: 1,
@@ -205,21 +208,22 @@ describe('task tables (task list / search / next)', () => {
         assigneeActorId: null,
         project: null,
       },
-    ]
+    ] as unknown as ListedTask[]
     const names = new Map([['a1', '张三']])
-    const pipe = formatSearchTable(rows, names, PIPE).split('\n')
+    const pipe = formatTaskListWideTable(rows, names, PIPE).split('\n')
     expect(pipe).toHaveLength(2)
     expect(pipe[0]?.startsWith('LUM-1\t')).toBe(true)
     expect(pipe[0]?.split('\t')).toHaveLength(7)
     expect(pipe[0]?.endsWith('\t中文标题')).toBe(true)
     expect(pipe[1]?.endsWith('\tEnglish')).toBe(true)
-    const wide = formatSearchTable(rows, names, { ...TTY, width: 200 }).split(
-      '\n'
-    )
+    const wide = formatTaskListWideTable(rows, names, {
+      ...TTY,
+      width: 200,
+    }).split('\n')
     expect(colOf(wide[1] ?? '', '中文标题')).toBe(
       colOf(wide[2] ?? '', 'English')
     )
-    const tty = formatSearchTable(rows, names, TTY).split('\n')
+    const tty = formatTaskListWideTable(rows, names, TTY).split('\n')
     expect(tty[0]?.split(/\s+/)).toEqual([
       'ID',
       'STATUS',

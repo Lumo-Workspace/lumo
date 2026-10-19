@@ -41,8 +41,7 @@ import {
 } from './commands/crossing-list'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
-import { taskList } from './commands/task-list'
-import { taskSearch } from './commands/task-search'
+import { taskList, type ListTaskOptions } from './commands/task-list'
 import { taskStatuses } from './commands/task-statuses'
 import { taskTemplateList } from './commands/task-template-list'
 import {
@@ -934,44 +933,22 @@ task
   .command('list')
   .codex(SERVER_ONLY)
   .description(
-    'List tasks assigned to you, 50 per page. Filter with --status, --project, --milestone; page with --limit / --cursor (a longer list ends with "Showing X-Y of N." and the next-page command).'
-  )
-  .option(
-    '-s, --status <value>',
-    'Filter by status: backlog | todo | in_progress | in_review | done (case-insensitive)'
-  )
-  .option('-n, --limit <count>', 'Tasks per page (1-500, default 50)')
-  .option(
-    '--cursor <cursor>',
-    'Continue from a previous page (from the footer)'
-  )
-  .option(
-    '-m, --milestone <ref>',
-    'Filter by milestone slug, name or id (scopes to my tasks under that milestone)'
-  )
-  .option(
-    '--json',
-    'Print { version, tasks, total, nextCursor, deprecatedFields } as JSON'
-  )
-  .option(
-    '--fields <list>',
-    'With --json: print only these comma-separated task fields, e.g. ref,title,status (an unknown name lists the valid ones)'
-  )
-  .action(wrap(options => taskList(options as Record<string, string>)))
-
-task
-  .command('search [query]')
-  .codex(SERVER_ONLY)
-  .description(
-    'Search tasks across the workspace (any assignee): all [query] terms must match title/description or a task number like LUM-42. Typo-tolerant unless --exact; 50 per page.'
+    'List tasks: yours by default, --assignee any for everyone. A repeated flag ORs its values; different flags AND. 50 per page; a longer list ends with "Showing X-Y of N." and the next-page command.'
   )
   .option(
     '-a, --assignee <ref>',
-    'Assignee — me, an email, a member or agent name, or none for unassigned; repeatable (ORed)',
+    'Assignee — me (default), any (everyone), none (unassigned), an email, a member or agent name; repeatable (ORed)',
     collect,
     []
   )
-  .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
+  .option(
+    '--search <text>',
+    'Every term must match the title/description or a task number like LUM-42; ranked, typo-tolerant unless --exact'
+  )
+  .option(
+    '--exact',
+    'With --search: substring matching only, in board order (no typo tolerance)'
+  )
   .option(
     '-s, --status <value>',
     'Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
@@ -979,11 +956,12 @@ task
     []
   )
   .option(
-    '-p, --priority <level>',
+    '--priority <level>',
     'Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)',
     collect,
     []
   )
+  .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
   .option('-m, --milestone <ref>', 'Milestone slug, name or id')
   .option('--sprint <ref>', 'Sprint number or UUID')
   .option('--team <ref>', 'Team to resolve --sprint against')
@@ -995,15 +973,14 @@ task
     'Continue from a previous page (from the footer)'
   )
   .option(
-    '--exact',
-    'Substring matching only, in board order (default: typo-tolerant, ranked by relevance)'
+    '--json',
+    'Print { version, tasks, total, nextCursor, truncated, deprecatedFields } as JSON'
   )
-  .option('--json', 'Emit { tasks, truncated, total, nextCursor } as JSON')
-  .action(
-    wrap((query, options) =>
-      taskSearch(query as string | undefined, options as Record<string, never>)
-    )
+  .option(
+    '--fields <list>',
+    'With --json: print only these comma-separated task fields, e.g. ref,title,status (an unknown name lists the valid ones)'
   )
+  .action(wrap(options => taskList(options as ListTaskOptions)))
 
 task
   .command('delete <identifier>')

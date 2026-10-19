@@ -34,7 +34,6 @@ import {
   type ListedTask,
 } from '@/cli/src/commands/task-list'
 import { tagList } from '@/cli/src/commands/tag'
-import { searchJson } from '@/cli/src/commands/task-search'
 import { taskHistory } from '@/cli/src/commands/task-history'
 import { INBOX_SERVER_CAP, inboxPage } from '@/cli/src/commands/inbox-list'
 import { status } from '@/cli/src/commands/status'
@@ -226,6 +225,8 @@ describe('task list --json: whitelist, deprecation, --fields', () => {
       tasks: [{ ref: 'LUM-7', status: 'TODO', dueDate: null }],
       total: 1,
       nextCursor: null,
+      // LUM-1233: added (J-5 only add) when task search folded in.
+      truncated: false,
     })
   })
 
@@ -356,29 +357,23 @@ describe('status --inbox --json', () => {
   })
 })
 
-describe('task search --json', () => {
-  it('adds ref first, keeps every field, and names the deprecated ones', () => {
-    const row = {
-      number: 4,
-      title: 't',
-      status: 'TODO',
-      priority: 'LOW',
-      teamIdentifier: 'LUM',
-      dueDate: null,
-      assigneeActorId: null,
-      workspaceId: 'w',
-    }
-    const body = searchJson([row], true, { total: 1, nextCursor: null })
-    expect(body).toMatchObject({
+describe('task list --json truncated (was task search --json, LUM-1233)', () => {
+  it('carries the capped flag beside total / nextCursor, with or without --fields', () => {
+    const page = { items: [task(4)], total: 500, offset: 0, nextCursor: '1' }
+    expect(taskListJson(page, undefined, true)).toMatchObject({
       version: 1,
       truncated: true,
-      total: 1,
-      nextCursor: null,
+      total: 500,
+      nextCursor: '1',
     })
-    const [t] = body.tasks as Array<Record<string, unknown>>
-    expect(Object.keys(t!)[0]).toBe('ref')
-    expect(t).toEqual({ ref: 'LUM-4', ...row })
-    expect(body.deprecatedFields).toEqual([...TASK_LIST_DEPRECATED_FIELDS])
+    expect(taskListJson(page, ['ref'], true)).toEqual({
+      version: 1,
+      tasks: [{ ref: 'LUM-4' }],
+      total: 500,
+      nextCursor: '1',
+      truncated: true,
+    })
+    expect(taskListJson(page).truncated).toBe(false)
   })
 })
 

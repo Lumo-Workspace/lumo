@@ -73,7 +73,7 @@ export function normalizeErrorLine(line: string): string[] {
 const NOT_FOUND_HINTS: Array<[RegExp, string]> = [
   [
     /\btask\b/i,
-    'list tasks with `lumo task list`, or search with `lumo task search <text>`.',
+    'list tasks with `lumo task list`, or search with `lumo task list --assignee any --search <text>`.',
   ],
   [/\bmilestone\b/i, 'list milestones with `lumo milestone list`.'],
   [/\bsprint\b/i, 'list sprints with `lumo sprint list`.'],

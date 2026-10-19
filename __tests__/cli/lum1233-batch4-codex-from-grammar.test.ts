@@ -45,9 +45,11 @@ const grammar = JSON.parse(
  * whole group, which also let the removed `lumo priority "<text>"` (a 3f
  * tombstone) run outside the sandbox; the class now sits on the two live
  * leaves, so the tombstone stays sandboxed (it only prints its error anyway).
+ * `task search` (2026-10-19) folded into `task list` and became a tombstone:
+ * the generated list loses exactly that entry, `task list` keeps its class.
  */
 const DEVIATIONS = {
-  serverOnlyRemoved: ['priority'],
+  serverOnlyRemoved: ['priority', 'task search'],
   serverOnlyAdded: ['priority create', 'priority list'],
 }
 

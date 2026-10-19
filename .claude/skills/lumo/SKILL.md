@@ -74,8 +74,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 - `lumo task create <title> [flags]` — create a task. **Mid-task** it requires `--rework-of <id>` (creates nothing; fix the existing task) or `--new-scope`; on a review bounce fix in place — see [task-status.md](references/task-status.md)
 - `lumo task create <title> --template <key>` — pre-filled description (`lumo task template list`; `task template show/create/edit/rm`). `lumo task decide <id> "<text>"` appends a dated ruling to `## Decisions` — use it for scope/approach rulings
 - `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due/claimable. `--status done` alone runs in one step when ≥1 linked PR, all merged, nothing blocks DONE; else exit 4 (see [confirmation.md](references/confirmation.md))
-- `lumo task list [flags]` — your tasks, 50 per page: a `Showing X-Y of N.` footer + next-page command means more — run it before concluding something is missing
-- `lumo task search [query] [flags]` — search the whole workspace (any assignee; ANDed, ranked, typo-tolerant unless `--exact`)
+- `lumo task list [flags]` — your tasks; `--assignee any` = everyone's, `--search <text>` ranked + typo-tolerant; repeated flag ORs, flags AND. 50 per page: a `Showing X-Y of N.` footer means more
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task delete <id>` — move to trash (restorable 30 days); exits 4 without `--confirm`
 - `lumo status --next [--limit N] [--claimable] [--json]` — recommend the next task (read-only); `--claimable` = claimable ∩ unblocked ∩ within milestone budget
@@ -176,7 +175,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ## Reading list output
 
-Every list prints its ref (`LUM-42`, `TC3`, a slug, `#13`) in column 1. Piped (how agents read it): one row per line, fields separated by a single TAB, no header row, nothing truncated — split on `\t`. On a terminal: aligned columns under an upper-case header, only the last free-text column cut with `…`. A paged list ends with `Showing a-b of n.` + `Next page: <command>` (always printed). See [tasks.md](references/tasks.md#paging-lum-1093--shared-by-task-list-task-search-task-show---history-task-show---comments-milestone-list-doc-list).
+Every list prints its ref (`LUM-42`, `TC3`, a slug, `#13`) in column 1. Piped (how agents read it): one row per line, fields separated by a single TAB, no header row, nothing truncated — split on `\t`. On a terminal: aligned columns under an upper-case header, only the last free-text column cut with `…`. A paged list ends with `Showing a-b of n.` + `Next page: <command>` (always printed). See [tasks.md](references/tasks.md#paging-lum-1093--shared-by-task-list-task-show---history-task-show---comments-milestone-list-doc-list).
 
 ## JSON output
 
