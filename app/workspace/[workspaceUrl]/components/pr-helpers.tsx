@@ -1,12 +1,13 @@
 'use client'
 
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Spinner } from '@/components/ui/spinner'
 
 // GitHub's PR state colours (user ruling, LUM-1245): open → success (green),
 // merged → status-in-review (the only purple/magenta token family; reused here
@@ -53,12 +54,7 @@ export function CiIcon({ status }: { status: string | null }) {
     trigger = <XCircle size={13} className='text-danger-text shrink-0' />
     labelId = 'task.ciFailure'
   } else if (status === 'pending') {
-    trigger = (
-      <Loader2
-        size={13}
-        className='text-muted-foreground shrink-0 animate-spin'
-      />
-    )
+    trigger = <Spinner className='size-[13px] text-muted-foreground shrink-0' />
     labelId = 'task.ciPending'
   } else {
     trigger = (

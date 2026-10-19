@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 
-import { Inbox, CheckCheck, Loader2, MessageSquare } from 'lucide-react'
+import { Inbox, CheckCheck, MessageSquare } from 'lucide-react'
 import {
   ApiNotification,
   ApiStatus,
@@ -30,6 +30,7 @@ import {
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { TaskDetailPanel } from '../TaskDetailPanel'
 import { NotificationItem, isPendingAction } from './inbox/NotificationItem'
+import { Spinner } from '@/components/ui/spinner'
 
 // ─── InboxPage ────────────────────────────────────────────────────────────────
 
@@ -380,10 +381,7 @@ export function InboxPage({
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center'
             >
-              <Loader2
-                size={20}
-                className='animate-spin text-muted-foreground'
-              />
+              <Spinner className='size-5 text-muted-foreground' />
             </motion.div>
           ) : panelTask ? (
             <motion.div

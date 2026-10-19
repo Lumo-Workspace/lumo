@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
-import { Flag, Loader2, Plus } from 'lucide-react'
+import { Flag, Plus } from 'lucide-react'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
+import { Spinner } from '@/components/ui/spinner'
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -146,7 +147,7 @@ export function ProjectMilestonesOverview({
         (composing ? (
           <div className='-mx-2.5 flex items-center gap-3.5 rounded-md bg-muted/60 px-2.5 py-3'>
             {create.isPending ? (
-              <Loader2 className='size-4 shrink-0 animate-spin text-warning-text' />
+              <Spinner className='shrink-0 text-warning-text' />
             ) : (
               // Dashed while it is still a draft — same flag, not yet planted.
               <Flag className='size-4 shrink-0 text-warning-text [stroke-dasharray:3_2]' />
