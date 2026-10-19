@@ -56,12 +56,13 @@ import { groupCrossings, type CrossingGroup } from './crossing-groups'
 import { Badge as UiBadge, badgeVariants } from '@/components/ui/badge'
 export { systemExplainState } from './boundary-explain'
 
+// Compact action buttons keep their 14px icons: Button's base `[&_svg]:size-4`
+// would otherwise win over the size on the icon itself.
+const COMPACT_ICON = '[&_svg]:size-3.5'
 // Toned outline actions: the shared outline Button plus a feedback tone. The
 // icon and label carry the meaning too, so colour is never the only signal.
-const TONE_DANGER =
-  'border-danger-border text-danger-text hover:bg-danger-subtle hover:text-danger-text'
-const TONE_WARNING =
-  'border-warning-border text-warning-text hover:bg-warning-subtle hover:text-warning-text'
+const TONE_DANGER = `${COMPACT_ICON} border-danger-border text-danger-text hover:bg-danger-subtle hover:text-danger-text`
+const TONE_WARNING = `${COMPACT_ICON} border-warning-border text-warning-text hover:bg-warning-subtle hover:text-warning-text`
 
 /**
  * Returns 'advisory' when the crossing is advisory (non-blocking), null when
@@ -1296,7 +1297,7 @@ function CrossingRow({
                 disabled={pending}
                 onClick={onRevokeRule}
                 size='inline'
-                className='ml-2 text-caption'
+                className='ml-2 text-caption font-normal text-current underline hover:text-foreground'
               >
                 {intl.formatMessage({
                   id: 'boundary.panel.revokeRule',
@@ -1414,6 +1415,7 @@ function CrossingRow({
                 variant='outline'
                 size='sm'
                 data-testid={`boundary-false-positive-${c.id}`}
+                className={COMPACT_ICON}
                 disabled={pending}
                 onClick={() => onDisposition('FALSE_POSITIVE')}
               >
@@ -1461,6 +1463,7 @@ function CrossingRow({
                 variant='outline'
                 size='sm'
                 data-testid={`boundary-change-${c.id}`}
+                className={COMPACT_ICON}
                 disabled={pending}
                 onClick={() => onDisposition(otherVerdict)}
               >
@@ -1561,7 +1564,7 @@ function CrossingRow({
               data-testid={`boundary-spawn-remediation-${c.id}`}
               disabled={pending}
               onClick={onSpawnRemediation}
-              className='ml-auto'
+              className={`ml-auto ${COMPACT_ICON}`}
             >
               <Plus className='size-3.5' aria-hidden />
               {intl.formatMessage({

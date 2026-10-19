@@ -1407,6 +1407,7 @@ function FindingRow({
                   onClick={copyForAgent}
                   variant='outline'
                   size='sm'
+                  className='[&_svg]:size-3'
                 >
                   {copied ? (
                     <Check className='size-3' aria-hidden />
