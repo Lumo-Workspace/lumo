@@ -15,6 +15,11 @@ import { workspacesClient } from '@/lib/api-client'
 
 // react-intl ships ESM only; resolve messages from the real en.json so a
 // missing key fails the test instead of rendering its id.
+// LUM-1265: this suite is about the form's logic, not the dropdown — drive
+// the shadcn Select as a native <select> (see the helper for why).
+jest.mock('@/components/ui/select', () =>
+  require('../../helpers/native-select-mock').nativeSelectMock()
+)
 jest.mock('react-intl', () => {
   const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
     string,

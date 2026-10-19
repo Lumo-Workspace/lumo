@@ -8,6 +8,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 // react-intl's ESM build is not loadable through jest here (repo convention:
 // mock it) — resolve ids against the real en copy so labels are assertable.
+// LUM-1265: this suite is about the form's logic, not the dropdown — drive
+// the shadcn Select as a native <select> (see the helper for why).
+jest.mock('@/components/ui/select', () =>
+  require('../../../helpers/native-select-mock').nativeSelectMock()
+)
 jest.mock('react-intl', () => {
   const en = jest.requireActual('@/lib/i18n/en.json') as Record<string, string>
   return {

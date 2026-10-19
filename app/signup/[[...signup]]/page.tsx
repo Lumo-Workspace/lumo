@@ -4,6 +4,21 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { PartyPopper } from 'lucide-react'
 import { waitlistClient, ApiClientError } from '@/lib/api-client'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+const TEAM_SIZES = [
+  { value: '1', labelId: 'waitlist.teamSize.justMe' },
+  { value: '2-5', labelId: 'waitlist.teamSize.2to5' },
+  { value: '6-15', labelId: 'waitlist.teamSize.6to15' },
+  { value: '16-50', labelId: 'waitlist.teamSize.16to50' },
+  { value: '50+', labelId: 'waitlist.teamSize.50plus' },
+] as const
 
 export default function WaitlistPage() {
   const intl = useIntl()
@@ -146,31 +161,26 @@ export default function WaitlistPage() {
               >
                 {intl.formatMessage({ id: 'waitlist.field.teamSize' })}
               </label>
-              <select
-                id='teamSize'
-                value={teamSize}
-                onChange={e => setTeamSize(e.target.value)}
-                className='rounded-lg border border-border bg-input px-3 py-2.5 text-body text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring'
-              >
-                <option value='' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.select' })}
-                </option>
-                <option value='1' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.justMe' })}
-                </option>
-                <option value='2-5' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.2to5' })}
-                </option>
-                <option value='6-15' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.6to15' })}
-                </option>
-                <option value='16-50' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.16to50' })}
-                </option>
-                <option value='50+' className='bg-popover'>
-                  {intl.formatMessage({ id: 'waitlist.teamSize.50plus' })}
-                </option>
-              </select>
+              {/* Optional field — '' shows the placeholder (Radix Select has no "" item). */}
+              <Select value={teamSize} onValueChange={setTeamSize}>
+                <SelectTrigger
+                  id='teamSize'
+                  className='h-auto rounded-lg bg-input py-2.5 text-foreground shadow-none focus:ring-1 focus:ring-ring'
+                >
+                  <SelectValue
+                    placeholder={intl.formatMessage({
+                      id: 'waitlist.teamSize.select',
+                    })}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEAM_SIZES.map(({ value, labelId }) => (
+                    <SelectItem key={value} value={value}>
+                      {intl.formatMessage({ id: labelId })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {(status === 'error' || status === 'duplicate') && (

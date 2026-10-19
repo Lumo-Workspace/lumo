@@ -8,6 +8,13 @@ import { securityScanClient } from '@/ee/security/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
 import {
   parseLearningsScope,
@@ -117,19 +124,25 @@ function ScopeRow({
           </p>
         )}
       </div>
-      <select
-        id='security-learnings-scope'
+      <Select
         value={value}
         disabled={disabled}
-        onChange={e => onChange(parseLearningsScope(e.target.value))}
-        className='h-8 min-w-0 sm:w-56 sm:shrink-0 rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+        onValueChange={v => onChange(parseLearningsScope(v))}
       >
-        {SCOPE_CHOICES.map(scope => (
-          <option key={scope} value={scope}>
-            {optionLabel(scope)}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          id='security-learnings-scope'
+          className='h-8 min-w-0 sm:w-56 sm:shrink-0 text-foreground'
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {SCOPE_CHOICES.map(scope => (
+            <SelectItem key={scope} value={scope}>
+              {optionLabel(scope)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

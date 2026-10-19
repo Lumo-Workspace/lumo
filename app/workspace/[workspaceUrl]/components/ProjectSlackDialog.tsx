@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useId, useRef } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
@@ -14,6 +14,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { API } from '../constants'
 import { apiFetch, ApiClientError } from '@/lib/api-client'
 import {
@@ -61,6 +69,7 @@ export function ProjectSlackDialog({
   workspaceUrl,
 }: ProjectSlackDialogProps) {
   const intl = useIntl()
+  const fieldId = useId()
   const [loadState, setLoadState] = useState<LoadState>({ phase: 'loading' })
   const [enabled, setEnabled] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState('')
@@ -368,7 +377,10 @@ export function ProjectSlackDialog({
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
                     <div className='flex items-center justify-between'>
-                      <label className='text-caption text-muted-foreground'>
+                      <label
+                        htmlFor={`${fieldId}-channel`}
+                        className='text-caption text-muted-foreground'
+                      >
                         Channel
                       </label>
                       {!showCreate && (
@@ -475,26 +487,31 @@ export function ProjectSlackDialog({
                         )}
                       </div>
                     ) : (
-                      <select
+                      <Select
                         value={selectedChannelId}
-                        onChange={e =>
-                          handleChannelSelect(
-                            e.target.value,
-                            loadState.availableChannels
-                          )
+                        onValueChange={v =>
+                          handleChannelSelect(v, loadState.availableChannels)
                         }
-                        className='w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
                       >
-                        <option value=''>
-                          {intl.formatMessage({ id: 'slack.selectChannel' })}
-                        </option>
-                        {loadState.availableChannels.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.private ? ' (private)' : ''}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger
+                          id={`${fieldId}-channel`}
+                          className='text-foreground'
+                        >
+                          <SelectValue
+                            placeholder={intl.formatMessage({
+                              id: 'slack.selectChannel',
+                            })}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loadState.availableChannels.map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                              {c.private ? ' (private)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
                   </div>
 
@@ -504,22 +521,21 @@ export function ProjectSlackDialog({
                       {intl.formatMessage({ id: 'slack.notifyOn' })}
                     </p>
                     {ALL_SLACK_EVENTS.map(event => (
-                      <label
-                        key={event}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
+                      <div key={event} className='flex items-center gap-2'>
+                        <Checkbox
+                          id={`${fieldId}-event-${event}`}
                           checked={selectedEvents.includes(event)}
-                          onChange={() => toggleEvent(event)}
-                          className='rounded-sm border-border text-foreground'
+                          onCheckedChange={() => toggleEvent(event)}
                         />
-                        <span className='text-body text-foreground'>
+                        <label
+                          htmlFor={`${fieldId}-event-${event}`}
+                          className='cursor-pointer text-body text-foreground'
+                        >
                           {intl.formatMessage({
                             id: SLACK_EVENT_LABEL_KEYS[event],
                           })}
-                        </span>
-                      </label>
+                        </label>
+                      </div>
                     ))}
                   </div>
                 </div>
