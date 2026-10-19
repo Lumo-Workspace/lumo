@@ -54,11 +54,11 @@ export function DocumentTemplatePicker({
             className='flex flex-col items-start gap-1 p-4 text-left transition-colors hover:bg-accent'
           >
             <button type='button' onClick={() => onSelect(null)}>
-              <span className='text-2xl'>📄</span>
-              <span className='font-medium text-foreground'>
+              <span className='text-heading'>📄</span>
+              <span className='text-body-strong text-foreground'>
                 {intl.formatMessage({ id: 'documents.templateBlank' })}
               </span>
-              <span className='text-sm text-muted-foreground'>
+              <span className='text-body text-muted-foreground'>
                 {intl.formatMessage({ id: 'documents.templateBlankDesc' })}
               </span>
             </button>
@@ -74,11 +74,11 @@ export function DocumentTemplatePicker({
                   className='flex flex-col items-start gap-1 p-4 text-left transition-colors hover:bg-accent'
                 >
                   <button type='button' onClick={() => onSelect(t)}>
-                    <span className='text-2xl'>{t.emoji ?? '📄'}</span>
-                    <span className='font-medium text-foreground'>
+                    <span className='text-heading'>{t.emoji ?? '📄'}</span>
+                    <span className='text-body-strong text-foreground'>
                       {intl.formatMessage({ id: `documents.template.${k}` })}
                     </span>
-                    <span className='text-sm text-muted-foreground'>
+                    <span className='text-body text-muted-foreground'>
                       {intl.formatMessage({
                         id: `documents.template.${k}Desc`,
                       })}

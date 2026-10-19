@@ -54,7 +54,7 @@ function GateRow({
       {blocked && queueAnchor ? (
         <a
           href={`#${queueAnchor}`}
-          className='text-caption font-medium text-foreground hover:underline'
+          className='text-caption text-foreground hover:underline'
         >
           {intl.formatMessage({ id: 'record.gate.goAct' })}
         </a>

@@ -44,7 +44,7 @@ export function CommentSheet(props: CommentSheetProps) {
           </SheetTitle>
         </SheetHeader>
         {props.comments.length === 0 ? (
-          <p className='mt-4 text-sm text-muted-foreground'>
+          <p className='mt-4 text-body text-muted-foreground'>
             {intl.formatMessage({ id: 'document.noComments' })}
           </p>
         ) : (

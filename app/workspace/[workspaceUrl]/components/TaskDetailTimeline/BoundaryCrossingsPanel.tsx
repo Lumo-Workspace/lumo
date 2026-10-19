@@ -537,7 +537,7 @@ export function BoundaryCrossingsPanel({
         {expanded && (
           <div className='border-t border-border px-4 py-3'>
             {blockingCount > 0 && (
-              <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
+              <p className='mb-3 flex items-start gap-1.5 text-caption text-muted-foreground'>
                 <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
                 <span>
                   {intl.formatMessage({
@@ -571,7 +571,7 @@ export function BoundaryCrossingsPanel({
                       }`}
                       aria-hidden
                     />
-                    <span className='text-[13px] font-medium text-foreground'>
+                    <span className='text-body-strong text-foreground'>
                       {boundaryCategoryLabel(g.category, intl)}
                     </span>
                     <Badge
@@ -663,7 +663,7 @@ export function BoundaryCrossingsPanel({
               ))}
             </div>
 
-            <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
+            <p className='mt-3 flex items-center gap-1 text-caption text-muted-foreground/80'>
               <UserCheck className='size-3.5 shrink-0' aria-hidden />
               {intl.formatMessage({
                 id: 'boundary.panel.humanOnly',
@@ -672,7 +672,7 @@ export function BoundaryCrossingsPanel({
               })}
             </p>
 
-            <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
+            <p className='mt-1.5 flex items-start gap-1 text-caption text-muted-foreground/80'>
               <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
                 {intl.formatMessage({
@@ -792,12 +792,12 @@ function CrossingRow({
         {c.ref && c.ref !== c.id && (
           <span
             data-testid={`crossing-ref-${c.id}`}
-            className='font-mono text-[12px] text-muted-foreground'
+            className='font-mono text-caption text-muted-foreground'
           >
             {c.ref}
           </span>
         )}
-        <span className='inline-flex items-center gap-1 text-[13px] font-medium text-foreground'>
+        <span className='inline-flex items-center gap-1 text-body-strong text-foreground'>
           {boundaryCategoryLabel(c.category, intl)}
           <InfoTooltip
             label={intl.formatMessage({
@@ -875,7 +875,7 @@ function CrossingRow({
             })}
           />
         ) : null}
-        <span className='ml-auto text-[11px] text-muted-foreground/80'>
+        <span className='ml-auto text-caption text-muted-foreground/80'>
           {open
             ? new Date(c.detectedAt).toLocaleString(intl.locale)
             : intl.formatMessage(
@@ -926,7 +926,7 @@ function CrossingRow({
           {c.rawPurged && (
             <p
               data-testid={`crossing-raw-not-retained-${c.id}`}
-              className='mt-1.5 text-[11px] italic text-muted-foreground'
+              className='mt-1.5 text-caption italic text-muted-foreground'
             >
               {intl.formatMessage({
                 id: 'boundary.panel.rawNotRetained',
@@ -939,7 +939,7 @@ function CrossingRow({
             const fields = crossingFieldsFor(c)
             if (fields) {
               return (
-                <div className='mt-1.5 space-y-1 text-[11px]'>
+                <div className='mt-1.5 space-y-1 text-caption'>
                   <div className='flex gap-1.5'>
                     <span className='shrink-0 text-muted-foreground'>
                       {intl.formatMessage({
@@ -961,7 +961,7 @@ function CrossingRow({
                     <code
                       data-testid={`crossing-cmd-${c.id}`}
                       onClick={() => setCmdOpen(o => !o)}
-                      className={`cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+                      className={`cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-caption text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
                       title={cmdOpen ? undefined : fields.triggeredBy}
                     >
                       {fields.triggeredBy}
@@ -988,7 +988,7 @@ function CrossingRow({
               <code
                 data-testid={`crossing-cmd-${c.id}`}
                 onClick={() => setCmdOpen(o => !o)}
-                className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+                className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-caption text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
                 title={cmdOpen ? undefined : c.detail}
               >
                 {c.detail}
@@ -1027,7 +1027,7 @@ function CrossingRow({
                       )
                     : undefined
                 }
-                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning-text'
+                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-caption text-warning-text'
               >
                 <Repeat className='size-3' aria-hidden />
                 {intl.formatMessage(
@@ -1063,7 +1063,7 @@ function CrossingRow({
               data-testid={`crossing-explanations-${c.id}`}
               className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
             >
-              <p className='flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground'>
+              <p className='flex items-center gap-1.5 text-caption text-muted-foreground'>
                 <Bot className='size-3.5 shrink-0' aria-hidden />
                 {intl.formatMessage({
                   id: 'boundary.panel.explanations.label',
@@ -1074,7 +1074,7 @@ function CrossingRow({
                 {c.explanations.map(ex => (
                   <li
                     key={ex.id}
-                    className='whitespace-pre-wrap break-words text-[11px] text-foreground'
+                    className='whitespace-pre-wrap break-words text-caption text-foreground'
                   >
                     {ex.note ||
                       intl.formatMessage({
@@ -1084,7 +1084,7 @@ function CrossingRow({
                   </li>
                 ))}
               </ul>
-              <p className='mt-1 text-[10px] italic text-muted-foreground/80'>
+              <p className='mt-1 text-caption italic text-muted-foreground/80'>
                 {intl.formatMessage({
                   id: 'boundary.panel.explanations.disclaimer',
                   defaultMessage:
@@ -1109,13 +1109,13 @@ function CrossingRow({
                   data-testid={`crossing-system-explanation-${c.id}`}
                   className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
                 >
-                  <p className='mb-1 text-[11px] font-medium text-muted-foreground'>
+                  <p className='mb-1 text-caption text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'boundary.explain.label',
                       defaultMessage: 'Explanation',
                     })}
                   </p>
-                  <p className='whitespace-pre-wrap break-words text-[11px] text-foreground'>
+                  <p className='whitespace-pre-wrap break-words text-caption text-foreground'>
                     {explainState.text}
                   </p>
                 </div>
@@ -1127,7 +1127,7 @@ function CrossingRow({
                 data-testid={`crossing-explain-btn-${c.id}`}
                 disabled={explainLoading || pending}
                 onClick={requestExplanation}
-                className='mt-1.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                className='mt-1.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 {explainLoading
                   ? intl.formatMessage({
@@ -1147,7 +1147,7 @@ function CrossingRow({
           )}
 
           {c.category === 'TEST_TAMPERING' && open && (
-            <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+            <p className='mt-1.5 flex items-start gap-1.5 text-caption text-muted-foreground'>
               <ShieldAlert
                 className='mt-0.5 size-3.5 shrink-0 text-warning-text'
                 aria-hidden
@@ -1173,7 +1173,7 @@ function CrossingRow({
           />
 
           {c.dispositionNote && (
-            <p className='mt-1.5 text-[11px] text-muted-foreground'>
+            <p className='mt-1.5 text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'boundary.panel.note', defaultMessage: 'Note: {note}' },
                 { note: c.dispositionNote }
@@ -1186,7 +1186,7 @@ function CrossingRow({
           {c.lastDispositionChange && (
             <p
               data-testid={`boundary-corrected-${c.id}`}
-              className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
+              className='mt-1.5 flex items-start gap-1.5 text-caption text-muted-foreground'
             >
               <UserCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
@@ -1222,7 +1222,7 @@ function CrossingRow({
           {c.rejudge && (
             <p
               data-testid={`boundary-rejudged-${c.id}`}
-              className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
+              className='mt-1.5 flex items-start gap-1.5 text-caption text-muted-foreground'
             >
               <Repeat className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
@@ -1242,7 +1242,7 @@ function CrossingRow({
           with a one-click soft revoke (human-only server-side). */}
           {c.suppressionRule && (
             <p
-              className='mt-2 text-[11px] text-muted-foreground'
+              className='mt-2 text-caption text-muted-foreground'
               data-testid={`crossing-suppression-rule-${c.id}`}
             >
               {intl.formatMessage(
@@ -1294,13 +1294,13 @@ function CrossingRow({
                   id: 'boundary.panel.notePlaceholder',
                   defaultMessage: 'Disposition note (optional)',
                 })}
-                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
               />
               {/* LUM-751: per-repository auto-handle opt-in — only for a
               suppressible category with a coalescing target; never on the
               HIGH classes (the server refuses those with 422 anyway). */}
               {c.suppressible && (
-                <label className='flex items-center gap-2 text-[11px] text-muted-foreground'>
+                <label className='flex items-center gap-2 text-caption text-muted-foreground'>
                   <input
                     type='checkbox'
                     data-testid={`boundary-suppress-similar-${c.id}`}
@@ -1319,7 +1319,7 @@ function CrossingRow({
               crossings only, and never over /, ~ or a top-level directory
               (the server computes `suppressionDirectory` and refuses others). */}
               {c.suppressible && suppress && c.suppressionDirectory && (
-                <label className='flex items-center gap-2 pl-5 text-[11px] text-muted-foreground'>
+                <label className='flex items-center gap-2 pl-5 text-caption text-muted-foreground'>
                   <input
                     type='checkbox'
                     data-testid={`boundary-suppress-directory-${c.id}`}
@@ -1351,7 +1351,7 @@ function CrossingRow({
                 suppressPreview.count > 0 && (
                   <p
                     data-testid={`boundary-suppress-preview-${c.id}`}
-                    className='text-[11px] text-muted-foreground'
+                    className='text-caption text-muted-foreground'
                   >
                     {intl.formatMessage(
                       {
@@ -1385,7 +1385,7 @@ function CrossingRow({
                     defaultMessage:
                       'Why this is never a real crossing here (optional)',
                   })}
-                  className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                  className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
                 />
               )}
               <div className='flex items-center gap-2'>
@@ -1394,7 +1394,7 @@ function CrossingRow({
                   data-testid={`boundary-false-positive-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('FALSE_POSITIVE')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
                 >
                   <FlagOff className='size-3.5' aria-hidden />
                   {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
@@ -1404,7 +1404,7 @@ function CrossingRow({
                   data-testid={`boundary-confirm-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('CONFIRMED')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger-text hover:bg-danger-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-caption text-danger-text hover:bg-danger-subtle disabled:opacity-50'
                 >
                   <AlertTriangle className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1430,7 +1430,7 @@ function CrossingRow({
                   id: 'boundary.panel.redispositionNotePlaceholder',
                   defaultMessage: 'Reason for the change (optional)',
                 })}
-                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
               />
               <div className='flex flex-wrap items-center gap-2'>
                 <button
@@ -1438,7 +1438,7 @@ function CrossingRow({
                   data-testid={`boundary-change-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition(otherVerdict)}
-                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
                 >
                   <FlagOff className='size-3.5' aria-hidden />
                   {intl.formatMessage(
@@ -1454,7 +1454,7 @@ function CrossingRow({
                   data-testid={`boundary-reopen-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('OPEN')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning-text hover:bg-warning-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-caption text-warning-text hover:bg-warning-subtle disabled:opacity-50'
                 >
                   <Unlock className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1481,7 +1481,7 @@ function CrossingRow({
               />
               <div className='min-w-0 flex-1'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-xs font-medium text-success-text'>
+                  <span className='text-caption text-success-text'>
                     {rt.remediated
                       ? intl.formatMessage({
                           id: 'boundary.panel.remediatedBy',
@@ -1492,14 +1492,14 @@ function CrossingRow({
                           defaultMessage: 'Remediation:',
                         })}
                   </span>
-                  <span className='text-[13px] font-medium text-foreground'>
+                  <span className='text-body-strong text-foreground'>
                     {rt.identifier}
                   </span>
-                  <span className='rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
+                  <span className='rounded-sm border border-border bg-background px-1.5 py-0.5 text-caption text-muted-foreground'>
                     {rt.status}
                   </span>
                 </div>
-                <div className='truncate text-xs text-muted-foreground'>
+                <div className='truncate text-caption text-muted-foreground'>
                   {rt.title}
                 </div>
               </div>
@@ -1516,7 +1516,7 @@ function CrossingRow({
                 className='size-4 shrink-0 text-warning-text'
                 aria-hidden
               />
-              <span className='text-[11px] text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'boundary.panel.remediationNudge',
                   defaultMessage:
@@ -1528,7 +1528,7 @@ function CrossingRow({
                 data-testid={`boundary-spawn-remediation-${c.id}`}
                 disabled={pending}
                 onClick={onSpawnRemediation}
-                className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 <Plus className='size-3.5' aria-hidden />
                 {intl.formatMessage({
@@ -1583,7 +1583,7 @@ function AttributionLine({
   const sessionText = a.sessionId ? a.sessionId.slice(0, 8) : unknown
 
   return (
-    <p className='mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground'>
+    <p className='mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-caption text-muted-foreground'>
       <Bot className='size-3 shrink-0' aria-hidden />
       <span>
         {intl.formatMessage(
@@ -1655,7 +1655,7 @@ function EditChangeBlock({
     return (
       <div className='mt-1.5 space-y-1'>
         {turnIntent}
-        <p className='flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
+        <p className='flex flex-wrap items-center gap-1.5 text-caption text-muted-foreground'>
           <FileWarning className='size-3.5 shrink-0' aria-hidden />
           <span>
             {change.unavailable === 'NOT_RETAINED'
@@ -1682,7 +1682,7 @@ function EditChangeBlock({
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
-        className='inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground'
+        className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'
       >
         {expanded ? (
           <ChevronDown className='size-3.5' aria-hidden />
@@ -1730,7 +1730,7 @@ function EditChangeBlock({
             />
           )}
           {change.truncated && (
-            <p className='flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/80'>
+            <p className='flex flex-wrap items-center gap-1.5 text-caption text-muted-foreground/80'>
               <span>
                 {intl.formatMessage({
                   id: 'boundary.editChange.truncated',
@@ -1760,10 +1760,10 @@ function TurnIntent({
   intl: ReturnType<typeof useIntl>
 }) {
   return (
-    <p className='flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+    <p className='flex items-start gap-1.5 text-caption text-muted-foreground'>
       <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
       <span>
-        <span className='font-medium'>
+        <span>
           {intl.formatMessage({
             id: 'boundary.editChange.turnIntent',
             defaultMessage: "Agent's intent this turn:",
@@ -1795,7 +1795,7 @@ function PrFallback({
         href={href}
         target='_blank'
         rel='noopener noreferrer'
-        className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
+        className='inline-flex items-center gap-1 text-primary hover:underline'
       >
         {intl.formatMessage({
           id: 'boundary.editChange.viewPr',
@@ -1830,10 +1830,10 @@ function Snippet({
       : 'border-success-border bg-success-subtle/40'
   return (
     <div className={`rounded-md border px-2 py-1.5 ${cls}`}>
-      <span className='mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+      <span className='mb-1 block text-caption uppercase text-muted-foreground'>
         {label}
       </span>
-      <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground'>
+      <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-caption text-foreground'>
         {text}
       </pre>
     </div>
@@ -1855,7 +1855,7 @@ function Badge({
         : 'bg-muted text-muted-foreground'
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-medium ${cls}`}
+      className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-caption ${cls}`}
     >
       {children}
     </span>

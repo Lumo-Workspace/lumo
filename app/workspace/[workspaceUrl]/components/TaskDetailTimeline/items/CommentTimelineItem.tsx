@@ -39,7 +39,7 @@ export function CommentTimelineItem({
           <span className='text-caption font-semibold text-foreground'>
             {ca.name}
           </span>
-          <span className='text-[11px] text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {fmtTimestamp(entry.createdAt)}
           </span>
         </div>

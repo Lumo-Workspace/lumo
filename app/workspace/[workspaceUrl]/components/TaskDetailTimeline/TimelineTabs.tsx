@@ -149,7 +149,7 @@ export function TimelineTabs({
   )
 
   const tabClass = (active: boolean) =>
-    `pb-2 text-caption font-semibold uppercase tracking-wider transition-colors ${
+    `pb-2 text-caption font-semibold uppercase transition-colors ${
       active
         ? 'text-foreground border-b-2 border-foreground'
         : 'text-muted-foreground hover:text-foreground'

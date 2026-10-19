@@ -213,7 +213,7 @@ export function TestCasesSection({
         <button
           type='button'
           onClick={() => setMode({ kind: 'create' })}
-          className='self-start text-[11px] text-muted-foreground hover:text-foreground'
+          className='self-start text-caption text-muted-foreground hover:text-foreground'
         >
           + {intl.formatMessage({ id: 'testCases.add' })}
         </button>

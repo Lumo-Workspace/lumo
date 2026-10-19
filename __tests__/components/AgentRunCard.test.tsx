@@ -409,7 +409,7 @@ describe('AgentRunCard — neutral decoration (LUM-966)', () => {
     render(<AgentRunCard run={baseRun({ memoryCount: 2 })} />)
     const count = screen.getByTestId('run-memory-count')
     expect(count).toHaveTextContent('+2 memories')
-    expect(count).toHaveClass('font-medium', 'text-foreground')
+    expect(count).toHaveClass('font-semibold', 'text-foreground')
     expect(count.className).not.toMatch(hueClass)
   })
 

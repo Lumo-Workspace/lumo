@@ -40,7 +40,7 @@ export function EnvironmentBadge({
         : 'border-dashed border-border text-muted-foreground'
   return (
     <span
-      className={`rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${tone}`}
+      className={`rounded-sm border px-1.5 py-0.5 text-caption uppercase ${tone}`}
     >
       {intl.formatMessage({ id: `testCases.env.${environment}` })}
     </span>
@@ -214,7 +214,7 @@ export function AttributionBadge({ run }: { run: TestCaseRun }) {
   const intl = useIntl()
   if (!run.failureAttribution) return null
   return (
-    <span className='rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground'>
+    <span className='rounded-sm border border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
       {intl.formatMessage({
         id: `testCases.cause.${run.failureAttribution}`,
       })}
@@ -231,7 +231,7 @@ export function DispositionBadge({ run }: { run: TestCaseRunView }) {
   const intl = useIntl()
   if (!run.disposition) return null
   return (
-    <span className='rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground'>
+    <span className='rounded-sm border border-border px-1.5 py-0.5 text-caption uppercase text-muted-foreground'>
       {intl.formatMessage({
         id: `testCases.disposition.${run.disposition.disposition}`,
       })}
@@ -372,7 +372,7 @@ export function RunHistoryList({
   const linkedRunId = useLinkedRunId(runs)
   if (runs.length === 0) {
     return (
-      <p className='text-[11px] text-muted-foreground'>
+      <p className='text-caption text-muted-foreground'>
         {intl.formatMessage({ id: 'testCases.neverRun' })}
       </p>
     )
@@ -399,7 +399,7 @@ export function RunHistoryList({
             key={r.id}
             id={runAnchorId(r.id)}
             className={
-              'flex flex-wrap items-center gap-2 text-[11px]' +
+              'flex flex-wrap items-center gap-2 text-caption' +
               (r.id === linkedRunId
                 ? ' rounded-sm outline outline-1 outline-offset-4 outline-border'
                 : '')

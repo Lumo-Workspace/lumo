@@ -21,6 +21,8 @@ export function CollaboratorAvatars({
   if (editors.length === 0) return null
   const visible = editors.slice(0, max)
   const overflow = editors.length - max
+  // Two caption-size initials don't fit a small chip (< 24px); show one.
+  const initialsLength = size < 24 ? 1 : 2
 
   return (
     <div
@@ -45,8 +47,8 @@ export function CollaboratorAvatars({
               className='w-full h-full object-cover'
             />
           ) : (
-            <span className='text-[9px] font-medium text-muted-foreground'>
-              {getInitials(editor.member.name)}
+            <span className='text-caption text-muted-foreground'>
+              {getInitials(editor.member.name).slice(0, initialsLength)}
             </span>
           )}
         </div>
@@ -61,7 +63,7 @@ export function CollaboratorAvatars({
             zIndex: 0,
           }}
         >
-          <span className='text-[9px] font-medium text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             +{overflow}
           </span>
         </div>

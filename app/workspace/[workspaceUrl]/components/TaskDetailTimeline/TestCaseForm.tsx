@@ -40,7 +40,7 @@ function StepList({
       <span className='text-body text-muted-foreground'>{label}</span>
       {items.map((value, i) => (
         <div key={i} className='flex items-center gap-1'>
-          <span className='w-4 tabular-nums text-[11px] text-muted-foreground/70'>
+          <span className='w-4 tabular-nums text-caption text-muted-foreground/70'>
             {i + 1}
           </span>
           <input
@@ -64,7 +64,7 @@ function StepList({
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveUp' })}
             onClick={() => move(i, i - 1)}
-            className='px-1 text-[11px] text-muted-foreground hover:text-foreground'
+            className='px-1 text-caption text-muted-foreground hover:text-foreground'
           >
             ↑
           </button>
@@ -72,7 +72,7 @@ function StepList({
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.moveDown' })}
             onClick={() => move(i, i + 1)}
-            className='px-1 text-[11px] text-muted-foreground hover:text-foreground'
+            className='px-1 text-caption text-muted-foreground hover:text-foreground'
           >
             ↓
           </button>
@@ -80,7 +80,7 @@ function StepList({
             type='button'
             aria-label={intl.formatMessage({ id: 'testCases.form.removeStep' })}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className='px-1 text-[11px] text-muted-foreground hover:text-foreground'
+            className='px-1 text-caption text-muted-foreground hover:text-foreground'
           >
             ×
           </button>
@@ -89,7 +89,7 @@ function StepList({
       <button
         type='button'
         onClick={() => onChange([...items, ''])}
-        className='self-start text-[11px] text-muted-foreground hover:text-foreground'
+        className='self-start text-caption text-muted-foreground hover:text-foreground'
       >
         + {addLabel}
       </button>
@@ -226,7 +226,7 @@ export function TestCaseForm({
             </option>
           ))}
         </select>
-        <span className='text-[11px]'>
+        <span className='text-caption'>
           {intl.formatMessage({ id: 'testCases.form.requiresEnv.hint' })}
         </span>
       </label>

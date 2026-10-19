@@ -64,7 +64,7 @@ export function StepResultPicker({
       <legend>
         {intl.formatMessage({ id: 'testCases.field.stepResults' })}
       </legend>
-      <p className='text-[11px]'>
+      <p className='text-caption'>
         {intl.formatMessage({ id: 'testCases.field.stepResults.hint' })}
       </p>
       {items.map(item => {

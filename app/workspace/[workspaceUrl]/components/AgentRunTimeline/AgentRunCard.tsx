@@ -61,7 +61,7 @@ export function AgentRunCard({
             not the pill, sets the row height — keeps this header the same
             height as the token-usage summary header above. */}
         <span
-          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption leading-4 font-semibold shrink-0'
+          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption font-semibold shrink-0'
           data-testid='run-number'
         >
           <Bot className='size-3' />
@@ -77,11 +77,11 @@ export function AgentRunCard({
           >
             <Avatar className='size-5'>
               <AvatarImage src={run.member.imageUrl || undefined} />
-              <AvatarFallback className='text-[9px]'>
+              <AvatarFallback className='text-caption'>
                 {initialsOf(run.member.name)}
               </AvatarFallback>
             </Avatar>
-            <span className='text-caption font-medium'>{run.member.name}</span>
+            <span className='text-caption'>{run.member.name}</span>
           </span>
         )}
         <AgentBadge agent={run.agent} />
@@ -107,7 +107,7 @@ export function AgentRunCard({
             <>
               <span>·</span>
               <span
-                className='font-medium text-foreground'
+                className='font-semibold text-foreground'
                 data-testid='run-memory-count'
               >
                 {intl.formatMessage(
@@ -228,7 +228,7 @@ export function AgentRunCard({
             </div>
           )}
           {run.items.length === 0 ? (
-            <p className='py-3 text-xs text-muted-foreground italic'>
+            <p className='py-3 text-caption text-muted-foreground italic'>
               {intl.formatMessage({
                 id: 'agentRun.noEvents',
                 defaultMessage: '本次运行没有捕获到事件',

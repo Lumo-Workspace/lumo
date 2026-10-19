@@ -38,7 +38,7 @@ export function CommentResolvedSection(props: CommentResolvedSectionProps) {
         data-testid='resolved-section-toggle'
         aria-expanded={expanded}
         onClick={() => setExpanded(v => !v)}
-        className='flex w-full items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground'
+        className='flex w-full items-center gap-1.5 text-caption text-muted-foreground transition-colors hover:text-foreground'
       >
         <ChevronRight
           className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}

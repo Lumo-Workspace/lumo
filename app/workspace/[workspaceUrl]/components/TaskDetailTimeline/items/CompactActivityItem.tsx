@@ -89,7 +89,7 @@ function InlineTagBadge({ name }: { name: string }) {
   const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
   return (
     <span
-      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap align-middle'
+      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-caption whitespace-nowrap align-middle'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {name}
@@ -599,10 +599,10 @@ export function CompactActivityItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2'>
-          <span className='font-medium text-foreground'>{actor.name}</span>
+          <span className='text-foreground'>{actor.name}</span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className='text-[11px] text-muted-foreground'>
+              <span className='text-caption text-muted-foreground'>
                 {formatTimeAgo(entry.createdAt, intl.locale)}
               </span>
             </TooltipTrigger>

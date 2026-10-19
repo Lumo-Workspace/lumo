@@ -131,11 +131,11 @@ function StepRow({
           data-testid='step-expected-actual'
           className='grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-3 pb-2.5 text-body [overflow-wrap:anywhere] pl-[3.875rem]'
         >
-          <dt className='text-caption uppercase tracking-wide text-muted-foreground'>
+          <dt className='text-caption uppercase text-muted-foreground'>
             {intl.formatMessage({ id: 'testCases.report.expected' })}
           </dt>
           <dd className='text-foreground'>{expected}</dd>
-          <dt className='text-caption uppercase tracking-wide text-muted-foreground'>
+          <dt className='text-caption uppercase text-muted-foreground'>
             {intl.formatMessage({ id: 'testCases.report.actual' })}
           </dt>
           <dd className={actual ? 'text-danger-text' : 'text-muted-foreground'}>
