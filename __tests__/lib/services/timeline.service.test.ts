@@ -185,4 +185,46 @@ describe('timelineService.getTimeline', () => {
     )
     expect(result.items.find(i => i.id === 'c2')!.authorName).toBeNull()
   })
+
+  it('LUM-1238: only looks up authors of comments on the returned page', async () => {
+    mockFindActivities.mockResolvedValue([])
+    mockFindComments.mockResolvedValue([
+      {
+        id: 'c1',
+        body: 'first',
+        createdAt: new Date('2026-01-01T10:00:00Z'),
+        authorActorId: 'on-page',
+        parentId: null,
+        replies: [
+          {
+            id: 'r1',
+            body: 'reply',
+            createdAt: new Date('2026-01-01T10:01:00Z'),
+            authorActorId: 'reply-author',
+            parentId: 'c1',
+          },
+        ],
+      },
+      {
+        id: 'c2',
+        body: 'later',
+        createdAt: new Date('2026-01-02T10:00:00Z'),
+        authorActorId: 'next-page',
+        parentId: null,
+        replies: [],
+      },
+    ])
+
+    const result = await timelineService.getTimeline('task-1', {
+      limit: 1,
+      workspaceId: 'ws-1',
+    })
+
+    expect(result.items.map(i => i.id)).toEqual(['c1'])
+    expect(mockFindLabelFields).toHaveBeenCalledTimes(1)
+    expect(mockFindLabelFields).toHaveBeenCalledWith('ws-1', [
+      'on-page',
+      'reply-author',
+    ])
+  })
 })

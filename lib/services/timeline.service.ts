@@ -24,6 +24,27 @@ interface TimelineResult {
   nextCursor: string | null
 }
 
+/**
+ * LUM-1238: `authorName` on the comment entries (and their replies) of one
+ * page — looked up only for that page, not for every comment on the task.
+ */
+async function withPageCommentAuthors(
+  items: TimelineEntry[],
+  workspaceId: string
+): Promise<TimelineEntry[]> {
+  const pageComments = items.filter(i => i.kind === 'comment') as Array<
+    TimelineEntry & {
+      authorActorId: string | null
+      replies?: { authorActorId: string | null }[]
+    }
+  >
+  if (pageComments.length === 0) return items
+  const named = new Map(
+    (await withAuthorNames(pageComments, workspaceId)).map(c => [c.id, c])
+  )
+  return items.map(i => named.get(i.id) ?? i)
+}
+
 export const timelineService = {
   async getTimeline(
     taskId: string,
@@ -45,11 +66,9 @@ export const timelineService = {
       cursor?: { timestamp: string; id: string }
     } = { limit }
     if (activityCursor) findOptions.cursor = activityCursor
-    const loadCommentsWithAuthors = async () =>
-      withAuthorNames(await commentRepository.findByTaskId(taskId), workspaceId)
     const [activities, comments] = await Promise.all([
       activityRepository.findByTaskId(taskId, findOptions),
-      loadCommentsWithAuthors(),
+      commentRepository.findByTaskId(taskId),
     ])
 
     // Convert to unified entries
@@ -91,7 +110,10 @@ export const timelineService = {
 
     // Determine hasMore: if either source returned more than limit, there's more
     const hasMore = merged.length > limit
-    const items = merged.slice(0, limit)
+    const items = await withPageCommentAuthors(
+      merged.slice(0, limit),
+      workspaceId
+    )
 
     let nextCursor: string | null = null
     if (hasMore && items.length > 0) {

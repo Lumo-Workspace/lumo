@@ -25,6 +25,27 @@ export function actorLabel(
   return null
 }
 
+/**
+ * Clerk id → member name (best effort). A Clerk failure only loses member
+ * names; agent and `@github-login` labels don't depend on it (LUM-1238).
+ */
+async function memberDisplayNames(
+  clerkIds: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (clerkIds.length === 0) return out
+  try {
+    for (const [id, p] of await lookupClerkProfiles(clerkIds)) {
+      if (p.name) out.set(id, p.name)
+    }
+  } catch (error) {
+    logger.warn('[comments] member name lookup failed', {
+      error: (error as Error)?.message ?? String(error),
+    })
+  }
+  return out
+}
+
 /** Actor id → display name for the given ids in one workspace (best effort). */
 async function actorDisplayNames(
   workspaceId: string,
@@ -38,12 +59,7 @@ async function actorDisplayNames(
       actorIds
     )
     const clerkIds = rows.flatMap(r => (r.member ? [r.member.clerkId] : []))
-    const memberNames = new Map<string, string>()
-    if (clerkIds.length > 0) {
-      for (const [id, p] of await lookupClerkProfiles(clerkIds)) {
-        if (p.name) memberNames.set(id, p.name)
-      }
-    }
+    const memberNames = await memberDisplayNames(clerkIds)
     for (const r of rows) {
       const label = actorLabel(r, memberNames)
       if (label) out.set(r.id, label)
