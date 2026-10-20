@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "दोबारा काम {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "प्रति सत्यापित टास्क के आधार पर",
+  "sprints.detail.retro.outcome.unavailable": "लोड नहीं हो सका",
   "sprints.detail.retro.carried.title": "आगे ले जाए गए टास्क",
   "sprints.detail.retro.carried.subtitle": "बंद होने पर {count} अधूरे टास्क और हर एक कहाँ गया",
   "sprints.detail.retro.carried.pending": "रेट्रो बनने के बाद दिखेगा",

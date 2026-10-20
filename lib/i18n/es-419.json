@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Retrabajo {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Calculado por tarea verificada",
+  "sprints.detail.retro.outcome.unavailable": "No se pudo cargar",
   "sprints.detail.retro.carried.title": "Tareas arrastradas",
   "sprints.detail.retro.carried.subtitle": "{count, plural, one {# tarea sin terminar} other {# tareas sin terminar}} al cierre y adónde fue cada una",
   "sprints.detail.retro.carried.pending": "Se mostrará cuando se genere la retrospectiva",

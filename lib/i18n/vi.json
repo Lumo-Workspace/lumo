@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Làm lại {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Tính theo công việc đã xác minh",
+  "sprints.detail.retro.outcome.unavailable": "Không tải được",
   "sprints.detail.retro.carried.title": "Công việc chuyển tiếp",
   "sprints.detail.retro.carried.subtitle": "{count} chưa xong khi đóng và nơi mỗi việc được chuyển đến",
   "sprints.detail.retro.carried.pending": "Hiển thị sau khi tạo bản retro",

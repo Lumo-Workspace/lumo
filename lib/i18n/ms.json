@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Kerja semula {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Dikira bagi setiap tugasan disahkan",
+  "sprints.detail.retro.outcome.unavailable": "Tidak dapat dimuatkan",
   "sprints.detail.retro.carried.title": "Tugasan dibawa ke hadapan",
   "sprints.detail.retro.carried.subtitle": "{count} belum siap semasa ditutup dan ke mana setiap satu pergi",
   "sprints.detail.retro.carried.pending": "Dipaparkan selepas retro dijana",

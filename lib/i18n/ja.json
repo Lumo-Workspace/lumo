@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "手戻り {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}:{value}",
   "sprints.detail.retro.outcome.tokensSub": "検証済みタスクあたりで計算",
+  "sprints.detail.retro.outcome.unavailable": "読み込めませんでした",
   "sprints.detail.retro.carried.title": "持ち越しタスク",
   "sprints.detail.retro.carried.subtitle": "終了時に未完了だった {count} 件とその移動先",
   "sprints.detail.retro.carried.pending": "振り返りの生成後に表示されます",

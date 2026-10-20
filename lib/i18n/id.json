@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Pengerjaan ulang {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Dihitung per tugas terverifikasi",
+  "sprints.detail.retro.outcome.unavailable": "Tidak dapat dimuat",
   "sprints.detail.retro.carried.title": "Tugas yang dibawa ke depan",
   "sprints.detail.retro.carried.subtitle": "{count} belum selesai saat ditutup dan ke mana masing-masing pindah",
   "sprints.detail.retro.carried.pending": "Ditampilkan setelah retro dibuat",

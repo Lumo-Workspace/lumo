@@ -247,6 +247,7 @@ export function SprintDetailClient({
             sprintId={sprint.id}
             attention={team.attention}
             attentionLoading={team.isLoading}
+            attentionFailed={!!team.error}
             onOpenTask={openTask}
           />
         ) : team.error ? (

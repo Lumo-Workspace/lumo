@@ -3,9 +3,16 @@
 import { useIntl } from 'react-intl'
 import { fmtCompact } from '../../../components/AgentRunTimeline/model-cost-format'
 import { StageCard } from './StageCards'
-import type { CarriedOverDestination } from './retro-view-model'
+import type {
+  CarriedOverDestination,
+  RetroStatsStatus,
+} from './retro-view-model'
 
 interface OutcomeCardsProps {
+  /** Not `ready` → the stats-backed cards say why instead of showing 0. */
+  statsStatus: RetroStatsStatus
+  /** The attention read (cost) failed. */
+  costFailed: boolean
   /** Tasks verified at close; null when the summary predates LUM-1280. */
   verifiedCount: number | null
   totalTasks: number
@@ -26,6 +33,8 @@ interface OutcomeCardsProps {
  * is deliberately absent (no stored field; product ruling, option A).
  */
 export function OutcomeCards({
+  statsStatus,
+  costFailed,
   verifiedCount,
   totalTasks,
   previousVerified,
@@ -39,6 +48,13 @@ export function OutcomeCards({
   const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id: `sprints.detail.retro.outcome.${id}` }, values)
 
+  // Why a stats-backed figure is missing, when the stats themselves are.
+  const statsGap =
+    statsStatus === 'failed'
+      ? t('unavailable')
+      : statsStatus === 'pending'
+        ? intl.formatMessage({ id: 'sprints.detail.retro.carried.pending' })
+        : null
   const destinations = (carriedOverDestinations ?? []).map(d =>
     d.sprintName === null
       ? t('toBacklog', { count: d.count })
@@ -63,25 +79,27 @@ export function OutcomeCards({
           verifiedCount === null ? '—' : `${verifiedCount} / ${totalTasks}`
         }
         foot={
-          verifiedCount === null
-            ? t('notRecorded')
-            : previousVerified
-              ? t('previousVerified', {
-                  name: previousVerified.name,
-                  count: previousVerified.count,
-                  total: previousVerified.total,
-                })
-              : null
+          statsGap
+            ? statsGap
+            : verifiedCount === null
+              ? t('notRecorded')
+              : previousVerified
+                ? t('previousVerified', {
+                    name: previousVerified.name,
+                    count: previousVerified.count,
+                    total: previousVerified.total,
+                  })
+                : null
         }
         sub={t('verifiedDef')}
       />
       <StageCard
         label={t('carriedOver')}
         badge={null}
-        count={carriedOver ?? '—'}
-        foot={destinations[0] ?? null}
+        count={statsGap ? '—' : (carriedOver ?? '—')}
+        foot={statsGap ?? destinations[0] ?? null}
         sub={
-          destinations.length > 1
+          !statsGap && destinations.length > 1
             ? destinations.slice(1).join(' · ')
             : t('carriedOverSub')
         }
@@ -95,11 +113,13 @@ export function OutcomeCards({
             : fmtCompact(intl, tokensPerVerifiedTask)
         }
         foot={
-          reworkShare === null
-            ? null
-            : t('rework', {
-                share: intl.formatNumber(reworkShare, { style: 'percent' }),
-              })
+          costFailed
+            ? t('unavailable')
+            : reworkShare === null
+              ? null
+              : t('rework', {
+                  share: intl.formatNumber(reworkShare, { style: 'percent' }),
+                })
         }
         sub={
           previousTokensPerVerifiedTask

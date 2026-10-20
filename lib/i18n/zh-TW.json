@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "重工占 {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}:{value}",
   "sprints.detail.retro.outcome.tokensSub": "按已驗證任務計算",
+  "sprints.detail.retro.outcome.unavailable": "暫時無法讀取",
   "sprints.detail.retro.carried.title": "遺留任務",
   "sprints.detail.retro.carried.subtitle": "{count} 個未完成,結束時的去向",
   "sprints.detail.retro.carried.pending": "回顧產生後顯示",

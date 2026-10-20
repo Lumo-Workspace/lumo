@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "재작업 {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "검증된 작업 기준으로 계산",
+  "sprints.detail.retro.outcome.unavailable": "불러오지 못했습니다",
   "sprints.detail.retro.carried.title": "이월된 작업",
   "sprints.detail.retro.carried.subtitle": "종료 시 완료되지 않은 {count}개와 각각의 행선지",
   "sprints.detail.retro.carried.pending": "회고가 생성되면 표시됩니다",

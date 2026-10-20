@@ -23,6 +23,8 @@ import type { CarriedOverRow } from './retro-view-model'
 interface CarriedOverCardProps {
   /** Stored spillover count (`stats.spillover`); null = no summary yet. */
   count: number | null
+  /** The summary read failed (vs. not generated yet) when `count` is null. */
+  readFailed: boolean
   /** The carried-over tasks with where each went; null = not readable, so
    *  the card shows the count alone. */
   rows: CarriedOverRow[] | null
@@ -31,6 +33,7 @@ interface CarriedOverCardProps {
 
 /** Tasks that left the sprint at close, and where each one went. */
 export function CarriedOverCard({
+  readFailed,
   count,
   rows,
   onOpenTask,
@@ -44,7 +47,13 @@ export function CarriedOverCard({
       <CardHeader className='p-4 sm:p-6 sm:pb-4'>
         <CardTitle>{t('title')}</CardTitle>
         <CardDescription>
-          {count === null ? t('pending') : t('subtitle', { count })}
+          {count !== null
+            ? t('subtitle', { count })
+            : readFailed
+              ? intl.formatMessage({
+                  id: 'sprints.detail.retro.summary.readError',
+                })
+              : t('pending')}
         </CardDescription>
       </CardHeader>
       {rows && rows.length > 0 && (

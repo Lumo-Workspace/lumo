@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Nacharbeit {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Pro verifizierter Aufgabe berechnet",
+  "sprints.detail.retro.outcome.unavailable": "Konnte nicht geladen werden",
   "sprints.detail.retro.carried.title": "Übertragene Aufgaben",
   "sprints.detail.retro.carried.subtitle": "{count, plural, one {# Aufgabe war} other {# Aufgaben waren}} beim Abschluss nicht fertig – wohin sie gingen",
   "sprints.detail.retro.carried.pending": "Wird angezeigt, sobald die Retro erstellt ist",

@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Rework {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "Calculated per verified task",
+  "sprints.detail.retro.outcome.unavailable": "Couldn't load",
   "sprints.detail.retro.carried.title": "Carried-over tasks",
   "sprints.detail.retro.carried.subtitle": "{count, plural, one {# task wasn't finished at close} other {# tasks weren't finished at close}} — where each one went",
   "sprints.detail.retro.carried.pending": "Shown once the retro is generated",

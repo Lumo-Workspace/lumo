@@ -162,6 +162,12 @@ const mockAttention = {
   error: undefined,
 }
 const mockDisabled = { attention: null, isLoading: false, error: undefined }
+const mockAttentionState: { failed: boolean } = { failed: false }
+const mockAttentionFailed = {
+  attention: null,
+  isLoading: false,
+  error: new Error('boom'),
+}
 
 const mockSpillover: { value: unknown } = { value: null }
 const mockSpilloverItems = [
@@ -194,7 +200,11 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => {
       teamId ? mockTeamSprints : { sprints: undefined },
     useSprintAttention: (id: string | null, scope: string) => {
       mockAttentionCalls.push([id, scope])
-      return id === null ? mockDisabled : mockAttention
+      return id === null
+        ? mockDisabled
+        : mockAttentionState.failed
+          ? mockAttentionFailed
+          : mockAttention
     },
     useSprintSummary: (id: string | null) => ({
       summary: id ? (mockSummaries[id] ?? null) : undefined,
@@ -249,6 +259,7 @@ beforeEach(() => {
     reworkShare: 0.2,
   }
   mockSpillover.value = mockSpilloverItems
+  mockAttentionState.failed = false
   mockRetrySummary.mockReset()
   mockAttentionCalls.length = 0
   mockPush.mockClear()
@@ -404,9 +415,11 @@ test('retro not generated yet: says so and still offers regenerate', () => {
   expect(
     screen.getByRole('button', { name: 'sprints.retro.retry' })
   ).toBeInTheDocument()
+  // Carried-over card subtitle + the outcome cards' verified / carried-over
+  // feet: "shown once the retro is generated", never 0.
   expect(
-    screen.getByText('sprints.detail.retro.carried.pending')
-  ).toBeInTheDocument()
+    screen.getAllByText('sprints.detail.retro.carried.pending')
+  ).toHaveLength(3)
   expect(
     screen.getByText('sprints.detail.retro.stages.emptyNoSummary')
   ).toBeInTheDocument()
@@ -417,9 +430,18 @@ test('a failed summary read says so instead of "generating"; a 404 still reads a
   mockSummaries.sprint_13 = null
   mockSummaryErrors.sprint_13 = new ApiClientError('boom', 500)
   const { unmount } = renderPage()
+  // Retro card, carried-over card and stages card each say the read failed.
   expect(
-    screen.getByText('sprints.detail.retro.summary.readError')
-  ).toBeInTheDocument()
+    screen.getAllByText('sprints.detail.retro.summary.readError')
+  ).toHaveLength(3)
+  // Outcome cards say so too, instead of reading as an empty sprint.
+  const outcomes = screen.getByRole('region', {
+    name: 'sprints.detail.retro.outcome.aria',
+  })
+  expect(
+    within(outcomes).getAllByText('sprints.detail.retro.outcome.unavailable')
+  ).toHaveLength(2)
+  expect(within(outcomes).queryByText('0')).toBeNull()
   unmount()
 
   mockSummaryErrors.sprint_13 = new ApiClientError(
@@ -428,6 +450,18 @@ test('a failed summary read says so instead of "generating"; a 404 still reads a
   )
   renderPage()
   expect(screen.getByText('sprints.retro.generating')).toBeInTheDocument()
+})
+
+test('a failed attention read marks the cost card unavailable; stored stats still render', () => {
+  mockAttentionState.failed = true
+  renderPage()
+  const outcomes = screen.getByRole('region', {
+    name: 'sprints.detail.retro.outcome.aria',
+  })
+  expect(
+    within(outcomes).getByText('sprints.detail.retro.outcome.unavailable')
+  ).toBeInTheDocument()
+  expect(within(outcomes).getByText('27 / 31')).toBeInTheDocument()
 })
 
 test('"view all tasks" reveals the task table, whose rows open their tasks', () => {
@@ -505,7 +539,14 @@ describe('CarriedOverCard', () => {
 
   test('rows show where each task went and open their task', () => {
     const onOpenTask = jest.fn()
-    render(<CarriedOverCard count={2} rows={rows} onOpenTask={onOpenTask} />)
+    render(
+      <CarriedOverCard
+        count={2}
+        rows={rows}
+        readFailed={false}
+        onOpenTask={onOpenTask}
+      />
+    )
     expect(screen.getByText('Sprint 14')).toBeInTheDocument()
     expect(
       screen.getByText('sprints.detail.retro.carried.backlog')
@@ -517,7 +558,14 @@ describe('CarriedOverCard', () => {
   })
 
   test('without readable rows it shows the stored count alone', () => {
-    render(<CarriedOverCard count={4} rows={null} onOpenTask={() => {}} />)
+    render(
+      <CarriedOverCard
+        count={4}
+        rows={null}
+        readFailed={false}
+        onOpenTask={() => {}}
+      />
+    )
     expect(
       screen.getByText('sprints.detail.retro.carried.subtitle:4')
     ).toBeInTheDocument()

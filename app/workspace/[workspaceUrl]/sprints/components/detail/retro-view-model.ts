@@ -12,6 +12,12 @@ import type {
 } from '@/lib/summaries/sprint-process-stages'
 import type { SprintSpilloverItem } from '@/lib/api-client/sprints'
 
+/**
+ * Whether the stored stats could be read: `pending` = the retro is not
+ * generated yet (404), `failed` = the read failed. Never shown as zeros.
+ */
+export type RetroStatsStatus = 'ready' | 'pending' | 'failed'
+
 /** The subset of `SprintSummary.stats` the retro reads. */
 export interface RetroStats {
   totalTasks: number

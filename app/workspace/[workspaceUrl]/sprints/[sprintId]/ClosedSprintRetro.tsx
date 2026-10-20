@@ -28,6 +28,8 @@ interface ClosedSprintRetroProps {
   /** The team-scope attention read (LUM-1278); null while loading. */
   attention: Pick<SprintAttentionResponse, 'tasks' | 'cost'> | null
   attentionLoading: boolean
+  /** The attention read failed — cost figures say so instead of "—". */
+  attentionFailed: boolean
   onOpenTask: (taskId: string, identifier?: string) => void
 }
 
@@ -41,6 +43,7 @@ export function ClosedSprintRetro({
   sprintId,
   attention,
   attentionLoading,
+  attentionFailed,
   onOpenTask,
 }: ClosedSprintRetroProps) {
   const intl = useIntl()
@@ -48,6 +51,11 @@ export function ClosedSprintRetro({
   // 404 = the retro is not generated yet; anything else is a failed read.
   const summaryReadFailed =
     !!error && !(error instanceof ApiClientError && error.status === 404)
+  const statsStatus = summary
+    ? 'ready'
+    : summaryReadFailed
+      ? 'failed'
+      : 'pending'
   const { retry, retrying, retryError } = useRetrySprintSummary(sprintId)
   const previousRef = attention?.cost.previousSprint ?? null
   const previous = useSprintSummary(previousRef?.sprintId ?? null)
@@ -106,6 +114,8 @@ export function ClosedSprintRetro({
         </div>
       ) : (
         <OutcomeCards
+          statsStatus={statsStatus}
+          costFailed={attentionFailed}
           verifiedCount={stats?.verifiedCount ?? null}
           totalTasks={stats?.totalTasks ?? 0}
           previousVerified={previousVerified}
@@ -138,6 +148,7 @@ export function ClosedSprintRetro({
         <CarriedOverCard
           count={stats?.spillover ?? null}
           rows={carried?.rows ?? null}
+          readFailed={summaryReadFailed}
           onOpenTask={onOpenTask}
         />
         {isLoading ? (
@@ -145,7 +156,13 @@ export function ClosedSprintRetro({
         ) : (
           <ProcessStagesCard
             model={stages}
-            emptyReason={summary ? 'notRecorded' : 'noSummary'}
+            emptyReason={
+              summary
+                ? 'notRecorded'
+                : summaryReadFailed
+                  ? 'readFailed'
+                  : 'noSummary'
+            }
           />
         )}
       </section>

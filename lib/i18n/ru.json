@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Доработки {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}: {value}",
   "sprints.detail.retro.outcome.tokensSub": "В расчёте на проверенную задачу",
+  "sprints.detail.retro.outcome.unavailable": "Не удалось загрузить",
   "sprints.detail.retro.carried.title": "Перенесённые задачи",
   "sprints.detail.retro.carried.subtitle": "Не завершено к закрытию: {count}. Куда ушла каждая задача",
   "sprints.detail.retro.carried.pending": "Появится после создания ретро",

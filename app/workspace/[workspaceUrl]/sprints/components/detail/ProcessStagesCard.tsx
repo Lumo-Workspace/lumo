@@ -32,7 +32,7 @@ interface ProcessStagesCardProps {
   model: ProcessStagesModel | null
   /** Why `model` is null: no retro summary yet, or a summary written before
    *  stages were recorded. */
-  emptyReason: 'noSummary' | 'notRecorded'
+  emptyReason: 'noSummary' | 'notRecorded' | 'readFailed'
 }
 
 /**
@@ -68,11 +68,15 @@ export function ProcessStagesCard({
               </EmptyMedia>
               <EmptyTitle>{t('emptyTitle')}</EmptyTitle>
               <EmptyDescription>
-                {t(
-                  emptyReason === 'noSummary'
-                    ? 'emptyNoSummary'
-                    : 'emptyNotRecorded'
-                )}
+                {emptyReason === 'readFailed'
+                  ? intl.formatMessage({
+                      id: 'sprints.detail.retro.summary.readError',
+                    })
+                  : t(
+                      emptyReason === 'noSummary'
+                        ? 'emptyNoSummary'
+                        : 'emptyNotRecorded'
+                    )}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

@@ -1483,6 +1483,7 @@
   "sprints.detail.retro.outcome.rework": "Reprise {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name} : {value}",
   "sprints.detail.retro.outcome.tokensSub": "Calculé par tâche vérifiée",
+  "sprints.detail.retro.outcome.unavailable": "Chargement impossible",
   "sprints.detail.retro.carried.title": "Tâches reportées",
   "sprints.detail.retro.carried.subtitle": "{count, plural, one {# tâche non terminée} other {# tâches non terminées}} à la clôture et leur destination",
   "sprints.detail.retro.carried.pending": "Affiché une fois la rétro générée",

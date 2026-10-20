@@ -1485,6 +1485,7 @@
   "sprints.detail.retro.outcome.rework": "返工占 {share}",
   "sprints.detail.retro.outcome.previousTokens": "{name}:{value}",
   "sprints.detail.retro.outcome.tokensSub": "按已验证任务计算",
+  "sprints.detail.retro.outcome.unavailable": "暂时无法读取",
   "sprints.detail.retro.carried.title": "遗留任务",
   "sprints.detail.retro.carried.subtitle": "{count} 个未完成,结束时的去向",
   "sprints.detail.retro.carried.pending": "复盘生成后显示",
