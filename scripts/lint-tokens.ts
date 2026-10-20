@@ -78,10 +78,6 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // ARE the visual payload (not semantic colors), same rationale as the
   // icon set above.
   /^components\/ui\/shadcn-io\/aurora-background\/index\.tsx$/,
-  // Categorical tag palette (six fixed hues hashed onto inline tag badges) —
-  // decorative category colors, not semantic, so the hex stops are payload.
-  // Isolated to this module so the rest of the timeline stays tokenized.
-  /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
   // Tag color presets the user picks from (bright categorical palette) +
   // the custom-hex input's example placeholder — the raw hex IS the payload
   // stored on the tag, not a semantic token. Confined to this module.
@@ -94,8 +90,9 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // written into the document (TipTap marks), so the raw hex is payload data,
   // not a CSS token. Confined to this module.
   /\/bubble-menu\/editor-colors\.ts$/,
-  // Document tag color palettes (hashed onto tag badges / picker presets) —
-  // payload hex stored on the tag, not a CSS token. Confined to this module.
+  // Tag colour palettes + the light/dark derivation every tag renderer uses
+  // (LUM-1276) — payload hex stored on / hashed onto tags, not a CSS token.
+  // Confined to this module.
   /\/document\/tag-colors\.ts$/,
   // Payload color constants (e.g. the default Sentry "bug" tag color) — hex
   // stored as data in the DB, not a CSS token. Confined to this module.

@@ -5,23 +5,10 @@ import { useIntl } from 'react-intl'
 import { X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
-import { TAG_PICKER_COLORS } from './tag-colors'
+import { TAG_CHIP_CLASS, tagChipStyle, tagColorScheme } from './tag-colors'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
-
-// ── Tag color helpers ─────────────────────────────────────────────────────
-
-const DEFAULT_COLORS = TAG_PICKER_COLORS
-
-function getTagColor(tag: ApiTag): { bg: string; text: string } {
-  if (tag.color) {
-    // Derive lighter bg from hex color
-    return { bg: `${tag.color}20`, text: tag.color }
-  }
-  const hash = tag.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  return DEFAULT_COLORS[hash % DEFAULT_COLORS.length] ?? DEFAULT_COLORS[0]!
-}
 
 // ── TagBadge (new version using ApiTag) ───────────────────────────────────
 
@@ -30,13 +17,13 @@ interface TagBadgeNewProps {
 }
 
 export function TagBadgeNew({ tag }: TagBadgeNewProps) {
-  const color = getTagColor(tag)
   return (
     <Badge
       variant='plain'
       size='xs'
       shape='square'
-      style={{ backgroundColor: color.bg, color: color.text }}
+      className={TAG_CHIP_CLASS}
+      style={tagChipStyle(tagColorScheme(tag))}
     >
       {tag.name}
     </Badge>
