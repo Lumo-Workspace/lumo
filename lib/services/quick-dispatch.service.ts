@@ -59,7 +59,9 @@ export const quickDispatchService = {
     >,
     workspaceId: string,
     actorId: string,
-    actorClerkId: string
+    actorClerkId: string,
+    /** LUM-1283: the calling member, recorded as the creator of created tasks. */
+    creatorMemberId: string
   ): Promise<ActionResult[]> {
     const results: ActionResult[] = []
 
@@ -157,6 +159,7 @@ export const quickDispatchService = {
             status: action.status as TaskStatus,
             priority: action.priority as TaskPriority,
             assigneeActorId: action.assigneeActorId ?? actorId,
+            createdByMemberId: creatorMemberId,
             agentStatus: null,
             order: undefined,
             dueDate: action.dueDate ? new Date(action.dueDate) : null,
@@ -263,7 +266,8 @@ export const quickDispatchService = {
           | 'TODO'
           | 'IN_PROGRESS'
           | 'IN_REVIEW'
-          | 'DONE',
+          | 'DONE'
+          | 'CANCELED',
       }))
 
       const currentDate = new Date().toISOString().split('T')[0] ?? ''

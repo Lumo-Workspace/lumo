@@ -74,6 +74,8 @@ export interface MilestoneShowData extends MilestoneMetricsData {
     IN_PROGRESS: number
     IN_REVIEW: number
     DONE: number
+    /** LUM-1282; absent on servers that predate CANCELED. */
+    CANCELED?: number | undefined
   }
   /** Target-date health light. Server-enriched; null when no light applies. */
   health?: MilestoneHealth | null | undefined
@@ -236,6 +238,10 @@ function progressLines(
       value: `TODO ${counts.TODO} · IN_PROGRESS ${counts.IN_PROGRESS} · IN_REVIEW ${counts.IN_REVIEW} · DONE ${counts.DONE}`,
     },
   ]
+  const canceled = counts.CANCELED ?? 0
+  if (canceled > 0) {
+    fields.push({ label: 'Canceled', value: `${canceled} (not in the total)` })
+  }
   if (backlog > 0) {
     fields.push({ label: 'Backlog', value: `${backlog} (not in the total)` })
   }

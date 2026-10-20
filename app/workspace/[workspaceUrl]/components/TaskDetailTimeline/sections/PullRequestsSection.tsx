@@ -7,6 +7,11 @@ import { PrStateBadge, CiIcon } from '../../pr-helpers'
 import { PluginSlot } from '@/lib/plugins/client'
 import { LinkPrPopover } from '../../LinkPrPopover'
 import { ContextSection } from '../ContextSection'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface PullRequestSummary {
   id: string
@@ -87,13 +92,20 @@ export function PullRequestsSection({
                   </p>
                 )}
               </div>
-              <button
-                onClick={() => onUnlinkPr(pr.id)}
-                className='shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all'
-                title={intl.formatMessage({ id: 'task.unlinkPr' })}
-              >
-                <X size={12} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onUnlinkPr(pr.id)}
+                    className='shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all'
+                    aria-label={intl.formatMessage({ id: 'task.unlinkPr' })}
+                  >
+                    <X size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({ id: 'task.unlinkPr' })}
+                </TooltipContent>
+              </Tooltip>
             </li>
           ))}
         </ul>

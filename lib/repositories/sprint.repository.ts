@@ -158,7 +158,8 @@ export const sprintRepository = {
     return prisma.task.count({
       where: {
         sprintId,
-        status: filter.status ?? { not: 'BACKLOG' },
+        // LUM-1282: like BACKLOG, CANCELED is outside the progress total.
+        status: filter.status ?? { notIn: ['BACKLOG', 'CANCELED'] },
       },
     })
   },
@@ -208,7 +209,11 @@ export const sprintRepository = {
     const ids = closed.map(s => s.id)
     const grouped = await prisma.task.groupBy({
       by: ['sprintId', 'status'],
-      where: { sprintId: { in: ids }, status: { not: 'BACKLOG' } },
+      // LUM-1282: CANCELED leaves the completion rate like BACKLOG does.
+      where: {
+        sprintId: { in: ids },
+        status: { notIn: ['BACKLOG', 'CANCELED'] },
+      },
       _count: { _all: true },
     })
     const totals = new Map<string, { done: number; total: number }>()
@@ -489,5 +494,42 @@ export const sprintRepository = {
       },
       { timeout: 15000, maxWait: 5000 }
     )
+  },
+
+  /**
+   * LUM-1278 attention read model: the sprint's live (non-trashed) tasks in
+   * the caller's workspace, with what the queue / trust / stage folds read.
+   */
+  async taskRowsForAttention(sprintId: string, workspaceId: string) {
+    const rows = await prisma.task.findMany({
+      where: { sprintId, workspaceId, deletedAt: null },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        createdAt: true,
+        assigneeActorId: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { number: 'asc' },
+    })
+    return rows.map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      createdAt: t.createdAt,
+      assigneeActorId: t.assigneeActorId,
+    }))
+  },
+
+  /** LUM-1278: the team's sprint just before `number` (highest number below). */
+  async findPreviousInTeam(teamId: string, number: number) {
+    return prisma.sprint.findFirst({
+      where: { teamId, number: { lt: number } },
+      orderBy: { number: 'desc' },
+      select: { id: true, number: true, name: true },
+    })
   },
 }

@@ -25,6 +25,10 @@ import {
   formatCalendarDate,
   formatCalendarDayShort,
 } from '@/lib/datetime/format'
+import {
+  fieldTriggerProps,
+  type FieldVariant,
+} from '../../components/fields/shared'
 import { CircleDot, Circle, CircleCheck } from 'lucide-react'
 
 interface Task {
@@ -83,10 +87,13 @@ export function TaskSprintField({
   task,
   onChange,
   triggerClassName,
+  variant,
 }: {
   task: Task
   onChange: (sprintId: string | null) => void
   triggerClassName?: string
+  /** LUM-1274: `ghost` = borderless inline row (task detail panel). */
+  variant?: FieldVariant
 }) {
   const intl = useIntl()
   // Defer the option-list fetch until the dropdown is first opened. The
@@ -174,7 +181,10 @@ export function TaskSprintField({
         if (open) setHasOpened(true)
       }}
     >
-      <SelectTrigger className={cn(triggerClassName)}>
+      <SelectTrigger
+        {...fieldTriggerProps(variant)}
+        className={cn(triggerClassName)}
+      >
         {triggerName ? (
           <span className='truncate'>{triggerName}</span>
         ) : (

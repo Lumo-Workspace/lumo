@@ -19,7 +19,7 @@ describe('taskRepository.listUnfinishedIdsBySprint', () => {
     const result = await taskRepository.listUnfinishedIdsBySprint('s1')
 
     expect(mockTaskFindMany).toHaveBeenCalledWith({
-      where: { sprintId: 's1', status: { not: 'DONE' } },
+      where: { sprintId: 's1', status: { notIn: ['DONE', 'CANCELED'] } },
       select: { id: true },
     })
     expect(result).toEqual([{ id: 'k1' }, { id: 'k2' }])

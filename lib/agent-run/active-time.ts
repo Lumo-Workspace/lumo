@@ -315,6 +315,29 @@ export function activeDurationMsByRunTask(
 }
 
 /**
+ * LUM-1280: the active spans per task, grouped the same way as
+ * {@link activeDurationMsByRunTask} (each session timed by its own turns,
+ * bucketed by each event's attributed task). Spans may overlap across
+ * sessions; callers that need a length union them. Events without a task are
+ * dropped.
+ */
+export function activeIntervalsByTask(
+  events: AttributedTurnEvent[]
+): Map<string, ActiveInterval[]> {
+  const out = new Map<string, ActiveInterval[]>()
+  for (const { sessionId, taskId, list } of groupBySessionTask(
+    events,
+    noFallback
+  )) {
+    if (taskId === null) continue
+    const spans = out.get(taskId) ?? []
+    spans.push(...sessionIntervals(sessionId, list))
+    out.set(taskId, spans)
+  }
+  return out
+}
+
+/**
  * LUM-1237: active milliseconds per run (root session id) — the Σ over the
  * run's tasks of {@link activeDurationMsByRunTask}, so a run total and its
  * per-task split always reconcile.

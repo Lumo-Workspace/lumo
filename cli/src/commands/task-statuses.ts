@@ -17,7 +17,7 @@ export function formatTaskStatuses(c: TaskWorkflowCatalog): string {
   lines.push('', `Priorities: ${c.priorities.join(', ')}`)
   if (c.gatedStatuses.length > 0) {
     lines.push(
-      `Gated: ${c.gatedStatuses.join(', ')} — entering it needs the user's --confirm (exit-4 envelope) and a clear DONE gate`
+      `Gated: ${c.gatedStatuses.join(', ')} — entering one needs the user's --confirm (exit-4 envelope)${c.gatedStatuses.includes('DONE') ? '; DONE also needs a clear DONE gate' : ''}${c.gatedStatuses.includes('CANCELED') ? "; CANCELED is the user's ruling only (no one-step path)" : ''}`
     )
   }
   lines.push('CLI flags take these lowercase (e.g. --status in_progress).')

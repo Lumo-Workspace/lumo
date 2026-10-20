@@ -1,12 +1,18 @@
 import { scanSecrets } from '../../../shared/src/secret-scan/scan-secrets'
+import { scanDeps, type DepsScanResult } from '../lib/deps-scan'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { emitJson } from '../lib/json-output'
-import { collectLocalDiff, type ScanScope } from '../lib/local-diff'
+import {
+  collectLocalDiff,
+  resolveScanBase,
+  type ScanScope,
+} from '../lib/local-diff'
 import { WARN_PREFIX } from '../lib/errors'
 import {
   EXIT_FAIL_ON,
   FAIL_ON_VALUES,
   formatLocalScan,
+  incompleteScanners,
   localScanJson,
   meetsFailOn,
   parseFailOn,
@@ -43,19 +49,25 @@ import type { LogSection } from '../lib/local-scan-report'
 
 export interface SecurityScanOptions {
   secrets?: boolean
+  deps?: boolean
+  /** DEPS: run osv-scanner over the whole tree instead of the lockfile delta. */
+  full?: boolean
   staged?: boolean
   since?: string
   /** LUM-1258 — end the diff at this commit instead of the working tree. */
   until?: string
   json?: boolean
   failOn?: string
-  /** LUM-1256 — read the server context from the cache only. */
+  /**
+   * Make no network call: the server context comes from the cache only
+   * (LUM-1256) and DEPS uses osv-scanner's local database (LUM-1257).
+   */
   offline?: boolean
   /** LUM-1256 — merge in the branch's open PR's server findings. */
   pr?: boolean
   /** LUM-1256 — `owner/name` instead of origin's. */
   repo?: string
-  /** LUM-1258 — seconds to wait for the Lumo server before the cache. */
+  /** LUM-1258 — seconds to wait for the network (Lumo server, api.osv.dev). */
   timeout?: string
   /** LUM-1259 — scan one commit against its first parent. */
   commit?: string
@@ -66,14 +78,10 @@ export interface SecurityScanOptions {
 }
 
 /** LUM-1259 — `--hook` values → the trigger a logged run records. */
-const HOOK_TRIGGERS: Record<string, LogTrigger> = {
-  'post-commit': 'POST_COMMIT',
-  'pre-push': 'PRE_PUSH',
-}
-
-/** LUM-1259 — test seams of the per-commit path. */
-export type SecurityScanDeps = ScanContextDeps &
-  UploadDeps & { env?: Record<string, string | undefined>; now?: () => Date }
+const HOOK_TRIGGERS: ReadonlyMap<string, LogTrigger> = new Map([
+  ['post-commit', 'POST_COMMIT'],
+  ['pre-push', 'PRE_PUSH'],
+])
 
 /** `--timeout` bounds: a hook wants seconds, nobody wants minutes. */
 const TIMEOUT_MAX_SECONDS = 60
@@ -92,7 +100,20 @@ export function parseTimeoutSeconds(value: string): number | null {
 export function selectScanners(opts: SecurityScanOptions): LocalScanner[] {
   const picked: LocalScanner[] = []
   if (opts.secrets) picked.push('SECRETS')
-  return picked.length > 0 ? picked : ['SECRETS']
+  if (opts.deps) picked.push('DEPS')
+  return picked.length > 0 ? picked : ['SECRETS', 'DEPS']
+}
+
+/**
+ * Test seams: the server context's (LUM-1256), the DEPS scanner's OSV API
+ * and binary (LUM-1257), and (LUM-1259) the log upload, the environment the
+ * actor is read from and the clock.
+ */
+export interface SecurityScanDeps extends ScanContextDeps, UploadDeps {
+  fetch?: typeof fetch
+  osvFetch?: typeof fetch
+  scannerBin?: string
+  env?: Record<string, string | undefined>
 }
 
 /**
@@ -195,6 +216,12 @@ export async function withServerContext(
  * uploaded. LUM-1256: each finding is labelled with the server context
  * (cached by ETag; `--offline` reads the cache only), `--pr` merges in the
  * branch's PR scan.
+ *
+ * LUM-1257 — `DEPS`: vulnerable / malicious dependencies with the managed
+ * scan's osv-scanner identity (`lib/deps-scan.ts`). Its default fast mode
+ * sends changed package names and versions to api.osv.dev; an unanswered
+ * lookup makes the scan incomplete (exit 1 unless `--fail-on` is met),
+ * never clean.
  */
 export async function securityScanCommand(
   opts: SecurityScanOptions,
@@ -224,7 +251,7 @@ export async function securityScanCommand(
   }
   if (timeoutMs !== undefined && opts.offline) {
     console.error(
-      'Error: --timeout bounds the wait for the Lumo server; --offline makes no call'
+      'Error: --timeout bounds the wait for the network; --offline makes no call'
     )
     return EXIT_USAGE
   }
@@ -254,16 +281,37 @@ export async function securityScanCommand(
       ? { kind: 'since', ref: opts.since, ...until }
       : { kind: 'default', ...until }
   const scanners = selectScanners(opts)
+  if (opts.full && !scanners.includes('DEPS')) {
+    console.error('Error: --full applies to --deps')
+    return EXIT_USAGE
+  }
 
   const started = performance.now()
-  const diff = collectLocalDiff(scope)
-  const scanned: LocalFinding[] = scanners.includes('SECRETS')
-    ? scanSecrets(diff.files).map(f => ({ ...f, scanner: 'SECRETS' as const }))
-    : []
+  const base = resolveScanBase(scope)
+  const diff = scanners.includes('SECRETS') ? collectLocalDiff(scope) : null
+  const depsResult: DepsScanResult | undefined = scanners.includes('DEPS')
+    ? await scanDeps(base, {
+        full: opts.full === true,
+        offline: opts.offline === true,
+        fetchImpl: deps.osvFetch,
+        scannerBin: deps.scannerBin,
+        now: deps.now?.(),
+        timeoutMs,
+      })
+    : undefined
+  const scanned: LocalFinding[] = [
+    ...(diff
+      ? scanSecrets(diff.files).map(f => ({
+          ...f,
+          scanner: 'SECRETS' as const,
+        }))
+      : []),
+    ...(depsResult?.findings ?? []),
+  ]
   const { findings, server } = await withServerContext(
     scanned,
     {
-      root: diff.root,
+      root: base.root,
       scanners,
       scope,
       offline: opts.offline === true,
@@ -275,12 +323,13 @@ export async function securityScanCommand(
   )
   const result: LocalScanResult = {
     scanners,
-    scope: diff.description,
-    filesScanned: diff.files.length,
-    skipped: diff.skipped,
+    scope: base.description,
+    filesScanned: diff?.files.length ?? 0,
+    skipped: diff?.skipped ?? [],
     elapsedMs: Math.round(performance.now() - started),
     findings,
     server,
+    ...(depsResult ? { deps: depsResult } : {}),
   }
 
   if (opts.json) emitJson(localScanJson(result))
@@ -293,7 +342,9 @@ export async function securityScanCommand(
     console.error(
       `${WARN_PREFIX} --fail-on done: no server context, so no finding can be judged against the workspace policy — not failing`
     )
-  return failOn !== null && meetsFailOn(findings, failOn) ? EXIT_FAIL_ON : 0
+  if (failOn !== null && meetsFailOn(findings, failOn)) return EXIT_FAIL_ON
+  // A scanner that could not finish is a failure, not a clean result.
+  return incompleteScanners(result).length > 0 ? 1 : 0
 }
 
 /**
@@ -301,13 +352,16 @@ export async function securityScanCommand(
  * the run is fine (or uses neither).
  */
 export function commitModeError(opts: SecurityScanOptions): string | null {
-  if (opts.hook !== undefined && !HOOK_TRIGGERS[opts.hook])
+  if (opts.hook !== undefined && !HOOK_TRIGGERS.has(opts.hook))
     return `invalid --hook "${opts.hook}" (post-commit or pre-push)`
   if (opts.hook !== undefined && !opts.log) return '--hook needs --log'
   if (opts.commit !== undefined) {
     if (opts.staged || opts.since !== undefined || opts.until !== undefined)
       return '--commit scans one commit; it cannot run with --staged, --since or --until'
+    if (opts.pr) return '--pr compares the PR diff; it cannot run with --commit'
   }
+  if ((opts.commit !== undefined || opts.log) && opts.full)
+    return '--full scans the whole tree; it cannot run with --commit or --log'
   if (!opts.log) return null
   if (opts.staged)
     return '--log records commits; staged changes have no sha yet (use --commit <ref> after committing)'
@@ -394,26 +448,40 @@ async function scanCommits(
   const ctx = loaded.context
   const now = (deps.now ?? (() => new Date()))()
   const cliVersion = readCliVersion()
-  const trigger: LogTrigger = opts.hook
-    ? (HOOK_TRIGGERS[opts.hook] as LogTrigger)
-    : 'MANUAL'
+  const trigger: LogTrigger = HOOK_TRIGGERS.get(opts.hook ?? '') ?? 'MANUAL'
+  const label = (f: LocalFinding): LocalFinding =>
+    ctx ? { ...f, server: labelFinding(f, ctx) } : f
 
   const findings: LocalFinding[] = []
   const payloads: LocalRunPayload[] = []
+  const depsRuns: DepsScanResult[] = []
   let filesScanned = 0
   for (const sha of shas) {
-    const diff = collectLocalDiff({ kind: 'commit', ref: sha }, root)
-    filesScanned += diff.files.length
-    const found: LocalFinding[] = scanners.includes('SECRETS')
-      ? scanSecrets(diff.files).map(f => ({
-          ...f,
-          scanner: 'SECRETS' as const,
-          commitSha: sha,
-          ...(ctx
-            ? { server: labelFinding({ ...f, scanner: 'SECRETS' }, ctx) }
-            : {}),
-        }))
-      : []
+    const scope: ScanScope = { kind: 'commit', ref: sha }
+    const diff = scanners.includes('SECRETS')
+      ? collectLocalDiff(scope, root)
+      : null
+    const depsResult = scanners.includes('DEPS')
+      ? await scanDeps(resolveScanBase(scope, root), {
+          full: false,
+          offline: opts.offline === true,
+          fetchImpl: deps.osvFetch,
+          scannerBin: deps.scannerBin,
+          now,
+          timeoutMs: run.timeoutMs,
+        })
+      : undefined
+    if (depsResult) depsRuns.push(depsResult)
+    filesScanned += diff?.files.length ?? 0
+    const found: LocalFinding[] = [
+      ...(diff
+        ? scanSecrets(diff.files).map(f => ({
+            ...f,
+            scanner: 'SECRETS' as const,
+          }))
+        : []),
+      ...(depsResult?.findings ?? []),
+    ].map(f => label({ ...f, commitSha: sha }))
     findings.push(...found)
     if (opts.log && repo)
       payloads.push(
@@ -422,9 +490,12 @@ async function scanCommits(
           facts: commitFacts(root, sha),
           branch,
           trigger,
-          scanners,
+          // A scanner that could not finish is not claimed for the commit.
+          scanners: scanners.filter(
+            s => s !== 'DEPS' || depsResult?.incomplete == null
+          ),
           cliVersion,
-          filesScanned: diff.files.length,
+          filesScanned: diff?.files.length ?? 0,
           scannedAt: now,
           findings: found,
           ...(deps.env ? { env: deps.env } : {}),
@@ -472,6 +543,7 @@ async function scanCommits(
       policy: ctx?.policy ?? null,
       pr: null,
     },
+    ...(depsRuns.length > 0 ? { deps: mergeDepsRuns(depsRuns) } : {}),
     ...(log ? { log } : {}),
   }
   if (opts.json) emitJson(localScanJson(result))
@@ -479,7 +551,24 @@ async function scanCommits(
     console.log(
       formatLocalScan(result, { width: terminalWidth(), color: colorEnabled() })
     )
-  return run.failOn !== null && meetsFailOn(findings, run.failOn)
-    ? EXIT_FAIL_ON
-    : 0
+  if (run.failOn !== null && meetsFailOn(findings, run.failOn))
+    return EXIT_FAIL_ON
+  // As on the default path: a scanner that could not finish is a failure.
+  // The upload never decides the exit code.
+  return incompleteScanners(result).length > 0 ? 1 : 0
+}
+
+/** LUM-1259 — the DEPS facts of several commits, as one section. */
+export function mergeDepsRuns(runs: DepsScanResult[]): DepsScanResult {
+  const uniq = <T>(xs: T[]) => [...new Set(xs)].sort()
+  return {
+    mode: 'fast',
+    source: runs[0]!.source,
+    lockfiles: uniq(runs.flatMap(r => r.lockfiles)),
+    packagesChecked: runs.reduce((n, r) => n + (r.packagesChecked ?? 0), 0),
+    findings: runs.flatMap(r => r.findings),
+    ignored: runs.flatMap(r => r.ignored),
+    notCovered: uniq(runs.flatMap(r => r.notCovered)),
+    incomplete: runs.find(r => r.incomplete)?.incomplete ?? null,
+  }
 }

@@ -11,6 +11,8 @@ const STARTS_WORK: Record<TaskStatus, boolean> = {
   IN_PROGRESS: true,
   IN_REVIEW: true,
   DONE: true,
+  // LUM-1282: canceling is a ruling about the task, not a start of work.
+  CANCELED: false,
 }
 
 /**

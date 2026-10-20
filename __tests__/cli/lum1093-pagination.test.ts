@@ -531,16 +531,17 @@ describe('project list / doc share-list use the shared table (LUM-1089)', () => 
       { id: 'p1', name: 'My Project' },
       { id: 'p2', name: 'idea', isIdea: true },
     ]
+    // LUM-1285: STATUS is appended last, so SLUG / NAME keep their columns.
     expect(formatProjectList(projects, { tty: false, color: false })).toBe(
-      'my-project\tMy Project'
+      'my-project\tMy Project\tACTIVE'
     )
     const tty = formatProjectList(projects, {
       tty: true,
       color: false,
       width: 80,
     }).split('\n')
-    expect(tty[0]).toMatch(/^SLUG\s+NAME$/)
-    expect(tty[1]).toBe('my-project  My Project')
+    expect(tty[0]).toMatch(/^SLUG\s+NAME\s+STATUS$/)
+    expect(tty[1]).toMatch(/^my-project {2}My Project\s+ACTIVE$/)
   })
 
   it('doc share-list: same column order, header only on a TTY', () => {

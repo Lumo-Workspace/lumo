@@ -5,6 +5,13 @@ import { useIntl } from 'react-intl'
 import { FileEdit, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -262,15 +269,17 @@ function DraftCard({
 
 function EmptyState({ intl }: { intl: ReturnType<typeof useIntl> }) {
   return (
-    <div className='flex flex-col items-center justify-center py-16 text-center'>
-      <FileEdit className='size-12 text-muted-foreground mb-4' />
-      <p className='text-body-strong text-muted-foreground'>
-        {intl.formatMessage({ id: 'drafts.empty' })}
-      </p>
-      <p className='text-caption text-muted-foreground mt-1 max-w-xs'>
-        {intl.formatMessage({ id: 'drafts.emptyDescription' })}
-      </p>
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <FileEdit />
+        </EmptyMedia>
+        <EmptyTitle>{intl.formatMessage({ id: 'drafts.empty' })}</EmptyTitle>
+        <EmptyDescription>
+          {intl.formatMessage({ id: 'drafts.emptyDescription' })}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }
 

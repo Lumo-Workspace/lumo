@@ -24,9 +24,16 @@ enum TaskStatus {
   IN_PROGRESS
   IN_REVIEW
   DONE
+  // LUM-1282: terminal "we won't do this / duplicate". A human ruling only —
+  // gated like DONE, with no agent one-step path. Excluded from completion
+  // metrics; counts as closed for the milestone rollup.
+  CANCELED
 }
 
 enum TaskPriority {
+  // Not assessed yet: the default, so a real MEDIUM ruling is distinguishable
+  // from a task nobody prioritised. Sorts after LOW (LUM-1284).
+  NONE
   LOW
   MEDIUM
   HIGH
@@ -49,6 +56,13 @@ enum ViewVisibility {
   PRIVATE // only the creator (memberId owner)
   WORKSPACE // all workspace members
   SHARED // only members listed in ViewMember
+}
+
+/// LUM-1285: human ruling on a project. No COMPLETED — completion is derived.
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
 }
 
 enum SprintStatus {
@@ -756,6 +770,7 @@ model WorkspaceMember {
   workspace               Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   teams                   TeamMember[]
   createdProjects         Project[]                @relation("ProjectCreator")
+  createdTasks            Task[]                   @relation("TaskCreator")
   ownsProjects            Project[]                @relation("ProjectOwner")
   ownedViews              View[]                   @relation("ViewOwner")
   createdViews            View[]                   @relation("ViewCreator")
@@ -869,6 +884,17 @@ model Project {
   order             Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // LUM-1285: a human ruling on whether work should continue. "Completed" is
+  // never stored — it is derived for display from the project's tasks (see
+  // shared/src/project-lifecycle.ts). PAUSED / CANCELED / archived projects
+  // drop out of agent pickup (`lumo status --next`) and refuse or warn on
+  // task create.
+  status            ProjectStatus @default(ACTIVE)
+  startDate         DateTime?
+  targetDate        DateTime?
+  // Human archive flag: hidden from the sidebar and `project list` by default.
+  archivedAt        DateTime?
 
   // Per-project lease serializing Layer 2 memory consolidation. A run claims
   // this (sets it to now + TTL) before reading; concurrent runs that can't
@@ -1006,13 +1032,18 @@ model Task {
   teamId            String
   number            Int
   assigneeActorId   String?
+  // LUM-1283: the WorkspaceMember that created the task — always a user, never
+  // an agent (an agent creating through the CLI is recorded as the member whose
+  // API key ran it). Null for automation-created tasks (Sentry webhook) and for
+  // rows that predate the column with no backfillable TASK_CREATED actor.
+  createdByMemberId String?
   sprintId          String?
   milestoneId       String?
   title             String
   description       String?
   spec              String?
   status            TaskStatus   @default(TODO)
-  priority          TaskPriority @default(MEDIUM)
+  priority          TaskPriority @default(NONE)
   order             Float        @default(0)
   agentStatus       AgentStatus?
   agentError        String?
@@ -1023,6 +1054,10 @@ model Task {
   // free first-draft window vs the recorded after-start criteria diff
   // (LUM-437). Never reset — a bounce back to TODO stays "started".
   workStartedAt     DateTime?
+  // LUM-1282: factual terminal stamps, written by the status-transition path
+  // on entering DONE / CANCELED and cleared when the task leaves that status.
+  completedAt       DateTime?
+  canceledAt        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   dueDate           DateTime?
@@ -1068,6 +1103,7 @@ model Task {
   sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignee   Actor?      @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  createdBy  WorkspaceMember? @relation("TaskCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
 
   viewTaskOrders          ViewTaskOrder[]
   comments                Comment[]
@@ -1113,6 +1149,7 @@ model Task {
   // `<<%` strict word-similarity operator are both served by it).
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "tasks_title_trgm_idx")
   @@index([assigneeActorId])
+  @@index([createdByMemberId])
   @@index([sprintId])
   @@index([milestoneId])
   @@index([deletedAt])
@@ -3919,6 +3956,9 @@ model TaskForecastSnapshot {
 enum DependencyKind {
   BLOCKS
   RELATES
+  // LUM-1282: blockedTaskId is the duplicate (CANCELED), blockingTaskId the
+  // canonical task it duplicates. Written by `task update --duplicate-of`.
+  DUPLICATES
 }
 
 enum DependencySource {

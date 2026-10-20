@@ -25,12 +25,20 @@ const MAX_BODY_BYTES = 1024 * 1024
 export async function POST(request: NextRequest) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
+  // Content-Length is a hint (a chunked body has none): the bytes read decide.
   const length = Number(request.headers.get('content-length') ?? 0)
   if (length > MAX_BODY_BYTES)
     return NextResponse.json({ error: 'Body too large' }, { status: 413 })
-  const parsed = localScanUploadSchema.safeParse(
-    await request.json().catch(() => null)
-  )
+  const raw = await request.text().catch(() => '')
+  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES)
+    return NextResponse.json({ error: 'Body too large' }, { status: 413 })
+  let body: unknown = null
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    body = null
+  }
+  const parsed = localScanUploadSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
   try {
     await checkLocalScanLogRateLimit(

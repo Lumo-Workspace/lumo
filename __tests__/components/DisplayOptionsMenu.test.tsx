@@ -38,9 +38,9 @@ describe('DisplayOptionsMenu trigger', () => {
     expect(trigger.querySelector('svg')).not.toBeNull()
   })
 
-  it('keeps Display as the accessible name and hover title', () => {
+  it('keeps Display as the accessible name (tooltip, not native title)', () => {
     const trigger = renderMenu()
     expect(trigger).toHaveAttribute('aria-label', 'Display')
-    expect(trigger).toHaveAttribute('title', 'Display')
+    expect(trigger).not.toHaveAttribute('title')
   })
 })

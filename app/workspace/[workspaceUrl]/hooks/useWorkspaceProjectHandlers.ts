@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, Dispatch, SetStateAction } from 'react'
-import type { ApiProject, Page } from '../types'
+import type { ApiProject, Page, ProjectUpdateFields } from '../types'
 import { projectsClient } from '@/lib/api-client'
 import type { NewProjectFormData } from '../components/modals/NewProjectModal'
 import { toast } from 'sonner'
@@ -107,14 +107,7 @@ export function useWorkspaceProjectHandlers({
   )
 
   const handleUpdateProject = useCallback(
-    async (
-      id: string,
-      data: {
-        name?: string
-        description?: string
-        ownerId?: string | null
-      }
-    ) => {
+    async (id: string, data: ProjectUpdateFields) => {
       const { project: updated } = await projectsClient.update<{
         project: ApiProject
       }>(id, data)

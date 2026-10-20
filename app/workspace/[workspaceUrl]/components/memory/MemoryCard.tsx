@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
+import { Card } from '@/components/ui/card'
 import { AgentBadge } from '../AgentBadge'
 import { ContentSignalsBadge } from '../ContentSignalsBadge'
 import {
@@ -93,7 +94,7 @@ export function MemoryCard({
   }
 
   return (
-    <div className='rounded-md border border-border bg-card px-4 py-3'>
+    <Card className='rounded-md px-4 py-3'>
       <div className='mb-1.5 flex items-start justify-between gap-2'>
         <span className='flex shrink-0 items-center gap-1.5'>
           <span
@@ -115,7 +116,7 @@ export function MemoryCard({
         ) : null}
       </div>
       <MemoryBody category={item.category} parsed={parsed} />
-    </div>
+    </Card>
   )
 }
 

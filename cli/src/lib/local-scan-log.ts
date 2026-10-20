@@ -25,9 +25,11 @@ import { runGit } from './worktree'
  * Never fatal and never blocking: an upload that cannot go now (no network,
  * not logged in, a server error, a rate limit) is queued under
  * `<git common dir>/lumo/scan-log-queue.json` and flushed by the next
- * `--log` run that reaches the server. A refusal that will not change on a
- * retry (logging off, a repository the workspace does not have, no security
- * plugin) drops the queue.
+ * `--log` run that reaches the server; `--offline` only queues. A refusal
+ * that will not change on a retry drops what it refused: a malformed batch,
+ * or every run of a repository the workspace does not have (404). Logging
+ * off for the workspace, or a server without the security plugin, drops the
+ * whole queue.
  */
 
 export const LOCAL_RUNS_PATH = '/api/workspaces/me/security-scan/local-runs'
@@ -47,6 +49,8 @@ export const LOG_COMMITS_MAX = 50
 /** Each local scanner's version, as the server names its detectors. */
 export const SCANNER_VERSIONS: Record<LocalScanner, string> = {
   SECRETS: 'secrets@1',
+  // LUM-1257: fast mode (the lockfile delta against OSV).
+  DEPS: 'deps@1',
 }
 
 /** How long an upload waits for the server before queueing. */
@@ -243,7 +247,8 @@ export function buildRunPayload(input: {
       ruleId: f.ruleId,
       severity: f.severity,
       filePath: f.filePath,
-      line: f.line,
+      // A dependency has no line (it is the lockfile's).
+      line: f.line ?? 0,
       title: f.title,
       label: f.server?.status ?? null,
     })),
@@ -321,11 +326,17 @@ export interface UploadDeps {
   timeoutMs?: number
 }
 
-/** One upload call's verdict: accepted, retry later, or never (drop). */
+/**
+ * One upload call's verdict: accepted; retry later; `drop` — the server
+ * refused these runs and would again (a malformed batch, a repository the
+ * workspace does not have), so they go but the rest still try; `off` —
+ * nothing will be accepted (logging off, no plugin), so everything goes.
+ */
 export type BatchVerdict =
   | { kind: 'ok'; created: number; duplicates: number }
   | { kind: 'retry'; note: string }
-  | { kind: 'drop'; note: string }
+  | { kind: 'drop'; note: string; status: number }
+  | { kind: 'off'; note: string }
 
 export async function postBatch(
   runs: LocalRunPayload[],
@@ -354,7 +365,7 @@ export async function postBatch(
   }
   if (isMissingPluginRoute(res))
     return {
-      kind: 'drop',
+      kind: 'off',
       note: 'this Lumo server does not log local scans (no security plugin, or an older server)',
     }
   let body: { error?: unknown; code?: unknown; results?: unknown } = {}
@@ -371,12 +382,13 @@ export async function postBatch(
   const error = typeof body.error === 'string' ? body.error : null
   if (res.status === 403 && body.code === 'LOCAL_SCAN_LOG_OFF')
     return {
-      kind: 'drop',
+      kind: 'off',
       note: 'local scan logging is off for this workspace (an OWNER: lumo workspace security-scan update --local-scan-log on)',
     }
   if (res.status === 404 || res.status === 400 || res.status === 413)
     return {
       kind: 'drop',
+      status: res.status,
       note: `Lumo refused the upload (HTTP ${res.status}${error ? `: ${error}` : ''})`,
     }
   return {
@@ -422,22 +434,46 @@ export async function uploadRuns(
     }
     const pending = dedupeRuns([...queued, ...runs])
     const fromQueue = new Set(queued)
-    let rest: LocalRunPayload[] = []
-    for (let i = 0; i < pending.length; i += UPLOAD_BATCH) {
-      const batch = pending.slice(i, i + UPLOAD_BATCH)
-      const verdict = await postBatch(batch, deps)
-      if (verdict.kind === 'ok') {
-        outcome.sent += batch.length
-        outcome.created += verdict.created
-        outcome.duplicates += verdict.duplicates
-        outcome.flushed += batch.filter(r => fromQueue.has(r)).length
-        continue
+    const rest: LocalRunPayload[] = []
+    // One repository per call, so a repository the workspace does not have
+    // (404) drops only its own runs.
+    const byRepo = new Map<string, LocalRunPayload[]>()
+    for (const r of pending)
+      byRepo.set(r.repo, [...(byRepo.get(r.repo) ?? []), r])
+    // send: post; hold: a retryable failure — keep the rest for later;
+    // off: nothing will be accepted — the whole queue goes.
+    let mode: 'send' | 'hold' | 'off' = 'send'
+    for (const repoRuns of byRepo.values()) {
+      if (mode === 'off') break
+      for (let i = 0; i < repoRuns.length; i += UPLOAD_BATCH) {
+        const batch = repoRuns.slice(i, i + UPLOAD_BATCH)
+        if (mode === 'hold') {
+          rest.push(...batch)
+          continue
+        }
+        const verdict = await postBatch(batch, deps)
+        if (verdict.kind === 'ok') {
+          outcome.sent += batch.length
+          outcome.created += verdict.created
+          outcome.duplicates += verdict.duplicates
+          outcome.flushed += batch.filter(r => fromQueue.has(r)).length
+          continue
+        }
+        outcome.note = verdict.note
+        if (verdict.kind === 'off') {
+          rest.length = 0
+          mode = 'off'
+          break
+        }
+        if (verdict.kind === 'retry') {
+          rest.push(...batch)
+          mode = 'hold'
+          continue
+        }
+        // drop: these runs go; a 404 (repository not in the workspace)
+        // takes the repository's other runs with them.
+        if (verdict.status === 404) break
       }
-      outcome.note = verdict.note
-      // Retry: keep this batch and everything after it for later. Drop:
-      // nothing will change on a retry, so the queue goes too.
-      rest = verdict.kind === 'retry' ? pending.slice(i) : []
-      break
     }
     if (file && locked) {
       writeQueue(file, rest)

@@ -16,6 +16,7 @@ import {
   redactStoredFields,
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
+import { CLOSED_TASK_STATUSES } from '@/lib/task/status-semantics'
 
 export const WORKSPACE_TASK_QUERY_LIMIT = 500
 
@@ -246,6 +247,9 @@ export interface TaskUpdateData {
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
   workStartedAt?: Date | null | undefined
+  /** LUM-1282: terminal stamps, written only via `terminalTimestampPatch`. */
+  completedAt?: Date | null | undefined
+  canceledAt?: Date | null | undefined
 }
 
 /** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */
@@ -267,6 +271,8 @@ const TASK_DETAIL_INCLUDE = {
       agent: { select: { id: true, name: true, avatarColor: true } },
     },
   },
+  // LUM-1283: the creating WorkspaceMember (a user, never an agent).
+  createdBy: { select: { id: true, clerkId: true } },
   pullRequests: {
     select: {
       id: true,
@@ -458,6 +464,10 @@ const TASK_ASSIGNED_INCLUDE = {
     select: {
       id: true,
       name: true,
+      // LUM-1285: `lumo status --next` skips tasks of PAUSED / CANCELED /
+      // archived projects.
+      status: true,
+      archivedAt: true,
       owner: { select: { actor: { select: { id: true } } } },
     },
   },
@@ -860,7 +870,8 @@ export const taskRepository = {
   /** Find historical tasks with priority info (for AI priority suggestion). */
   async findHistoricalByProject(projectId: string, take: number) {
     return followUp('tasks of an authorized project').task.findMany({
-      where: { projectId },
+      // LUM-1284: unassessed (NONE) tasks carry no priority signal.
+      where: { projectId, priority: { not: 'NONE' } },
       select: { id: true, number: true, title: true, priority: true },
       orderBy: { createdAt: 'desc' },
       take,
@@ -1094,11 +1105,18 @@ export const taskRepository = {
     status: TaskStatus
     priority: TaskPriority
     assigneeActorId: string | null
+    /**
+     * LUM-1283: the WorkspaceMember that created the task. Null when no user
+     * acts (automation, e.g. the Sentry webhook).
+     */
+    createdByMemberId: string | null
     agentStatus: AgentStatus | null
     sprintId?: string | null
     milestoneId?: string | null
     order: number | undefined
     dueDate: Date | string | null
+    /** LUM-1282: set when the task is born DONE. */
+    completedAt?: Date | null
   }) {
     const taskId = await prisma.$transaction(async tx => {
       const { taskSeq } = await tx.team.update({
@@ -1122,11 +1140,13 @@ export const taskRepository = {
           status: data.status,
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
+          createdByMemberId: data.createdByMemberId,
           agentStatus: data.agentStatus,
           sprintId: data.sprintId ?? null,
           milestoneId: data.milestoneId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
           dueDate: data.dueDate,
+          ...(data.completedAt ? { completedAt: data.completedAt } : {}),
         },
       })
 
@@ -1187,25 +1207,25 @@ export const taskRepository = {
   },
 
   /**
-   * Return all tasks on `sprintId` whose status is not DONE.
+   * Return all tasks on `sprintId` that are not closed (DONE or CANCELED).
    * Used inside sprint close to decide which tasks need a spillover decision.
    * Must be called within a transaction — no default prisma fallback.
    */
   async findUnfinishedBySprint(sprintId: string, tx: Prisma.TransactionClient) {
     return tx.task.findMany({
-      where: { sprintId, status: { not: 'DONE' } },
+      where: { sprintId, status: { notIn: [...CLOSED_TASK_STATUSES] } },
       select: { id: true, status: true },
     })
   },
 
   /**
-   * Ids of every non-DONE task on `sprintId`, read outside any transaction.
+   * Ids of every open (not DONE / CANCELED) task on `sprintId`, read outside any transaction.
    * Used by the automated sprint-close reconcile to build "all → backlog"
    * spillover decisions before delegating to the transactional close.
    */
   async listUnfinishedIdsBySprint(sprintId: string): Promise<{ id: string }[]> {
     return followUp('tasks of an authorized sprint').task.findMany({
-      where: { sprintId, status: { not: 'DONE' } },
+      where: { sprintId, status: { notIn: [...CLOSED_TASK_STATUSES] } },
       select: { id: true },
     })
   },

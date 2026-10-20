@@ -6,6 +6,12 @@ import { toast } from 'sonner'
 import { FileText, ListTodo, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -77,12 +83,16 @@ export function TrashSettingsPage() {
           {intl.formatMessage({ id: 'settings.trash.loadFailed' })}
         </div>
       ) : items.length === 0 ? (
-        <div className='text-center py-12'>
-          <Trash2 size={32} className='mx-auto mb-3 text-muted-foreground' />
-          <p className='text-body-strong text-muted-foreground'>
-            {intl.formatMessage({ id: 'settings.trash.empty' })}
-          </p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <Trash2 />
+            </EmptyMedia>
+            <EmptyTitle>
+              {intl.formatMessage({ id: 'settings.trash.empty' })}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className='rounded-lg border border-border divide-y divide-border'>
           {items.map(item => (

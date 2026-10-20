@@ -43,6 +43,13 @@ import {
   type Sandbox,
 } from '../../cli/test-support/real-git'
 import { fakeAwsKeyId } from '../../cli/test-support/fake-secrets'
+import {
+  fakeOsv,
+  LODASH_VULN,
+  npmLock,
+  unreachableFetch,
+} from '../../cli/test-support/osv-fixtures'
+import { uploadRuns } from '../../cli/src/lib/local-scan-log'
 
 const creds: Credentials = {
   token: 'test-token',
@@ -144,7 +151,8 @@ describe('lumo security scan --log', () => {
   const run = (
     opts: Parameters<typeof securityScanCommand>[0],
     fetch: jest.Mock,
-    env: Record<string, string | undefined> = {}
+    env: Record<string, string | undefined> = {},
+    osvFetch?: typeof globalThis.fetch
   ) =>
     inDir(sb.main, () =>
       captureOutput(() =>
@@ -154,6 +162,7 @@ describe('lumo security scan --log', () => {
           cacheDir,
           env,
           now: () => new Date('2026-10-19T12:00:00.000Z'),
+          ...(osvFetch ? { osvFetch } : {}),
         })
       )
     )
@@ -183,8 +192,8 @@ describe('lumo security scan --log', () => {
       actor: 'AGENT',
       sessionId: 'sess-1',
       trigger: 'MANUAL',
-      scanners: ['SECRETS'],
-      scannerVersion: 'secrets@1',
+      scanners: ['SECRETS', 'DEPS'],
+      scannerVersion: 'secrets@1;deps@1',
       findingCount: 1,
       scannedAt: '2026-10-19T12:00:00.000Z',
     })
@@ -443,7 +452,12 @@ describe('lumo security scan --log', () => {
     it.each([
       [{ log: true, staged: true }, 'staged changes have no sha yet'],
       [{ log: true }, 'pass --commit <ref>, or --until'],
-      [{ log: true, commit: 'HEAD', pr: true }, '--log cannot run with --pr'],
+      [{ log: true, until: 'HEAD', pr: true }, '--log cannot run with --pr'],
+      [{ commit: 'HEAD', pr: true }, '--pr compares the PR diff'],
+      [
+        { log: true, commit: 'HEAD', full: true },
+        '--full scans the whole tree',
+      ],
       [{ commit: 'HEAD', since: 'HEAD~1' }, '--commit scans one commit'],
       [{ commit: 'HEAD', staged: true }, '--commit scans one commit'],
       [{ log: true, commit: 'HEAD', hook: 'pre-rebase' }, 'invalid --hook'],
@@ -453,6 +467,141 @@ describe('lumo security scan --log', () => {
       const { result, err } = await run(opts, fakeApi().fetch)
       expect(result).toBe(EXIT_USAGE)
       expect(err).toContain(message)
+    })
+  })
+
+  describe('DEPS per commit', () => {
+    it('records the commit’s vulnerable dependency (line 0, the lockfile), DEPS in the run', async () => {
+      write('package-lock.json', npmLock({ lodash: '4.17.15' }))
+      const sha = commit('add lodash')
+      const osv = fakeOsv({ 'lodash@4.17.15': ['GHSA-35jh-r3h4-6jhm'] }, [
+        LODASH_VULN,
+      ])
+      const api = fakeApi()
+      const { result } = await run(
+        { commit: sha, log: true, deps: true },
+        api.fetch,
+        {},
+        osv.fetch
+      )
+      expect(result).toBe(0)
+      const [r] = api.uploads[0]!.runs
+      expect(r).toMatchObject({
+        scanners: ['DEPS'],
+        scannerVersion: 'deps@1',
+        findingCount: 1,
+      })
+      expect(r!.findings[0]).toMatchObject({
+        scanner: 'DEPS',
+        ruleId: 'ext:osv-scanner:GHSA-35jh-r3h4-6jhm',
+        filePath: 'package-lock.json',
+        line: 0,
+      })
+    })
+
+    it('an unreachable OSV API leaves DEPS out of the recorded scanners and exits 1; the run is still logged', async () => {
+      write('package-lock.json', npmLock({ lodash: '4.17.15' }))
+      const sha = commit('add lodash')
+      const api = fakeApi()
+      const { result, out } = await run(
+        { commit: sha, log: true, json: true },
+        api.fetch,
+        {},
+        unreachableFetch
+      )
+      expect(result).toBe(1)
+      expect(JSON.parse(out).incomplete[0].scanner).toBe('DEPS')
+      expect(api.uploads[0]!.runs[0]).toMatchObject({
+        scanners: ['SECRETS'],
+        scannerVersion: 'secrets@1',
+      })
+    })
+
+    it('--offline makes no network call at all: no OSV, no Lumo; the run is queued', async () => {
+      write('a.ts', 'export const a = 1\n')
+      const sha = commit('a')
+      const api = fakeApi()
+      const osv = fakeOsv({}, [])
+      await run(
+        { commit: sha, log: true, offline: true },
+        api.fetch,
+        {},
+        osv.fetch
+      )
+      expect(api.fetch).not.toHaveBeenCalled()
+      expect(osv.calls).toHaveLength(0)
+      expect(queue().map(r => r.commitSha)).toEqual([sha])
+    })
+  })
+
+  describe('what a refusal drops', () => {
+    const payload = (repo: string, sha: string): LocalRunPayload =>
+      buildRunPayload({
+        repo,
+        facts: { sha, parentSha: null, patchId: null },
+        branch: null,
+        trigger: 'MANUAL',
+        scanners: ['SECRETS'],
+        cliVersion: null,
+        filesScanned: 0,
+        scannedAt: new Date(0),
+        findings: [],
+      })
+
+    it('a 404 drops only that repository’s runs; the others still go', async () => {
+      const sent: string[] = []
+      const fetch = jest.fn(async (_u: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as Upload
+        const repo = body.runs[0]!.repo
+        if (repo === 'gone/repo')
+          return new Response(JSON.stringify({ error: 'not linked' }), {
+            status: 404,
+          })
+        sent.push(...body.runs.map(r => r.commitSha))
+        return new Response(
+          JSON.stringify({
+            version: 1,
+            results: body.runs.map(r => ({
+              commitSha: r.commitSha,
+              status: 'created',
+            })),
+          }),
+          { status: 200 }
+        )
+      })
+      const outcome = await uploadRuns(
+        sb.main,
+        [
+          payload('gone/repo', '1'.repeat(40)),
+          payload('acme/app', '2'.repeat(40)),
+          payload('gone/repo', '3'.repeat(40)),
+        ],
+        { offline: false },
+        {
+          fetch: fetch as unknown as typeof globalThis.fetch,
+          readCredentials: () => creds,
+        }
+      )
+      expect(sent).toEqual(['2'.repeat(40)])
+      expect(outcome).toMatchObject({ sent: 1, queued: 0 })
+      expect(fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('a retryable failure keeps every run not yet sent', async () => {
+      const outcome = await uploadRuns(
+        sb.main,
+        [
+          payload('acme/app', '1'.repeat(40)),
+          payload('other/app', '2'.repeat(40)),
+        ],
+        { offline: false },
+        {
+          fetch: fakeApi(503).fetch as unknown as typeof globalThis.fetch,
+          readCredentials: () => creds,
+        }
+      )
+      expect(outcome.queued).toBe(2)
+      expect(queue()).toHaveLength(2)
     })
   })
 

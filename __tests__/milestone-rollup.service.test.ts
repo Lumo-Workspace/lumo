@@ -55,6 +55,7 @@ function counts(
     IN_PROGRESS: 0,
     IN_REVIEW: 0,
     DONE: 0,
+    CANCELED: 0,
     ...partial,
   }
 }

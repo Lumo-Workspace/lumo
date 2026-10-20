@@ -14,25 +14,32 @@ import {
 } from '@/components/ui/tooltip'
 import { StatusIcon } from '../StatusIcon'
 import type { ApiStatus } from '../../types'
+import { fieldTriggerProps, type FieldVariant } from './shared'
 import { API_STATUS_LABEL, statusLabel } from '../../utils'
 
 export interface StatusSelectProps {
   value: ApiStatus
   onChange: (v: ApiStatus) => void
   triggerClassName?: string
+  /** LUM-1274: `ghost` = borderless inline row (task detail panel). */
+  variant?: FieldVariant
 }
 
 export function StatusSelect({
   value,
   onChange,
   triggerClassName,
+  variant,
 }: StatusSelectProps) {
   const intl = useIntl()
   return (
     <Select value={value} onValueChange={v => onChange(v as ApiStatus)}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <SelectTrigger className={triggerClassName}>
+          <SelectTrigger
+            {...fieldTriggerProps(variant)}
+            className={triggerClassName}
+          >
             <div className='flex items-center gap-1.5'>
               <StatusIcon status={value} />
               <span>{statusLabel(intl, value)}</span>

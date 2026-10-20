@@ -1,4 +1,5 @@
 import type { DependencyEdge, GroupedDependencies } from './types'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 export function groupDependencies(
   edges: DependencyEdge[]
@@ -7,6 +8,8 @@ export function groupDependencies(
     blockedBy: [],
     blocks: [],
     related: [],
+    duplicateOf: [],
+    duplicatedBy: [],
     suggested: [],
   }
   for (const e of edges) {
@@ -17,6 +20,8 @@ export function groupDependencies(
     }
     // CONFIRMED
     if (e.kind === 'RELATES') g.related.push(e)
+    else if (e.kind === 'DUPLICATES')
+      (e.direction === 'BLOCKED_BY' ? g.duplicateOf : g.duplicatedBy).push(e)
     else if (e.direction === 'BLOCKED_BY') g.blockedBy.push(e)
     else g.blocks.push(e)
   }
@@ -29,6 +34,7 @@ export function computeLiveBlockers(edges: DependencyEdge[]): DependencyEdge[] {
       e.direction === 'BLOCKED_BY' &&
       e.kind === 'BLOCKS' &&
       e.status === 'CONFIRMED' &&
-      e.other.status !== 'DONE'
+      // LUM-1282: a closed blocker (DONE or CANCELED) no longer blocks.
+      !isClosedTaskStatus(e.other.status)
   )
 }

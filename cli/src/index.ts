@@ -56,7 +56,12 @@ import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
 import { taskDelete } from './commands/task-delete'
-import { projectCreate, projectUpdate } from './commands/project-manage'
+import {
+  projectCreate,
+  projectSetArchived,
+  projectUpdate,
+  type ProjectUpdateOptions,
+} from './commands/project-manage'
 import { taskShow, type TaskShowOptions } from './commands/task-show'
 import { findRemovedCommand, removedCommandLines } from './lib/removed-commands'
 import { taskOrBound } from './lib/task-or-bound'
@@ -878,15 +883,23 @@ security
   .command('scan')
   .codex(
     writesLocal(
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); with --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot'
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)'
     )
   )
   .description(
-    "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy."
+    "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev."
   )
   .option(
     '--secrets',
     'Run the secret scanner (no scanner flag runs every local scanner)'
+  )
+  .option(
+    '--deps',
+    'Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev'
+  )
+  .option(
+    '--full',
+    'With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)'
   )
   .option(
     '--staged',
@@ -910,11 +923,11 @@ security
   )
   .option(
     '--offline',
-    'Label findings from the cached server context only; no Lumo API call'
+    "Make no network call: label findings from the cached server context only, and check dependencies against osv-scanner's local database"
   )
   .option(
     '--timeout <seconds>',
-    'Wait at most this long for the Lumo server (default 8), then use the cached context'
+    'Wait at most this many seconds for the network: the Lumo server (default 8, then the cached context) and api.osv.dev (default 10)'
   )
   .option(
     '--pr',
@@ -1063,13 +1076,13 @@ task
   )
   .option(
     '-s, --status <value>',
-    'Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
+    'Status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive; repeatable or comma-separated)',
     collect,
     []
   )
   .option(
     '--priority <level>',
-    'Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)',
+    'Priority: none | low | medium | high | urgent (case-insensitive; none = not assessed; repeatable or comma-separated)',
     collect,
     []
   )
@@ -1279,12 +1292,12 @@ task
   .command('create <title>')
   .codex(SERVER_ONLY)
   .description(
-    'Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.'
+    'Create a task. --project required when workspace has >1 project; defaults: priority=none (not assessed), assignee=me.'
   )
   .option('-d, --description <text>', 'Task description')
   .option(
     '-p, --priority <level>',
-    'Priority: low | medium | high | urgent (case-insensitive; default: low)'
+    'Priority: none | low | medium | high | urgent (case-insensitive; default: none = not assessed — pass one only when it was actually decided)'
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option(
@@ -2285,16 +2298,17 @@ projectCmd
   .command('list')
   .codex(SERVER_ONLY)
   .description(
-    'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
+    'List projects in the current workspace with their status. Slug column matches `task create --project <ref>`. Archived projects are hidden unless --all.'
   )
+  .option('--all', 'Include archived projects')
   .option('--json', 'Print { version, projects, total, nextCursor } as JSON')
-  .action(wrap(opts => projectList(opts as { json?: boolean })))
+  .action(wrap(opts => projectList(opts as { json?: boolean; all?: boolean })))
 
 projectCmd
   .command('show [project]')
   .codex(SERVER_ONLY)
   .description(
-    "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
+    "A project's status, dates, derived completion and its web page's stats: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions, latest summary. Read-only."
   )
   .option('--report', "Print the summary's full report under its TL;DR")
   .option('--json', 'Emit { project, stats, summary } as JSON')
@@ -2322,7 +2336,7 @@ projectCmd
   .command('update <project>')
   .codex(SERVER_ONLY)
   .description(
-    'Update a project (name or slug): --name, --description ("" clears), --owner (me | email | name; "" clears).'
+    'Update a project (name or slug): --name, --description, --owner, --start/--target (YYYY-MM-DD) — "" clears each; --status is a human ruling: without --confirm it exits 4 with an envelope.'
   )
   .option('--name <text>', 'New project name')
   .option('-d, --description <text>', 'Description; empty string clears it')
@@ -2330,11 +2344,37 @@ projectCmd
     '--owner <ref>',
     'Owner: me, an email or a member name; empty string clears it'
   )
+  .option(
+    '--status <status>',
+    'active | paused | canceled (case-insensitive). Paused/canceled projects drop out of `status --next`; canceled ones refuse task create'
+  )
+  .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
+  .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope. Without it a status change exits 4 and prints what it would do.'
+  )
   .action(
     wrap((ref, options) =>
-      projectUpdate(ref as string, options as Record<string, string>)
+      projectUpdate(ref as string, options as ProjectUpdateOptions)
     )
   )
+
+projectCmd
+  .command('archive <project>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Archive a project (name or slug): hidden from the sidebar and `project list` (unless --all), new tasks refused, history kept. Reversible with `project unarchive`.'
+  )
+  .action(wrap(ref => projectSetArchived(ref as string, true)))
+
+projectCmd
+  .command('unarchive <project>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Restore an archived project so it shows in the sidebar and `project list` again and accepts new tasks.'
+  )
+  .action(wrap(ref => projectSetArchived(ref as string, false)))
 
 const memoryCmd = program
   .command('memory')
@@ -3212,11 +3252,11 @@ task
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
-    'New status: backlog | todo | in_progress | in_review | done (case-insensitive)'
+    'New status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive). done and canceled are gated: see --confirm'
   )
   .option(
     '-p, --priority <level>',
-    'New priority: low | medium | high | urgent (case-insensitive)'
+    'New priority: none | low | medium | high | urgent (case-insensitive; none clears it to not assessed)'
   )
   .option(
     '-a, --assignee <ref>',
@@ -3269,8 +3309,12 @@ task
     []
   )
   .option(
+    '--duplicate-of <identifier>',
+    'With --status canceled: the task duplicates this one (e.g. LUM-12); records a DUPLICATES dependency'
+  )
+  .option(
     '--confirm',
-    'With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4.'
+    'With --status done or canceled: the user approved the envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks, else exits 4; CANCELED always exits 4 (the user rules it, never the agent).'
   )
   .action(
     wrap((identifier, options) =>

@@ -1,20 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { useSprintByNumber, useSprintTasks } from '../../hooks/useSprints'
-import { useMembers } from '../../hooks/useMembers'
-import { useProjects } from '../../hooks/useProjects'
-import { CheckSquare, Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { CircleAlert } from 'lucide-react'
+import {
+  useSprintAttention,
+  useSprintByNumber,
+  useSprintTasks,
+} from '../../hooks/useSprints'
+import { useWorkspaceTeams } from '../../hooks/useWorkspaceTeams'
 import type { ApiStatus, MyTask } from '../../types'
-import { TaskWorkspaceView } from '../../components/task-list/TaskWorkspaceView'
+import type { SprintAttentionScope } from '@/lib/api-client/sprints'
+import { useNow } from '@/hooks/use-now'
+import { deriveSprintState } from '@/lib/services/sprint-date'
+import { daysFromNow } from '../components/sprintLandingUtils'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
-import { SprintHeader } from '../components/SprintHeader'
-import { SprintTeamPerformance } from '../components/SprintTeamPerformance'
-import { CACHE_KEY } from '../../constants'
-import { readCache, writeCache } from '../../cache'
+import { CloseSprintDialog } from '../components/CloseSprintDialog'
+import { SprintDetailHeader } from '../components/detail/SprintDetailHeader'
+import { StageCards } from '../components/detail/StageCards'
+import { AwaitingPeopleCard } from '../components/detail/AwaitingPeopleCard'
+import { CostOutputCard } from '../components/detail/CostOutputCard'
+import { SprintTaskTable } from '../components/detail/SprintTaskTable'
+import {
+  buildStageCards,
+  summarizeQueueKinds,
+  toQueueRows,
+  toTaskRows,
+} from '../components/detail/view-model'
 import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
 import {
   Breadcrumb,
@@ -24,23 +39,42 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Empty,
-  EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
 
+function AttentionError() {
+  const intl = useIntl()
+  return (
+    <Empty className='border border-border'>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <CircleAlert />
+        </EmptyMedia>
+        <EmptyTitle>
+          {intl.formatMessage({ id: 'sprints.detail.attentionError' })}
+        </EmptyTitle>
+      </EmptyHeader>
+    </Empty>
+  )
+}
+
 interface SprintDetailClientProps {
   /** Open the global NewTaskModal with the current sprint pre-selected. */
   onNewTask?: (sprintId: string, teamId: string, status?: ApiStatus) => void
-  /** Open the global task drawer for a clicked task card. */
+  /** Open the global task drawer for a clicked task. */
   onOpenTask?: (task: MyTask) => void
 }
 
+/**
+ * LUM-1279 — the attention-first Sprint detail page. Orchestrates data only:
+ * the sprint, its attention read model (LUM-1278) and the task list it opens
+ * tasks from; every section below is a flat-prop presentational component.
+ */
 export function SprintDetailClient({
   onNewTask,
   onOpenTask,
@@ -51,43 +85,46 @@ export function SprintDetailClient({
   }>()
   const router = useRouter()
   const intl = useIntl()
-  // The `sprintId` segment is now the per-team sprint number (e.g. `1`).
+  const queryClient = useQueryClient()
+  const now = useNow()
+
+  // The `sprintId` segment is the per-team sprint number (e.g. `1`).
   const parsedNumber = Number(sprintId)
   const sprintNumber = Number.isInteger(parsedNumber) ? parsedNumber : null
-  const { sprint, progress, isLoading, error, refetch } = useSprintByNumber(
+  const { sprint, isLoading, error, refetch } = useSprintByNumber(
     workspaceUrl,
     sprintNumber
   )
-  const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
-  const { members } = useMembers()
-  const { projects, fetchProjects } = useProjects()
-  // Mirror the fetched sprint tasks into a local state tuple so
-  // TaskWorkspaceView (which drives inline edits + DnD) owns the source of
-  // truth for list updates between refetches.
-  const [localTasks, setLocalTasks] = useState<MyTask[]>([])
-  useEffect(() => {
-    setLocalTasks((tasks ?? []) as MyTask[])
-  }, [tasks])
+  const id = sprint?.id ?? null
+  const { tasks, refetch: refetchTasks } = useSprintTasks(id)
+  const { teams } = useWorkspaceTeams()
 
-  useEffect(() => {
-    void fetchProjects()
-  }, [fetchProjects])
+  const [scope, setScope] = useState<SprintAttentionScope>('mine')
+  const team = useSprintAttention(id, 'team')
+  const mine = useSprintAttention(scope === 'mine' ? id : null, 'mine')
+  const [closeOpen, setCloseOpen] = useState(false)
 
-  // Collapse / expand the right-hand sprint info rail. The preference is global
-  // across sprints (mirrors the milestone detail page) so it survives
-  // navigation instead of re-toggling on every visit.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  useEffect(() => {
-    const cached = readCache<boolean>(CACHE_KEY.sprintSidebarCollapsed)
-    if (cached !== null) setSidebarCollapsed(cached)
-  }, [])
-  const toggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const next = !prev
-      writeCache(CACHE_KEY.sprintSidebarCollapsed, next)
-      return next
-    })
-  }
+  const teamQueue = useMemo(() => team.attention?.queue ?? [], [team.attention])
+  const attentionTasks = useMemo(
+    () => team.attention?.tasks ?? [],
+    [team.attention]
+  )
+  const stageCards = useMemo(
+    () => (team.attention ? buildStageCards(team.attention, teamQueue) : null),
+    [team.attention, teamQueue]
+  )
+  const queueRows = useMemo(
+    () =>
+      toQueueRows(
+        scope === 'mine' ? (mine.attention?.queue ?? []) : teamQueue,
+        attentionTasks
+      ),
+    [scope, mine.attention, teamQueue, attentionTasks]
+  )
+  const taskRows = useMemo(
+    () => toTaskRows(attentionTasks, teamQueue),
+    [attentionTasks, teamQueue]
+  )
 
   const sprintsHref = `/workspace/${workspaceUrl}/sprints`
   const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })
@@ -110,103 +147,39 @@ export function SprintDetailClient({
     )
   }
 
-  if (isLoading) {
+  if (isLoading || error || !sprint) {
+    const label = intl.formatMessage({
+      id: isLoading ? 'sprints.detail.loading' : 'sprints.detail.notFound',
+    })
     return (
-      <DetailLayout
-        breadcrumb={breadcrumb(
-          intl.formatMessage({ id: 'sprints.detail.loading' })
-        )}
-      >
-        <div className='p-6 text-muted-foreground'>
-          {intl.formatMessage({ id: 'sprints.detail.loading' })}
-        </div>
+      <DetailLayout breadcrumb={breadcrumb(label)}>
+        <div className='p-6 text-muted-foreground'>{label}</div>
       </DetailLayout>
     )
   }
 
-  if (error || !sprint) {
-    return (
-      <DetailLayout
-        breadcrumb={breadcrumb(
-          intl.formatMessage({ id: 'sprints.detail.notFound' })
-        )}
-      >
-        <div className='p-6 text-muted-foreground'>
-          {intl.formatMessage({ id: 'sprints.detail.notFound' })}
-        </div>
-      </DetailLayout>
-    )
+  const state = now === null ? null : deriveSprintState(sprint, new Date(now))
+  const daysLeft =
+    now === null ? null : Math.max(0, daysFromNow(sprint.endDate, now))
+  const teamName = teams.find(t => t.id === sprint.teamId)?.name ?? null
+
+  function refreshAll() {
+    refetch()
+    refetchTasks()
+    void queryClient.invalidateQueries({ queryKey: ['sprints', 'attention'] })
   }
 
-  const workspace = (
-    <TaskWorkspaceView
-      tasks={localTasks}
-      setTasks={setLocalTasks}
-      loading={false}
-      error={null}
-      onRetry={refetchTasks}
-      onTaskClick={onOpenTask ?? (() => {})}
-      onNewTask={status => {
-        if (onNewTask) onNewTask(sprint.id, sprint.teamId, status)
-      }}
-      members={members}
-      projects={projects}
-      displayOptionsKey={`lumo:display:sprint:${sprint.id}`}
-      sidebarCollapsed={sidebarCollapsed}
-      onToggleSidebar={toggleSidebar}
-      sidebarExpandLabel={intl.formatMessage({
-        id: 'sprints.detail.expandSidebar',
-      })}
-      sidebarCollapseLabel={intl.formatMessage({
-        id: 'sprints.detail.collapseSidebar',
-      })}
-      emptyState={
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <CheckSquare />
-            </EmptyMedia>
-            <EmptyTitle>
-              {intl.formatMessage({ id: 'sprints.tasks.empty.title' })}
-            </EmptyTitle>
-            <EmptyDescription>
-              {intl.formatMessage({ id: 'sprints.tasks.empty.description' })}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button
-              onClick={() => {
-                if (onNewTask) onNewTask(sprint.id, sprint.teamId)
-              }}
-            >
-              <Plus size={16} />
-              {intl.formatMessage({ id: 'task.create' })}
-            </Button>
-          </EmptyContent>
-        </Empty>
-      }
-    />
-  )
+  // Prefer the drawer; a task the list hasn't caught up with yet (or a page
+  // mounted without a drawer) opens its own page instead of doing nothing.
+  function openTask(taskId: string) {
+    const task = (tasks as MyTask[] | undefined)?.find(t => t.id === taskId)
+    if (task && onOpenTask) return onOpenTask(task)
+    const identifier = attentionTasks.find(t => t.taskId === taskId)?.identifier
+    if (identifier)
+      router.push(`/workspace/${workspaceUrl}/my-tasks/${identifier}`)
+  }
 
-  /*
-    Sprint info lives in the right rail, which scrolls on its own — the members
-    section grows unbounded (it expands per member and per task) but that no
-    longer pushes the board past the fold, so the page body stays pinned to the
-    viewport and the board keeps its full height.
-  */
-  const sidePanel = (
-    <div className='flex h-full flex-col gap-6 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
-      <SprintHeader
-        sprint={sprint}
-        progress={progress ?? { done: 0, total: 0 }}
-        onRefresh={() => {
-          refetch()
-          refetchTasks()
-        }}
-      />
-      <SprintTeamPerformance sprintId={sprint.id} members={members} />
-    </div>
-  )
+  const cost = team.attention?.cost ?? null
 
   return (
     <DetailLayout
@@ -219,11 +192,76 @@ export function SprintDetailClient({
           />
         </div>
       }
-      sidebar={sidePanel}
-      sidebarCollapsed={sidebarCollapsed}
-      flushSidebar
+      scrollBody
     >
-      {workspace}
+      <div className='mx-auto flex w-full max-w-420 flex-col gap-5 px-4 pt-4 pb-8 sm:gap-6 sm:px-8 sm:pt-6 sm:pb-12'>
+        <SprintDetailHeader
+          sprint={sprint}
+          name={sprint.name}
+          teamName={teamName}
+          state={state}
+          daysLeft={daysLeft}
+          canClose={sprint.status === 'ACTIVE'}
+          onRefresh={refreshAll}
+          onCloseSprint={() => setCloseOpen(true)}
+          onNewTask={() => onNewTask?.(sprint.id, sprint.teamId)}
+        />
+
+        {team.error ? (
+          <AttentionError />
+        ) : (
+          <>
+            {stageCards ? (
+              <StageCards {...stageCards} />
+            ) : (
+              <div className='grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4'>
+                {[0, 1, 2, 3].map(i => (
+                  <Skeleton key={i} className='h-32' />
+                ))}
+              </div>
+            )}
+
+            <AwaitingPeopleCard
+              scope={scope}
+              onScopeChange={setScope}
+              rows={queueRows}
+              kinds={summarizeQueueKinds(queueRows)}
+              loading={scope === 'mine' ? mine.isLoading : team.isLoading}
+              error={!!(scope === 'mine' ? mine.error : team.error)}
+              onOpenTask={openTask}
+            />
+
+            {cost && (
+              <CostOutputCard
+                tokensPerVerifiedTask={cost.tokensPerVerifiedTask}
+                previousTokensPerVerifiedTask={
+                  cost.previousSprint?.tokensPerVerifiedTask ?? null
+                }
+                reworkShare={cost.reworkShare}
+                reworkTop={cost.reworkTop}
+                onOpenTask={openTask}
+              />
+            )}
+
+            {team.isLoading ? (
+              <Skeleton className='h-64' />
+            ) : (
+              <SprintTaskTable rows={taskRows} onOpenTask={openTask} />
+            )}
+          </>
+        )}
+      </div>
+
+      {closeOpen && (
+        <CloseSprintDialog
+          sprintId={sprint.id}
+          onClose={() => setCloseOpen(false)}
+          onClosed={() => {
+            setCloseOpen(false)
+            refreshAll()
+          }}
+        />
+      )}
     </DetailLayout>
   )
 }

@@ -3,6 +3,14 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import type {
@@ -38,11 +46,11 @@ const OUTCOME_ORDER: LineageOutcome[] = [
 // -subtle tint + -border + accent dot, with the LABEL kept neutral
 // (text-foreground/-muted) because the bright accents fail AA as text on their
 // own subtle tint. UNKNOWN carries no color — typography only.
-const OUTCOME_BADGE: Record<LineageOutcome, string> = {
-  MERGED: 'bg-success-subtle border border-success-border text-foreground',
-  REWORKED: 'bg-warning-subtle border border-warning-border text-foreground',
-  REJECTED: 'bg-danger-subtle border border-danger-border text-foreground',
-  UNKNOWN: 'border border-border text-muted-foreground',
+const OUTCOME_BADGE: Record<LineageOutcome, BadgeProps['variant']> = {
+  MERGED: 'success',
+  REWORKED: 'warning',
+  REJECTED: 'danger',
+  UNKNOWN: 'outline-muted',
 }
 
 function disclosureLabel(
@@ -152,10 +160,8 @@ export function LineageTab({
     .map(o => `${totals.outcomes[o]} ${o}`)
     .join(' · ')
 
-  const visibleFragments = showAllFragments ? fragments : []
-
   return (
-    <div className='rounded-lg border border-border text-caption'>
+    <Card className='text-caption'>
       {/* Summary row */}
       <div className='px-3 py-2 border-b border-border text-muted-foreground'>
         {intl.formatMessage(
@@ -229,50 +235,62 @@ export function LineageTab({
       ) : null}
 
       {/* Fragments list */}
-      <div>
-        {visibleFragments.map((f, i) => (
-          <div
-            key={`${f.fragmentType}-${f.fragmentId}-${i}`}
-            className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
-          >
-            <span
-              className={`rounded-sm px-1 text-caption font-semibold ${OUTCOME_BADGE[f.outcome]}`}
+      <Collapsible open={showAllFragments} onOpenChange={setShowAllFragments}>
+        <CollapsibleContent>
+          {fragments.map((f, i) => (
+            <div
+              key={`${f.fragmentType}-${f.fragmentId}-${i}`}
+              className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
             >
-              {f.outcome}
-            </span>
-            <span className='truncate'>
-              {f.fragmentType} — {f.sourceLabel}
-            </span>
-            <span className='ml-auto shrink-0 text-caption text-muted-foreground/80'>
-              {disclosureLabel(intl, f.disclosure, f.pulled)}
-            </span>
-            <span className='shrink-0 text-caption text-muted-foreground/80'>
-              {usedLabel(intl, f.used)}
-            </span>
-          </div>
-        ))}
+              <Badge
+                variant={OUTCOME_BADGE[f.outcome]}
+                size='xs'
+                shape='square'
+                className={
+                  f.outcome === 'UNKNOWN'
+                    ? 'font-semibold'
+                    : 'font-semibold text-foreground'
+                }
+              >
+                {f.outcome}
+              </Badge>
+              <span className='truncate'>
+                {f.fragmentType} — {f.sourceLabel}
+              </span>
+              <span className='ml-auto shrink-0 text-caption text-muted-foreground/80'>
+                {disclosureLabel(intl, f.disclosure, f.pulled)}
+              </span>
+              <span className='shrink-0 text-caption text-muted-foreground/80'>
+                {usedLabel(intl, f.used)}
+              </span>
+            </div>
+          ))}
+        </CollapsibleContent>
 
         {fragments.length > 0 && (
-          <button
-            type='button'
-            onClick={() => setShowAllFragments(v => !v)}
-            className='w-full px-3 py-2 border-t border-border/60 text-left text-caption text-muted-foreground hover:text-foreground transition-colors'
-          >
-            {showAllFragments
-              ? intl.formatMessage({
-                  id: 'lineage.fragments.collapse',
-                  defaultMessage: '收起',
-                })
-              : intl.formatMessage(
-                  {
-                    id: 'lineage.fragments.showAll',
-                    defaultMessage: 'Show all {count} fragments',
-                  },
-                  { count: fragments.length }
-                )}
-          </button>
+          <CollapsibleTrigger asChild>
+            <Button
+              type='button'
+              variant='ghost'
+              size='inline'
+              className='w-full justify-start rounded-none border-t border-border/60 px-3 py-2 text-caption font-normal text-muted-foreground'
+            >
+              {showAllFragments
+                ? intl.formatMessage({
+                    id: 'lineage.fragments.collapse',
+                    defaultMessage: '收起',
+                  })
+                : intl.formatMessage(
+                    {
+                      id: 'lineage.fragments.showAll',
+                      defaultMessage: 'Show all {count} fragments',
+                    },
+                    { count: fragments.length }
+                  )}
+            </Button>
+          </CollapsibleTrigger>
         )}
-      </div>
-    </div>
+      </Collapsible>
+    </Card>
   )
 }

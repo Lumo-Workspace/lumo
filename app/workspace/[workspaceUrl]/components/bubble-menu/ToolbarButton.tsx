@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
@@ -39,6 +40,7 @@ export function ToolbarButton({
           type='button'
           disabled={disabled}
           data-testid={dataTestId}
+          aria-label={title}
           onMouseDown={e => {
             e.preventDefault() // prevent editor blur
             if (!disabled) onClick()
@@ -65,5 +67,10 @@ export function ToolbarButton({
 }
 
 export function Divider() {
-  return <div className='w-px h-4 bg-border mx-0.5 shrink-0' />
+  return (
+    <Separator
+      orientation='vertical'
+      className='mx-0.5 data-[orientation=vertical]:h-4'
+    />
+  )
 }

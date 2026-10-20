@@ -172,61 +172,98 @@ function shortSha(root: string, ref: string): string {
 }
 
 /**
- * Resolve the scope to a diff and parse it. Throws with an actionable message
- * when the scope cannot be resolved (no default branch, unknown ref).
+ * What a scope compares: `base` (a revision) against the working tree, or —
+ * for `staged` — `HEAD` against the index, or (LUM-1258 `--until`) against
+ * the commit `until`.
  */
-export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
+export interface ScanBase {
+  root: string
+  base: string
+  head: 'worktree' | 'index' | 'commit'
+  /** The commit `head: 'commit'` ends at, as given to `--until`. */
+  until?: string
+  /** Human description, e.g. `origin/main (merge-base 1a2b3c4) → working tree`. */
+  description: string
+}
+
+/**
+ * Resolve the scope to the revision it compares against. Throws with an
+ * actionable message when it cannot be resolved (no default branch, unknown
+ * ref).
+ */
+export function resolveScanBase(scope: ScanScope, cwd?: string): ScanBase {
   const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
-  const skipped: string[] = []
-
   if (scope.kind === 'staged') {
-    return {
-      root,
-      files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
-      description: 'staged changes',
-      skipped,
-    }
+    return { root, base: 'HEAD', head: 'index', description: 'staged changes' }
   }
-
   if (scope.kind === 'commit') {
     assertCommit(root, scope.ref, '--commit')
     const parent = runGit(
       ['rev-parse', '--verify', '--quiet', `${scope.ref}^1`],
       root
     )
-    const base = parent.status === 0 ? parent.stdout.trim() : EMPTY_TREE
     return {
       root,
-      files: addedLinesWithNumbers(gitDiff(root, [base, scope.ref, '--'])),
+      base: parent.status === 0 ? parent.stdout.trim() : EMPTY_TREE,
+      head: 'commit',
+      until: scope.ref,
       description: `commit ${shortSha(root, scope.ref)}`,
-      skipped,
     }
   }
-
   const until = scope.until
   if (until !== undefined) assertCommit(root, until, '--until')
   const end = until === undefined ? 'working tree' : refLabel(root, until)
-  let base: string
-  let description: string
+  const head =
+    until === undefined
+      ? { head: 'worktree' as const }
+      : { head: 'commit' as const, until }
   if (scope.kind === 'since') {
     assertCommit(root, scope.ref, '--since')
-    base = scope.ref
-    description = `${refLabel(root, scope.ref)} → ${end}`
-  } else {
-    const branch = detectDefaultBranch(root, { allowNetwork: false })
-    if (!branch) {
-      throw new Error(
-        'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
-      )
-    }
-    base = gitOutput(['merge-base', until ?? 'HEAD', `origin/${branch}`], root)
-    description = `origin/${branch} (merge-base ${shortSha(root, base)}) → ${end}`
-  }
-
-  if (until !== undefined) {
     return {
       root,
-      files: addedLinesWithNumbers(gitDiff(root, [base, until, '--'])),
+      base: scope.ref,
+      ...head,
+      description: `${refLabel(root, scope.ref)} → ${end}`,
+    }
+  }
+  const branch = detectDefaultBranch(root, { allowNetwork: false })
+  if (!branch) {
+    throw new Error(
+      'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
+    )
+  }
+  const base = gitOutput(
+    ['merge-base', until ?? 'HEAD', `origin/${branch}`],
+    root
+  )
+  return {
+    root,
+    base,
+    ...head,
+    description: `origin/${branch} (merge-base ${shortSha(root, base)}) → ${end}`,
+  }
+}
+
+/**
+ * Resolve the scope to a diff and parse it. Throws with an actionable message
+ * when the scope cannot be resolved (no default branch, unknown ref).
+ */
+export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
+  const { root, base, head, until, description } = resolveScanBase(scope, cwd)
+  const skipped: string[] = []
+
+  if (head === 'index') {
+    return {
+      root,
+      files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
+      description,
+      skipped,
+    }
+  }
+  if (head === 'commit') {
+    return {
+      root,
+      files: addedLinesWithNumbers(gitDiff(root, [base, until!, '--'])),
       description,
       skipped,
     }

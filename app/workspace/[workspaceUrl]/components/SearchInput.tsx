@@ -28,7 +28,7 @@ export function SearchInput({
         value={value}
         onChange={e => onChange(e.target.value)}
         onFocus={onFocus}
-        className='pl-8 h-8 text-caption'
+        className='pl-8 text-caption'
       />
     </div>
   )

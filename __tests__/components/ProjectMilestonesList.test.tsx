@@ -120,6 +120,7 @@ const counts = (done: number, todo: number) => ({
   IN_PROGRESS: 0,
   IN_REVIEW: 0,
   DONE: done,
+  CANCELED: 0,
 })
 
 const list: ApiMilestone[] = [

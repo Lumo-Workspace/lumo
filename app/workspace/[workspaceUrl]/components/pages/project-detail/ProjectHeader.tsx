@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
+  Archive,
+  ArchiveRestore,
   MoreHorizontal,
   Trash2,
   MessageSquare,
@@ -37,12 +39,20 @@ import {
 } from '@/components/ui/alert-dialog'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { PageBreadcrumb } from '../../PageBreadcrumb'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ProjectHeaderProps {
   projectId: string
   projectName: string
   onBack: () => void
   onDeleteProject: (projectId: string) => Promise<void>
+  /** LUM-1285: whether the project is archived, and the toggle. */
+  archived: boolean
+  onArchivedChange: (archived: boolean) => void
   onSlack?: (() => void) | undefined
   onCopyLink?: (() => void) | undefined
   copied?: boolean | undefined
@@ -57,6 +67,8 @@ export function ProjectHeader({
   projectName,
   onBack,
   onDeleteProject,
+  archived,
+  onArchivedChange,
   onSlack,
   onCopyLink,
   copied,
@@ -90,32 +102,52 @@ export function ProjectHeader({
             </BreadcrumbList>
           </Breadcrumb>
           {onSlack && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onSlack}
-              className='h-6 w-6 text-muted-foreground hover:text-foreground'
-              title={intl.formatMessage({
-                id: 'project.slackNotifications',
-                defaultMessage: 'Slack notifications',
-              })}
-            >
-              <MessageSquare size={14} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={onSlack}
+                  className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage({
+                    id: 'project.slackNotifications',
+                    defaultMessage: 'Slack notifications',
+                  })}
+                >
+                  <MessageSquare size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {intl.formatMessage({
+                  id: 'project.slackNotifications',
+                  defaultMessage: 'Slack notifications',
+                })}
+              </TooltipContent>
+            </Tooltip>
           )}
           {onCopyLink && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onCopyLink}
-              className='h-6 w-6 text-muted-foreground hover:text-foreground'
-              title={intl.formatMessage({
-                id: 'project.copyLink',
-                defaultMessage: 'Copy link',
-              })}
-            >
-              {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={onCopyLink}
+                  className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                  aria-label={intl.formatMessage({
+                    id: 'project.copyLink',
+                    defaultMessage: 'Copy link',
+                  })}
+                >
+                  {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {intl.formatMessage({
+                  id: 'project.copyLink',
+                  defaultMessage: 'Copy link',
+                })}
+              </TooltipContent>
+            </Tooltip>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -128,6 +160,16 @@ export function ProjectHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='start'>
+              <DropdownMenuItem onSelect={() => onArchivedChange(!archived)}>
+                {archived ? (
+                  <ArchiveRestore className='mr-2 size-4' />
+                ) : (
+                  <Archive className='mr-2 size-4' />
+                )}
+                {intl.formatMessage({
+                  id: archived ? 'project.unarchive' : 'project.archive',
+                })}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className='text-danger-text focus:text-danger-text'
                 onClick={() => setDeleteOpen(true)}

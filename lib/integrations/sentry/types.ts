@@ -66,7 +66,10 @@ export interface ExtractedIssueFields {
   sentryProjectSlug: string
   title: string
   culprit: string | null
+  /** Display level; defaults to 'info' when the payload has none. */
   level: SentryLevel
+  /** The level exactly as the payload reported it, or null when absent. */
+  reportedLevel: string | null
   webUrl: string
   eventCount: number | null
   firstSeen: string | null

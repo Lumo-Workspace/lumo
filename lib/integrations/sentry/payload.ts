@@ -10,7 +10,8 @@ const DEFAULT_LEVEL: SentryLevel = 'info'
 
 /**
  * Map a Sentry level string to a Lumo TaskPriority.
- * Unknown / missing levels → LOW.
+ * Known levels keep their mapping (info / debug → LOW); an unknown or
+ * missing level → NONE ("not assessed", LUM-1284) rather than a guess.
  */
 export function mapLevelToPriority(
   level: string | undefined | null
@@ -22,8 +23,11 @@ export function mapLevelToPriority(
       return 'HIGH'
     case 'warning':
       return 'MEDIUM'
-    default:
+    case 'info':
+    case 'debug':
       return 'LOW'
+    default:
+      return 'NONE'
   }
 }
 
@@ -66,7 +70,9 @@ export function extractIssueFields(
 
   const title = (ev.title ?? '(untitled Sentry issue)').slice(0, 200)
   const webUrl = ev.web_url ?? ev.issue_url ?? ''
-  const level = (ev.level as SentryLevel | undefined) ?? DEFAULT_LEVEL
+  const reportedLevel =
+    typeof ev.level === 'string' && ev.level !== '' ? ev.level : null
+  const level = (reportedLevel as SentryLevel | null) ?? DEFAULT_LEVEL
 
   const stackFrames: SentryStackFrame[] = (() => {
     const values = ev.entries?.find(e => e.type === 'exception')?.data?.values
@@ -88,6 +94,7 @@ export function extractIssueFields(
     title,
     culprit: ev.culprit ?? null,
     level,
+    reportedLevel,
     webUrl,
     eventCount,
     firstSeen: ev.firstSeen ?? null,

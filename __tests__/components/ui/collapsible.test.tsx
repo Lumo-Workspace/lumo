@@ -7,6 +7,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   Collapsible,
+  CollapsibleCard,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
@@ -69,4 +70,25 @@ it('keeps a parent-controlled row (RecordRow) keyboard-operable', async () => {
   expect(screen.getByText('Row body')).toBeInTheDocument()
   await user.keyboard(' ')
   expect(screen.queryByText('Row body')).not.toBeInTheDocument()
+})
+
+// LUM-1272: a disclosure whose root is the Card surface.
+it('renders CollapsibleCard as a Card root that still toggles from the keyboard', async () => {
+  const user = userEvent.setup()
+  render(
+    <CollapsibleCard data-testid='card' className='px-3'>
+      <CollapsibleTrigger>Finding</CollapsibleTrigger>
+      <CollapsibleContent>Finding body</CollapsibleContent>
+    </CollapsibleCard>
+  )
+  const card = screen.getByTestId('card')
+  expect(card).toHaveClass('rounded-lg', 'border', 'bg-card', 'px-3')
+  expect(card).toHaveAttribute('data-state', 'closed')
+  const trigger = screen.getByRole('button', { name: 'Finding' })
+  trigger.focus()
+  await user.keyboard('{Enter}')
+  expect(card).toHaveAttribute('data-state', 'open')
+  expect(screen.getByText('Finding body')).toBeInTheDocument()
+  await user.keyboard(' ')
+  expect(screen.queryByText('Finding body')).not.toBeInTheDocument()
 })

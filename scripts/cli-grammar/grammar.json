@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.126.1",
+  "cliVersion": "1.127.0",
   "globalFlags": {
     "--no-hints": {
       "long": "--no-hints",
@@ -2839,6 +2839,14 @@
       "isInvokable": false,
       "description": "Inspect projects from the terminal"
     },
+    "project archive": {
+      "arguments": [{ "name": "project", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Archive a project (name or slug): hidden from the sidebar and `project list` (unless --all), new tasks refused, history kept. Reversible with `project unarchive`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "project create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
       "flags": {
@@ -2859,6 +2867,14 @@
     "project list": {
       "arguments": [],
       "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Include archived projects"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -2870,7 +2886,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`.",
+      "description": "List projects in the current workspace with their status. Slug column matches `task create --project <ref>`. Archived projects are hidden unless --all.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project show": {
@@ -2897,12 +2913,28 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only.",
+      "description": "A project's status, dates, derived completion and its web page's stats: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions, latest summary. Read-only.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "project unarchive": {
+      "arguments": [{ "name": "project", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Restore an archived project so it shows in the sidebar and `project list` again and accepts new tasks.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project update": {
       "arguments": [{ "name": "project", "required": true, "variadic": false }],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it a status change exits 4 and prints what it would do."
+        },
         "--description": {
           "long": "--description",
           "short": "-d",
@@ -2926,11 +2958,35 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Owner: me, an email or a member name; empty string clears it"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Start date YYYY-MM-DD (empty string to clear)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": null,
+          "value": "required",
+          "enum": ["active", "paused", "canceled"],
+          "enumCaseInsensitive": true,
+          "description": "active | paused | canceled (case-insensitive). Paused/canceled projects drop out of `status --next`; canceled ones refuse task create"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Target date YYYY-MM-DD (empty string to clear)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears).",
+      "description": "Update a project (name or slug): --name, --description, --owner, --start/--target (YYYY-MM-DD) — \"\" clears each; --status is a human ruling: without --confirm it exits 4 with an envelope.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "security": {
@@ -2951,6 +3007,14 @@
           "enumCaseInsensitive": false,
           "description": "Scan one commit against its first parent (merge commits are skipped)"
         },
+        "--deps": {
+          "long": "--deps",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev"
+        },
         "--fail-on": {
           "long": "--fail-on",
           "short": null,
@@ -2958,6 +3022,14 @@
           "enum": ["low", "medium", "high", "done"],
           "enumCaseInsensitive": true,
           "description": "Exit 3 when a finding meets this level: low | medium | high | done (case-insensitive; done = a finding that would block DONE under the workspace policy)"
+        },
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)"
         },
         "--json": {
           "long": "--json",
@@ -2981,7 +3053,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Label findings from the cached server context only; no Lumo API call"
+          "description": "Make no network call: label findings from the cached server context only, and check dependencies against osv-scanner's local database"
         },
         "--pr": {
           "long": "--pr",
@@ -3029,7 +3101,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Wait at most this long for the Lumo server (default 8), then use the cached context"
+          "description": "Wait at most this many seconds for the network: the Lumo server (default 8, then the cached context) and api.osv.dev (default 10)"
         },
         "--until": {
           "long": "--until",
@@ -3042,11 +3114,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy.",
+      "description": "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev.",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
-        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); with --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot"
+        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)"
       }
     },
     "session": {
@@ -3901,9 +3973,9 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
+          "description": "Priority: none | low | medium | high | urgent (case-insensitive; default: none = not assessed — pass one only when it was actually decided)"
         },
         "--rework-of": {
           "long": "--rework-of",
@@ -3948,7 +4020,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.",
+      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=none (not assessed), assignee=me.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task decide": {
@@ -4209,9 +4281,9 @@
           "long": "--priority",
           "short": null,
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)"
+          "description": "Priority: none | low | medium | high | urgent (case-insensitive; none = not assessed; repeatable or comma-separated)"
         },
         "--search": {
           "long": "--search",
@@ -4233,9 +4305,16 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled"
+          ],
           "enumCaseInsensitive": true,
-          "description": "Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)"
+          "description": "Status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive; repeatable or comma-separated)"
         },
         "--tag": {
           "long": "--tag",
@@ -5026,7 +5105,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4."
+          "description": "With --status done or canceled: the user approved the envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks, else exits 4; CANCELED always exits 4 (the user rules it, never the agent)."
         },
         "--description": {
           "long": "--description",
@@ -5043,6 +5122,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Due date, YYYY-MM-DD (your local day); empty string to clear"
+        },
+        "--duplicate-of": {
+          "long": "--duplicate-of",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --status canceled: the task duplicates this one (e.g. LUM-12); records a DUPLICATES dependency"
         },
         "--milestone": {
           "long": "--milestone",
@@ -5064,9 +5151,9 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "New priority: low | medium | high | urgent (case-insensitive)"
+          "description": "New priority: none | low | medium | high | urgent (case-insensitive; none clears it to not assessed)"
         },
         "--remove-tag": {
           "long": "--remove-tag",
@@ -5096,9 +5183,16 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled"
+          ],
           "enumCaseInsensitive": true,
-          "description": "New status: backlog | todo | in_progress | in_review | done (case-insensitive)"
+          "description": "New status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive). done and canceled are gated: see --confirm"
         },
         "--tag": {
           "long": "--tag",

@@ -52,12 +52,17 @@ jest.mock(
   () => ({ ProjectSelect: () => null })
 )
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTableSort', () => ({
+  ...jest.requireActual('@/app/workspace/[workspaceUrl]/hooks/useTableSort'),
   cmpStatus: () => 0,
-  cmpPriority: () => 0,
 }))
 
 import { createTaskColumns } from '@/app/workspace/[workspaceUrl]/components/data-table/task-columns'
-import type { ColumnDef } from '@tanstack/react-table'
+import {
+  createTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  type ColumnDef,
+} from '@tanstack/react-table'
 import type { ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 
 const colId = (c: ColumnDef<ApiTask>) =>
@@ -211,5 +216,55 @@ describe('assignee sorting', () => {
     const none = row({ assignee: null } as Partial<ApiTask>)
     const alice = row({ assignee: { id: 'u1' } } as Partial<ApiTask>)
     expect(fn(none, alice)).toBeLessThan(0)
+  })
+})
+
+describe('priority sorting (LUM-1284)', () => {
+  const PRIORITIES = ['NONE', 'LOW', 'URGENT', 'NONE', 'MEDIUM', 'HIGH']
+
+  // Drives the real priority column through TanStack's sorted row model, so
+  // the desc negation and `sortUndefined` are exercised, not re-implemented.
+  const sortedPriorities = (desc: boolean) => {
+    const columns = createTaskColumns({
+      onTaskClick: noop,
+      onDeleteTask: asyncNoop,
+      members: [],
+      visibleColumns: ['priority'],
+    })
+    const data = PRIORITIES.map(
+      (priority, i) => ({ id: `t${i}`, priority }) as unknown as ApiTask
+    )
+    const table = createTable<ApiTask>({
+      data,
+      columns,
+      state: { sorting: [{ id: 'priority', desc }] },
+      onStateChange: noop,
+      renderFallbackValue: null,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+    })
+    return table.getRowModel().rows.map(r => r.original.priority)
+  }
+
+  it('ascending: URGENT > HIGH > MEDIUM > LOW, NONE last', () => {
+    expect(sortedPriorities(false)).toEqual([
+      'URGENT',
+      'HIGH',
+      'MEDIUM',
+      'LOW',
+      'NONE',
+      'NONE',
+    ])
+  })
+
+  it('descending flips the assessed levels but keeps NONE last', () => {
+    expect(sortedPriorities(true)).toEqual([
+      'LOW',
+      'MEDIUM',
+      'HIGH',
+      'URGENT',
+      'NONE',
+      'NONE',
+    ])
   })
 })

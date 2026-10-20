@@ -4,6 +4,8 @@ import type {
 } from '../../../shared/src/secret-scan/core-types'
 import { secretDowngradeNote } from '../../../shared/src/security-scan'
 import { listEnvelope } from './json-output'
+import type { DepsScanResult } from './deps-scan'
+import type { DependencyFinding } from './osv-advisory'
 import type { ContextSource, ScanContext } from './scan-context'
 import {
   describeLabel,
@@ -29,7 +31,7 @@ import {
 export const EXIT_FAIL_ON = 3
 
 /** The local scanners, as `--json` and the human output name them (E-1). */
-export const LOCAL_SCANNERS = ['SECRETS'] as const
+export const LOCAL_SCANNERS = ['SECRETS', 'DEPS'] as const
 export type LocalScanner = (typeof LOCAL_SCANNERS)[number]
 
 export const SEVERITIES: readonly SecuritySeverity[] = ['LOW', 'MEDIUM', 'HIGH']
@@ -40,8 +42,10 @@ const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
  * One finding, tagged with the scanner that reported it, and (LUM-1256) the
  * server's reading of it when the scan had server context.
  */
-export type LocalFinding = RawSecretFinding & {
-  scanner: LocalScanner
+export type LocalFinding = (
+  | (RawSecretFinding & { scanner: 'SECRETS' })
+  | DependencyFinding
+) & {
   server?: ServerLabel | null
   /** LUM-1259 — with `--log` / `--commit`: the commit the finding is in. */
   commitSha?: string
@@ -96,8 +100,19 @@ export interface LocalScanResult {
   findings: LocalFinding[]
   /** LUM-1256 — absent when the run did not ask the server (tests, older callers). */
   server?: ServerSection
+  /** The DEPS run's own facts; absent when DEPS did not run. */
+  deps?: DepsScanResult
   /** LUM-1259 — only with `--log`. */
   log?: LogSection
+}
+
+/** Scanners whose result is not the full answer, with why (an unreachable API). */
+export function incompleteScanners(
+  r: LocalScanResult
+): { scanner: LocalScanner; reason: string }[] {
+  return r.deps?.incomplete
+    ? [{ scanner: 'DEPS', reason: r.deps.incomplete }]
+    : []
 }
 
 export interface SeverityCounts {
@@ -164,16 +179,63 @@ export function meetsThreshold(
 }
 
 /** Highest severity first, then path, then line — a stable reading order. */
-export function sortFindings<T extends RawSecretFinding>(findings: T[]): T[] {
+export function sortFindings<
+  T extends {
+    severity: SecuritySeverity
+    filePath: string
+    line: number | null
+    ruleId: string
+  },
+>(findings: T[]): T[] {
   return [...findings].sort(
     (a, b) =>
       RANK[b.severity] - RANK[a.severity] ||
       a.filePath.localeCompare(b.filePath) ||
-      a.line - b.line
+      (a.line ?? 0) - (b.line ?? 0) ||
+      a.ruleId.localeCompare(b.ruleId)
   )
 }
 
+function dependencyLines(
+  f: DependencyFinding & { server?: ServerLabel | null; commitSha?: string },
+  opts: LayoutOptions
+): string[] {
+  const fields: Field[] = [
+    { label: 'Rule', value: sanitizeField(f.ruleId) },
+    {
+      label: 'Package',
+      value: sanitizeField(`${f.package}@${f.version} (${f.ecosystem})`),
+    },
+    { label: 'Where', value: sanitizeField(f.filePath) },
+    ...(f.commitSha
+      ? [{ label: 'Commit', value: sanitizeField(f.commitSha.slice(0, 12)) }]
+      : []),
+    {
+      label: 'Fix',
+      value: f.malicious
+        ? 'remove the package, then rotate any credential it could have read'
+        : f.fixedVersion
+          ? sanitizeField(`upgrade to ${f.fixedVersion} or later`)
+          : 'no fixed version published',
+    },
+    { label: 'Advisory', value: sanitizeField(f.url), whole: true },
+  ]
+  if (f.server)
+    fields.push({
+      label: 'Server',
+      value: sanitizeField(describeLabel(f.server)),
+    })
+  const note = f.ignoreExpired
+    ? sanitizeField(` — osv-scanner.toml ignore expired ${f.ignoreExpired}`)
+    : ''
+  return [
+    ...bulletLines(`[${f.severity}] ${sanitizeField(f.title)}${note}`, 2, opts),
+    ...fieldLines(fields, 4, opts),
+  ]
+}
+
 function findingLines(f: LocalFinding, opts: LayoutOptions): string[] {
+  if (f.scanner === 'DEPS') return dependencyLines(f, opts)
   const fields: Field[] = [
     { label: 'Rule', value: sanitizeField(f.ruleId) },
     { label: 'Where', value: sanitizeField(`${f.filePath}:${f.line}`) },
@@ -201,10 +263,16 @@ export function formatLocalScan(
   opts: LayoutOptions = {}
 ): string {
   const files = r.filesScanned === 1 ? 'file' : 'files'
+  const incomplete = incompleteScanners(r)
   const lines = [
-    summaryLine(countSeverities(r.findings)),
-    `Scope: ${r.scanners.join(', ')} · ${sanitizeField(r.scope)} · ${r.filesScanned} ${files} · ${r.elapsedMs}ms`,
+    summaryLine(countSeverities(r.findings)) +
+      (incomplete.length > 0
+        ? ` · incomplete: ${incomplete.map(i => i.scanner).join(', ')}`
+        : ''),
+    // `files` counts what SECRETS read; a DEPS-only run reads no diff.
+    `Scope: ${r.scanners.join(', ')} · ${sanitizeField(r.scope)}${r.scanners.includes('SECRETS') ? ` · ${r.filesScanned} ${files}` : ''} · ${r.elapsedMs}ms`,
   ]
+  if (r.deps) lines.push(...depsLines(r.deps, r.findings))
   if (r.skipped.length > 0) {
     lines.push(
       `Skipped ${r.skipped.length} untracked (binary, symlink, unreadable or over 2 MiB): ${r.skipped
@@ -223,9 +291,9 @@ export function formatLocalScan(
 }
 
 /**
- * LUM-1259 — `Log: 2 commits recorded (1 new, 1 already logged) · 0 queued`,
- * then why anything was not sent. Recorded results are LOCAL: they never
- * block or clear DONE.
+ * LUM-1259 — `Log: 2 commits scanned · 2 sent (1 new, 1 already logged) ·
+ * 0 queued`, then why anything was not sent. Recorded results are LOCAL:
+ * they never block or clear DONE.
  */
 function logLine(l: LogSection): string {
   const commits = l.commits.length === 1 ? 'commit' : 'commits'
@@ -238,6 +306,55 @@ function logLine(l: LogSection): string {
   if (l.skipped > 0) parts.push(`${l.skipped} skipped (merges / over the cap)`)
   const note = l.note ? ` — ${sanitizeField(l.note)}` : ''
   return `Log: ${parts.join(' · ')}${note}`
+}
+
+/** The DEPS run's own lines: what was checked, what is missing, what was ignored. */
+function depsLines(d: DepsScanResult, findings: LocalFinding[]): string[] {
+  const lines: string[] = []
+  const lockfiles = d.lockfiles.map(l => sanitizeField(l)).join(', ')
+  if (d.mode === 'full') {
+    lines.push(
+      `Deps: ${d.source}, whole tree${lockfiles ? ` (${lockfiles})` : ''}`
+    )
+  } else if (d.packagesChecked === 0) {
+    lines.push('Deps: no added or changed package in an npm lockfile')
+  } else {
+    const n = d.packagesChecked ?? 0
+    lines.push(
+      `Deps: ${n} added or changed ${n === 1 ? 'package' : 'packages'} in ${lockfiles} checked against ${d.source}`
+    )
+  }
+  const malicious = findings.filter(
+    (f): f is DependencyFinding => f.scanner === 'DEPS' && f.malicious
+  )
+  if (malicious.length > 0) {
+    lines.push(
+      `MALICIOUS: ${malicious
+        .map(f => sanitizeField(`${f.package}@${f.version} (${f.osvId})`))
+        .join(', ')} — known-malicious; remove before you install or push`
+    )
+  }
+  if (d.incomplete)
+    lines.push(`Incomplete: DEPS — ${sanitizeField(d.incomplete)}`)
+  if (d.notCovered.length > 0) {
+    lines.push(
+      `Not checked (fast mode reads npm lockfiles only): ${d.notCovered
+        .map(l => sanitizeField(l))
+        .join(', ')} — run with --deps --full`
+    )
+  }
+  if (d.ignored.length > 0) {
+    lines.push(
+      `Ignored by osv-scanner.toml: ${d.ignored
+        .map(i =>
+          sanitizeField(
+            `${i.osvId} (${i.package}@${i.version}${i.until ? `, until ${i.until}` : ''})`
+          )
+        )
+        .join(', ')}`
+    )
+  }
+  return lines
 }
 
 /** LUM-1256 — findings the server's policy would block DONE on. */
@@ -314,27 +431,59 @@ function prJson(pr: PrSection): Record<string, unknown> {
  * siblings. Declared finding fields (J-3): scanner, kind, ruleId, severity,
  * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade,
  * server (LUM-1256: { status, by, at, pullRequest, carriesOver, learningId,
- * wouldBlockDone } or null), and (LUM-1259) commitSha on a per-commit
- * scan. Siblings: scanners, scope, filesScanned, skipped, elapsedMs,
- * summary, (LUM-1256) serverContext and wouldBlockDone, and (LUM-1259) log.
+ * wouldBlockDone } or null), for DEPS (LUM-1257) dependency, and (LUM-1259)
+ * commitSha on a per-commit scan. Siblings: scanners, scope, filesScanned,
+ * skipped, elapsedMs, summary, (LUM-1257) complete, incomplete and deps,
+ * (LUM-1256) serverContext and wouldBlockDone, and (LUM-1259) log.
  */
 export function localScanJson(r: LocalScanResult): Record<string, unknown> {
-  const findings = sortFindings(r.findings).map(f => ({
-    scanner: f.scanner,
-    kind: f.kind,
-    ruleId: f.ruleId,
-    severity: f.severity,
-    title: f.title,
-    filePath: f.filePath,
-    line: f.line,
-    evidence: f.evidence,
-    fingerprint: f.fingerprint,
-    detail: f.detail,
-    downgrade: f.downgrade ?? null,
-    server: f.server ?? null,
-    // LUM-1259: only on a per-commit scan (`--commit` / `--log`).
-    ...(f.commitSha ? { commitSha: f.commitSha } : {}),
-  }))
+  const findings = sortFindings(r.findings).map(f =>
+    f.scanner === 'DEPS'
+      ? {
+          scanner: f.scanner,
+          kind: f.kind,
+          ruleId: f.ruleId,
+          severity: f.severity,
+          title: f.title,
+          filePath: f.filePath,
+          line: null,
+          evidence: null,
+          fingerprint: f.fingerprint,
+          detail: f.detail,
+          downgrade: null,
+          server: f.server ?? null,
+          dependency: {
+            ecosystem: f.ecosystem,
+            name: f.package,
+            version: f.version,
+            osvId: f.osvId,
+            aliases: f.aliases,
+            malicious: f.malicious,
+            fixedVersion: f.fixedVersion,
+            score: f.score,
+            url: f.url,
+            ignoreExpired: f.ignoreExpired,
+          },
+          ...(f.commitSha ? { commitSha: f.commitSha } : {}),
+        }
+      : {
+          scanner: f.scanner,
+          kind: f.kind,
+          ruleId: f.ruleId,
+          severity: f.severity,
+          title: f.title,
+          filePath: f.filePath,
+          line: f.line,
+          evidence: f.evidence,
+          fingerprint: f.fingerprint,
+          detail: f.detail,
+          downgrade: f.downgrade ?? null,
+          server: f.server ?? null,
+          // LUM-1259: only on a per-commit scan (`--commit` / `--log`).
+          ...(f.commitSha ? { commitSha: f.commitSha } : {}),
+        }
+  )
+  const incomplete = incompleteScanners(r)
   return listEnvelope(
     'findings',
     findings,
@@ -346,6 +495,18 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
       skipped: r.skipped,
       elapsedMs: r.elapsedMs,
       summary: countSeverities(r.findings),
+      complete: incomplete.length === 0,
+      incomplete,
+      deps: r.deps
+        ? {
+            mode: r.deps.mode,
+            source: r.deps.source,
+            lockfiles: r.deps.lockfiles,
+            packagesChecked: r.deps.packagesChecked,
+            ignored: r.deps.ignored,
+            notCovered: r.deps.notCovered,
+          }
+        : null,
       serverContext: r.server
         ? {
             source: r.server.source,

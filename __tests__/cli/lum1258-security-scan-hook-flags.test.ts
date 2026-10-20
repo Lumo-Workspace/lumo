@@ -32,6 +32,14 @@ import {
   type Sandbox,
 } from '../../cli/test-support/real-git'
 import { fakeAwsKeyId } from '../../cli/test-support/fake-secrets'
+import { scanDeps } from '../../cli/src/lib/deps-scan'
+import { resolveScanBase } from '../../cli/src/lib/local-diff'
+import {
+  fakeOsv,
+  LODASH_VULN,
+  MAL_VULN,
+  npmLock,
+} from '../../cli/test-support/osv-fixtures'
 
 const creds: Credentials = {
   token: 'test-token',
@@ -265,5 +273,82 @@ describe('lumo security scan flags for the scan hooks', () => {
     const { result, err } = await run(opts)
     expect(result).toBe(EXIT_USAGE)
     expect(err).toContain(message)
+  })
+})
+
+/**
+ * After LUM-1257 the hooks also run `DEPS` (no scanner flag = every local
+ * scanner): `--until` must read the lockfile of that commit, and
+ * `--timeout` must bound the api.osv.dev lookup too.
+ */
+describe('DEPS under the hook flags', () => {
+  let restore: () => void
+  let sb: Sandbox
+  const NOW = new Date('2026-10-19T00:00:00Z')
+  const osvApi = () =>
+    fakeOsv(
+      {
+        'lodash@4.17.15': ['GHSA-35jh-r3h4-6jhm'],
+        'evil-pkg@1.0.0': ['MAL-2024-1234'],
+      },
+      [LODASH_VULN, MAL_VULN]
+    )
+  const writeLock = (pkgs: Record<string, string>): void =>
+    fs.writeFileSync(path.join(sb.main, 'package-lock.json'), npmLock(pkgs))
+
+  beforeAll(() => {
+    restore = isolateGitEnv()
+  })
+  afterAll(() => restore())
+  beforeEach(() => {
+    sb = makeSandbox('main')
+    writeLock({ lodash: '4.17.21' })
+    git(sb.main, 'add', '.')
+    git(sb.main, 'commit', '-q', '-m', 'lock')
+    git(sb.main, 'push', '-q', 'origin', 'main')
+    git(sb.main, 'checkout', '-q', '-b', 'feature')
+  })
+  afterEach(() => sb.cleanup())
+
+  it('--until reads the lockfile of that commit, not the working tree', async () => {
+    writeLock({ lodash: '4.17.15' })
+    git(sb.main, 'commit', '-q', '-am', 'downgrade lodash')
+    const pushed = git(sb.main, 'rev-parse', 'HEAD')
+    // An uncommitted edit after the commit: not part of what is pushed.
+    writeLock({ lodash: '4.17.15', 'evil-pkg': '1.0.0' })
+    const osv = osvApi()
+    const r = await scanDeps(
+      resolveScanBase({ kind: 'default', until: pushed }, sb.main),
+      { full: false, offline: false, fetchImpl: osv.fetch, now: NOW }
+    )
+    expect(osv.calls[0]?.body).toEqual({
+      queries: [
+        { package: { ecosystem: 'npm', name: 'lodash' }, version: '4.17.15' },
+      ],
+    })
+    expect(r.findings.map(f => f.ruleId)).toEqual([
+      'ext:osv-scanner:GHSA-35jh-r3h4-6jhm',
+    ])
+  })
+
+  it('--timeout bounds the whole api.osv.dev lookup: past it DEPS is incomplete', async () => {
+    writeLock({ lodash: '4.17.15' })
+    const hanging = ((_url: unknown, init?: { signal?: AbortSignal }) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(init.signal!.reason)
+        )
+      })) as unknown as typeof fetch
+    const started = Date.now()
+    const r = await scanDeps(resolveScanBase({ kind: 'default' }, sb.main), {
+      full: false,
+      offline: false,
+      fetchImpl: hanging,
+      now: NOW,
+      timeoutMs: 200,
+    })
+    expect(Date.now() - started).toBeLessThan(5000)
+    expect(r.incomplete).toMatch(/did not answer within --timeout/)
+    expect(r.findings).toEqual([])
   })
 })

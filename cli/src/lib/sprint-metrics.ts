@@ -19,10 +19,10 @@ import { renderTable, truncate } from './ui'
 import { renderListTable } from './list-table'
 
 /**
- * LUM-1190 — the `sprint show` Burnup and Team performance sections: the text
- * twins of the web sprint page's burnup card (`SprintBurnupCard.tsx`) and
- * team-performance panel (`SprintTeamPerformance.tsx`). Pure rendering of what
- * `/api/sprints/<id>/burnup` and `/team-performance` compute.
+ * LUM-1190 — the `sprint show` Burnup and Team performance sections. Pure
+ * rendering of what `/api/sprints/<id>/burnup` and `/team-performance`
+ * compute (the web sprint page dropped these panels in LUM-1279; the API and
+ * this CLI view stay).
  */
 
 export interface SprintBurnupData {

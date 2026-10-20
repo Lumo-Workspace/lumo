@@ -1,13 +1,18 @@
 export { StatusSelect } from './StatusSelect'
 export { AssigneeSelect } from './AssigneeSelect'
+export { CreatorField } from './CreatorField'
+export { resolveCreatorDisplay, type CreatorDisplay } from './creator-display'
 export { OwnerSelect } from './OwnerSelect'
 export { PrioritySelect } from './PrioritySelect'
 export { AiPrioritySelect } from './AiPrioritySelect'
 export { ProjectSelect } from './ProjectSelect'
 export { SprintSelect } from './SprintSelect'
 export { DueDatePicker } from './DueDatePicker'
+export { ProjectStatusSelect } from './ProjectStatusSelect'
 export {
   FIELD_TRIGGER_CLS,
+  fieldTriggerProps,
+  type FieldVariant,
   FieldValueSkeleton,
   SeparatorDot,
   PriorityDot,

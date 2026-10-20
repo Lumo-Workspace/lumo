@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { compareTaskPriority } from '@/lib/task/priority'
 
 export type SortDir = 'asc' | 'desc'
 
@@ -37,20 +38,36 @@ const STATUS_ORDER: Record<string, number> = {
   DONE: 4,
 }
 
-const PRIORITY_ORDER: Record<string, number> = {
-  URGENT: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-  NONE: 4,
-}
-
 export function cmpStatus(a: string, b: string) {
   return (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99)
 }
 
-export function cmpPriority(a: string, b: string) {
-  return (PRIORITY_ORDER[a] ?? 99) - (PRIORITY_ORDER[b] ?? 99)
+/**
+ * URGENT > HIGH > MEDIUM > LOW > NONE (LUM-1284), unknown values last.
+ *
+ * With a direction, NONE ("not assessed") is pinned last in both directions,
+ * matching the board/list `sortTasks`, and the result is already
+ * direction-applied (do not pass it through `applyDir` again). Without one it
+ * is the plain ascending comparator.
+ */
+export function cmpPriority(a: string, b: string, dir?: SortDir) {
+  if (dir === undefined) return compareTaskPriority(a, b)
+  const na = a === 'NONE'
+  const nb = b === 'NONE'
+  if (na && nb) return 0
+  if (na) return 1
+  if (nb) return -1
+  return applyDir(compareTaskPriority(a, b), dir)
+}
+
+/**
+ * Sort value for a data-table priority column: NONE maps to `undefined` so
+ * the column's `sortUndefined: 'last'` keeps it last whichever way the column
+ * is sorted (TanStack negates `sortingFn` for desc, so the comparator alone
+ * cannot pin it).
+ */
+export function prioritySortValue(priority: string): string | undefined {
+  return priority === 'NONE' ? undefined : priority
 }
 
 export function cmpString(a: string, b: string) {

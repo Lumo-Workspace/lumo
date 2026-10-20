@@ -12,6 +12,16 @@ if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = TextDecoder
 }
 
+// jsdom has no ResizeObserver; Radix popper (Tooltip/Popover) measures via
+// @radix-ui/react-use-size, which constructs one on mount. No-op stub.
+if (typeof global.ResizeObserver === 'undefined') {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {

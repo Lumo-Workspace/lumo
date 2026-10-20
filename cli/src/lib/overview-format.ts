@@ -52,6 +52,46 @@ export interface OverviewSummary {
 export interface OverviewOptions extends LayoutOptions {
   /** Print the full stored report under the summary's TL;DR. */
   report?: boolean
+  /** LUM-1285: the project's lifecycle fields; omitted on an older server. */
+  lifecycle?: ProjectLifecycleView | undefined
+}
+
+/** LUM-1285: what `GET /api/projects` carries about a project's lifecycle. */
+export interface ProjectLifecycleView {
+  status: string
+  startDate?: string | null | undefined
+  targetDate?: string | null | undefined
+  archivedAt?: string | null | undefined
+  /** Derived by the server: ≥1 task and none open. */
+  completed?: boolean | undefined
+}
+
+/**
+ * LUM-1285: the State / Start / Target / Complete block. Status is a human
+ * ruling; "Complete" is derived from the tasks and never stored.
+ */
+export function lifecycleLines(
+  p: ProjectLifecycleView,
+  opts: LayoutOptions = {}
+): string[] {
+  const state = p.archivedAt
+    ? `${p.status} · archived ${fmtCalendarDay(p.archivedAt)}`
+    : p.status
+  const fields: Field[] = [
+    { label: 'State', value: state },
+    { label: 'Start', value: fmtCalendarDay(p.startDate) },
+    { label: 'Target', value: fmtCalendarDay(p.targetDate) },
+    {
+      label: 'Complete',
+      value:
+        p.completed === undefined
+          ? NONE
+          : p.completed
+            ? 'yes (every task closed)'
+            : 'no',
+    },
+  ]
+  return fieldLines(fields, 0, opts, labelWidth(fields))
 }
 
 /** The web's status order (StatusDistributionChart); others follow, A→Z. */
@@ -61,6 +101,7 @@ export const STATUS_ORDER = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
 
 /** How many trailing days of the completion trend the web chart shows. */
@@ -201,6 +242,7 @@ export function formatProjectOverview(
   return [
     `Project: ${oneLine(projectName)}`,
     '',
+    ...(opts.lifecycle ? [...lifecycleLines(opts.lifecycle, opts), ''] : []),
     ...statsLines(stats, opts),
     ...healthLines(stats, now, opts),
     ...workloadLines(stats, opts),

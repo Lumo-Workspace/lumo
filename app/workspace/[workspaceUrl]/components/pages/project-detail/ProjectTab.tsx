@@ -1,16 +1,22 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { useNow } from '@/hooks/use-now'
 import type { SignalView } from '@/lib/summaries/signal-view'
 import type { StalledBlockerItem, StalePrItem } from '@/types/summary'
 import { useMentionSources } from '../../../hooks/useMentionSources'
-import { ApiProject, WorkspaceMemberInfo } from '../../../types'
+import {
+  ApiProject,
+  ProjectUpdateFields,
+  WorkspaceMemberInfo,
+} from '../../../types'
 import { IDEA_BADGE_CLS } from '../../../constants'
 import { DescriptionEditor } from '../../DescriptionEditorLazy'
 import { TypographyH1 } from '@/components/ui/typography'
 import { ProjectHealthRow } from '../../signal/ProjectHealthRow'
 import { ProjectPropertyRows } from './ProjectPropertyRows'
+import { ProjectLifecycleRows } from './ProjectLifecycleRows'
 import { PropertyRow } from './PropertyRow'
 import { ProjectMilestonesOverview } from './ProjectMilestonesOverview'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -29,10 +35,7 @@ interface ProjectTabProps {
   stalePrs: StalePrItem[]
   statsLoading: boolean
   statsError: string | null
-  onUpdateProject: (
-    id: string,
-    data: { name?: string; description?: string; ownerId?: string | null }
-  ) => Promise<void>
+  onUpdateProject: (id: string, data: ProjectUpdateFields) => Promise<void>
   onOpenTask: (taskId: string) => void
   onViewAllTasks: () => void
   onViewAllMilestones: () => void
@@ -70,6 +73,18 @@ export function ProjectTab({
   const now = useNow()
   const mentionSources = useMentionSources(members)
   const healthLabel = intl.formatMessage({ id: 'project.health' })
+
+  // LUM-1285: lifecycle edits can be refused (e.g. target before start), so
+  // surface the server's reason instead of failing silently.
+  const updateLifecycle = (fields: ProjectUpdateFields) => {
+    onUpdateProject(project.id, fields).catch((err: unknown) => {
+      toast.error(
+        err instanceof Error && err.message
+          ? err.message
+          : intl.formatMessage({ id: 'project.updateFailed' })
+      )
+    })
+  }
 
   return (
     <div className='flex-1 overflow-y-auto'>
@@ -124,6 +139,15 @@ export function ProjectTab({
             members={members}
             workspaceUrl={workspaceUrl}
             onOwnerChange={ownerId => onUpdateProject(project.id, { ownerId })}
+          />
+
+          <ProjectLifecycleRows
+            status={project.status ?? 'ACTIVE'}
+            startDate={project.startDate ?? null}
+            targetDate={project.targetDate ?? null}
+            completed={project.completed === true}
+            archived={Boolean(project.archivedAt)}
+            onChange={updateLifecycle}
           />
 
           {/* Health — the one section that can be empty-but-meaningful, so it

@@ -196,6 +196,7 @@ describe('task create paths write the project workspaceId', () => {
       status: 'TODO',
       priority: 'LOW',
       assigneeActorId: null,
+      createdByMemberId: null,
       agentStatus: null,
       order: undefined,
       dueDate: null,

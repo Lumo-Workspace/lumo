@@ -97,15 +97,17 @@ describe('GET /api/tasks/statuses', () => {
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
+      'CANCELED',
     ])
     expect(body.statuses[0].transitionsTo).toEqual([
       'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
+      'CANCELED',
     ])
-    expect(body.priorities).toEqual(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-    expect(body.gatedStatuses).toEqual(['DONE'])
+    expect(body.priorities).toEqual(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+    expect(body.gatedStatuses).toEqual(['DONE', 'CANCELED'])
   })
 
   it('is behind identity auth', async () => {

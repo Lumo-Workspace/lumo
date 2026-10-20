@@ -420,4 +420,53 @@ export const testCaseRepository = {
       return row
     })
   },
+
+  /**
+   * LUM-1278 attention read model: the non-deleted cases of the given tasks
+   * (caller's workspace) each with ONLY its latest run — the gate and the
+   * verified predicate read nothing older.
+   */
+  async listWithLatestRunByTaskIds(workspaceId: string, taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    const rows = await prisma.testCase.findMany({
+      where: {
+        taskId: { in: taskIds },
+        deletedAt: null,
+        task: { workspaceId },
+      },
+      select: {
+        id: true,
+        taskId: true,
+        requiredEnvironment: true,
+        runs: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            result: true,
+            environment: true,
+            failureAttribution: true,
+            unprovenVerification: true,
+            evidence: true,
+            stepResults: true,
+            pullRequestId: true,
+            commitSha: true,
+            commitDirty: true,
+            disposition: { select: { id: true } },
+          },
+        },
+      },
+    })
+    return rows.flatMap(r =>
+      r.taskId === null
+        ? []
+        : [
+            {
+              id: r.id,
+              taskId: r.taskId,
+              requiredEnvironment: r.requiredEnvironment,
+              latestRun: r.runs[0] ?? null,
+            },
+          ]
+    )
+  },
 }

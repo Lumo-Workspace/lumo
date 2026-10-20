@@ -122,7 +122,7 @@ export function NewTaskModal({
     preFill?.status ?? defaultStatus ?? 'TODO'
   )
   const [priority, setPriority] = useState<ApiPriority>(
-    preFill?.priority ?? 'MEDIUM'
+    preFill?.priority ?? 'NONE'
   )
   const [projectId, setProjectId] = useState(
     preFill?.projectId ?? defaultProjectId ?? ''
@@ -149,10 +149,17 @@ export function NewTaskModal({
   })
 
   // ─── AI priority suggestion ────────────────────────────────────────────
-  const [userHasOverriddenPriority, setUserHasOverriddenPriority] =
-    useState(false)
+  // LUM-1284: the suggestion is only a hint next to the field; it never fills
+  // the field. `priorityPicked` hides the hint once the user (or a restored
+  // draft / Quick Dispatch prefill) has set a value.
+  const [priorityPicked, setPriorityPicked] = useState(
+    (preFill?.priority ?? 'NONE') !== 'NONE'
+  )
   const [overrideRecorded, setOverrideRecorded] = useState(false)
-  const aiSuggestedRef = useRef<ApiPriority | null>(null)
+  // The suggestion that was on screen when the user picked, reported on
+  // submit so a differing pick is recorded as a priority override.
+  const [aiSuggestedAtPick, setAiSuggestedAtPick] =
+    useState<ApiPriority | null>(null)
 
   // ─── Duplicate detection ────────────────────────────────────────────────
   type ModalPhase = 'editing' | 'checking' | 'confirming'
@@ -172,14 +179,6 @@ export function NewTaskModal({
   } = usePrioritySuggestion({
     projectId: effectiveProjectId,
   })
-
-  // Auto-apply AI suggestion when it arrives
-  useEffect(() => {
-    if (prioritySuggestion && !userHasOverriddenPriority) {
-      setPriority(prioritySuggestion.priority)
-      aiSuggestedRef.current = prioritySuggestion.priority
-    }
-  }, [prioritySuggestion, userHasOverriddenPriority])
 
   const projectName =
     projects.find(p => p.id === effectiveProjectId)?.name ?? ''
@@ -206,16 +205,16 @@ export function NewTaskModal({
     descriptionRef.current = null
     setDescriptionValue(null)
     setStatus(defaultStatus ?? 'TODO')
-    setPriority('MEDIUM')
+    setPriority('NONE')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
     setDueDate(null)
     setSprintId(defaultSprintId ?? null)
     setPhase('editing')
     setAiMatches([])
-    setUserHasOverriddenPriority(false)
+    setPriorityPicked(false)
     setOverrideRecorded(false)
-    aiSuggestedRef.current = null
+    setAiSuggestedAtPick(null)
     resetPrioritySuggestion()
   }
 
@@ -227,7 +226,7 @@ export function NewTaskModal({
     if (title) formData.title = title
     if (descriptionValue) formData.description = descriptionValue
     if (status !== 'TODO') formData.status = status
-    if (priority !== 'MEDIUM') formData.priority = priority
+    if (priority !== 'NONE') formData.priority = priority
     if (projectId) formData.projectId = projectId
     if (assigneeId) formData.assigneeId = assigneeId
     if (dueDate) formData.dueDate = dueDate
@@ -253,7 +252,10 @@ export function NewTaskModal({
       setDescriptionValue(data.description)
     }
     if (data.status) setStatus(data.status as ApiStatus)
-    if (data.priority) setPriority(data.priority as ApiPriority)
+    if (data.priority) {
+      setPriority(data.priority as ApiPriority)
+      setPriorityPicked(true)
+    }
     if (data.projectId && typeof data.projectId === 'string')
       setProjectId(data.projectId)
     if (data.assigneeId && typeof data.assigneeId === 'string')
@@ -269,7 +271,7 @@ export function NewTaskModal({
     const descText = descriptionRef.current?.replace(/<[^>]*>/g, '').trim()
     if (descText) formData.description = descriptionRef.current
     if (status !== 'TODO') formData.status = status
-    if (priority !== 'MEDIUM') formData.priority = priority
+    if (priority !== 'NONE') formData.priority = priority
     if (effectiveProjectId) formData.projectId = effectiveProjectId
     if (assigneeId) formData.assigneeId = assigneeId
     if (dueDate) formData.dueDate = dueDate
@@ -290,11 +292,14 @@ export function NewTaskModal({
     onClose()
   }
 
+  // Both a manual pick and a click on the AI hint land here.
   const handlePriorityChange = (v: ApiPriority) => {
+    const shown = priorityPicked ? null : (prioritySuggestion?.priority ?? null)
     setPriority(v)
-    setUserHasOverriddenPriority(true)
-    if (aiSuggestedRef.current && v !== aiSuggestedRef.current) {
-      setOverrideRecorded(true)
+    setPriorityPicked(true)
+    if (shown) {
+      setAiSuggestedAtPick(shown)
+      if (v !== shown) setOverrideRecorded(true)
     }
   }
 
@@ -308,7 +313,7 @@ export function NewTaskModal({
       assigneeId,
       sprintId,
       dueDate,
-      aiSuggestedPriority: aiSuggestedRef.current,
+      aiSuggestedPriority: aiSuggestedAtPick,
     }
     recovery.clear()
     if (draftId && onDeleteDraft) onDeleteDraft(draftId).catch(() => {})
@@ -507,8 +512,8 @@ export function NewTaskModal({
                 value={priority}
                 onChange={handlePriorityChange}
                 triggerClassName={triggerClass}
-                suggestion={prioritySuggestion}
-                isLoadingSuggestion={isPriorityLoading}
+                suggestion={priorityPicked ? null : prioritySuggestion}
+                isLoadingSuggestion={!priorityPicked && isPriorityLoading}
                 overrideRecorded={overrideRecorded}
               />
               <DueDatePicker

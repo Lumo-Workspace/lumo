@@ -163,6 +163,7 @@ describe('milestoneRepository.countTasksByStatus', () => {
       IN_PROGRESS: 0,
       IN_REVIEW: 0,
       DONE: 2,
+      CANCELED: 0,
     })
     expect(mockTaskGroupBy).toHaveBeenCalledWith({
       by: ['status'],

@@ -150,7 +150,7 @@ export function useWorkspaceModalState({
       title: (data.title as string) ?? '',
       description: (data.description as string) ?? '',
       status: (data.status as ApiStatus) ?? 'TODO',
-      priority: (data.priority as ApiPriority) ?? 'MEDIUM',
+      priority: (data.priority as ApiPriority) ?? 'NONE',
       projectId: (data.projectId as string) ?? '',
       assigneeId: (data.assigneeId as string) ?? '',
       dueDate: (data.dueDate as string) ?? null,

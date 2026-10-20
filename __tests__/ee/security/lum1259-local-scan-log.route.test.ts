@@ -287,6 +287,17 @@ describe('POST /api/workspaces/me/security-scan/local-runs', () => {
     expect((await POST(req({ version: 1, runs: [run()] }))).status).toBe(429)
   })
 
+  it('refuses a body over 1 MiB by the bytes read, not only by Content-Length', async () => {
+    const big = JSON.stringify({
+      version: 1,
+      runs: [run()],
+      pad: 'x'.repeat(1024 * 1024 + 1),
+    })
+    const res = await POST(new NextRequest(URL_, { method: 'POST', body: big }))
+    expect(res.status).toBe(413)
+    expect(localScanLogRepository.create).not.toHaveBeenCalled()
+  })
+
   it('passes an auth failure through untouched', async () => {
     const { NextResponse } = await import('next/server')
     m(requireIdentity).mockResolvedValue(

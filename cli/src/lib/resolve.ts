@@ -15,7 +15,15 @@ interface ProjectRow {
   id: string
   name: string
   isIdea?: boolean
+  /** LUM-1285 lifecycle fields; absent on an older server. */
+  status?: string
+  startDate?: string | null
+  targetDate?: string | null
+  archivedAt?: string | null
+  completed?: boolean
 }
+
+export type ResolvedProject = ProjectRow
 
 interface MilestoneRow {
   id: string
@@ -90,7 +98,7 @@ export async function resolveProject(
   base: string,
   token: string,
   ref: string | undefined
-): Promise<{ id: string; name: string }> {
+): Promise<ResolvedProject> {
   const { projects } = await fetchJson<{ projects: ProjectRow[] }>(
     base,
     token,
@@ -100,7 +108,10 @@ export async function resolveProject(
 
   if (!ref) {
     if (visible.length === 0) throw new Error('workspace has no projects yet.')
-    if (visible.length === 1) return visible[0]!
+    // LUM-1285: an archived project never makes the default ambiguous.
+    const live = visible.filter(p => !p.archivedAt)
+    const pool = live.length > 0 ? live : visible
+    if (pool.length === 1) return pool[0]!
     throw new MultipleProjectsError()
   }
 

@@ -97,7 +97,9 @@ async function getTaskDetail(taskId: string) {
       })
       const states = [...updates.values()].map(u => u.state)
       const merged = states.includes('merged')
-      if (merged) {
+      // LUM-1282: a CANCELED task stays CANCELED — that is a human ruling,
+      // and a late merge does not overturn it.
+      if (merged && taskStatus !== 'CANCELED') {
         taskStatus = 'DONE'
       }
       // Reconciliation path for lineage closure: when the poller is the first

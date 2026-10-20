@@ -130,7 +130,7 @@ describe('ProjectPropertyRows', () => {
       repo('r2', 'Lumo-Workspace/agent', false),
     ])
 
-    fireEvent.click(screen.getByTitle('Set as default'))
+    fireEvent.click(screen.getByLabelText('Set as default'))
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -145,7 +145,7 @@ describe('ProjectPropertyRows', () => {
   it('unlinks a repository and drops its row', async () => {
     setup([repo('r1', 'Lumo-Workspace/lumo', true)])
 
-    fireEvent.click(screen.getByTitle('Remove'))
+    fireEvent.click(screen.getByLabelText('Remove'))
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -162,7 +162,7 @@ describe('ProjectPropertyRows', () => {
     mockApiFetch.mockRejectedValue(new Error('boom'))
     setup([repo('r1', 'Lumo-Workspace/lumo', true)])
 
-    fireEvent.click(screen.getByTitle('Remove'))
+    fireEvent.click(screen.getByLabelText('Remove'))
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled())
     // A failed delete must not look like a successful one.
@@ -179,7 +179,7 @@ describe('ProjectPropertyRows', () => {
   it('leaves each repo row a link to GitHub', () => {
     setup()
 
-    const link = screen.getByTitle('Open on GitHub')
+    const link = screen.getByLabelText('Open on GitHub')
     expect(link).toHaveAttribute(
       'href',
       'https://github.com/Lumo-Workspace/lumo'
