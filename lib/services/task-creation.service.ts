@@ -30,7 +30,13 @@ export async function createTask(
     tagIds?: string[] | undefined
   },
   actorId: string,
-  actorClerkId: string
+  actorClerkId: string,
+  /**
+   * LUM-1283: the WorkspaceMember creating the task, recorded as its creator.
+   * Always the calling user — an agent creating through the CLI is recorded as
+   * the member whose API key ran it. Null only when no member is known.
+   */
+  creatorMemberId: string | null
 ) {
   const project = await projectRepository.findByIdWithDefaults(projectId)
   if (!project) {
@@ -99,6 +105,7 @@ export async function createTask(
     status,
     priority,
     assigneeActorId: assigneeActorId ?? null,
+    createdByMemberId: creatorMemberId,
     agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
     sprintId: resolvedSprintId,
     milestoneId: resolvedMilestoneId,
@@ -176,6 +183,8 @@ export async function createFromAutomation(
     status: 'TODO',
     priority: input.priority,
     assigneeActorId: input.assigneeActorId,
+    // LUM-1283: no user creates an automation task, so the creator is null.
+    createdByMemberId: null,
     agentStatus: null,
     order,
     dueDate: null,

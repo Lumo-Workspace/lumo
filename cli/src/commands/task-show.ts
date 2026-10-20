@@ -32,6 +32,34 @@ import { outcomeShow } from './outcome'
 import { taskLineage } from './task-lineage'
 import { taskDepsList } from './task-deps'
 
+interface ActorView {
+  type: 'member' | 'agent'
+  label: string
+  email: string | null
+}
+
+/** `Alice <alice@example.com>` for a member, the bare name for an agent. */
+function actorLabel(actor: ActorView | null | undefined): string {
+  if (!actor) return NONE
+  const label = sanitizeField(actor.label)
+  return actor.email && actor.type === 'member'
+    ? `${label} <${sanitizeField(actor.email)}>`
+    : label
+}
+
+/** LUM-1283: the creating member, always a user. */
+interface MemberView {
+  name: string
+  email: string | null
+}
+
+/** `Alice <alice@example.com>`, the bare name without an email, `-` if none. */
+function memberLabel(member: MemberView | null | undefined): string {
+  if (!member) return NONE
+  const name = sanitizeField(member.name)
+  return member.email ? `${name} <${sanitizeField(member.email)}>` : name
+}
+
 interface ShowResponse {
   task: {
     id: string
@@ -43,11 +71,12 @@ interface ShowResponse {
     descriptionMarkdown?: string | null
     url: string
     project: { id: string; name: string }
-    assignee: {
-      type: 'member' | 'agent'
-      label: string
-      email: string | null
-    } | null
+    assignee: ActorView | null
+    /**
+     * LUM-1283: the creating member (always a user); null when unrecorded
+     * (automation, older tasks). Optional so an older server still renders.
+     */
+    createdBy?: MemberView | null
     /** LUM-821 — optional so an older server still renders. */
     dueDate?: string | null
   }
@@ -70,14 +99,6 @@ export function formatTaskShow(
       color: opts.color === true,
     }),
   ]
-  let assignee = NONE
-  if (task.assignee) {
-    const label = sanitizeField(task.assignee.label)
-    assignee =
-      task.assignee.email && task.assignee.type === 'member'
-        ? `${label} <${sanitizeField(task.assignee.email)}>`
-        : label
-  }
   const fields: Field[] = [
     { label: 'Status', value: enumColor(task.status, opts.color === true) },
     {
@@ -85,8 +106,12 @@ export function formatTaskShow(
       value: enumColor(task.priority, opts.color === true),
     },
     { label: 'Project', value: sanitizeField(task.project.name) },
-    { label: 'Assignee', value: assignee },
+    { label: 'Assignee', value: actorLabel(task.assignee) },
   ]
+  // LUM-1283: absent (older server) → no row; null → unrecorded.
+  if (task.createdBy !== undefined) {
+    fields.push({ label: 'Created by', value: memberLabel(task.createdBy) })
+  }
   if (task.dueDate) fields.push({ label: 'Due', value: fmtDay(task.dueDate) })
   fields.push({ label: 'URL', value: task.url, whole: true })
   lines.push(...fieldLines(fields, 0, opts))

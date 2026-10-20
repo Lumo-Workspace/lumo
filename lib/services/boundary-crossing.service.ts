@@ -1826,7 +1826,8 @@ export const boundaryCrossingService = {
         priority: 'HIGH',
       },
       actorId,
-      attribution.actorClerkId
+      attribution.actorClerkId,
+      attribution.actorMemberId
     )
 
     await boundaryCrossingRepository.setRemediationTask(

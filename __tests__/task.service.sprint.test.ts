@@ -171,7 +171,8 @@ describe('taskService — sprint binding (createTask)', () => {
         sprintId: 's2',
       },
       'actor1',
-      'clerk1'
+      'clerk1',
+      'member1'
     )
 
     expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
@@ -184,7 +185,8 @@ describe('taskService — sprint binding (createTask)', () => {
       'proj1',
       { title: 'Standalone task', status: 'TODO', priority: 'MEDIUM' },
       'actor1',
-      'clerk1'
+      'clerk1',
+      'member1'
     )
 
     expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(

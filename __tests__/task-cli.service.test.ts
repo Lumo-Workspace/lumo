@@ -332,7 +332,8 @@ describe('taskCliService.createFromCli', () => {
         assigneeActorId: 'actor-caller',
       }),
       'actor-caller',
-      'clerk-1'
+      'clerk-1',
+      'mem-1'
     )
     expect(result).toEqual({
       id: 'task-1',
@@ -349,6 +350,35 @@ describe('taskCliService.createFromCli', () => {
         },
       ],
     })
+  })
+
+  it('records the calling member as creator, even inside a bound agent session (LUM-1283)', async () => {
+    // The creator is always a user (ruling 2026-10-20): an agent-run
+    // `lumo task create` is recorded as the member whose API key ran it.
+    mockFindBinding.mockResolvedValue({
+      task: {
+        id: 'task-bound',
+        number: 1,
+        title: 'Bound',
+        status: 'TODO',
+        team: { identifier: 'LUM' },
+      },
+    })
+    await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-agent',
+      input: { title: 'Hello', priority: 'LOW', newScope: true },
+    })
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      'p-1',
+      expect.any(Object),
+      'actor-caller',
+      'clerk-1',
+      'mem-1'
+    )
   })
 
   it('respects an explicit projectRef and assigneeRef', async () => {
@@ -386,7 +416,8 @@ describe('taskCliService.createFromCli', () => {
         assigneeActorId: 'actor-ada',
       }),
       'actor-caller',
-      'clerk-1'
+      'clerk-1',
+      'mem-1'
     )
   })
 
