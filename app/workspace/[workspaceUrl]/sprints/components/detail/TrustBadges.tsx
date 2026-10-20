@@ -34,7 +34,7 @@ export function TrustBadges({
       label: intl.formatMessage({ id: 'sprints.detail.trust.noTc' }),
       tone: 'warning',
     }
-  } else if (testsFresh === testsTotal) {
+  } else if (testsPassing === testsTotal && testsFresh === testsTotal) {
     tests = {
       label: intl.formatMessage(
         { id: 'sprints.detail.trust.tc' },
