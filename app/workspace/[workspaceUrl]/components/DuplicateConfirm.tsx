@@ -97,10 +97,15 @@ export function DuplicateConfirm({
                       <span>{match.assigneeName}</span>
                     </>
                   )}
-                  <span>·</span>
-                  <span>
-                    {PRIORITY_LABEL[match.priority] ?? match.priority}
-                  </span>
+                  {/* LUM-1284: an unassessed (NONE) task shows no P-label. */}
+                  {match.priority !== 'NONE' && (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {PRIORITY_LABEL[match.priority] ?? match.priority}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <Button

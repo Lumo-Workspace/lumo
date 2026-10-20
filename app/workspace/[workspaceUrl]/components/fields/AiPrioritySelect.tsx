@@ -15,7 +15,7 @@ import {
 import { useIntl } from 'react-intl'
 import type { PrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import type { ApiPriority } from '../../types'
-import { PRIORITY_CONFIG, PriorityDot } from './shared'
+import { PRIORITY_CONFIG, PRIORITY_LABEL_ID, PriorityDot } from './shared'
 import { Spinner } from '@/components/ui/spinner'
 
 export interface AiPrioritySelectProps {
@@ -36,7 +36,9 @@ export function AiPrioritySelect({
   overrideRecorded,
 }: AiPrioritySelectProps) {
   const intl = useIntl()
-  const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
+  const label = intl.formatMessage({
+    id: PRIORITY_LABEL_ID[value] ?? PRIORITY_LABEL_ID.NONE,
+  })
 
   const tooltipContent = suggestion ? (
     <div className='space-y-1.5 text-caption max-w-64'>
@@ -44,9 +46,11 @@ export function AiPrioritySelect({
         {intl.formatMessage(
           { id: 'priority.recommended' },
           {
-            priority:
-              PRIORITY_CONFIG[suggestion.priority]?.label ??
-              suggestion.priority,
+            priority: PRIORITY_LABEL_ID[suggestion.priority]
+              ? intl.formatMessage({
+                  id: PRIORITY_LABEL_ID[suggestion.priority],
+                })
+              : suggestion.priority,
           }
         )}
       </div>
@@ -94,11 +98,11 @@ export function AiPrioritySelect({
               ApiPriority,
               (typeof PRIORITY_CONFIG)[ApiPriority],
             ][]
-          ).map(([val, { label: lbl }]) => (
+          ).map(([val]) => (
             <SelectItem key={val} value={val}>
               <div className='flex items-center gap-2'>
                 <PriorityDot priority={val} />
-                {lbl}
+                {intl.formatMessage({ id: PRIORITY_LABEL_ID[val] })}
               </div>
             </SelectItem>
           ))}

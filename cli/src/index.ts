@@ -1029,7 +1029,7 @@ task
   )
   .option(
     '--priority <level>',
-    'Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)',
+    'Priority: none | low | medium | high | urgent (case-insensitive; none = not assessed; repeatable or comma-separated)',
     collect,
     []
   )
@@ -1239,12 +1239,12 @@ task
   .command('create <title>')
   .codex(SERVER_ONLY)
   .description(
-    'Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.'
+    'Create a task. --project required when workspace has >1 project; defaults: priority=none (not assessed), assignee=me.'
   )
   .option('-d, --description <text>', 'Task description')
   .option(
     '-p, --priority <level>',
-    'Priority: low | medium | high | urgent (case-insensitive; default: low)'
+    'Priority: none | low | medium | high | urgent (case-insensitive; default: none = not assessed — pass one only when it was actually decided)'
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option(
@@ -3172,7 +3172,7 @@ task
   )
   .option(
     '-p, --priority <level>',
-    'New priority: low | medium | high | urgent (case-insensitive)'
+    'New priority: none | low | medium | high | urgent (case-insensitive; none clears it to not assessed)'
   )
   .option(
     '-a, --assignee <ref>',

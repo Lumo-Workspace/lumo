@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { compareTaskPriority } from '@/lib/task/priority'
 
 export type SortDir = 'asc' | 'desc'
 
@@ -37,20 +38,13 @@ const STATUS_ORDER: Record<string, number> = {
   DONE: 4,
 }
 
-const PRIORITY_ORDER: Record<string, number> = {
-  URGENT: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-  NONE: 4,
-}
-
 export function cmpStatus(a: string, b: string) {
   return (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99)
 }
 
+/** URGENT > HIGH > MEDIUM > LOW > NONE (LUM-1284), unknown values last. */
 export function cmpPriority(a: string, b: string) {
-  return (PRIORITY_ORDER[a] ?? 99) - (PRIORITY_ORDER[b] ?? 99)
+  return compareTaskPriority(a, b)
 }
 
 export function cmpString(a: string, b: string) {

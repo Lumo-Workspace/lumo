@@ -7,6 +7,7 @@ import { gateway } from '@/lib/ai/gateway'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
 import { suggestPrioritySchema } from '@/lib/validation/schemas'
+import type { TaskPriorityValue } from '@/lib/task/priority'
 import {
   PRIORITY_SYSTEM_PROMPT,
   PrioritySuggestionSchema,
@@ -39,12 +40,12 @@ export async function POST(request: Request) {
       id: string
       number: number
       title: string
-      priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+      priority: TaskPriorityValue
     }[] = []
     let overrides: {
       taskTitle: string
-      aiSuggested: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-      userChosen: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+      aiSuggested: TaskPriorityValue
+      userChosen: TaskPriorityValue
     }[] = []
 
     if (projectId) {

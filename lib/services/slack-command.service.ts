@@ -300,7 +300,8 @@ export const slackCommandService = {
       title,
       description: null,
       status: 'TODO',
-      priority: 'MEDIUM',
+      // LUM-1284: /create takes no priority, so the task is not assessed yet.
+      priority: 'NONE',
       assigneeActorId: null,
       createdByMemberId: creatorMemberId,
       agentStatus: null,

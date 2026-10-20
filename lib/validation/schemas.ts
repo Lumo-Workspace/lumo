@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { taskTemplateKeySchema } from '@/lib/validation/task-template'
 import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
+import { ASSESSED_PRIORITIES, TASK_PRIORITIES } from '@/lib/task/priority'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -171,10 +172,8 @@ export const createTaskSchema = z.object({
     .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
     .optional()
     .default('TODO'),
-  priority: z
-    .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-    .optional()
-    .default('MEDIUM'),
+  // LUM-1284: unset means "not assessed" — never invent a priority.
+  priority: z.enum(TASK_PRIORITIES).optional().default('NONE'),
   assigneeActorId: z.string().nullable().optional(),
   sprintId: z.string().nullable().optional(),
   milestoneId: z.string().nullable().optional(),
@@ -191,7 +190,7 @@ export const updateTaskSchema = z
     status: z
       .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
-    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
     assigneeActorId: z.string().nullable().optional(),
     projectId: z.string().optional(),
     order: z.number().optional(),
@@ -222,8 +221,8 @@ const removedParentRef = z
  * CLI-side task create: accepts human-friendly refs (project name/slug,
  * member email/name) instead of internal IDs. Server resolves them.
  *
- * Priority defaults to LOW to match the CLI's UX default. The web schema
- * (`createTaskSchema`) keeps MEDIUM for other callers — do not unify them.
+ * Priority defaults to NONE ("not assessed", LUM-1284), like the web schema:
+ * a task gets a real priority only when the caller passes one explicitly.
  */
 export const cliCreateTaskSchema = z.object({
   title: z
@@ -232,10 +231,8 @@ export const cliCreateTaskSchema = z.object({
     .min(1, 'Title is required')
     .max(500, 'Title must be at most 500 characters'),
   description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
-  priority: z
-    .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-    .optional()
-    .default('LOW'),
+  // LUM-1284: unset means "not assessed" — never invent a priority.
+  priority: z.enum(TASK_PRIORITIES).optional().default('NONE'),
   projectRef: z.string().trim().min(1).max(200).optional(),
   assigneeRef: z.string().trim().min(1).max(200).optional(),
   milestoneRef: z.string().trim().min(1).max(200).optional(),
@@ -272,7 +269,7 @@ export const cliUpdateTaskSchema = z
     status: z
       .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
-    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
     assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
     milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
     // LUM-646: agent-claimable triage marker. Set by `lumo task update
@@ -530,8 +527,8 @@ export const suggestPrioritySchema = z.object({
 export const priorityOverrideSchema = z.object({
   taskId: z.string().min(1, 'Task ID is required'),
   projectId: z.string().min(1, 'Project ID is required'),
-  aiSuggested: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
-  userChosen: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+  aiSuggested: z.enum(ASSESSED_PRIORITIES),
+  userChosen: z.enum(TASK_PRIORITIES),
   taskTitle: z.string().min(1).max(500),
   taskDescription: z.string().max(10000).optional(),
 })
@@ -591,7 +588,7 @@ const executeUpdateActionSchema = z.object({
       .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
     assigneeActorId: z.string().optional(),
-    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
   }),
 })
 
@@ -601,7 +598,7 @@ const executeCreateActionSchema = z.object({
   status: z
     .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
     .default('TODO'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  priority: z.enum(TASK_PRIORITIES).default('NONE'),
   projectId: z.string().min(1, 'Project ID is required'),
   assigneeActorId: z.string().nullable().optional(),
   description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
@@ -629,7 +626,7 @@ export const taskDraftDataSchema = z.object({
   status: z
     .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
     .optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
   projectId: z.string().optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().datetime().nullable().optional(),
@@ -726,7 +723,7 @@ export const workspaceTaskFiltersSchema = z.object({
       ])
     )
     .optional(),
-  priorities: z.array(z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])).optional(),
+  priorities: z.array(z.enum(TASK_PRIORITIES)).optional(),
   assigneeActorIds: z.array(z.string()).optional(),
   unassigned: z.boolean().optional(),
   tagIds: z.array(z.string()).optional(),

@@ -122,7 +122,7 @@ export function NewTaskModal({
     preFill?.status ?? defaultStatus ?? 'TODO'
   )
   const [priority, setPriority] = useState<ApiPriority>(
-    preFill?.priority ?? 'MEDIUM'
+    preFill?.priority ?? 'NONE'
   )
   const [projectId, setProjectId] = useState(
     preFill?.projectId ?? defaultProjectId ?? ''
@@ -206,7 +206,7 @@ export function NewTaskModal({
     descriptionRef.current = null
     setDescriptionValue(null)
     setStatus(defaultStatus ?? 'TODO')
-    setPriority('MEDIUM')
+    setPriority('NONE')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
     setDueDate(null)
@@ -227,7 +227,7 @@ export function NewTaskModal({
     if (title) formData.title = title
     if (descriptionValue) formData.description = descriptionValue
     if (status !== 'TODO') formData.status = status
-    if (priority !== 'MEDIUM') formData.priority = priority
+    if (priority !== 'NONE') formData.priority = priority
     if (projectId) formData.projectId = projectId
     if (assigneeId) formData.assigneeId = assigneeId
     if (dueDate) formData.dueDate = dueDate
@@ -269,7 +269,7 @@ export function NewTaskModal({
     const descText = descriptionRef.current?.replace(/<[^>]*>/g, '').trim()
     if (descText) formData.description = descriptionRef.current
     if (status !== 'TODO') formData.status = status
-    if (priority !== 'MEDIUM') formData.priority = priority
+    if (priority !== 'NONE') formData.priority = priority
     if (effectiveProjectId) formData.projectId = effectiveProjectId
     if (assigneeId) formData.assigneeId = assigneeId
     if (dueDate) formData.dueDate = dueDate

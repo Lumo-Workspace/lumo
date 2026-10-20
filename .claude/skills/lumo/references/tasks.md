@@ -10,7 +10,7 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-d, --description <>`   | string | Optional task description.                                                                                                                                              |
 | `--template <key>`       | string | Pre-fill the description from a task template. Not with `--description`.                                                                                                |
-| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.                                                                                                |
+| `-p, --priority <level>` | enum   | `none \| low \| medium \| high \| urgent` (case-insensitive). Omitted → `NONE` (not assessed, LUM-1284). Pass one only when the user decided it — never guess.          |
 | `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                                                                                                     |
 | `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**                                                                                        |
 | `--milestone <ref>`      | string | Milestone slug (as in the web URL) or name (case-insensitive) within the resolved project; an ambiguous name is rejected with the candidate slugs. Omit for no binding. |
@@ -58,7 +58,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 ### When to suggest `task create`
 
 - The user describes wanting a new task ("create a task to ...", "file a bug for ...", "log a TODO that ...", "add a task: ...").
-- After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title and priority.
+- After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title; add `--priority` only when the user stated one (omitted = `NONE`, not assessed).
 - For follow-ups discovered mid-work that shouldn't bloat the current change — propose `task create` rather than silently expanding scope.
 - When the task will be handed to an agent, suggest `--template agent-brief` so the description starts as a brief (Context / Goal / Non-goals / Watch out / Done when / Decisions) the user fills in before work starts.
 
@@ -117,7 +117,7 @@ Pure flag-driven update. Provide at least one of:
 | `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                                                                                                                                                                           |
 | `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done \| canceled` (case-insensitive). `done` and `canceled` are gated — see below.                                                                                                                                             |
 | `--duplicate-of <id>`    | string              | LUM-1282: only with `--status canceled` — the canonical task this one duplicates (`LUM-12`). Records a `DUPLICATES` dependency. A self-reference, a non-identifier or use without `--status canceled` is a usage error (exit 2); a missing target exits 1 before any envelope. |
-| `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                             |
+| `-p, --priority <lvl>`   | enum                | `none \| low \| medium \| high \| urgent`. `none` resets it to not assessed (LUM-1284).                                                                                                                                                                                        |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                            |
 | `--milestone <ref>`      | string              | Milestone slug (as in the web URL) or name (case-insensitive) within the task's project; an ambiguous name is rejected with the candidate slugs. `--milestone ""` unbinds.                                                                                                     |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                                  |
@@ -300,7 +300,7 @@ On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2
 | `--search <text>`                 | string              | Every whitespace-separated term must match (see **Search** below). Ranked by relevance, typo-tolerant.                        |
 | `--exact`                         | boolean             | With `--search`: substring matching only, board order. Alone it is a usage error (exit 2).                                    |
 | `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done \| canceled`; repeat or comma-separate.                                  |
-| `--priority <level>`              | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate. No short flag.                                                   |
+| `--priority <level>`              | enum (repeatable)   | `none \| low \| medium \| high \| urgent` (`none` = not assessed); repeat or comma-separate. No short flag.                   |
 | `--tag <name>`                    | string (repeatable) | Tag name, case-insensitive (any of). Unknown name = error — listing never creates tags.                                       |
 | `--project <ref>`                 | string              | Global flag: project name or slug (unknown = error).                                                                          |
 | `-m, --milestone <ref>`           | string              | Milestone slug, name or id.                                                                                                   |
@@ -364,7 +364,7 @@ The last page prints only the `Showing …` line; a result that fits on one page
 
 ### `lumo task statuses [--json]` — the workflow as the server defines it
 
-Prints the status set with each status's allowed transitions, the priorities, and which statuses are gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate; `CANCELED`: always needs the user's `--confirm`, LUM-1282). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
+Prints the status set with each status's allowed transitions, the priorities (`NONE, LOW, MEDIUM, HIGH, URGENT` — `NONE` = not assessed, the default for new tasks, sorts last), and which statuses are gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate; `CANCELED`: always needs the user's `--confirm`, LUM-1282). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
 
 ```bash
 lumo task statuses
@@ -378,7 +378,7 @@ Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
 the list, then run `lumo session attach <LUM-N>` + `lumo task show <LUM-N> --full`.
 
-Ranking is lexicographic: **priority** (URGENT→LOW) first, then **active-sprint
+Ranking is lexicographic: **priority** (URGENT→LOW, then NONE = not assessed; the reason line reads `no priority`) first, then **active-sprint
 membership**, then **dependency topology** (LUM-645: tasks with an open
 CONFIRMED blocker sort after workable ones; among workable peers the task that
 directly unblocks the most open tasks ranks first), then **due date** (earlier

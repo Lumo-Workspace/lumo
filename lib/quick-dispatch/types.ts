@@ -1,3 +1,4 @@
+import type { TaskPriorityValue } from '@/lib/task/priority'
 export type Mention =
   | {
       type: 'task'
@@ -29,7 +30,7 @@ export type QuickAction =
           | 'DONE'
           | 'CANCELED'
         assigneeActorId?: string
-        priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+        priority?: TaskPriorityValue
       }
       confidence: 'high' | 'medium' | 'low'
     }
@@ -37,7 +38,7 @@ export type QuickAction =
       type: 'create'
       title: string
       status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
-      priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+      priority: TaskPriorityValue
       projectId: string | null
       projectName: string | null
       assigneeActorId: string | null

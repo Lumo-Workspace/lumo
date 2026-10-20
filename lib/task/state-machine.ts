@@ -2,6 +2,7 @@ import type { TaskStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { DomainEvent } from '@/lib/events/types'
+import { TASK_PRIORITIES } from '@/lib/task/priority'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,8 +66,6 @@ export function terminalTimestampPatch(
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
 
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
-
 export interface TaskWorkflowCatalog {
   statuses: Array<{ value: TaskStatusValue; transitionsTo: TaskStatusValue[] }>
   priorities: readonly string[]
@@ -84,7 +83,7 @@ export function taskWorkflowCatalog(): TaskWorkflowCatalog {
       value,
       transitionsTo: [...TRANSITIONS[value]],
     })),
-    priorities: PRIORITIES,
+    priorities: TASK_PRIORITIES,
     gatedStatuses: [...GATED_STATUSES],
   }
 }

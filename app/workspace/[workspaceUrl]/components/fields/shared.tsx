@@ -30,6 +30,13 @@ export const PRIORITY_CONFIG: Record<
     label: 'Low',
     iconColor: 'text-priority-low',
   },
+  // LUM-1284: not assessed. Listed last (it sorts after LOW) and drawn as a
+  // hollow dashed ring in the muted foreground, so it reads as "no priority"
+  // rather than as a fifth level.
+  NONE: {
+    label: 'No priority',
+    iconColor: 'text-muted-foreground',
+  },
 }
 
 /** react-intl message ids for priority labels (LUM-263). `label` above stays
@@ -39,6 +46,7 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
   HIGH: 'priority.high',
   MEDIUM: 'priority.medium',
   LOW: 'priority.low',
+  NONE: 'priority.none',
 }
 
 /** Shared trigger class for all inline task-field selects */
@@ -103,13 +111,15 @@ export function PriorityDot({
   className,
   ...props
 }: { priority: ApiPriority } & ComponentProps<'span'>) {
-  const { iconColor } = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
+  const config = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.NONE
+  const unassessed = config === PRIORITY_CONFIG.NONE
   return (
     <span
       data-testid={`priority-dot-${priority.toLowerCase()}`}
       className={cn(
-        'inline-block size-2.5 shrink-0 rounded-full bg-current',
-        iconColor,
+        'inline-block size-2.5 shrink-0 rounded-full',
+        unassessed ? 'border border-dashed border-current' : 'bg-current',
+        config.iconColor,
         className
       )}
       {...props}

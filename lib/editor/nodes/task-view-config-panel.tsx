@@ -11,8 +11,8 @@ import { useTags } from '@/app/workspace/[workspaceUrl]/hooks/useTags'
 import { useMembers } from '@/app/workspace/[workspaceUrl]/hooks/useMembers'
 import { useWorkspaceMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones'
 import { statusLabel } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
-import { PRIORITY_CONFIG } from '@/app/workspace/[workspaceUrl]/components/fields/shared'
-import type { ApiPriority } from '@/app/workspace/[workspaceUrl]/types'
+import { PRIORITY_LABEL_ID } from '@/app/workspace/[workspaceUrl]/components/fields/shared'
+import { PRIORITY_DISPLAY_ORDER } from '@/lib/task/priority'
 import {
   FilterCheckboxGroup,
   type FilterOption,
@@ -31,7 +31,6 @@ const STATUS_ORDER = [
   'DONE',
   'CANCELED',
 ] as const
-const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
 const GROUP_BY_ORDER: TaskViewGroupBy[] = [
   'none',
   'status',
@@ -66,9 +65,9 @@ export function TaskViewConfigPanel({
     value: s,
     label: statusLabel(intl, s),
   }))
-  const priorityOptions: FilterOption[] = PRIORITY_ORDER.map(p => ({
+  const priorityOptions: FilterOption[] = PRIORITY_DISPLAY_ORDER.map(p => ({
     value: p,
-    label: PRIORITY_CONFIG[p].label,
+    label: intl.formatMessage({ id: PRIORITY_LABEL_ID[p] }),
   }))
   const projectOptions: FilterOption[] = projects.map(p => ({
     value: p.id,
