@@ -43,6 +43,20 @@ jest.mock(
   })
 )
 
+// jsdom has no PointerEvent, so fireEvent.pointerDown would drop `button`
+// and the Radix DropdownMenu trigger (which opens on pointerdown) ignores it.
+if (typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent
+}
+
+// Radix DropdownMenu opens on pointerdown (not click).
+function openMenu() {
+  fireEvent.pointerDown(screen.getByTestId('comment-menu-c1'), {
+    button: 0,
+    ctrlKey: false,
+  })
+}
+
 const base = {
   id: 'c1',
   documentId: 'd1',
@@ -149,7 +163,7 @@ it('edit/delete live behind a kebab menu, hidden until opened', () => {
   expect(screen.queryByTestId('edit-c1')).toBeNull()
   expect(screen.queryByTestId('delete-c1')).toBeNull()
   // Open the menu → both actions appear.
-  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  openMenu()
   expect(screen.getByTestId('edit-c1')).toBeInTheDocument()
   expect(screen.getByTestId('delete-c1')).toBeInTheDocument()
 })
@@ -163,7 +177,7 @@ it('hides the menu (and edit/delete) for non-authors', () => {
 
 it('opens the cancelable editor from the menu', () => {
   r()
-  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  openMenu()
   fireEvent.click(screen.getByTestId('edit-c1'))
   expect(screen.getByTestId('edit-mode')).toBeInTheDocument()
 })
@@ -171,7 +185,7 @@ it('opens the cancelable editor from the menu', () => {
 it('edit mode is cancelable — Cancel returns to read-only without saving', () => {
   const onEdit = jest.fn()
   r({ onEdit })
-  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  openMenu()
   fireEvent.click(screen.getByTestId('edit-c1'))
   expect(screen.getByText('common.cancel')).toBeInTheDocument()
   fireEvent.click(screen.getByText('common.cancel'))
@@ -210,7 +224,7 @@ it('renders a deleted parent as a tombstone with its replies, no menu', () => {
 it('calls onDelete after confirmation (author)', () => {
   const onDelete = jest.fn()
   r({ onDelete })
-  fireEvent.click(screen.getByTestId('comment-menu-c1')) // open menu
+  openMenu() // open menu
   fireEvent.click(screen.getByTestId('delete-c1')) // arm confirm
   expect(onDelete).not.toHaveBeenCalled()
   fireEvent.click(screen.getByTestId('confirm-delete-c1'))
@@ -219,7 +233,7 @@ it('calls onDelete after confirmation (author)', () => {
 
 it('drops the delete confirm/cancel once the comment becomes a tombstone', () => {
   const { rerender } = r()
-  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  openMenu()
   fireEvent.click(screen.getByTestId('delete-c1'))
   expect(screen.getByTestId('confirm-delete-c1')).toBeInTheDocument()
   // The delete lands: the parent (with live replies) becomes a tombstone.
@@ -244,7 +258,7 @@ it('drops the delete confirm/cancel once the comment becomes a tombstone', () =>
 it('cancels delete without calling onDelete', () => {
   const onDelete = jest.fn()
   r({ onDelete })
-  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  openMenu()
   fireEvent.click(screen.getByTestId('delete-c1'))
   fireEvent.click(screen.getByTestId('cancel-delete-c1'))
   expect(onDelete).not.toHaveBeenCalled()

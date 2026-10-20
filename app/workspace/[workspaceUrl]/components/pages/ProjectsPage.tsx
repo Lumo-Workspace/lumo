@@ -50,6 +50,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { Command, CommandItem, CommandList } from '@/components/ui/command'
 
 type ProjectSortKey =
   | 'name'
@@ -222,17 +224,6 @@ export function ProjectsPage({
     }
   }
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb with primary actions above the separator */}
@@ -240,48 +231,76 @@ export function ProjectsPage({
         title={intl.formatMessage({ id: 'sidebar.projects' })}
         actions={
           <div className='flex items-center gap-2'>
-            <div className='relative w-56' ref={searchRef}>
-              <SearchInput
-                value={query}
-                onChange={v => {
-                  setQuery(v)
-                  setOpen(true)
+            {/* Search-as-you-type: arrow keys / Enter bubble from the input to
+                the <Command>, which drives the highlighted project. */}
+            <Command
+              shouldFilter={false}
+              className='h-auto w-56 overflow-visible rounded-none bg-transparent text-inherit'
+            >
+              <Popover
+                open={open && !!query.trim()}
+                onOpenChange={next => {
+                  if (!next) setOpen(false)
                 }}
-                onFocus={() => setOpen(true)}
-                placeholder={intl.formatMessage({
-                  id: 'projects.searchPlaceholder',
-                })}
-              />
-              {open && query.trim() && (
-                <div className='absolute top-full mt-1 w-full bg-card border border-border rounded-md shadow-elevation-3 z-dropdown overflow-hidden'>
-                  {filtered.length === 0 ? (
-                    <p className='px-3 py-2.5 text-caption text-muted-foreground'>
-                      {intl.formatMessage({ id: 'projects.searchNoMatch' })}
-                    </p>
-                  ) : (
-                    filtered.map(p => (
-                      <Button
-                        key={p.id}
-                        variant='ghost'
-                        className='w-full justify-between h-auto px-3 py-2.5 text-caption font-normal text-foreground rounded-none gap-2'
-                        onMouseDown={() => {
-                          setQuery('')
-                          setOpen(false)
-                          onSelectProject(p)
-                        }}
-                      >
-                        <span className='truncate'>{p.name}</span>
-                        {p.isIdea && (
-                          <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
-                            {intl.formatMessage({ id: 'projects.draftBadge' })}
-                          </span>
-                        )}
-                      </Button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+              >
+                <PopoverAnchor asChild>
+                  <div ref={searchRef}>
+                    <SearchInput
+                      value={query}
+                      onChange={v => {
+                        setQuery(v)
+                        setOpen(true)
+                      }}
+                      onFocus={() => setOpen(true)}
+                      placeholder={intl.formatMessage({
+                        id: 'projects.searchPlaceholder',
+                      })}
+                    />
+                  </div>
+                </PopoverAnchor>
+                <PopoverContent
+                  align='start'
+                  className='w-[var(--radix-popover-trigger-width)] p-1'
+                  onOpenAutoFocus={e => e.preventDefault()}
+                  onCloseAutoFocus={e => e.preventDefault()}
+                  onMouseDown={e => e.preventDefault()}
+                  onInteractOutside={e => {
+                    if (searchRef.current?.contains(e.target as Node))
+                      e.preventDefault()
+                  }}
+                >
+                  <CommandList>
+                    {filtered.length === 0 ? (
+                      <p className='px-2 py-1.5 text-caption text-muted-foreground'>
+                        {intl.formatMessage({ id: 'projects.searchNoMatch' })}
+                      </p>
+                    ) : (
+                      filtered.map(p => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.id}
+                          onSelect={() => {
+                            setQuery('')
+                            setOpen(false)
+                            onSelectProject(p)
+                          }}
+                          className='justify-between text-caption'
+                        >
+                          <span className='truncate'>{p.name}</span>
+                          {p.isIdea && (
+                            <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
+                              {intl.formatMessage({
+                                id: 'projects.draftBadge',
+                              })}
+                            </span>
+                          )}
+                        </CommandItem>
+                      ))
+                    )}
+                  </CommandList>
+                </PopoverContent>
+              </Popover>
+            </Command>
             <Button onClick={onNewProject} size='sm' className='gap-1.5'>
               <Plus size={14} />
               {intl.formatMessage({ id: 'projects.create' })}
