@@ -2,8 +2,10 @@ import {
   countByFile,
   detectViolations,
   findRegressions,
+  findZeroToleranceViolations,
   isAllowed,
   isTypeScaleScoped,
+  ZERO_TOLERANCE_RULES,
 } from '@/scripts/lint-tokens'
 
 describe('lint-tokens / detectViolations', () => {
@@ -435,5 +437,55 @@ describe('lint-tokens / findRegressions', () => {
   it('returns regressions sorted by file path', () => {
     const r = findRegressions({ 'z.tsx': 2, 'a.tsx': 1, 'm.tsx': 3 }, {})
     expect(r.map(x => x.file)).toEqual(['a.tsx', 'm.tsx', 'z.tsx'])
+  })
+})
+
+describe('lint-tokens css-var-syntax rule (LUM-1277)', () => {
+  const cssVarHits = (path: string, src: string) =>
+    detectViolations(path, src)
+      .filter(x => x.rule === 'css-var-syntax')
+      .map(x => x.match)
+
+  it('flags the Tailwind v3 bracket shorthand, with or without variants', () => {
+    expect(
+      cssVarHits(
+        'components/ui/sidebar/frame.tsx',
+        `'w-[--x] !max-w-[--sidebar-width] group-data-[collapsible=icon]:w-[--sidebar-width-icon] origin-[--radix-popover-content-transform-origin]'`
+      )
+    ).toEqual([
+      'w-[--x]',
+      'max-w-[--sidebar-width]',
+      'w-[--sidebar-width-icon]',
+      'origin-[--radix-popover-content-transform-origin]',
+    ])
+  })
+
+  it('allows the v4 parenthesis form, explicit var() and calc() values', () => {
+    expect(
+      cssVarHits(
+        'components/ui/select.tsx',
+        `'w-(--sidebar-width)! max-h-(--radix-select-content-available-height) h-[var(--radix-select-trigger-height)] w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))] data-[state=open]:animate-in'`
+      )
+    ).toEqual([])
+  })
+
+  it('applies to app/, components/, ee/ even in colour-allowlisted files, not to tests', () => {
+    expect(cssVarHits('app/foo/page.tsx', `'w-[--x]'`)).toEqual(['w-[--x]'])
+    expect(cssVarHits('ee/foo.ts', `'w-[--x]'`)).toEqual(['w-[--x]'])
+    expect(isAllowed('components/ui/icons.tsx')).toBe(true)
+    expect(cssVarHits('components/ui/icons.tsx', `'w-[--x]'`)).toEqual([
+      'w-[--x]',
+    ])
+    expect(cssVarHits('lib/foo.ts', `'w-[--x]'`)).toEqual([])
+    expect(cssVarHits('app/foo.test.tsx', `'w-[--x]'`)).toEqual([])
+  })
+
+  it('is zero-tolerance: a hit fails even when the file is baselined', () => {
+    const violations = detectViolations(
+      'components/ui/sidebar/menu.tsx',
+      `'h-4 max-w-[--skeleton-width] flex-1'`
+    )
+    expect(findZeroToleranceViolations(violations)).toHaveLength(1)
+    expect(ZERO_TOLERANCE_RULES.has('css-var-syntax')).toBe(true)
   })
 })
