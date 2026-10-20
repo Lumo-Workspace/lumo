@@ -6,6 +6,7 @@ import {
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { callSprintSummaryLLM } from '@/lib/llm/sprint-summary-client'
 import { taskStatusService } from '@/lib/services/task-status.service'
+import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -23,8 +24,14 @@ export const sprintSummaryService = {
       await generationJobRepository.findPendingSprintJob(sprintId)
 
     try {
-      const { stats, tasks } =
-        await sprintSummaryRepository.computeStatsData(sprintId)
+      const { stats, tasks } = await sprintSummaryRepository.computeStatsData(
+        sprintId,
+        {
+          // LUM-1280: the DONE gate's plugin plane, for the verified count.
+          securityBlocking: async taskId =>
+            (await collectDoneGateBlockers(taskId)).length,
+        }
+      )
 
       // LUM-506: roll the negative-class struggle signals up across the
       // sprint's tasks so the retro reports reopens / extra PR cycles instead of an

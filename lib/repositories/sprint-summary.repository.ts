@@ -2,6 +2,12 @@ import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { sprintProcessStagesRepository } from '@/lib/repositories/sprint-process-stages.repository'
+import {
+  computeProcessStages,
+  type ProcessStagesStats,
+} from '@/lib/summaries/sprint-process-stages'
+import { assembleStageInputs } from '@/lib/summaries/sprint-process-stages-inputs'
 
 export interface SprintSummaryData {
   stats: SprintStats
@@ -15,6 +21,18 @@ export interface SprintStats {
   spillover: number
   byPriority: Record<string, number>
   byAssignee: Record<string, number>
+  /** LUM-1280: median dwell per neutral stage, frozen at close (raw hook
+   *  payloads get pruned later). Optional: summaries written before it lack
+   *  it. Closed-sprint retro only — never shown on a live sprint. */
+  processStages?: ProcessStagesStats
+  /** LUM-1280: tasks verified at close (`lib/summaries/sprint-verified.ts`). */
+  verifiedCount?: number
+}
+
+export interface ComputeStatsOptions {
+  /** Open security-plugin DONE blockers for a task (the gate's plugin plane).
+   *  Asked only for DONE tasks; omitted → no plugin, 0 blockers. */
+  securityBlocking?: (taskId: string) => Promise<number>
 }
 
 export interface SprintStatsData {
@@ -51,7 +69,10 @@ export const sprintSummaryRepository = {
    * the stats snapshot persisted on SprintSummary. Service calls this then
    * hands tasks + stats to the LLM.
    */
-  async computeStatsData(sprintId: string): Promise<SprintStatsData> {
+  async computeStatsData(
+    sprintId: string,
+    options: ComputeStatsOptions = {}
+  ): Promise<SprintStatsData> {
     // BACKLOG is unscheduled work and stays out of sprint stats (LUM-1057).
     const tasks = (await taskRepository.listBySprintForStats(sprintId)).filter(
       t => t.status !== 'BACKLOG'
@@ -73,6 +94,43 @@ export const sprintSummaryRepository = {
         acc[key] = (acc[key] ?? 0) + 1
         return acc
       }, {}),
+    }
+
+    // LUM-1280: process stages + verified count, frozen at close.
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      select: {
+        startDate: true,
+        endDate: true,
+        startedAt: true,
+        closedAt: true,
+        team: { select: { workspaceId: true } },
+      },
+    })
+    if (sprint) {
+      const taskIds = tasks.map(t => t.id)
+      const securityBlockingByTask = new Map<string, number>()
+      const { securityBlocking } = options
+      if (securityBlocking) {
+        const done = tasks.filter(t => t.status === 'DONE')
+        const counts = await Promise.all(done.map(t => securityBlocking(t.id)))
+        done.forEach((t, i) => securityBlockingByTask.set(t.id, counts[i] ?? 0))
+      }
+      const rows = await sprintProcessStagesRepository.loadInputs(
+        sprint.team.workspaceId,
+        taskIds
+      )
+      const { stageTasks, verifiedCount } = assembleStageInputs(
+        tasks,
+        rows,
+        securityBlockingByTask
+      )
+      stats.processStages = computeProcessStages(stageTasks, {
+        start: sprint.startedAt ?? sprint.startDate,
+        end: sprint.closedAt ?? sprint.endDate,
+        crossingGateEnabled: rows.crossingGateEnabled,
+      })
+      stats.verifiedCount = verifiedCount
     }
     return { stats, tasks }
   },

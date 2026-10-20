@@ -9,6 +9,11 @@ const mockMarkCompleted = jest.fn()
 const mockMarkFailed = jest.fn()
 const mockAggregateStruggle = jest.fn()
 
+const mockCollectDoneGateBlockers = jest.fn()
+jest.mock('@/lib/plugins/done-gate', () => ({
+  collectDoneGateBlockers: (...a: any[]) => mockCollectDoneGateBlockers(...a),
+}))
+
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: {
     findById: (...a: any[]) => mockFindSprint(...a),
@@ -100,7 +105,14 @@ describe('sprintSummaryService.generate', () => {
     const result = await sprintSummaryService.generate('sprint-1')
 
     expect(mockFindSprint).toHaveBeenCalledWith('sprint-1')
-    expect(mockComputeStatsData).toHaveBeenCalledWith('sprint-1')
+    expect(mockComputeStatsData).toHaveBeenCalledWith('sprint-1', {
+      securityBlocking: expect.any(Function),
+    })
+    // LUM-1280: the DONE gate's plugin plane feeds the verified count.
+    mockCollectDoneGateBlockers.mockResolvedValueOnce([{}, {}])
+    const { securityBlocking } = mockComputeStatsData.mock.calls[0][1]
+    await expect(securityBlocking('t1')).resolves.toBe(2)
+    expect(mockCollectDoneGateBlockers).toHaveBeenCalledWith('t1')
     expect(mockAggregateStruggle).toHaveBeenCalledWith(
       STATS_DATA.tasks.map(t => t.id)
     )
