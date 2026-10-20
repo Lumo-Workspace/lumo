@@ -153,9 +153,11 @@ existing injection, so during the transition both paths are active and overlap i
   upsync candidate (the reverse direction is a later phase).
 - **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
   writing; `--clean` removes every owned file, `team/INDEX.md` and the managed block (full rollback).
-  The summary line ends with `· index updated` when only the index changes (the
-  `MEMORY.md` block or `team/INDEX.md`, e.g. migrating an old full-list block),
-  so a run with `+0 · ~0 · -0` can still have rewritten the index. An empty corpus
+  The summary line includes `· index updated` (right after the
+  added/updated/removed counts, before any drift-skip note) whenever the index
+  changes — the `MEMORY.md` block or `team/INDEX.md`, e.g. migrating an old
+  full-list block — so `+0 added · ~0 updated · -0 removed` can still mean the
+  index was rewritten. An empty corpus
   removes the block and `team/INDEX.md` entirely.
 - **Code-anchor staleness check**: after downsync, each synced memory's
   code anchors (file paths, and backtick-wrapped symbols/flags) are checked against
