@@ -112,7 +112,7 @@ describe('sprintSummaryRepository.computeStatsData', () => {
     })
   })
 
-  it('bounds plugin lookups and treats an unreadable plane as not verified', async () => {
+  it('runs at most 5 plugin lookups at once and asks every DONE task', async () => {
     const many = Array.from({ length: 12 }, (_, i) => ({
       id: `d${i}`,
       status: 'DONE',

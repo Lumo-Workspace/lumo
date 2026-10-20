@@ -9,12 +9,12 @@ import { activeIntervalsByTask } from '@/lib/agent-run/active-time'
 import { parseStatusPayload } from '@/lib/summaries/burnup-replay'
 import {
   isTaskVerified,
+  summarizeTestTrust,
   verifiedAt,
-  type VerifiedTaskInput,
+  type GateState,
+  type VerifiedCaseInput,
 } from '@/lib/summaries/sprint-verified'
 import type { StageTaskInput } from '@/lib/summaries/sprint-process-stages'
-import { deriveLatestVerdict } from '@/lib/test-cases/case-summary'
-import { deriveRunFreshness } from '@/lib/test-cases/freshness'
 import type { CeilingEnvironment } from '@/lib/test-cases/provability'
 
 export interface StageRows {
@@ -82,20 +82,21 @@ function groupBy<T>(rows: T[], key: (r: T) => string | null) {
 }
 
 /**
- * The shared verified-predicate input for one task, as read at close. The
- * gate count mirrors the DONE gate: open non-advisory crossings (all of them
- * when the workspace gate is on, else HIGH only) + plugin security blockers +
- * latest-run proven defects nobody has ruled on.
+ * Whether the task was verified at close, and when — through the shared
+ * predicate (`./sprint-verified.ts`). The gate mirrors the DONE gate: open
+ * non-advisory crossings (all of them when the workspace gate is on, else HIGH
+ * only), plugin security blockers (`null` = unreadable → `unknown`, never
+ * clear) and latest-run proven defects nobody has ruled on.
  */
-function verifiedInput(
+function verification(
   status: string,
   crossings: StageRows['crossings'],
   pullRequests: StageRows['pullRequests'],
   testCases: StageRows['testCases'],
   statusEvents: StageRows['statusEvents'],
   gateEnabled: boolean,
-  securityBlocking: number
-): VerifiedTaskInput {
+  securityBlocking: number | null
+): { verified: boolean; at: Date | null } {
   const crossingsBlocking = crossings.filter(
     c =>
       c.disposition === null &&
@@ -109,24 +110,34 @@ function verifiedInput(
       latest.disposition === null
     )
   }).length
+  const gate: GateState =
+    crossingsBlocking + testsBlocking + (securityBlocking ?? 0) > 0
+      ? 'blocked'
+      : securityBlocking === null
+        ? 'unknown'
+        : 'clear'
+
+  const cases: VerifiedCaseInput[] = testCases.map(tc => ({
+    requiredEnvironment: tc.requiredEnvironment,
+    latestRun: tc.runs[0] ?? null,
+  }))
+  const prsById = new Map(pullRequests.map(pr => [pr.id, pr]))
+  const verified = isTaskVerified({
+    status,
+    gate,
+    tests: summarizeTestTrust(cases, prsById),
+  })
+
   let doneAt: Date | null = null
   for (const e of statusEvents) {
     if (parseStatusPayload(e.payload)?.to === 'DONE') doneAt = e.createdAt
   }
   return {
-    status,
-    gateBlocking: crossingsBlocking + securityBlocking + testsBlocking,
-    doneAt,
-    testCases: testCases.map(tc => {
-      const latest = tc.runs[0] ?? null
-      const pr = latest?.pullRequestId
-        ? (pullRequests.find(p => p.id === latest.pullRequestId) ?? null)
-        : null
-      return {
-        verdict: deriveLatestVerdict(latest, tc.requiredEnvironment),
-        freshness: latest ? deriveRunFreshness(latest, pr).state : null,
-        latestRunAt: latest?.createdAt ?? null,
-      }
+    verified,
+    at: verifiedAt({
+      verified,
+      doneAt,
+      latestRunAts: testCases.map(tc => tc.runs[0]?.createdAt ?? null),
     }),
   }
 }
@@ -134,7 +145,9 @@ function verifiedInput(
 export function assembleStageInputs(
   tasks: Array<{ id: string; status: TaskStatus | string }>,
   rows: StageRows,
-  securityBlockingByTask: ReadonlyMap<string, number>
+  /** Plugin security blockers per DONE task; `null` = the plane could not
+   *  be read. A task missing from the map has none. */
+  securityBlockingByTask: ReadonlyMap<string, number | null>
 ): { stageTasks: StageTaskInput[]; verifiedCount: number } {
   const statusByTask = groupBy(rows.statusEvents, r => r.taskId)
   const crossingsByTask = groupBy(rows.crossings, r => r.taskId)
@@ -147,23 +160,25 @@ export function assembleStageInputs(
     const statusEvents = statusByTask.get(task.id) ?? []
     const crossings = crossingsByTask.get(task.id) ?? []
     const pullRequests = prsByTask.get(task.id) ?? []
-    const input = verifiedInput(
+    const { verified, at } = verification(
       task.status,
       crossings,
       pullRequests,
       casesByTask.get(task.id) ?? [],
       statusEvents,
       rows.crossingGateEnabled,
-      securityBlockingByTask.get(task.id) ?? 0
+      securityBlockingByTask.has(task.id)
+        ? (securityBlockingByTask.get(task.id) ?? null)
+        : 0
     )
-    if (isTaskVerified(input)) verifiedCount++
+    if (verified) verifiedCount++
     const firstInProgress = statusEvents.find(
       e => parseStatusPayload(e.payload)?.to === 'IN_PROGRESS'
     )
     return {
       taskId: task.id,
       startedAt: firstInProgress?.createdAt ?? null,
-      verifiedAt: verifiedAt(input),
+      verifiedAt: at,
       crossings,
       agentIntervals: agentByTask.get(task.id) ?? [],
       pullRequests,

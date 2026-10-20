@@ -113,21 +113,20 @@ export const sprintSummaryRepository = {
     })
     if (sprint) {
       const taskIds = tasks.map(t => t.id)
-      const securityBlockingByTask = new Map<string, number>()
+      const securityBlockingByTask = new Map<string, number | null>()
       const { securityBlocking } = options
       if (securityBlocking) {
-        const done = tasks.filter(t => t.status === 'DONE')
-        for (let i = 0; i < done.length; i += SECURITY_LOOKUP_CONCURRENCY) {
-          const chunk = done.slice(i, i + SECURITY_LOOKUP_CONCURRENCY)
-          const counts = await Promise.all(
-            chunk.map(t => securityBlocking(t.id))
-          )
-          chunk.forEach((t, j) => {
-            const count = counts[j]
-            // Unreadable → count it as blocked so the task is not verified.
-            securityBlockingByTask.set(t.id, count === null ? 1 : (count ?? 0))
-          })
+        // A small worker pool: at most N lookups in flight, and a slow one
+        // does not hold back the rest of a batch.
+        const queue = tasks.filter(t => t.status === 'DONE').map(t => t.id)
+        const worker = async () => {
+          for (let id = queue.shift(); id; id = queue.shift()) {
+            securityBlockingByTask.set(id, await securityBlocking(id))
+          }
         }
+        await Promise.all(
+          Array.from({ length: SECURITY_LOOKUP_CONCURRENCY }, worker)
+        )
       }
       const rows = await sprintProcessStagesRepository.loadInputs(
         sprint.team.workspaceId,

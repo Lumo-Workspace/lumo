@@ -159,13 +159,23 @@ describe('activeIntervalsByTask', () => {
 })
 
 describe('assembleStageInputs with an unreadable security plane', () => {
-  it('a non-zero blocker count (unreadable maps to 1) un-verifies', () => {
+  it('null (unreadable) reads as gate unknown → not verified', () => {
+    const { stageTasks, verifiedCount } = assembleStageInputs(
+      [{ id: 't1', status: 'DONE' }],
+      rows(),
+      new Map([['t1', null]])
+    )
+    expect(verifiedCount).toBe(0)
+    expect(stageTasks[0]!.verifiedAt).toBeNull()
+  })
+
+  it('a task absent from the map has no security blockers', () => {
     expect(
       assembleStageInputs(
         [{ id: 't1', status: 'DONE' }],
         rows(),
-        new Map([['t1', 1]])
+        new Map([['other', 3]])
       ).verifiedCount
-    ).toBe(0)
+    ).toBe(1)
   })
 })
