@@ -190,12 +190,13 @@ describe('extractTasksFromDoc', () => {
       selector: { type: 'all_unchecked' },
     })
 
-    // createTask records its actorId argument as createdByActorId.
+    // The calling member is passed explicitly as the creator.
     expect(createTask).toHaveBeenCalledWith(
       'proj_1',
       expect.objectContaining({ title: 'only' }),
       'actor_1',
-      'user_1'
+      'user_1',
+      'mem_1'
     )
   })
 
@@ -246,7 +247,8 @@ describe('extractTasksFromDoc', () => {
         description: 'a'.repeat(50),
       }),
       'actor_1',
-      'user_1'
+      'user_1',
+      'mem_1'
     )
   })
 

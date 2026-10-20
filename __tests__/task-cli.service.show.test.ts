@@ -243,13 +243,8 @@ describe('taskCliService.showFromCli — createdBy (LUM-1283)', () => {
     mockGetDetail.mockResolvedValueOnce({ ...fixture, createdBy })
   }
 
-  it('returns a member creator with name and email', async () => {
-    await detailWith({
-      id: 'actor-h',
-      type: 'HUMAN',
-      member: { id: 'mem-1', clerkId: 'user_1' },
-      agent: null,
-    })
+  it('returns the creating member as name and email', async () => {
+    await detailWith({ id: 'mem-1', clerkId: 'user_1' })
     const { authService } = jest.requireMock('@/lib/services/auth.service') as {
       authService: { fetchUserProfile: jest.Mock }
     }
@@ -258,22 +253,20 @@ describe('taskCliService.showFromCli — createdBy (LUM-1283)', () => {
       email: 'alice@example.com',
     })
     expect((await show()).createdBy).toEqual({
-      type: 'member',
-      label: 'Alice',
+      name: 'Alice',
       email: 'alice@example.com',
     })
+    expect(authService.fetchUserProfile).toHaveBeenCalledWith('user_1')
   })
 
-  it('returns an agent creator by its agent name', async () => {
-    await detailWith({
-      id: 'actor-a',
-      type: 'AGENT',
-      member: null,
-      agent: { id: 'ag-1', name: 'Coding Agent', avatarColor: '#000' },
-    })
+  it('degrades to a placeholder name when the Clerk lookup fails', async () => {
+    await detailWith({ id: 'mem-1', clerkId: 'user_gone' })
+    const { authService } = jest.requireMock('@/lib/services/auth.service') as {
+      authService: { fetchUserProfile: jest.Mock }
+    }
+    authService.fetchUserProfile.mockRejectedValueOnce(new Error('404'))
     expect((await show()).createdBy).toEqual({
-      type: 'agent',
-      label: 'Coding Agent',
+      name: '(unknown member)',
       email: null,
     })
   })

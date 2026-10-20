@@ -160,7 +160,7 @@ async function pageRows(
           status: true,
           priority: true,
           assigneeActorId: true,
-          createdByActorId: true,
+          createdByMemberId: true,
           sprintId: true,
           milestoneId: true,
           dueDate: true,

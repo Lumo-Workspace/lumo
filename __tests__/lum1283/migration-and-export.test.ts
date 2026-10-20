@@ -1,9 +1,10 @@
 /**
  * @jest-environment node
  *
- * LUM-1283: the createdByActorId migration is additive, keeps the FK
- * SET NULL, and backfills from the earliest TASK_CREATED activity actor
- * (same workspace only); the workspace export carries the column.
+ * LUM-1283: the createdByMemberId migration is additive, keeps the FK
+ * SET NULL, and backfills from the member behind the earliest TASK_CREATED
+ * activity actor (same workspace only); the workspace export carries the
+ * column.
  */
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -25,13 +26,13 @@ const code = sql
 describe('LUM-1283 migration', () => {
   it('adds a nullable column with an index and a SET NULL foreign key', () => {
     expect(code).toMatch(
-      /ALTER TABLE "tasks" ADD COLUMN "createdByActorId" TEXT;/
+      /ALTER TABLE "tasks" ADD COLUMN "createdByMemberId" TEXT;/
     )
     expect(code).toMatch(
-      /CREATE INDEX "tasks_createdByActorId_idx" ON "tasks"\("createdByActorId"\);/
+      /CREATE INDEX "tasks_createdByMemberId_idx" ON "tasks"\("createdByMemberId"\);/
     )
     expect(code).toMatch(
-      /FOREIGN KEY \("createdByActorId"\) REFERENCES "actors"\("id"\) ON DELETE SET NULL/
+      /FOREIGN KEY \("createdByMemberId"\) REFERENCES "workspace_members"\("id"\) ON DELETE SET NULL/
     )
   })
 
@@ -41,28 +42,36 @@ describe('LUM-1283 migration', () => {
     expect(code).not.toMatch(/\bTRUNCATE\b/i)
   })
 
-  it('backfills from the earliest TASK_CREATED activity actor in the same workspace', () => {
+  it('never adds an actor column (the creator is a member, not an actor)', () => {
+    expect(code).not.toMatch(/createdByActorId/)
+  })
+
+  it('backfills the member behind the earliest TASK_CREATED actor, same workspace only', () => {
     expect(code).toMatch(/UPDATE "tasks"/)
     expect(code).toMatch(/ta\."type" = 'TASK_CREATED'/)
     expect(code).toMatch(/ta\."actorId" IS NOT NULL/)
     expect(code).toMatch(/DISTINCT ON \(ta\."taskId"\)/)
     expect(code).toMatch(/ORDER BY ta\."taskId", ta\."createdAt" ASC/)
-    expect(code).toMatch(/a\."workspaceId" = t\."workspaceId"/)
-    expect(code).toMatch(/t\."createdByActorId" IS NULL/)
+    expect(code).toMatch(
+      /JOIN "workspace_members" AS wm ON wm\."id" = a\."memberId"/
+    )
+    expect(code).toMatch(/SET "createdByMemberId" = wm\."id"/)
+    expect(code).toMatch(/wm\."workspaceId" = t\."workspaceId"/)
+    expect(code).toMatch(/t\."createdByMemberId" IS NULL/)
   })
 
   it('matches the Prisma schema relation', () => {
     const schema = readFileSync(join(root, 'prisma/schema.prisma'), 'utf8')
-    expect(schema).toMatch(/createdByActorId\s+String\?/)
+    expect(schema).toMatch(/createdByMemberId\s+String\?/)
     expect(schema).toMatch(
-      /createdBy\s+Actor\?\s+@relation\("TaskCreator", fields: \[createdByActorId\], references: \[id\], onDelete: SetNull\)/
+      /createdBy\s+WorkspaceMember\?\s+@relation\("TaskCreator", fields: \[createdByMemberId\], references: \[id\], onDelete: SetNull\)/
     )
-    expect(schema).toMatch(/@@index\(\[createdByActorId\]\)/)
+    expect(schema).not.toMatch(/createdByActorId/)
   })
 })
 
 describe('workspace export (LUM-1283)', () => {
-  it('selects createdByActorId on the tasks table', async () => {
+  it('selects createdByMemberId on the tasks table', async () => {
     const findMany = jest.fn().mockResolvedValue([])
     jest.doMock('@/lib/db/prisma', () => ({
       prisma: { task: { findMany } },
@@ -72,7 +81,7 @@ describe('workspace export (LUM-1283)', () => {
     await workspaceExportRepository.pageRows('tasks', 'ws-1', null, 10)
     expect(findMany.mock.calls[0][0].select).toMatchObject({
       assigneeActorId: true,
-      createdByActorId: true,
+      createdByMemberId: true,
     })
   })
 })

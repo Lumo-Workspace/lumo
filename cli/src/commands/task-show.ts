@@ -47,6 +47,19 @@ function actorLabel(actor: ActorView | null | undefined): string {
     : label
 }
 
+/** LUM-1283: the creating member, always a user. */
+interface MemberView {
+  name: string
+  email: string | null
+}
+
+/** `Alice <alice@example.com>`, the bare name without an email, `-` if none. */
+function memberLabel(member: MemberView | null | undefined): string {
+  if (!member) return NONE
+  const name = sanitizeField(member.name)
+  return member.email ? `${name} <${sanitizeField(member.email)}>` : name
+}
+
 interface ShowResponse {
   task: {
     id: string
@@ -60,10 +73,10 @@ interface ShowResponse {
     project: { id: string; name: string }
     assignee: ActorView | null
     /**
-     * LUM-1283: the creating Actor (member or agent); null when unrecorded
+     * LUM-1283: the creating member (always a user); null when unrecorded
      * (automation, older tasks). Optional so an older server still renders.
      */
-    createdBy?: ActorView | null
+    createdBy?: MemberView | null
     /** LUM-821 — optional so an older server still renders. */
     dueDate?: string | null
   }
@@ -97,7 +110,7 @@ export function formatTaskShow(
   ]
   // LUM-1283: absent (older server) → no row; null → unrecorded.
   if (task.createdBy !== undefined) {
-    fields.push({ label: 'Created by', value: actorLabel(task.createdBy) })
+    fields.push({ label: 'Created by', value: memberLabel(task.createdBy) })
   }
   if (task.dueDate) fields.push({ label: 'Due', value: fmtDay(task.dueDate) })
   fields.push({ label: 'URL', value: task.url, whole: true })

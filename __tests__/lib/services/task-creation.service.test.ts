@@ -70,7 +70,8 @@ describe('createTask — description normalization', () => {
         priority: 'LOW',
       },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     const passed = createMock.mock.calls[0][0]
@@ -87,7 +88,8 @@ describe('createTask — description normalization', () => {
         priority: 'LOW',
       },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(createMock.mock.calls[0][0].description).toBeNull()
@@ -104,7 +106,8 @@ describe('createTask — description normalization', () => {
         priority: 'LOW',
       },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(createMock.mock.calls[0][0].description).toBe(html)
@@ -115,7 +118,8 @@ describe('createTask — description normalization', () => {
       'proj-1',
       { title: 'T', status: 'TODO', priority: 'LOW' },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(createMock.mock.calls[0][0].description).toBeNull()
@@ -166,7 +170,8 @@ describe('createTask — archived milestone bind guard', () => {
           milestoneId: 'm1',
         },
         'actor-1',
-        'clerk-1'
+        'clerk-1',
+        'member-1'
       )
     ).rejects.toMatchObject({ status: 409 })
   })
@@ -178,7 +183,8 @@ describe('createTask — workStartedAt on creation (LUM-437 / LUM-1057)', () => 
       'proj-1',
       { title: 'T', status, priority: 'LOW' },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
   it('does not stamp a task born in BACKLOG — unscheduled is not started', async () => {
@@ -197,28 +203,31 @@ describe('createTask — workStartedAt on creation (LUM-437 / LUM-1057)', () => 
   })
 })
 
-describe('createdByActorId (LUM-1283)', () => {
-  it('createTask records the acting Actor as the creator', async () => {
+describe('createdByMemberId (LUM-1283)', () => {
+  it('createTask records the calling member as the creator', async () => {
     await createTask(
       'proj-1',
       { title: 'T', status: 'TODO', priority: 'LOW' },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
-    expect(createMock.mock.calls[0][0].createdByActorId).toBe('actor-1')
+    expect(createMock.mock.calls[0][0].createdByMemberId).toBe('member-1')
+    expect(createMock.mock.calls[0][0]).not.toHaveProperty('createdByActorId')
   })
 
-  it('createTask stores null, not an empty-string FK, when the caller has no actor', async () => {
+  it('createTask stores null when no member is known', async () => {
     await createTask(
       'proj-1',
       { title: 'T', status: 'TODO', priority: 'LOW' },
       '',
-      'clerk-1'
+      'clerk-1',
+      null
     )
-    expect(createMock.mock.calls[0][0].createdByActorId).toBeNull()
+    expect(createMock.mock.calls[0][0].createdByMemberId).toBeNull()
   })
 
-  it('createTask keeps the creator separate from the assignee', async () => {
+  it('createTask keeps the creator (a member) separate from an agent assignee', async () => {
     ;(taskRepository.findActorById as jest.Mock).mockResolvedValue({
       type: 'AGENT',
       workspaceId: 'ws-1',
@@ -232,11 +241,12 @@ describe('createdByActorId (LUM-1283)', () => {
         assigneeActorId: 'agent-actor',
       },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
     expect(createMock.mock.calls[0][0]).toMatchObject({
       assigneeActorId: 'agent-actor',
-      createdByActorId: 'actor-1',
+      createdByMemberId: 'member-1',
     })
   })
 
@@ -248,6 +258,6 @@ describe('createdByActorId (LUM-1283)', () => {
       assigneeActorId: 'actor-owner',
       tagIds: [],
     })
-    expect(createMock.mock.calls[0][0].createdByActorId).toBeNull()
+    expect(createMock.mock.calls[0][0].createdByMemberId).toBeNull()
   })
 })

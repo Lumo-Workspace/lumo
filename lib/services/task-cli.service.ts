@@ -298,7 +298,8 @@ async function createFromCli(args: {
       ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
     },
     callerActor.id,
-    callerClerkId
+    callerClerkId,
+    callerMember.id
   )
 
   const identifier = `${task.teamIdentifier}-${task.number}`
@@ -562,18 +563,42 @@ async function updateFromCli(args: {
   }
 }
 
-/** An Actor as the CLI renders it (assignee, creator). */
+/** An Actor as the CLI renders it (the assignee). */
 export interface CliActorView {
   type: 'member' | 'agent'
   label: string
   email: string | null
 }
 
+/** A member as the CLI renders it (the creator, LUM-1283). */
+export interface CliMemberView {
+  name: string
+  email: string | null
+}
+
 /**
- * Describe an Actor for the CLI. A member's display name comes from Clerk,
- * not the DB — fetched on demand so the CLI can render
- * "Alice <alice@example.com>"; an agent carries its display name in the DB.
- * Any other actor type (or a dangling relation) reads as null.
+ * Describe a member for the CLI. The display name comes from Clerk, not the
+ * DB — fetched on demand so the CLI can render "Alice <alice@example.com>".
+ * A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not turn
+ * into "task not found" — Clerk's 404 used to surface as the route's own 404.
+ * The name degrades instead (LUM-821 e2e finding).
+ */
+export async function describeMemberForCli(
+  member: { clerkId: string } | null
+): Promise<CliMemberView | null> {
+  if (!member) return null
+  const profile = await authService
+    .fetchUserProfile(member.clerkId)
+    .catch(() => null)
+  return profile
+    ? { name: profile.name || profile.email, email: profile.email || null }
+    : { name: '(unknown member)', email: null }
+}
+
+/**
+ * Describe an Actor for the CLI: a member through `describeMemberForCli`, an
+ * agent by the display name it carries in the DB. Any other actor type (or a
+ * dangling relation) reads as null.
  */
 export async function describeActorForCli(
   actor: {
@@ -584,19 +609,8 @@ export async function describeActorForCli(
 ): Promise<CliActorView | null> {
   if (!actor) return null
   if (actor.type === 'HUMAN' && actor.member) {
-    // A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not
-    // turn into "task not found" — Clerk's 404 used to surface as the
-    // route's own 404. The label degrades instead (LUM-821 e2e finding).
-    const profile = await authService
-      .fetchUserProfile(actor.member.clerkId)
-      .catch(() => null)
-    return profile
-      ? {
-          type: 'member',
-          label: profile.name || profile.email,
-          email: profile.email || null,
-        }
-      : { type: 'member', label: '(unknown member)', email: null }
+    const member = await describeMemberForCli(actor.member)
+    return member && { type: 'member', label: member.name, email: member.email }
   }
   if (actor.type === 'AGENT' && actor.agent) {
     return { type: 'agent', label: actor.agent.name, email: null }
@@ -618,11 +632,10 @@ export interface ShowTaskFromCliResult {
   project: { id: string; name: string }
   assignee: CliActorView | null
   /**
-   * LUM-1283: the Actor that created the task — a member (human) or an agent.
-   * Null for automation-created tasks and for older tasks with no recorded
-   * creator.
+   * LUM-1283: the member (always a user) that created the task. Null for
+   * automation-created tasks and for older tasks with no recorded creator.
    */
-  createdBy: CliActorView | null
+  createdBy: CliMemberView | null
   /**
    * LUM-731: linked PRs with their synced state, so `lumo task update
    * --status done` can show which ones are not merged before asking for
@@ -661,7 +674,7 @@ async function showFromCli(args: {
 
   const [assignee, createdBy] = await Promise.all([
     describeActorForCli(detail.assignee),
-    describeActorForCli(detail.createdBy),
+    describeMemberForCli(detail.createdBy),
   ])
 
   return withMarkdown({

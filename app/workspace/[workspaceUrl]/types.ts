@@ -297,8 +297,11 @@ export interface TaskDetail {
   }
   assigneeActorId: string | null
   assignee: ActorInfo | null
-  /** LUM-1283: the creating Actor; null when unrecorded. Optional for older payloads. */
-  createdBy?: ActorInfo | null
+  /**
+   * LUM-1283: the creating WorkspaceMember (always a user); null when
+   * unrecorded. Optional for older payloads.
+   */
+  createdBy?: { id: string; clerkId: string } | null
   description: string | null
   updatedAt: string
   dueDate?: string | null

@@ -453,7 +453,7 @@ export async function handleCommand(
         workspaceId,
         titleMatch[2]!.toUpperCase(),
         titleMatch[1]!,
-        member.actorId
+        member.memberId
       )
       if (result.kind === 'team_not_found')
         return ephemeral(

@@ -71,7 +71,10 @@ beforeAll(async () => {
     createdByMemberId: 'member',
     name: 'App',
   })
-  await harness.applyMigration(migration)
+  // Every later migration too: the detector reads tasks through today's
+  // Prisma client, which selects columns added after this migration
+  // (LUM-1283 tasks.createdByMemberId).
+  await harness.applyMigrationsFrom(migration)
   await harness.insert('project_repositories', {
     id: 'pr-1',
     projectId: 'p-1',

@@ -773,12 +773,14 @@ describe('boundaryCrossingService.spawnRemediation', () => {
       workspaceId: 'w-1',
     })
 
-    // A follow-up task is created in the original task's project.
+    // A follow-up task is created in the original task's project, with the
+    // member who triggered the remediation recorded as its creator (LUM-1283).
     expect(create).toHaveBeenCalledWith(
       'p-1',
       expect.objectContaining({ status: 'TODO' }),
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
     // The crossing is PRE-LINKED to the new task.
     expect(setRemediation).toHaveBeenCalledWith('bc-1', 'remediation-1')

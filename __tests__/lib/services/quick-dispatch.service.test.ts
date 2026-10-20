@@ -85,7 +85,8 @@ describe('quickDispatchService.executeActions update actions', () => {
       ],
       'ws-1',
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(findManyForUpdateMock).toHaveBeenCalledTimes(1)
@@ -122,7 +123,8 @@ describe('quickDispatchService.executeActions update actions', () => {
       [{ type: 'update', taskId: 'tsk-missing', fields: { status: 'DONE' } }],
       'ws-1',
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(updateTaskWithSideEffectsMock).not.toHaveBeenCalled()
@@ -153,7 +155,8 @@ describe('quickDispatchService.executeActions update actions', () => {
       ],
       'ws-1',
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(results).toHaveLength(2)
@@ -162,7 +165,13 @@ describe('quickDispatchService.executeActions update actions', () => {
   })
 
   it('does not call findManyForUpdate when there are no update actions', async () => {
-    await quickDispatchService.executeActions([], 'ws-1', 'actor-1', 'clerk-1')
+    await quickDispatchService.executeActions(
+      [],
+      'ws-1',
+      'actor-1',
+      'clerk-1',
+      'member-1'
+    )
     expect(findManyForUpdateMock).not.toHaveBeenCalled()
   })
 })
@@ -170,7 +179,7 @@ describe('quickDispatchService.executeActions update actions', () => {
 // ── LUM-1283: create actions record the dispatching member as creator ──────
 
 describe('quickDispatchService.executeActions create actions', () => {
-  it('passes the caller actor as createdByActorId', async () => {
+  it('records the calling member as createdByMemberId', async () => {
     const { projectRepository } = jest.requireMock('@/lib/repositories') as {
       projectRepository: { findByIdSimple: jest.Mock }
     }
@@ -199,13 +208,14 @@ describe('quickDispatchService.executeActions create actions', () => {
       ],
       'ws-1',
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
 
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
         assigneeActorId: 'actor-other',
-        createdByActorId: 'actor-1',
+        createdByMemberId: 'member-1',
       })
     )
     expect(results[0]).toMatchObject({ success: true })

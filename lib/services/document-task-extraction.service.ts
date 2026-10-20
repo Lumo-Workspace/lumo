@@ -174,7 +174,8 @@ export async function extractTasksFromDoc(
         assigneeActorId: actor.id,
       },
       actor.id,
-      args.callerClerkId
+      args.callerClerkId,
+      args.memberId
     )
 
     const identifier = `${task.teamIdentifier}-${task.number}`
