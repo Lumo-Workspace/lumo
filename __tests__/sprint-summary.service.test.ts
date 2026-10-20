@@ -113,6 +113,9 @@ describe('sprintSummaryService.generate', () => {
     const { securityBlocking } = mockComputeStatsData.mock.calls[0][1]
     await expect(securityBlocking('t1')).resolves.toBe(2)
     expect(mockCollectDoneGateBlockers).toHaveBeenCalledWith('t1')
+    // A failing plugin reads as unreadable (null) instead of throwing.
+    mockCollectDoneGateBlockers.mockRejectedValueOnce(new Error('boom'))
+    await expect(securityBlocking('t1')).resolves.toBeNull()
     expect(mockAggregateStruggle).toHaveBeenCalledWith(
       STATS_DATA.tasks.map(t => t.id)
     )

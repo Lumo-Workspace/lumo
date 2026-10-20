@@ -31,9 +31,13 @@ export interface SprintStats {
 
 export interface ComputeStatsOptions {
   /** Open security-plugin DONE blockers for a task (the gate's plugin plane).
-   *  Asked only for DONE tasks; omitted → no plugin, 0 blockers. */
-  securityBlocking?: (taskId: string) => Promise<number>
+   *  Asked only for DONE tasks; omitted → no plugin, 0 blockers. `null` =
+   *  the plane could not be read, so the task is not verified (fail-closed). */
+  securityBlocking?: (taskId: string) => Promise<number | null>
 }
+
+/** How many plugin gate lookups run at once at close. */
+const SECURITY_LOOKUP_CONCURRENCY = 5
 
 export interface SprintStatsData {
   stats: SprintStats
@@ -113,8 +117,17 @@ export const sprintSummaryRepository = {
       const { securityBlocking } = options
       if (securityBlocking) {
         const done = tasks.filter(t => t.status === 'DONE')
-        const counts = await Promise.all(done.map(t => securityBlocking(t.id)))
-        done.forEach((t, i) => securityBlockingByTask.set(t.id, counts[i] ?? 0))
+        for (let i = 0; i < done.length; i += SECURITY_LOOKUP_CONCURRENCY) {
+          const chunk = done.slice(i, i + SECURITY_LOOKUP_CONCURRENCY)
+          const counts = await Promise.all(
+            chunk.map(t => securityBlocking(t.id))
+          )
+          chunk.forEach((t, j) => {
+            const count = counts[j]
+            // Unreadable → count it as blocked so the task is not verified.
+            securityBlockingByTask.set(t.id, count === null ? 1 : (count ?? 0))
+          })
+        }
       }
       const rows = await sprintProcessStagesRepository.loadInputs(
         sprint.team.workspaceId,

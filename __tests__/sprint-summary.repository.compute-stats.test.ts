@@ -112,6 +112,29 @@ describe('sprintSummaryRepository.computeStatsData', () => {
     })
   })
 
+  it('bounds plugin lookups and treats an unreadable plane as not verified', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      id: `d${i}`,
+      status: 'DONE',
+      priority: 'LOW',
+      assigneeActorId: null,
+      title: 'x',
+    }))
+    mockListTasks.mockResolvedValue(many)
+    let inFlight = 0
+    let peak = 0
+    const securityBlocking = jest.fn(async () => {
+      inFlight++
+      peak = Math.max(peak, inFlight)
+      await new Promise(r => setTimeout(r, 1))
+      inFlight--
+      return null
+    })
+    await sprintSummaryRepository.computeStatsData('s1', { securityBlocking })
+    expect(securityBlocking).toHaveBeenCalledTimes(12)
+    expect(peak).toBeLessThanOrEqual(5)
+  })
+
   it('omits the new keys when the sprint row is gone', async () => {
     mockSprintFindUnique.mockResolvedValue(null)
     const { stats } = await sprintSummaryRepository.computeStatsData('s1')

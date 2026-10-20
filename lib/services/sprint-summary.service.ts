@@ -7,6 +7,7 @@ import { generationJobRepository } from '@/lib/repositories/generation-job.repos
 import { callSprintSummaryLLM } from '@/lib/llm/sprint-summary-client'
 import { taskStatusService } from '@/lib/services/task-status.service'
 import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
+import { logger } from '@/lib/logger'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -28,8 +29,20 @@ export const sprintSummaryService = {
         sprintId,
         {
           // LUM-1280: the DONE gate's plugin plane, for the verified count.
-          securityBlocking: async taskId =>
-            (await collectDoneGateBlockers(taskId)).length,
+          // A plugin that fails must not sink the whole summary: the task
+          // just reads as not verified (null = unreadable).
+          securityBlocking: async taskId => {
+            try {
+              return (await collectDoneGateBlockers(taskId)).length
+            } catch (error) {
+              logger.warn('sprint-summary: done-gate plugin unavailable', {
+                sprintId,
+                taskId,
+                error: error instanceof Error ? error.message : String(error),
+              })
+              return null
+            }
+          },
         }
       )
 
