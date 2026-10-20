@@ -1090,4 +1090,32 @@ export const boundaryCrossingRepository = {
       (r): r is (typeof rows)[number] & { taskId: string } => r.taskId !== null
     )
   },
+
+  /**
+   * LUM-1278 attention read model: the undispositioned crossings on the given
+   * tasks, scoped to the caller's workspace through the task. Carries what
+   * the DONE gate's blocking rule reads (advisory, severity) plus detectedAt.
+   */
+  async findOpenByTaskIds(workspaceId: string, taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: {
+        taskId: { in: taskIds },
+        task: { workspaceId },
+        disposition: null,
+      },
+      select: {
+        id: true,
+        number: true,
+        taskId: true,
+        category: true,
+        severity: true,
+        advisory: true,
+        detectedAt: true,
+      },
+    })
+    return rows.filter(
+      (r): r is (typeof rows)[number] & { taskId: string } => r.taskId !== null
+    )
+  },
 }

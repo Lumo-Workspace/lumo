@@ -47,7 +47,7 @@ async function memberDisplayNames(
 }
 
 /** Actor id → display name for the given ids in one workspace (best effort). */
-async function actorDisplayNames(
+export async function actorDisplayNames(
   workspaceId: string,
   actorIds: string[]
 ): Promise<Map<string, string>> {

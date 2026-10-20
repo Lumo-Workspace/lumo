@@ -74,3 +74,8 @@ export type CadenceInput = z.infer<typeof cadenceSchema>
 export type SprintCloseDecisions = z.infer<
   typeof closeSprintSchema
 >['decisions']
+
+/** LUM-1278: `GET /api/sprints/[sprintId]/attention?scope=team|mine`. */
+export const sprintAttentionQuerySchema = z.object({
+  scope: z.enum(['team', 'mine']).default('team'),
+})
