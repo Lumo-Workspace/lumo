@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
 import { TAG_PICKER_COLORS } from './tag-colors'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { Command, CommandItem, CommandList } from '@/components/ui/command'
 
 // ── Tag color helpers ─────────────────────────────────────────────────────
 
@@ -91,7 +93,7 @@ export function TagPicker({
   const [input, setInput] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [creating, setCreating] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
 
   const selectedIds = new Set(selectedTags.map(t => t.id))
 
@@ -137,96 +139,111 @@ export function TagPicker({
     }
   }, [input, creating, onCreateTag, addTag])
 
+  // Enter / arrow keys are handled by the surrounding <Command>: Enter picks
+  // the highlighted row (the first one by default), so only Backspace stays.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        if (filteredSuggestions.length > 0) {
-          addTag(filteredSuggestions[0]!)
-        } else if (canCreate) {
-          handleCreate()
-        }
-      } else if (e.key === 'Backspace' && !input && selectedTags.length > 0) {
+      if (e.key === 'Backspace' && !input && selectedTags.length > 0) {
         const last = selectedTags[selectedTags.length - 1]
         if (last) removeTag(last.id)
       }
     },
-    [
-      input,
-      selectedTags,
-      filteredSuggestions,
-      canCreate,
-      addTag,
-      removeTag,
-      handleCreate,
-    ]
+    [input, selectedTags, removeTag]
   )
 
+  const open =
+    showSuggestions && (filteredSuggestions.length > 0 || !!canCreate)
+
   return (
-    <div className='relative'>
-      <div
-        className={cn('flex flex-wrap items-center gap-1.5', triggerClassName)}
+    <Command
+      shouldFilter={false}
+      className='h-auto w-auto overflow-visible rounded-none bg-transparent text-inherit'
+    >
+      <Popover
+        open={open}
+        onOpenChange={next => {
+          if (!next) setShowSuggestions(false)
+        }}
       >
-        {selectedTags.map(tag => (
-          <span key={tag.id} className='inline-flex items-center gap-0.5'>
-            <TagBadgeNew tag={tag} />
-            <button
-              onClick={() => removeTag(tag.id)}
-              className='text-muted-foreground hover:text-foreground p-0.5'
-            >
-              <X className='h-3 w-3' />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => {
-            setInput(e.target.value)
-            setShowSuggestions(true)
+        <PopoverAnchor asChild>
+          <div
+            ref={anchorRef}
+            className={cn(
+              'flex flex-wrap items-center gap-1.5',
+              triggerClassName
+            )}
+          >
+            {selectedTags.map(tag => (
+              <span key={tag.id} className='inline-flex items-center gap-0.5'>
+                <TagBadgeNew tag={tag} />
+                <button
+                  onClick={() => removeTag(tag.id)}
+                  className='text-muted-foreground hover:text-foreground p-0.5'
+                >
+                  <X className='h-3 w-3' />
+                </button>
+              </span>
+            ))}
+            <input
+              value={input}
+              onChange={e => {
+                setInput(e.target.value)
+                setShowSuggestions(true)
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setShowSuggestions(false)}
+              placeholder={
+                selectedTags.length === 0
+                  ? intl.formatMessage({
+                      id: 'documents.tagPlaceholder',
+                      defaultMessage: 'Add tags...',
+                    })
+                  : ''
+              }
+              className='bg-transparent text-caption outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
+            />
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          align='start'
+          className='w-48 p-1'
+          // Typing focus stays in the input; rows are picked by click or Enter.
+          onOpenAutoFocus={e => e.preventDefault()}
+          onCloseAutoFocus={e => e.preventDefault()}
+          onMouseDown={e => e.preventDefault()}
+          onInteractOutside={e => {
+            if (anchorRef.current?.contains(e.target as Node))
+              e.preventDefault()
           }}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder={
-            selectedTags.length === 0
-              ? intl.formatMessage({
-                  id: 'documents.tagPlaceholder',
-                  defaultMessage: 'Add tags...',
-                })
-              : ''
-          }
-          className='bg-transparent text-caption outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
-        />
-      </div>
-      {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (
-        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-elevation-2 z-dropdown py-1'>
-          {filteredSuggestions.slice(0, 5).map(tag => (
-            <button
-              key={tag.id}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => addTag(tag)}
-              className='flex items-center gap-2 w-full text-left px-3 py-1.5 text-body hover:bg-muted'
-            >
-              <TagBadgeNew tag={tag} />
-            </button>
-          ))}
-          {canCreate && (
-            <button
-              onMouseDown={e => e.preventDefault()}
-              onClick={handleCreate}
-              disabled={creating}
-              className='flex items-center gap-1.5 w-full text-left px-3 py-1.5 text-body hover:bg-muted text-muted-foreground'
-            >
-              <Plus className='h-3 w-3' />
-              {intl.formatMessage(
-                { id: 'tags.create', defaultMessage: 'Create "{name}"' },
-                { name: input.trim() }
-              )}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        >
+          <CommandList>
+            {filteredSuggestions.slice(0, 5).map(tag => (
+              <CommandItem
+                key={tag.id}
+                value={tag.id}
+                onSelect={() => addTag(tag)}
+              >
+                <TagBadgeNew tag={tag} />
+              </CommandItem>
+            ))}
+            {canCreate && (
+              <CommandItem
+                value='__create__'
+                disabled={creating}
+                onSelect={handleCreate}
+                className='gap-1.5 text-muted-foreground [&_svg]:size-3'
+              >
+                <Plus className='h-3 w-3' />
+                {intl.formatMessage(
+                  { id: 'tags.create', defaultMessage: 'Create "{name}"' },
+                  { name: input.trim() }
+                )}
+              </CommandItem>
+            )}
+          </CommandList>
+        </PopoverContent>
+      </Popover>
+    </Command>
   )
 }

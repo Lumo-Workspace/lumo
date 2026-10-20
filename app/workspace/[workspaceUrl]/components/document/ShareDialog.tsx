@@ -19,6 +19,8 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { Link2, Copy, Check, Globe } from 'lucide-react'
 import type {
   ApiDocumentShare,
@@ -69,6 +71,8 @@ export function ShareDialog({
   const intl = useIntl()
 
   const [search, setSearch] = useState('')
+  const [resultsOpen, setResultsOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [inviteRole, setInviteRole] = useState<DocShareRole>('VIEWER')
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -292,65 +296,97 @@ export function ShareDialog({
 
         <div className='overflow-y-auto space-y-4'>
           {/* ── Invite section ─────────────────────────────────────────── */}
-          <div className='relative'>
-            <div className='flex items-center gap-2'>
-              <Input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={intl.formatMessage({
-                  id: 'share.searchPlaceholder',
-                })}
-                className='flex-1'
-              />
-              <Select
-                value={inviteRole}
-                onValueChange={v => setInviteRole(v as DocShareRole)}
-              >
-                <SelectTrigger className='w-[120px]'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='VIEWER'>{roleLabel('VIEWER')}</SelectItem>
-                  <SelectItem value='EDITOR'>{roleLabel('EDITOR')}</SelectItem>
-                  <SelectItem value='MANAGER'>
-                    {roleLabel('MANAGER')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Search-as-you-type: arrow keys / Enter bubble from the input to
+              the <Command>, which drives the highlighted result. */}
+          <Command
+            shouldFilter={false}
+            className='h-auto overflow-visible rounded-none bg-transparent text-inherit'
+          >
+            <Popover
+              open={resultsOpen && searchResults.length > 0}
+              onOpenChange={next => {
+                if (!next) setResultsOpen(false)
+              }}
+            >
+              <PopoverAnchor className='flex items-center gap-2'>
+                <Input
+                  ref={searchInputRef}
+                  value={search}
+                  onChange={e => {
+                    setSearch(e.target.value)
+                    setResultsOpen(true)
+                  }}
+                  placeholder={intl.formatMessage({
+                    id: 'share.searchPlaceholder',
+                  })}
+                  className='flex-1'
+                />
+                <Select
+                  value={inviteRole}
+                  onValueChange={v => setInviteRole(v as DocShareRole)}
+                >
+                  <SelectTrigger className='w-[120px]'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='VIEWER'>
+                      {roleLabel('VIEWER')}
+                    </SelectItem>
+                    <SelectItem value='EDITOR'>
+                      {roleLabel('EDITOR')}
+                    </SelectItem>
+                    <SelectItem value='MANAGER'>
+                      {roleLabel('MANAGER')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </PopoverAnchor>
 
-            {/* Search dropdown */}
-            {searchResults.length > 0 && (
-              <div className='absolute left-0 right-0 top-full mt-1 z-dropdown bg-popover border rounded-md shadow-elevation-2 max-h-48 overflow-y-auto'>
-                {searchResults.map(m => (
-                  <button
-                    key={m.id}
-                    type='button'
-                    className='flex items-center gap-2 w-full px-3 py-2 text-body hover:bg-accent text-left'
-                    onClick={() => handleInvite(m)}
-                  >
-                    <MemberAvatar
-                      decorative
-                      name={m.name}
-                      imageUrl={m.imageUrl}
-                      size='sm'
-                    />
-                    <div className='flex-1 min-w-0'>
-                      <div className='truncate text-body-strong'>{m.name}</div>
-                      {m.email && (
-                        <div className='truncate text-caption text-muted-foreground'>
-                          {m.email}
+              {/* Search results — z-dropdown renders above the dialog (z-modal). */}
+              <PopoverContent
+                align='start'
+                className='w-[var(--radix-popover-trigger-width)] p-1'
+                onOpenAutoFocus={e => e.preventDefault()}
+                onCloseAutoFocus={e => e.preventDefault()}
+                onMouseDown={e => e.preventDefault()}
+                onInteractOutside={e => {
+                  if (searchInputRef.current?.contains(e.target as Node))
+                    e.preventDefault()
+                }}
+              >
+                <CommandList className='max-h-48'>
+                  {searchResults.map(m => (
+                    <CommandItem
+                      key={m.id}
+                      value={m.id}
+                      onSelect={() => handleInvite(m)}
+                      className='py-2'
+                    >
+                      <MemberAvatar
+                        decorative
+                        name={m.name}
+                        imageUrl={m.imageUrl}
+                        size='sm'
+                      />
+                      <div className='flex-1 min-w-0'>
+                        <div className='truncate text-body-strong'>
+                          {m.name}
                         </div>
-                      )}
-                    </div>
-                    <span className='text-caption text-muted-foreground shrink-0'>
-                      {intl.formatMessage({ id: 'share.invite' })}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                        {m.email && (
+                          <div className='truncate text-caption text-muted-foreground'>
+                            {m.email}
+                          </div>
+                        )}
+                      </div>
+                      <span className='text-caption text-muted-foreground shrink-0'>
+                        {intl.formatMessage({ id: 'share.invite' })}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </PopoverContent>
+            </Popover>
+          </Command>
 
           {/* ── Current shares ─────────────────────────────────────────── */}
           <div className='space-y-1'>
