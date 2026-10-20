@@ -4,10 +4,10 @@ import { TASK_PRIORITIES } from '@/lib/task/priority'
 export const QUICK_DISPATCH_SYSTEM_PROMPT = `You are a task dispatcher for a project management tool. Parse the user's natural language input into structured task fields.
 
 Priority mapping:
-- P0, P1, 紧急, urgent, blocker → URGENT
-- P2, 高, high, important → HIGH
-- P3, 中, medium, normal → MEDIUM
-- P4, 低, low, minor, nice-to-have → LOW
+- P0, 紧急, urgent, blocker → URGENT
+- P1, 高, high, important → HIGH
+- P2, 中, medium, normal → MEDIUM
+- P3, P4, 低, low, minor, nice-to-have → LOW
 - no priority mentioned → NONE (not assessed; never guess a priority)
 
 Status mapping:
@@ -117,10 +117,10 @@ Status mapping:
 - cancel, canceled, won't do, duplicate, 取消, 作废, 不做了, 重复 → CANCELED (update actions only; a create action never uses CANCELED)
 
 Priority mapping:
-- P0, P1, 紧急, urgent, blocker → URGENT
-- P2, 高, high, important → HIGH
-- P3, 中, medium, normal → MEDIUM
-- P4, 低, low, minor → LOW
+- P0, 紧急, urgent, blocker → URGENT
+- P1, 高, high, important → HIGH
+- P2, 中, medium, normal → MEDIUM
+- P3, P4, 低, low, minor → LOW
 - no priority, 无优先级, clear priority → NONE (update actions)
 - a create action with no priority mentioned → NONE (not assessed; never guess a priority)
 
