@@ -24,6 +24,14 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { TableActionsMenu } from '@/app/workspace/[workspaceUrl]/components/bubble-menu/TableActionsMenu'
 
+// jsdom has no PointerEvent, so fireEvent.pointerDown would drop `button`
+// and the Radix DropdownMenu trigger (which opens on pointerdown) ignores it.
+if (typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent
+}
+const openMenu = (el: HTMLElement) =>
+  fireEvent.pointerDown(el, { button: 0, ctrlKey: false })
+
 function makeEditor() {
   const chain: Record<string, jest.Mock> = {}
   const methods = [
@@ -42,12 +50,15 @@ function makeEditor() {
   ]
   for (const m of methods)
     chain[m] = jest.fn(() => (m === 'run' ? true : chain))
-  const editor = { chain: () => chain } as unknown as Editor
+  const editor = {
+    chain: () => chain,
+    commands: { focus: jest.fn() },
+  } as unknown as Editor
   return { editor, chain }
 }
 
 function open() {
-  fireEvent.mouseDown(screen.getByRole('button', { name: /Table/i }))
+  openMenu(screen.getByRole('button', { name: /Table/i }))
 }
 
 describe('TableActionsMenu', () => {
@@ -66,7 +77,7 @@ describe('TableActionsMenu', () => {
     const { editor, chain } = makeEditor()
     render(<TableActionsMenu editor={editor} canMergeCells canSplitCell />)
     open()
-    fireEvent.mouseDown(screen.getByText('Toggle header row'))
+    fireEvent.click(screen.getByText('Toggle header row'))
     expect(chain.toggleHeaderRow).toHaveBeenCalledTimes(1)
     expect(screen.queryByText('Toggle header row')).not.toBeInTheDocument()
   })
@@ -81,13 +92,13 @@ describe('TableActionsMenu', () => {
       />
     )
     open()
-    const merge = screen.getByText('Merge cells').closest('button')!
-    const split = screen.getByText('Split cell').closest('button')!
-    expect(merge).toBeDisabled()
-    expect(split).toBeDisabled()
-    fireEvent.mouseDown(merge)
+    const merge = screen.getByText('Merge cells').closest('[role=menuitem]')!
+    const split = screen.getByText('Split cell').closest('[role=menuitem]')!
+    expect(merge).toHaveAttribute('aria-disabled', 'true')
+    expect(split).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(merge)
     expect(chain.mergeCells).not.toHaveBeenCalled()
-    fireEvent.mouseDown(split)
+    fireEvent.click(split)
     expect(chain.splitCell).not.toHaveBeenCalled()
   })
 
@@ -95,9 +106,9 @@ describe('TableActionsMenu', () => {
     const { editor, chain } = makeEditor()
     render(<TableActionsMenu editor={editor} canMergeCells canSplitCell />)
     open()
-    fireEvent.mouseDown(screen.getByText('Delete table'))
+    fireEvent.click(screen.getByText('Delete table'))
     expect(chain.deleteTable).not.toHaveBeenCalled()
-    fireEvent.mouseDown(screen.getByText('Click again to confirm'))
+    fireEvent.click(screen.getByText('Click again to confirm'))
     expect(chain.deleteTable).toHaveBeenCalledTimes(1)
   })
 
@@ -107,7 +118,7 @@ describe('TableActionsMenu', () => {
       const { editor, chain } = makeEditor()
       render(<TableActionsMenu editor={editor} canMergeCells canSplitCell />)
       open()
-      fireEvent.mouseDown(screen.getByText('Delete table'))
+      fireEvent.click(screen.getByText('Delete table'))
       expect(screen.getByText('Click again to confirm')).toBeInTheDocument()
       act(() => {
         jest.advanceTimersByTime(3000)
@@ -115,7 +126,7 @@ describe('TableActionsMenu', () => {
       expect(
         screen.queryByText('Click again to confirm')
       ).not.toBeInTheDocument()
-      fireEvent.mouseDown(screen.getByText('Delete table'))
+      fireEvent.click(screen.getByText('Delete table'))
       expect(chain.deleteTable).not.toHaveBeenCalled()
     } finally {
       jest.useRealTimers()

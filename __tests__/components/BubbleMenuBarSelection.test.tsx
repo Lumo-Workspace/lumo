@@ -4,8 +4,8 @@
 //   (1) selectionHasTaskLink must short-circuit (skip the full-doc nodesBetween
 //       traversal) when there is no extract context, since canConvert already
 //       requires !!extractCtx.
-//   (2) the link input panel must close on outside click, matching the
-//       style/list dropdowns.
+//   (2) the link input panel must close on outside click (LUM-1275: focus
+//       leaving the panel), matching the style/list dropdowns.
 //
 // Unlike BubbleMenuBarTable.test.tsx, this file runs the REAL useEditorState
 // selector against a fake editor so we can assert on the traversal itself.
@@ -175,19 +175,21 @@ describe('BubbleMenuBar link panel outside-click close (LUM-219)', () => {
     return screen.getByPlaceholderText('https://')
   }
 
-  it('closes the link panel when clicking outside it', () => {
+  it('closes the link panel when focus leaves it (outside click)', () => {
     const input = openLinkPanel()
     expect(input).toBeInTheDocument()
     act(() => {
-      fireEvent.mouseDown(document.body)
+      fireEvent.focusOut(input, { relatedTarget: document.body })
     })
     expect(screen.queryByPlaceholderText('https://')).not.toBeInTheDocument()
   })
 
-  it('keeps the link panel open when clicking inside it', () => {
+  it('keeps the link panel open when focus moves within it', () => {
     const input = openLinkPanel()
     act(() => {
-      fireEvent.mouseDown(input)
+      fireEvent.focusOut(input, {
+        relatedTarget: screen.getByRole('button', { name: 'Apply' }),
+      })
     })
     expect(screen.getByPlaceholderText('https://')).toBeInTheDocument()
   })

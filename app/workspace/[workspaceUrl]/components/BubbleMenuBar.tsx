@@ -26,6 +26,12 @@ import {
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/utils/keyboard'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -34,6 +40,7 @@ import { ToolbarButton, Divider } from './bubble-menu/ToolbarButton'
 import { ColorPicker } from './bubble-menu/ColorPicker'
 import { AlignMenu } from './bubble-menu/AlignMenu'
 import { TableActionsMenu } from './bubble-menu/TableActionsMenu'
+import { useEditorSubmenu } from './bubble-menu/useEditorSubmenu'
 import { useDocExtractContext } from '@/lib/editor/doc-extract-context'
 import { wrapSelectionWithExtractPending } from './extract/wrapSelection'
 import { extractTasks } from '@/lib/api-client/documents-extract'
@@ -104,30 +111,12 @@ export function BubbleMenuBar({
 }) {
   const intl = useIntl()
   const extractCtx = useDocExtractContext()
-  const [styleOpen, setStyleOpen] = useState(false)
-  const [listOpen, setListOpen] = useState(false)
+  const styleMenu = useEditorSubmenu(editor)
+  const listMenu = useEditorSubmenu(editor)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const mod = isMac ? '⌘' : 'Ctrl+'
-  const styleRef = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const linkPanelRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdowns / link panel on outside click
-  useEffect(() => {
-    if (!styleOpen && !listOpen && !linkOpen) return
-    const handler = (e: MouseEvent) => {
-      if (!styleRef.current?.contains(e.target as Node)) setStyleOpen(false)
-      if (!listRef.current?.contains(e.target as Node)) setListOpen(false)
-      if (!linkPanelRef.current?.contains(e.target as Node)) {
-        setLinkOpen(false)
-        setLinkUrl('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [styleOpen, listOpen, linkOpen])
 
   // Subscribe to editor state so buttons re-render on every transaction
   const state = useEditorState({
@@ -228,12 +217,24 @@ export function BubbleMenuBar({
   ]
   const activeStyle =
     TEXT_STYLES.find((_, i) => activeFlags[i]) ?? TEXT_STYLES[0]!
+  const listLabelId = state.isOrderedList
+    ? 'editor.list.numbered'
+    : state.isTaskList
+      ? 'editor.list.checklist'
+      : 'editor.list.bulleted'
 
   // Link URL input panel
   if (linkOpen) {
     return (
       <div
-        ref={linkPanelRef}
+        // The URL input holds focus while the panel is open (its buttons
+        // cancel mousedown), so focus leaving the panel = an outside click.
+        onBlur={e => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setLinkOpen(false)
+            setLinkUrl('')
+          }
+        }}
         className='flex items-center gap-1.5 px-2 py-1 bg-card border border-border rounded-lg shadow-elevation-3'
       >
         <Link2 size={13} className='shrink-0 text-muted-foreground' />
@@ -359,57 +360,51 @@ export function BubbleMenuBar({
 
   return (
     <div className='flex items-center gap-0.5 px-1.5 py-1 bg-card border border-border rounded-lg shadow-elevation-3'>
-      {/* Text style dropdown — custom, no portal to avoid first-render position bug */}
-      <div ref={styleRef} className='relative'>
+      {/* Text style dropdown */}
+      <DropdownMenu
+        open={styleMenu.open}
+        onOpenChange={styleMenu.setOpen}
+        modal={false}
+      >
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type='button'
-              aria-label={intl.formatMessage({ id: activeStyle.id })}
-              aria-haspopup='menu'
-              aria-expanded={styleOpen}
-              onMouseDown={e => {
-                e.preventDefault()
-                setStyleOpen(o => !o)
-              }}
-              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-caption text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
-            >
-              {intl.formatMessage({ id: activeStyle.id })}
-              <ChevronDown size={12} />
-            </button>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-label={intl.formatMessage({ id: activeStyle.id })}
+                {...styleMenu.triggerProps}
+                className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-caption text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground transition-colors'
+              >
+                {intl.formatMessage({ id: activeStyle.id })}
+                <ChevronDown size={12} />
+              </button>
+            </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>
             {intl.formatMessage({ id: activeStyle.id })}
           </TooltipContent>
         </Tooltip>
-        {styleOpen && (
-          <div
-            role='menu'
-            className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
-          >
-            {TEXT_STYLES.map((style, i) => (
-              <button
-                key={style.id}
-                role='menuitem'
-                type='button'
-                onMouseDown={e => {
-                  e.preventDefault()
-                  style.action(editor)
-                  setStyleOpen(false)
-                }}
-                className={cn(
-                  'w-full text-left px-3 py-1.5 text-caption transition-colors',
-                  activeFlags[i]
-                    ? 'bg-accent text-accent-foreground font-semibold'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )}
-              >
-                {intl.formatMessage({ id: style.id })}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        <DropdownMenuContent
+          align='start'
+          className='min-w-[140px]'
+          {...styleMenu.contentProps}
+        >
+          {TEXT_STYLES.map((style, i) => (
+            <DropdownMenuItem
+              key={style.id}
+              {...styleMenu.itemProps}
+              onSelect={() => style.action(editor)}
+              className={cn(
+                'hover:bg-accent hover:text-accent-foreground',
+                activeFlags[i] &&
+                  'bg-accent text-accent-foreground font-semibold'
+              )}
+            >
+              {intl.formatMessage({ id: style.id })}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Divider />
 
@@ -487,77 +482,56 @@ export function BubbleMenuBar({
       <Divider />
 
       {/* List dropdown */}
-      <div ref={listRef} className='relative'>
+      <DropdownMenu
+        open={listMenu.open}
+        onOpenChange={listMenu.setOpen}
+        modal={false}
+      >
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type='button'
-              aria-label={intl.formatMessage({
-                id: state.isOrderedList
-                  ? 'editor.list.numbered'
-                  : state.isTaskList
-                    ? 'editor.list.checklist'
-                    : 'editor.list.bulleted',
-              })}
-              aria-haspopup='menu'
-              aria-expanded={listOpen}
-              onMouseDown={e => {
-                e.preventDefault()
-                setListOpen(o => !o)
-              }}
-              className={cn(
-                'flex items-center gap-1 px-1.5 h-7 rounded-sm transition-colors',
-                state.isBulletList || state.isOrderedList || state.isTaskList
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <List size={14} />
-              <ChevronDown size={12} />
-            </button>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-label={intl.formatMessage({ id: listLabelId })}
+                {...listMenu.triggerProps}
+                className={cn(
+                  'flex items-center gap-1 px-1.5 h-7 rounded-sm transition-colors',
+                  state.isBulletList || state.isOrderedList || state.isTaskList
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground'
+                )}
+              >
+                <List size={14} />
+                <ChevronDown size={12} />
+              </button>
+            </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>
-            {intl.formatMessage({
-              id: state.isOrderedList
-                ? 'editor.list.numbered'
-                : state.isTaskList
-                  ? 'editor.list.checklist'
-                  : 'editor.list.bulleted',
-            })}
+            {intl.formatMessage({ id: listLabelId })}
           </TooltipContent>
         </Tooltip>
-        {listOpen && (
-          <div
-            role='menu'
-            className='absolute top-full left-0 mt-1 z-dropdown min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
-          >
-            {LIST_STYLES.map(style => {
-              const active = style.isActive(editor)
-              return (
-                <button
-                  key={style.id}
-                  role='menuitem'
-                  type='button'
-                  onMouseDown={e => {
-                    e.preventDefault()
-                    style.action(editor)
-                    setListOpen(false)
-                  }}
-                  className={cn(
-                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-caption transition-colors',
-                    active
-                      ? 'bg-accent text-accent-foreground font-semibold'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {style.icon}
-                  {intl.formatMessage({ id: style.id })}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        <DropdownMenuContent
+          align='start'
+          className='min-w-[150px]'
+          {...listMenu.contentProps}
+        >
+          {LIST_STYLES.map(style => (
+            <DropdownMenuItem
+              key={style.id}
+              {...listMenu.itemProps}
+              onSelect={() => style.action(editor)}
+              className={cn(
+                'hover:bg-accent hover:text-accent-foreground',
+                style.isActive(editor) &&
+                  'bg-accent text-accent-foreground font-semibold'
+              )}
+            >
+              {style.icon}
+              {intl.formatMessage({ id: style.id })}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Divider />
 
