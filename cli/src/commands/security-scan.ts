@@ -1,10 +1,16 @@
 import { scanSecrets } from '../../../shared/src/secret-scan/scan-secrets'
+import { scanDeps, type DepsScanResult } from '../lib/deps-scan'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { emitJson } from '../lib/json-output'
-import { collectLocalDiff, type ScanScope } from '../lib/local-diff'
+import {
+  collectLocalDiff,
+  resolveScanBase,
+  type ScanScope,
+} from '../lib/local-diff'
 import {
   EXIT_FAIL_ON,
   formatLocalScan,
+  incompleteScanners,
   localScanJson,
   meetsThreshold,
   parseSeverity,
@@ -27,11 +33,17 @@ import { colorEnabled, terminalWidth } from '../lib/ui'
 
 export interface SecurityScanOptions {
   secrets?: boolean
+  deps?: boolean
+  /** DEPS: run osv-scanner over the whole tree instead of the lockfile delta. */
+  full?: boolean
   staged?: boolean
   since?: string
   json?: boolean
   failOn?: string
-  /** LUM-1256 — read the server context from the cache only. */
+  /**
+   * Make no network call: the server context comes from the cache only
+   * (LUM-1256) and DEPS uses osv-scanner's local database (LUM-1257).
+   */
   offline?: boolean
   /** LUM-1256 — merge in the branch's open PR's server findings. */
   pr?: boolean
@@ -43,7 +55,14 @@ export interface SecurityScanOptions {
 export function selectScanners(opts: SecurityScanOptions): LocalScanner[] {
   const picked: LocalScanner[] = []
   if (opts.secrets) picked.push('SECRETS')
-  return picked.length > 0 ? picked : ['SECRETS']
+  if (opts.deps) picked.push('DEPS')
+  return picked.length > 0 ? picked : ['SECRETS', 'DEPS']
+}
+
+/** Test seams: the server context's (LUM-1256) plus the DEPS scanner's OSV API and binary. */
+export interface SecurityScanDeps extends ScanContextDeps {
+  osvFetch?: typeof fetch
+  scannerBin?: string
 }
 
 /**
@@ -137,10 +156,16 @@ export async function withServerContext(
  * uploaded. LUM-1256: each finding is labelled with the server context
  * (cached by ETag; `--offline` reads the cache only), `--pr` merges in the
  * branch's PR scan.
+ *
+ * LUM-1257 — `DEPS`: vulnerable / malicious dependencies with the managed
+ * scan's osv-scanner identity (`lib/deps-scan.ts`). Its default fast mode
+ * sends changed package names and versions to api.osv.dev; an unanswered
+ * lookup makes the scan incomplete (exit 1 unless `--fail-on` is met),
+ * never clean.
  */
 export async function securityScanCommand(
   opts: SecurityScanOptions,
-  deps: ScanContextDeps = {}
+  deps: SecurityScanDeps = {}
 ): Promise<number> {
   if (opts.staged && opts.since !== undefined) {
     console.error('Error: pass either --staged or --since <ref>, not both')
@@ -167,16 +192,36 @@ export async function securityScanCommand(
       ? { kind: 'since', ref: opts.since }
       : { kind: 'default' }
   const scanners = selectScanners(opts)
+  if (opts.full && !scanners.includes('DEPS')) {
+    console.error('Error: --full applies to --deps')
+    return EXIT_USAGE
+  }
 
   const started = performance.now()
-  const diff = collectLocalDiff(scope)
-  const scanned: LocalFinding[] = scanners.includes('SECRETS')
-    ? scanSecrets(diff.files).map(f => ({ ...f, scanner: 'SECRETS' as const }))
-    : []
+  const base = resolveScanBase(scope)
+  const diff = scanners.includes('SECRETS') ? collectLocalDiff(scope) : null
+  const depsResult: DepsScanResult | undefined = scanners.includes('DEPS')
+    ? await scanDeps(base, {
+        full: opts.full === true,
+        offline: opts.offline === true,
+        fetchImpl: deps.osvFetch,
+        scannerBin: deps.scannerBin,
+        now: deps.now?.(),
+      })
+    : undefined
+  const scanned: LocalFinding[] = [
+    ...(diff
+      ? scanSecrets(diff.files).map(f => ({
+          ...f,
+          scanner: 'SECRETS' as const,
+        }))
+      : []),
+    ...(depsResult?.findings ?? []),
+  ]
   const { findings, server } = await withServerContext(
     scanned,
     {
-      root: diff.root,
+      root: base.root,
       scanners,
       scope,
       offline: opts.offline === true,
@@ -187,12 +232,13 @@ export async function securityScanCommand(
   )
   const result: LocalScanResult = {
     scanners,
-    scope: diff.description,
-    filesScanned: diff.files.length,
-    skipped: diff.skipped,
+    scope: base.description,
+    filesScanned: diff?.files.length ?? 0,
+    skipped: diff?.skipped ?? [],
     elapsedMs: Math.round(performance.now() - started),
     findings,
     server,
+    ...(depsResult ? { deps: depsResult } : {}),
   }
 
   if (opts.json) emitJson(localScanJson(result))
@@ -200,5 +246,7 @@ export async function securityScanCommand(
     console.log(
       formatLocalScan(result, { width: terminalWidth(), color: colorEnabled() })
     )
-  return failOn !== null && meetsThreshold(findings, failOn) ? EXIT_FAIL_ON : 0
+  if (failOn !== null && meetsThreshold(findings, failOn)) return EXIT_FAIL_ON
+  // A scanner that could not finish is a failure, not a clean result.
+  return incompleteScanners(result).length > 0 ? 1 : 0
 }

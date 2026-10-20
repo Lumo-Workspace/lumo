@@ -2983,6 +2983,14 @@
     "security scan": {
       "arguments": [],
       "flags": {
+        "--deps": {
+          "long": "--deps",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev"
+        },
         "--fail-on": {
           "long": "--fail-on",
           "short": null,
@@ -2990,6 +2998,14 @@
           "enum": ["low", "medium", "high"],
           "enumCaseInsensitive": true,
           "description": "Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)"
+        },
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)"
         },
         "--json": {
           "long": "--json",
@@ -3005,7 +3021,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Label findings from the cached server context only; no Lumo API call"
+          "description": "Make no network call: label findings from the cached server context only, and check dependencies against osv-scanner's local database"
         },
         "--pr": {
           "long": "--pr",
@@ -3050,11 +3066,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy.",
+      "description": "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev.",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",
-        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)"
+        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH"
       }
     },
     "session": {

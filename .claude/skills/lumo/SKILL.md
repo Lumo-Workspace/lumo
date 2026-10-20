@@ -73,7 +73,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Local security scans — see [security-scan.md](references/security-scan.md)
 
-- `lumo security scan [--secrets] [--staged | --since <ref>] [--fail-on <sev>] [--offline | --pr] [--repo <o/r>] [--json]` — the PR scan's rules on your local changes (merge-base → working tree), each finding labelled from the server (new / on main / ruled / learning, would block DONE); exit 3 at `--fail-on`. Read-only; never a DONE gate.
+- `lumo security scan [--secrets] [--deps [--full]] [--staged | --since <ref>] [--fail-on <sev>] [--offline | --pr] [--repo <o/r>] [--json]` — the PR scan's rules on your local changes (merge-base → working tree), each finding labelled from the server (new / on main / ruled / learning, would block DONE); `--deps` sends changed package names/versions to api.osv.dev; `--offline` makes no network call; exit 3 at `--fail-on`, 1 when a scanner could not finish. Read-only; never a DONE gate.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 

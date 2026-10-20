@@ -147,24 +147,27 @@ function shortSha(root: string, ref: string): string {
 }
 
 /**
- * Resolve the scope to a diff and parse it. Throws with an actionable message
- * when the scope cannot be resolved (no default branch, unknown ref).
+ * What a scope compares: `base` (a revision) against the working tree, or —
+ * for `staged` — `HEAD` against the index.
  */
-export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
+export interface ScanBase {
+  root: string
+  base: string
+  head: 'worktree' | 'index'
+  /** Human description, e.g. `origin/main (merge-base 1a2b3c4) → working tree`. */
+  description: string
+}
+
+/**
+ * Resolve the scope to the revision it compares against. Throws with an
+ * actionable message when it cannot be resolved (no default branch, unknown
+ * ref).
+ */
+export function resolveScanBase(scope: ScanScope, cwd?: string): ScanBase {
   const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
-  const skipped: string[] = []
-
   if (scope.kind === 'staged') {
-    return {
-      root,
-      files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
-      description: 'staged changes',
-      skipped,
-    }
+    return { root, base: 'HEAD', head: 'index', description: 'staged changes' }
   }
-
-  let base: string
-  let description: string
   if (scope.kind === 'since') {
     if (
       runGit(
@@ -176,17 +179,43 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
         `Unknown ref "${scope.ref}" — pass a branch, tag or commit to --since.`
       )
     }
-    base = scope.ref
-    description = `${scope.ref} → working tree`
-  } else {
-    const branch = detectDefaultBranch(root, { allowNetwork: false })
-    if (!branch) {
-      throw new Error(
-        'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
-      )
+    return {
+      root,
+      base: scope.ref,
+      head: 'worktree',
+      description: `${scope.ref} → working tree`,
     }
-    base = gitOutput(['merge-base', 'HEAD', `origin/${branch}`], root)
-    description = `origin/${branch} (merge-base ${shortSha(root, base)}) → working tree`
+  }
+  const branch = detectDefaultBranch(root, { allowNetwork: false })
+  if (!branch) {
+    throw new Error(
+      'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
+    )
+  }
+  const base = gitOutput(['merge-base', 'HEAD', `origin/${branch}`], root)
+  return {
+    root,
+    base,
+    head: 'worktree',
+    description: `origin/${branch} (merge-base ${shortSha(root, base)}) → working tree`,
+  }
+}
+
+/**
+ * Resolve the scope to a diff and parse it. Throws with an actionable message
+ * when the scope cannot be resolved (no default branch, unknown ref).
+ */
+export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
+  const { root, base, head, description } = resolveScanBase(scope, cwd)
+  const skipped: string[] = []
+
+  if (head === 'index') {
+    return {
+      root,
+      files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
+      description,
+      skipped,
+    }
   }
 
   const files = [

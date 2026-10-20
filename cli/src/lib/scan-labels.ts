@@ -53,6 +53,8 @@ type Severity = 'LOW' | 'MEDIUM' | 'HIGH'
 /** The provenance the PR scan gives each local scanner's findings. */
 export const SCANNER_PROVENANCE: Record<LocalScanner, Provenance> = {
   SECRETS: 'DETERMINISTIC',
+  // LUM-1257: the managed scan ingests osv-scanner's report as an external tool.
+  DEPS: 'EXTERNAL_TOOL',
 }
 
 /**
@@ -175,6 +177,7 @@ export interface ServerPrFinding {
 /** The server finding kind each local scanner reproduces. */
 export const SCANNER_SERVER_KIND: Record<LocalScanner, string> = {
   SECRETS: 'SECRET',
+  DEPS: 'DEPENDENCY',
 }
 
 export interface PrComparison {
@@ -201,14 +204,19 @@ export function comparePrFindings(
   local: Array<{
     ruleId: string
     filePath: string
-    line: number
+    line: number | null
     fingerprint: string
   }>,
   scanners: LocalScanner[]
 ): PrComparison {
-  const kinds = new Set(scanners.map(s => SCANNER_SERVER_KIND[s]))
+  // Each reproduced server kind, with the provenance the server gives it.
+  const reproduced = new Map(
+    scanners.map(s => [SCANNER_SERVER_KIND[s], SCANNER_PROVENANCE[s]])
+  )
   const fps = new Set(local.map(f => f.fingerprint))
-  const spots = new Set(local.map(f => `${f.ruleId}\n${f.filePath}\n${f.line}`))
+  const spots = new Set(
+    local.map(f => `${f.ruleId}\n${f.filePath}\n${f.line ?? ''}`)
+  )
   const stillOpen: ServerPrFinding[] = []
   const fixedLocally: ServerPrFinding[] = []
   const serverOnly = { aiReview: 0, hunt: 0 }
@@ -221,7 +229,7 @@ export function comparePrFindings(
       if (f.open) serverOnly.aiReview += 1
       continue
     }
-    if (!kinds.has(f.kind) || f.provenance !== 'DETERMINISTIC') continue
+    if (reproduced.get(f.kind) !== f.provenance) continue
     const matched = f.fingerprint
       ? fps.has(f.fingerprint)
       : spots.has(`${f.ruleId}\n${f.filePath}\n${f.line ?? ''}`)

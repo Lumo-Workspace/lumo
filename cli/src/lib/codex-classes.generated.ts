@@ -129,7 +129,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
     serverOnly: false,
     localFiles: 'none',
     detail:
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
   },
   'session attach': {
     serverOnly: false,

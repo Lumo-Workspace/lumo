@@ -873,15 +873,23 @@ security
   .command('scan')
   .codex(
     sandboxed(
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)'
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH'
     )
   )
   .description(
-    "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy."
+    "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev."
   )
   .option(
     '--secrets',
     'Run the secret scanner (no scanner flag runs every local scanner)'
+  )
+  .option(
+    '--deps',
+    'Check added or changed npm lockfile packages for known vulnerabilities; sends package names and versions to api.osv.dev'
+  )
+  .option(
+    '--full',
+    'With --deps: run osv-scanner from PATH over the whole tree (every ecosystem)'
   )
   .option(
     '--staged',
@@ -901,7 +909,7 @@ security
   )
   .option(
     '--offline',
-    'Label findings from the cached server context only; no Lumo API call'
+    "Make no network call: label findings from the cached server context only, and check dependencies against osv-scanner's local database"
   )
   .option(
     '--pr',
