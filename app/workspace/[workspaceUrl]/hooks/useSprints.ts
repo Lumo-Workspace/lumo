@@ -8,7 +8,7 @@ import {
   type QueryClient,
   type Updater,
 } from '@tanstack/react-query'
-import { sprintsClient, tasksClient } from '@/lib/api-client'
+import { ApiClientError, sprintsClient, tasksClient } from '@/lib/api-client'
 import type {
   SprintAttentionResponse,
   SprintAttentionScope,
@@ -275,6 +275,18 @@ export function useBacklogTasks(teamId: string | null) {
  * Returns null if the summary has not been generated yet.
  * Returns { summary, isLoading, error, refetch }.
  */
+/** Same budget as react-query's default (3 retries). */
+const SUMMARY_MAX_RETRIES = 3
+
+/**
+ * LUM-1281 — a 404 summary means "retro not generated yet", a stable answer:
+ * retrying it only delays the closed-sprint page by several seconds.
+ */
+export function retrySummaryRead(failureCount: number, error: Error): boolean {
+  if (error instanceof ApiClientError && error.status === 404) return false
+  return failureCount < SUMMARY_MAX_RETRIES
+}
+
 export function useSprintSummary(sprintId: string | null) {
   const query = useQuery<SprintSummary | null>({
     queryKey: sprintId
@@ -288,6 +300,7 @@ export function useSprintSummary(sprintId: string | null) {
       return res ?? null
     },
     enabled: !!sprintId,
+    retry: retrySummaryRead,
   })
 
   return {

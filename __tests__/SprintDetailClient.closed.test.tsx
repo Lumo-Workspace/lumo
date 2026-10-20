@@ -306,6 +306,19 @@ test('a CLOSED sprint renders the retro layout, not the live one', () => {
   ).toHaveAttribute('href', '/workspace/test-workspace/sprints/14')
 })
 
+test('a sprint closed before its end date still reads as completed, with no days left', () => {
+  const realEnd = mockSprintResult.sprint.endDate
+  mockSprintResult.sprint.endDate = '2999-01-01T00:00:00.000Z'
+  try {
+    renderPage()
+    expect(screen.getByText('sprints.state.completed')).toBeInTheDocument()
+    expect(screen.queryByText('sprints.state.current')).toBeNull()
+    expect(screen.queryByText(/sprints.landing.daysLeft/)).toBeNull()
+  } finally {
+    mockSprintResult.sprint.endDate = realEnd
+  }
+})
+
 test('outcome cards show stored figures only — no cycle-time card', () => {
   renderPage()
   const outcomes = screen.getByRole('region', {

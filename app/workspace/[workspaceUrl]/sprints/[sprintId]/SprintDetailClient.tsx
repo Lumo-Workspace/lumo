@@ -178,7 +178,12 @@ export function SprintDetailClient({
     )
   }
 
-  const state = now === null ? null : deriveSprintState(sprint, new Date(now))
+  // A closed sprint is completed whatever its dates say (it can close early).
+  const state = closed
+    ? 'COMPLETED'
+    : now === null
+      ? null
+      : deriveSprintState(sprint, new Date(now))
   const daysLeft =
     now === null ? null : Math.max(0, daysFromNow(sprint.endDate, now))
   const teamName = teams.find(t => t.id === sprint.teamId)?.name ?? null
