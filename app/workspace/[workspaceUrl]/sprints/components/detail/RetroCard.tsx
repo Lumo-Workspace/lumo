@@ -98,7 +98,7 @@ export function RetroCard({
           <>
             {retro.tldr && <p className='text-body-strong'>{retro.tldr}</p>}
             <RichHtml
-              className='prose prose-sm max-w-none text-body'
+              className='prose prose-sm max-w-none text-body text-foreground dark:prose-invert'
               html={reportHtml}
             />
           </>

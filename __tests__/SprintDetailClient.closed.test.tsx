@@ -42,8 +42,10 @@ jest.mock(
   () => ({ SprintDateRange: () => <span data-testid='date-range' /> })
 )
 jest.mock('@/components/RichHtml', () => ({
-  RichHtml: ({ html }: { html: string }) => (
-    <div data-testid='report'>{html}</div>
+  RichHtml: ({ html, className }: { html: string; className?: string }) => (
+    <div data-testid='report' className={className}>
+      {html}
+    </div>
   ),
 }))
 
@@ -411,6 +413,8 @@ test('retro: renders the generated report and "regenerate" calls the retry endpo
   renderPage()
   expect(screen.getByText('A steady sprint.')).toBeInTheDocument()
   expect(screen.getByTestId('report').textContent).toContain('Went well')
+  // Readable in dark mode: the markdown body inverts with the theme.
+  expect(screen.getByTestId('report').className).toContain('dark:prose-invert')
 
   fireEvent.click(screen.getByRole('button', { name: 'sprints.retro.retry' }))
   expect(
