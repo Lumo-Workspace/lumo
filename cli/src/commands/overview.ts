@@ -18,11 +18,6 @@ interface SummariesResponse {
 }
 
 /**
- * `lumo project show [project]` (formerly `project overview`) (LUM-1192) — the project page's health
- * row (stalled, high stakes, stale PRs, overdue), its stats and the latest
- * stored summary. Read-only: never triggers a summary generation.
- */
-/**
  * LUM-1285: the lifecycle fields `--json` adds next to id and name (only those
  * the server sent — an older server sends none).
  */
@@ -36,6 +31,11 @@ export function lifecycle(p: ResolvedProject): Record<string, unknown> {
   return out
 }
 
+/**
+ * `lumo project show [project]` (formerly `project overview`) (LUM-1192) — the project page's health
+ * row (stalled, high stakes, stale PRs, overdue), its stats and the latest
+ * stored summary. Read-only: never triggers a summary generation.
+ */
 export async function projectOverview(
   ref: string | undefined,
   opts: OverviewOptions = {}
