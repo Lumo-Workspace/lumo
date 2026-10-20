@@ -10,6 +10,7 @@ import type {
   ProcessStage,
   ProcessStagesStats,
 } from '@/lib/summaries/sprint-process-stages'
+import type { SprintSpilloverItem } from '@/lib/api-client/sprints'
 
 /** The subset of `SprintSummary.stats` the retro reads. */
 export interface RetroStats {
@@ -99,6 +100,57 @@ export function buildProcessStages(
         row.previousMedianMs = prev.stages.stages[stage]?.medianMs ?? null
       return row
     }),
+  }
+}
+
+// ─── Carried over ───────────────────────────────────────────────────────────
+
+export interface CarriedOverRow {
+  taskId: string
+  identifier: string
+  title: string
+  /** Destination sprint name; null = back to the backlog. */
+  destination: string | null
+}
+
+export interface CarriedOverDestination {
+  /** Destination sprint name; null = back to the backlog. */
+  sprintName: string | null
+  count: number
+}
+
+/**
+ * Table rows plus the outcome card's "N to Sprint X / M to backlog" counts —
+ * a straight tally of the spillover read's rows: sprints by number, backlog
+ * last.
+ */
+export function toCarriedOver(items: SprintSpilloverItem[]): {
+  rows: CarriedOverRow[]
+  destinations: CarriedOverDestination[]
+} {
+  const bySprint = new Map<number, CarriedOverDestination>()
+  let backlog = 0
+  for (const i of items) {
+    if (!i.to) {
+      backlog++
+      continue
+    }
+    const d = bySprint.get(i.to.number)
+    if (d) d.count++
+    else bySprint.set(i.to.number, { sprintName: i.to.name, count: 1 })
+  }
+  const destinations = [...bySprint.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, d]) => d)
+  if (backlog > 0) destinations.push({ sprintName: null, count: backlog })
+  return {
+    rows: items.map(i => ({
+      taskId: i.taskId,
+      identifier: i.identifier,
+      title: i.title,
+      destination: i.to?.name ?? null,
+    })),
+    destinations,
   }
 }
 

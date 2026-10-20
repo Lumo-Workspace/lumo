@@ -13,6 +13,7 @@ import type {
   SprintAttentionResponse,
   SprintAttentionScope,
   SprintBurnupResponse,
+  SprintSpilloverItem,
 } from '@/lib/api-client/sprints'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
@@ -294,6 +295,27 @@ export function useSprintSummary(sprintId: string | null) {
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
     refetch: query.refetch,
+  }
+}
+
+/**
+ * LUM-1281 — a closed sprint's carried-over tasks with where each one went.
+ * Pass null to skip the read (a live sprint has no carry-over yet).
+ */
+export function useSprintSpillover(sprintId: string | null) {
+  const query = useQuery<SprintSpilloverItem[]>({
+    queryKey: sprintId
+      ? queryKeys.sprints.spillover(sprintId)
+      : ['sprints', 'spillover', 'disabled'],
+    queryFn: async () =>
+      (await sprintsClient.getSpillover(sprintId as string)) ?? [],
+    enabled: !!sprintId,
+  })
+
+  return {
+    spillover: query.data ?? null,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
   }
 }
 

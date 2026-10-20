@@ -191,10 +191,13 @@ export function SprintDetailClient({
 
   // Prefer the drawer; a task the list hasn't caught up with yet (or a page
   // mounted without a drawer) opens its own page instead of doing nothing.
-  function openTask(taskId: string) {
+  // A carried-over task has left the sprint, so its row hands its identifier.
+  function openTask(taskId: string, knownIdentifier?: string) {
     const task = (tasks as MyTask[] | undefined)?.find(t => t.id === taskId)
     if (task && onOpenTask) return onOpenTask(task)
-    const identifier = attentionTasks.find(t => t.taskId === taskId)?.identifier
+    const identifier =
+      knownIdentifier ??
+      attentionTasks.find(t => t.taskId === taskId)?.identifier
     if (identifier)
       router.push(`/workspace/${workspaceUrl}/my-tasks/${identifier}`)
   }
@@ -244,7 +247,6 @@ export function SprintDetailClient({
             sprintId={sprint.id}
             attention={team.attention}
             attentionLoading={team.isLoading}
-            carriedOverRows={null}
             onOpenTask={openTask}
           />
         ) : team.error ? (

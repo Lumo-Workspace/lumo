@@ -162,6 +162,22 @@ const mockAttention = {
 }
 const mockDisabled = { attention: null, isLoading: false, error: undefined }
 
+const mockSpillover: { value: unknown } = { value: null }
+const mockSpilloverItems = [
+  {
+    taskId: 't9',
+    identifier: 'LUM-9',
+    title: 'Moved on',
+    to: { number: 14, name: 'Sprint 14' },
+  },
+  {
+    taskId: 't7',
+    identifier: 'LUM-7',
+    title: 'Also moved',
+    to: { number: 14, name: 'Sprint 14' },
+  },
+  { taskId: 't8', identifier: 'LUM-8', title: 'Parked', to: null },
+]
 const mockSummaries: Record<string, unknown> = {}
 const mockAttentionCalls: Array<[string | null, string]> = []
 
@@ -185,6 +201,11 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => {
       refetch: () => {},
     }),
     useRetrySprintSummary: actual.useRetrySprintSummary,
+    useSprintSpillover: (id: string | null) => ({
+      spillover: id ? mockSpillover.value : null,
+      isLoading: false,
+      error: undefined,
+    }),
   }
 })
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTeams', () => ({
@@ -224,6 +245,7 @@ beforeEach(() => {
     tokensPerVerifiedTask: 940000,
     reworkShare: 0.2,
   }
+  mockSpillover.value = mockSpilloverItems
   mockRetrySummary.mockReset()
   mockAttentionCalls.length = 0
   mockPush.mockClear()
@@ -404,6 +426,51 @@ test('"view all tasks" reveals the task table, whose rows open their tasks', () 
   expect(onOpenTask).toHaveBeenCalledWith(mockTasks[0])
 })
 
+test('carried over: rows show where each task went (from the spillover read) and open their task', () => {
+  const onOpenTask = jest.fn()
+  renderPage({ onOpenTask })
+  const carried = card('sprints.detail.retro.carried.title')
+  expect(within(carried).getAllByRole('columnheader')).toHaveLength(2)
+  const row = (title: string) =>
+    within(carried).getByText(title).closest('tr') as HTMLElement
+  expect(within(row('Moved on')).getByText('Sprint 14')).toBeInTheDocument()
+  expect(
+    within(row('Parked')).getByText('sprints.detail.retro.carried.backlog')
+  ).toBeInTheDocument()
+
+  // The outcome card tallies the same rows: 2 to Sprint 14 / 1 to backlog.
+  const outcomes = screen.getByRole('region', {
+    name: 'sprints.detail.retro.outcome.aria',
+  })
+  expect(
+    within(outcomes).getByText(
+      'sprints.detail.retro.outcome.toSprint:2/Sprint 14'
+    )
+  ).toBeInTheDocument()
+  expect(
+    within(outcomes).getByText('sprints.detail.retro.outcome.toBacklog:1')
+  ).toBeInTheDocument()
+
+  // A carried-over task is not in the sprint's task list → its own page.
+  fireEvent.click(row('Parked'))
+  expect(mockPush).toHaveBeenCalledWith(
+    '/workspace/test-workspace/my-tasks/LUM-8'
+  )
+})
+
+test('a failed spillover read degrades to the stored count alone', () => {
+  mockSpillover.value = null
+  renderPage()
+  const carried = card('sprints.detail.retro.carried.title')
+  expect(
+    within(carried).getByText('sprints.detail.retro.carried.subtitle:4')
+  ).toBeInTheDocument()
+  expect(within(carried).queryByRole('table')).not.toBeInTheDocument()
+  expect(
+    screen.getByText('sprints.detail.retro.outcome.carriedOverSub')
+  ).toBeInTheDocument()
+})
+
 describe('CarriedOverCard', () => {
   const rows = [
     {
@@ -423,9 +490,9 @@ describe('CarriedOverCard', () => {
       screen.getByText('sprints.detail.retro.carried.backlog')
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /LUM-9/ }))
-    expect(onOpenTask).toHaveBeenCalledWith('t9')
+    expect(onOpenTask).toHaveBeenCalledWith('t9', 'LUM-9')
     fireEvent.click(screen.getByText('Parked').closest('tr')!)
-    expect(onOpenTask).toHaveBeenCalledWith('t8')
+    expect(onOpenTask).toHaveBeenCalledWith('t8', 'LUM-8')
   })
 
   test('without readable rows it shows the stored count alone', () => {

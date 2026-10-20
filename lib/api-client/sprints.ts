@@ -14,6 +14,7 @@ import type {
   AttentionScope as SprintAttentionScope,
   SprintAttention as SprintAttentionResponse,
 } from '@/lib/summaries/sprint-attention'
+import type { SprintSpilloverItem } from '@/lib/summaries/sprint-spillover'
 
 interface SprintProgress {
   total: number
@@ -59,6 +60,7 @@ export interface SprintBurnupResponse {
  * are seconds computed server-side), re-exported here as the client DTO.
  */
 export type { SprintAttentionResponse, SprintAttentionScope }
+export type { SprintSpilloverItem }
 export type {
   AttentionQueueItem as SprintAttentionQueueItemDto,
   AttentionTask as SprintAttentionTaskDto,
@@ -200,6 +202,11 @@ export const sprintsClient = {
     return apiFetch<SprintAttentionResponse>(
       API.sprints.attention(sprintId, scope)
     )
+  },
+
+  /** LUM-1281: carried-over tasks and where each went (closed sprints). */
+  getSpillover(sprintId: string) {
+    return apiFetch<SprintSpilloverItem[]>(API.sprints.spillover(sprintId))
   },
 
   retrySummary(sprintId: string) {

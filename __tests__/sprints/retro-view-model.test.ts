@@ -3,6 +3,7 @@ import {
   buildProcessStages,
   pickNextSprint,
   readRetroStats,
+  toCarriedOver,
 } from '@/app/workspace/[workspaceUrl]/sprints/components/detail/retro-view-model'
 import { formatStageMedian } from '@/app/workspace/[workspaceUrl]/sprints/components/detail/format'
 import type { ProcessStagesStats } from '@/lib/summaries/sprint-process-stages'
@@ -149,5 +150,33 @@ describe('formatStageMedian', () => {
     expect(formatStageMedian(intl, 2.64 * DAY)).toBe(
       'sprints.detail.retro.stages.days:2.6'
     )
+  })
+})
+
+describe('toCarriedOver', () => {
+  test('rows keep API order; destinations tally sprints by number, backlog last', () => {
+    const s15 = { number: 15, name: 'Sprint 15' }
+    const s14 = { number: 14, name: 'Sprint 14' }
+    const { rows, destinations } = toCarriedOver([
+      { taskId: 'a', identifier: 'L-1', title: 'A', to: null },
+      { taskId: 'b', identifier: 'L-2', title: 'B', to: s15 },
+      { taskId: 'c', identifier: 'L-3', title: 'C', to: s14 },
+      { taskId: 'd', identifier: 'L-4', title: 'D', to: s14 },
+    ])
+    expect(rows.map(r => r.destination)).toEqual([
+      null,
+      'Sprint 15',
+      'Sprint 14',
+      'Sprint 14',
+    ])
+    expect(destinations).toEqual([
+      { sprintName: 'Sprint 14', count: 2 },
+      { sprintName: 'Sprint 15', count: 1 },
+      { sprintName: null, count: 1 },
+    ])
+  })
+
+  test('nothing carried over → no rows, no destinations', () => {
+    expect(toCarriedOver([])).toEqual({ rows: [], destinations: [] })
   })
 })

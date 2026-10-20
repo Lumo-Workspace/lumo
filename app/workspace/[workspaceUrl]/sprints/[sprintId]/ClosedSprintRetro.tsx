@@ -4,20 +4,22 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useRetrySprintSummary, useSprintSummary } from '../../hooks/useSprints'
+import {
+  useRetrySprintSummary,
+  useSprintSpillover,
+  useSprintSummary,
+} from '../../hooks/useSprints'
 import type { SprintAttentionResponse } from '@/lib/api-client/sprints'
 import { OutcomeCards } from '../components/detail/OutcomeCards'
 import { RetroCard } from '../components/detail/RetroCard'
-import {
-  CarriedOverCard,
-  type CarriedOverRow,
-} from '../components/detail/CarriedOverCard'
+import { CarriedOverCard } from '../components/detail/CarriedOverCard'
 import { ProcessStagesCard } from '../components/detail/ProcessStagesCard'
 import { SprintTaskTable } from '../components/detail/SprintTaskTable'
 import { toTaskRows } from '../components/detail/view-model'
 import {
   buildProcessStages,
   readRetroStats,
+  toCarriedOver,
 } from '../components/detail/retro-view-model'
 
 interface ClosedSprintRetroProps {
@@ -25,9 +27,7 @@ interface ClosedSprintRetroProps {
   /** The team-scope attention read (LUM-1278); null while loading. */
   attention: Pick<SprintAttentionResponse, 'tasks' | 'cost'> | null
   attentionLoading: boolean
-  /** The carried-over tasks with destinations; null = count only. */
-  carriedOverRows: CarriedOverRow[] | null
-  onOpenTask: (taskId: string) => void
+  onOpenTask: (taskId: string, identifier?: string) => void
 }
 
 /**
@@ -40,7 +40,6 @@ export function ClosedSprintRetro({
   sprintId,
   attention,
   attentionLoading,
-  carriedOverRows,
   onOpenTask,
 }: ClosedSprintRetroProps) {
   const intl = useIntl()
@@ -48,6 +47,7 @@ export function ClosedSprintRetro({
   const { retry, retrying, retryError } = useRetrySprintSummary(sprintId)
   const previousRef = attention?.cost.previousSprint ?? null
   const previous = useSprintSummary(previousRef?.sprintId ?? null)
+  const { spillover } = useSprintSpillover(sprintId)
   const [showTasks, setShowTasks] = useState(false)
 
   const stats = useMemo(() => readRetroStats(summary?.stats), [summary])
@@ -67,6 +67,11 @@ export function ClosedSprintRetro({
           : null
       ),
     [stats, previousStats, previousRef]
+  )
+  // A failed spillover read degrades to the stored count alone.
+  const carried = useMemo(
+    () => (spillover ? toCarriedOver(spillover) : null),
+    [spillover]
   )
   const taskRows = useMemo(
     () => toTaskRows(attention?.tasks ?? [], []),
@@ -101,7 +106,7 @@ export function ClosedSprintRetro({
           totalTasks={stats?.totalTasks ?? 0}
           previousVerified={previousVerified}
           carriedOver={stats?.spillover ?? null}
-          carriedOverDestinations={null}
+          carriedOverDestinations={carried?.destinations ?? null}
           tokensPerVerifiedTask={cost?.tokensPerVerifiedTask ?? null}
           previousTokensPerVerifiedTask={previousTokens}
           reworkShare={cost?.reworkShare ?? null}
@@ -127,7 +132,7 @@ export function ClosedSprintRetro({
       <section className='flex flex-wrap gap-4 sm:gap-6'>
         <CarriedOverCard
           count={stats?.spillover ?? null}
-          rows={carriedOverRows}
+          rows={carried?.rows ?? null}
           onOpenTask={onOpenTask}
         />
         {isLoading ? (

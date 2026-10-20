@@ -18,13 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-export interface CarriedOverRow {
-  taskId: string
-  identifier: string
-  title: string
-  /** Destination sprint name; null = back to the backlog. */
-  destination: string | null
-}
+import type { CarriedOverRow } from './retro-view-model'
 
 interface CarriedOverCardProps {
   /** Stored spillover count (`stats.spillover`); null = no summary yet. */
@@ -32,7 +26,7 @@ interface CarriedOverCardProps {
   /** The carried-over tasks with where each went; null = not readable, so
    *  the card shows the count alone. */
   rows: CarriedOverRow[] | null
-  onOpenTask: (taskId: string) => void
+  onOpenTask: (taskId: string, identifier: string) => void
 }
 
 /** Tasks that left the sprint at close, and where each one went. */
@@ -68,7 +62,7 @@ export function CarriedOverCard({
                   <TableRow
                     key={r.taskId}
                     className='h-12 cursor-pointer'
-                    onClick={() => onOpenTask(r.taskId)}
+                    onClick={() => onOpenTask(r.taskId, r.identifier)}
                   >
                     <TableCell>
                       <button
@@ -76,7 +70,7 @@ export function CarriedOverCard({
                         className='flex items-baseline gap-2.5 text-left text-body-strong'
                         onClick={e => {
                           e.stopPropagation()
-                          onOpenTask(r.taskId)
+                          onOpenTask(r.taskId, r.identifier)
                         }}
                       >
                         <code className='w-18 flex-none text-caption text-muted-foreground'>

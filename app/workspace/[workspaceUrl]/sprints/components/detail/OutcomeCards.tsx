@@ -3,12 +3,7 @@
 import { useIntl } from 'react-intl'
 import { fmtCompact } from '../../../components/AgentRunTimeline/model-cost-format'
 import { StageCard } from './StageCards'
-
-export interface CarriedOverDestination {
-  /** Destination sprint name; null = back to the backlog. */
-  sprintName: string | null
-  count: number
-}
+import type { CarriedOverDestination } from './retro-view-model'
 
 interface OutcomeCardsProps {
   /** Tasks verified at close; null when the summary predates LUM-1280. */

@@ -519,6 +519,39 @@ export const sprintRepository = {
     }))
   },
 
+  /**
+   * LUM-1281 spillover read: the given tasks (carried out of a sprint) as
+   * `{ id, identifier, title }`, live rows in the caller's workspace only,
+   * ordered by task number.
+   */
+  async spilloverTaskRefs(taskIds: string[], workspaceId: string) {
+    if (taskIds.length === 0) return []
+    const rows = await prisma.task.findMany({
+      where: { id: { in: taskIds }, workspaceId, deletedAt: null },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { number: 'asc' },
+    })
+    return rows.map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+    }))
+  },
+
+  /** LUM-1281: destination sprints by id, in the caller's workspace only. */
+  async refsByIds(sprintIds: string[], workspaceId: string) {
+    if (sprintIds.length === 0) return []
+    return prisma.sprint.findMany({
+      where: { id: { in: sprintIds }, team: { workspaceId } },
+      select: { id: true, number: true, name: true },
+    })
+  },
+
   /** LUM-1278: the team's sprint just before `number` (highest number below). */
   async findPreviousInTeam(teamId: string, number: number) {
     return prisma.sprint.findFirst({
