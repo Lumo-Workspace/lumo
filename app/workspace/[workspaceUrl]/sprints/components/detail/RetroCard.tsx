@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { marked } from 'marked'
 import { RefreshCw } from 'lucide-react'
@@ -39,8 +40,12 @@ export function RetroCard({
   onRetry,
 }: RetroCardProps) {
   const intl = useIntl()
-  const parsed = retro?.report ? marked.parse(retro.report) : ''
-  const reportHtml = typeof parsed === 'string' ? parsed : ''
+  const report = retro?.report ?? ''
+  // RichHtml sanitizes this against the shared allowlist before rendering.
+  const reportHtml = useMemo(() => {
+    const parsed = report ? marked.parse(report) : ''
+    return typeof parsed === 'string' ? parsed : ''
+  }, [report])
 
   return (
     <Card>

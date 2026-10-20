@@ -98,7 +98,7 @@ export function ClosedSprintRetro({
 
   return (
     <>
-      {isLoading || attentionLoading ? (
+      {isLoading || attentionLoading || previous.isLoading ? (
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4'>
           {[0, 1, 2].map(i => (
             <Skeleton key={i} className='h-32' />
