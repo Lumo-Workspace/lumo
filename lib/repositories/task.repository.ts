@@ -271,6 +271,8 @@ const TASK_DETAIL_INCLUDE = {
       agent: { select: { id: true, name: true, avatarColor: true } },
     },
   },
+  // LUM-1283: the creating WorkspaceMember (a user, never an agent).
+  createdBy: { select: { id: true, clerkId: true } },
   pullRequests: {
     select: {
       id: true,
@@ -1098,6 +1100,11 @@ export const taskRepository = {
     status: TaskStatus
     priority: TaskPriority
     assigneeActorId: string | null
+    /**
+     * LUM-1283: the WorkspaceMember that created the task. Null when no user
+     * acts (automation, e.g. the Sentry webhook).
+     */
+    createdByMemberId: string | null
     agentStatus: AgentStatus | null
     sprintId?: string | null
     milestoneId?: string | null
@@ -1128,6 +1135,7 @@ export const taskRepository = {
           status: data.status,
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
+          createdByMemberId: data.createdByMemberId,
           agentStatus: data.agentStatus,
           sprintId: data.sprintId ?? null,
           milestoneId: data.milestoneId ?? null,

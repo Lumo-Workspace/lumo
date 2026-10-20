@@ -1,5 +1,7 @@
 export { StatusSelect } from './StatusSelect'
 export { AssigneeSelect } from './AssigneeSelect'
+export { CreatorField } from './CreatorField'
+export { resolveCreatorDisplay, type CreatorDisplay } from './creator-display'
 export { OwnerSelect } from './OwnerSelect'
 export { PrioritySelect } from './PrioritySelect'
 export { AiPrioritySelect } from './AiPrioritySelect'

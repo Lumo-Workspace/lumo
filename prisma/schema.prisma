@@ -753,6 +753,7 @@ model WorkspaceMember {
   workspace               Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   teams                   TeamMember[]
   createdProjects         Project[]                @relation("ProjectCreator")
+  createdTasks            Task[]                   @relation("TaskCreator")
   ownsProjects            Project[]                @relation("ProjectOwner")
   ownedViews              View[]                   @relation("ViewOwner")
   createdViews            View[]                   @relation("ViewCreator")
@@ -1003,6 +1004,11 @@ model Task {
   teamId            String
   number            Int
   assigneeActorId   String?
+  // LUM-1283: the WorkspaceMember that created the task — always a user, never
+  // an agent (an agent creating through the CLI is recorded as the member whose
+  // API key ran it). Null for automation-created tasks (Sentry webhook) and for
+  // rows that predate the column with no backfillable TASK_CREATED actor.
+  createdByMemberId String?
   sprintId          String?
   milestoneId       String?
   title             String
@@ -1069,6 +1075,7 @@ model Task {
   sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignee   Actor?      @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  createdBy  WorkspaceMember? @relation("TaskCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
 
   viewTaskOrders          ViewTaskOrder[]
   comments                Comment[]
@@ -1114,6 +1121,7 @@ model Task {
   // `<<%` strict word-similarity operator are both served by it).
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "tasks_title_trgm_idx")
   @@index([assigneeActorId])
+  @@index([createdByMemberId])
   @@index([sprintId])
   @@index([milestoneId])
   @@index([deletedAt])

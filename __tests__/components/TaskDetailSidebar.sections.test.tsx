@@ -9,6 +9,7 @@ const en: Record<string, string> = {
   'task.status': 'Status',
   'task.priority': 'Priority',
   'task.assignee': 'Assignee',
+  'task.createdBy': 'Creator',
   'common.project': 'Project',
   'sprints.taskField.label': 'Sprint',
   'task.field.milestone': 'Milestone',
@@ -36,6 +37,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/fields', () => ({
   PrioritySelect: stub('priority'),
   AssigneeSelect: stub('assignee'),
   ProjectSelect: stub('project'),
+  CreatorField: stub('creator'),
+  resolveCreatorDisplay: jest.requireActual(
+    '@/app/workspace/[workspaceUrl]/components/fields/creator-display'
+  ).resolveCreatorDisplay,
 }))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/sprints/components/TaskSprintField',
@@ -77,11 +82,14 @@ const task: any = {
   tags: [],
 }
 
-function renderPanel(overrides: Record<string, unknown> = {}) {
+function renderPanel(
+  overrides: Record<string, unknown> = {},
+  members: any[] = []
+) {
   return render(
     <TaskDetailSidebar
       task={{ ...task, ...overrides }}
-      members={[]}
+      members={members}
       agentActors={[]}
       projects={[]}
       workspaceUrl='acme'
@@ -107,7 +115,7 @@ describe('TaskDetailSidebar sections (LUM-1274)', () => {
       Array.from(sections[i]!.querySelectorAll('span.truncate')).map(
         s => s.textContent
       )
-    expect(labels(0)).toEqual(['Status', 'Priority', 'Assignee'])
+    expect(labels(0)).toEqual(['Status', 'Priority', 'Assignee', 'Creator'])
     expect(labels(1)).toEqual(['Project', 'Sprint', 'Milestone'])
     expect(labels(2)).toEqual(['Deps', 'Tags'])
   })
@@ -127,6 +135,35 @@ describe('TaskDetailSidebar sections (LUM-1274)', () => {
       expect(props?.variant).toBe('ghost')
       expect(props?.triggerClassName).toBeUndefined()
     }
+  })
+
+  it('shows the creating member read-only under Properties (LUM-1283)', () => {
+    renderPanel({ createdBy: { id: 'wm-a', clerkId: 'user_a' } }, [
+      {
+        id: 'wm-a',
+        clerkId: 'user_a',
+        role: 'MEMBER',
+        name: 'Alice',
+        email: 'a@example.com',
+        imageUrl: null,
+        joinedAt: '2026-01-01T00:00:00Z',
+        actorId: 'actor-a',
+      },
+    ])
+    const call = mockRecordProps.mock.calls
+      .filter(([n]) => n === 'creator')
+      .pop()
+    expect(call?.[1]).toEqual({
+      creator: { kind: 'member', name: 'Alice', imageUrl: null },
+    })
+  })
+
+  it('shows an unrecorded creator when the task has none (LUM-1283)', () => {
+    renderPanel({ createdBy: null })
+    const call = mockRecordProps.mock.calls
+      .filter(([n]) => n === 'creator')
+      .pop()
+    expect(call?.[1]).toEqual({ creator: { kind: 'unrecorded' } })
   })
 
   it('omits the Sprint row when the team has sprints disabled', () => {

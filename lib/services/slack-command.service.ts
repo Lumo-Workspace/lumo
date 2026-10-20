@@ -275,7 +275,9 @@ export const slackCommandService = {
   async createTask(
     workspaceId: string,
     teamIdentifier: string,
-    title: string
+    title: string,
+    /** LUM-1283: the linked Slack member, recorded as the creator. */
+    creatorMemberId: string
   ): Promise<SlackCreateTaskResult> {
     const team = await slackCommandRepository.findTeamByIdentifier(
       workspaceId,
@@ -300,6 +302,7 @@ export const slackCommandService = {
       status: 'TODO',
       priority: 'MEDIUM',
       assigneeActorId: null,
+      createdByMemberId: creatorMemberId,
       agentStatus: null,
       order: 0,
       dueDate: null,

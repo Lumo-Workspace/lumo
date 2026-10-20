@@ -165,7 +165,8 @@ describe('taskService.createTask — tagIds', () => {
       'proj1',
       { ...baseInput, tagIds: ['tag-1', 'tag-2'] },
       'actor1',
-      'clerk1'
+      'clerk1',
+      'member1'
     )
 
     expect(tagRepository.syncTaskTags).toHaveBeenCalledWith('task-new', [
@@ -175,7 +176,13 @@ describe('taskService.createTask — tagIds', () => {
   })
 
   it('does not call syncTaskTags when tagIds is undefined', async () => {
-    await taskService.createTask('proj1', baseInput, 'actor1', 'clerk1')
+    await taskService.createTask(
+      'proj1',
+      baseInput,
+      'actor1',
+      'clerk1',
+      'member1'
+    )
 
     expect(tagRepository.syncTaskTags).not.toHaveBeenCalled()
   })
@@ -185,7 +192,8 @@ describe('taskService.createTask — tagIds', () => {
       'proj1',
       { ...baseInput, tagIds: [] },
       'actor1',
-      'clerk1'
+      'clerk1',
+      'member1'
     )
 
     expect(tagRepository.syncTaskTags).not.toHaveBeenCalled()

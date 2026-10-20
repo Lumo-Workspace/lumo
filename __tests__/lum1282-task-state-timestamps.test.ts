@@ -171,7 +171,8 @@ describe('createTask', () => {
         'proj-1',
         { title: 'T', status: 'CANCELED', priority: 'MEDIUM' },
         'actor-1',
-        'clerk-1'
+        'clerk-1',
+        'member-1'
       )
     ).rejects.toMatchObject({ status: 400 })
     expect(taskRepository.createWithSequence).not.toHaveBeenCalled()
@@ -182,7 +183,8 @@ describe('createTask', () => {
       'proj-1',
       { title: 'T', status: 'DONE', priority: 'MEDIUM', order: 1 },
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      'member-1'
     )
     const data = (taskRepository.createWithSequence as jest.Mock).mock
       .calls[0]![0] as Record<string, unknown>
