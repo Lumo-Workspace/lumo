@@ -30,6 +30,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface GlobalDocTreeProps {
   roots: TreeNode[]
@@ -527,28 +532,48 @@ export function GlobalDocTree({
     <div className='w-56 shrink-0 border-r flex flex-col overflow-hidden'>
       {/* Sidebar header with collapse toggle — pt-6 matches main content top bar */}
       <div className='flex items-center px-2 pt-6 pb-2'>
-        <button
-          type='button'
-          onClick={onCollapse}
-          title={intl.formatMessage({
-            id: 'documentTree.collapse',
-            defaultMessage: 'Collapse sidebar (⌘\\)',
-          })}
-          className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
-        >
-          <PanelLeftClose className='size-4' />
-        </button>
-        <button
-          type='button'
-          onClick={onNavigateHome}
-          title={intl.formatMessage({
-            id: 'documentTree.home',
-            defaultMessage: 'All documents',
-          })}
-          className='flex items-center justify-center size-8 ml-0.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
-        >
-          <House className='size-4' />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onClick={onCollapse}
+              aria-label={intl.formatMessage({
+                id: 'documentTree.collapse',
+                defaultMessage: 'Collapse sidebar (⌘\\)',
+              })}
+              className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
+            >
+              <PanelLeftClose className='size-4' />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {intl.formatMessage({
+              id: 'documentTree.collapse',
+              defaultMessage: 'Collapse sidebar (⌘\\)',
+            })}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onClick={onNavigateHome}
+              aria-label={intl.formatMessage({
+                id: 'documentTree.home',
+                defaultMessage: 'All documents',
+              })}
+              className='flex items-center justify-center size-8 ml-0.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
+            >
+              <House className='size-4' />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {intl.formatMessage({
+              id: 'documentTree.home',
+              defaultMessage: 'All documents',
+            })}
+          </TooltipContent>
+        </Tooltip>
         <span className='truncate text-body-strong text-foreground'>
           {intl.formatMessage({
             id: 'documentTree.allDocs',
@@ -615,17 +640,27 @@ export function CollapsedDocTreeRail({ onExpand }: { onExpand: () => void }) {
   const intl = useIntl()
   return (
     <aside className='w-12 shrink-0 flex flex-col items-center pt-6'>
-      <button
-        type='button'
-        onClick={onExpand}
-        title={intl.formatMessage({
-          id: 'documentTree.expand',
-          defaultMessage: 'Expand sidebar (⌘\\)',
-        })}
-        className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-      >
-        <PanelLeftOpen className='size-4' />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            onClick={onExpand}
+            aria-label={intl.formatMessage({
+              id: 'documentTree.expand',
+              defaultMessage: 'Expand sidebar (⌘\\)',
+            })}
+            className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+          >
+            <PanelLeftOpen className='size-4' />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {intl.formatMessage({
+            id: 'documentTree.expand',
+            defaultMessage: 'Expand sidebar (⌘\\)',
+          })}
+        </TooltipContent>
+      </Tooltip>
     </aside>
   )
 }

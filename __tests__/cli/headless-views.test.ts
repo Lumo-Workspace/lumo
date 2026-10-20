@@ -260,7 +260,7 @@ const summary = {
 describe('overview formatting', () => {
   it('statusLine: web order first, then the rest A→Z, zeros kept', () => {
     expect(statusLine(stats.statusDistribution)).toBe(
-      'BACKLOG 0 · TODO 3 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 4 · CANCELLED 1'
+      'BACKLOG 0 · TODO 3 · IN_PROGRESS 2 · IN_REVIEW 0 · DONE 4 · CANCELED 0 · CANCELLED 1'
     )
   })
   it('avgCompletionLabel: hours and minutes (never days), - when unmeasured', () => {

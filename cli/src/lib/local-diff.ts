@@ -167,46 +167,84 @@ function shortSha(root: string, ref: string): string {
 }
 
 /**
+ * What a scope compares: `base` (a revision) against the working tree, or —
+ * for `staged` — `HEAD` against the index, or (LUM-1258 `--until`) against
+ * the commit `until`.
+ */
+export interface ScanBase {
+  root: string
+  base: string
+  head: 'worktree' | 'index' | 'commit'
+  /** The commit `head: 'commit'` ends at, as given to `--until`. */
+  until?: string
+  /** Human description, e.g. `origin/main (merge-base 1a2b3c4) → working tree`. */
+  description: string
+}
+
+/**
+ * Resolve the scope to the revision it compares against. Throws with an
+ * actionable message when it cannot be resolved (no default branch, unknown
+ * ref).
+ */
+export function resolveScanBase(scope: ScanScope, cwd?: string): ScanBase {
+  const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
+  if (scope.kind === 'staged') {
+    return { root, base: 'HEAD', head: 'index', description: 'staged changes' }
+  }
+  const until = scope.until
+  if (until !== undefined) assertCommit(root, until, '--until')
+  const end = until === undefined ? 'working tree' : refLabel(root, until)
+  const head =
+    until === undefined
+      ? { head: 'worktree' as const }
+      : { head: 'commit' as const, until }
+  if (scope.kind === 'since') {
+    assertCommit(root, scope.ref, '--since')
+    return {
+      root,
+      base: scope.ref,
+      ...head,
+      description: `${refLabel(root, scope.ref)} → ${end}`,
+    }
+  }
+  const branch = detectDefaultBranch(root, { allowNetwork: false })
+  if (!branch) {
+    throw new Error(
+      'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
+    )
+  }
+  const base = gitOutput(
+    ['merge-base', until ?? 'HEAD', `origin/${branch}`],
+    root
+  )
+  return {
+    root,
+    base,
+    ...head,
+    description: `origin/${branch} (merge-base ${shortSha(root, base)}) → ${end}`,
+  }
+}
+
+/**
  * Resolve the scope to a diff and parse it. Throws with an actionable message
  * when the scope cannot be resolved (no default branch, unknown ref).
  */
 export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
-  const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
+  const { root, base, head, until, description } = resolveScanBase(scope, cwd)
   const skipped: string[] = []
 
-  if (scope.kind === 'staged') {
+  if (head === 'index') {
     return {
       root,
       files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
-      description: 'staged changes',
+      description,
       skipped,
     }
   }
-
-  const until = scope.until
-  if (until !== undefined) assertCommit(root, until, '--until')
-  const end = until === undefined ? 'working tree' : refLabel(root, until)
-  let base: string
-  let description: string
-  if (scope.kind === 'since') {
-    assertCommit(root, scope.ref, '--since')
-    base = scope.ref
-    description = `${refLabel(root, scope.ref)} → ${end}`
-  } else {
-    const branch = detectDefaultBranch(root, { allowNetwork: false })
-    if (!branch) {
-      throw new Error(
-        'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref> or --staged.'
-      )
-    }
-    base = gitOutput(['merge-base', until ?? 'HEAD', `origin/${branch}`], root)
-    description = `origin/${branch} (merge-base ${shortSha(root, base)}) → ${end}`
-  }
-
-  if (until !== undefined) {
+  if (head === 'commit') {
     return {
       root,
-      files: addedLinesWithNumbers(gitDiff(root, [base, until, '--'])),
+      files: addedLinesWithNumbers(gitDiff(root, [base, until!, '--'])),
       description,
       skipped,
     }

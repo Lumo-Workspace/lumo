@@ -2,32 +2,50 @@
 
 `lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
 
-Scanners today: `SECRETS` (`--secrets`). With no scanner flag, every local scanner runs.
+Scanners today: `SECRETS` (`--secrets`) and `DEPS` (`--deps`). With no scanner flag, every local scanner runs.
 
 ## What `SECRETS` checks
 
 The **same deterministic secret scanner as the PR scan's first stage** (the code lives in `shared/src/secret-scan/`; the server imports the identical module), over the lines your changes add. No network, no binary, typically well under a second. Findings carry the server's fingerprints, so a local finding is the same finding the PR scan will report.
 
+## What `DEPS` checks
+
+Known-vulnerable and **known-malicious** dependencies, with the managed PR scan's identity (osv-scanner's advisory ids; rule `ext:osv-scanner:<id>`, the server's dependency fingerprint).
+
+- **Fast (default)** — diffs every npm `package-lock.json` / `npm-shrinkwrap.json` between the scope's base and head, and looks up **only the added or re-versioned packages** on the OSV API. No binary; typically under a second when nothing changed, a few seconds for a whole lockfile. Other ecosystems' lockfiles (`yarn.lock`, `pnpm-lock.yaml`, `go.sum`, `requirements.txt`, …) are not read in fast mode: a changed one is listed on a `Not checked …` line — use `--full`.
+- **`--full`** — runs **osv-scanner from your PATH** (`osv-scanner scan source -r . --format json`) over the whole working tree, every ecosystem, pre-existing debt included (`--staged` / `--since` do not narrow it). If osv-scanner is not installed it exits 1 with install instructions (`brew install osv-scanner`, `go install …`, release binaries). Lumo never downloads a binary.
+- **`--offline`** — no network call at all (the same flag also keeps the server context to its cache, below): osv-scanner's local database instead of the API (fast mode runs it on the changed lockfiles and keeps the changed packages). Needs osv-scanner and its database (`osv-scanner scan source --offline-vulnerabilities --download-offline-databases -r .` fetches it once); without them, when a lockfile changed, DEPS is reported incomplete and the other scanners still run. No lockfile change = no osv-scanner needed.
+- **Privacy:** fast mode sends **package names, versions and the ecosystem** to `api.osv.dev` (Google's OSV service) — nothing else: no code, paths or repository name. Use `--offline` when that is not acceptable.
+- **`MAL-*` advisories (known-malicious packages) are always HIGH** and get their own `MALICIOUS: …` line; remove the package and rotate any credential it could have read.
+- Each finding suggests the **fixed version** (the lowest release that fixes every advisory in its group), or says none is published.
+- **`osv-scanner.toml` ignores are honoured**, by id or alias, from the file next to each lockfile (as osv-scanner reads it): suppressed advisories are listed on an `Ignored by osv-scanner.toml: …` line. Once an entry's `ignoreUntil` passes, the advisory is reported again with `— osv-scanner.toml ignore expired <date>`.
+- Severity: `MAL-*` HIGH; else the CVSS v3 base score (≥7 HIGH, ≥4 MEDIUM, else LOW, as the PR scan maps it); else the advisory's own label; else MEDIUM.
+- **Incomplete, never clean:** when the OSV API is unreachable, times out (10 s per request) or answers badly — or a lockfile is not valid JSON — line 1 ends `· incomplete: DEPS`, an `Incomplete: DEPS — …` line says why, and the exit code is 1.
+
 ## Flags
 
-| Flag                  | Notes                                                                                                                                                                                                                                                                                     |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--secrets`           | Run the secret scanner. No scanner flag = every local scanner.                                                                                                                                                                                                                            |
-| _(no scope flag)_     | From the merge-base with the default branch (`origin/HEAD`, else `origin/main` / `origin/master`) to the **working tree**: committed, staged and unstaged edits, plus untracked files (not ignored ones).                                                                                 |
-| `--staged`            | Only the index (`git diff --cached`) — what the next commit will contain. For a pre-commit hook. Untracked files are not read.                                                                                                                                                            |
-| `--since <ref>`       | From `<ref>` (as given, not its merge-base) to the working tree, untracked files included. Not with `--staged`.                                                                                                                                                                           |
-| `--until <ref>`       | End at this commit instead of the working tree: only committed changes, no untracked files. With `--since` the range is `<since>` → `<until>`; alone it starts at the merge-base of `<until>` with the default branch. Not with `--staged`. For a pre-push hook.                          |
-| `--fail-on <level>`   | `low` \| `medium` \| `high` (case-insensitive): exit **3** when any finding is at or above it. `done`: exit 3 when a finding **would block DONE** under the workspace policy (the `Server:` label below) — without server context nothing can, so it never exits 3 and says so on stderr. |
-| `--timeout <seconds>` | Wait at most this long for the Lumo server (default 8; more than 0, at most 60), then fall back to the cached context. Not with `--offline`.                                                                                                                                              |
-| `--json`              | The list envelope (below).                                                                                                                                                                                                                                                                |
-| `--offline`           | Label findings from the cached server context only — no Lumo API call. No cache yet = no labels. Not with `--pr`.                                                                                                                                                                         |
-| `--pr`                | When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).                                                                                         |
-| `--repo <owner/repo>` | The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).                                                                                                                                                                  |
+| Flag                  | Notes                                                                                                                                                                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--secrets`           | Run the secret scanner. No scanner flag = every local scanner.                                                                                                                                                                                                                                               |
+| `--deps`              | Run the dependency scanner (fast mode). Sends changed package names and versions to `api.osv.dev`.                                                                                                                                                                                                           |
+| `--full`              | `DEPS` runs osv-scanner from PATH over the whole tree instead of the lockfile delta. Not with `--secrets` alone (exit 2).                                                                                                                                                                                    |
+| _(no scope flag)_     | From the merge-base with the default branch (`origin/HEAD`, else `origin/main` / `origin/master`) to the **working tree**: committed, staged and unstaged edits, plus untracked files (not ignored ones).                                                                                                    |
+| `--staged`            | Only the index (`git diff --cached`) — what the next commit will contain. For a pre-commit hook. Untracked files are not read.                                                                                                                                                                               |
+| `--since <ref>`       | From `<ref>` (as given, not its merge-base) to the working tree, untracked files included. Not with `--staged`.                                                                                                                                                                                              |
+| `--until <ref>`       | End at this commit instead of the working tree: only committed changes, no untracked files (`DEPS` reads the lockfiles of that commit). With `--since` the range is `<since>` → `<until>`; alone it starts at the merge-base of `<until>` with the default branch. Not with `--staged`. For a pre-push hook. |
+| `--fail-on <level>`   | `low` \| `medium` \| `high` (case-insensitive): exit **3** when any finding is at or above it. `done`: exit 3 when a finding **would block DONE** under the workspace policy (the `Server:` label below) — without server context nothing can, so it never exits 3 and says so on stderr.                    |
+| `--json`              | The list envelope (below).                                                                                                                                                                                                                                                                                   |
+| `--offline`           | Make **no network call**: labels come from the cached server context only (no cache yet = no labels), and `DEPS` uses osv-scanner's local database instead of api.osv.dev. Not with `--pr`.                                                                                                                  |
+| `--timeout <seconds>` | Wait at most this long for the network (more than 0, at most 60): the Lumo server (default 8, then the cached context) and the whole api.osv.dev lookup (default 10 per request; past the budget `DEPS` is incomplete). Not with `--offline`.                                                                |
+| `--pr`                | When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).                                                                                                            |
+| `--repo <owner/repo>` | The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).                                                                                                                                                                                     |
 
 ```bash
 lumo security scan
 lumo security scan --secrets --staged --fail-on high
 lumo security scan --since origin/main --json
+lumo security scan --deps --fail-on high
+lumo security scan --deps --full
 lumo security scan --pr
 lumo security scan --staged --offline --fail-on high
 lumo security scan --staged --fail-on done --timeout 2     # what the pre-commit hook runs
@@ -79,20 +97,40 @@ Local results are a preview: the PR scan stays the authority for DONE.
 - A finding the scanner lowered to LOW says why (`— placeholder value, downgraded`, `— test/fixture/doc path, downgraded`).
 - The `Server:` header is `live`, the cache note (`… using the context cached <time>`), or `no context — <why>`.
 
+- With `DEPS`, a `Deps: …` line says what was checked and against what (`2 added or changed packages in package-lock.json checked against api.osv.dev`, or `osv-scanner, whole tree`); a DEPS finding shows `Package`, `Where` (the lockfile), `Fix` and `Advisory` (its osv.dev page) instead of a line and evidence. Its `Server:` label works the same way: the default branch's baseline holds the managed scan's dependency fingerprints, so an advisory already on main reads `already on main`.
+
+```
+scan: 1 finding (1 high, 0 medium, 0 low)
+Scope: SECRETS, DEPS · origin/main (merge-base 1a2b3c4) → working tree · 3 files · 412ms
+Deps: 2 added or changed packages in package-lock.json checked against api.osv.dev
+Server: acme/app · live · 0 would block DONE
+Local results are a preview: the PR scan stays the authority for DONE.
+
+  • [HIGH] Command Injection in lodash
+    Rule:      ext:osv-scanner:GHSA-35jh-r3h4-6jhm
+    Package:   lodash@4.17.15 (npm)
+    Where:     package-lock.json
+    Fix:       upgrade to 4.17.21 or later
+    Advisory:  https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm
+    Server:    already on main
+```
+
 ### `--json`
 
-`{ version: 1, findings: [...], total, nextCursor: null, scanners, scope, filesScanned, skipped, elapsedMs, summary }` — `summary` is `{ total, high, medium, low }`; `scanners` lists the enums that ran (`SECRETS`). Declared finding fields: `scanner`, `kind` (`SECRET`), `ruleId`, `severity` (`LOW|MEDIUM|HIGH`), `title`, `filePath`, `line`, `evidence` (redacted), `fingerprint` (the server's), `detail`, `downgrade` (`PLACEHOLDER_VALUE` | `DOWNGRADED_PATH` | `null`), `server` (`null` without context, else `{ status: NEW|ON_MAIN|FALSE_POSITIVE|ACCEPTED_RISK|LEARNING, by, at, pullRequest, carriesOver, learningId, wouldBlockDone }`).
+`{ version: 1, findings: [...], total, nextCursor: null, scanners, scope, filesScanned, skipped, elapsedMs, summary, complete, incomplete, deps, serverContext, wouldBlockDone }` — `summary` is `{ total, high, medium, low }`; `scanners` lists the enums that ran (`SECRETS`, `DEPS`); `complete` is false when any scanner could not finish, and `incomplete` lists `{ scanner, reason }`; `deps` is `{ mode: fast|full, source, lockfiles, packagesChecked, ignored[], notCovered[] }` or `null` when DEPS did not run.
+
+Declared finding fields: `scanner`, `kind` (`SECRET` | `DEPENDENCY`), `ruleId`, `severity` (`LOW|MEDIUM|HIGH`), `title`, `filePath`, `line` (`null` for DEPENDENCY), `evidence` (redacted; `null` for DEPENDENCY), `fingerprint` (the server's), `detail`, `downgrade` (`PLACEHOLDER_VALUE` | `DOWNGRADED_PATH` | `null`), `server` (`null` without context, else `{ status: NEW|ON_MAIN|FALSE_POSITIVE|ACCEPTED_RISK|LEARNING, by, at, pullRequest, carriesOver, learningId, wouldBlockDone }`). A DEPENDENCY finding adds `dependency: { ecosystem, name, version, osvId, aliases, malicious, fixedVersion, score, url, ignoreExpired }`.
 
 Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fetchedAt, pullRequest, policy, pr }` (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                                      |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | The scan ran (findings or not) and `--fail-on` was not given or not met                                                                      |
-| 1    | Failed: not a git repo, unknown `--since` / `--until` ref, no default branch found                                                           |
-| 2    | Usage error: `--staged` with `--since` or `--until`, `--pr` or `--timeout` with `--offline`, an invalid `--fail-on`, `--timeout` or `--repo` |
-| 3    | `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open                                                        |
+| Code | Meaning                                                                                                                                                                                                                                                                                                        |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | The scan ran (findings or not) and `--fail-on` was not given or not met                                                                                                                                                                                                                                        |
+| 1    | Failed: not a git repo, unknown `--since` / `--until` ref, no default branch found; osv-scanner missing for `--full`; or a scanner could not finish (`DEPS` with the OSV API unreachable or past `--timeout`, or `--offline` without osv-scanner or its database) — the report still prints, marked incomplete |
+| 2    | Usage error: `--staged` with `--since` or `--until`, `--pr` or `--timeout` with `--offline`, `--full` without `DEPS`, an invalid `--fail-on`, `--timeout` or `--repo`                                                                                                                                          |
+| 3    | `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open                                                                                                                                                                                                                          |
 
 4 and 5 stay the confirmation and DONE gates' codes ([confirmation.md](confirmation.md)).
 
@@ -107,7 +145,8 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 
 - **Blocks only on exit 3** — a finding the workspace policy would block DONE on (default: deterministic HIGH). Every other finding is printed with `lumo: warning only — not blocking the commit|push.`; a clean scan prints nothing.
 - **Fails open**, saying so: exit 1 / 2 (`lumo: security scan could not run (exit N) — not blocking …`), no `lumo` on PATH (`lumo: not on PATH — … skipped`), not logged in / no network / no plugin (no server context: findings warn, `⚠ --fail-on done: no server context …`). Inside Codex's sandbox the server call fails fast and the cached context is used.
-- **Time budget:** the server wait is capped at 2 s (`--timeout 2`), then the cache; the scan itself is local (typically 0.3–0.8 s a hook on a small change).
+- **Every local scanner runs** (no scanner flag): `SECRETS`, and `DEPS` for the lockfiles the change touches — a lockfile change sends its new package names / versions to api.osv.dev; no lockfile change, no `DEPS` call. A `DEPS` lookup that cannot finish (OSV unreachable, past the budget) makes the scan exit 1, so the hook says so and does not block, unless another finding already blocks (exit 3 wins).
+- **Time budget:** `--timeout 2` caps each network wait — the Lumo server (then the cache) and the whole api.osv.dev lookup; the rest is local (typically 0.3–0.8 s a hook on a small change).
 - **pre-push range:** a new branch, or a remote sha this clone has not fetched, starts at the merge-base with the default branch (`--until` alone). Branch deletions and tags are skipped. If an earlier part of the hook consumed stdin, it scans `@{upstream}` (else the merge-base) → `HEAD`.
 - `git commit --no-verify` / `git push --no-verify` skip them; `lumo doctor` lists them (kind `scan-hook`), `lumo uninstall` removes only their blocks.
 
@@ -118,4 +157,6 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 - In a pre-commit hook: `lumo init --scope project --scan-hooks` installs one that blocks only on what would block DONE; hand-rolled: `lumo security scan --staged --fail-on high` (add `--offline` to never wait on the network).
 - "Will this block DONE?" / "is this already ruled?" before pushing — the `Server:` labels.
 - After fixing findings on a PR's branch — `lumo security scan --pr` shows what the next push clears.
+- After `npm install` / a dependency bump, or before pushing a lockfile change — "did that upgrade pull in anything vulnerable?": `lumo security scan --deps`.
+- For the whole tree or a non-npm project: `lumo security scan --deps --full` (needs osv-scanner on PATH).
 - Not for reading what the PR scan found — that is `lumo pr show <number>` ([pr-scan.md](pr-scan.md)).

@@ -12,9 +12,16 @@ import {
   type NextStep,
 } from '../lib/next-steps'
 import { resolveSessionId } from '../lib/session-id'
-import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
-const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+// LUM-1284: NONE = not assessed (the server default when --priority is omitted).
+const ALLOWED_PRIORITIES = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
 
 export interface CreateTaskOptions {
@@ -47,6 +54,8 @@ interface CreatedTaskResponse {
   }
   /** Absent on older servers — the block is simply omitted (LUM-686). */
   nextSteps?: NextStep[]
+  /** LUM-1285: e.g. the project is paused. Absent on older servers. */
+  warnings?: string[]
 }
 
 interface SprintInfo {
@@ -233,13 +242,14 @@ export async function taskCreate(
     return 1
   }
 
-  // Priority: default LOW, validate if provided
-  let priority: Priority = 'LOW'
+  // Priority: only sent when given (LUM-1284). Omitted → the server stores
+  // NONE ("not assessed"); the CLI never invents a priority.
+  let priority: Priority | undefined
   if (opts.priority !== undefined) {
     const normalized = normalizePriority(opts.priority)
     if (!normalized) {
       console.error(
-        `Error: invalid priority "${opts.priority}". Allowed: low, medium, high, urgent`
+        `Error: invalid priority "${opts.priority}". Allowed: none, low, medium, high, urgent`
       )
       return EXIT_USAGE
     }
@@ -268,8 +278,8 @@ export async function taskCreate(
 
   const body: Record<string, unknown> = {
     title: title.trim(),
-    priority,
   }
+  if (priority !== undefined) body.priority = priority
   if (opts.description !== undefined) body.description = opts.description
   if (opts.project !== undefined) body.projectRef = opts.project
   if (opts.assignee !== undefined) body.assigneeRef = opts.assignee
@@ -315,6 +325,9 @@ export async function taskCreate(
         opts
       ) + '\n'
     )
+    // LUM-1285: the task exists; the warning (e.g. a paused project) goes to
+    // stderr so stdout stays the one created-line contract.
+    for (const w of data.warnings ?? []) console.error(warn(sanitizeField(w)))
 
     // Sprint binding (optional): if --sprint was passed, bind the new task.
     if (opts.sprint) {

@@ -45,6 +45,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface AppSidebarProps {
   currentPage: Page
@@ -168,15 +173,23 @@ export function AppSidebar({
             {/* Ask Lumo — global command palette / AI entry. Cmd+K also works.
                 Hidden on standalone deep-link pages that don't host the modal. */}
             {onOpenAskLumo && (
-              <button
-                type='button'
-                onClick={onOpenAskLumo}
-                title={`${intl.formatMessage({ id: 'quickDispatch.title' })} (⌘K)`}
-                aria-label={intl.formatMessage({ id: 'quickDispatch.title' })}
-                className='flex shrink-0 items-center justify-center size-8 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors'
-              >
-                <Search size={16} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type='button'
+                    onClick={onOpenAskLumo}
+                    aria-label={intl.formatMessage({
+                      id: 'quickDispatch.title',
+                    })}
+                    className='flex shrink-0 items-center justify-center size-8 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors'
+                  >
+                    <Search size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({ id: 'quickDispatch.title' })} (⌘K)
+                </TooltipContent>
+              </Tooltip>
             )}
           </SidebarMenuItem>
         </SidebarMenu>

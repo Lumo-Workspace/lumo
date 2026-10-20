@@ -6,6 +6,12 @@ import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
 import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
 import { usageMapTotal } from '@/lib/services/model-cost'
 import { inferredTopLevelSessionsForTasks } from '@/lib/repositories/task-attribution-where'
+import {
+  CLOSED_TASK_STATUSES,
+  countsTowardCompletion,
+} from '@/lib/task/status-semantics'
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
 export async function aggregateProjectStats(
   projectId: string
@@ -42,7 +48,7 @@ export async function aggregateProjectStats(
       where: {
         projectId,
         dueDate: { lt: now },
-        status: { not: 'DONE' },
+        status: { notIn: [...CLOSED_TASK_STATUSES] },
       },
       select: {
         id: true,
@@ -56,12 +62,14 @@ export async function aggregateProjectStats(
       where: {
         projectId,
         assigneeActorId: { not: null },
+        // LUM-1282: canceled work is neither assigned load nor completed.
+        status: { not: 'CANCELED' },
       },
       _count: { _all: true },
     }),
     prisma.task.findMany({
       where: { projectId, status: 'DONE' },
-      select: { createdAt: true, updatedAt: true },
+      select: { createdAt: true, updatedAt: true, completedAt: true },
     }),
     prisma.task.groupBy({
       by: ['agentStatus'],
@@ -82,17 +90,23 @@ export async function aggregateProjectStats(
       where: {
         projectId,
         status: 'DONE',
-        updatedAt: {
-          gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-        },
+        // LUM-1282: the completion stamp; updatedAt only for a row the
+        // backfill has not reached.
+        OR: [
+          { completedAt: { gte: new Date(now.getTime() - THIRTY_DAYS_MS) } },
+          {
+            completedAt: null,
+            updatedAt: { gte: new Date(now.getTime() - THIRTY_DAYS_MS) },
+          },
+        ],
       },
-      select: { updatedAt: true },
+      select: { updatedAt: true, completedAt: true },
     }),
-    // Stalled candidates: not done/cancelled, untouched past the stalled cutoff
+    // Stalled candidates: not done/canceled, untouched past the stalled cutoff
     prisma.task.findMany({
       where: {
         projectId,
-        status: { notIn: ['DONE'] },
+        status: { notIn: [...CLOSED_TASK_STATUSES] },
         updatedAt: { lt: stalledCutoff(now) },
       },
       select: {
@@ -129,7 +143,8 @@ export async function aggregateProjectStats(
   for (const g of statusGroups) {
     const count = g._count._all
     statusDistribution[g.status] = count
-    totalTasks += count
+    // LUM-1282: CANCELED is shown in the distribution but is not in the total.
+    if (countsTowardCompletion(g.status)) totalTasks += count
   }
 
   const priorityDistribution: Record<string, number> = {}
@@ -206,7 +221,7 @@ export async function aggregateProjectStats(
   // Completion trend
   const trendMap = new Map<string, number>()
   for (const t of completedRecently) {
-    const dateKey = t.updatedAt.toISOString().slice(0, 10)
+    const dateKey = (t.completedAt ?? t.updatedAt).toISOString().slice(0, 10)
     trendMap.set(dateKey, (trendMap.get(dateKey) ?? 0) + 1)
   }
   const completionTrend = Array.from(trendMap.entries())
@@ -216,7 +231,9 @@ export async function aggregateProjectStats(
   let avgCompletionTime: number | null = null
   if (doneTasks.length > 0) {
     const totalMs = doneTasks.reduce(
-      (sum, t) => sum + (t.updatedAt.getTime() - t.createdAt.getTime()),
+      (sum, t) =>
+        sum +
+        ((t.completedAt ?? t.updatedAt).getTime() - t.createdAt.getTime()),
       0
     )
     avgCompletionTime = totalMs / doneTasks.length / (1000 * 60 * 60)
@@ -405,7 +422,11 @@ export async function aggregateSprintBlockers(
   const [overdueTasks, stalledCandidates, failingAgentTasks, openPrs] =
     await Promise.all([
       prisma.task.findMany({
-        where: { sprintId, dueDate: { lt: now }, status: { not: 'DONE' } },
+        where: {
+          sprintId,
+          dueDate: { lt: now },
+          status: { notIn: [...CLOSED_TASK_STATUSES] },
+        },
         select: {
           id: true,
           number: true,
@@ -416,7 +437,7 @@ export async function aggregateSprintBlockers(
       prisma.task.findMany({
         where: {
           sprintId,
-          status: { notIn: ['DONE'] },
+          status: { notIn: [...CLOSED_TASK_STATUSES] },
           updatedAt: { lt: stalledCutoff(now) },
         },
         select: {

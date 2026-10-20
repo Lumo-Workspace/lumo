@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/command'
 import type { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
 import { statusLabel } from '../../utils'
-import { MemberAvatar, PRIORITY_CONFIG, PriorityDot } from '../fields/shared'
+import { MemberAvatar, PRIORITY_LABEL_ID, PriorityDot } from '../fields/shared'
+import { PRIORITY_DISPLAY_ORDER } from '@/lib/task/priority'
 
 export function BulkStatusPicker({
   onPick,
@@ -38,7 +39,14 @@ export function BulkStatusPicker({
         <Command>
           <CommandList>
             {(
-              ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+              [
+                'BACKLOG',
+                'TODO',
+                'IN_PROGRESS',
+                'IN_REVIEW',
+                'DONE',
+                'CANCELED',
+              ] as const
             ).map(s => (
               <CommandItem
                 key={s}
@@ -79,8 +87,8 @@ export function BulkPriorityPicker({
       <PopoverContent className='w-48 p-0' align='end'>
         <Command>
           <CommandList>
-            {(['URGENT', 'HIGH', 'MEDIUM', 'LOW'] as const).map(p => {
-              const { label } = PRIORITY_CONFIG[p]
+            {PRIORITY_DISPLAY_ORDER.map(p => {
+              const label = intl.formatMessage({ id: PRIORITY_LABEL_ID[p] })
               return (
                 <CommandItem
                   key={p}

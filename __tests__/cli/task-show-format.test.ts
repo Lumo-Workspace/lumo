@@ -51,3 +51,37 @@ describe('formatTaskShow', () => {
     expect(out).not.toContain('Description:')
   })
 })
+
+describe('formatTaskShow — Created by (LUM-1283)', () => {
+  it('renders the creating member as Name <email>', () => {
+    const out = formatTaskShow({
+      ...base,
+      description: null,
+      createdBy: { name: 'Alice', email: 'a@example.com' },
+    } as any)
+    expect(out).toMatch(/Created by:\s+Alice <a@example\.com>/)
+  })
+
+  it('renders the bare name when the member has no email', () => {
+    const out = formatTaskShow({
+      ...base,
+      description: null,
+      createdBy: { name: '(unknown member)', email: null },
+    } as any)
+    expect(out).toMatch(/Created by:\s+\(unknown member\)$/m)
+  })
+
+  it('renders an unrecorded creator as the empty marker', () => {
+    const out = formatTaskShow({
+      ...base,
+      description: null,
+      createdBy: null,
+    } as any)
+    expect(out).toMatch(/Created by:\s+-$/m)
+  })
+
+  it('omits the row when an older server sends no createdBy field', () => {
+    const out = formatTaskShow({ ...base, description: null } as any)
+    expect(out).not.toContain('Created by')
+  })
+})

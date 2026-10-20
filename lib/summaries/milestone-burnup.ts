@@ -1,4 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
+import { countsTowardCompletion } from '@/lib/task/status-semantics'
 import {
   DAY_MS,
   type StatusEvt,
@@ -71,7 +72,8 @@ export interface MilestoneBurnupInput {
 /**
  * LUM-627 — the milestone Overview's cross-sprint burnup trajectory. Backward
  * replay, not a snapshot: per UTC day, `scope` counts member tasks created by
- * end-of-day and `completed` counts tasks DONE at end-of-day replayed from the
+ * end-of-day and not CANCELED at end-of-day (LUM-1282), and `completed`
+ * counts tasks DONE at end-of-day replayed from the
  * append-only STATUS_CHANGED log (a later reopen decrements the curve again).
  *
  * Candidate set = the milestone's CURRENT member tasks: membership changes have
@@ -135,10 +137,12 @@ export function computeMilestoneBurnup(
     let completed = 0
     for (const t of tasks) {
       if (t.createdAt.getTime() > eod) continue
+      const status = statusAt(statusByTask.get(t.id) ?? [], eod, t.status)
+      // LUM-1282: a task CANCELED at end-of-day leaves the scope that day (it
+      // is back in scope on the days before the cancel, and after a reopen).
+      if (!countsTowardCompletion(status)) continue
       scope++
-      if (statusAt(statusByTask.get(t.id) ?? [], eod, t.status) === 'DONE') {
-        completed++
-      }
+      if (status === 'DONE') completed++
     }
     return { date: toUtcDateKey(day), scope, completed }
   })

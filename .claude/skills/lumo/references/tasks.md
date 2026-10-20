@@ -10,7 +10,7 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-d, --description <>`   | string | Optional task description.                                                                                                                                              |
 | `--template <key>`       | string | Pre-fill the description from a task template. Not with `--description`.                                                                                                |
-| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.                                                                                                |
+| `-p, --priority <level>` | enum   | `none \| low \| medium \| high \| urgent` (case-insensitive). Omitted → `NONE` (not assessed, LUM-1284). Pass one only when the user decided it — never guess.          |
 | `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                                                                                                     |
 | `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**                                                                                        |
 | `--milestone <ref>`      | string | Milestone slug (as in the web URL) or name (case-insensitive) within the resolved project; an ambiguous name is rejected with the candidate slugs. Omit for no binding. |
@@ -58,7 +58,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 ### When to suggest `task create`
 
 - The user describes wanting a new task ("create a task to ...", "file a bug for ...", "log a TODO that ...", "add a task: ...").
-- After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title and priority.
+- After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title; add `--priority` only when the user stated one (omitted = `NONE`, not assessed).
 - For follow-ups discovered mid-work that shouldn't bloat the current change — propose `task create` rather than silently expanding scope.
 - When the task will be handed to an agent, suggest `--template agent-brief` so the description starts as a brief (Context / Goal / Non-goals / Watch out / Done when / Decisions) the user fills in before work starts.
 
@@ -111,24 +111,25 @@ When to suggest: the user rules on scope or approach mid-task ("do X, not Y", "l
 
 Pure flag-driven update. Provide at least one of:
 
-| Flag                     | Type                | Notes                                                                                                                                                                                                                                                                 |
-| ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-t, --title <text>`     | string              | Cannot be empty.                                                                                                                                                                                                                                                      |
-| `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                                                                                                                                                                  |
-| `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done` (case-insensitive).                                                                                                                                                                                             |
-| `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
-| `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
-| `--milestone <ref>`      | string              | Milestone slug (as in the web URL) or name (case-insensitive) within the task's project; an ambiguous name is rejected with the candidate slugs. `--milestone ""` unbinds.                                                                                            |
-| `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
-| `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                         |
-| `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo status --next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                              |
-| `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                    |
-| `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
-| `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                   |
-| `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                                                                                                          |
-| `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                                                                                                                                                             |
-| `--remove-tag <name>`    | string (repeatable) | Detach tag by name. `--remove-tag <name>` resolves the name via find-or-create on the workspace. If the name was unknown, a new Tag row is created (orphan, no attachments) before the detach runs as a no-op. Use `--remove-tag-id <cuid>` to avoid orphans. Max 20. |
-| `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op (no side effects). Max 20.                                                                                                                                                                                                  |
+| Flag                     | Type                | Notes                                                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-t, --title <text>`     | string              | Cannot be empty.                                                                                                                                                                                                                                                               |
+| `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                                                                                                                                                                           |
+| `-s, --status <value>`   | enum                | `backlog \| todo \| in_progress \| in_review \| done \| canceled` (case-insensitive). `done` and `canceled` are gated — see below.                                                                                                                                             |
+| `--duplicate-of <id>`    | string              | LUM-1282: only with `--status canceled` — the canonical task this one duplicates (`LUM-12`). Records a `DUPLICATES` dependency. A self-reference, a non-identifier or use without `--status canceled` is a usage error (exit 2); a missing target exits 1 before any envelope. |
+| `-p, --priority <lvl>`   | enum                | `none \| low \| medium \| high \| urgent`. `none` resets it to not assessed (LUM-1284).                                                                                                                                                                                        |
+| `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                            |
+| `--milestone <ref>`      | string              | Milestone slug (as in the web URL) or name (case-insensitive) within the task's project; an ambiguous name is rejected with the candidate slugs. `--milestone ""` unbinds.                                                                                                     |
+| `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                                  |
+| `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                                  |
+| `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo status --next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
+| `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                             |
+| `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                  |
+| `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                            |
+| `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                                                                                                                   |
+| `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                                                                                                                                                                      |
+| `--remove-tag <name>`    | string (repeatable) | Detach tag by name. `--remove-tag <name>` resolves the name via find-or-create on the workspace. If the name was unknown, a new Tag row is created (orphan, no attachments) before the detach runs as a no-op. Use `--remove-tag-id <cuid>` to avoid orphans. Max 20.          |
+| `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op (no side effects). Max 20.                                                                                                                                                                                                           |
 
 `--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
 
@@ -218,17 +219,44 @@ When the task has local git worktrees, the envelope ends with one line per workt
 
 - **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
 - With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an undispositioned boundary crossing, a blocking security finding or a proven test-case defect refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. Each blocker's terminal path is the user's ruling — `lumo crossing disposition`, `lumo finding disposition`, or for a `TEST_CASE_DEFECT` `lumo task testcase disposition <task>/TC<n> --known-defect | --not-a-defect` (all exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
-- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`backlog` / `todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
+- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. `backlog` / `todo` / `in_progress` / `in_review` PATCH directly and ignore `--confirm`; `canceled` is gated too (below).
 - A failed lookup (404, network) exits 1 before any envelope.
 
 ```bash
 lumo task update LUM-48 --status done --confirm   # only after the user approved the envelope
 ```
 
+### `--status canceled` — the user's ruling, always the envelope (LUM-1282)
+
+CANCELED is the terminal state for "we won't do this" or "this duplicates another task". It is **a human ruling**: an agent may propose it, never apply it. There is **no one-step path** — without `--confirm`, `--status canceled` always exits 4 with a `confirmation_required` envelope and sends nothing:
+
+```bash
+lumo task update LUM-48 --status canceled --duplicate-of LUM-12
+# exit 4 — stdout:
+# {
+#   "status": "confirmation_required",
+#   "command": "task update",
+#   "changes": [
+#     "Will move LUM-48 \"Panel refactor\" to CANCELED",
+#     "Status: TODO → CANCELED",
+#     "Duplicate of: LUM-12 \"Panel rewrite\" (records a DUPLICATES dependency)",
+#     "CANCELED leaves completion metrics and the next-task lists; only the user rules it — an agent may propose it, never approve it"
+#   ],
+#   "confirmCommand": "lumo task update LUM-48 --status canceled --duplicate-of LUM-12 --confirm"
+# }
+```
+
+Other flags on the same call add an `Also updates: …` line. After the user's yes, `confirmCommand` PATCHes the status, stamps `canceledAt`, and (with `--duplicate-of`) records a `DUPLICATES` edge from this task to the canonical one (an existing edge for the same pair becomes that edge). What CANCELED means downstream:
+
+- **Closed:** skipped by `lumo status --next` / `--claimable`, sprint-close spillover, open-task counts and blockers (a CANCELED blocker no longer blocks); `task status` reports `CANCELED — closed by the user, not delivered` instead of DONE readiness.
+- **Not counted:** out of both the numerator and the denominator of completion rates, burnup scope, sprint and milestone progress. A milestone whose remaining open tasks are all CANCELED completes on its own (its DONE tasks are the whole counted set).
+- **Reopen** with any other status (`--status todo` etc.); that clears `canceledAt`. Leaving DONE likewise clears `completedAt`. A task cannot be created CANCELED, and MCP `update_task` cannot set it.
+
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
 - After the agent finishes a task: every linked PR merged and nothing blocks → run `lumo task update LUM-N --status done` (one step); otherwise relay its exit-4 envelope and wait for the user's yes.
+- The user says a task is obsolete, won't be done, or duplicates another ("drop LUM-48, it's the same as LUM-12") → `lumo task update LUM-48 --status canceled [--duplicate-of LUM-12]` and relay the exit-4 envelope. Never cancel on your own to get out of hard work — propose it and let the user rule.
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
 ### Sprint output format
@@ -271,8 +299,8 @@ On a terminal (stdout is a TTY) the columns align by display width (CJK counts 2
 | `-a, --assignee <ref>`            | string (repeatable) | Default `me`. `any` = everyone (cannot be combined with other values), `none` = unassigned, an email, a member or agent name. |
 | `--search <text>`                 | string              | Every whitespace-separated term must match (see **Search** below). Ranked by relevance, typo-tolerant.                        |
 | `--exact`                         | boolean             | With `--search`: substring matching only, board order. Alone it is a usage error (exit 2).                                    |
-| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done`; repeat or comma-separate.                                              |
-| `--priority <level>`              | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate. No short flag.                                                   |
+| `-s, --status <value>`            | enum (repeatable)   | `backlog \| todo \| in_progress \| in_review \| done \| canceled`; repeat or comma-separate.                                  |
+| `--priority <level>`              | enum (repeatable)   | `none \| low \| medium \| high \| urgent` (`none` = not assessed); repeat or comma-separate. No short flag.                   |
 | `--tag <name>`                    | string (repeatable) | Tag name, case-insensitive (any of). Unknown name = error — listing never creates tags.                                       |
 | `--project <ref>`                 | string              | Global flag: project name or slug (unknown = error).                                                                          |
 | `-m, --milestone <ref>`           | string              | Milestone slug, name or id.                                                                                                   |
@@ -336,7 +364,7 @@ The last page prints only the `Showing …` line; a result that fits on one page
 
 ### `lumo task statuses [--json]` — the workflow as the server defines it
 
-Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
+Prints the status set with each status's allowed transitions, the priorities (`NONE, LOW, MEDIUM, HIGH, URGENT` — `NONE` = not assessed, the default for new tasks, sorts last), and which statuses are gated (`DONE`: needs the user's `--confirm` — unless every linked PR is merged and nothing blocks, LUM-1106 — and a clear DONE gate; `CANCELED`: always needs the user's `--confirm`, LUM-1282). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
 
 ```bash
 lumo task statuses
@@ -350,12 +378,15 @@ Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
 the list, then run `lumo session attach <LUM-N>` + `lumo task show <LUM-N> --full`.
 
-Ranking is lexicographic: **priority** (URGENT→LOW) first, then **active-sprint
+Ranking is lexicographic: **priority** (URGENT→LOW, then NONE = not assessed; the reason line reads `no priority`) first, then **active-sprint
 membership**, then **dependency topology** (LUM-645: tasks with an open
 CONFIRMED blocker sort after workable ones; among workable peers the task that
 directly unblocks the most open tasks ranks first), then **due date** (earlier
 first), then in-flight status (IN_PROGRESS / IN_REVIEW ahead of TODO). DONE
-tasks are excluded. The active sprint lookup is best-effort — if it fails the
+tasks are excluded, and so are tasks whose project is PAUSED, CANCELED or
+archived (LUM-1285) — they count toward neither the pool nor `--claimable`'s
+`excluded`; a trailing `(N tasks skipped: project paused, canceled or
+archived)` line and `skippedInactiveProject: N` in `--json` report them. The active sprint lookup is best-effort — if it fails the
 command still recommends, just without the sprint boost. The topology counts
 come from the server (`/api/tasks/me`); against an older server without them
 the order is simply the pre-topology ranking.
@@ -394,9 +425,9 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show [task]` — print one task's detail
 
-`[task]` defaults to the session-bound task. Aspect flags (`--full`, `--memory`, `--comments`, `--history`, `--scans`, `--runs`, `--outcome`, `--lineage`, `--deps`) add sections — see [task-context.md](task-context.md#reading-a-task--lumo-task-show). `--json` prints `{ version, task }` (plus one key per aspect) — `task.ref` (`LUM-42`) first, then the server fields (the description guarded like the block body, without the block).
+`[task]` defaults to the session-bound task. Aspect flags (`--full`, `--memory`, `--comments`, `--history`, `--scans`, `--runs`, `--outcome`, `--lineage`, `--deps`) add sections — see [task-context.md](task-context.md#reading-a-task--lumo-task-show). `--json` prints `{ version, task }` (plus one key per aspect) — `task.ref` (`LUM-42`) first, then the server fields (the description guarded like the block body, without the block) — including `createdBy` (LUM-1283): the creating member as `{ name, email }` (`email` may be `null`), or `null` when unrecorded.
 
-Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Without `--full` it does not load prior session summaries or memory.
+Returns a `<id>  <title>` line (bold on a TTY), then `Label:  value` rows padded to the widest label (LUM-1090) — status, priority, project, assignee (with display name from Clerk), `Created by` (LUM-1283: the member who created the task as `Name <email>` — always a user, never an agent: a task an agent creates through the CLI is recorded as the member whose API key ran it; `-` when unrecorded: automation-created or older tasks), due date when set, URL (never wrapped: a URL too long for its row moves, whole, under `URL:`) — and the full description below, verbatim, in an `<untrusted-task-description>` block (fence tags defanged, directive-shaped content flagged at the block head — LUM-998). Without `--full` it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42

@@ -64,7 +64,15 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
     '',
   ]
   const dirLabel = (e: DepEdge) =>
-    e.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+    // LUM-1282: a DUPLICATES edge points from the canceled duplicate to the
+    // canonical task (stored on the blocked / blocking columns).
+    e.kind === 'DUPLICATES'
+      ? e.direction === 'BLOCKED_BY'
+        ? 'duplicate of'
+        : 'duplicated by'
+      : e.direction === 'BLOCKED_BY'
+        ? 'blocked by'
+        : 'blocks'
   const evidence = (e: DepEdge) => {
     if (e.reason === 'shared_files')
       return ` · shared_files(${e.detail?.count ?? '?'} shared files${

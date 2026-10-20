@@ -23,6 +23,7 @@ import {
 } from '../dependencies/groupDependencies'
 import { DependenciesSection } from '../dependencies/components/DependenciesSection'
 import { FieldValueSkeleton, SeparatorDot } from './fields/shared'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 interface TaskDependencyFieldProps {
   /** This task's LUM-N identifier. */
@@ -95,7 +96,7 @@ export function TaskDependencyField({
 
   return (
     <>
-      <div className='flex flex-wrap items-center gap-1 px-2 py-1 text-caption min-h-7'>
+      <div className='flex min-h-control-sm flex-wrap items-center gap-1 px-2 py-1 text-body'>
         {loading && edges.length === 0 ? (
           <FieldValueSkeleton />
         ) : isEmpty ? (
@@ -124,7 +125,8 @@ export function TaskDependencyField({
               </>
             )}
             {shown.map(e => {
-              const satisfied = e.other.status === 'DONE'
+              // LUM-1282: a CANCELED blocker is closed too.
+              const satisfied = isClosedTaskStatus(e.other.status)
               return (
                 <Tooltip key={e.id}>
                   <TooltipTrigger asChild>

@@ -41,6 +41,14 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenuBar } from '@/app/workspace/[workspaceUrl]/components/BubbleMenuBar'
 
+// jsdom has no PointerEvent, so fireEvent.pointerDown would drop `button`
+// and the Radix DropdownMenu trigger (which opens on pointerdown) ignores it.
+if (typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent
+}
+const openMenu = (el: HTMLElement) =>
+  fireEvent.pointerDown(el, { button: 0, ctrlKey: false })
+
 function makeEditor() {
   const chain: Record<string, jest.Mock> = {}
   const methods = [
@@ -67,6 +75,7 @@ function makeEditor() {
   const editor = {
     chain: () => chain,
     getAttributes: () => ({}),
+    commands: { focus: jest.fn() },
     isActive: () => false,
   } as unknown as Editor
   return { editor, chain }
@@ -112,8 +121,8 @@ describe('BubbleMenuBar unified table toolbar', () => {
     const { editor, chain } = makeEditor()
     editorState = inTable(true)
     renderToolbar(editor)
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Table/i }))
-    fireEvent.mouseDown(screen.getByText('Add row above'))
+    openMenu(screen.getByRole('button', { name: /Table/i }))
+    fireEvent.click(screen.getByText('Add row above'))
     expect(chain.addRowBefore).toHaveBeenCalledTimes(1)
   })
 
@@ -121,10 +130,10 @@ describe('BubbleMenuBar unified table toolbar', () => {
     const { editor, chain } = makeEditor()
     editorState = inTable(true)
     renderToolbar(editor)
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Table/i }))
-    fireEvent.mouseDown(screen.getByText('Delete table'))
+    openMenu(screen.getByRole('button', { name: /Table/i }))
+    fireEvent.click(screen.getByText('Delete table'))
     expect(chain.deleteTable).not.toHaveBeenCalled()
-    fireEvent.mouseDown(screen.getByText('Click again to confirm'))
+    fireEvent.click(screen.getByText('Click again to confirm'))
     expect(chain.deleteTable).toHaveBeenCalledTimes(1)
   })
 

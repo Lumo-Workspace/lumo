@@ -130,7 +130,7 @@ describe('WebLinkCard delete confirmation', () => {
         onRemove={onRemove}
       />
     )
-    fireEvent.click(screen.getByTitle('Delete'))
+    fireEvent.click(screen.getByLabelText('Delete'))
     return { onRemove }
   }
 
@@ -166,7 +166,7 @@ describe('FigmaLinkCard remove confirmation', () => {
   function setup() {
     const onRemove = jest.fn().mockResolvedValue(undefined)
     render(<FigmaLinkCard link={figmaLink} onRemove={onRemove} />)
-    fireEvent.click(screen.getByTitle('Remove'))
+    fireEvent.click(screen.getByLabelText('Remove'))
     return { onRemove }
   }
 

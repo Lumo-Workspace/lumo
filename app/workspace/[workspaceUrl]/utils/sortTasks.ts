@@ -1,4 +1,5 @@
 import { cmpString, cmpDate } from '../hooks/useTableSort'
+import { compareTaskPriority } from '@/lib/task/priority'
 
 export type TaskOrdering =
   | 'manual'
@@ -35,13 +36,6 @@ const DEFAULT_DIRECTION: Record<TaskOrdering, 'asc' | 'desc'> = {
   assignee: 'asc',
   created: 'desc', // newest first
   updated: 'desc', // newest first
-}
-
-const PRIORITY_WEIGHT: Record<string, number> = {
-  URGENT: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
 }
 
 interface SortableTask {
@@ -105,9 +99,13 @@ export function sortTasks<T extends SortableTask>(
         break
 
       case 'priority': {
-        const wa = PRIORITY_WEIGHT[a.priority] ?? 99
-        const wb = PRIORITY_WEIGHT[b.priority] ?? 99
-        cmp = wa - wb
+        // LUM-1284: unassessed (NONE) sorts last regardless of direction,
+        // like unassigned in the assignee sort.
+        const na = a.priority === 'NONE'
+        const nb = b.priority === 'NONE'
+        if (na && !nb) return 1
+        if (!na && nb) return -1
+        cmp = compareTaskPriority(a.priority, b.priority)
         break
       }
 

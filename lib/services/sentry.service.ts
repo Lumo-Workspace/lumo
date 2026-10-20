@@ -352,7 +352,7 @@ export const sentryService = {
     const { task } = await taskService.createFromAutomation(projectId, {
       title: fields.title,
       description: buildTaskDescription(fields),
-      priority: mapLevelToPriority(fields.level),
+      priority: mapLevelToPriority(fields.reportedLevel),
       assigneeActorId,
       tagIds: [bugTagId],
     })

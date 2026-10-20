@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import type { TaskStatus } from '@prisma/client'
 import type { MilestoneUpdateInput } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
+import { countsTowardCompletion } from '@/lib/task/status-semantics'
 import { useFormatDate } from '../../hooks/useFormatDate'
 import { DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
 import { CalendarDayPopover } from '../fields/CalendarDayPicker'
@@ -50,8 +51,12 @@ export function MilestoneHero({
   const { fmtDate } = useFormatDate()
 
   const done = taskCounts?.DONE ?? 0
+  // LUM-1282: CANCELED leaves the denominator (not delivered, not open).
   const total = taskCounts
-    ? Object.values(taskCounts).reduce((sum, n) => sum + n, 0)
+    ? Object.entries(taskCounts).reduce(
+        (sum, [status, n]) => (countsTowardCompletion(status) ? sum + n : sum),
+        0
+      )
     : 0
   const pct = total > 0 ? Math.round((done / total) * 100) : null
 

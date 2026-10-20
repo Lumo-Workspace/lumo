@@ -52,8 +52,10 @@ describe('grammar.json drift', () => {
       'in_progress',
       'in_review',
       'done',
+      'canceled',
     ])
     expect(grammar.commands['task update']!.flags['--priority']!.enum).toEqual([
+      'none',
       'low',
       'medium',
       'high',

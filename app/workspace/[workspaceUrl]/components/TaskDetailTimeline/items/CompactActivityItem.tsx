@@ -14,13 +14,18 @@ import {
 import type { ReactNode } from 'react'
 import type { TimelineActivityEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
-import { TAG_COLORS } from './tag-colors'
+import {
+  TAG_CHIP_CLASS,
+  tagChipStyle,
+  tagColorScheme,
+} from '../../document/tag-colors'
 import { statusLabel } from '../../../utils'
 import { StatusIcon } from '../../StatusIcon'
 import { PRIORITY_CONFIG, PriorityDot } from '../../fields/shared'
 import type { ApiPriority } from '../../../types'
 import { buildActorMention } from '../ActorMention'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface CompactActivityItemProps {
   entry: TimelineActivityEntry
@@ -75,15 +80,13 @@ export function resolveActor(
 }
 
 function InlineTagBadge({ name }: { name: string }) {
-  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
   return (
     <Badge
       variant='plain'
       size='xs'
       shape='square'
-      className='align-middle'
-      style={{ backgroundColor: color.bg, color: color.text }}
+      className={cn('align-middle', TAG_CHIP_CLASS)}
+      style={tagChipStyle(tagColorScheme({ name }))}
     >
       {name}
     </Badge>

@@ -195,6 +195,8 @@ export const API = {
     burnup: (sprintId: string) => `/api/sprints/${sprintId}/burnup`,
     teamPerformance: (sprintId: string) =>
       `/api/sprints/${sprintId}/team-performance`,
+    attention: (sprintId: string, scope: 'team' | 'mine' = 'team') =>
+      `/api/sprints/${sprintId}/attention?scope=${scope}`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   milestones: {
@@ -242,7 +244,6 @@ export const CACHE_KEY = {
   documentDetail: (docId: string) => `lumo:doc:${docId}`,
   documentTree: 'lumo:document-tree',
   treeExpanded: 'lumo:tree-expanded',
-  sprintSidebarCollapsed: 'lumo:sprint-sidebar-collapsed',
   milestoneSidebarCollapsed: 'lumo:milestone-sidebar-collapsed',
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',

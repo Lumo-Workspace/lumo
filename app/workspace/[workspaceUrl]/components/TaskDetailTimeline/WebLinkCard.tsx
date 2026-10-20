@@ -8,6 +8,11 @@ import { useNow } from '@/hooks/use-now'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { ContentSignalsBadge } from '../ContentSignalsBadge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
   link: OptimisticWebLink
@@ -79,34 +84,54 @@ export function WebLinkCard({
                 className='shrink-0'
               />
               <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
-                <button
-                  onClick={e => {
-                    e.preventDefault()
-                    void handleRefresh()
-                  }}
-                  disabled={busy}
-                  title={intl.formatMessage({
-                    id: 'task.webLinks.card.refresh',
-                    defaultMessage: 'Refresh preview',
-                  })}
-                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <button
-                  onClick={e => {
-                    e.preventDefault()
-                    setConfirmOpen(true)
-                  }}
-                  disabled={busy}
-                  title={intl.formatMessage({
-                    id: 'task.webLinks.card.delete',
-                    defaultMessage: 'Delete',
-                  })}
-                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                >
-                  <Trash2 size={14} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={e => {
+                        e.preventDefault()
+                        void handleRefresh()
+                      }}
+                      disabled={busy}
+                      aria-label={intl.formatMessage({
+                        id: 'task.webLinks.card.refresh',
+                        defaultMessage: 'Refresh preview',
+                      })}
+                      className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {intl.formatMessage({
+                      id: 'task.webLinks.card.refresh',
+                      defaultMessage: 'Refresh preview',
+                    })}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={e => {
+                        e.preventDefault()
+                        setConfirmOpen(true)
+                      }}
+                      disabled={busy}
+                      aria-label={intl.formatMessage({
+                        id: 'task.webLinks.card.delete',
+                        defaultMessage: 'Delete',
+                      })}
+                      className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {intl.formatMessage({
+                      id: 'task.webLinks.card.delete',
+                      defaultMessage: 'Delete',
+                    })}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
             {(link.note ?? link.description) && (
@@ -165,34 +190,54 @@ export function WebLinkCard({
               </div>
               {!link.loading && (
                 <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
-                  <button
-                    onClick={e => {
-                      e.preventDefault()
-                      void handleRefresh()
-                    }}
-                    disabled={busy}
-                    title={intl.formatMessage({
-                      id: 'task.webLinks.card.refresh',
-                      defaultMessage: 'Refresh preview',
-                    })}
-                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                  >
-                    <RefreshCw size={14} />
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.preventDefault()
-                      setConfirmOpen(true)
-                    }}
-                    disabled={busy}
-                    title={intl.formatMessage({
-                      id: 'task.webLinks.card.delete',
-                      defaultMessage: 'Delete',
-                    })}
-                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={e => {
+                          e.preventDefault()
+                          void handleRefresh()
+                        }}
+                        disabled={busy}
+                        aria-label={intl.formatMessage({
+                          id: 'task.webLinks.card.refresh',
+                          defaultMessage: 'Refresh preview',
+                        })}
+                        className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {intl.formatMessage({
+                        id: 'task.webLinks.card.refresh',
+                        defaultMessage: 'Refresh preview',
+                      })}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={e => {
+                          e.preventDefault()
+                          setConfirmOpen(true)
+                        }}
+                        disabled={busy}
+                        aria-label={intl.formatMessage({
+                          id: 'task.webLinks.card.delete',
+                          defaultMessage: 'Delete',
+                        })}
+                        className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {intl.formatMessage({
+                        id: 'task.webLinks.card.delete',
+                        defaultMessage: 'Delete',
+                      })}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               )}
             </div>

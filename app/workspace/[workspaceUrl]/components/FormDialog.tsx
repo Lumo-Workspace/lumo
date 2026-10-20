@@ -17,6 +17,11 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const SUGGESTION_POPUP = '[data-editor-suggestion-popup]'
 
@@ -139,17 +144,32 @@ export function FormDialog({
           </DialogTitle>
           <div className='flex items-center gap-1'>
             {expandable && (
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={handleToggleExpand}
-                className='h-7 w-7 text-muted-foreground hover:text-foreground'
-                title={intl.formatMessage({
-                  id: expanded ? 'formDialog.collapse' : 'formDialog.expand',
-                })}
-              >
-                {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    onClick={handleToggleExpand}
+                    className='h-7 w-7 text-muted-foreground hover:text-foreground'
+                    aria-label={intl.formatMessage({
+                      id: expanded
+                        ? 'formDialog.collapse'
+                        : 'formDialog.expand',
+                    })}
+                  >
+                    {expanded ? (
+                      <Minimize2 size={16} />
+                    ) : (
+                      <Maximize2 size={16} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: expanded ? 'formDialog.collapse' : 'formDialog.expand',
+                  })}
+                </TooltipContent>
+              </Tooltip>
             )}
             <DialogClose asChild>
               <Button

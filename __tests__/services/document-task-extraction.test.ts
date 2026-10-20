@@ -171,6 +171,35 @@ describe('extractTasksFromDoc', () => {
     expect(res.skipped).toEqual([])
   })
 
+  it('creates each task as the calling member (LUM-1283 creator)', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+    })
+    const { createTask } = jest.requireMock(
+      '@/lib/services/task-creation.service'
+    ) as { createTask: jest.Mock }
+
+    await extractTasksFromDoc({
+      documentId: 'doc_1',
+      memberId: 'mem_1',
+      callerClerkId: 'user_1',
+      workspaceId: 'ws_1',
+      content: `<ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p>only</p></div></li>
+      </ul>`,
+      selector: { type: 'all_unchecked' },
+    })
+
+    // The calling member is passed explicitly as the creator.
+    expect(createTask).toHaveBeenCalledWith(
+      'proj_1',
+      expect.objectContaining({ title: 'only' }),
+      'actor_1',
+      'user_1',
+      'mem_1'
+    )
+  })
+
   it('skips empty checkbox items', async () => {
     ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
       ...baseDoc,
@@ -218,7 +247,8 @@ describe('extractTasksFromDoc', () => {
         description: 'a'.repeat(50),
       }),
       'actor_1',
-      'user_1'
+      'user_1',
+      'mem_1'
     )
   })
 

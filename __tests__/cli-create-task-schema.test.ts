@@ -6,15 +6,15 @@ describe('cliCreateTaskSchema', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.title).toBe('Hello')
-      expect(result.data.priority).toBe('LOW')
+      expect(result.data.priority).toBe('NONE')
     }
   })
 
-  it('defaults priority to LOW (matches CLI default, not server-side MEDIUM)', () => {
+  it('defaults priority to NONE (not assessed, LUM-1284) — never invents one', () => {
     const result = cliCreateTaskSchema.safeParse({ title: 't' })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.priority).toBe('LOW')
+      expect(result.data.priority).toBe('NONE')
     }
   })
 

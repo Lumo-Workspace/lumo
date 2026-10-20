@@ -10,6 +10,10 @@ import type { TopBlockers } from '@/types/summary'
 import type { ModelCost } from '@/lib/services/model-cost'
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
+import type {
+  AttentionScope as SprintAttentionScope,
+  SprintAttention as SprintAttentionResponse,
+} from '@/lib/summaries/sprint-attention'
 
 interface SprintProgress {
   total: number
@@ -48,6 +52,23 @@ export interface SprintBurnupResponse {
     projected: number | null
   }>
 }
+
+/**
+ * LUM-1278 — the Sprint attention read model (`GET /api/sprints/[id]/attention`).
+ * Wire shape = the service's return value (dates are ISO strings, durations
+ * are seconds computed server-side), re-exported here as the client DTO.
+ */
+export type { SprintAttentionResponse, SprintAttentionScope }
+export type {
+  AttentionQueueItem as SprintAttentionQueueItemDto,
+  AttentionTask as SprintAttentionTaskDto,
+  AttentionStage as SprintAttentionStageDto,
+  AttentionCost as SprintAttentionCostDto,
+  AttentionPerson as SprintAttentionPersonDto,
+  QueueKind as SprintAttentionQueueKind,
+  ReworkTopItem as SprintAttentionReworkTopItemDto,
+  SecurityTrust as SprintAttentionSecurityTrust,
+} from '@/lib/summaries/sprint-attention'
 
 /** One task in a member's Team-performance drill-down (dates as ISO wire). */
 export interface SprintMemberTaskRowDto {
@@ -172,6 +193,12 @@ export const sprintsClient = {
   getTeamPerformance(sprintId: string) {
     return apiFetch<SprintTeamPerformanceResponse>(
       API.sprints.teamPerformance(sprintId)
+    )
+  },
+
+  getAttention(sprintId: string, scope: SprintAttentionScope = 'team') {
+    return apiFetch<SprintAttentionResponse>(
+      API.sprints.attention(sprintId, scope)
     )
   },
 

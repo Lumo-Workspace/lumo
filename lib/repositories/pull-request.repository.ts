@@ -514,4 +514,33 @@ export const pullRequestRepository = {
     }
     return [...counts].map(([milestoneId, count]) => ({ milestoneId, count }))
   },
+
+  /**
+   * LUM-1278 attention read model: every PR bound to the given tasks in the
+   * caller's workspace, with draft flag, timestamps and the shas run freshness
+   * compares against.
+   */
+  async listForAttentionByTaskIds(workspaceId: string, taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    const rows = await prisma.pullRequest.findMany({
+      where: { workspaceId, taskId: { in: taskIds } },
+      select: {
+        id: true,
+        taskId: true,
+        repo: true,
+        number: true,
+        title: true,
+        url: true,
+        state: true,
+        isDraft: true,
+        headSha: true,
+        mergeCommitSha: true,
+        createdAt: true,
+        mergedAt: true,
+      },
+    })
+    return rows.filter(
+      (r): r is typeof r & { taskId: string } => r.taskId !== null
+    )
+  },
 }

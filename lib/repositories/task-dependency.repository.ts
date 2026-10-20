@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
+import { CLOSED_TASK_STATUSES } from '@/lib/task/status-semantics'
 
 /** 渲染边时需要的对端任务字段。 */
 const EDGE_TASK_SELECT = {
@@ -26,6 +27,7 @@ const BOTH_ENDS_LIVE = {
 
 export interface UpdateTaskDependencyInput {
   status?: 'SUGGESTED' | 'CONFIRMED' | 'DISMISSED' | undefined
+  kind?: 'BLOCKS' | 'RELATES' | 'DUPLICATES' | undefined
   blockedTaskId?: string | undefined
   blockingTaskId?: string | undefined
   confirmedAt?: Date | null | undefined
@@ -98,7 +100,7 @@ export const taskDependencyRepository = {
     workspaceId: string
     blockedTaskId: string
     blockingTaskId: string
-    kind: 'BLOCKS' | 'RELATES'
+    kind: 'BLOCKS' | 'RELATES' | 'DUPLICATES'
     source: 'MANUAL' | 'DETECTED'
     status: 'SUGGESTED' | 'CONFIRMED'
     confirmedAt?: Date | null
@@ -128,6 +130,7 @@ export const taskDependencyRepository = {
     // exactOptionalPropertyTypes: 显式 undefined 不能直接喂给生成类型，逐键收窄。
     const patch: Prisma.TaskDependencyUpdateInput = {}
     if (data.status !== undefined) patch.status = data.status
+    if (data.kind !== undefined) patch.kind = data.kind
     if (data.blockedTaskId !== undefined)
       patch.blockedTask = { connect: { id: data.blockedTaskId } }
     if (data.blockingTaskId !== undefined)
@@ -151,7 +154,11 @@ export const taskDependencyRepository = {
         blockedTaskId: taskId,
         status: 'CONFIRMED',
         kind: 'BLOCKS',
-        blockingTask: { status: { not: 'DONE' }, deletedAt: null },
+        // LUM-1282: a CANCELED blocker is closed and no longer blocks.
+        blockingTask: {
+          status: { notIn: [...CLOSED_TASK_STATUSES] },
+          deletedAt: null,
+        },
       },
       select: {
         blockingTask: {
@@ -187,7 +194,7 @@ export const taskDependencyRepository = {
   async findOpenTasksMeta(ids: string[]) {
     if (ids.length === 0) return []
     return prisma.task.findMany({
-      where: { id: { in: ids }, status: { not: 'DONE' } },
+      where: { id: { in: ids }, status: { notIn: [...CLOSED_TASK_STATUSES] } },
       select: { id: true, createdAt: true },
     })
   },

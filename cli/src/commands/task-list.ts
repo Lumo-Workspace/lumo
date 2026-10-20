@@ -57,8 +57,9 @@ const ALLOWED_STATUSES = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+const PRIORITIES = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 
 /** Repeatable flags arrive as arrays from Commander; tests may pass a string. */
 type Many = string | string[]
@@ -399,7 +400,7 @@ async function resolveQuery(
   const priorities = normalizeEnumList(toList(opts.priority), PRIORITIES)
   if (!priorities.ok) {
     return usage(
-      `invalid priority "${priorities.bad}". Allowed: low, medium, high, urgent`
+      `invalid priority "${priorities.bad}". Allowed: none, low, medium, high, urgent`
     )
   }
   const scope = assigneeScope(toList(opts.assignee))

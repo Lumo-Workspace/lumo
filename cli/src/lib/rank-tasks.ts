@@ -1,4 +1,5 @@
 import { fmtDay } from './format'
+import type { ProjectLifecycleLike } from '../../../shared/src/project-lifecycle'
 /**
  * Pure ranking logic for `lumo status --next`. Given the caller's open tasks plus the
  * set of ACTIVE sprint ids, produce a recommendation order and a per-task list
@@ -40,6 +41,11 @@ export interface NextTask {
    * budget; `false`/`null`/absent = not over (or no budget / unmeasured).
    */
   milestoneBudgetExceeded?: boolean | null
+  /**
+   * LUM-1285: the task's project lifecycle (`status`, `archivedAt`). Absent on
+   * an older server — then every project counts as workable.
+   */
+  project?: ProjectLifecycleLike | undefined
 }
 
 export interface RankedTask {
@@ -50,11 +56,13 @@ export interface RankedTask {
   reasons: string[]
 }
 
+/** URGENT > HIGH > MEDIUM > LOW > NONE: unassessed work ranks last (LUM-1284). */
 const PRIORITY_WEIGHT: Record<string, number> = {
   URGENT: 0,
   HIGH: 1,
   MEDIUM: 2,
   LOW: 3,
+  NONE: 4,
 }
 
 function priorityWeight(priority: string): number {
@@ -95,7 +103,9 @@ function deriveReasons(
   activeSprintIds: Set<string>,
   now: Date
 ): string[] {
-  const reasons: string[] = [task.priority]
+  const reasons: string[] = [
+    task.priority === 'NONE' ? 'no priority' : task.priority,
+  ]
 
   if (inActiveSprint(task, activeSprintIds)) {
     reasons.push('active sprint')

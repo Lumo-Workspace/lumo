@@ -31,9 +31,15 @@ import {
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar'
 import { Page, ApiProject } from '../../types'
+import { isSidebarProject } from '../../utils/projectVisibility'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { projectsClient } from '@/lib/api-client'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const STORAGE_KEY = 'lumo:sidebarProjectsExpanded'
 
@@ -110,8 +116,10 @@ export function ProjectsSidebarGroup({
     currentPage === 'project-detail' || currentSlug !== null
   const expanded = storedExpanded || isOnProjectRoute
 
+  // LUM-1285: archived projects leave the sidebar (the Projects page still
+  // lists them, so they can be opened and restored).
   const visibleProjects = useMemo(
-    () => projects.filter(p => !p.isIdea),
+    () => projects.filter(isSidebarProject),
     [projects]
   )
   const visibleIds = useMemo(
@@ -148,13 +156,13 @@ export function ProjectsSidebarGroup({
     const newVisibleIds = newVisible.map(p => p.id)
 
     // Snapshot for revert on failure; reorder the ENTIRE projects array so
-    // the full list (including any isIdea projects) keeps its invariant of
-    // "visible first in user order, then idea drafts". The Provider's
+    // the full list (including idea drafts and archived projects) keeps its
+    // invariant of "visible first in user order, then the hidden ones". The Provider's
     // cache-sync effect persists the new order — no direct writeCache here
     // (ProjectsProvider is the sole writer of CACHE_KEY.projects).
     const prevProjects = projects
-    const ideaProjects = projects.filter(p => p.isIdea)
-    const nextProjects = [...newVisible, ...ideaProjects]
+    const hiddenProjects = projects.filter(p => !isSidebarProject(p))
+    const nextProjects = [...newVisible, ...hiddenProjects]
 
     setProjects(nextProjects)
 
@@ -228,15 +236,21 @@ export function ProjectsSidebarGroup({
           />
         </button>
         {/* `+ New project` — shown on row-hover, never steals the row click. */}
-        <button
-          type='button'
-          onClick={handleNewProject}
-          aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
-          title={intl.formatMessage({ id: 'sidebar.newProject' })}
-          className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
-        >
-          <Plus size={14} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onClick={handleNewProject}
+              aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
+              className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
+            >
+              <Plus size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {intl.formatMessage({ id: 'sidebar.newProject' })}
+          </TooltipContent>
+        </Tooltip>
       </SidebarMenuItem>
 
       {expanded && (

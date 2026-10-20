@@ -1,5 +1,7 @@
 import type { TaskPriority, TaskStatus } from '@prisma/client'
+import { PRIORITY_DISPLAY_ORDER } from '@/lib/task/priority'
 import type { SprintMeta } from './sprint-coverage'
+import { countsTowardCompletion } from '@/lib/task/status-semantics'
 
 /** One member task as fetched for segmentation (pre-mapped by the service). */
 export interface MilestoneSegmentTaskInput {
@@ -45,7 +47,7 @@ export interface MilestoneSegments {
   workstream: MilestoneSegment[]
 }
 
-const PRIORITY_ORDER: TaskPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
+const PRIORITY_ORDER: readonly TaskPriority[] = PRIORITY_DISPLAY_ORDER
 
 function push(
   acc: Map<
@@ -98,6 +100,8 @@ export function computeMilestoneSegments(
   >()
 
   for (const task of tasks) {
+    // LUM-1282: a canceled task is outside every segment's progress.
+    if (!countsTowardCompletion(task.status)) continue
     if (task.sprintId === null) {
       push(bySprint, SEGMENT_NONE_KEY, null, task)
     } else {

@@ -121,7 +121,13 @@ describe('slack create command (LUM-920)', () => {
 
     expect(p.project.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { workspaceId: 'ws_1', teamId: 'team_1' },
+        // LUM-1285: never a CANCELED or archived project.
+        where: {
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+          archivedAt: null,
+          status: { not: 'CANCELED' },
+        },
         orderBy: { updatedAt: 'desc' },
       })
     )
@@ -131,10 +137,18 @@ describe('slack create command (LUM-920)', () => {
       teamId: 'team_1',
       title: 'Fix bug',
       status: 'TODO',
-      priority: 'MEDIUM',
+      priority: 'NONE', // LUM-1284: /create takes no priority
       order: 0,
     })
     expect(JSON.stringify(result)).toContain('ENG-8 · Fix bug')
+  })
+
+  it('records the linked Slack member as the creator (LUM-1283)', async () => {
+    await handleCommand('create "Fix bug" in eng', 'U1', 'xoxb', 'ws_1')
+
+    const data = mockTx.task.create.mock.calls[0][0].data
+    expect(data.createdByMemberId).toBe('wm_1')
+    expect(data).not.toHaveProperty('createdByActorId')
   })
 
   it('replies with an error instead of creating when the team has no project', async () => {

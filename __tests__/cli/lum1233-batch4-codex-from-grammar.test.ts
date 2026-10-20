@@ -56,6 +56,9 @@ const DEVIATIONS = {
     'feedback show',
     'priority create',
     'priority list',
+    // LUM-1285: project archive / unarchive.
+    'project archive',
+    'project unarchive',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<
@@ -67,9 +70,10 @@ const DEVIATIONS = {
       'reads local files (--file …) — Codex asks first (--evidence-file)',
     // LUM-1255: reads git and the working tree, so it stays sandboxed;
     // LUM-1256: it also reads server context from the Lumo API, which inside
-    // the sandbox falls back to the cache (or no context).
+    // the sandbox falls back to the cache (or no context);
+    // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network.
     'security scan':
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
   } as Record<string, string>,
 }
 

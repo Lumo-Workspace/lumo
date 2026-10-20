@@ -30,6 +30,13 @@ export const PRIORITY_CONFIG: Record<
     label: 'Low',
     iconColor: 'text-priority-low',
   },
+  // LUM-1284: not assessed. Listed last (it sorts after LOW) and drawn as a
+  // hollow dashed ring in the muted foreground, so it reads as "no priority"
+  // rather than as a fifth level.
+  NONE: {
+    label: 'No priority',
+    iconColor: 'text-muted-foreground',
+  },
 }
 
 /** react-intl message ids for priority labels (LUM-263). `label` above stays
@@ -39,11 +46,26 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
   HIGH: 'priority.high',
   MEDIUM: 'priority.medium',
   LOW: 'priority.low',
+  NONE: 'priority.none',
 }
 
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
   'h-7 text-caption border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+
+/**
+ * LUM-1274: how an inline task-field select draws its trigger. `default` keeps
+ * the caller-styled trigger (`triggerClassName`); `ghost` is the borderless
+ * control-sm row that reads as text until hovered (the task detail panel).
+ */
+export type FieldVariant = 'default' | 'ghost'
+
+/** SelectTrigger variant/size props for a field variant. */
+export function fieldTriggerProps(variant: FieldVariant = 'default') {
+  return variant === 'ghost'
+    ? ({ variant: 'ghost', size: 'sm' } as const)
+    : ({ variant: 'default', size: 'default' } as const)
+}
 
 // ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
 
@@ -89,13 +111,15 @@ export function PriorityDot({
   className,
   ...props
 }: { priority: ApiPriority } & ComponentProps<'span'>) {
-  const { iconColor } = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
+  const config = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.NONE
+  const unassessed = config === PRIORITY_CONFIG.NONE
   return (
     <span
       data-testid={`priority-dot-${priority.toLowerCase()}`}
       className={cn(
-        'inline-block size-2.5 shrink-0 rounded-full bg-current',
-        iconColor,
+        'inline-block size-2.5 shrink-0 rounded-full',
+        unassessed ? 'border border-dashed border-current' : 'bg-current',
+        config.iconColor,
         className
       )}
       {...props}

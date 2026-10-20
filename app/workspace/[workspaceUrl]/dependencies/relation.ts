@@ -7,7 +7,8 @@ export type Relation = 'BLOCKED_BY' | 'BLOCKS' | 'RELATES'
  * 被服务端与 groupDependencies 忽略,固定传 BLOCKED_BY 仅为满足类型。
  */
 export function relationToEdge(relation: Relation): {
-  kind: DependencyKind
+  // LUM-1282: DUPLICATES is written only by a cancel, never added here.
+  kind: Exclude<DependencyKind, 'DUPLICATES'>
   direction: DependencyDirection
 } {
   switch (relation) {

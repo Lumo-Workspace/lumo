@@ -119,15 +119,17 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'pr show': { serverOnly: true, localFiles: 'none' },
   'priority create': { serverOnly: true, localFiles: 'none' },
   'priority list': { serverOnly: true, localFiles: 'none' },
+  'project archive': { serverOnly: true, localFiles: 'none' },
   'project create': { serverOnly: true, localFiles: 'none' },
   'project list': { serverOnly: true, localFiles: 'none' },
   'project show': { serverOnly: true, localFiles: 'none' },
+  'project unarchive': { serverOnly: true, localFiles: 'none' },
   'project update': { serverOnly: true, localFiles: 'none' },
   'security scan': {
     serverOnly: false,
     localFiles: 'none',
     detail:
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
   },
   'session attach': {
     serverOnly: false,

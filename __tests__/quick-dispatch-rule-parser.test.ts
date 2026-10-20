@@ -139,7 +139,8 @@ describe('parseQuickDispatch', () => {
     expect(createAction.projectId).toBe('p1')
     expect(createAction.projectName).toBe('Lumo Backend')
     expect(createAction.status).toBe('TODO')
-    expect(createAction.priority).toBe('MEDIUM')
+    // LUM-1284: no priority keyword → NONE (not assessed).
+    expect(createAction.priority).toBe('NONE')
   })
 
   describe('create title keyword stripping (LUM-1057)', () => {

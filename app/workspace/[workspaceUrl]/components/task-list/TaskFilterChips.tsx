@@ -10,6 +10,11 @@ import {
   type FilterDimension,
   type TaskFilters,
 } from '../../utils/filterTasks'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface TaskFilterChipsProps {
   /** The scope's tasks *before* filtering — chip value labels are read off these. */
@@ -71,15 +76,19 @@ export function TaskFilterChips({
                   )
                 : shown}
             </span>
-            <button
-              type='button'
-              onClick={() => onClearDimension(dimension)}
-              title={removeLabel}
-              aria-label={removeLabel}
-              className='flex items-center justify-center size-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
-            >
-              <X size={12} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type='button'
+                  onClick={() => onClearDimension(dimension)}
+                  aria-label={removeLabel}
+                  className='flex items-center justify-center size-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                >
+                  <X size={12} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{removeLabel}</TooltipContent>
+            </Tooltip>
           </span>
         )
       })}

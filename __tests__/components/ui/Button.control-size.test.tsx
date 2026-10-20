@@ -34,4 +34,31 @@ describe('Button control-size tokens', () => {
     expect(cls).toContain('h-control-md')
     expect(cls).toContain('w-control-md')
   })
+
+  // LUM-1272: inline text-link actions carry no control box at all.
+  it('inline size drops the control height and padding', () => {
+    const { getByRole } = render(
+      <Button variant='link' size='inline'>
+        Edit
+      </Button>
+    )
+    const cls = getByRole('button').className
+    expect(cls).toContain('h-auto')
+    expect(cls).toContain('p-0')
+    expect(cls).not.toContain('h-control')
+    expect(cls).not.toContain('px-control-inset')
+  })
+
+  // LUM-1274: compact square icon button for dense header toolbars.
+  it('icon-sm size is an sm-height square', () => {
+    const { getByRole } = render(
+      <Button variant='ghost' size='icon-sm' aria-label='copy'>
+        x
+      </Button>
+    )
+    const cls = getByRole('button').className
+    expect(cls).toContain('h-control-sm')
+    expect(cls).toContain('w-control-sm')
+    expect(cls).not.toContain('h-control-md')
+  })
 })

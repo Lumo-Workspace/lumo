@@ -78,6 +78,8 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 // LUM-422 ④ DONE gate dep — empty verdicts → gate passes (no send-back).
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,
+  // LUM-1282: terminal stamps are covered in lum1282-* suites.
+  terminalTimestampPatch: () => ({}),
 }))
 
 import { taskRepository } from '@/lib/repositories/task.repository'

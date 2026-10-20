@@ -9,6 +9,11 @@ import {
   type TocLevelTier,
 } from '@/lib/editor/toc-display'
 import type { TocItem } from '../DescriptionEditorLazy'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface DocumentTocProps {
   items: TocItem[]
@@ -84,28 +89,45 @@ export function DocumentToc({
 
   return (
     <nav>
-      <button
-        type='button'
-        onClick={onToggle}
-        title={intl.formatMessage(
-          collapsed
-            ? {
-                id: 'documentToc.expand',
-                defaultMessage: 'Show table of contents',
-              }
-            : {
-                id: 'documentToc.collapse',
-                defaultMessage: 'Hide table of contents',
-              }
-        )}
-        className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-      >
-        {collapsed ? (
-          <AlignLeft className='size-4' />
-        ) : (
-          <ChevronsLeft className='size-4' />
-        )}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            onClick={onToggle}
+            aria-label={intl.formatMessage(
+              collapsed
+                ? {
+                    id: 'documentToc.expand',
+                    defaultMessage: 'Show table of contents',
+                  }
+                : {
+                    id: 'documentToc.collapse',
+                    defaultMessage: 'Hide table of contents',
+                  }
+            )}
+            className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+          >
+            {collapsed ? (
+              <AlignLeft className='size-4' />
+            ) : (
+              <ChevronsLeft className='size-4' />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {intl.formatMessage(
+            collapsed
+              ? {
+                  id: 'documentToc.expand',
+                  defaultMessage: 'Show table of contents',
+                }
+              : {
+                  id: 'documentToc.collapse',
+                  defaultMessage: 'Hide table of contents',
+                }
+          )}
+        </TooltipContent>
+      </Tooltip>
       {!collapsed && (
         <ul className='mt-2 space-y-px'>
           {items.map(item => {

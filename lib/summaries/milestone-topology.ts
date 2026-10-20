@@ -1,4 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 /** Current-membership task row — same basis every other Overview rollup uses. */
 export interface TopologyTaskRow {
@@ -172,7 +173,9 @@ export function computeMilestoneTopology(
   }
   const onPath = new Set(criticalPath.map(n => n.taskId))
 
-  // ── Next batch: open tasks with every confirmed blocker DONE ───────────
+  // ── Next batch: open tasks with every confirmed blocker closed ─────────
+  // LUM-1282: closed = DONE or CANCELED — a canceled blocker no longer holds
+  // anything back, and a canceled task is not "next".
   const blockersOf = new Map<string, TopologyEdgeRow[]>()
   for (const e of confirmed) {
     blockersOf.set(e.blockedTaskId, [
@@ -181,12 +184,16 @@ export function computeMilestoneTopology(
     ])
   }
   const openDependents = (id: string) =>
-    (dependents.get(id) ?? []).filter(dep => byId.get(dep)?.status !== 'DONE')
-      .length
+    (dependents.get(id) ?? []).filter(dep => {
+      const status = byId.get(dep)?.status
+      return status === undefined || !isClosedTaskStatus(status)
+    }).length
 
-  const open = input.tasks.filter(t => t.status !== 'DONE')
+  const open = input.tasks.filter(t => !isClosedTaskStatus(t.status))
   const isReady = (t: TopologyTaskRow) =>
-    (blockersOf.get(t.id) ?? []).every(e => blockerStatus(e) === 'DONE')
+    (blockersOf.get(t.id) ?? []).every(e =>
+      isClosedTaskStatus(blockerStatus(e))
+    )
 
   const nextBatch: TopologyBatchItem[] = open
     .filter(isReady)
