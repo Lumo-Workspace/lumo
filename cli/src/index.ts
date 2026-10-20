@@ -901,7 +901,7 @@ security
   )
   .option(
     '--fail-on <level>',
-    'Exit 3 when a finding is at or above low | medium | high, or with done when one would block DONE under the workspace policy'
+    'Exit 3 when a finding meets this level: low | medium | high | done (case-insensitive; done = a finding that would block DONE under the workspace policy)'
   )
   .option(
     '--offline',

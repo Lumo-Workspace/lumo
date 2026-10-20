@@ -2939,9 +2939,9 @@
           "long": "--fail-on",
           "short": null,
           "value": "required",
-          "enum": ["low", "medium", "high"],
-          "enumCaseInsensitive": false,
-          "description": "Exit 3 when a finding is at or above low | medium | high, or with done when one would block DONE under the workspace policy"
+          "enum": ["low", "medium", "high", "done"],
+          "enumCaseInsensitive": true,
+          "description": "Exit 3 when a finding meets this level: low | medium | high | done (case-insensitive; done = a finding that would block DONE under the workspace policy)"
         },
         "--json": {
           "long": "--json",

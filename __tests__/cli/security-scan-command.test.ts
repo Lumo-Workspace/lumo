@@ -106,7 +106,7 @@ describe('securityScanCommand', () => {
     const bad = await run({ failOn: 'severe' })
     expect(bad.result).toBe(EXIT_USAGE)
     expect(bad.err).toMatch(
-      /invalid --fail-on "severe" \(allowed: low, medium, high\)/
+      /invalid --fail-on "severe" \(allowed: low, medium, high, done\)/
     )
   })
 })
