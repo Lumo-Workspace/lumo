@@ -40,7 +40,7 @@ lumo memory delete <memory> --confirm       # hard delete (without --confirm: ex
 
 # Downsync team memory into the local Claude Code memory store
 # (Claude Code only: in a Codex shell `memory sync` / `memory push` exit 1 unless --dir is given — Codex never reads this store)
-lumo memory sync                   # write team/<id>.md + a managed MEMORY.md block
+lumo memory sync                   # write team/<id>.md + team/INDEX.md + a short MEMORY.md pointer block
 lumo memory sync --dry-run         # preview the reconcile plan, write nothing
 lumo memory sync --project <ref>   # target a specific project (default: bound session)
 lumo memory sync --clean           # remove everything sync owns (full rollback)
@@ -126,8 +126,12 @@ existing injection, so during the transition both paths are active and overlap i
 
 - **Where it writes**: `~/.claude/projects/<encoded-cwd>/memory/` — team files as
   `team/<memoryId>.md` (YAML frontmatter + a `metadata.lumo` ownership marker),
-  plus a delimited `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`.
-  `--dir <path>` overrides the resolved directory.
+  the full one-line-per-memory index in `team/INDEX.md`, and a short delimited
+  `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`: a pointer to
+  `team/INDEX.md` plus the top entries within a ~2KB budget and a "…and N more"
+  line. Claude Code loads only the first ~24KB of `MEMORY.md`, so the full list
+  never goes there (LUM-1288); an older full-list block is replaced in place on
+  the next sync. `--dir <path>` overrides the resolved directory.
 - **Only touches what it owns**: a file is owned only if its frontmatter carries
   `metadata.lumo.source: team`. Your own hand-written memory files and any
   `MEMORY.md` lines outside the managed block are **never** read or written.
@@ -148,7 +152,7 @@ existing injection, so during the transition both paths are active and overlap i
   **skipped, never overwritten** — your edit is preserved and flagged as an
   upsync candidate (the reverse direction is a later phase).
 - **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
-  writing; `--clean` removes every owned file + the managed block (full rollback).
+  writing; `--clean` removes every owned file, `team/INDEX.md` and the managed block (full rollback).
 - **Code-anchor staleness check**: after downsync, each synced memory's
   code anchors (file paths, and backtick-wrapped symbols/flags) are checked against
   this repo — resolved against **git-tracked** files (`git ls-files`) + exact

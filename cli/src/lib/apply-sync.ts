@@ -4,9 +4,16 @@ import {
   removeEntry,
   readIndex,
   writeIndex,
+  writeTeamIndex,
+  removeTeamIndex,
 } from './local-memory-store'
 import { diffSync } from './memory-reconcile'
-import { upsertBlock, removeBlock } from './managed-block'
+import {
+  upsertBlock,
+  removeBlock,
+  blockLines,
+  teamIndexFile,
+} from './managed-block'
 import { clearThrottleState } from './sync-throttle'
 
 /**
@@ -45,9 +52,12 @@ export interface ApplyOptions {
 
 /**
  * Apply a downsync bundle to the local memory dir. Owns only `root/team/*.md`
- * and the MEMORY.md managed block; dev-authored files and out-of-block index
- * content are never touched. `--clean` removes all owned files + the block;
- * `--dry-run` computes the plan and writes nothing.
+ * (including the full index `team/INDEX.md`) and the MEMORY.md managed block;
+ * dev-authored files and out-of-block index content are never touched. The
+ * block holds a pointer to `team/INDEX.md` plus the top entries within a byte
+ * budget, so MEMORY.md stays inside Claude Code's load limit (LUM-1288).
+ * `--clean` removes all owned files, the index and the block; `--dry-run`
+ * computes the plan and writes nothing.
  */
 export function applySync(
   root: string,
@@ -58,6 +68,7 @@ export function applySync(
     const owned = readOwned(root)
     if (!opts.dryRun) {
       for (const o of owned) removeEntry(root, o.id)
+      removeTeamIndex(root)
       writeIndex(root, removeBlock(readIndex(root)))
       clearThrottleState(root)
     }
@@ -101,12 +112,10 @@ export function applySync(
 
   // Index = every bundle entry's line (added/updated/unchanged/drift-skipped all
   // still exist locally); removed ids are absent from the bundle so they drop out.
-  writeIndex(
-    root,
-    upsertBlock(
-      readIndex(root),
-      bundle.entries.map(e => e.indexLine)
-    )
-  )
+  // The full list goes to team/INDEX.md; MEMORY.md keeps a budgeted pointer.
+  const lines = bundle.entries.map(e => e.indexLine)
+  if (lines.length > 0) writeTeamIndex(root, teamIndexFile(lines))
+  else removeTeamIndex(root)
+  writeIndex(root, upsertBlock(readIndex(root), blockLines(lines)))
   return summary
 }

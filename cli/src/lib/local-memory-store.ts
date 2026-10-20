@@ -11,6 +11,8 @@ import { createHash } from 'node:crypto'
 
 const TEAM_DIR = 'team'
 const INDEX_FILE = 'MEMORY.md'
+/** The full team index (LUM-1288); MEMORY.md's block only points at it. */
+const TEAM_INDEX_FILE = 'INDEX.md'
 
 /** A local file the sync owns (carries the `metadata.lumo.source: team` marker). */
 export interface OwnedLocalFile {
@@ -97,4 +99,17 @@ export function readIndex(root: string): string {
 export function writeIndex(root: string, text: string): void {
   if (!existsSync(root)) mkdirSync(root, { recursive: true })
   writeFileSync(join(root, INDEX_FILE), text)
+}
+
+/** Write the full team index to `root/team/INDEX.md` (owned by sync). */
+export function writeTeamIndex(root: string, text: string): void {
+  const dir = teamPath(root)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, TEAM_INDEX_FILE), text)
+}
+
+/** Remove the team index file, if present (`--clean`). */
+export function removeTeamIndex(root: string): void {
+  const p = join(teamPath(root), TEAM_INDEX_FILE)
+  if (existsSync(p)) rmSync(p)
 }
