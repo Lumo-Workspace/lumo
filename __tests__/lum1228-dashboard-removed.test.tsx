@@ -59,6 +59,7 @@ jest.mock('@/components/ui/sidebar', () => {
   return {
     Sidebar: Pass,
     SidebarContent: Pass,
+    SidebarFooter: Pass,
     SidebarGroup: Pass,
     SidebarGroupContent: Pass,
     SidebarGroupLabel: Pass,
