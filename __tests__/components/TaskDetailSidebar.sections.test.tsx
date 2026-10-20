@@ -9,6 +9,7 @@ const en: Record<string, string> = {
   'task.status': 'Status',
   'task.priority': 'Priority',
   'task.assignee': 'Assignee',
+  'task.createdBy': 'Created by',
   'common.project': 'Project',
   'sprints.taskField.label': 'Sprint',
   'task.field.milestone': 'Milestone',
@@ -36,6 +37,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/fields', () => ({
   PrioritySelect: stub('priority'),
   AssigneeSelect: stub('assignee'),
   ProjectSelect: stub('project'),
+  CreatorField: stub('creator'),
+  resolveCreatorDisplay: jest.requireActual(
+    '@/app/workspace/[workspaceUrl]/components/fields/creator-display'
+  ).resolveCreatorDisplay,
 }))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/sprints/components/TaskSprintField',
@@ -107,7 +112,7 @@ describe('TaskDetailSidebar sections (LUM-1274)', () => {
       Array.from(sections[i]!.querySelectorAll('span.truncate')).map(
         s => s.textContent
       )
-    expect(labels(0)).toEqual(['Status', 'Priority', 'Assignee'])
+    expect(labels(0)).toEqual(['Status', 'Priority', 'Assignee', 'Created by'])
     expect(labels(1)).toEqual(['Project', 'Sprint', 'Milestone'])
     expect(labels(2)).toEqual(['Deps', 'Tags'])
   })
@@ -127,6 +132,22 @@ describe('TaskDetailSidebar sections (LUM-1274)', () => {
       expect(props?.variant).toBe('ghost')
       expect(props?.triggerClassName).toBeUndefined()
     }
+  })
+
+  it('shows the creating agent read-only under Properties (LUM-1283)', () => {
+    renderPanel({
+      createdBy: {
+        id: 'actor-a',
+        type: 'AGENT',
+        agent: { id: 'ag', name: 'Coding Agent', avatarColor: '#000' },
+      },
+    })
+    const call = mockRecordProps.mock.calls
+      .filter(([n]) => n === 'creator')
+      .pop()
+    expect(call?.[1]).toEqual({
+      creator: { kind: 'agent', name: 'Coding Agent' },
+    })
   })
 
   it('omits the Sprint row when the team has sprints disabled', () => {

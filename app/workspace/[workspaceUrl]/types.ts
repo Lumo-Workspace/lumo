@@ -297,6 +297,8 @@ export interface TaskDetail {
   }
   assigneeActorId: string | null
   assignee: ActorInfo | null
+  /** LUM-1283: the creating Actor; null when unrecorded. Optional for older payloads. */
+  createdBy?: ActorInfo | null
   description: string | null
   updatedAt: string
   dueDate?: string | null

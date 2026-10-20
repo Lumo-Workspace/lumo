@@ -166,3 +166,48 @@ describe('quickDispatchService.executeActions update actions', () => {
     expect(findManyForUpdateMock).not.toHaveBeenCalled()
   })
 })
+
+// ── LUM-1283: create actions record the dispatching member as creator ──────
+
+describe('quickDispatchService.executeActions create actions', () => {
+  it('passes the caller actor as createdByActorId', async () => {
+    const { projectRepository } = jest.requireMock('@/lib/repositories') as {
+      projectRepository: { findByIdSimple: jest.Mock }
+    }
+    projectRepository.findByIdSimple.mockResolvedValue({
+      id: 'p-1',
+      workspaceId: 'ws-1',
+      teamId: 'team-1',
+    })
+    const createMock = taskRepository.createWithSequence as jest.Mock
+    createMock.mockResolvedValue({
+      id: 'tsk-new',
+      number: 7,
+      teamIdentifier: 'LUM',
+    })
+
+    const results = await quickDispatchService.executeActions(
+      [
+        {
+          type: 'create',
+          projectId: 'p-1',
+          title: 'New',
+          status: 'TODO',
+          priority: 'LOW',
+          assigneeActorId: 'actor-other',
+        },
+      ],
+      'ws-1',
+      'actor-1',
+      'clerk-1'
+    )
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigneeActorId: 'actor-other',
+        createdByActorId: 'actor-1',
+      })
+    )
+    expect(results[0]).toMatchObject({ success: true })
+  })
+})

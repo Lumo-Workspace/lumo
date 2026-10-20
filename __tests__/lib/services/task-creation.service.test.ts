@@ -196,3 +196,58 @@ describe('createTask — workStartedAt on creation (LUM-437 / LUM-1057)', () => 
     expect(createMock.mock.calls[0][0].workStartedAt).toBeInstanceOf(Date)
   })
 })
+
+describe('createdByActorId (LUM-1283)', () => {
+  it('createTask records the acting Actor as the creator', async () => {
+    await createTask(
+      'proj-1',
+      { title: 'T', status: 'TODO', priority: 'LOW' },
+      'actor-1',
+      'clerk-1'
+    )
+    expect(createMock.mock.calls[0][0].createdByActorId).toBe('actor-1')
+  })
+
+  it('createTask stores null, not an empty-string FK, when the caller has no actor', async () => {
+    await createTask(
+      'proj-1',
+      { title: 'T', status: 'TODO', priority: 'LOW' },
+      '',
+      'clerk-1'
+    )
+    expect(createMock.mock.calls[0][0].createdByActorId).toBeNull()
+  })
+
+  it('createTask keeps the creator separate from the assignee', async () => {
+    ;(taskRepository.findActorById as jest.Mock).mockResolvedValue({
+      type: 'AGENT',
+      workspaceId: 'ws-1',
+    })
+    await createTask(
+      'proj-1',
+      {
+        title: 'T',
+        status: 'TODO',
+        priority: 'LOW',
+        assigneeActorId: 'agent-actor',
+      },
+      'actor-1',
+      'clerk-1'
+    )
+    expect(createMock.mock.calls[0][0]).toMatchObject({
+      assigneeActorId: 'agent-actor',
+      createdByActorId: 'actor-1',
+    })
+  })
+
+  it('createFromAutomation (Sentry webhook) records no creator', async () => {
+    await createFromAutomation('proj-1', {
+      title: 'Sentry: boom',
+      description: null,
+      priority: 'HIGH',
+      assigneeActorId: 'actor-owner',
+      tagIds: [],
+    })
+    expect(createMock.mock.calls[0][0].createdByActorId).toBeNull()
+  })
+})

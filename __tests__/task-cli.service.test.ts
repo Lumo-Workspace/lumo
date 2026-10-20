@@ -351,6 +351,36 @@ describe('taskCliService.createFromCli', () => {
     })
   })
 
+  it('attributes the create to the caller actor, even inside a bound agent session (LUM-1283)', async () => {
+    // The bearer/CLI path has no agent identity: the API key belongs to the
+    // member and the session row does not point at an agent Actor, so an
+    // agent-run `lumo task create` is recorded as the launching member. This
+    // pins today's behaviour; agent attribution is an open follow-up.
+    mockFindBinding.mockResolvedValue({
+      task: {
+        id: 'task-bound',
+        number: 1,
+        title: 'Bound',
+        status: 'TODO',
+        team: { identifier: 'LUM' },
+      },
+    })
+    await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-agent',
+      input: { title: 'Hello', priority: 'LOW', newScope: true },
+    })
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      'p-1',
+      expect.any(Object),
+      'actor-caller',
+      'clerk-1'
+    )
+  })
+
   it('respects an explicit projectRef and assigneeRef', async () => {
     mockFindProjects.mockResolvedValue([
       { id: 'p-1', name: 'Lumo', description: null },

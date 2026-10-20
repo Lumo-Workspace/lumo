@@ -157,6 +157,7 @@ export const quickDispatchService = {
             status: action.status as TaskStatus,
             priority: action.priority as TaskPriority,
             assigneeActorId: action.assigneeActorId ?? actorId,
+            createdByActorId: actorId,
             agentStatus: null,
             order: undefined,
             dueDate: action.dueDate ? new Date(action.dueDate) : null,

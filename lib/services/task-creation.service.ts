@@ -99,6 +99,9 @@ export async function createTask(
     status,
     priority,
     assigneeActorId: assigneeActorId ?? null,
+    // LUM-1283: the creating Actor. Callers without one pass '' (legacy
+    // contract of `actorId`), which must not reach the FK.
+    createdByActorId: actorId || null,
     agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
     sprintId: resolvedSprintId,
     milestoneId: resolvedMilestoneId,
@@ -176,6 +179,9 @@ export async function createFromAutomation(
     status: 'TODO',
     priority: input.priority,
     assigneeActorId: input.assigneeActorId,
+    // LUM-1283: no actor creates an automation task, and there is no system
+    // actor to stand in for the webhook, so the creator stays null.
+    createdByActorId: null,
     agentStatus: null,
     order,
     dueDate: null,

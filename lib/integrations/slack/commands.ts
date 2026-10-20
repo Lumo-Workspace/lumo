@@ -452,7 +452,8 @@ export async function handleCommand(
       const result = await slackCommandService.createTask(
         workspaceId,
         titleMatch[2]!.toUpperCase(),
-        titleMatch[1]!
+        titleMatch[1]!,
+        member.actorId
       )
       if (result.kind === 'team_not_found')
         return ephemeral(
