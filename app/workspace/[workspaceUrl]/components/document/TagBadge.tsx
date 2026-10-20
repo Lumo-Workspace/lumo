@@ -1,25 +1,25 @@
 'use client'
 
-import { TAG_BADGE_COLORS as TAG_COLORS } from './tag-colors'
+import {
+  TAG_BADGE_COLORS,
+  TAG_CHIP_CLASS,
+  tagChipStyle,
+  tagColorScheme,
+} from './tag-colors'
 import { Badge } from '@/components/ui/badge'
-
-function getTagColor(tag: string): { bg: string; text: string } {
-  const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  return TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
-}
 
 interface TagBadgeProps {
   tag: string
 }
 
 export function TagBadge({ tag }: TagBadgeProps) {
-  const color = getTagColor(tag)
   return (
     <Badge
       variant='plain'
       size='xs'
       shape='square'
-      style={{ backgroundColor: color.bg, color: color.text }}
+      className={TAG_CHIP_CLASS}
+      style={tagChipStyle(tagColorScheme({ name: tag }, TAG_BADGE_COLORS))}
     >
       {tag}
     </Badge>
