@@ -108,6 +108,12 @@ export function writeTeamIndex(root: string, text: string): void {
   writeFileSync(join(dir, TEAM_INDEX_FILE), text)
 }
 
+/** The current team index file, or null when absent. */
+export function readTeamIndex(root: string): string | null {
+  const p = join(teamPath(root), TEAM_INDEX_FILE)
+  return existsSync(p) ? readFileSync(p, 'utf8') : null
+}
+
 /** Remove the team index file, if present (`--clean`). */
 export function removeTeamIndex(root: string): void {
   const p = join(teamPath(root), TEAM_INDEX_FILE)

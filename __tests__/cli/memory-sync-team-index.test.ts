@@ -5,7 +5,13 @@
  * only the top entries within a byte budget, so a large team corpus no longer
  * pushes MEMORY.md past Claude Code's ~24KB load limit.
  */
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { applySync, type SyncBundle } from '@/cli/src/lib/apply-sync'
@@ -139,10 +145,67 @@ describe('applySync with a large corpus', () => {
     expect(md).toContain('my own hook')
   })
 
-  it('drops team/INDEX.md when the corpus becomes empty', () => {
+  it('drops team/INDEX.md and the whole block when the corpus becomes empty', () => {
     const root = mkdtempSync(join(tmpdir(), 'lum1288-empty-'))
+    writeFileSync(join(root, 'MEMORY.md'), DEV)
     applySync(root, bundleOf(3))
     applySync(root, { projectId: 'p', entries: [] })
     expect(existsSync(join(root, 'team', 'INDEX.md'))).toBe(false)
+    const md = readFileSync(join(root, 'MEMORY.md'), 'utf8')
+    expect(md).not.toContain(BLOCK_START)
+    expect(md).not.toContain(BLOCK_END)
+    expect(md).toContain('my own hook')
+  })
+
+  it('an empty corpus on a fresh dir writes no MEMORY.md at all', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lum1288-empty-fresh-'))
+    const s = applySync(root, { projectId: 'p', entries: [] })
+    expect(s.noop).toBe(true)
+    expect(existsSync(join(root, 'MEMORY.md'))).toBe(false)
+  })
+
+  it('reports a block migration even when no memory file changes (and dry-run shows it)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lum1288-migrate-noop-'))
+    const b = bundleOf(320)
+    applySync(root, b) // files + new-style block in place
+    // Put an old full-list block back, as an older CLI would have left it.
+    writeFileSync(
+      join(root, 'MEMORY.md'),
+      upsertBlock(
+        DEV,
+        b.entries.map(e => e.indexLine)
+      )
+    )
+
+    const dry = applySync(root, b, { dryRun: true })
+    expect(dry.added).toEqual([])
+    expect(dry.updated).toEqual([])
+    expect(dry.indexChanged).toBe(true)
+    expect(dry.noop).toBe(false)
+    expect(
+      bytes(readFileSync(join(root, 'MEMORY.md'), 'utf8'))
+    ).toBeGreaterThan(24 * 1024) // dry-run wrote nothing
+
+    const real = applySync(root, b)
+    expect(real.indexChanged).toBe(true)
+    expect(real.noop).toBe(false)
+    expect(bytes(readFileSync(join(root, 'MEMORY.md'), 'utf8'))).toBeLessThan(
+      4 * 1024
+    )
+
+    const again = applySync(root, b)
+    expect(again.indexChanged).toBe(false)
+    expect(again.noop).toBe(true)
+  })
+
+  it('reports a recreated team/INDEX.md', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lum1288-index-gone-'))
+    const b = bundleOf(3)
+    applySync(root, b)
+    rmSync(join(root, 'team', 'INDEX.md'))
+    const s = applySync(root, b)
+    expect(s.indexChanged).toBe(true)
+    expect(s.noop).toBe(false)
+    expect(existsSync(join(root, 'team', 'INDEX.md'))).toBe(true)
   })
 })

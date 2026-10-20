@@ -104,6 +104,7 @@ export async function memorySync(options: SyncOptions): Promise<number | void> {
   console.log(
     sanitizeField(
       `${prefix}+${summary.added.length} added · ~${summary.updated.length} updated · -${summary.removed.length} removed` +
+        (summary.indexChanged ? ' · index updated' : '') +
         (summary.skippedDrift.length
           ? ` · ⚠ ${summary.skippedDrift.length} drift-skipped (locally edited)`
           : '')
