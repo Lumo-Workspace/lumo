@@ -245,9 +245,11 @@ describe('lumo security scan flags for the scan hooks', () => {
       expect(out).toMatch(/Server: acme\/app · could not reach Lumo .* cached/)
     })
 
-    it('parses seconds in (0, 60]', () => {
+    it('parses seconds in (0, 60], rounding up to whole ms', () => {
       expect(parseTimeoutSeconds('2')).toBe(2000)
       expect(parseTimeoutSeconds('0.5')).toBe(500)
+      // Rounded up: a tiny budget still waits, never aborts at 0 ms.
+      expect(parseTimeoutSeconds('0.0001')).toBe(1)
       expect(parseTimeoutSeconds('0')).toBeNull()
       expect(parseTimeoutSeconds('61')).toBeNull()
       expect(parseTimeoutSeconds('2s')).toBeNull()

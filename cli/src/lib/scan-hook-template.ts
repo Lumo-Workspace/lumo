@@ -23,6 +23,9 @@ export const PRE_PUSH_SCAN_BEGIN = '# >>> lumo pre-push >>>'
 
 // `lumo_report <rc> <what>`: print the scan unless it found nothing, and say
 // what the exit code means for the commit / push. Returns 1 only on exit 3.
+// Every scan's exit code is read as `lumo_out=$(…) || lumo_rc=$?`: the left
+// side of `||` is exempt from `set -e`, so a hook that sets it before this
+// block still fails open on exit 1 / 2 and still reports an exit 3.
 const REPORT_FN = `lumo_report() {
   case $1 in
     0)
@@ -56,8 +59,9 @@ export const PRE_COMMIT_SCAN_BLOCK = `${PRE_COMMIT_SCAN_BEGIN}
 ${HEADER('the staged changes', 'git commit')}
 if command -v lumo >/dev/null 2>&1; then
 ${REPORT_FN.replace(/^/gm, '  ')}
-  lumo_out=$(${SCAN} --staged 2>&1)
-  if ! lumo_report $? commit; then
+  lumo_rc=0
+  lumo_out=$(${SCAN} --staged 2>&1) || lumo_rc=$?
+  if ! lumo_report "$lumo_rc" commit; then
     echo "lumo: commit blocked — a finding above would block DONE. Fix it, or skip the check once with git commit --no-verify." >&2
     exit 1
   fi
@@ -86,20 +90,22 @@ ${REPORT_FN.replace(/^/gm, '  ')}
       *[!0]*) git cat-file -e "$lumo_rsha^{commit}" 2>/dev/null || lumo_rsha= ;;
       *) lumo_rsha= ;;
     esac
+    lumo_rc=0
     if [ -n "$lumo_rsha" ]; then
-      lumo_out=$(${SCAN} --since "$lumo_rsha" --until "$lumo_lsha" 2>&1)
+      lumo_out=$(${SCAN} --since "$lumo_rsha" --until "$lumo_lsha" 2>&1) || lumo_rc=$?
     else
-      lumo_out=$(${SCAN} --until "$lumo_lsha" 2>&1)
+      lumo_out=$(${SCAN} --until "$lumo_lsha" 2>&1) || lumo_rc=$?
     fi
-    lumo_report $? push || lumo_blocked=1
+    lumo_report "$lumo_rc" push || lumo_blocked=1
   done
   if [ "$lumo_refs" = 0 ]; then
+    lumo_rc=0
     if git rev-parse --verify --quiet '@{upstream}' >/dev/null 2>&1; then
-      lumo_out=$(${SCAN} --since '@{upstream}' --until HEAD 2>&1)
+      lumo_out=$(${SCAN} --since '@{upstream}' --until HEAD 2>&1) || lumo_rc=$?
     else
-      lumo_out=$(${SCAN} --until HEAD 2>&1)
+      lumo_out=$(${SCAN} --until HEAD 2>&1) || lumo_rc=$?
     fi
-    lumo_report $? push || lumo_blocked=1
+    lumo_report "$lumo_rc" push || lumo_blocked=1
   fi
   if [ "$lumo_blocked" = 1 ]; then
     echo "lumo: push blocked — a finding above would block DONE. Fix it, or skip the check once with git push --no-verify." >&2

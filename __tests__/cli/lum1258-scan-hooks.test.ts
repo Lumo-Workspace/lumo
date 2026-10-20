@@ -550,3 +550,80 @@ describe('doctor and uninstall cover the scan hooks', () => {
     ).toBe(false)
   })
 })
+
+// Review follow-ups (PR #1656): the blocks run after a hook's own `set -e`,
+// and init only confirms scan hooks it actually wrote.
+describe('scan hooks under an existing `set -e` hook', () => {
+  function withSetE(repo: string, hook: string): void {
+    const file = join(hooksDir(repo), hook)
+    writeFileSync(file, '#!/bin/sh\nset -e\n')
+    chmodSync(file, 0o755)
+  }
+
+  it.each([1, 2])('pre-commit still fails open on exit %i', rc => {
+    const repo = plainRepo()
+    withSetE(repo, 'pre-commit')
+    installGitHook(repo, PRE_COMMIT_SCAN_HOOK)
+    stage(repo, 'a.txt')
+    const r = runGit(repo, ['commit', '-q', '-m', `rc${rc}`], { rc })
+    expect(r.status).toBe(0)
+    expect(r.stderr).toContain(
+      `lumo: security scan could not run (exit ${rc}) — not blocking the commit.`
+    )
+  })
+
+  it('pre-commit still reports a block on exit 3', () => {
+    const repo = plainRepo()
+    withSetE(repo, 'pre-commit')
+    installGitHook(repo, PRE_COMMIT_SCAN_HOOK)
+    stage(repo, 'a.txt')
+    const r = runGit(repo, ['commit', '-q', '-m', 'high'], {
+      rc: 3,
+      out: ONE_HIGH,
+    })
+    expect(r.status).not.toBe(0)
+    expect(r.stderr).toContain('[HIGH]')
+    expect(r.stderr).toContain('lumo: commit blocked')
+  })
+
+  it('pre-push still fails open on exit 1 and reports a block on exit 3', () => {
+    const sb = makeSandbox('main')
+    roots.push(sb.tmp)
+    withSetE(sb.main, 'pre-push')
+    installGitHook(sb.main, PRE_PUSH_SCAN_HOOK)
+    git(sb.main, 'checkout', '-q', '-b', 'feature')
+    stage(sb.main, 'a.txt')
+    git(sb.main, 'commit', '-q', '-m', 'one')
+    const failed = runGit(sb.main, ['push', '-q', 'origin', 'feature'], {
+      rc: 1,
+    })
+    expect(failed.status).toBe(0)
+    expect(failed.stderr).toContain(
+      'lumo: security scan could not run (exit 1) — not blocking the push.'
+    )
+    stage(sb.main, 'b.txt')
+    git(sb.main, 'commit', '-q', '-m', 'two')
+    const blocked = runGit(sb.main, ['push', '-q', 'origin', 'feature'], {
+      rc: 3,
+      out: ONE_HIGH,
+    })
+    expect(blocked.status).not.toBe(0)
+    expect(blocked.stderr).toContain('lumo: push blocked')
+  })
+})
+
+describe('init --scan-hooks under core.hooksPath', () => {
+  it('prints the blocks but no "scan hooks block only…" confirmation', async () => {
+    const repo = plainRepo()
+    git(repo, 'config', 'core.hooksPath', '.husky/_')
+    await init(
+      { scope: 'project', agent: 'claude-code', scanHooks: true },
+      initDeps(repo)
+    )
+    expect(stdout).toContain(PRE_COMMIT_SCAN_BLOCK)
+    expect(stdout).not.toContain('Scan hooks block only')
+    expect(readRegistry().installs.some(r => r.kind === 'scan-hook')).toBe(
+      false
+    )
+  })
+})
