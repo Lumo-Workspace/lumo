@@ -20,7 +20,8 @@ export const maxDuration = 300
  *    a code-free description; see `crossingRawRetentionService.purgeExpired`.
  *  - LUM-1259: each plugin's own sweep (`sweepPluginRetention`), e.g. the
  *    security plugin's local scan log, which follows the session record
- *    setting. Without plugins nothing runs and no `plugins` key is returned.
+ *    setting. The `plugins` counts are returned only when a sweep deleted
+ *    something (no plugin, or nothing expired: no key).
  * Each step runs even when another one fails, so one cannot starve the rest.
  */
 export async function GET(req: NextRequest) {
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     ...hookEvents.value,
     prCommentDeadLetters: deadLetters.value,
     crossingRaw: crossings.value,
-    ...(Object.keys(plugins.value).length > 0
+    ...(Object.values(plugins.value).some(n => n > 0)
       ? { plugins: plugins.value }
       : {}),
   })

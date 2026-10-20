@@ -99,6 +99,9 @@ it('LUM-1259: runs the plugin sweeps too, and reports them only when there are a
   ;(sweepPluginRetention as jest.Mock).mockResolvedValue({ localScanRuns: 4 })
   const res = await GET(req('Bearer secret'))
   expect((await res.json()).plugins).toEqual({ localScanRuns: 4 })
+  ;(sweepPluginRetention as jest.Mock).mockResolvedValue({ localScanRuns: 0 })
+  const none = await GET(req('Bearer secret'))
+  expect(await none.json()).not.toHaveProperty('plugins')
 })
 
 it('LUM-1259: a failing plugin sweep fails the run after the core steps ran', async () => {
