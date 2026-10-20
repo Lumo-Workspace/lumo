@@ -1275,6 +1275,10 @@ task
     '--new-scope',
     'Declare this is genuinely new work, outside your current task’s scope'
   )
+  .option(
+    '--confirm',
+    'The user approved creating it despite the possible duplicates the server listed (exit 4 envelope)'
+  )
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)

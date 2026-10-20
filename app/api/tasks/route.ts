@@ -4,6 +4,9 @@ import { cliCreateTaskSchema } from '@/lib/validation/schemas'
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
+// LUM-1286: the duplicate gate may wait up to 45s on the LLM before creating.
+export const maxDuration = 60
+
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 /**
@@ -65,6 +68,12 @@ export async function POST(request: Request): Promise<Response> {
           : 'Error'
     if (status === 500) {
       console.error('POST /api/tasks error:', err)
+    }
+    // LUM-1286: the duplicate gate's candidates ride along so the CLI can
+    // render its confirmation envelope.
+    const { code, duplicates } = err as { code?: unknown; duplicates?: unknown }
+    if (code === 'POSSIBLE_DUPLICATES' && Array.isArray(duplicates)) {
+      return NextResponse.json({ error: message, code, duplicates }, { status })
     }
     return NextResponse.json({ error: message }, { status })
   }

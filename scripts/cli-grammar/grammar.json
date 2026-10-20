@@ -3849,6 +3849,14 @@
           "enumCaseInsensitive": false,
           "description": "Assignee email, name, or \"me\" (default: me)"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved creating it despite the possible duplicates the server listed (exit 4 envelope)"
+        },
         "--description": {
           "long": "--description",
           "short": "-d",

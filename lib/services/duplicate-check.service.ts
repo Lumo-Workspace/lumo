@@ -5,6 +5,8 @@ import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { taskRepository } from '@/lib/repositories'
+import { logger } from '@/lib/logger'
+import { bigramSimilarity } from '@/lib/similarity'
 
 const matchSchema = z.object({
   matches: z.array(
@@ -32,9 +34,23 @@ export interface DuplicateMatch {
  */
 export async function checkDuplicates(
   title: string,
-  projectId: string
+  projectId: string,
+  options: {
+    abortSignal?: AbortSignal
+    /** LUM-1286: keep only the N titles closest by bigram similarity before
+     *  the LLM — 200 titles took the model 15–35s locally. */
+    candidateLimit?: number
+  } = {}
 ): Promise<DuplicateMatch[]> {
-  const tasks = await taskRepository.findForDuplicateCheck(projectId)
+  const all = await taskRepository.findForDuplicateCheck(projectId)
+  const tasks =
+    options.candidateLimit === undefined
+      ? all
+      : all
+          .map(t => ({ t, s: bigramSimilarity(title, t.title) }))
+          .sort((a, b) => b.s - a.s)
+          .slice(0, options.candidateLimit)
+          .map(x => x.t)
   if (tasks.length === 0) return []
 
   const taskList = tasks.map(t => `${t.id}: ${t.title}`).join('\n')
@@ -57,6 +73,7 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
     model: gateway(GENERATION_MODEL),
     schema: matchSchema,
     prompt,
+    ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
   })
 
   const taskMap = new Map(tasks.map(t => [t.id, t]))
@@ -110,4 +127,42 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
         priority: t.priority,
       }
     })
+}
+
+/**
+ * LUM-1286: score at which `lumo task create` stops and asks the user. Higher
+ * than the web modal's 0.4 floor, which only warns — the CLI gate blocks, so
+ * "related" (0.5–0.8 in the prompt's scale) must not trip it.
+ */
+export const CLI_DUPLICATE_BLOCK_SCORE = 0.7
+
+/**
+ * LUM-1286: upper bound on the LLM call a CLI create waits for. Measured
+ * 5–35s on GENERATION_MODEL even with the top-20 prefilter, so 8s never let
+ * the gate fire; the user chose 45s over a faster model (LUM-1286 Decisions).
+ */
+export const CLI_DUPLICATE_TIMEOUT_MS = 45_000
+
+/** LUM-1286: titles sent to the LLM after the bigram prefilter. */
+export const CLI_DUPLICATE_CANDIDATES = 20
+
+/**
+ * LUM-1286: candidates strong enough to stop a CLI create for confirmation.
+ * Fails open — a timeout or gateway error must never block creating a task
+ * (our outage is not the customer's problem), so it logs and returns [].
+ */
+export async function findBlockingDuplicates(
+  title: string,
+  projectId: string
+): Promise<DuplicateMatch[]> {
+  try {
+    const matches = await checkDuplicates(title, projectId, {
+      abortSignal: AbortSignal.timeout(CLI_DUPLICATE_TIMEOUT_MS),
+      candidateLimit: CLI_DUPLICATE_CANDIDATES,
+    })
+    return matches.filter(m => m.score >= CLI_DUPLICATE_BLOCK_SCORE)
+  } catch (err) {
+    logger.warn('[duplicate-check] CLI check skipped (fail-open):', err)
+    return []
+  }
 }

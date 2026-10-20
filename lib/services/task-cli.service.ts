@@ -5,6 +5,10 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import {
+  findBlockingDuplicates,
+  type DuplicateMatch,
+} from '@/lib/services/duplicate-check.service'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -159,6 +163,33 @@ async function resolveAssigneeActorId(args: {
   throw httpError(400, `no member matches "${assigneeRef}".`)
 }
 
+/**
+ * LUM-1286: the 409 the duplicate gate throws; `POST /api/tasks` returns its
+ * `code` + `duplicates` so the CLI can list them in its envelope.
+ */
+function possibleDuplicatesError(
+  matches: DuplicateMatch[],
+  workspaceSlug: string
+): Error {
+  const duplicates = matches.map(m => {
+    const identifier = `${m.teamIdentifier}-${m.number}`
+    return {
+      identifier,
+      title: m.title,
+      status: m.status,
+      score: m.score,
+      url: `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`,
+    }
+  })
+  return Object.assign(
+    httpError(
+      409,
+      `Possible duplicate of ${duplicates.map(d => d.identifier).join(', ')} — task not created`
+    ),
+    { code: 'POSSIBLE_DUPLICATES', duplicates }
+  )
+}
+
 async function createFromCli(args: {
   workspaceId: string
   workspaceSlug: string
@@ -177,6 +208,7 @@ async function createFromCli(args: {
     newScope?: boolean | undefined
     dueDate?: string | undefined
     templateKey?: string | undefined
+    confirmDuplicates?: boolean | undefined
   }
 }): Promise<{
   id: string
@@ -286,6 +318,17 @@ async function createFromCli(args: {
       500,
       'Member has no actor row — workspace data is inconsistent'
     )
+  }
+
+  // LUM-1286: stop before creating when the project already holds a likely
+  // duplicate — the CLI turns this into a confirmation envelope, and the
+  // user's --confirm comes back as confirmDuplicates. Runs after every ref
+  // resolves so a bad flag is reported first.
+  if (!input.confirmDuplicates) {
+    const duplicates = await findBlockingDuplicates(input.title, projectId)
+    if (duplicates.length > 0) {
+      throw possibleDuplicatesError(duplicates, workspaceSlug)
+    }
   }
 
   const { task, taskTags, warnings } = await taskService.createTask(

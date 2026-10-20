@@ -34,7 +34,12 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/services/duplicate-check.service', () => ({
+  findBlockingDuplicates: jest.fn(),
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { findBlockingDuplicates } from '@/lib/services/duplicate-check.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -49,8 +54,10 @@ const mockFindAllProfiles =
 const mockCreateTask = taskService.createTask as jest.Mock
 const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 const mockActivityCreate = activityRepository.create as jest.Mock
+const mockFindDuplicates = findBlockingDuplicates as jest.Mock
 beforeEach(() => {
   jest.clearAllMocks()
+  mockFindDuplicates.mockResolvedValue([])
   mockFindBinding.mockResolvedValue(null)
   mockActivityCreate.mockResolvedValue({ id: 'act-1' })
 })
@@ -663,5 +670,108 @@ describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
     mockActivityCreate.mockRejectedValueOnce(new Error('db blip'))
     const result = await create({ newScope: true })
     expect(result.identifier).toBe('LUM-9')
+  })
+})
+
+describe('taskCliService.createFromCli — duplicate gate (LUM-1286)', () => {
+  beforeEach(() => {
+    mockFindProjects.mockResolvedValue([
+      { id: 'p-1', name: 'Lumo', description: null },
+    ])
+    mockFindMember.mockResolvedValue({ id: 'mem-1' })
+    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-1',
+        title: 'Google OAuth sign-in',
+        teamIdentifier: 'LUM',
+        teamId: 'team-1',
+        number: 50,
+      },
+      taskTags: [],
+    })
+  })
+
+  const base = {
+    workspaceId: 'ws-1',
+    workspaceSlug: 'lumo',
+    callerClerkId: 'clerk-1',
+  }
+  const match = {
+    taskId: 't-12',
+    title: 'Add Google OAuth login',
+    number: 12,
+    teamIdentifier: 'LUM',
+    status: 'IN_PROGRESS',
+    score: 0.9,
+    assigneeName: 'Ada',
+    priority: 'HIGH',
+  }
+
+  it('refuses with 409 POSSIBLE_DUPLICATES listing candidates and creates nothing', async () => {
+    mockFindDuplicates.mockResolvedValue([match])
+
+    await expect(
+      taskCliService.createFromCli({
+        ...base,
+        input: { title: 'Google OAuth sign-in', priority: 'LOW' },
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'POSSIBLE_DUPLICATES',
+      duplicates: [
+        {
+          identifier: 'LUM-12',
+          title: 'Add Google OAuth login',
+          status: 'IN_PROGRESS',
+          score: 0.9,
+          url: expect.stringContaining('/workspace/lumo/my-tasks/LUM-12'),
+        },
+      ],
+    })
+    expect(mockFindDuplicates).toHaveBeenCalledWith(
+      'Google OAuth sign-in',
+      'p-1'
+    )
+    expect(mockCreateTask).not.toHaveBeenCalled()
+  })
+
+  it('creates when no candidate clears the block score', async () => {
+    const result = await taskCliService.createFromCli({
+      ...base,
+      input: { title: 'Google OAuth sign-in', priority: 'LOW' },
+    })
+    expect(result.identifier).toBe('LUM-50')
+    expect(mockCreateTask).toHaveBeenCalled()
+  })
+
+  it('skips the check and creates when the user confirmed (confirmDuplicates)', async () => {
+    mockFindDuplicates.mockResolvedValue([match])
+
+    const result = await taskCliService.createFromCli({
+      ...base,
+      input: {
+        title: 'Google OAuth sign-in',
+        priority: 'LOW',
+        confirmDuplicates: true,
+      },
+    })
+    expect(result.identifier).toBe('LUM-50')
+    expect(mockFindDuplicates).not.toHaveBeenCalled()
+  })
+
+  it('reports invalid flags before running the duplicate check', async () => {
+    mockFindDuplicates.mockResolvedValue([match])
+    await expect(
+      taskCliService.createFromCli({
+        ...base,
+        input: {
+          title: 'Google OAuth sign-in',
+          priority: 'LOW',
+          projectRef: 'nope',
+        },
+      })
+    ).rejects.toMatchObject({ status: 400 })
+    expect(mockFindDuplicates).not.toHaveBeenCalled()
   })
 })

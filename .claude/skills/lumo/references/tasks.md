@@ -18,6 +18,11 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | `--due <date>`           | string | Due date `YYYY-MM-DD`, your local day (same convention as the web due-date picker).                                                                                     |
 | `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.                                                                                           |
 | `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                                                                                                               |
+| `--confirm`              | bool   | Only after the user approved a duplicate-gate envelope (below). Never add it yourself.                                                                                  |
+
+**Duplicate gate (LUM-1286).** Before creating, the server asks an LLM whether the project already holds the same task (titles only: of the 200 most recently updated tasks, trash excluded, the 20 closest by spelling are sent). A candidate scoring ≥ 70% stops the create: nothing is written and the CLI prints a `confirmation_required` envelope (exit 4) whose `changes` list each candidate as `LUM-N  STATUS  score%  "title"  url`. Relay it; if the user says it is not a duplicate, run its `confirmCommand` (`… --confirm`), which skips the check. If it is a duplicate, work on the existing task instead. The check can add up to ~45s to a create, and fails open — an LLM timeout (45s) or error creates the task as usual. Flag errors (unknown project/assignee/milestone) are reported before the check runs.
+
+When to suggest: an agent is about to file a task that may already exist — run `lumo task list --search <words>` first, and treat an exit-4 duplicate envelope as the user's call.
 
 Examples:
 

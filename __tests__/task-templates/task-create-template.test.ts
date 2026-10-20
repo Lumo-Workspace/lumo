@@ -25,6 +25,11 @@ jest.mock('@/lib/repositories/preference.repository', () => ({
   preferenceRepository: { findByMemberId: jest.fn() },
 }))
 
+// LUM-1286: no LLM duplicate check in these template tests.
+jest.mock('@/lib/services/duplicate-check.service', () => ({
+  findBlockingDuplicates: jest.fn(async () => []),
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'

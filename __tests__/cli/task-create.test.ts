@@ -113,3 +113,57 @@ describe('task create — rework/new-scope flags', () => {
     expect(stderr.join('\n')).toMatch(/This belongs on LUM-7/)
   })
 })
+
+describe('task create — duplicate gate (LUM-1286)', () => {
+  const dupBody = {
+    error: 'Possible duplicates',
+    code: 'POSSIBLE_DUPLICATES',
+    duplicates: [
+      {
+        identifier: 'LUM-12',
+        title: 'Add Google OAuth login',
+        status: 'IN_PROGRESS',
+        score: 0.9,
+        url: 'https://app/LUM-12',
+      },
+    ],
+  }
+
+  it('emits a confirmation envelope listing candidates and exits 4', async () => {
+    const argv = process.argv
+    process.argv = ['node', 'lumo', 'task', 'create', 'Google OAuth sign-in']
+    try {
+      fetchMock.mockResolvedValueOnce(jsonResponse(409, dupBody))
+      const code = await taskCreate('Google OAuth sign-in', {})
+      expect(code).toBe(4)
+    } finally {
+      process.argv = argv
+    }
+    const envelope = JSON.parse(stdout.join(''))
+    expect(envelope).toMatchObject({
+      status: 'confirmation_required',
+      command: 'task create',
+      confirmCommand: "lumo task create 'Google OAuth sign-in' --confirm",
+    })
+    const changes = envelope.changes.join('\n')
+    expect(changes).toMatch(/LUM-12/)
+    expect(changes).toMatch(/Add Google OAuth login/)
+    expect(changes).toMatch(/https:\/\/app\/LUM-12/)
+    expect(changes).toMatch(/not created/i)
+    expect(stderr).toEqual([])
+  })
+
+  it('sends confirmDuplicates only with --confirm', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { task: created }))
+
+    await taskCreate('New task', {})
+    expect(
+      JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).confirmDuplicates
+    ).toBeUndefined()
+
+    await taskCreate('New task', { confirm: true })
+    expect(
+      JSON.parse(fetchMock.mock.calls[1]![1]!.body as string).confirmDuplicates
+    ).toBe(true)
+  })
+})

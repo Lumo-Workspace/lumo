@@ -1,4 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
+import { emitConfirmation } from '../lib/confirmation'
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
@@ -41,6 +42,48 @@ export interface CreateTaskOptions {
   template?: string
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
+  /** LUM-1286: the user approved creating despite possible duplicates. */
+  confirm?: boolean
+}
+
+/** LUM-1286: one candidate from the server's duplicate gate (409). */
+interface DuplicateCandidate {
+  identifier: string
+  title: string
+  status: string
+  score: number
+  url: string
+}
+
+interface PossibleDuplicatesResponse {
+  code: 'POSSIBLE_DUPLICATES'
+  duplicates: DuplicateCandidate[]
+}
+
+function isPossibleDuplicates(
+  body: unknown
+): body is PossibleDuplicatesResponse {
+  const b = body as { code?: unknown; duplicates?: unknown } | null
+  return (
+    b?.code === 'POSSIBLE_DUPLICATES' &&
+    Array.isArray(b.duplicates) &&
+    b.duplicates.length > 0
+  )
+}
+
+/** LUM-1286: the envelope lines for a create the duplicate gate stopped. */
+export function duplicateEnvelopeChanges(
+  title: string,
+  duplicates: DuplicateCandidate[]
+): string[] {
+  return [
+    `Not created yet: "${title}" looks like ${duplicates.length === 1 ? 'a duplicate of an existing task' : `a duplicate of ${duplicates.length} existing tasks`}`,
+    ...duplicates.map(
+      d =>
+        `${d.identifier}  ${d.status}  ${Math.round(d.score * 100)}%  "${d.title}"  ${d.url}`
+    ),
+    `Re-running with --confirm creates "${title}" anyway`,
+  ]
 }
 
 interface CreatedTaskResponse {
@@ -289,6 +332,7 @@ export async function taskCreate(
   if (opts.newScope) body.newScope = true
   if (dueDate !== undefined) body.dueDate = dueDate
   if (opts.template !== undefined) body.templateKey = opts.template
+  if (opts.confirm) body.confirmDuplicates = true
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
@@ -366,6 +410,13 @@ export async function taskCreate(
   let serverMsg: string | null = null
   try {
     const errBody = (await res.json()) as { error?: string }
+    // LUM-1286: the duplicate gate is not an error — it asks the user.
+    if (res.status === 409 && isPossibleDuplicates(errBody)) {
+      return emitConfirmation({
+        command: 'task create',
+        changes: duplicateEnvelopeChanges(title.trim(), errBody.duplicates),
+      })
+    }
     if (typeof errBody.error === 'string') serverMsg = errBody.error
   } catch {
     // Body wasn't JSON; fall through to status-only message
