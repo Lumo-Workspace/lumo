@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "Rancang tugas",
   "sprints.detail.viewRetro": "Lihat retro",
   "sprints.detail.addTask": "Tambah tugas",
+  "sprints.detail.attentionError": "Data sprint ini tidak dapat dimuatkan. Muat semula halaman.",
   "sprints.tasks.empty.title": "Belum ada tugas dalam sprint ini",
   "sprints.tasks.empty.description": "Klik \"Tambah tugas\" atau tetapkan tugas sedia ada ke sprint ini dari halaman perinciannya.",
   "sprints.detail.collapseSidebar": "Sembunyikan perincian sprint",

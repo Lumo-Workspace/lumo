@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "規劃任務",
   "sprints.detail.viewRetro": "查看回顧",
   "sprints.detail.addTask": "新增任務",
+  "sprints.detail.attentionError": "無法載入這個 Sprint 的待處理資料,請重新整理頁面。",
   "sprints.tasks.empty.title": "此衝刺還沒有任務",
   "sprints.tasks.empty.description": "點擊「新增任務」或在任務詳情裡把任務加入此衝刺。",
   "sprints.detail.collapseSidebar": "收起衝刺詳情",

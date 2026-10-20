@@ -1387,6 +1387,7 @@
   "sprints.detail.planTasks": "规划任务",
   "sprints.detail.viewRetro": "查看回顾",
   "sprints.detail.addTask": "添加任务",
+  "sprints.detail.attentionError": "无法加载这个 Sprint 的待处理数据,请刷新页面重试。",
   "sprints.tasks.empty.title": "此冲刺还没有任务",
   "sprints.tasks.empty.description": "点击\"添加任务\"或在任务详情里把任务加入此冲刺。",
   "sprints.detail.collapseSidebar": "收起冲刺详情",

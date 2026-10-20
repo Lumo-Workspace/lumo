@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "कार्यों की योजना बनाएं",
   "sprints.detail.viewRetro": "रेट्रो देखें",
   "sprints.detail.addTask": "कार्य जोड़ें",
+  "sprints.detail.attentionError": "इस Sprint का डेटा लोड नहीं हो सका। पेज रीफ़्रेश करें।",
   "sprints.tasks.empty.title": "इस स्प्रिंट में अभी कोई कार्य नहीं है",
   "sprints.tasks.empty.description": "\"कार्य जोड़ें\" पर क्लिक करें या किसी मौजूदा कार्य को उसकी विवरण पृष्ठ से इस स्प्रिंट में असाइन करें।",
   "sprints.detail.collapseSidebar": "स्प्रिंट विवरण छिपाएं",

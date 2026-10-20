@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "작업 계획",
   "sprints.detail.viewRetro": "회고 보기",
   "sprints.detail.addTask": "작업 추가",
+  "sprints.detail.attentionError": "이 Sprint의 처리 대기 데이터를 불러오지 못했습니다. 페이지를 새로고침해 주세요.",
   "sprints.tasks.empty.title": "이 스프린트에는 아직 작업이 없습니다",
   "sprints.tasks.empty.description": "\"작업 추가\"를 클릭하거나 작업 상세 페이지에서 기존 작업을 이 스프린트에 할당하세요.",
   "sprints.detail.collapseSidebar": "스프린트 상세 숨기기",

@@ -23,8 +23,9 @@ jest.mock('react-intl', () => {
   }
 })
 
+const mockPush = jest.fn()
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useParams: () => ({ workspaceUrl: 'test-workspace', sprintId: '14' }),
 }))
 
@@ -213,7 +214,15 @@ const mockEmptyMineAttention = {
   error: undefined,
 }
 const mockDisabled = { attention: null, isLoading: false, error: undefined }
-const mockState = { mine: mockMineAttention }
+const mockTeamError = {
+  attention: null,
+  isLoading: false,
+  error: new Error('boom'),
+}
+const mockState: { mine: unknown; team: unknown } = {
+  mine: mockMineAttention,
+  team: mockTeamAttention,
+}
 
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => ({
   useSprintByNumber: () => mockSprintResult,
@@ -222,7 +231,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => ({
     id === null
       ? mockDisabled
       : scope === 'team'
-        ? mockTeamAttention
+        ? mockState.team
         : mockState.mine,
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTeams', () => ({
@@ -255,6 +264,8 @@ function queueList() {
 
 beforeEach(() => {
   mockState.mine = mockMineAttention
+  mockState.team = mockTeamAttention
+  mockPush.mockClear()
 })
 
 test('header: one primary "New task" calls onNewTask with the sprint and team; "Close sprint" opens the dialog', () => {
@@ -398,4 +409,31 @@ test('task row opens the task via onOpenTask', () => {
   const table = screen.getByRole('table')
   fireEvent.click(within(table).getByText('Verified one').closest('tr')!)
   expect(onOpenTask).toHaveBeenCalledWith(mockTasks[2])
+})
+
+test('a task missing from the task list opens its own page instead of doing nothing', () => {
+  const onOpenTask = jest.fn()
+  mockTasksResult.tasks = mockTasks.filter(t => t.id !== 't3')
+  try {
+    renderPage({ onOpenTask })
+    const table = screen.getByRole('table')
+    fireEvent.click(within(table).getByText('Verified one').closest('tr')!)
+    expect(onOpenTask).not.toHaveBeenCalled()
+    expect(mockPush).toHaveBeenCalledWith(
+      '/workspace/test-workspace/my-tasks/LUM-3'
+    )
+  } finally {
+    mockTasksResult.tasks = mockTasks
+  }
+})
+
+test('an attention read error shows an error state, not an endless skeleton', () => {
+  mockState.team = mockTeamError
+  renderPage()
+  expect(screen.getByText('sprints.detail.attentionError')).toBeInTheDocument()
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  // The header and its actions still work.
+  expect(
+    screen.getByRole('button', { name: 'sprints.detail.newTask' })
+  ).toBeInTheDocument()
 })

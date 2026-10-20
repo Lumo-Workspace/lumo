@@ -1721,6 +1721,7 @@
   "sprints.create.success": "Sprint created",
   "sprints.create.title": "New sprint",
   "sprints.detail.addTask": "Add task",
+  "sprints.detail.attentionError": "Couldn't load this sprint's attention data. Try refreshing the page.",
   "sprints.detail.byMember": "By member",
   "sprints.detail.byPriority": "By priority",
   "sprints.detail.closeSprint": "Close sprint",

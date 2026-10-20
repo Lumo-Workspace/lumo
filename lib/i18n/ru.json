@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "Спланировать задачи",
   "sprints.detail.viewRetro": "Посмотреть ретро",
   "sprints.detail.addTask": "Добавить задачу",
+  "sprints.detail.attentionError": "Не удалось загрузить данные этого спринта. Обновите страницу.",
   "sprints.tasks.empty.title": "В этом спринте пока нет задач",
   "sprints.tasks.empty.description": "Нажмите «Добавить задачу» или назначьте существующую задачу на этот спринт на её странице.",
   "sprints.detail.collapseSidebar": "Скрыть детали спринта",

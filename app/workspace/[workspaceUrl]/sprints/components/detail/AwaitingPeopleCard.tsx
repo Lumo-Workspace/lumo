@@ -43,6 +43,8 @@ interface AwaitingPeopleCardProps {
   /** Team tab only: count + longest wait per kind. */
   kinds: QueueKindSummary[]
   loading: boolean
+  /** The scope's read failed: say so rather than show an empty queue. */
+  error: boolean
   onOpenTask: (taskId: string) => void
 }
 
@@ -202,6 +204,7 @@ export function AwaitingPeopleCard({
   rows,
   kinds,
   loading,
+  error,
   onOpenTask,
 }: AwaitingPeopleCardProps) {
   const intl = useIntl()
@@ -235,6 +238,10 @@ export function AwaitingPeopleCard({
             <Skeleton className='h-14 w-full' />
             <Skeleton className='h-14 w-full' />
           </div>
+        ) : error ? (
+          <p className='px-4 pb-4 text-body text-muted-foreground sm:p-0'>
+            {intl.formatMessage({ id: 'sprints.detail.attentionError' })}
+          </p>
         ) : rows.length === 0 ? (
           <Empty className='border-t border-border sm:rounded-md sm:border'>
             <EmptyHeader>

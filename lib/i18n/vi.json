@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "Lập kế hoạch nhiệm vụ",
   "sprints.detail.viewRetro": "Xem retro",
   "sprints.detail.addTask": "Thêm nhiệm vụ",
+  "sprints.detail.attentionError": "Không tải được dữ liệu của sprint này. Hãy tải lại trang.",
   "sprints.tasks.empty.title": "Sprint này chưa có nhiệm vụ",
   "sprints.tasks.empty.description": "Nhấp vào \"Thêm nhiệm vụ\" hoặc gán một nhiệm vụ hiện có vào sprint này từ trang chi tiết.",
   "sprints.detail.collapseSidebar": "Ẩn chi tiết sprint",

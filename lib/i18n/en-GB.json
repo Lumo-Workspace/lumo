@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "Plan tasks",
   "sprints.detail.viewRetro": "View retro",
   "sprints.detail.addTask": "Add task",
+  "sprints.detail.attentionError": "Couldn't load this sprint's attention data. Try refreshing the page.",
   "sprints.tasks.empty.title": "No tasks in this sprint yet",
   "sprints.tasks.empty.description": "Click \"Add task\" or assign an existing task to this sprint from its detail page.",
   "sprints.detail.collapseSidebar": "Hide sprint details",

@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "タスクを計画",
   "sprints.detail.viewRetro": "振り返りを表示",
   "sprints.detail.addTask": "タスクを追加",
+  "sprints.detail.attentionError": "この Sprint の対応待ちデータを読み込めませんでした。ページを再読み込みしてください。",
   "sprints.tasks.empty.title": "このスプリントにはまだタスクがありません",
   "sprints.tasks.empty.description": "「タスクを追加」をクリックするか、詳細ページから既存のタスクをこのスプリントに割り当ててください。",
   "sprints.detail.collapseSidebar": "スプリント詳細を隠す",

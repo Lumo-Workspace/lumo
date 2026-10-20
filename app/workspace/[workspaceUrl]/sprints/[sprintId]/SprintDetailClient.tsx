@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
+import { CircleAlert } from 'lucide-react'
 import {
   useSprintAttention,
   useSprintByNumber,
@@ -39,6 +40,28 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+
+function AttentionError() {
+  const intl = useIntl()
+  return (
+    <Empty className='border border-border'>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <CircleAlert />
+        </EmptyMedia>
+        <EmptyTitle>
+          {intl.formatMessage({ id: 'sprints.detail.attentionError' })}
+        </EmptyTitle>
+      </EmptyHeader>
+    </Empty>
+  )
+}
 
 interface SprintDetailClientProps {
   /** Open the global NewTaskModal with the current sprint pre-selected. */
@@ -146,9 +169,14 @@ export function SprintDetailClient({
     void queryClient.invalidateQueries({ queryKey: ['sprints', 'attention'] })
   }
 
+  // Prefer the drawer; a task the list hasn't caught up with yet (or a page
+  // mounted without a drawer) opens its own page instead of doing nothing.
   function openTask(taskId: string) {
     const task = (tasks as MyTask[] | undefined)?.find(t => t.id === taskId)
-    if (task && onOpenTask) onOpenTask(task)
+    if (task && onOpenTask) return onOpenTask(task)
+    const identifier = attentionTasks.find(t => t.taskId === taskId)?.identifier
+    if (identifier)
+      router.push(`/workspace/${workspaceUrl}/my-tasks/${identifier}`)
   }
 
   const cost = team.attention?.cost ?? null
@@ -179,41 +207,48 @@ export function SprintDetailClient({
           onNewTask={() => onNewTask?.(sprint.id, sprint.teamId)}
         />
 
-        {stageCards ? (
-          <StageCards {...stageCards} />
+        {team.error ? (
+          <AttentionError />
         ) : (
-          <div className='grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4'>
-            {[0, 1, 2, 3].map(i => (
-              <Skeleton key={i} className='h-32' />
-            ))}
-          </div>
-        )}
+          <>
+            {stageCards ? (
+              <StageCards {...stageCards} />
+            ) : (
+              <div className='grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4'>
+                {[0, 1, 2, 3].map(i => (
+                  <Skeleton key={i} className='h-32' />
+                ))}
+              </div>
+            )}
 
-        <AwaitingPeopleCard
-          scope={scope}
-          onScopeChange={setScope}
-          rows={queueRows}
-          kinds={summarizeQueueKinds(queueRows)}
-          loading={scope === 'mine' ? mine.isLoading : team.isLoading}
-          onOpenTask={openTask}
-        />
+            <AwaitingPeopleCard
+              scope={scope}
+              onScopeChange={setScope}
+              rows={queueRows}
+              kinds={summarizeQueueKinds(queueRows)}
+              loading={scope === 'mine' ? mine.isLoading : team.isLoading}
+              error={!!(scope === 'mine' ? mine.error : team.error)}
+              onOpenTask={openTask}
+            />
 
-        {cost && (
-          <CostOutputCard
-            tokensPerVerifiedTask={cost.tokensPerVerifiedTask}
-            previousTokensPerVerifiedTask={
-              cost.previousSprint?.tokensPerVerifiedTask ?? null
-            }
-            reworkShare={cost.reworkShare}
-            reworkTop={cost.reworkTop}
-            onOpenTask={openTask}
-          />
-        )}
+            {cost && (
+              <CostOutputCard
+                tokensPerVerifiedTask={cost.tokensPerVerifiedTask}
+                previousTokensPerVerifiedTask={
+                  cost.previousSprint?.tokensPerVerifiedTask ?? null
+                }
+                reworkShare={cost.reworkShare}
+                reworkTop={cost.reworkTop}
+                onOpenTask={openTask}
+              />
+            )}
 
-        {team.isLoading ? (
-          <Skeleton className='h-64' />
-        ) : (
-          <SprintTaskTable rows={taskRows} onOpenTask={openTask} />
+            {team.isLoading ? (
+              <Skeleton className='h-64' />
+            ) : (
+              <SprintTaskTable rows={taskRows} onOpenTask={openTask} />
+            )}
+          </>
         )}
       </div>
 

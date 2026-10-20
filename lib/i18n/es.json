@@ -1385,6 +1385,7 @@
   "sprints.detail.planTasks": "Planificar tareas",
   "sprints.detail.viewRetro": "Ver retrospectiva",
   "sprints.detail.addTask": "Agregar tarea",
+  "sprints.detail.attentionError": "No se pudieron cargar los datos de este sprint. Actualiza la página.",
   "sprints.tasks.empty.title": "Aún no hay tareas en este sprint",
   "sprints.tasks.empty.description": "Haz clic en «Agregar tarea» o asigna una tarea existente a este sprint desde su página de detalle.",
   "sprints.detail.collapseSidebar": "Ocultar detalles del sprint",
