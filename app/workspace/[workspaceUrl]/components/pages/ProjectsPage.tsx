@@ -29,6 +29,7 @@ import {
   cmpDate,
 } from '../../hooks/useTableSort'
 import { IDEA_BADGE_CLS } from '../../constants'
+import { PROJECT_STATUS_LABEL_ID } from '../fields/ProjectStatusSelect'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { SearchInput } from '../SearchInput'
 import { copyLink } from '@/lib/utils/copyLink'
@@ -513,6 +514,20 @@ export function ProjectsPage({
                         <span className={IDEA_BADGE_CLS}>
                           {intl.formatMessage({ id: 'projects.draftBadge' })}
                         </span>
+                      )}
+                      {/* LUM-1285: the sidebar hides archived projects; this
+                          page is where they stay reachable. */}
+                      {project.archivedAt && (
+                        <Badge variant='muted' size='sm'>
+                          {intl.formatMessage({ id: 'project.archivedBadge' })}
+                        </Badge>
+                      )}
+                      {project.status && project.status !== 'ACTIVE' && (
+                        <Badge variant='outline-muted' size='sm'>
+                          {intl.formatMessage({
+                            id: PROJECT_STATUS_LABEL_ID[project.status],
+                          })}
+                        </Badge>
                       )}
                     </div>
                   </td>

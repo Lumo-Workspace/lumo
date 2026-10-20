@@ -2,6 +2,10 @@ import { z } from 'zod'
 import { taskTemplateKeySchema } from '@/lib/validation/task-template'
 import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
 import { ASSESSED_PRIORITIES, TASK_PRIORITIES } from '@/lib/task/priority'
+import {
+  PROJECT_STATUSES,
+  isValidProjectDateWindow,
+} from '@/shared/src/project-lifecycle'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -127,12 +131,24 @@ export const createProjectSchema = z.object({
   isIdea: z.boolean().optional().default(false),
 })
 
-export const updateProjectSchema = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
-  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
-  isIdea: z.boolean().optional(),
-  ownerId: z.string().nullable().optional(),
-})
+export const updateProjectSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
+    isIdea: z.boolean().optional(),
+    ownerId: z.string().nullable().optional(),
+    // LUM-1285: a human ruling. The CLI gates it behind the confirmation
+    // envelope; completion is derived, so there is no COMPLETED value.
+    status: z.enum(PROJECT_STATUSES).optional(),
+    startDate: z.coerce.date().nullable().optional(),
+    targetDate: z.coerce.date().nullable().optional(),
+    // true archives (stamps archivedAt), false restores.
+    archived: z.boolean().optional(),
+  })
+  .refine(d => isValidProjectDateWindow(d.startDate, d.targetDate), {
+    message: 'targetDate must be on or after startDate',
+    path: ['targetDate'],
+  })
 
 export const reorderProjectsSchema = z.object({
   orderedIds: z

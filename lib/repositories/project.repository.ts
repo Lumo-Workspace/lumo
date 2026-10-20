@@ -1,3 +1,4 @@
+import type { ProjectStatus } from '@prisma/client'
 import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import type { TaskStatus } from '@prisma/client'
 
@@ -6,6 +7,11 @@ export interface ProjectUpdateData {
   description?: string | null
   isIdea?: boolean
   ownerId?: string | null
+  /** LUM-1285 lifecycle fields. */
+  status?: ProjectStatus
+  startDate?: Date | null
+  targetDate?: Date | null
+  archivedAt?: Date | null
 }
 
 // Visibility filter shared by every project-listing query.
@@ -59,6 +65,9 @@ export const projectRepository = {
       by: ['projectId', 'status'],
       where: {
         workspaceId,
+        // Trashed tasks are not part of the project any more — same filter as
+        // the `_count.tasks` the list shows (LUM-1285: derived completion).
+        deletedAt: null,
         project: projectVisibilityWhere(workspaceId, memberId),
       },
       _count: { _all: true },

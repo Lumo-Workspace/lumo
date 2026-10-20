@@ -31,6 +31,7 @@ import {
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar'
 import { Page, ApiProject } from '../../types'
+import { isSidebarProject } from '../../utils/projectVisibility'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { projectsClient } from '@/lib/api-client'
@@ -115,8 +116,10 @@ export function ProjectsSidebarGroup({
     currentPage === 'project-detail' || currentSlug !== null
   const expanded = storedExpanded || isOnProjectRoute
 
+  // LUM-1285: archived projects leave the sidebar (the Projects page still
+  // lists them, so they can be opened and restored).
   const visibleProjects = useMemo(
-    () => projects.filter(p => !p.isIdea),
+    () => projects.filter(isSidebarProject),
     [projects]
   )
   const visibleIds = useMemo(
@@ -153,13 +156,13 @@ export function ProjectsSidebarGroup({
     const newVisibleIds = newVisible.map(p => p.id)
 
     // Snapshot for revert on failure; reorder the ENTIRE projects array so
-    // the full list (including any isIdea projects) keeps its invariant of
-    // "visible first in user order, then idea drafts". The Provider's
+    // the full list (including idea drafts and archived projects) keeps its
+    // invariant of "visible first in user order, then the hidden ones". The Provider's
     // cache-sync effect persists the new order — no direct writeCache here
     // (ProjectsProvider is the sole writer of CACHE_KEY.projects).
     const prevProjects = projects
-    const ideaProjects = projects.filter(p => p.isIdea)
-    const nextProjects = [...newVisible, ...ideaProjects]
+    const hiddenProjects = projects.filter(p => !isSidebarProject(p))
+    const nextProjects = [...newVisible, ...hiddenProjects]
 
     setProjects(nextProjects)
 

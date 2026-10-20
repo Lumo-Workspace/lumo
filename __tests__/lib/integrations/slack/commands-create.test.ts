@@ -121,7 +121,13 @@ describe('slack create command (LUM-920)', () => {
 
     expect(p.project.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { workspaceId: 'ws_1', teamId: 'team_1' },
+        // LUM-1285: never a CANCELED or archived project.
+        where: {
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+          archivedAt: null,
+          status: { not: 'CANCELED' },
+        },
         orderBy: { updatedAt: 'desc' },
       })
     )

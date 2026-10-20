@@ -182,6 +182,8 @@ describe('countTasksByStatus', () => {
       by: ['projectId', 'status'],
       where: {
         workspaceId: 'ws-1',
+        // LUM-1285: trashed tasks don't count (derived completion).
+        deletedAt: null,
         project: {
           workspaceId: 'ws-1',
           OR: [

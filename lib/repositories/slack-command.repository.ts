@@ -85,7 +85,14 @@ export const slackCommandRepository = {
   /** The team's most recently updated project — `create`'s default. */
   async findLatestProjectForTeam(workspaceId: string, teamId: string) {
     return prisma.project.findFirst({
-      where: { workspaceId, teamId },
+      // LUM-1285: a CANCELED or archived project takes no new tasks, so it is
+      // never the Slack create target.
+      where: {
+        workspaceId,
+        teamId,
+        archivedAt: null,
+        status: { not: 'CANCELED' },
+      },
       orderBy: { updatedAt: 'desc' },
       select: { id: true, name: true },
     })
