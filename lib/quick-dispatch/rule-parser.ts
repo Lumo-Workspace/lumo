@@ -1,4 +1,5 @@
 import type { Mention, QuickAction, ParseResult } from './types'
+import type { TaskPriorityValue } from '@/lib/task/priority'
 
 type Status =
   | 'BACKLOG'
@@ -7,7 +8,7 @@ type Status =
   | 'IN_REVIEW'
   | 'DONE'
   | 'CANCELED'
-type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+type Priority = TaskPriorityValue
 
 export const STATUS_KEYWORDS: Record<string, Status> = {
   完成: 'DONE',
@@ -191,7 +192,8 @@ export function parseQuickDispatch(
         type: 'create',
         title,
         status: status === null || status === 'CANCELED' ? 'TODO' : status,
-        priority: priority ?? 'MEDIUM',
+        // LUM-1284: no priority keyword → NONE (not assessed); never invent one.
+        priority: priority ?? 'NONE',
         projectId: project?.id ?? null,
         projectName: project?.name ?? null,
         assigneeActorId: assignee?.actorId ?? null,

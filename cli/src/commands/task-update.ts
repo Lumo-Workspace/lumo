@@ -750,7 +750,7 @@ async function runTaskUpdate(
     const n = normalizePriority(opts.priority)
     if (!n) {
       console.error(
-        `Error: invalid priority "${opts.priority}". Allowed: low, medium, high, urgent`
+        `Error: invalid priority "${opts.priority}". Allowed: none, low, medium, high, urgent`
       )
       return EXIT_USAGE
     }

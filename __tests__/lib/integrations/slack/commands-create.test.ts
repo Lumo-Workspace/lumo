@@ -137,7 +137,7 @@ describe('slack create command (LUM-920)', () => {
       teamId: 'team_1',
       title: 'Fix bug',
       status: 'TODO',
-      priority: 'MEDIUM',
+      priority: 'NONE', // LUM-1284: /create takes no priority
       order: 0,
     })
     expect(JSON.stringify(result)).toContain('ENG-8 · Fix bug')

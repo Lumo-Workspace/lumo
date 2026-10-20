@@ -12,6 +12,8 @@
  * breaking render purity.
  */
 
+import { PRIORITY_DISPLAY_ORDER } from '@/lib/task/priority'
+
 /**
  * The only fields filtering reads. Structural rather than `MyTask` so the same
  * control serves the project tab (`ApiTask`) and the sprint / milestone / My
@@ -72,7 +74,7 @@ const DAY_MS = 86_400_000
 /** Canonical display order per dimension; dimensions absent here sort by count. */
 const CANONICAL_ORDER: Partial<Record<FilterDimension, readonly string[]>> = {
   status: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'],
-  priority: ['URGENT', 'HIGH', 'MEDIUM', 'LOW'],
+  priority: PRIORITY_DISPLAY_ORDER,
   dueDate: DUE_DATE_BUCKETS,
 }
 

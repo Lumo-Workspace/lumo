@@ -88,7 +88,7 @@ describe('POST /api/tasks', () => {
       callerClerkId: 'clerk-1',
       memberId: 'member-1',
       sessionId: null,
-      input: expect.objectContaining({ title: 'Hi', priority: 'LOW' }),
+      input: expect.objectContaining({ title: 'Hi', priority: 'NONE' }),
     })
   })
 

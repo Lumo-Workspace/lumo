@@ -53,7 +53,8 @@ export interface ActorInfo {
   agent?: { id: string; name: string; avatarColor: string } | null
 }
 
-export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+/** LUM-1284: NONE = not assessed (the default for new tasks). */
+export type ApiPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiStatus =
   | 'BACKLOG'
   | 'TODO'

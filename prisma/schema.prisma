@@ -31,6 +31,9 @@ enum TaskStatus {
 }
 
 enum TaskPriority {
+  // Not assessed yet: the default, so a real MEDIUM ruling is distinguishable
+  // from a task nobody prioritised. Sorts after LOW (LUM-1284).
+  NONE
   LOW
   MEDIUM
   HIGH
@@ -1033,7 +1036,7 @@ model Task {
   description       String?
   spec              String?
   status            TaskStatus   @default(TODO)
-  priority          TaskPriority @default(MEDIUM)
+  priority          TaskPriority @default(NONE)
   order             Float        @default(0)
   agentStatus       AgentStatus?
   agentError        String?

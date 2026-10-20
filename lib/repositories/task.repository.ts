@@ -870,7 +870,8 @@ export const taskRepository = {
   /** Find historical tasks with priority info (for AI priority suggestion). */
   async findHistoricalByProject(projectId: string, take: number) {
     return followUp('tasks of an authorized project').task.findMany({
-      where: { projectId },
+      // LUM-1284: unassessed (NONE) tasks carry no priority signal.
+      where: { projectId, priority: { not: 'NONE' } },
       select: { id: true, number: true, title: true, priority: true },
       orderBy: { createdAt: 'desc' },
       take,

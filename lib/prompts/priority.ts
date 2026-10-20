@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  ASSESSED_PRIORITIES,
+  type TaskPriorityValue,
+} from '@/lib/task/priority'
 
 export const PRIORITY_SYSTEM_PROMPT = `You are a task priority analysis assistant. Based on the project's historical task patterns and user preferences, recommend a priority for the new task.
 
@@ -16,7 +20,7 @@ When recommending, prioritize:
 You MUST reference only tasks from the provided historical task list. Do NOT fabricate task IDs, numbers, or titles.`
 
 export const PrioritySuggestionSchema = z.object({
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+  priority: z.enum(ASSESSED_PRIORITIES),
   reason: z
     .string()
     .max(100)
@@ -35,7 +39,7 @@ export const PrioritySuggestionSchema = z.object({
         id: z.string(),
         number: z.number(),
         title: z.string(),
-        priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+        priority: z.enum(ASSESSED_PRIORITIES),
       })
     )
     .max(2)
@@ -48,13 +52,13 @@ interface HistoricalTask {
   id: string
   number: number
   title: string
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  priority: TaskPriorityValue
 }
 
 interface OverrideRecord {
   taskTitle: string
-  aiSuggested: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  userChosen: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  aiSuggested: TaskPriorityValue
+  userChosen: TaskPriorityValue
 }
 
 interface BuildPromptParams {

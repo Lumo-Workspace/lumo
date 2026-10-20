@@ -6,6 +6,7 @@ const en: Record<string, string> = {
   'task.status': 'Status',
   'task.priority': 'Priority',
   'status.inProgress': 'In Progress',
+  'priority.high': 'High',
 }
 
 jest.mock('react-intl', () => ({

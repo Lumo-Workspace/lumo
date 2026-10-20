@@ -5,6 +5,7 @@ import { getContext, resolveAssigneeActor } from '../context.js'
 import { resolveTaskId } from '../resolvers.js'
 import { trashTask } from '../trash.js'
 import { terminalStampsForMove } from '../status-stamps.js'
+import { MCP_TASK_PRIORITIES, priorityForCreate } from '../task-priority.js'
 
 const statusEnum = z
   .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
@@ -22,8 +23,10 @@ const writableStatusEnum = z
   )
 
 const priorityEnum = z
-  .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-  .describe('Task priority')
+  .enum(MCP_TASK_PRIORITIES)
+  .describe(
+    'Task priority. NONE = not assessed. Only pass one the user stated; never guess.'
+  )
 
 const taskSelect = {
   id: true,
@@ -169,7 +172,7 @@ export function registerTaskTools(server: McpServer) {
         title: z.string().min(1).describe('Task title'),
         description: z.string().optional().describe('Task description'),
         status: writableStatusEnum.optional().default('TODO'),
-        priority: priorityEnum.optional().default('MEDIUM'),
+        priority: priorityEnum.optional(),
         assigneeId: z
           .string()
           .optional()
@@ -212,7 +215,7 @@ export function registerTaskTools(server: McpServer) {
             title,
             description: description ?? null,
             status: status ?? 'TODO',
-            priority: priority ?? 'MEDIUM',
+            priority: priorityForCreate(priority),
             assigneeActorId: resolvedAssigneeActorId ?? null,
             order,
             // LUM-1282: a task born DONE is completed at birth.

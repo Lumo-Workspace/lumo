@@ -101,6 +101,8 @@ describe('LUM-1289 P-label → priority mapping', () => {
 
   it('P4 only matches as a whole word (P4a is not a priority)', () => {
     const result = parseQuickDispatch('create P4a retire loop', [])
-    expect(result.actions[0]).toMatchObject({ priority: 'MEDIUM' })
+    // No priority keyword matched, so the create gets the unassessed default
+    // (NONE since LUM-1284), not P4's LOW.
+    expect(result.actions[0]).toMatchObject({ priority: 'NONE' })
   })
 })

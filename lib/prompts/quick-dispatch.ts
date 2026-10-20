@@ -1,12 +1,14 @@
 import { z } from 'zod'
+import { TASK_PRIORITIES } from '@/lib/task/priority'
 
 export const QUICK_DISPATCH_SYSTEM_PROMPT = `You are a task dispatcher for a project management tool. Parse the user's natural language input into structured task fields.
 
 Priority mapping:
 - P0, 紧急, urgent, blocker → URGENT
 - P1, 高, high, important → HIGH
-- P2, 中, medium, normal (or no priority mentioned) → MEDIUM
+- P2, 中, medium, normal → MEDIUM
 - P3, P4, 低, low, minor, nice-to-have → LOW
+- no priority mentioned → NONE (not assessed; never guess a priority)
 
 Status mapping:
 - doing, 进行中, in progress, started → IN_PROGRESS
@@ -23,14 +25,14 @@ Rules:
 5. Generate a concise 1-2 sentence HTML description focused on execution steps. Use only: <p>, <strong>, <code>, <ul>/<li>.
 6. Set titleTooVague=true if the title is generic/meaningless: "new task", "新任务", "做个东西", "task", "something", "test", or under 4 meaningful characters.
 7. Set missingProject=true if no project could be confidently matched from the input.
-8. If a field is not mentioned or cannot be resolved, use null for optional fields and MEDIUM/TODO for defaults.`
+8. If a field is not mentioned or cannot be resolved, use null for optional fields and NONE/TODO for defaults.`
 
 export const QuickDispatchResponseSchema = z.object({
   title: z.string().describe('Clean task title with meta-info removed'),
   description: z
     .string()
     .describe('1-2 sentence HTML description of execution steps'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+  priority: z.enum(TASK_PRIORITIES),
   projectId: z
     .string()
     .nullable()
@@ -117,8 +119,10 @@ Status mapping:
 Priority mapping:
 - P0, 紧急, urgent, blocker → URGENT
 - P1, 高, high, important → HIGH
-- P2, 中, medium, normal (or no priority mentioned) → MEDIUM
+- P2, 中, medium, normal → MEDIUM
 - P3, P4, 低, low, minor → LOW
+- no priority, 无优先级, clear priority → NONE (update actions)
+- a create action with no priority mentioned → NONE (not assessed; never guess a priority)
 
 Rules:
 1. Match tasks from the provided user_tasks list by fuzzy title matching. Use the exact taskId and identifier from the matched task.
@@ -151,7 +155,7 @@ export const QuickDispatchV2ResponseSchema = z.object({
               ])
               .optional(),
             assigneeActorId: z.string().optional(),
-            priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+            priority: z.enum(TASK_PRIORITIES).optional(),
           }),
         }),
         z.object({
@@ -164,7 +168,7 @@ export const QuickDispatchV2ResponseSchema = z.object({
             'IN_REVIEW',
             'DONE',
           ]),
-          priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+          priority: z.enum(TASK_PRIORITIES),
           projectId: z
             .string()
             .nullable()

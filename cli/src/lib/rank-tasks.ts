@@ -56,11 +56,13 @@ export interface RankedTask {
   reasons: string[]
 }
 
+/** URGENT > HIGH > MEDIUM > LOW > NONE: unassessed work ranks last (LUM-1284). */
 const PRIORITY_WEIGHT: Record<string, number> = {
   URGENT: 0,
   HIGH: 1,
   MEDIUM: 2,
   LOW: 3,
+  NONE: 4,
 }
 
 function priorityWeight(priority: string): number {
@@ -101,7 +103,9 @@ function deriveReasons(
   activeSprintIds: Set<string>,
   now: Date
 ): string[] {
-  const reasons: string[] = [task.priority]
+  const reasons: string[] = [
+    task.priority === 'NONE' ? 'no priority' : task.priority,
+  ]
 
   if (inActiveSprint(task, activeSprintIds)) {
     reasons.push('active sprint')

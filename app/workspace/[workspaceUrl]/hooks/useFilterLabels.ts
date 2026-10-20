@@ -91,6 +91,10 @@ export function useFilterLabels(
         defaultMessage: 'Medium',
       }),
       LOW: intl.formatMessage({ id: 'priority.low', defaultMessage: 'Low' }),
+      NONE: intl.formatMessage({
+        id: 'priority.none',
+        defaultMessage: 'No priority',
+      }),
     }
     const dueDateLabels: Record<string, string> = {
       overdue: intl.formatMessage({

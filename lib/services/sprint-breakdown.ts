@@ -3,7 +3,8 @@
  *
  * Both helpers return only non-empty buckets so the UI can render
  * conditionally ("if (buckets.length)"). The ordering convention:
- *   - Priority: URGENT → HIGH → MEDIUM → LOW (severity first)
+ *   - Priority: URGENT → HIGH → MEDIUM → LOW → NONE (severity first,
+ *     unassessed last — LUM-1284)
  *   - Member:   descending by total, then name A→Z as a stable tiebreaker
  *
  * "Done" means `status === 'DONE'` to match the overall sprint progress
@@ -13,7 +14,12 @@
  * the unassigned bucket.
  */
 
-type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+import {
+  PRIORITY_DISPLAY_ORDER,
+  type TaskPriorityValue,
+} from '@/lib/task/priority'
+
+type Priority = TaskPriorityValue
 type Status =
   | 'BACKLOG'
   | 'TODO'
@@ -46,7 +52,7 @@ export interface MemberBucket<M extends MemberRef = MemberRef> {
   total: number
 }
 
-const PRIORITY_ORDER: Priority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
+const PRIORITY_ORDER: readonly Priority[] = PRIORITY_DISPLAY_ORDER
 
 export function priorityBreakdown(
   tasks: BreakdownTask[] | null | undefined

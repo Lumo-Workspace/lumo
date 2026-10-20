@@ -1,4 +1,5 @@
 import type { TaskPriority, TaskStatus } from '@prisma/client'
+import { PRIORITY_DISPLAY_ORDER } from '@/lib/task/priority'
 import type { SprintMeta } from './sprint-coverage'
 import { countsTowardCompletion } from '@/lib/task/status-semantics'
 
@@ -46,7 +47,7 @@ export interface MilestoneSegments {
   workstream: MilestoneSegment[]
 }
 
-const PRIORITY_ORDER: TaskPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
+const PRIORITY_ORDER: readonly TaskPriority[] = PRIORITY_DISPLAY_ORDER
 
 function push(
   acc: Map<

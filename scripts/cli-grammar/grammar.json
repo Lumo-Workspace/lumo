@@ -3885,9 +3885,9 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
+          "description": "Priority: none | low | medium | high | urgent (case-insensitive; default: none = not assessed — pass one only when it was actually decided)"
         },
         "--rework-of": {
           "long": "--rework-of",
@@ -3932,7 +3932,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.",
+      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=none (not assessed), assignee=me.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task decide": {
@@ -4193,9 +4193,9 @@
           "long": "--priority",
           "short": null,
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)"
+          "description": "Priority: none | low | medium | high | urgent (case-insensitive; none = not assessed; repeatable or comma-separated)"
         },
         "--search": {
           "long": "--search",
@@ -5063,9 +5063,9 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": ["none", "low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
-          "description": "New priority: low | medium | high | urgent (case-insensitive)"
+          "description": "New priority: none | low | medium | high | urgent (case-insensitive; none clears it to not assessed)"
         },
         "--remove-tag": {
           "long": "--remove-tag",

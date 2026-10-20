@@ -106,7 +106,7 @@ describe('GET /api/tasks/statuses', () => {
       'DONE',
       'CANCELED',
     ])
-    expect(body.priorities).toEqual(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+    expect(body.priorities).toEqual(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'])
     expect(body.gatedStatuses).toEqual(['DONE', 'CANCELED'])
   })
 
