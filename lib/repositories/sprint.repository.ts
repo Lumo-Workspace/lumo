@@ -490,4 +490,41 @@ export const sprintRepository = {
       { timeout: 15000, maxWait: 5000 }
     )
   },
+
+  /**
+   * LUM-1278 attention read model: the sprint's live (non-trashed) tasks in
+   * the caller's workspace, with what the queue / trust / stage folds read.
+   */
+  async taskRowsForAttention(sprintId: string, workspaceId: string) {
+    const rows = await prisma.task.findMany({
+      where: { sprintId, workspaceId, deletedAt: null },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        createdAt: true,
+        assigneeActorId: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { number: 'asc' },
+    })
+    return rows.map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      createdAt: t.createdAt,
+      assigneeActorId: t.assigneeActorId,
+    }))
+  },
+
+  /** LUM-1278: the team's sprint just before `number` (highest number below). */
+  async findPreviousInTeam(teamId: string, number: number) {
+    return prisma.sprint.findFirst({
+      where: { teamId, number: { lt: number } },
+      orderBy: { number: 'desc' },
+      select: { id: true, number: true, name: true },
+    })
+  },
 }

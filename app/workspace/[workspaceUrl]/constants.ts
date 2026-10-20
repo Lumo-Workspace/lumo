@@ -195,6 +195,8 @@ export const API = {
     burnup: (sprintId: string) => `/api/sprints/${sprintId}/burnup`,
     teamPerformance: (sprintId: string) =>
       `/api/sprints/${sprintId}/team-performance`,
+    attention: (sprintId: string, scope: 'team' | 'mine' = 'team') =>
+      `/api/sprints/${sprintId}/attention?scope=${scope}`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   milestones: {

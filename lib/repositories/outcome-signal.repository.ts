@@ -57,4 +57,20 @@ export const outcomeSignalRepository = {
       orderBy: { detectedAt: 'desc' },
     })
   },
+
+  /**
+   * LUM-1278 attention read model: the rework signals (REVERTED / REOPENED)
+   * recorded against the given tasks in the caller's workspace.
+   */
+  async listReworkByTaskIds(workspaceId: string, taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.outcomeSignal.findMany({
+      where: {
+        workspaceId,
+        taskId: { in: taskIds },
+        kind: { in: ['REVERTED', 'REOPENED'] },
+      },
+      select: { taskId: true, kind: true },
+    })
+  },
 }
