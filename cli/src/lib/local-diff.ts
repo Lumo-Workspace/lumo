@@ -23,6 +23,11 @@ export type ScanScope =
   | { kind: 'staged' }
   | { kind: 'since'; ref: string; until?: string }
   | { kind: 'default'; until?: string }
+  /** LUM-1259: one commit against its first parent (a root commit: everything). */
+  | { kind: 'commit'; ref: string }
+
+/** git's empty tree: what a root commit is diffed against. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 export interface LocalDiff {
   /** Repo root every path is relative to. */
@@ -179,6 +184,21 @@ export function collectLocalDiff(scope: ScanScope, cwd?: string): LocalDiff {
       root,
       files: addedLinesWithNumbers(gitDiff(root, ['--cached', '--'])),
       description: 'staged changes',
+      skipped,
+    }
+  }
+
+  if (scope.kind === 'commit') {
+    assertCommit(root, scope.ref, '--commit')
+    const parent = runGit(
+      ['rev-parse', '--verify', '--quiet', `${scope.ref}^1`],
+      root
+    )
+    const base = parent.status === 0 ? parent.stdout.trim() : EMPTY_TREE
+    return {
+      root,
+      files: addedLinesWithNumbers(gitDiff(root, [base, scope.ref, '--'])),
+      description: `commit ${shortSha(root, scope.ref)}`,
       skipped,
     }
   }

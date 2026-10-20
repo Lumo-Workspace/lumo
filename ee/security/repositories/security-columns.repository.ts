@@ -5,7 +5,7 @@
  * `Workspace.{securityPolicy, securityScanEnabled, securityAiReviewEnabled,
  * securityHuntEnabled, securityRequestChangesEnabled,
  * securityAllowAuthorApproval, securityLearningsScope,
- * securityReviewAutoPauseAfter,
+ * securityReviewAutoPauseAfter, securityLocalScanLogEnabled,
  * scanEvidenceRetentionDays}` and
  * `ProjectRepository.{lastSarifIngestAt, securityBaseline}` stay in the one
  * core schema (migrations are never deleted), but only the plugin reads or
@@ -98,6 +98,16 @@ export const securityColumnsRepository = {
     return parseAutoPauseAfter(row?.securityReviewAutoPauseAfter)
   },
 
+  /** LUM-1259: does the workspace log local scan results? false (refuse)
+   *  when the workspace is missing. */
+  async findLocalScanLogEnabled(id: string): Promise<boolean> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityLocalScanLogEnabled: true },
+    })
+    return row?.securityLocalScanLogEnabled === true
+  },
+
   /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
    *  workflow and LUM-1134's learnings scope); null when the workspace is
    *  missing — resolve with `resolveSecurityLayers`. */
@@ -113,6 +123,7 @@ export const securityColumnsRepository = {
         securityAllowAuthorApproval: true,
         securityLearningsScope: true,
         securityReviewAutoPauseAfter: true,
+        securityLocalScanLogEnabled: true,
       },
     })
     if (!row) return null

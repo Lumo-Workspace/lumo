@@ -67,9 +67,10 @@ const DEVIATIONS = {
       'reads local files (--file …) — Codex asks first (--evidence-file)',
     // LUM-1255: reads git and the working tree, so it stays sandboxed;
     // LUM-1256: it also reads server context from the Lumo API, which inside
-    // the sandbox falls back to the cache (or no context).
+    // the sandbox falls back to the cache (or no context); LUM-1259: with
+    // --log it uploads to the API and writes its offline queue under .git.
     'security scan':
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); with --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot',
   } as Record<string, string>,
 }
 

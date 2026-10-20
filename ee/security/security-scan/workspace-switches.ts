@@ -40,6 +40,9 @@ export interface WorkspaceSecuritySwitches {
   /** LUM-1137: pause automatic review of a PR after this many reviewed
    *  commits (0 = never pause). */
   securityReviewAutoPauseAfter: number
+  /** LUM-1259: log local scan results per commit (default OFF — the
+   *  metadata of unpushed commits is sensitive, so a workspace opts in). */
+  securityLocalScanLogEnabled: boolean
 }
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
@@ -51,6 +54,7 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityAllowAuthorApproval: true,
   securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
   securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
+  securityLocalScanLogEnabled: false,
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */

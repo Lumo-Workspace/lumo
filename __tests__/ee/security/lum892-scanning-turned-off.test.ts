@@ -161,6 +161,7 @@ const ALL_ON = {
   securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
+  securityLocalScanLogEnabled: false,
 }
 
 beforeEach(() => {

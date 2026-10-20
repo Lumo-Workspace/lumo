@@ -2,7 +2,7 @@
 
 ## Onboarding
 
-### `lumo init [--scope user|project] [--force] [--agent <token>] [--dry-run] [--scan-hooks]` — install or refresh skill + hooks
+### `lumo init [--scope user|project] [--force] [--agent <token>] [--dry-run] [--scan-hooks [--scan-log]]` — install or refresh skill + hooks
 
 `--scope user|project` replaced the `--user` / `--project` booleans (LUM-1233 Q6, so `--project <ref>` can be the global project flag); `lumo init --user|--project` and the old `lumo setup` alias print `was removed. Use: lumo init --scope …`, `lumo skill update --user|--project` prints `was removed. Use: lumo skill update --scope …`; both exit 2. An invalid `--scope` value exits 2.
 
@@ -35,6 +35,15 @@ appended after an existing hook, printed instead of written under
 the flag leaves installed scan hooks as they are; with `--scope user` the flag
 exits 2. `--dry-run --scan-hooks` previews them.
 
+**`--scan-log` (with `--scan-hooks`)** also records each commit's local scan
+on the Lumo server: a `post-commit` hook and the `pre-push` hook run
+`lumo security scan --log` in the background, never blocking or failing a
+commit or push, and `git config lumo.scanLog true` is set for the repo (the
+switch; `false` pauses it). The server keeps the results only once an OWNER
+opted the workspace in (`lumo workspace security-scan update --local-scan-log
+on`). Without `--scan-hooks` it exits 2. See
+[security-scan.md](security-scan.md#local-scan-log---log).
+
 When logged in, setup ends with one `ℹ Session records in this workspace: …` line — the workspace's current session record mode and retention, and that an OWNER can change it in Settings → Data retention (link included). Not logged in, offline, or an older server → the line is skipped silently; setup never fails on it.
 
 For every other agent (`cursor`, …), `--agent <token>` uses the Claude Code layout and records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). Without `--agent` the Claude Code hooks carry `claude-code` and the Codex hooks `codex`. Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
@@ -50,6 +59,7 @@ lumo init --scope project --agent codex       # Codex only: ./.agents/skills/lum
 lumo init --scope project --agent claude-code # Claude Code only: ./.claude/
 lumo init --scope project --agent cursor      # bake agent=cursor into the hook commands
 lumo init --scope project --scan-hooks        # also pre-commit / pre-push hooks running lumo security scan
+lumo init --scope project --scan-hooks --scan-log  # …and record each commit's scan on the server (opt-in)
 ```
 
 **Refreshing an install (LUM-1118).** `lumo init --upgrade` was removed (it now exits 2 — a usage error — naming the replacement): re-run `lumo init` with the install's scope (`--scope user` / `--scope project`) and, to leave other agents alone, its `--agent`. It refreshes only that scope — run `lumo init --scope project` inside each repo — and, unlike the old `--upgrade`, also installs what is missing there (the preview shows it as `would install`).

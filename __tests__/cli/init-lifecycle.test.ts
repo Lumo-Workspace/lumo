@@ -122,6 +122,8 @@ describe('commander registration', () => {
         '--dry-run',
         '--force',
         '--scan-hooks',
+        // LUM-1259: the opt-in local scan log hooks.
+        '--scan-log',
         '--scope',
         '--upgrade',
       ].sort()

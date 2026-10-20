@@ -46,6 +46,7 @@ const ALL_ON = {
   securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
+  securityLocalScanLogEnabled: false,
 }
 
 function renderCard(
@@ -80,6 +81,7 @@ beforeEach(() => {
             securityAllowAuthorApproval: true,
             securityLearningsScope: 'auto' as const,
             securityReviewAutoPauseAfter: 5,
+            securityLocalScanLogEnabled: false,
           }
         : { ...ALL_ON, ...u },
   }))
@@ -125,6 +127,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityAllowAuthorApproval: true,
         securityLearningsScope: 'auto',
         securityReviewAutoPauseAfter: 5,
+        securityLocalScanLogEnabled: false,
       })
     )
   })
@@ -153,6 +156,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
       securityAllowAuthorApproval: true,
       securityLearningsScope: 'auto',
       securityReviewAutoPauseAfter: 5,
+      securityLocalScanLogEnabled: false,
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
     await waitFor(() =>

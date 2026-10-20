@@ -514,6 +514,10 @@ function registerInit(): void {
       '--scan-hooks',
       'Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE'
     )
+    .option(
+      '--scan-log',
+      'With --scan-hooks: also record each commit’s local scan result on the Lumo server (post-commit + pre-push, in the background; the workspace must opt in; off: git config lumo.scanLog false)'
+    )
     // LUM-1118: removed; kept hidden only to print the migration error.
     .addOption(new Option('--upgrade').hideHelp())
     .action(
@@ -526,6 +530,7 @@ function registerInit(): void {
             upgrade?: boolean
             dryRun?: boolean
             scanHooks?: boolean
+            scanLog?: boolean
           }
         )
       )
@@ -872,8 +877,8 @@ const security = program
 security
   .command('scan')
   .codex(
-    sandboxed(
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)'
+    writesLocal(
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); with --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot'
     )
   )
   .description(
@@ -919,6 +924,16 @@ security
     '--repo <owner/repo>',
     "The repository to read server context for, instead of origin's"
   )
+  .option(
+    '--commit <ref>',
+    'Scan one commit against its first parent (merge commits are skipped)'
+  )
+  .option(
+    '--log',
+    'Record each scanned commit’s result on the Lumo server (needs --commit, or --until for a range; the workspace must opt in). Offline: queued under .git/lumo and sent by the next --log run. Recorded results are labelled LOCAL and never block or clear DONE'
+  )
+  // LUM-1259: which git hook runs --log (recorded as the run's trigger).
+  .addOption(new Option('--hook <name>').hideHelp())
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
 const session = program
@@ -2135,6 +2150,10 @@ securityScanCmd
   .option(
     '--auto-pause-after <n>',
     'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
+  )
+  .option(
+    '--local-scan-log <on|off>',
+    'Log local scan results per commit (`lumo security scan --log`, the scan-log hooks) on the server (default off); turning it on needs --confirm'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')

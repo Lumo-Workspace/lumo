@@ -11,7 +11,7 @@ import {
   PREPARE_COMMIT_MSG_HOOK,
   type GitHookSpec,
 } from './git-hook-template'
-import { SCAN_HOOKS } from './scan-hook-template'
+import { SCAN_HOOKS, SCAN_LOG_HOOKS } from './scan-hook-template'
 import { CODEX_HOOK_EVENTS } from './hooks-template'
 import {
   decideSkillInstall,
@@ -442,7 +442,7 @@ function gitHookItem(
         ...base,
         path: plan.coreHooksPath,
         action: 'skip',
-        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init --scope project${kind === 'scan-hook' ? ' --scan-hooks' : ''}\` prints the block to add by hand`,
+        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init --scope project${kind === 'scan-hook' ? ` ${spec.initFlags ?? '--scan-hooks'}` : ''}\` prints the block to add by hand`,
         notes: [],
       }
     case 'no-dir':
@@ -532,6 +532,8 @@ export function planInit(args: {
   force: boolean
   /** LUM-1258: `--scan-hooks` — also plan the pre-commit / pre-push scan hooks. */
   scanHooks?: boolean
+  /** LUM-1259: `--scan-log` — also plan the post-commit log hook. */
+  scanLog?: boolean
 }): InitItem[] {
   const items: InitItem[] = []
   const attempt = (kind: InitItemKind, file: string, fn: () => InitItem) => {
@@ -575,7 +577,10 @@ export function planInit(args: {
   if (args.scope === 'project') {
     attempt('git-hook', args.root, () => gitHookItem(args.root, args.homeDir))
     if (args.scanHooks)
-      for (const spec of SCAN_HOOKS)
+      for (const spec of [
+        ...SCAN_HOOKS,
+        ...(args.scanLog ? SCAN_LOG_HOOKS : []),
+      ])
         attempt('scan-hook', args.root, () =>
           gitHookItem(args.root, args.homeDir, spec, 'scan-hook')
         )
@@ -586,12 +591,18 @@ export function planInit(args: {
 /** The `lumo init …` command that applies a dry run with the same flags. */
 export function initApplyCommand(
   scope: 'user' | 'project',
-  opts: { agent?: string; force?: boolean; scanHooks?: boolean }
+  opts: {
+    agent?: string
+    force?: boolean
+    scanHooks?: boolean
+    scanLog?: boolean
+  }
 ): string {
   let cmd = `lumo init --scope ${scope}`
   if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
   if (opts.force) cmd += ' --force'
   if (opts.scanHooks) cmd += ' --scan-hooks'
+  if (opts.scanHooks && opts.scanLog) cmd += ' --scan-log'
   return cmd
 }
 

@@ -125,9 +125,9 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'project update': { serverOnly: true, localFiles: 'none' },
   'security scan': {
     serverOnly: false,
-    localFiles: 'none',
+    localFiles: 'writes',
     detail:
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); with --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot',
   },
   'session attach': {
     serverOnly: false,

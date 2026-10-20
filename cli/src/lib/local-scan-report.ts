@@ -43,6 +43,22 @@ const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
 export type LocalFinding = RawSecretFinding & {
   scanner: LocalScanner
   server?: ServerLabel | null
+  /** LUM-1259 — with `--log` / `--commit`: the commit the finding is in. */
+  commitSha?: string
+}
+
+/** LUM-1259 — `--log`: what was recorded on the server. */
+export interface LogSection {
+  /** Commits scanned and recorded (one run each). */
+  commits: string[]
+  /** Commits left out: merges, and past the per-run cap. */
+  skipped: number
+  sent: number
+  created: number
+  duplicates: number
+  queued: number
+  flushed: number
+  note: string | null
 }
 
 /** LUM-1256 — `--pr`: the branch's PR and its latest server scan. */
@@ -80,6 +96,8 @@ export interface LocalScanResult {
   findings: LocalFinding[]
   /** LUM-1256 — absent when the run did not ask the server (tests, older callers). */
   server?: ServerSection
+  /** LUM-1259 — only with `--log`. */
+  log?: LogSection
 }
 
 export interface SeverityCounts {
@@ -159,6 +177,9 @@ function findingLines(f: LocalFinding, opts: LayoutOptions): string[] {
   const fields: Field[] = [
     { label: 'Rule', value: sanitizeField(f.ruleId) },
     { label: 'Where', value: sanitizeField(`${f.filePath}:${f.line}`) },
+    ...(f.commitSha
+      ? [{ label: 'Commit', value: sanitizeField(f.commitSha.slice(0, 12)) }]
+      : []),
     // Already redacted by the scanner — the raw value never reaches here.
     { label: 'Evidence', value: sanitizeField(f.evidence.trim()), whole: true },
   ]
@@ -193,11 +214,30 @@ export function formatLocalScan(
     )
   }
   if (r.server) lines.push(...serverLines(r))
+  if (r.log) lines.push(logLine(r.log))
   for (const f of sortFindings(r.findings)) {
     lines.push('', ...findingLines(f, opts))
   }
   if (r.server?.pr) lines.push('', ...prLines(r.server.pr, opts))
   return lines.join('\n')
+}
+
+/**
+ * LUM-1259 — `Log: 2 commits recorded (1 new, 1 already logged) · 0 queued`,
+ * then why anything was not sent. Recorded results are LOCAL: they never
+ * block or clear DONE.
+ */
+function logLine(l: LogSection): string {
+  const commits = l.commits.length === 1 ? 'commit' : 'commits'
+  const parts = [
+    `${l.commits.length} ${commits} scanned`,
+    `${l.sent} sent (${l.created} new, ${l.duplicates} already logged)`,
+    `${l.queued} queued`,
+  ]
+  if (l.flushed > 0) parts.push(`${l.flushed} from the queue`)
+  if (l.skipped > 0) parts.push(`${l.skipped} skipped (merges / over the cap)`)
+  const note = l.note ? ` — ${sanitizeField(l.note)}` : ''
+  return `Log: ${parts.join(' · ')}${note}`
 }
 
 /** LUM-1256 — findings the server's policy would block DONE on. */
@@ -274,9 +314,9 @@ function prJson(pr: PrSection): Record<string, unknown> {
  * siblings. Declared finding fields (J-3): scanner, kind, ruleId, severity,
  * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade,
  * server (LUM-1256: { status, by, at, pullRequest, carriesOver, learningId,
- * wouldBlockDone } or null). Siblings: scanners, scope, filesScanned,
- * skipped, elapsedMs, summary, and (LUM-1256) serverContext and
- * wouldBlockDone.
+ * wouldBlockDone } or null), and (LUM-1259) commitSha on a per-commit
+ * scan. Siblings: scanners, scope, filesScanned, skipped, elapsedMs,
+ * summary, (LUM-1256) serverContext and wouldBlockDone, and (LUM-1259) log.
  */
 export function localScanJson(r: LocalScanResult): Record<string, unknown> {
   const findings = sortFindings(r.findings).map(f => ({
@@ -292,6 +332,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
     detail: f.detail,
     downgrade: f.downgrade ?? null,
     server: f.server ?? null,
+    // LUM-1259: only on a per-commit scan (`--commit` / `--log`).
+    ...(f.commitSha ? { commitSha: f.commitSha } : {}),
   }))
   return listEnvelope(
     'findings',
@@ -319,6 +361,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
         r.server && r.server.source !== 'none'
           ? countWouldBlock(r.findings)
           : null,
+      // LUM-1259: what `--log` recorded (null without it).
+      log: r.log ?? null,
     }
   )
 }

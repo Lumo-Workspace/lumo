@@ -5,7 +5,8 @@ import * as path from 'path'
 import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
-import { scanHookFor } from '../lib/scan-hook-template'
+import { SCAN_LOG_CONFIG, scanHookFor } from '../lib/scan-hook-template'
+import { spawnSync } from 'child_process'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
 import {
@@ -220,6 +221,18 @@ function readJsonObject(file: string): Record<string, unknown> {
   return v as Record<string, unknown>
 }
 
+/**
+ * LUM-1259 — unset `lumo.scanLog` in the repository whose hooks dir holds
+ * `hookFile`; returns the note to append ('' when it was not set).
+ */
+function disableScanLog(hookFile: string): string {
+  const r = spawnSync('git', ['config', '--unset', SCAN_LOG_CONFIG], {
+    cwd: path.dirname(hookFile),
+    encoding: 'utf8',
+  })
+  return r.status === 0 ? `; local scan log off (${SCAN_LOG_CONFIG} unset)` : ''
+}
+
 /** Result of one applied action; `changed: false` means nothing was touched. */
 interface Applied {
   line: string
@@ -259,15 +272,25 @@ function applyAction(a: PlannedAction): Applied {
           line: `No complete Lumo block in ${row.path}; left as is`,
           changed: false,
         }
+      // LUM-1259: the post-commit log hook goes with its switch, so the
+      // pre-push hook stops logging too.
+      const logOff =
+        a.action === 'strip-scan-hook' &&
+        scanHookFor(row.path)?.hook === 'post-commit'
+          ? disableScanLog(row.path)
+          : ''
       if (content === null) {
         fs.unlinkSync(row.path)
         return {
-          line: `Deleted ${row.path} (only the Lumo block was in it)`,
+          line: `Deleted ${row.path} (only the Lumo block was in it)${logOff}`,
           changed: true,
         }
       }
       fs.writeFileSync(row.path, content)
-      return { line: `Removed the Lumo block from ${row.path}`, changed: true }
+      return {
+        line: `Removed the Lumo block from ${row.path}${logOff}`,
+        changed: true,
+      }
     }
     case 'strip-codex': {
       const data = readJsonObject(row.path)
