@@ -313,6 +313,18 @@ export const securityPlugin: LumoServerPlugin = {
       if (status === 'IN_REVIEW') void dispatchPolicyCheck(taskId)
     })
 
+    // LUM-1259: the local scan log follows the session record retention
+    // (user ruling, option A) — swept daily by the core prune cron.
+    api.retention({
+      key: 'localScanLog',
+      async sweep(now) {
+        const { localScanLogRetentionService } =
+          await import('@/ee/security/services/local-scan-log-retention.service')
+        const { localScanRuns } = await localScanLogRetentionService.sweep(now)
+        return { localScanRuns }
+      },
+    })
+
     api.retention({
       key: 'scanEvidence',
       // LUM-914: pre-LUM-911 scans still holding code.

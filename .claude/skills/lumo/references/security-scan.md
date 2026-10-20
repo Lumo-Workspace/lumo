@@ -112,6 +112,7 @@ Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace se
 - **Amend / rebase:** the patch-id stays the same when the diff does (a reworded amend, a clean rebase), so a PR head links to the runs of the same change under its old sha.
 - **Offline:** no network, not logged in, a 5xx or a rate limit (30 calls a minute) → the runs are queued in `<git common dir>/lumo/scan-log-queue.json` (at most 500) and sent first by the next `--log` run that reaches the server (`… · 1 from the queue`). `--offline` queues without a call. A refusal that will not change on retry (logging off, a repository the workspace does not have, no security plugin) drops the queue.
 - **Never fails the scan:** the upload outcome is the `Log:` line (and `log` in `--json`); the exit code is the scan's (`--fail-on`) only.
+- **Retention:** logged runs (and their findings) follow the workspace's session record setting (Settings → Data retention): a day tier deletes runs that arrived longer ago than it, used-up mode after 30 days, keep-forever keeps them; a stricter setting applies only to runs that arrive after the change. Turning the log off keeps what was logged; deleting the workspace deletes it.
 - **Trust:** results are client-reported and labelled **LOCAL** — nothing proves a clean local scan happened; they never block or clear DONE and cannot be ruled on. `lumo pr show` prints `⚠ Flagged locally at <sha> and pushed anyway (…)` when a run for the PR head (or the same change before an amend / rebase) had findings ([pr-scan.md](pr-scan.md)).
 
 ## Git hooks

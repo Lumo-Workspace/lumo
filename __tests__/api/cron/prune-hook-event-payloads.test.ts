@@ -16,11 +16,15 @@ jest.mock('@/lib/services/pr-comment-dead-letter-retention.service', () => ({
 jest.mock('@/lib/services/crossing-raw-retention.service', () => ({
   crossingRawRetentionService: { purgeExpired: jest.fn() },
 }))
+jest.mock('@/lib/plugins/retention', () => ({
+  sweepPluginRetention: jest.fn(),
+}))
 
 import { GET } from '@/app/api/cron/prune-hook-event-payloads/route'
 import { hookEventRetentionService } from '@/lib/services/hook-event-retention.service'
 import { prCommentDeadLetterRetentionService } from '@/lib/services/pr-comment-dead-letter-retention.service'
 import { crossingRawRetentionService } from '@/lib/services/crossing-raw-retention.service'
+import { sweepPluginRetention } from '@/lib/plugins/retention'
 
 const hookPrune = hookEventRetentionService.pruneExpiredPayloads as jest.Mock
 const deadLetterPurge =
@@ -32,6 +36,7 @@ const OLD_ENV = process.env
 beforeEach(() => {
   jest.clearAllMocks()
   crossingPurge.mockResolvedValue({ purged: 0, capped: false })
+  ;(sweepPluginRetention as jest.Mock).mockResolvedValue({})
   process.env = { ...OLD_ENV, CRON_SECRET: 'secret' }
 })
 afterAll(() => {
@@ -86,4 +91,23 @@ it('daily prune cron also purges dispositioned crossing raw text', async () => {
   hookPrune.mockResolvedValue({ workspaces: [], pruned: 0 })
   const res = await GET(req('Bearer secret'))
   expect((await res.json()).crossingRaw).toEqual({ purged: 4, capped: false })
+})
+
+it('LUM-1259: runs the plugin sweeps too, and reports them only when there are any', async () => {
+  hookPrune.mockResolvedValue({ workspaces: [], pruned: 0 })
+  deadLetterPurge.mockResolvedValue({ purged: 0, capped: false })
+  ;(sweepPluginRetention as jest.Mock).mockResolvedValue({ localScanRuns: 4 })
+  const res = await GET(req('Bearer secret'))
+  expect((await res.json()).plugins).toEqual({ localScanRuns: 4 })
+})
+
+it('LUM-1259: a failing plugin sweep fails the run after the core steps ran', async () => {
+  hookPrune.mockResolvedValue({ workspaces: [], pruned: 0 })
+  deadLetterPurge.mockResolvedValue({ purged: 0, capped: false })
+  ;(sweepPluginRetention as jest.Mock).mockRejectedValue(
+    new Error('sweep down')
+  )
+  await expect(GET(req('Bearer secret'))).rejects.toThrow('sweep down')
+  expect(hookPrune).toHaveBeenCalledTimes(1)
+  expect(crossingPurge).toHaveBeenCalledTimes(1)
 })

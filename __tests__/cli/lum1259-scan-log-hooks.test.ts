@@ -220,6 +220,23 @@ describe('post-commit log hook', () => {
     expect(git(repo, 'log', '-1', '--format=%s')).toBe(`rc${rc}`)
   })
 
+  it('a failing log run cannot stop the rest of the hook under set -e', () => {
+    const repo = repoWithCommit()
+    mkdirSync(hooksDir(repo), { recursive: true })
+    writeFileSync(
+      join(hooksDir(repo), 'post-commit'),
+      `#!/bin/sh\nset -e\n${POST_COMMIT_LOG_BLOCK}\necho after >> "$LUMO_LOG"\n`
+    )
+    chmodSync(join(hooksDir(repo), 'post-commit'), 0o755)
+    git(repo, 'config', 'lumo.scanLog', 'true')
+    writeFileSync(join(repo, 'a.txt'), 'a\n')
+    git(repo, 'add', 'a.txt')
+    const r = runGit(repo, ['commit', '-q', '-m', 'x'], { rc: 1 })
+    expect(r.status).toBe(0)
+    expect(r.calls()).toHaveLength(2)
+    expect(r.calls()[1]).toBe('after')
+  })
+
   it('is silent when lumo is not on PATH', () => {
     if (existsSync('/usr/bin/lumo') || existsSync('/bin/lumo')) return
     const repo = repoWithHook()

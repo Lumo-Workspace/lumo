@@ -185,6 +185,33 @@ export const localScanLogRepository = {
     })
   },
 
+  /**
+   * LUM-1259 retention — delete the workspace's runs that arrived before
+   * `before` (and at or after `createdFrom` / before `createdBefore` when
+   * given: the LUM-933 segments). Findings go with them (FK cascade).
+   * Returns the number of runs deleted.
+   */
+  async deleteArrivedBefore(
+    workspaceId: string,
+    before: Date,
+    window: { createdFrom?: Date | null; createdBefore?: Date | null } = {}
+  ): Promise<number> {
+    const upper =
+      window.createdBefore && window.createdBefore < before
+        ? window.createdBefore
+        : before
+    const { count } = await scopedPrisma.localScanRun.deleteMany({
+      where: {
+        workspaceId,
+        createdAt: {
+          lt: upper,
+          ...(window.createdFrom ? { gte: window.createdFrom } : {}),
+        },
+      },
+    })
+    return count
+  },
+
   /** Every stored spelling of `repo` among the workspace's logged runs. */
   async findRepoSpellings(
     workspaceId: string,

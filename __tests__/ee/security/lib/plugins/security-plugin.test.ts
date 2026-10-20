@@ -100,7 +100,11 @@ it('is the one installed plugin and registers every server extension point', () 
   expect(registry.plugins).toEqual(['security'])
   expect(registry.doneGates.map(g => g.id)).toEqual(['security'])
   expect(registry.agentContexts.map(c => c.id)).toEqual(['security'])
-  expect(registry.retention.map(r => r.key)).toEqual(['scanEvidence'])
+  // LUM-1259: the local scan log's daily sweep.
+  expect(registry.retention.map(r => r.key)).toEqual([
+    'localScanLog',
+    'scanEvidence',
+  ])
   expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
   expect(registry.handlersFor('github.push')).toHaveLength(1)
   expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
