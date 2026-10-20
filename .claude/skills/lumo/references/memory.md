@@ -141,8 +141,9 @@ existing injection, so during the transition both paths are active and overlap i
   filter and **no** token-budget cap on the corpus at sync time: sync only writes
   local files (no tokens, no conversation), so "which memory is relevant" is left
   to Claude Code's native recall, not decided at sync. Judge-used 履历
-  still orders the resident index (so the most-proven memories list first) but
-  never drops anything. Relevance/budget gating remains only on the **injection**
+  still orders the index (so the most-proven memories list first): the top of
+  that order is what stays in `MEMORY.md`'s short block, and `team/INDEX.md`
+  keeps every entry — nothing is dropped. Relevance/budget gating remains only on the **injection**
   path (`lumo task show --full` / session-start), which does spend tokens.
 - **Project-level routing only**: you still don't sync a project you're not a
   member of — that's the API route's workspace authorization. Within a project,
@@ -237,7 +238,7 @@ session-bound project; pass `[project-ref]` for another.
   ever runs server-side in the daily cron).
 
 **When to suggest**: when a project's PROJECT memory is "又多又细" (many fine-grained
-but non-duplicate cards bloating the resident MEMORY.md index) and you want to see
+but non-duplicate cards bloating the team index in `team/INDEX.md`) and you want to see
 how the next auto-fold pass would collapse it.
 
 ### Reconcile-on-write & deduplication
