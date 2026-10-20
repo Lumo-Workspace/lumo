@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import {
+  useMutation,
   useQuery,
   useQueryClient,
   type QueryClient,
@@ -293,6 +294,38 @@ export function useSprintSummary(sprintId: string | null) {
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
     refetch: query.refetch,
+  }
+}
+
+/** How long to give the server-side generation before re-reading. */
+const RETRO_RETRY_SETTLE_MS = 2000
+
+/**
+ * LUM-1281 — re-trigger retro generation for a closed sprint (the retired
+ * RetroPanel's path): POST retry, give the async job a moment, then re-read
+ * the summary.
+ */
+export function useRetrySprintSummary(sprintId: string | null) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation<void, Error>({
+    mutationFn: async () => {
+      await sprintsClient.retrySummary(sprintId as string)
+      await new Promise(resolve => setTimeout(resolve, RETRO_RETRY_SETTLE_MS))
+    },
+    onSettled: () => {
+      if (!sprintId) return
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.sprints.summary(sprintId),
+      })
+    },
+  })
+
+  return {
+    retry: () => {
+      if (sprintId) mutation.mutate()
+    },
+    retrying: mutation.isPending,
+    retryError: mutation.error ?? undefined,
   }
 }
 

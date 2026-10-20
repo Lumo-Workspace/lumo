@@ -10,6 +10,7 @@ import {
   useSprintAttention,
   useSprintByNumber,
   useSprintTasks,
+  useSprintsForTeam,
 } from '../../hooks/useSprints'
 import { useWorkspaceTeams } from '../../hooks/useWorkspaceTeams'
 import type { ApiStatus, MyTask } from '../../types'
@@ -20,6 +21,12 @@ import { daysFromNow } from '../components/sprintLandingUtils'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
 import { CloseSprintDialog } from '../components/CloseSprintDialog'
 import { SprintDetailHeader } from '../components/detail/SprintDetailHeader'
+import {
+  ClosedSprintActions,
+  LiveSprintActions,
+} from '../components/detail/SprintHeaderActions'
+import { pickNextSprint } from '../components/detail/retro-view-model'
+import { ClosedSprintRetro } from './ClosedSprintRetro'
 import { StageCards } from '../components/detail/StageCards'
 import { AwaitingPeopleCard } from '../components/detail/AwaitingPeopleCard'
 import { CostOutputCard } from '../components/detail/CostOutputCard'
@@ -74,6 +81,10 @@ interface SprintDetailClientProps {
  * LUM-1279 — the attention-first Sprint detail page. Orchestrates data only:
  * the sprint, its attention read model (LUM-1278) and the task list it opens
  * tasks from; every section below is a flat-prop presentational component.
+ *
+ * LUM-1281 — a CLOSED sprint renders the retro layout (`ClosedSprintRetro`)
+ * instead. Keyed on the stored status, not the date-derived state: a sprint
+ * past its end date but not yet closed stays live so it can still be closed.
  */
 export function SprintDetailClient({
   onNewTask,
@@ -98,10 +109,19 @@ export function SprintDetailClient({
   const id = sprint?.id ?? null
   const { tasks, refetch: refetchTasks } = useSprintTasks(id)
   const { teams } = useWorkspaceTeams()
+  const closed = sprint?.status === 'CLOSED'
+  // Only a closed sprint needs its team's sprints (for "go to next sprint").
+  const { sprints: teamSprints } = useSprintsForTeam(
+    closed ? (sprint?.teamId ?? null) : null
+  )
 
   const [scope, setScope] = useState<SprintAttentionScope>('mine')
   const team = useSprintAttention(id, 'team')
-  const mine = useSprintAttention(scope === 'mine' ? id : null, 'mine')
+  // No awaiting-people queue on a closed sprint, so no "mine" read either.
+  const mine = useSprintAttention(
+    scope === 'mine' && !closed ? id : null,
+    'mine'
+  )
   const [closeOpen, setCloseOpen] = useState(false)
 
   const teamQueue = useMemo(() => team.attention?.queue ?? [], [team.attention])
@@ -180,6 +200,10 @@ export function SprintDetailClient({
   }
 
   const cost = team.attention?.cost ?? null
+  const next = closed ? pickNextSprint(teamSprints, sprint.number) : null
+  const nextSprint = next
+    ? { name: next.name, href: `${sprintsHref}/${next.number}` }
+    : null
 
   return (
     <DetailLayout
@@ -201,13 +225,29 @@ export function SprintDetailClient({
           teamName={teamName}
           state={state}
           daysLeft={daysLeft}
-          canClose={sprint.status === 'ACTIVE'}
           onRefresh={refreshAll}
-          onCloseSprint={() => setCloseOpen(true)}
-          onNewTask={() => onNewTask?.(sprint.id, sprint.teamId)}
+          actions={
+            closed ? (
+              <ClosedSprintActions nextSprint={nextSprint} />
+            ) : (
+              <LiveSprintActions
+                canClose={sprint.status === 'ACTIVE'}
+                onCloseSprint={() => setCloseOpen(true)}
+                onNewTask={() => onNewTask?.(sprint.id, sprint.teamId)}
+              />
+            )
+          }
         />
 
-        {team.error ? (
+        {closed ? (
+          <ClosedSprintRetro
+            sprintId={sprint.id}
+            attention={team.attention}
+            attentionLoading={team.isLoading}
+            carriedOverRows={null}
+            onOpenTask={openTask}
+          />
+        ) : team.error ? (
           <AttentionError />
         ) : (
           <>

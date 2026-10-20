@@ -6,15 +6,17 @@ import { Card } from '@/components/ui/card'
 import type { StageCardsModel } from './view-model'
 import { formatDwellDays } from './format'
 
-interface StageCardProps {
+export interface StageCardProps {
   label: string
   badge: string | null
-  count: number
+  /** The big figure: a count, or a preformatted value ("27 / 31"). */
+  count: number | string
   foot: string | null
   sub: string | null
 }
 
-function StageCard({ label, badge, count, foot, sub }: StageCardProps) {
+/** One metric card; also the closed-sprint outcome card (LUM-1281). */
+export function StageCard({ label, badge, count, foot, sub }: StageCardProps) {
   return (
     <Card className='flex flex-col gap-1.5 p-4 sm:p-6'>
       <div className='flex items-start justify-between gap-2'>

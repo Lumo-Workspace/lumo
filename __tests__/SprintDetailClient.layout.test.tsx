@@ -227,6 +227,7 @@ const mockState: { mine: unknown; team: unknown } = {
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => ({
   useSprintByNumber: () => mockSprintResult,
   useSprintTasks: () => mockTasksResult,
+  useSprintsForTeam: () => ({ sprints: undefined }),
   useSprintAttention: (id: string | null, scope: string) =>
     id === null
       ? mockDisabled
