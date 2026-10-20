@@ -100,11 +100,11 @@ export function buildProcessStages(
       const now = current.stages[stage]
       const row: ProcessStageRow = {
         stage,
-        n: now?.n ?? 0,
-        medianMs: now?.medianMs ?? null,
+        n: num(now?.n) ?? 0,
+        medianMs: num(now?.medianMs),
       }
       if (prev?.stages)
-        row.previousMedianMs = prev.stages.stages[stage]?.medianMs ?? null
+        row.previousMedianMs = num(prev.stages.stages[stage]?.medianMs)
       return row
     }),
   }

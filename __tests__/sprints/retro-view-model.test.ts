@@ -102,6 +102,13 @@ describe('buildProcessStages', () => {
     expect('previousMedianMs' in (model?.rows[0] ?? {})).toBe(false)
   })
 
+  test('a malformed stored stage reads as no data, never NaN', () => {
+    const bad = stagesOf({ agent: DAY })
+    ;(bad.stages.agent as unknown as { medianMs: unknown }).medianMs = '1d'
+    const model = buildProcessStages(bad, null)
+    expect(model?.rows[0]).toEqual({ stage: 'agent', n: 3, medianMs: null })
+  })
+
   test('a previous sprint without stored stages hides the comparison column', () => {
     const model = buildProcessStages(stagesOf({ agent: DAY }), {
       name: 'Sprint 12',
