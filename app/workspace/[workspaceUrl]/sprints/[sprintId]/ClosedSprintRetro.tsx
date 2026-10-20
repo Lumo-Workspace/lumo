@@ -96,7 +96,10 @@ export function ClosedSprintRetro({
       ? { name: previousRef.name, value: previousRef.tokensPerVerifiedTask }
       : null
   const previousVerified =
-    previousRef && previousStats && previousStats.verifiedCount !== null
+    previousRef &&
+    previousStats &&
+    previousStats.verifiedCount !== null &&
+    previousStats.totalTasks !== null
       ? {
           name: previousRef.name,
           count: previousStats.verifiedCount,
@@ -117,7 +120,7 @@ export function ClosedSprintRetro({
           statsStatus={statsStatus}
           costFailed={attentionFailed}
           verifiedCount={stats?.verifiedCount ?? null}
-          totalTasks={stats?.totalTasks ?? 0}
+          totalTasks={stats?.totalTasks ?? null}
           previousVerified={previousVerified}
           carriedOver={stats?.spillover ?? null}
           carriedOverDestinations={carried?.destinations ?? null}

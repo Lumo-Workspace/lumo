@@ -58,6 +58,13 @@ describe('readRetroStats', () => {
     })
   })
 
+  test('missing totals stay null, never 0', () => {
+    expect(readRetroStats({ done: 1 })).toMatchObject({
+      totalTasks: null,
+      spillover: null,
+    })
+  })
+
   test('no stats object → null', () => {
     expect(readRetroStats(null)).toBeNull()
     expect(readRetroStats(undefined)).toBeNull()

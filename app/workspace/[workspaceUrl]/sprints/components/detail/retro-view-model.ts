@@ -20,8 +20,9 @@ export type RetroStatsStatus = 'ready' | 'pending' | 'failed'
 
 /** The subset of `SprintSummary.stats` the retro reads. */
 export interface RetroStats {
-  totalTasks: number
-  spillover: number
+  /** Null when the stored stats lack the field — shown as "—", never 0. */
+  totalTasks: number | null
+  spillover: number | null
   /** Absent on summaries written before LUM-1280. */
   verifiedCount: number | null
   /** Absent on summaries written before LUM-1280. */
@@ -48,8 +49,8 @@ export function readRetroStats(stats: unknown): RetroStats | null {
   if (!stats || typeof stats !== 'object') return null
   const s = stats as Record<string, unknown>
   return {
-    totalTasks: num(s.totalTasks) ?? 0,
-    spillover: num(s.spillover) ?? 0,
+    totalTasks: num(s.totalTasks),
+    spillover: num(s.spillover),
     verifiedCount: num(s.verifiedCount),
     processStages: isProcessStages(s.processStages) ? s.processStages : null,
   }

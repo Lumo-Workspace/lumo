@@ -15,7 +15,7 @@ interface OutcomeCardsProps {
   costFailed: boolean
   /** Tasks verified at close; null when the summary predates LUM-1280. */
   verifiedCount: number | null
-  totalTasks: number
+  totalTasks: number | null
   /** The previous sprint's stored verified figure, when it has one. */
   previousVerified: { name: string; count: number; total: number } | null
   /** Stored spillover count; null while there is no summary. */
@@ -55,6 +55,11 @@ export function OutcomeCards({
       : statsStatus === 'pending'
         ? intl.formatMessage({ id: 'sprints.detail.retro.carried.pending' })
         : null
+  // Verified x / y needs both stored figures.
+  const verified =
+    verifiedCount !== null && totalTasks !== null
+      ? { count: verifiedCount, total: totalTasks }
+      : null
   const destinations = (carriedOverDestinations ?? []).map(d =>
     d.sprintName === null
       ? t('toBacklog', { count: d.count })
@@ -69,19 +74,17 @@ export function OutcomeCards({
       <StageCard
         label={t('verified')}
         badge={
-          verifiedCount !== null && totalTasks > 0
-            ? intl.formatNumber(verifiedCount / totalTasks, {
+          verified && verified.total > 0
+            ? intl.formatNumber(verified.count / verified.total, {
                 style: 'percent',
               })
             : null
         }
-        count={
-          verifiedCount === null ? '—' : `${verifiedCount} / ${totalTasks}`
-        }
+        count={verified ? `${verified.count} / ${verified.total}` : '—'}
         foot={
           statsGap
             ? statsGap
-            : verifiedCount === null
+            : verified === null
               ? t('notRecorded')
               : previousVerified
                 ? t('previousVerified', {
