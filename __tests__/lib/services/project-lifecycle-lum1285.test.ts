@@ -289,7 +289,7 @@ describe('task create gate', () => {
       status: 'CANCELED',
       workspace: { slug: 'lumo' },
     })
-    await expect(createTask('p1', input, 'a', 'c')).rejects.toMatchObject({
+    await expect(createTask('p1', input, 'a', 'c', 'm')).rejects.toMatchObject({
       status: 409,
       message: expect.stringContaining(
         '`lumo project update mobile-app --status active`'
@@ -304,7 +304,7 @@ describe('task create gate', () => {
       archivedAt: new Date(),
       workspace: { slug: 'lumo' },
     })
-    await expect(createTask('p1', input, 'a', 'c')).rejects.toMatchObject({
+    await expect(createTask('p1', input, 'a', 'c', 'm')).rejects.toMatchObject({
       status: 409,
       message: expect.stringContaining('`lumo project unarchive mobile-app`'),
     })
@@ -316,7 +316,7 @@ describe('task create gate', () => {
       status: 'PAUSED',
       workspace: { slug: 'lumo' },
     })
-    const r = await createTask('p1', input, 'a', 'c')
+    const r = await createTask('p1', input, 'a', 'c', 'm')
     expect(createWithSequence).toHaveBeenCalledTimes(1)
     expect(r.warnings).toHaveLength(1)
     expect(r.warnings[0]).toMatch(/is paused/)
@@ -327,7 +327,7 @@ describe('task create gate', () => {
       ...baseProject,
       workspace: { slug: 'lumo' },
     })
-    const r = await createTask('p1', input, 'a', 'c')
+    const r = await createTask('p1', input, 'a', 'c', 'm')
     expect(r.warnings).toEqual([])
   })
 
@@ -338,7 +338,7 @@ describe('task create gate', () => {
       archivedAt: new Date(),
       workspace: { slug: 'lumo' },
     })
-    const r = await createTask('p1', input, 'a', 'c', { automation: true })
+    const r = await createTask('p1', input, 'a', 'c', 'm', { automation: true })
     expect(createWithSequence).toHaveBeenCalledTimes(1)
     expect(r.warnings).toEqual([])
   })

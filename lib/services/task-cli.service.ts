@@ -300,7 +300,8 @@ async function createFromCli(args: {
       ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
     },
     callerActor.id,
-    callerClerkId
+    callerClerkId,
+    callerMember.id
   )
 
   const identifier = `${task.teamIdentifier}-${task.number}`
@@ -565,6 +566,61 @@ async function updateFromCli(args: {
   }
 }
 
+/** An Actor as the CLI renders it (the assignee). */
+export interface CliActorView {
+  type: 'member' | 'agent'
+  label: string
+  email: string | null
+}
+
+/** A member as the CLI renders it (the creator, LUM-1283). */
+export interface CliMemberView {
+  name: string
+  email: string | null
+}
+
+/**
+ * Describe a member for the CLI. The display name comes from Clerk, not the
+ * DB — fetched on demand so the CLI can render "Alice <alice@example.com>".
+ * A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not turn
+ * into "task not found" — Clerk's 404 used to surface as the route's own 404.
+ * The name degrades instead (LUM-821 e2e finding).
+ */
+export async function describeMemberForCli(
+  member: { clerkId: string } | null
+): Promise<CliMemberView | null> {
+  if (!member) return null
+  const profile = await authService
+    .fetchUserProfile(member.clerkId)
+    .catch(() => null)
+  return profile
+    ? { name: profile.name || profile.email, email: profile.email || null }
+    : { name: '(unknown member)', email: null }
+}
+
+/**
+ * Describe an Actor for the CLI: a member through `describeMemberForCli`, an
+ * agent by the display name it carries in the DB. Any other actor type (or a
+ * dangling relation) reads as null.
+ */
+export async function describeActorForCli(
+  actor: {
+    type: string
+    member: { clerkId: string } | null
+    agent: { name: string } | null
+  } | null
+): Promise<CliActorView | null> {
+  if (!actor) return null
+  if (actor.type === 'HUMAN' && actor.member) {
+    const member = await describeMemberForCli(actor.member)
+    return member && { type: 'member', label: member.name, email: member.email }
+  }
+  if (actor.type === 'AGENT' && actor.agent) {
+    return { type: 'agent', label: actor.agent.name, email: null }
+  }
+  return null
+}
+
 export interface ShowTaskFromCliResult {
   id: string
   identifier: string
@@ -577,11 +633,12 @@ export interface ShowTaskFromCliResult {
   sprintId: string | null
   teamId: string
   project: { id: string; name: string }
-  assignee: {
-    type: 'member' | 'agent'
-    label: string
-    email: string | null
-  } | null
+  assignee: CliActorView | null
+  /**
+   * LUM-1283: the member (always a user) that created the task. Null for
+   * automation-created tasks and for older tasks with no recorded creator.
+   */
+  createdBy: CliMemberView | null
   /**
    * LUM-731: linked PRs with their synced state, so `lumo task update
    * --status done` can show which ones are not merged before asking for
@@ -618,33 +675,10 @@ async function showFromCli(args: {
 
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${resolved.identifier}`
 
-  // Member display name comes from Clerk, not the DB — fetch it on demand
-  // so the CLI can render "Assignee: Alice <alice@example.com>". Agent
-  // assignees already carry their display name in the DB.
-  let assignee: ShowTaskFromCliResult['assignee'] = null
-  if (detail.assignee) {
-    if (detail.assignee.type === 'HUMAN' && detail.assignee.member) {
-      // A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not
-      // turn into "task not found" — Clerk's 404 used to surface as the
-      // route's own 404. The label degrades instead (LUM-821 e2e finding).
-      const profile = await authService
-        .fetchUserProfile(detail.assignee.member.clerkId)
-        .catch(() => null)
-      assignee = profile
-        ? {
-            type: 'member',
-            label: profile.name || profile.email,
-            email: profile.email || null,
-          }
-        : { type: 'member', label: '(unknown member)', email: null }
-    } else if (detail.assignee.type === 'AGENT' && detail.assignee.agent) {
-      assignee = {
-        type: 'agent',
-        label: detail.assignee.agent.name,
-        email: null,
-      }
-    }
-  }
+  const [assignee, createdBy] = await Promise.all([
+    describeActorForCli(detail.assignee),
+    describeMemberForCli(detail.createdBy),
+  ])
 
   return withMarkdown({
     id: detail.id,
@@ -658,6 +692,7 @@ async function showFromCli(args: {
     teamId: detail.teamId,
     project: { id: detail.project.id, name: detail.project.name },
     assignee,
+    createdBy,
     pullRequests: detail.pullRequests.map(pr => ({
       number: pr.number,
       title: pr.title,

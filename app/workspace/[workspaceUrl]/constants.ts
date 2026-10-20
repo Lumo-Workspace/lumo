@@ -244,7 +244,6 @@ export const CACHE_KEY = {
   documentDetail: (docId: string) => `lumo:doc:${docId}`,
   documentTree: 'lumo:document-tree',
   treeExpanded: 'lumo:tree-expanded',
-  sprintSidebarCollapsed: 'lumo:sprint-sidebar-collapsed',
   milestoneSidebarCollapsed: 'lumo:milestone-sidebar-collapsed',
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',

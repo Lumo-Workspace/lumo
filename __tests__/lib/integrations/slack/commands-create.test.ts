@@ -143,6 +143,14 @@ describe('slack create command (LUM-920)', () => {
     expect(JSON.stringify(result)).toContain('ENG-8 · Fix bug')
   })
 
+  it('records the linked Slack member as the creator (LUM-1283)', async () => {
+    await handleCommand('create "Fix bug" in eng', 'U1', 'xoxb', 'ws_1')
+
+    const data = mockTx.task.create.mock.calls[0][0].data
+    expect(data.createdByMemberId).toBe('wm_1')
+    expect(data).not.toHaveProperty('createdByActorId')
+  })
+
   it('replies with an error instead of creating when the team has no project', async () => {
     p.project.findFirst.mockResolvedValue(null)
 

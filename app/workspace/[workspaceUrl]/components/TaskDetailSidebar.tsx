@@ -10,8 +10,10 @@ import type {
 import {
   StatusSelect,
   AssigneeSelect,
+  CreatorField,
   ProjectSelect,
   PrioritySelect,
+  resolveCreatorDisplay,
 } from './fields'
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
@@ -77,6 +79,11 @@ export function TaskDetailSidebar({
             )}
             agentActors={[]}
             assignee={task.assignee}
+          />
+        </PropertyRow>
+        <PropertyRow label={t('task.createdBy')}>
+          <CreatorField
+            creator={resolveCreatorDisplay(task.createdBy, members)}
           />
         </PropertyRow>
       </PropertySection>
