@@ -22,8 +22,8 @@ interface SyncOptions {
 
 /**
  * `lumo memory sync` — downsync team memory into the local Claude Code memory
- * store (`~/.claude/projects/<enc>/memory/team/*.md` + a managed MEMORY.md
- * block). Runs alongside session-start injection (retiring injection is
+ * store (`~/.claude/projects/<enc>/memory/team/*.md`, the full index in
+ * `team/INDEX.md`, and a short managed MEMORY.md block that points at it). Runs alongside session-start injection (retiring injection is
  * LUM-540). Only ever touches files it owns; dev-authored memory is never
  * clobbered. `--dry-run` prints the plan; `--clean` removes everything sync owns.
  */
@@ -104,6 +104,7 @@ export async function memorySync(options: SyncOptions): Promise<number | void> {
   console.log(
     sanitizeField(
       `${prefix}+${summary.added.length} added · ~${summary.updated.length} updated · -${summary.removed.length} removed` +
+        (summary.indexChanged ? ' · index updated' : '') +
         (summary.skippedDrift.length
           ? ` · ⚠ ${summary.skippedDrift.length} drift-skipped (locally edited)`
           : '')

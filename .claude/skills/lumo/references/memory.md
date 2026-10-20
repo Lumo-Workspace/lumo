@@ -40,7 +40,7 @@ lumo memory delete <memory> --confirm       # hard delete (without --confirm: ex
 
 # Downsync team memory into the local Claude Code memory store
 # (Claude Code only: in a Codex shell `memory sync` / `memory push` exit 1 unless --dir is given — Codex never reads this store)
-lumo memory sync                   # write team/<id>.md + a managed MEMORY.md block
+lumo memory sync                   # write team/<id>.md + team/INDEX.md + a short MEMORY.md pointer block
 lumo memory sync --dry-run         # preview the reconcile plan, write nothing
 lumo memory sync --project <ref>   # target a specific project (default: bound session)
 lumo memory sync --clean           # remove everything sync owns (full rollback)
@@ -126,8 +126,12 @@ existing injection, so during the transition both paths are active and overlap i
 
 - **Where it writes**: `~/.claude/projects/<encoded-cwd>/memory/` — team files as
   `team/<memoryId>.md` (YAML frontmatter + a `metadata.lumo` ownership marker),
-  plus a delimited `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`.
-  `--dir <path>` overrides the resolved directory.
+  the full one-line-per-memory index in `team/INDEX.md`, and a short delimited
+  `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`: a pointer to
+  `team/INDEX.md` plus the top entries within a ~2KB budget and a "…and N more"
+  line. Claude Code loads only the first ~24KB of `MEMORY.md`, so the full list
+  never goes there (LUM-1288); an older full-list block is replaced in place on
+  the next sync. `--dir <path>` overrides the resolved directory.
 - **Only touches what it owns**: a file is owned only if its frontmatter carries
   `metadata.lumo.source: team`. Your own hand-written memory files and any
   `MEMORY.md` lines outside the managed block are **never** read or written.
@@ -137,8 +141,9 @@ existing injection, so during the transition both paths are active and overlap i
   filter and **no** token-budget cap on the corpus at sync time: sync only writes
   local files (no tokens, no conversation), so "which memory is relevant" is left
   to Claude Code's native recall, not decided at sync. Judge-used 履历
-  still orders the resident index (so the most-proven memories list first) but
-  never drops anything. Relevance/budget gating remains only on the **injection**
+  still orders the index (so the most-proven memories list first): the top of
+  that order is what stays in `MEMORY.md`'s short block, and `team/INDEX.md`
+  keeps every entry — nothing is dropped. Relevance/budget gating remains only on the **injection**
   path (`lumo task show --full` / session-start), which does spend tokens.
 - **Project-level routing only**: you still don't sync a project you're not a
   member of — that's the API route's workspace authorization. Within a project,
@@ -148,7 +153,13 @@ existing injection, so during the transition both paths are active and overlap i
   **skipped, never overwritten** — your edit is preserved and flagged as an
   upsync candidate (the reverse direction is a later phase).
 - **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
-  writing; `--clean` removes every owned file + the managed block (full rollback).
+  writing; `--clean` removes every owned file, `team/INDEX.md` and the managed block (full rollback).
+  The summary line includes `· index updated` (right after the
+  added/updated/removed counts, before any drift-skip note) whenever the index
+  changes — the `MEMORY.md` block or `team/INDEX.md`, e.g. migrating an old
+  full-list block — so `+0 added · ~0 updated · -0 removed` can still mean the
+  index was rewritten. An empty corpus
+  removes the block and `team/INDEX.md` entirely.
 - **Code-anchor staleness check**: after downsync, each synced memory's
   code anchors (file paths, and backtick-wrapped symbols/flags) are checked against
   this repo — resolved against **git-tracked** files (`git ls-files`) + exact
@@ -227,7 +238,7 @@ session-bound project; pass `[project-ref]` for another.
   ever runs server-side in the daily cron).
 
 **When to suggest**: when a project's PROJECT memory is "又多又细" (many fine-grained
-but non-duplicate cards bloating the resident MEMORY.md index) and you want to see
+but non-duplicate cards bloating the team index in `team/INDEX.md`) and you want to see
 how the next auto-fold pass would collapse it.
 
 ### Reconcile-on-write & deduplication
