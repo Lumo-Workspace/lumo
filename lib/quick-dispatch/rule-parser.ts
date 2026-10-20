@@ -53,6 +53,7 @@ export const PRIORITY_KEYWORDS: Record<string, Priority> = {
   中: 'MEDIUM',
   medium: 'MEDIUM',
   P3: 'LOW',
+  P4: 'LOW',
   低: 'LOW',
   low: 'LOW',
 }

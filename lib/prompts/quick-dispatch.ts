@@ -3,10 +3,10 @@ import { z } from 'zod'
 export const QUICK_DISPATCH_SYSTEM_PROMPT = `You are a task dispatcher for a project management tool. Parse the user's natural language input into structured task fields.
 
 Priority mapping:
-- P0, P1, 紧急, urgent, blocker → URGENT
-- P2, 高, high, important → HIGH
-- P3, 中, medium, normal (or no priority mentioned) → MEDIUM
-- P4, 低, low, minor, nice-to-have → LOW
+- P0, 紧急, urgent, blocker → URGENT
+- P1, 高, high, important → HIGH
+- P2, 中, medium, normal (or no priority mentioned) → MEDIUM
+- P3, P4, 低, low, minor, nice-to-have → LOW
 
 Status mapping:
 - doing, 进行中, in progress, started → IN_PROGRESS
@@ -115,10 +115,10 @@ Status mapping:
 - cancel, canceled, won't do, duplicate, 取消, 作废, 不做了, 重复 → CANCELED (update actions only; a create action never uses CANCELED)
 
 Priority mapping:
-- P0, P1, 紧急, urgent, blocker → URGENT
-- P2, 高, high, important → HIGH
-- P3, 中, medium, normal (or no priority mentioned) → MEDIUM
-- P4, 低, low, minor → LOW
+- P0, 紧急, urgent, blocker → URGENT
+- P1, 高, high, important → HIGH
+- P2, 中, medium, normal (or no priority mentioned) → MEDIUM
+- P3, P4, 低, low, minor → LOW
 
 Rules:
 1. Match tasks from the provided user_tasks list by fuzzy title matching. Use the exact taskId and identifier from the matched task.
