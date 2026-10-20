@@ -78,11 +78,14 @@ export type SecurityScanDeps = ScanContextDeps &
 /** `--timeout` bounds: a hook wants seconds, nobody wants minutes. */
 const TIMEOUT_MAX_SECONDS = 60
 
-/** Seconds as given to `--timeout` → ms; null when not a number in (0, 60]. */
+/**
+ * Seconds as given to `--timeout` → ms, rounded up so any value above 0 waits
+ * at least 1 ms; null when not a number in (0, 60].
+ */
 export function parseTimeoutSeconds(value: string): number | null {
   if (!/^\d+(\.\d+)?$/.test(value.trim())) return null
   const n = Number(value)
-  return n > 0 && n <= TIMEOUT_MAX_SECONDS ? Math.round(n * 1000) : null
+  return n > 0 && n <= TIMEOUT_MAX_SECONDS ? Math.ceil(n * 1000) : null
 }
 
 /** The scanners a run selects: the flags given, or every local scanner. */

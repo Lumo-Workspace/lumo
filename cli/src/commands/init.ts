@@ -257,20 +257,18 @@ export async function init(
       recordInstall('git-hook', hookPath, scope, GIT_HOOK_AGENT, cliVersion)
     }
     if (options.scanHooks) {
+      let installed = 0
       for (const spec of SCAN_HOOKS) {
         const scanPath = installGitHook(root, spec)
-        if (scanPath)
-          recordInstall(
-            'scan-hook',
-            scanPath,
-            scope,
-            GIT_HOOK_AGENT,
-            cliVersion
-          )
+        if (!scanPath) continue
+        installed++
+        recordInstall('scan-hook', scanPath, scope, GIT_HOOK_AGENT, cliVersion)
       }
-      process.stdout.write(
-        '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
-      )
+      // Only about hooks that are in place (not a husky print-out or a non-repo).
+      if (installed > 0)
+        process.stdout.write(
+          '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
+        )
     }
     if (options.scanLog) {
       for (const spec of SCAN_LOG_HOOKS) {
