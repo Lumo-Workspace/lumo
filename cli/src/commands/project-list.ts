@@ -11,6 +11,32 @@ interface ProjectRow {
   id: string
   name: string
   isIdea?: boolean
+  /** LUM-1285; absent on an older server (then read as ACTIVE). */
+  status?: string
+  archivedAt?: string | null
+}
+
+export interface ProjectListOptions {
+  json?: boolean
+  /** LUM-1285: include archived projects (hidden by default). */
+  all?: boolean
+}
+
+/**
+ * The projects `project list` shows: never idea drafts; archived ones only
+ * with `--all` (LUM-1285).
+ */
+export function listedProjects<T extends ProjectRow>(
+  projects: T[],
+  opts: { all?: boolean | undefined } = {}
+): T[] {
+  return projects.filter(p => !p.isIdea && (opts.all || !p.archivedAt))
+}
+
+/** `ACTIVE`, `PAUSED`, … plus `· archived` when archived (LUM-1285). */
+export function projectStateLabel(p: ProjectRow): string {
+  const status = p.status ?? 'ACTIVE'
+  return p.archivedAt ? `${status} · archived` : status
 }
 
 interface ProjectsResponse {
@@ -27,33 +53,41 @@ interface ProjectsResponse {
  */
 export function formatProjectList(
   projects: ProjectRow[],
-  opts: ListRenderOptions = {}
+  opts: ListRenderOptions & { all?: boolean | undefined } = {}
 ): string {
-  const rows = projects
-    .filter(p => !p.isIdea)
-    .map(p => [sanitizeField(slugify(p.name)), sanitizeField(p.name)])
+  const { all, ...renderOpts } = opts
+  const rows = listedProjects(projects, { all }).map(p => [
+    sanitizeField(slugify(p.name)),
+    sanitizeField(p.name),
+    projectStateLabel(p),
+  ])
   if (rows.length === 0) return emptyState('projects')
-  return renderListTable(rows, { header: ['SLUG', 'NAME'], flex: 1, ...opts })
+  return renderListTable(rows, {
+    header: ['SLUG', 'NAME', 'STATUS'],
+    flex: 1,
+    ...renderOpts,
+  })
 }
 
 /**
  * The `--json` envelope: the same projects the table lists (idea projects
- * left out), each with the `slug` the table prints — the ref
+ * left out, archived ones unless `--all`), each with the `slug` the table prints — the ref
  * `--project <ref>` accepts.
  */
 export function projectListJson(
-  projects: ProjectRow[]
+  projects: ProjectRow[],
+  opts: { all?: boolean | undefined } = {}
 ): Record<string, unknown> {
   return listEnvelope(
     'projects',
-    projects
-      .filter(p => !p.isIdea)
-      .map(p => stripInternalFields({ ...p, slug: slugify(p.name) }))
+    listedProjects(projects, opts).map(p =>
+      stripInternalFields({ ...p, slug: slugify(p.name) })
+    )
   )
 }
 
 export async function projectList(
-  opts: { json?: boolean } = {}
+  opts: ProjectListOptions = {}
 ): Promise<number | void> {
   const creds = readCredentials()
   if (!creds) {
@@ -86,8 +120,10 @@ export async function projectList(
 
   const data = (await res.json()) as ProjectsResponse
   if (opts.json) {
-    emitJson(projectListJson(data.projects))
+    emitJson(projectListJson(data.projects, { all: opts.all }))
     return
   }
-  process.stdout.write(formatProjectList(data.projects) + '\n')
+  process.stdout.write(
+    formatProjectList(data.projects, { all: opts.all }) + '\n'
+  )
 }

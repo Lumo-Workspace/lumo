@@ -136,7 +136,7 @@ The catalog below is a **map**: every command by domain, one line each. **Flags,
 
 ### Projects & milestones — see [milestones.md](references/milestones.md)
 
-- `lumo project list` — list projects (slugs feed `--project`) · `project create/update` — create / rename / re-own
+- `lumo project list [--all]` — list projects + status (slugs feed `--project`; archived hidden unless `--all`) · `project create/update` — create / rename / re-own / dates; `update --status active|paused|canceled` is a human ruling (exit 4 envelope) · `project archive|unarchive` — paused/canceled/archived projects leave `status --next`; canceled/archived refuse `task create`
 - `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes Metrics + Sprint coverage); a milestone `<ref>` is its slug (the web URL segment, `list` SLUG column), name or id
 - `lumo milestone archive/unarchive` · `milestone reorder/move` — soft-archive / restore · manual ordering
 - `lumo milestone add/remove <ref> <task...>` — batch bind/unbind tasks

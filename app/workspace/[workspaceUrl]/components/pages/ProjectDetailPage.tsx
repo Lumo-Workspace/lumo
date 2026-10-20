@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { slugify } from '@/lib/utils/slugify'
 import { buildSignalView } from '@/lib/summaries/signal-view'
 import { resolveLocale } from '@/lib/i18n/locales'
@@ -8,6 +10,7 @@ import {
   ApiProject,
   ApiTask,
   ApiStatus,
+  ProjectUpdateFields,
   WorkspaceMemberInfo,
 } from '../../types'
 import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
@@ -46,14 +49,7 @@ interface ProjectDetailPageProps {
     oldStatus: string,
     newStatus: string
   ) => void
-  onUpdateProject: (
-    id: string,
-    data: {
-      name?: string
-      description?: string
-      ownerId?: string | null
-    }
-  ) => Promise<void>
+  onUpdateProject: (id: string, data: ProjectUpdateFields) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
   currentActorId?: string | null | undefined
@@ -87,6 +83,7 @@ export function ProjectDetailPage({
   copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
+  const intl = useIntl()
   const [tab, setTab] = useState<ProjectTabKey>('project')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
 
@@ -103,6 +100,28 @@ export function ProjectDetailPage({
       )
     },
     [updatePreferences]
+  )
+
+  // LUM-1285: archive / unarchive from the header menu. The sidebar drops an
+  // archived project, so confirm the move with a toast either way.
+  const handleArchivedChange = useCallback(
+    async (archived: boolean) => {
+      try {
+        await onUpdateProject(project.id, { archived })
+        toast.success(
+          intl.formatMessage({
+            id: archived ? 'project.archivedToast' : 'project.unarchivedToast',
+          })
+        )
+      } catch (err) {
+        toast.error(
+          err instanceof Error && err.message
+            ? err.message
+            : intl.formatMessage({ id: 'project.updateFailed' })
+        )
+      }
+    },
+    [onUpdateProject, project.id, intl]
   )
 
   // Health signals are fetched here rather than inside the Project tab so the
@@ -175,6 +194,8 @@ export function ProjectDetailPage({
         projectName={project.name}
         onBack={onBack}
         onDeleteProject={onDeleteProject}
+        archived={Boolean(project.archivedAt)}
+        onArchivedChange={handleArchivedChange}
         onSlack={onSlack}
         onCopyLink={onCopyLink}
         copied={copied}

@@ -1,4 +1,5 @@
 import { fmtDay } from './format'
+import type { ProjectLifecycleLike } from '../../../shared/src/project-lifecycle'
 /**
  * Pure ranking logic for `lumo status --next`. Given the caller's open tasks plus the
  * set of ACTIVE sprint ids, produce a recommendation order and a per-task list
@@ -40,6 +41,11 @@ export interface NextTask {
    * budget; `false`/`null`/absent = not over (or no budget / unmeasured).
    */
   milestoneBudgetExceeded?: boolean | null
+  /**
+   * LUM-1285: the task's project lifecycle (`status`, `archivedAt`). Absent on
+   * an older server — then every project counts as workable.
+   */
+  project?: ProjectLifecycleLike | undefined
 }
 
 export interface RankedTask {

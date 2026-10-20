@@ -51,6 +51,13 @@ enum ViewVisibility {
   SHARED // only members listed in ViewMember
 }
 
+/// LUM-1285: human ruling on a project. No COMPLETED — completion is derived.
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+}
+
 enum SprintStatus {
   DRAFT
   ACTIVE
@@ -862,6 +869,17 @@ model Project {
   order             Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // LUM-1285: a human ruling on whether work should continue. "Completed" is
+  // never stored — it is derived for display from the project's tasks (see
+  // shared/src/project-lifecycle.ts). PAUSED / CANCELED / archived projects
+  // drop out of agent pickup (`lumo status --next`) and refuse or warn on
+  // task create.
+  status            ProjectStatus @default(ACTIVE)
+  startDate         DateTime?
+  targetDate        DateTime?
+  // Human archive flag: hidden from the sidebar and `project list` by default.
+  archivedAt        DateTime?
 
   // Per-project lease serializing Layer 2 memory consolidation. A run claims
   // this (sets it to now + TTL) before reading; concurrent runs that can't

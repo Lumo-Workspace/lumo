@@ -355,7 +355,10 @@ membership**, then **dependency topology** (LUM-645: tasks with an open
 CONFIRMED blocker sort after workable ones; among workable peers the task that
 directly unblocks the most open tasks ranks first), then **due date** (earlier
 first), then in-flight status (IN_PROGRESS / IN_REVIEW ahead of TODO). DONE
-tasks are excluded. The active sprint lookup is best-effort — if it fails the
+tasks are excluded, and so are tasks whose project is PAUSED, CANCELED or
+archived (LUM-1285) — they count toward neither the pool nor `--claimable`'s
+`excluded`; a trailing `(N tasks skipped: project paused, canceled or
+archived)` line and `skippedInactiveProject: N` in `--json` report them. The active sprint lookup is best-effort — if it fails the
 command still recommends, just without the sprint boost. The topology counts
 come from the server (`/api/tasks/me`); against an older server without them
 the order is simply the pre-topology ranking.

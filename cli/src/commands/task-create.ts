@@ -12,7 +12,13 @@ import {
   type NextStep,
 } from '../lib/next-steps'
 import { resolveSessionId } from '../lib/session-id'
-import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
+import {
+  errAuth,
+  errHttp,
+  errNotLoggedIn,
+  httpFailed,
+  warn,
+} from '../lib/errors'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -47,6 +53,8 @@ interface CreatedTaskResponse {
   }
   /** Absent on older servers — the block is simply omitted (LUM-686). */
   nextSteps?: NextStep[]
+  /** LUM-1285: e.g. the project is paused. Absent on older servers. */
+  warnings?: string[]
 }
 
 interface SprintInfo {
@@ -315,6 +323,9 @@ export async function taskCreate(
         opts
       ) + '\n'
     )
+    // LUM-1285: the task exists; the warning (e.g. a paused project) goes to
+    // stderr so stdout stays the one created-line contract.
+    for (const w of data.warnings ?? []) console.error(warn(sanitizeField(w)))
 
     // Sprint binding (optional): if --sprint was passed, bind the new task.
     if (opts.sprint) {

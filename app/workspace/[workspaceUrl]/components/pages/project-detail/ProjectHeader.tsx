@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
+  Archive,
+  ArchiveRestore,
   MoreHorizontal,
   Trash2,
   MessageSquare,
@@ -48,6 +50,9 @@ interface ProjectHeaderProps {
   projectName: string
   onBack: () => void
   onDeleteProject: (projectId: string) => Promise<void>
+  /** LUM-1285: whether the project is archived, and the toggle. */
+  archived: boolean
+  onArchivedChange: (archived: boolean) => void
   onSlack?: (() => void) | undefined
   onCopyLink?: (() => void) | undefined
   copied?: boolean | undefined
@@ -62,6 +67,8 @@ export function ProjectHeader({
   projectName,
   onBack,
   onDeleteProject,
+  archived,
+  onArchivedChange,
   onSlack,
   onCopyLink,
   copied,
@@ -153,6 +160,16 @@ export function ProjectHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='start'>
+              <DropdownMenuItem onSelect={() => onArchivedChange(!archived)}>
+                {archived ? (
+                  <ArchiveRestore className='mr-2 size-4' />
+                ) : (
+                  <Archive className='mr-2 size-4' />
+                )}
+                {intl.formatMessage({
+                  id: archived ? 'project.unarchive' : 'project.archive',
+                })}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className='text-danger-text focus:text-danger-text'
                 onClick={() => setDeleteOpen(true)}

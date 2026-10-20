@@ -778,7 +778,9 @@ describe('boundaryCrossingService.spawnRemediation', () => {
       'p-1',
       expect.objectContaining({ status: 'TODO' }),
       'actor-1',
-      'clerk-1'
+      'clerk-1',
+      // LUM-1285: a remediation lands even in a paused / canceled project.
+      { automation: true }
     )
     // The crossing is PRE-LINKED to the new task.
     expect(setRemediation).toHaveBeenCalledWith('bc-1', 'remediation-1')

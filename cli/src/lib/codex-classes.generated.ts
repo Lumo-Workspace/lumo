@@ -119,9 +119,11 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'pr show': { serverOnly: true, localFiles: 'none' },
   'priority create': { serverOnly: true, localFiles: 'none' },
   'priority list': { serverOnly: true, localFiles: 'none' },
+  'project archive': { serverOnly: true, localFiles: 'none' },
   'project create': { serverOnly: true, localFiles: 'none' },
   'project list': { serverOnly: true, localFiles: 'none' },
   'project show': { serverOnly: true, localFiles: 'none' },
+  'project unarchive': { serverOnly: true, localFiles: 'none' },
   'project update': { serverOnly: true, localFiles: 'none' },
   'security scan': {
     serverOnly: false,

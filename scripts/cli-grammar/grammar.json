@@ -2823,6 +2823,14 @@
       "isInvokable": false,
       "description": "Inspect projects from the terminal"
     },
+    "project archive": {
+      "arguments": [{ "name": "project", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Archive a project (name or slug): hidden from the sidebar and `project list` (unless --all), new tasks refused, history kept. Reversible with `project unarchive`.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "project create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
       "flags": {
@@ -2843,6 +2851,14 @@
     "project list": {
       "arguments": [],
       "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Include archived projects"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -2854,7 +2870,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`.",
+      "description": "List projects in the current workspace with their status. Slug column matches `task create --project <ref>`. Archived projects are hidden unless --all.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project show": {
@@ -2881,12 +2897,28 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only.",
+      "description": "A project's status, dates, derived completion and its web page's stats: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions, latest summary. Read-only.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "project unarchive": {
+      "arguments": [{ "name": "project", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Restore an archived project so it shows in the sidebar and `project list` again and accepts new tasks.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "project update": {
       "arguments": [{ "name": "project", "required": true, "variadic": false }],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope. Without it a status change exits 4 and prints what it would do."
+        },
         "--description": {
           "long": "--description",
           "short": "-d",
@@ -2910,11 +2942,35 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Owner: me, an email or a member name; empty string clears it"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Start date YYYY-MM-DD (empty string to clear)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": null,
+          "value": "required",
+          "enum": ["active", "paused", "canceled"],
+          "enumCaseInsensitive": true,
+          "description": "active | paused | canceled (case-insensitive). Paused/canceled projects drop out of `status --next`; canceled ones refuse task create"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Target date YYYY-MM-DD (empty string to clear)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears).",
+      "description": "Update a project (name or slug): --name, --description, --owner, --start/--target (YYYY-MM-DD) — \"\" clears each; --status is a human ruling: without --confirm it exits 4 with an envelope.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "security": {

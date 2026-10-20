@@ -6,6 +6,40 @@ import type { TaskPriority, TaskStatus } from '@prisma/client'
 import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { isWorkStartedStatus } from '@/lib/task/work-started'
+import { slugify } from '@/lib/utils/slugify'
+import {
+  taskCreateGate,
+  type ProjectLifecycleLike,
+} from '@/shared/src/project-lifecycle'
+
+/**
+ * LUM-1285: the project-lifecycle check on task create. A CANCELED or archived
+ * project refuses (409, with the command a person runs to reopen it); a PAUSED
+ * one allows the create and returns a warning for the caller to show.
+ * Automation paths (crossing remediation, webhooks) pass `skip` — their task
+ * records something that already happened and must not be lost.
+ */
+export function checkProjectAcceptsTasks(
+  project: ProjectLifecycleLike & { name: string },
+  opts: { skip?: boolean | undefined } = {}
+): string[] {
+  if (opts.skip) return []
+  const gate = taskCreateGate(project)
+  if (gate.kind === 'refuse') {
+    const slug = slugify(project.name)
+    const message =
+      gate.reason === 'archived'
+        ? `Project "${project.name}" is archived — new tasks can't be added. A person can restore it with \`lumo project unarchive ${slug}\`.`
+        : `Project "${project.name}" is canceled — new tasks can't be added. A person can reactivate it with \`lumo project update ${slug} --status active\`.`
+    throw Object.assign(new Error(message), { status: 409 })
+  }
+  if (gate.kind === 'warn') {
+    return [
+      `Project "${project.name}" is paused — the task was created, but \`lumo status --next\` skips it until the project is active again.`,
+    ]
+  }
+  return []
+}
 
 /**
  * Create a human-authored task. Validates the milestone and assignee,
@@ -13,7 +47,8 @@ import { isWorkStartedStatus } from '@/lib/task/work-started'
  * create-task notification side effects fire-and-forget.
  *
  * Throws with `{ status, message }`: 404 for unknown project, 400 for a
- * cross-project milestone or out-of-workspace assignee.
+ * cross-project milestone or out-of-workspace assignee, 409 for a CANCELED or
+ * archived project (LUM-1285; `warnings` carries the PAUSED notice).
  */
 export async function createTask(
   projectId: string,
@@ -30,12 +65,17 @@ export async function createTask(
     tagIds?: string[] | undefined
   },
   actorId: string,
-  actorClerkId: string
+  actorClerkId: string,
+  /** LUM-1285: `automation: true` skips the project-lifecycle refusal. */
+  opts: { automation?: boolean | undefined } = {}
 ) {
   const project = await projectRepository.findByIdWithDefaults(projectId)
   if (!project) {
     throw Object.assign(new Error('Project not found'), { status: 404 })
   }
+  const warnings = checkProjectAcceptsTasks(project, {
+    skip: opts.automation,
+  })
 
   const {
     title,
@@ -137,7 +177,7 @@ export async function createTask(
     assigneeActorId: assigneeActorId ?? null,
   })
 
-  return { task, taskTags }
+  return { task, taskTags, warnings }
 }
 
 /**
@@ -148,6 +188,7 @@ export async function createTask(
  * responsible for dispatching them separately.
  *
  * Also wires in tag associations atomically — useful for Sentry-issue tags.
+ * LUM-1285: never refused on project status — an alert must not be dropped.
  */
 export async function createFromAutomation(
   projectId: string,

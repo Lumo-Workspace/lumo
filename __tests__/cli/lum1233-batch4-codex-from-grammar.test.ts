@@ -56,6 +56,9 @@ const DEVIATIONS = {
     'feedback show',
     'priority create',
     'priority list',
+    // LUM-1285: project archive / unarchive.
+    'project archive',
+    'project unarchive',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<

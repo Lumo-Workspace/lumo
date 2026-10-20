@@ -1,23 +1,41 @@
 # Projects & Milestones
 
-### `lumo project list` — list projects in the workspace
+### `lumo project list [--all] [--json]` — list projects in the workspace
 
-`--json` prints `{ version, projects, total, nextCursor }` (each project with its id, name and `slug`).
+`--json` prints `{ version, projects, total, nextCursor }` (each project with its id, name and `slug`, plus `status`, `startDate`, `targetDate`, `archivedAt` and the derived `completed` — LUM-1285).
 
-Prints `<slug>  <Display Name>` rows (the shared list table: a `SLUG  NAME` header on a TTY only; piped output has no header and keeps this column order). The slug column matches the `--project <ref>` argument accepted by `task create`, so users (and you) can copy a slug straight from this output into a create command.
+Prints `<slug>  <Display Name>  <STATUS>` rows (the shared list table: a `SLUG  NAME  STATUS` header on a TTY only; piped output has no header and keeps this column order). STATUS is `ACTIVE`, `PAUSED` or `CANCELED`, with `· archived` appended for an archived project. **Archived projects are hidden unless `--all`.** The slug column matches the `--project <ref>` argument accepted by `task create`, so users (and you) can copy a slug straight from this output into a create command.
 
 ```bash
 lumo project list
+lumo project list --all     # include archived projects
 ```
 
-### `lumo project create <name> [-d <text>]` / `lumo project update <project> [flags]` (LUM-821)
+### `lumo project create <name> [-d <text>]` / `lumo project update <project> [flags]` (LUM-821, LUM-1285)
 
-`create` makes a project (≤200 chars) in the workspace. `update` takes a project name or slug plus at least one of `--name`, `--description` (`""` clears) and `--owner` (`me`, an email or a member name; `""` clears).
+`create` makes a project (≤200 chars) in the workspace. `update` takes a project name or slug plus at least one of `--name`, `--description` (`""` clears), `--owner` (`me`, an email or a member name; `""` clears), `--start` / `--target` (`YYYY-MM-DD`, `""` clears; the target may not precede the start — checked locally and against the stored date) and `--status`.
+
+`--status active|paused|canceled` (case-insensitive) is a **human ruling** (LUM-1285): without `--confirm` the command exits **4** with a confirmation envelope (old → new status, what it does to agents, any other field in the call) and sends nothing — relay it and re-run `confirmCommand` only after the user approves ([confirmation.md](confirmation.md)). Never add `--confirm` yourself. Setting the status it already has needs no confirmation. There is no `completed` status: completion is derived (at least one task, none open — today only DONE counts as closed) and shown by `project show`.
+
+What the status does: **PAUSED** — its tasks drop out of `lumo status --next` (and `--claimable`); `task create` still works but prints a warning. **CANCELED** — the same, and `task create` into it is refused (exit 1, 409 with the command that reactivates it). Crossing-remediation tasks are exempt (they record something that already happened).
 
 ```bash
 lumo project create "Mobile app" --description "iOS + Android client"
 lumo project update mobile-app --owner alice@example.com
+lumo project update mobile-app --start 2026-11-01 --target 2026-12-15
+lumo project update mobile-app --status paused          # exit 4 envelope first
 ```
+
+### `lumo project archive <project>` / `lumo project unarchive <project>` (LUM-1285)
+
+Archive hides a project from the web sidebar and `project list` (`--all` shows it), drops its tasks out of `status --next`, and refuses `task create` into it; history and tasks are kept. Reversible with `unarchive`; no confirmation (like `milestone archive`). Both are idempotent. The web Projects page still lists archived projects (with an "Archived" badge), and their page's `…` menu has Archive / Unarchive.
+
+```bash
+lumo project archive mobile-app
+lumo project unarchive mobile-app
+```
+
+When to suggest: the user says a project is on hold / dropped / finished and should stop attracting work → `project update <p> --status paused|canceled` (envelope) or `project archive <p>`. `task create` refused with "is canceled" / "is archived" → tell the user; reopening is their call.
 
 ### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>] [--limit <n>] [--cursor <c>]` — list milestones in a project
 
