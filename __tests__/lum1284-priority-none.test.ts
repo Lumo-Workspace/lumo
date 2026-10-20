@@ -34,7 +34,10 @@ import {
 import { PrioritySuggestionSchema } from '@/lib/prompts/priority'
 import { MCP_TASK_PRIORITIES, priorityForCreate } from '@/mcp/task-priority'
 import { sortTasks } from '@/app/workspace/[workspaceUrl]/utils/sortTasks'
-import { cmpPriority } from '@/app/workspace/[workspaceUrl]/hooks/useTableSort'
+import {
+  cmpPriority,
+  prioritySortValue,
+} from '@/app/workspace/[workspaceUrl]/hooks/useTableSort'
 import { rankTasks, type NextTask } from '@/cli/src/lib/rank-tasks'
 import { priorityBreakdown } from '@/lib/services/sprint-breakdown'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
@@ -212,6 +215,31 @@ describe('sorting: URGENT > HIGH > MEDIUM > LOW > NONE', () => {
     expect(
       ['NONE', 'LOW', 'URGENT', 'MEDIUM', 'HIGH'].sort(cmpPriority)
     ).toEqual(ORDER)
+  })
+
+  it('data-table cmpPriority pins NONE last in both directions', () => {
+    const input = ['NONE', 'LOW', 'URGENT', 'NONE', 'MEDIUM', 'HIGH']
+    expect([...input].sort((a, b) => cmpPriority(a, b, 'asc'))).toEqual([
+      'URGENT',
+      'HIGH',
+      'MEDIUM',
+      'LOW',
+      'NONE',
+      'NONE',
+    ])
+    expect([...input].sort((a, b) => cmpPriority(a, b, 'desc'))).toEqual([
+      'LOW',
+      'MEDIUM',
+      'HIGH',
+      'URGENT',
+      'NONE',
+      'NONE',
+    ])
+  })
+
+  it('data-table prioritySortValue reads NONE as unset', () => {
+    expect(prioritySortValue('NONE')).toBeUndefined()
+    expect(prioritySortValue('LOW')).toBe('LOW')
   })
 
   it('CLI status --next ranking puts NONE last and says "no priority"', () => {

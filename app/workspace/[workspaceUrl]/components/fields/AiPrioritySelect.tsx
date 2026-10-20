@@ -17,11 +17,17 @@ import type { PrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import type { ApiPriority } from '../../types'
 import { PRIORITY_CONFIG, PRIORITY_LABEL_ID, PriorityDot } from './shared'
 import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@/components/ui/button'
 
 export interface AiPrioritySelectProps {
   value: ApiPriority
   onChange: (v: ApiPriority) => void
   triggerClassName?: string
+  /**
+   * The AI suggestion to offer as a hint (LUM-1284). It never fills the field
+   * on its own: the hint applies it via `onChange` only when clicked. Pass
+   * null once the user has picked a value so the hint goes away.
+   */
   suggestion: PrioritySuggestion | null
   isLoadingSuggestion: boolean
   overrideRecorded: boolean
@@ -40,18 +46,18 @@ export function AiPrioritySelect({
     id: PRIORITY_LABEL_ID[value] ?? PRIORITY_LABEL_ID.NONE,
   })
 
+  const suggestedLabel = suggestion
+    ? PRIORITY_LABEL_ID[suggestion.priority]
+      ? intl.formatMessage({ id: PRIORITY_LABEL_ID[suggestion.priority] })
+      : suggestion.priority
+    : ''
+
   const tooltipContent = suggestion ? (
     <div className='space-y-1.5 text-caption max-w-64'>
       <div>
         {intl.formatMessage(
           { id: 'priority.recommended' },
-          {
-            priority: PRIORITY_LABEL_ID[suggestion.priority]
-              ? intl.formatMessage({
-                  id: PRIORITY_LABEL_ID[suggestion.priority],
-                })
-              : suggestion.priority,
-          }
+          { priority: suggestedLabel }
         )}
       </div>
       <div className='text-muted-foreground italic'>
@@ -113,19 +119,34 @@ export function AiPrioritySelect({
         <Spinner className='size-3 text-muted-foreground' />
       )}
 
-      {!isLoadingSuggestion && suggestion && !overrideRecorded && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className='inline-flex items-center gap-0.5 text-caption text-info-text cursor-default'>
-              <Sparkles className='size-3' />
-              {intl.formatMessage({ id: 'priority.aiRecommended' })}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side='bottom' align='start'>
-            {tooltipContent}
-          </TooltipContent>
-        </Tooltip>
-      )}
+      {!isLoadingSuggestion &&
+        suggestion &&
+        !overrideRecorded &&
+        suggestion.priority !== value && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='gap-1 px-1.5 text-info-text [&_svg]:size-3'
+                aria-label={intl.formatMessage(
+                  { id: 'priority.applyAiSuggestion' },
+                  { priority: suggestedLabel }
+                )}
+                onClick={() => onChange(suggestion.priority)}
+              >
+                <Sparkles />
+                <span>{intl.formatMessage({ id: 'priority.aiSuggests' })}</span>
+                <PriorityDot priority={suggestion.priority} />
+                <span>{suggestedLabel}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side='bottom' align='start'>
+              {tooltipContent}
+            </TooltipContent>
+          </Tooltip>
+        )}
 
       {overrideRecorded && (
         <span className='text-caption text-success-text animate-fade-out'>
