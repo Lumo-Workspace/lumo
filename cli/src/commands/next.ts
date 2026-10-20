@@ -13,10 +13,8 @@ import {
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
 import { listEnvelope, stripInternalFields } from '../lib/json-output'
-import {
-  isClosedTaskStatus,
-  isProjectWorkable,
-} from '../../../shared/src/project-lifecycle'
+import { isProjectWorkable } from '../../../shared/src/project-lifecycle'
+import { isClosedStatus } from '../lib/task-closed'
 
 export interface NextOptions {
   /** LUM-1233 3f: was `--count`; `-n` keeps working. */
@@ -147,10 +145,11 @@ export async function loadNext(
   }
 
   const data = (await res.json()) as TasksMeResponse
+  // LUM-1282: closed tasks (DONE, or CANCELED by the user) are never next.
   // LUM-1285: tasks of a paused / canceled / archived project are not work an
   // agent should pick up — they leave the pool before ranking or the gate.
   const { workable: open, skipped } = partitionByProjectWorkable(
-    data.tasks.filter(t => !isClosedTaskStatus(t.status))
+    openTasksForNext(data.tasks)
   )
   const skippedField = skipped > 0 ? { skippedInactiveProject: skipped } : {}
 
@@ -268,9 +267,16 @@ export function formatClaimableOutput(
   return formatNextOutput(ranked, totalClaimable, 'claimable', opts)
 }
 
+/** The tasks `lumo status --next` may rank: everything not DONE or CANCELED. */
+export function openTasksForNext<T extends { status: string }>(
+  tasks: T[]
+): T[] {
+  return tasks.filter(t => !isClosedStatus(t.status))
+}
+
 /**
  * Render the ranked recommendation block. `ranked` is already sliced to the
- * requested count; `totalOpen` is the count of all non-DONE tasks (for the
+ * requested count; `totalOpen` is the count of all open (not DONE / CANCELED) tasks (for the
  * "(of N open)" header). Pure — no I/O.
  */
 export function formatNextOutput(

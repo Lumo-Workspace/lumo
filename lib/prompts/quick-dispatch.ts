@@ -112,6 +112,7 @@ Status mapping:
 - done, 完成, finished, 搞定, 关闭, close → DONE
 - todo, 待办, 回退, reopen → TODO
 - backlog, 待规划, 搁置, someday → BACKLOG
+- cancel, canceled, won't do, duplicate, 取消, 作废, 不做了, 重复 → CANCELED (update actions only; a create action never uses CANCELED)
 
 Priority mapping:
 - P0, P1, 紧急, urgent, blocker → URGENT
@@ -140,7 +141,14 @@ export const QuickDispatchV2ResponseSchema = z.object({
           taskTitle: z.string().describe('Task title for display'),
           fields: z.object({
             status: z
-              .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+              .enum([
+                'BACKLOG',
+                'TODO',
+                'IN_PROGRESS',
+                'IN_REVIEW',
+                'DONE',
+                'CANCELED',
+              ])
               .optional(),
             assigneeActorId: z.string().optional(),
             priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
@@ -198,7 +206,13 @@ interface BuildV2PromptParams {
     id: string
     identifier: string
     title: string
-    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    status:
+      | 'BACKLOG'
+      | 'TODO'
+      | 'IN_PROGRESS'
+      | 'IN_REVIEW'
+      | 'DONE'
+      | 'CANCELED'
   }[]
   currentDate: string
 }

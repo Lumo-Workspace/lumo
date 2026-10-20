@@ -6,7 +6,7 @@ Hard dependency edges between tasks — manual declarations plus auto-detected c
 
 Reading the edges is an aspect of `task show` (LUM-1233; `task deps list` was removed). `--json` puts `{ version, dependencies, total, nextCursor, task }` (each edge with its full id) under the envelope's `deps` key.
 
-Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED (pending confirmation)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
+Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED (pending confirmation)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`; for a `DUPLICATES` edge recorded by `task update --status canceled --duplicate-of`, `duplicate of` / `duplicated by` — LUM-1282), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
 
 ```bash
 lumo task show LUM-42 --deps

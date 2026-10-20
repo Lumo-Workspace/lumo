@@ -107,6 +107,8 @@ jest.mock('@/lib/crypto', () => ({
 
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: jest.fn().mockReturnValue(true),
+  // LUM-1282: terminal stamps are covered in lum1282-* suites.
+  terminalTimestampPatch: () => ({}),
 }))
 
 // ── Shared test fixtures ─────────────────────────────────────────────────────

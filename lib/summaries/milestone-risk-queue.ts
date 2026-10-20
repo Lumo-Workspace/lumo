@@ -1,4 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 /** Current-membership task row — same basis every other Overview rollup uses. */
 export interface RiskQueueTaskRow {
@@ -84,7 +85,9 @@ export function computeMilestoneRiskQueue(
   const byId = new Map(input.tasks.map(t => [t.id, t]))
 
   const blocked = input.edges
-    .filter(e => e.status === 'CONFIRMED' && e.blocking.status !== 'DONE')
+    .filter(
+      e => e.status === 'CONFIRMED' && !isClosedTaskStatus(e.blocking.status)
+    )
     .flatMap(e => {
       const t = byId.get(e.blockedTaskId)
       if (!t) return []

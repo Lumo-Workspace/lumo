@@ -57,6 +57,7 @@ export interface ReadinessInput {
 
 export type Readiness =
   | { level: 'DONE'; reasons: string[] }
+  | { level: 'CANCELED'; reasons: string[] }
   | { level: 'UNCONFIRMED'; reasons: string[] }
   | { level: 'BLOCKED'; reasons: string[] }
   | { level: 'NOT_YET'; reasons: string[] }
@@ -102,6 +103,15 @@ export function assessReadiness(input: ReadinessInput): Readiness {
       : null
   if (taskStatus === 'DONE') {
     return { level: 'DONE', reasons: ['The task is already DONE.'] }
+  }
+  // LUM-1282: closed by a human ruling — there is no DONE to get ready for.
+  if (taskStatus === 'CANCELED') {
+    return {
+      level: 'CANCELED',
+      reasons: [
+        "The task is CANCELED. Reopening it is the user's call; do not work on it.",
+      ],
+    }
   }
 
   if (unconfirmed.length > 0) {
@@ -195,6 +205,7 @@ export function formatDoneReadiness(
     qualifiesForOneStepDone(input.task.value.pullRequests, true)
   const label: Record<Readiness['level'], string> = {
     DONE: 'DONE — already closed',
+    CANCELED: 'CANCELED — closed by the user, not delivered',
     UNCONFIRMED:
       'CANNOT CONFIRM — a read failed; do not assume anything is clear',
     BLOCKED: 'BLOCKED — a human-only gate would refuse DONE',
@@ -206,6 +217,7 @@ export function formatDoneReadiness(
   )
   for (const reason of r.reasons)
     lines.push(...dashLines(sanitizeField(reason), 4, opts))
+  if (r.level === 'CANCELED') return lines
   // LUM-1186: the web Record tab's Done gate, same verdict and rows.
   if (input.status.ok) {
     const gate = input.status.value.doneGate

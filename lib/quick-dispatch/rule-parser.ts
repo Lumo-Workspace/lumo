@@ -1,6 +1,12 @@
 import type { Mention, QuickAction, ParseResult } from './types'
 
-type Status = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+type Status =
+  | 'BACKLOG'
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'DONE'
+  | 'CANCELED'
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 export const STATUS_KEYWORDS: Record<string, Status> = {
@@ -26,6 +32,14 @@ export const STATUS_KEYWORDS: Record<string, Status> = {
   待规划: 'BACKLOG',
   搁置: 'BACKLOG',
   someday: 'BACKLOG',
+  // LUM-1282: closed without doing it. Applies to updates only — a new task
+  // is never born CANCELED (see the create branch below).
+  cancel: 'CANCELED',
+  canceled: 'CANCELED',
+  cancelled: 'CANCELED',
+  取消: 'CANCELED',
+  作废: 'CANCELED',
+  不做了: 'CANCELED',
 }
 
 export const PRIORITY_KEYWORDS: Record<string, Priority> = {
@@ -175,7 +189,7 @@ export function parseQuickDispatch(
       actions.push({
         type: 'create',
         title,
-        status: status ?? 'TODO',
+        status: status === null || status === 'CANCELED' ? 'TODO' : status,
         priority: priority ?? 'MEDIUM',
         projectId: project?.id ?? null,
         projectName: project?.name ?? null,

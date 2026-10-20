@@ -198,7 +198,7 @@ describe('CLI invalid --status error', () => {
     try {
       expect(await taskList({ status: 'nope' })).toBe(2)
       expect(err).toHaveBeenCalledWith(
-        'Error: invalid status "nope". Allowed: backlog, todo, in_progress, in_review, done'
+        'Error: invalid status "nope". Allowed: backlog, todo, in_progress, in_review, done, canceled'
       )
     } finally {
       err.mockRestore()

@@ -266,7 +266,8 @@ export const quickDispatchService = {
           | 'TODO'
           | 'IN_PROGRESS'
           | 'IN_REVIEW'
-          | 'DONE',
+          | 'DONE'
+          | 'CANCELED',
       }))
 
       const currentDate = new Date().toISOString().split('T')[0] ?? ''

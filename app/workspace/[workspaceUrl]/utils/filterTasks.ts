@@ -71,7 +71,7 @@ const DAY_MS = 86_400_000
 
 /** Canonical display order per dimension; dimensions absent here sort by count. */
 const CANONICAL_ORDER: Partial<Record<FilterDimension, readonly string[]>> = {
-  status: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+  status: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'],
   priority: ['URGENT', 'HIGH', 'MEDIUM', 'LOW'],
   dueDate: DUE_DATE_BUCKETS,
 }

@@ -4217,9 +4217,16 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled"
+          ],
           "enumCaseInsensitive": true,
-          "description": "Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)"
+          "description": "Status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive; repeatable or comma-separated)"
         },
         "--tag": {
           "long": "--tag",
@@ -5010,7 +5017,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4."
+          "description": "With --status done or canceled: the user approved the envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks, else exits 4; CANCELED always exits 4 (the user rules it, never the agent)."
         },
         "--description": {
           "long": "--description",
@@ -5027,6 +5034,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Due date, YYYY-MM-DD (your local day); empty string to clear"
+        },
+        "--duplicate-of": {
+          "long": "--duplicate-of",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --status canceled: the task duplicates this one (e.g. LUM-12); records a DUPLICATES dependency"
         },
         "--milestone": {
           "long": "--milestone",
@@ -5080,9 +5095,16 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["backlog", "todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled"
+          ],
           "enumCaseInsensitive": true,
-          "description": "New status: backlog | todo | in_progress | in_review | done (case-insensitive)"
+          "description": "New status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive). done and canceled are gated: see --confirm"
         },
         "--tag": {
           "long": "--tag",

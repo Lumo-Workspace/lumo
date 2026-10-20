@@ -19,10 +19,11 @@ export function parseProjectStatus(raw: string): ProjectStatusValue | null {
 }
 
 /**
- * Task statuses that count as closed for derived project completion. The one
- * place to add a closed status (e.g. a CANCELED task status) later.
+ * Task statuses that count as closed for derived project completion: DONE and
+ * CANCELED (LUM-1282). Mirrors `CLOSED_TASK_STATUSES` in the server's
+ * `lib/task/status-semantics.ts`, which `shared/` cannot import.
  */
-export const CLOSED_TASK_STATUSES: readonly string[] = ['DONE']
+export const CLOSED_TASK_STATUSES: readonly string[] = ['DONE', 'CANCELED']
 
 export function isClosedTaskStatus(status: string): boolean {
   return CLOSED_TASK_STATUSES.includes(status)

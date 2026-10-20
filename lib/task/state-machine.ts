@@ -11,13 +11,56 @@ export type TaskStatusValue = TaskStatus
 
 const TRANSITIONS: Record<TaskStatusValue, TaskStatusValue[]> = {
   // LUM-1057: BACKLOG = not yet scheduled; it moves freely to/from every status.
-  BACKLOG: ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
-  TODO: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
-  IN_PROGRESS: ['BACKLOG', 'TODO', 'IN_REVIEW', 'DONE'],
-  IN_REVIEW: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'DONE'],
+  BACKLOG: ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'],
+  TODO: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'],
+  IN_PROGRESS: ['BACKLOG', 'TODO', 'IN_REVIEW', 'DONE', 'CANCELED'],
+  IN_REVIEW: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'DONE', 'CANCELED'],
   // IN_REVIEW is included so that undoing an acceptance verdict (LUM-586) can
   // send a DONE task back to IN_REVIEW via the normal state-machine guard.
-  DONE: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW'],
+  DONE: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'CANCELED'],
+  // LUM-1282: a canceled task reopens to any status. Entering CANCELED (and
+  // DONE) is a human ruling — see `gatedStatuses` below.
+  CANCELED: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+}
+
+/**
+ * LUM-1282: statuses whose entry is a human ruling. DONE is gated by the
+ * confirmation envelope (with the merged-PR one-step shortcut); CANCELED by
+ * the envelope only — an agent may propose it, never apply it on its own.
+ */
+const GATED_STATUSES: readonly TaskStatusValue[] = ['DONE', 'CANCELED']
+
+/** Whether entering `status` needs the user's confirmation. */
+export function isGatedStatus(status: TaskStatusValue): boolean {
+  return GATED_STATUSES.includes(status)
+}
+
+// ── Terminal timestamps ─────────────────────────────────────────────────────
+
+export interface TerminalTimestampPatch {
+  completedAt?: Date | null
+  canceledAt?: Date | null
+}
+
+/**
+ * LUM-1282: the `completedAt` / `canceledAt` writes a `from → to` move makes.
+ * Entering DONE stamps `completedAt`, entering CANCELED stamps `canceledAt`;
+ * leaving either clears its stamp (a reopen). A move that touches neither
+ * terminal status returns `{}`, and so does a no-op (`from === to`), so a
+ * re-asserted DONE keeps its original completion time.
+ */
+export function terminalTimestampPatch(
+  from: TaskStatusValue,
+  to: TaskStatusValue,
+  now: Date
+): TerminalTimestampPatch {
+  if (from === to) return {}
+  const patch: TerminalTimestampPatch = {}
+  if (to === 'DONE') patch.completedAt = now
+  else if (from === 'DONE') patch.completedAt = null
+  if (to === 'CANCELED') patch.canceledAt = now
+  else if (from === 'CANCELED') patch.canceledAt = null
+  return patch
 }
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
@@ -42,7 +85,7 @@ export function taskWorkflowCatalog(): TaskWorkflowCatalog {
       transitionsTo: [...TRANSITIONS[value]],
     })),
     priorities: PRIORITIES,
-    gatedStatuses: ['DONE'],
+    gatedStatuses: [...GATED_STATUSES],
   }
 }
 
@@ -129,7 +172,7 @@ export async function transitionTaskStatus(
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { status: to },
+    data: { status: to, ...terminalTimestampPatch(current, to, new Date()) },
   })
 
   // Emit domain event

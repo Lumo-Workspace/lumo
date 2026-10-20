@@ -97,6 +97,8 @@ jest.mock('@/lib/services/task-notifications.service', () => ({
 }))
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,
+  // LUM-1282: terminal stamps are covered in lum1282-* suites.
+  terminalTimestampPatch: () => ({}),
 }))
 
 import { getPluginRegistry } from '@/lib/plugins/registry'

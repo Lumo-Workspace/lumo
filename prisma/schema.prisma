@@ -24,6 +24,10 @@ enum TaskStatus {
   IN_PROGRESS
   IN_REVIEW
   DONE
+  // LUM-1282: terminal "we won't do this / duplicate". A human ruling only —
+  // gated like DONE, with no agent one-step path. Excluded from completion
+  // metrics; counts as closed for the milestone rollup.
+  CANCELED
 }
 
 enum TaskPriority {
@@ -1040,6 +1044,10 @@ model Task {
   // free first-draft window vs the recorded after-start criteria diff
   // (LUM-437). Never reset — a bounce back to TODO stays "started".
   workStartedAt     DateTime?
+  // LUM-1282: factual terminal stamps, written by the status-transition path
+  // on entering DONE / CANCELED and cleared when the task leaves that status.
+  completedAt       DateTime?
+  canceledAt        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   dueDate           DateTime?
@@ -3839,6 +3847,9 @@ model TaskForecastSnapshot {
 enum DependencyKind {
   BLOCKS
   RELATES
+  // LUM-1282: blockedTaskId is the duplicate (CANCELED), blockingTaskId the
+  // canonical task it duplicates. Written by `task update --duplicate-of`.
+  DUPLICATES
 }
 
 enum DependencySource {

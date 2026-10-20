@@ -54,6 +54,8 @@ jest.mock('@/lib/integrations/github', () => ({
 
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: jest.fn(),
+  // LUM-1282: terminal stamps are covered in lum1282-* suites.
+  terminalTimestampPatch: () => ({}),
 }))
 
 jest.mock('@/lib/repositories/project.repository', () => ({

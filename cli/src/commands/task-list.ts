@@ -57,6 +57,7 @@ const ALLOWED_STATUSES = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 

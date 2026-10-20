@@ -6,6 +6,7 @@ export const KANBAN_STATUSES: readonly ApiStatus[] = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ]
 
 /**

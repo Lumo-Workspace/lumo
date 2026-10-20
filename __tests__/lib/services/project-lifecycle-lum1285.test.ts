@@ -97,13 +97,16 @@ beforeEach(() => {
 })
 
 describe('shared lifecycle helpers', () => {
-  it('completion: ≥1 task and none open; only DONE closes today', () => {
-    expect(CLOSED_TASK_STATUSES).toEqual(['DONE'])
+  it('completion: ≥1 task and none open; DONE and CANCELED close', () => {
+    expect(CLOSED_TASK_STATUSES).toEqual(['DONE', 'CANCELED'])
     expect(isProjectCompleted({})).toBe(false)
     expect(isProjectCompleted({ DONE: 0, TODO: 0 })).toBe(false)
     expect(isProjectCompleted({ DONE: 3, TODO: 0, BACKLOG: 0 })).toBe(true)
     expect(isProjectCompleted({ DONE: 3, BACKLOG: 1 })).toBe(false)
     expect(isProjectCompleted({ DONE: 3, IN_REVIEW: 1 })).toBe(false)
+    // LUM-1282: a CANCELED task is closed, so it no longer holds completion open.
+    expect(isProjectCompleted({ DONE: 3, CANCELED: 2 })).toBe(true)
+    expect(isProjectCompleted({ CANCELED: 1, TODO: 1 })).toBe(false)
   })
 
   it('workable: only ACTIVE and unarchived; a missing status is ACTIVE', () => {

@@ -93,6 +93,13 @@ export async function createTask(
     dueDate,
   } = input
 
+  // LUM-1282: CANCELED is a ruling on an existing task, never a birth state.
+  if (status === 'CANCELED') {
+    throw Object.assign(new Error('A task cannot be created as CANCELED'), {
+      status: 400,
+    })
+  }
+
   const resolvedSprintId: string | null = input.sprintId ?? null
 
   // Validate milestoneId belongs to the same project
@@ -156,6 +163,8 @@ export async function createTask(
     ...(status && isWorkStartedStatus(status)
       ? { workStartedAt: new Date() }
       : {}),
+    // LUM-1282: a task born DONE is completed at birth.
+    ...(status === 'DONE' ? { completedAt: new Date() } : {}),
   })
 
   if (input.tagIds && input.tagIds.length > 0) {

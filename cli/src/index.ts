@@ -1028,7 +1028,7 @@ task
   )
   .option(
     '-s, --status <value>',
-    'Status: backlog | todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
+    'Status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive; repeatable or comma-separated)',
     collect,
     []
   )
@@ -3200,7 +3200,7 @@ task
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
-    'New status: backlog | todo | in_progress | in_review | done (case-insensitive)'
+    'New status: backlog | todo | in_progress | in_review | done | canceled (case-insensitive). done and canceled are gated: see --confirm'
   )
   .option(
     '-p, --priority <level>',
@@ -3257,8 +3257,12 @@ task
     []
   )
   .option(
+    '--duplicate-of <identifier>',
+    'With --status canceled: the task duplicates this one (e.g. LUM-12); records a DUPLICATES dependency'
+  )
+  .option(
     '--confirm',
-    'With --status done: the user approved the DONE envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks; else exits 4.'
+    'With --status done or canceled: the user approved the envelope. Without it, DONE runs in one step when every linked PR (at least one) is merged and nothing blocks, else exits 4; CANCELED always exits 4 (the user rules it, never the agent).'
   )
   .action(
     wrap((identifier, options) =>

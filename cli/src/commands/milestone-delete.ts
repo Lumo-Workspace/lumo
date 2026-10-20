@@ -33,6 +33,8 @@ interface TaskCounts {
   IN_PROGRESS: number
   IN_REVIEW: number
   DONE: number
+  /** LUM-1282; absent on servers that predate CANCELED. */
+  CANCELED?: number | undefined
 }
 
 function totalTasks(counts: TaskCounts): number {
@@ -41,7 +43,8 @@ function totalTasks(counts: TaskCounts): number {
     counts.TODO +
     counts.IN_PROGRESS +
     counts.IN_REVIEW +
-    counts.DONE
+    counts.DONE +
+    (counts.CANCELED ?? 0)
   )
 }
 

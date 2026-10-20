@@ -52,10 +52,11 @@ export const milestoneSummaryRepository = {
    * carry-over signal is the count of tasks still open (not DONE) at close.
    */
   async computeStatsData(milestoneId: string): Promise<MilestoneStatsData> {
-    // BACKLOG is unscheduled work and stays out of milestone stats (LUM-1057).
+    // BACKLOG is unscheduled work and stays out of milestone stats (LUM-1057);
+    // CANCELED is not delivered work and stays out too (LUM-1282).
     const tasks = (
       await taskRepository.listByMilestoneForStats(milestoneId)
-    ).filter(t => t.status !== 'BACKLOG')
+    ).filter(t => t.status !== 'BACKLOG' && t.status !== 'CANCELED')
 
     const stats: MilestoneStats = {
       totalTasks: tasks.length,

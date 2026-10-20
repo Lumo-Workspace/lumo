@@ -172,6 +172,8 @@ export const milestoneRepository = {
       IN_PROGRESS: 0,
       IN_REVIEW: 0,
       DONE: 0,
+      // LUM-1282: reported, but left out of every progress total.
+      CANCELED: 0,
     }
     for (const row of rows) {
       result[row.status] = row._count._all

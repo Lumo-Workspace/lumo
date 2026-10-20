@@ -23,6 +23,7 @@ import {
 } from '../dependencies/groupDependencies'
 import { DependenciesSection } from '../dependencies/components/DependenciesSection'
 import { FieldValueSkeleton, SeparatorDot } from './fields/shared'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 interface TaskDependencyFieldProps {
   /** This task's LUM-N identifier. */
@@ -124,7 +125,8 @@ export function TaskDependencyField({
               </>
             )}
             {shown.map(e => {
-              const satisfied = e.other.status === 'DONE'
+              // LUM-1282: a CANCELED blocker is closed too.
+              const satisfied = isClosedTaskStatus(e.other.status)
               return (
                 <Tooltip key={e.id}>
                   <TooltipTrigger asChild>

@@ -13,6 +13,7 @@ const STATUS_ORDER = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
 
 /**

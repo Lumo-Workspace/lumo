@@ -205,7 +205,7 @@ export const updateTaskSchema = z
     description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     spec: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     status: z
-      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeActorId: z.string().nullable().optional(),
@@ -286,7 +286,7 @@ export const cliUpdateTaskSchema = z
       .optional(),
     description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     status: z
-      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
@@ -296,6 +296,9 @@ export const cliUpdateTaskSchema = z
     claimable: z.boolean().optional(),
     // LUM-821: null clears. dueDate is an instant (local midnight of the day).
     dueDate: z.string().datetime().nullable().optional(),
+    // LUM-1282: `--duplicate-of` — the canonical task a canceled duplicate
+    // points at (identifier, e.g. "LUM-12"). Only with status CANCELED.
+    duplicateOfRef: z.string().trim().min(1).max(64).optional(),
     parentRef: removedParentRef,
     ...tagIdsShape,
     ...tagsIncrementalShape,
@@ -303,6 +306,10 @@ export const cliUpdateTaskSchema = z
   .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
     message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
     path: ['tagIds'],
+  })
+  .refine(v => v.duplicateOfRef === undefined || v.status === 'CANCELED', {
+    message: 'duplicateOfRef needs status CANCELED',
+    path: ['duplicateOfRef'],
   })
 
 // ─── AI Description Generation ──────────────────────────────────────────────
@@ -597,7 +604,7 @@ const executeUpdateActionSchema = z.object({
   taskId: z.string(),
   fields: z.object({
     status: z
-      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+      .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
       .optional(),
     assigneeActorId: z.string().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
@@ -724,7 +731,16 @@ export const workspaceTaskFiltersSchema = z.object({
   projectIds: z.array(z.string()).optional(),
   milestoneIds: z.array(z.string()).optional(),
   statuses: z
-    .array(z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
+    .array(
+      z.enum([
+        'BACKLOG',
+        'TODO',
+        'IN_PROGRESS',
+        'IN_REVIEW',
+        'DONE',
+        'CANCELED',
+      ])
+    )
     .optional(),
   priorities: z.array(z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])).optional(),
   assigneeActorIds: z.array(z.string()).optional(),

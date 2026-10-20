@@ -17,6 +17,7 @@ describe('allowedTaskTransitions', () => {
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
+      'CANCELED',
     ])
     // LUM-586: DONE → IN_REVIEW is now legal so that undoing an acceptance
     // verdict can send a DONE task back to IN_REVIEW via the state machine.
@@ -25,6 +26,7 @@ describe('allowedTaskTransitions', () => {
       'TODO',
       'IN_PROGRESS',
       'IN_REVIEW',
+      'CANCELED',
     ])
   })
 
