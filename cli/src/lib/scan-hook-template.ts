@@ -8,12 +8,16 @@ import { LUMO_HOOK_END, type GitHookSpec } from './git-hook-template'
  * `lumo` on PATH, no server context or no network fail open with a line
  * saying so. `git commit|push --no-verify` skips them (git's own rule).
  *
+ * Scanners: pre-commit runs `--secrets` only, so the hook on every commit
+ * makes no api.osv.dev call; pre-push runs every local scanner (`DEPS` too)
+ * under the same `--timeout`.
+ *
  * Appended as managed blocks like prepare-commit-msg's, so an existing hook
  * keeps running first. A block never `exit 0`s: it falls through to whatever
  * follows it, and exits 1 only to block.
  */
 
-/** Seconds a hook waits for the Lumo server before the cached context. */
+/** Seconds a hook waits for the network (Lumo server, api.osv.dev). */
 export const SCAN_HOOK_TIMEOUT_SECONDS = 2
 
 const SCAN = `lumo security scan --fail-on done --timeout ${SCAN_HOOK_TIMEOUT_SECONDS}`
@@ -60,7 +64,7 @@ ${HEADER('the staged changes', 'git commit')}
 if command -v lumo >/dev/null 2>&1; then
 ${REPORT_FN.replace(/^/gm, '  ')}
   lumo_rc=0
-  lumo_out=$(${SCAN} --staged 2>&1) || lumo_rc=$?
+  lumo_out=$(${SCAN} --secrets --staged 2>&1) || lumo_rc=$?
   if ! lumo_report "$lumo_rc" commit; then
     echo "lumo: commit blocked — a finding above would block DONE. Fix it, or skip the check once with git commit --no-verify." >&2
     exit 1

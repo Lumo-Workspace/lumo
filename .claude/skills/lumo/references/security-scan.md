@@ -138,14 +138,14 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 
 `lumo init --scope project --scan-hooks` (opt-in; [onboarding.md](onboarding.md)) adds two managed blocks to the repo's git hooks, after any hook already there (husky / `core.hooksPath`: printed to add by hand, never written):
 
-| Hook         | Runs                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| `pre-commit` | `lumo security scan --fail-on done --timeout 2 --staged`                                      |
-| `pre-push`   | the same with `--since <remote sha> --until <local sha>` per pushed branch (from git's stdin) |
+| Hook         | Runs                                                                                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre-commit` | `lumo security scan --fail-on done --timeout 2 --secrets --staged`                                                                                  |
+| `pre-push`   | `lumo security scan --fail-on done --timeout 2 --since <remote sha> --until <local sha>` per pushed branch (from git's stdin) — every local scanner |
 
 - **Blocks only on exit 3** — a finding the workspace policy would block DONE on (default: deterministic HIGH). Every other finding is printed with `lumo: warning only — not blocking the commit|push.`; a clean scan prints nothing.
 - **Fails open**, saying so: exit 1 / 2 (`lumo: security scan could not run (exit N) — not blocking …`), no `lumo` on PATH (`lumo: not on PATH — … skipped`), not logged in / no network / no plugin (no server context: findings warn, `⚠ --fail-on done: no server context …`). Inside Codex's sandbox the server call fails fast and the cached context is used.
-- **Every local scanner runs** (no scanner flag): `SECRETS`, and `DEPS` for the lockfiles the change touches — a lockfile change sends its new package names / versions to api.osv.dev; no lockfile change, no `DEPS` call. A `DEPS` lookup that cannot finish (OSV unreachable, past the budget) makes the scan exit 1, so the hook says so and does not block, unless another finding already blocks (exit 3 wins).
+- **Scanners:** pre-commit runs `SECRETS` only (`--secrets`), so the hook on every commit never calls api.osv.dev. pre-push runs every local scanner, `DEPS` included, for the lockfiles the pushed commits change — that sends their new package names / versions to api.osv.dev; no lockfile change, no `DEPS` call. A `DEPS` lookup that cannot finish (OSV unreachable, past the budget) makes the scan exit 1, so the hook says so and does not block, unless another finding already blocks (exit 3 wins).
 - **Time budget:** `--timeout 2` caps each network wait — the Lumo server (then the cache) and the whole api.osv.dev lookup; the rest is local (typically 0.3–0.8 s a hook on a small change).
 - **pre-push range:** a new branch, or a remote sha this clone has not fetched, starts at the merge-base with the default branch (`--until` alone). Branch deletions and tags are skipped. If an earlier part of the hook consumed stdin, it scans `@{upstream}` (else the merge-base) → `HEAD`.
 - `git commit --no-verify` / `git push --no-verify` skip them; `lumo doctor` lists them (kind `scan-hook`), `lumo uninstall` removes only their blocks.

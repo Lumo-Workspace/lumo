@@ -196,7 +196,7 @@ describe('pre-commit scan hook', () => {
     stage(repo, 'a.txt')
     const r = runGit(repo, ['commit', '-q', '-m', 'clean'])
     expect(r.status).toBe(0)
-    expect(r.calls).toEqual([`${SCAN_ARGS} --staged`])
+    expect(r.calls).toEqual([`${SCAN_ARGS} --secrets --staged`])
     expect(r.stderr).toBe('')
     expect(head(repo)).toBe('clean')
   })
