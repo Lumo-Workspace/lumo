@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Alle {count, plural, one {# Aufgabe} other {# Aufgaben}} anzeigen",
   "sprints.detail.retro.hideTasks": "Aufgaben ausblenden",
   "sprints.detail.retro.summary.subtitle": "Erstellt aus Aufgaben, PRs und Sitzungsprotokollen · {date}",
+  "sprints.detail.retro.summary.readError": "Die Retro konnte nicht geladen werden. Lade die Seite neu, um es erneut zu versuchen.",
   "sprints.detail.retro.outcome.aria": "Ergebnisse",
   "sprints.detail.retro.outcome.verified": "Verifiziert",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + Gate frei + TCs auf dem neuesten Commit bestanden",

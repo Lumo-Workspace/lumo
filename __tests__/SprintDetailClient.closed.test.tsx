@@ -53,6 +53,7 @@ jest.mock('@/lib/api-client', () => ({
     retrySummary: (...args: unknown[]) => mockRetrySummary(...args),
   },
   tasksClient: {},
+  ApiClientError: jest.requireActual('@/lib/api-client/base').ApiClientError,
 }))
 
 const mockNoop = () => {}
@@ -179,6 +180,7 @@ const mockSpilloverItems = [
   { taskId: 't8', identifier: 'LUM-8', title: 'Parked', to: null },
 ]
 const mockSummaries: Record<string, unknown> = {}
+const mockSummaryErrors: Record<string, Error | undefined> = {}
 const mockAttentionCalls: Array<[string | null, string]> = []
 
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => {
@@ -197,7 +199,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => {
     useSprintSummary: (id: string | null) => ({
       summary: id ? (mockSummaries[id] ?? null) : undefined,
       isLoading: false,
-      error: undefined,
+      error: id ? mockSummaryErrors[id] : undefined,
       refetch: () => {},
     }),
     useRetrySprintSummary: actual.useRetrySprintSummary,
@@ -238,6 +240,7 @@ function card(title: string) {
 beforeEach(() => {
   mockSummaries.sprint_13 = mockSummary
   mockSummaries.sprint_12 = mockPrevSummary
+  for (const k of Object.keys(mockSummaryErrors)) delete mockSummaryErrors[k]
   mockAttention.attention.cost.previousSprint = {
     sprintId: 'sprint_12',
     number: 12,
@@ -407,6 +410,24 @@ test('retro not generated yet: says so and still offers regenerate', () => {
   expect(
     screen.getByText('sprints.detail.retro.stages.emptyNoSummary')
   ).toBeInTheDocument()
+})
+
+test('a failed summary read says so instead of "generating"; a 404 still reads as not generated', () => {
+  const { ApiClientError } = jest.requireActual('@/lib/api-client/base')
+  mockSummaries.sprint_13 = null
+  mockSummaryErrors.sprint_13 = new ApiClientError('boom', 500)
+  const { unmount } = renderPage()
+  expect(
+    screen.getByText('sprints.detail.retro.summary.readError')
+  ).toBeInTheDocument()
+  unmount()
+
+  mockSummaryErrors.sprint_13 = new ApiClientError(
+    'Retro not generated yet',
+    404
+  )
+  renderPage()
+  expect(screen.getByText('sprints.retro.generating')).toBeInTheDocument()
 })
 
 test('"view all tasks" reveals the task table, whose rows open their tasks', () => {

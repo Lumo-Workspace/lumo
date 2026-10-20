@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Показать все задачи ({count})",
   "sprints.detail.retro.hideTasks": "Скрыть задачи",
   "sprints.detail.retro.summary.subtitle": "Создано по задачам, PR и записям сессий · {date}",
+  "sprints.detail.retro.summary.readError": "Не удалось загрузить ретро. Обновите страницу и попробуйте ещё раз.",
   "sprints.detail.retro.outcome.aria": "Итоги",
   "sprints.detail.retro.outcome.verified": "Проверено",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + шлюз пройден + TC проходят на последнем коммите",

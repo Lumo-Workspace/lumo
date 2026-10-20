@@ -124,7 +124,7 @@ describe('repository reads are workspace-filtered', () => {
           type: 'SPRINT_CHANGED',
           payload: { path: ['fromSprintId'], equals: 's1' },
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       })
     )
   })

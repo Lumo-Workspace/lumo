@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Lihat semua {count} tugasan",
   "sprints.detail.retro.hideTasks": "Sembunyikan tugasan",
   "sprints.detail.retro.summary.subtitle": "Dijana daripada tugasan, PR dan rekod sesi · {date}",
+  "sprints.detail.retro.summary.readError": "Retro tidak dapat dimuatkan. Muat semula halaman untuk mencuba lagi.",
   "sprints.detail.retro.outcome.aria": "Hasil",
   "sprints.detail.retro.outcome.verified": "Disahkan",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + get jelas + TC lulus pada commit terkini",

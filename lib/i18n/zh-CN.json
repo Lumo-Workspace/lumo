@@ -1471,6 +1471,7 @@
   "sprints.detail.retro.viewAllTasks": "查看全部 {count} 个任务",
   "sprints.detail.retro.hideTasks": "收起任务",
   "sprints.detail.retro.summary.subtitle": "根据任务、PR 与会话记录生成 · {date}",
+  "sprints.detail.retro.summary.readError": "无法加载复盘,请刷新页面重试。",
   "sprints.detail.retro.outcome.aria": "结果",
   "sprints.detail.retro.outcome.verified": "已验证",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + 闸门清 + TC 在最新提交上通过",

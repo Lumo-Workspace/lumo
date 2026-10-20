@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Xem tất cả {count} công việc",
   "sprints.detail.retro.hideTasks": "Ẩn công việc",
   "sprints.detail.retro.summary.subtitle": "Tạo từ công việc, PR và bản ghi phiên · {date}",
+  "sprints.detail.retro.summary.readError": "Không tải được bản retro. Hãy tải lại trang để thử lại.",
   "sprints.detail.retro.outcome.aria": "Kết quả",
   "sprints.detail.retro.outcome.verified": "Đã xác minh",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + cổng thông + TC đạt trên commit mới nhất",

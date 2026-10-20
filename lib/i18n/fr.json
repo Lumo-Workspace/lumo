@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Voir {count, plural, one {la # tâche} other {les # tâches}}",
   "sprints.detail.retro.hideTasks": "Masquer les tâches",
   "sprints.detail.retro.summary.subtitle": "Généré à partir des tâches, des PR et des journaux de session · {date}",
+  "sprints.detail.retro.summary.readError": "Impossible de charger la rétro. Actualisez la page pour réessayer.",
   "sprints.detail.retro.outcome.aria": "Résultats",
   "sprints.detail.retro.outcome.verified": "Vérifiées",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + barrière levée + TC réussis sur le dernier commit",

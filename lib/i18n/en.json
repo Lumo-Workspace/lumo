@@ -1811,6 +1811,7 @@
   "sprints.detail.retro.viewAllTasks": "View all {count, plural, one {# task} other {# tasks}}",
   "sprints.detail.retro.hideTasks": "Hide tasks",
   "sprints.detail.retro.summary.subtitle": "Generated from tasks, PRs and session records · {date}",
+  "sprints.detail.retro.summary.readError": "Couldn't load the retro. Refresh the page to try again.",
   "sprints.detail.retro.outcome.aria": "Outcomes",
   "sprints.detail.retro.outcome.verified": "Verified",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + gate clear + TCs passing on the latest commit",

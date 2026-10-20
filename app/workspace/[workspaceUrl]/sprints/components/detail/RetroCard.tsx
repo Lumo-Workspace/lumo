@@ -16,6 +16,8 @@ import { RichHtml } from '@/components/RichHtml'
 
 interface RetroCardProps {
   loading: boolean
+  /** The summary read failed for a reason other than "not generated yet". */
+  readFailed: boolean
   /** Null while the retro is not generated yet (pending or failed). */
   retro: { tldr: string; report: string; generatedAt: string } | null
   retrying: boolean
@@ -30,6 +32,7 @@ interface RetroCardProps {
  */
 export function RetroCard({
   loading,
+  readFailed,
   retro,
   retrying,
   retryError,
@@ -60,7 +63,9 @@ export function RetroCard({
               : intl.formatMessage({
                   id: loading
                     ? 'sprints.retro.loading'
-                    : 'sprints.retro.generating',
+                    : readFailed
+                      ? 'sprints.detail.retro.summary.readError'
+                      : 'sprints.retro.generating',
                 })}
           </CardDescription>
         </div>

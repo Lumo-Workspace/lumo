@@ -182,8 +182,9 @@ export const activityRepository = {
         type: 'SPRINT_CHANGED',
         payload: { path: ['fromSprintId'], equals: sprintId },
       },
-      // Oldest first, so a reader folding per task sees the latest move last.
-      orderBy: { createdAt: 'asc' },
+      // Oldest first, so a reader folding per task sees the latest move last
+      // (id breaks createdAt ties so the order is deterministic).
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { taskId: true, payload: true },
     })
   },

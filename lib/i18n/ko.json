@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "작업 {count}개 모두 보기",
   "sprints.detail.retro.hideTasks": "작업 접기",
   "sprints.detail.retro.summary.subtitle": "작업, PR, 세션 기록으로 생성 · {date}",
+  "sprints.detail.retro.summary.readError": "회고를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
   "sprints.detail.retro.outcome.aria": "결과",
   "sprints.detail.retro.outcome.verified": "검증됨",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + 게이트 통과 + 최신 커밋에서 TC 통과",

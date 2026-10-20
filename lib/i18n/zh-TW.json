@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "查看全部 {count} 個任務",
   "sprints.detail.retro.hideTasks": "收起任務",
   "sprints.detail.retro.summary.subtitle": "根據任務、PR 與工作階段紀錄產生 · {date}",
+  "sprints.detail.retro.summary.readError": "無法載入回顧,請重新整理頁面再試一次。",
   "sprints.detail.retro.outcome.aria": "結果",
   "sprints.detail.retro.outcome.verified": "已驗證",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + 閘門清除 + TC 在最新提交上通過",

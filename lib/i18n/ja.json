@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "全 {count} 件のタスクを表示",
   "sprints.detail.retro.hideTasks": "タスクを閉じる",
   "sprints.detail.retro.summary.subtitle": "タスク・PR・セッション記録から生成 · {date}",
+  "sprints.detail.retro.summary.readError": "振り返りを読み込めませんでした。ページを再読み込みしてもう一度お試しください。",
   "sprints.detail.retro.outcome.aria": "成果",
   "sprints.detail.retro.outcome.verified": "検証済み",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + ゲート通過 + 最新コミットで TC 合格",

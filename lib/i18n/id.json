@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Lihat semua {count} tugas",
   "sprints.detail.retro.hideTasks": "Sembunyikan tugas",
   "sprints.detail.retro.summary.subtitle": "Dibuat dari tugas, PR, dan catatan sesi · {date}",
+  "sprints.detail.retro.summary.readError": "Retro tidak dapat dimuat. Muat ulang halaman untuk mencoba lagi.",
   "sprints.detail.retro.outcome.aria": "Hasil",
   "sprints.detail.retro.outcome.verified": "Terverifikasi",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + gerbang bersih + TC lulus di commit terbaru",

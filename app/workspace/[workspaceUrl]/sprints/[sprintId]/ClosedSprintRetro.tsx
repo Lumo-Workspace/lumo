@@ -9,6 +9,7 @@ import {
   useSprintSpillover,
   useSprintSummary,
 } from '../../hooks/useSprints'
+import { ApiClientError } from '@/lib/api-client'
 import type { SprintAttentionResponse } from '@/lib/api-client/sprints'
 import { OutcomeCards } from '../components/detail/OutcomeCards'
 import { RetroCard } from '../components/detail/RetroCard'
@@ -43,7 +44,10 @@ export function ClosedSprintRetro({
   onOpenTask,
 }: ClosedSprintRetroProps) {
   const intl = useIntl()
-  const { summary, isLoading } = useSprintSummary(sprintId)
+  const { summary, isLoading, error } = useSprintSummary(sprintId)
+  // 404 = the retro is not generated yet; anything else is a failed read.
+  const summaryReadFailed =
+    !!error && !(error instanceof ApiClientError && error.status === 404)
   const { retry, retrying, retryError } = useRetrySprintSummary(sprintId)
   const previousRef = attention?.cost.previousSprint ?? null
   const previous = useSprintSummary(previousRef?.sprintId ?? null)
@@ -115,6 +119,7 @@ export function ClosedSprintRetro({
 
       <RetroCard
         loading={isLoading}
+        readFailed={summaryReadFailed}
         retro={
           summary
             ? {

@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "Ver {count, plural, one {la # tarea} other {las # tareas}}",
   "sprints.detail.retro.hideTasks": "Ocultar tareas",
   "sprints.detail.retro.summary.subtitle": "Generado a partir de tareas, PR y registros de sesión · {date}",
+  "sprints.detail.retro.summary.readError": "No se pudo cargar la retrospectiva. Recarga la página para volver a intentarlo.",
   "sprints.detail.retro.outcome.aria": "Resultados",
   "sprints.detail.retro.outcome.verified": "Verificadas",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + compuerta despejada + TC superados en el último commit",

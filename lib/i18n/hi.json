@@ -1469,6 +1469,7 @@
   "sprints.detail.retro.viewAllTasks": "सभी {count} टास्क देखें",
   "sprints.detail.retro.hideTasks": "टास्क छिपाएँ",
   "sprints.detail.retro.summary.subtitle": "टास्क, PR और सत्र रिकॉर्ड से बनाया गया · {date}",
+  "sprints.detail.retro.summary.readError": "रेट्रो लोड नहीं हो सका। दोबारा कोशिश करने के लिए पेज रीफ़्रेश करें।",
   "sprints.detail.retro.outcome.aria": "परिणाम",
   "sprints.detail.retro.outcome.verified": "सत्यापित",
   "sprints.detail.retro.outcome.verifiedDef": "DONE + गेट साफ़ + नवीनतम कमिट पर TC पास",
