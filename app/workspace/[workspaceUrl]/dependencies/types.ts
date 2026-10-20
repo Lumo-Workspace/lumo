@@ -1,7 +1,7 @@
 // Mirrors server DependencyEdgeView (lib/services/task-dependency.service.ts).
 // Defined client-side so we don't import a server module into client code.
 export type DependencyDirection = 'BLOCKED_BY' | 'BLOCKS'
-export type DependencyKind = 'BLOCKS' | 'RELATES'
+export type DependencyKind = 'BLOCKS' | 'RELATES' | 'DUPLICATES'
 export type DependencyStatus = 'SUGGESTED' | 'CONFIRMED' | 'DISMISSED'
 
 export interface DependencyEdge {
@@ -19,5 +19,9 @@ export interface GroupedDependencies {
   blockedBy: DependencyEdge[]
   blocks: DependencyEdge[]
   related: DependencyEdge[]
+  /** LUM-1282: this task is a canceled duplicate of these. */
+  duplicateOf: DependencyEdge[]
+  /** LUM-1282: these canceled tasks duplicate this one. */
+  duplicatedBy: DependencyEdge[]
   suggested: DependencyEdge[]
 }

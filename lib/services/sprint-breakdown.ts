@@ -8,13 +8,19 @@
  *
  * "Done" means `status === 'DONE'` to match the overall sprint progress
  * metric. BACKLOG tasks are unscheduled and stay out of every bucket
- * (LUM-1057). Tasks without an assigneeActorId are intentionally skipped in
+ * (LUM-1057), and so do CANCELED ones (LUM-1282). Tasks without an assigneeActorId are intentionally skipped in
  * the member breakdown — the sprint-level progress row already covers
  * the unassigned bucket.
  */
 
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-type Status = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+type Status =
+  | 'BACKLOG'
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'DONE'
+  | 'CANCELED'
 
 export interface BreakdownTask {
   priority: Priority
@@ -47,7 +53,7 @@ export function priorityBreakdown(
 ): PriorityBucket[] {
   const buckets = new Map<Priority, PriorityBucket>()
   for (const t of tasks ?? []) {
-    if (t.status === 'BACKLOG') continue
+    if (t.status === 'BACKLOG' || t.status === 'CANCELED') continue
     const b = buckets.get(t.priority) ?? {
       priority: t.priority,
       done: 0,
@@ -71,7 +77,8 @@ export function memberBreakdown<M extends MemberRef>(
 
   const buckets = new Map<string, MemberBucket<M>>()
   for (const t of tasks ?? []) {
-    if (t.status === 'BACKLOG' || !t.assigneeActorId) continue
+    if (t.status === 'BACKLOG' || t.status === 'CANCELED' || !t.assigneeActorId)
+      continue
     const member = byActor.get(t.assigneeActorId)
     if (!member) continue // Agent assignees / stale actors are skipped.
     const b = buckets.get(member.id) ?? { member, done: 0, total: 0 }

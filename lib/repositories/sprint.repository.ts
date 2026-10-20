@@ -158,7 +158,8 @@ export const sprintRepository = {
     return prisma.task.count({
       where: {
         sprintId,
-        status: filter.status ?? { not: 'BACKLOG' },
+        // LUM-1282: like BACKLOG, CANCELED is outside the progress total.
+        status: filter.status ?? { notIn: ['BACKLOG', 'CANCELED'] },
       },
     })
   },
@@ -208,7 +209,11 @@ export const sprintRepository = {
     const ids = closed.map(s => s.id)
     const grouped = await prisma.task.groupBy({
       by: ['sprintId', 'status'],
-      where: { sprintId: { in: ids }, status: { not: 'BACKLOG' } },
+      // LUM-1282: CANCELED leaves the completion rate like BACKLOG does.
+      where: {
+        sprintId: { in: ids },
+        status: { notIn: ['BACKLOG', 'CANCELED'] },
+      },
       _count: { _all: true },
     })
     const totals = new Map<string, { done: number; total: number }>()

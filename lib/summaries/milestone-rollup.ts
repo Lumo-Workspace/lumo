@@ -14,7 +14,8 @@ import type { TaskStatus } from '@prisma/client'
  * answers one question — does the stored `completedAt` still agree with the
  * tasks?
  *
- *  - `complete` — every task is DONE (total > 0) and `completedAt` is unset
+ *  - `complete` — every counted task is DONE (total > 0) and `completedAt` is
+ *    unset; BACKLOG and CANCELED tasks are not counted
  *  - `reopen`   — a non-DONE task (re)appeared while `completedAt` was set
  *
  * Archived milestones are left alone (a human put them away; task churn
@@ -64,8 +65,11 @@ export interface MilestoneStaleness {
 /**
  * Every task that counts toward completion is DONE, and there is at least one.
  * BACKLOG is not counted — a backlogged task is parked, neither holding the
- * milestone open nor making it complete (LUM-1057). The web page's "all tasks
- * DONE" (when Close anyway is offered) must agree with this, so both read it.
+ * milestone open nor making it complete (LUM-1057). CANCELED is not counted
+ * either (LUM-1282): it is closed, so it never holds the milestone open, and
+ * it is not delivered work, so it is out of the total — the milestone
+ * completes once the rest is DONE. The web page's "all tasks DONE" (when
+ * Close anyway is offered) must agree with this, so both read it.
  */
 export function allCountedTasksDone(
   taskCounts: Record<TaskStatus, number>

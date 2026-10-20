@@ -21,7 +21,13 @@ export type QuickAction =
       taskIdentifier: string
       taskTitle: string
       fields: {
-        status?: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+        status?:
+          | 'BACKLOG'
+          | 'TODO'
+          | 'IN_PROGRESS'
+          | 'IN_REVIEW'
+          | 'DONE'
+          | 'CANCELED'
         assigneeActorId?: string
         priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
       }

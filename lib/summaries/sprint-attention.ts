@@ -24,6 +24,7 @@ import {
 } from '@/lib/summaries/sprint-verified'
 import { parseStatusPayload } from '@/lib/summaries/burnup-replay'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 // ─── Inputs (structural minimums of the repository rows) ────────────────────
 
@@ -217,6 +218,7 @@ export interface SprintAttention extends SprintAttentionFold {
 
 // ─── Rules ──────────────────────────────────────────────────────────────────
 
+// LUM-1282: CANCELED is not a pipeline stage — canceled tasks are left out.
 export const STAGE_ORDER: TaskStatus[] = [
   'BACKLOG',
   'TODO',
@@ -327,7 +329,8 @@ function doneConfirmationSince(
   prs: AttentionPrRow[],
   gate: GateState
 ): Date | null {
-  if (task.status === 'DONE' || gate !== 'clear') return null
+  // LUM-1282: a closed task (DONE, or CANCELED by a human) awaits nothing.
+  if (isClosedTaskStatus(task.status) || gate !== 'clear') return null
   const live = prs.filter(p => p.state !== 'closed')
   if (live.length === 0 || live.some(p => p.state !== 'merged')) return null
   let latest: Date | null = null

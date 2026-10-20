@@ -71,7 +71,10 @@ beforeAll(async () => {
     createdByMemberId: 'member',
     name: 'App',
   })
-  await harness.applyMigration(migration)
+  // LUM-1127 pattern: also replay every later migration, so today's task
+  // queries (which select every Task column, e.g. LUM-1282's completedAt)
+  // run against today's shape.
+  await harness.applyMigrationsFrom(migration)
   await harness.insert('project_repositories', {
     id: 'pr-1',
     projectId: 'p-1',

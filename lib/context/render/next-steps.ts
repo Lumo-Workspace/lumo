@@ -21,6 +21,7 @@ export type TaskStatusForNextSteps =
   | 'IN_PROGRESS'
   | 'IN_REVIEW'
   | 'DONE'
+  | 'CANCELED'
 
 /**
  * One suggestion. `command` is null for advice that has no command to run —
@@ -75,6 +76,17 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
 
   // A delivered task has nothing to suggest; adjudication is human-only.
   if (status === 'DONE') return []
+
+  // LUM-1282: a canceled task is closed by a human ruling — no work is left,
+  // and reopening it is the user's call, not the agent's.
+  if (status === 'CANCELED') {
+    return [
+      {
+        command: null,
+        why: "This task is CANCELED — stop here; reopening it is the user's call.",
+      },
+    ]
+  }
 
   const steps: NextStep[] = []
 

@@ -37,6 +37,8 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 }))
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,
+  // LUM-1282: terminal stamps are covered in lum1282-* suites.
+  terminalTimestampPatch: () => ({}),
 }))
 
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'

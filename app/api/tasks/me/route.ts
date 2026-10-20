@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/task-query.service'
 import { myTaskFiltersSchema } from '@/lib/validation/schemas'
 import { readPageParams } from '@/lib/validation/pagination'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 /**
  * GET /api/tasks/me
@@ -142,13 +143,14 @@ export async function GET(req: Request) {
     const blockedByOpen = new Map<string, number>()
     const unblocksOpen = new Map<string, number>()
     for (const e of depEdges) {
-      if (e.blockingTask.status !== 'DONE') {
+      // LUM-1282: closed = DONE or CANCELED; neither blocks nor waits.
+      if (!isClosedTaskStatus(e.blockingTask.status)) {
         blockedByOpen.set(
           e.blockedTaskId,
           (blockedByOpen.get(e.blockedTaskId) ?? 0) + 1
         )
       }
-      if (e.blockedTask.status !== 'DONE') {
+      if (!isClosedTaskStatus(e.blockedTask.status)) {
         unblocksOpen.set(
           e.blockingTaskId,
           (unblocksOpen.get(e.blockingTaskId) ?? 0) + 1

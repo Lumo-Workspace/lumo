@@ -97,7 +97,9 @@ function setupDefaultMocks() {
       ])
     }
     // completion trend
-    if (where?.status === 'DONE' && where?.updatedAt) {
+    // LUM-1282: the recent-completions query filters on completedAt (OR
+    // updatedAt for rows the backfill has not reached).
+    if (where?.status === 'DONE' && where?.OR) {
       return Promise.resolve([
         { updatedAt: new Date('2026-04-01T10:00:00Z') },
         { updatedAt: new Date('2026-04-01T14:00:00Z') },

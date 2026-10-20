@@ -4,10 +4,22 @@ import { prisma } from '../db.js'
 import { getContext, resolveAssigneeActor } from '../context.js'
 import { resolveTaskId } from '../resolvers.js'
 import { trashTask } from '../trash.js'
+import { terminalStampsForMove } from '../status-stamps.js'
 
 const statusEnum = z
-  .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+  .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELED'])
   .describe('Task status')
+
+/**
+ * LUM-1282: the statuses an agent may write through MCP. CANCELED is a human
+ * ruling — the agent proposes it to the user, who applies it with
+ * `lumo task update <id> --status canceled --confirm` or on the web.
+ */
+const writableStatusEnum = z
+  .enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+  .describe(
+    "Task status. CANCELED is not settable here: it is the user's ruling — propose it to them instead."
+  )
 
 const priorityEnum = z
   .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
@@ -156,7 +168,7 @@ export function registerTaskTools(server: McpServer) {
         projectId: z.string().describe('Project ID'),
         title: z.string().min(1).describe('Task title'),
         description: z.string().optional().describe('Task description'),
-        status: statusEnum.optional().default('TODO'),
+        status: writableStatusEnum.optional().default('TODO'),
         priority: priorityEnum.optional().default('MEDIUM'),
         assigneeId: z
           .string()
@@ -203,6 +215,8 @@ export function registerTaskTools(server: McpServer) {
             priority: priority ?? 'MEDIUM',
             assigneeActorId: resolvedAssigneeActorId ?? null,
             order,
+            // LUM-1282: a task born DONE is completed at birth.
+            ...(status === 'DONE' ? { completedAt: new Date() } : {}),
           },
           select: taskSelect,
         })
@@ -232,7 +246,7 @@ export function registerTaskTools(server: McpServer) {
           .describe('Task ID (cuid) or identifier like "ENG-12"'),
         title: z.string().min(1).optional(),
         description: z.string().nullable().optional(),
-        status: statusEnum.optional(),
+        status: writableStatusEnum.optional(),
         priority: priorityEnum.optional(),
         assigneeId: z
           .string()
@@ -253,7 +267,13 @@ export function registerTaskTools(server: McpServer) {
       const data: Record<string, unknown> = {}
       if (title !== undefined) data.title = title
       if (description !== undefined) data.description = description
-      if (status !== undefined) data.status = status
+      if (status !== undefined) {
+        data.status = status
+        Object.assign(
+          data,
+          terminalStampsForMove(existing.status, status, new Date())
+        )
+      }
       if (priority !== undefined) data.priority = priority
       if (assigneeId !== undefined) {
         data.assigneeActorId =

@@ -1,4 +1,5 @@
 import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
+import type { TaskStatus } from '@prisma/client'
 
 export interface ProjectUpdateData {
   name?: string
@@ -63,16 +64,7 @@ export const projectRepository = {
       _count: { _all: true },
     })
 
-    const map = new Map<
-      string,
-      {
-        BACKLOG: number
-        TODO: number
-        IN_PROGRESS: number
-        IN_REVIEW: number
-        DONE: number
-      }
-    >()
+    const map = new Map<string, Record<TaskStatus, number>>()
     for (const row of rows) {
       // Type guard only: groupBy widens `by` keys to nullable; runtime always has projectId.
       if (!row.projectId) continue
@@ -82,6 +74,7 @@ export const projectRepository = {
         IN_PROGRESS: 0,
         IN_REVIEW: 0,
         DONE: 0,
+        CANCELED: 0,
       }
       bucket[row.status] = row._count._all
       map.set(row.projectId, bucket)

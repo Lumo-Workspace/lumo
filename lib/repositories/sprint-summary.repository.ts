@@ -52,9 +52,10 @@ export const sprintSummaryRepository = {
    * hands tasks + stats to the LLM.
    */
   async computeStatsData(sprintId: string): Promise<SprintStatsData> {
-    // BACKLOG is unscheduled work and stays out of sprint stats (LUM-1057).
+    // BACKLOG is unscheduled work and stays out of sprint stats (LUM-1057);
+    // CANCELED is not delivered work and stays out too (LUM-1282).
     const tasks = (await taskRepository.listBySprintForStats(sprintId)).filter(
-      t => t.status !== 'BACKLOG'
+      t => t.status !== 'BACKLOG' && t.status !== 'CANCELED'
     )
     const spilloverActivities =
       await activityRepository.listSpilloverFromSprint(sprintId)

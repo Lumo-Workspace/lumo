@@ -4,6 +4,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -360,6 +361,7 @@ async function updateFromCli(args: {
       | 'IN_PROGRESS'
       | 'IN_REVIEW'
       | 'DONE'
+      | 'CANCELED'
       | undefined
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
@@ -369,6 +371,8 @@ async function updateFromCli(args: {
     addTagIds?: string[] | undefined
     removeTagIds?: string[] | undefined
     dueDate?: string | null | undefined
+    /** LUM-1282: canonical task identifier; only with status CANCELED. */
+    duplicateOfRef?: string | undefined
   }
 }): Promise<{
   id: string
@@ -396,6 +400,26 @@ async function updateFromCli(args: {
   const detail = await taskService.getTaskDetail(resolved.id)
   if (!detail) {
     throw httpError(404, `Task ${identifier} not found`)
+  }
+
+  // LUM-1282: `--duplicate-of` — resolve and check the canonical task before
+  // any write, so a bad target never leaves a half-applied cancel behind.
+  let canonicalTaskId: string | null = null
+  if (input.duplicateOfRef !== undefined) {
+    if (input.status !== 'CANCELED') {
+      throw httpError(400, 'duplicateOfRef needs status CANCELED')
+    }
+    const canonical = await taskService.resolveIdentifier(
+      workspaceId,
+      input.duplicateOfRef
+    )
+    if (!canonical) {
+      throw httpError(400, `Duplicate target ${input.duplicateOfRef} not found`)
+    }
+    if (canonical.id === resolved.id) {
+      throw httpError(400, `${identifier} cannot be a duplicate of itself`)
+    }
+    canonicalTaskId = canonical.id
   }
 
   // Resolve assignee:
@@ -448,7 +472,13 @@ async function updateFromCli(args: {
   const updateInput: {
     title?: string
     description?: string | null
-    status?: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    status?:
+      | 'BACKLOG'
+      | 'TODO'
+      | 'IN_PROGRESS'
+      | 'IN_REVIEW'
+      | 'DONE'
+      | 'CANCELED'
     priority?: TaskPriority
     assigneeActorId?: string | null
     milestoneId?: string | null
@@ -527,6 +557,15 @@ async function updateFromCli(args: {
     callerClerkId,
     validatedSessionId
   )
+
+  // LUM-1282: the cancel landed — record which task this one duplicates.
+  if (canonicalTaskId !== null) {
+    await taskDependencyService.recordDuplicate({
+      workspaceId,
+      duplicateTaskId: resolved.id,
+      canonicalTaskId,
+    })
+  }
 
   const teamIdentifier =
     (
