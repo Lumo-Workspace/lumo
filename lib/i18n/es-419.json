@@ -754,6 +754,7 @@
   "task.createdBy": "Creada por",
   "task.createdBy.formerMember": "Exmiembro",
   "task.createdBy.unrecorded": "Sin registro",
+  "task.createdBy.unnamedAgent": "Agente",
   "task.priority": "Prioridad",
   "task.tags": "Etiquetas",
   "task.title": "Title",

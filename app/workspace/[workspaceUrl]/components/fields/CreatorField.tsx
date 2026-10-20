@@ -16,7 +16,10 @@ export function CreatorField({ creator }: { creator: CreatorDisplay }) {
     return (
       <div className='flex h-7 items-center gap-1.5 px-2 text-caption text-info-text'>
         <Bot size={14} aria-hidden />
-        <span className='truncate'>{creator.name}</span>
+        <span className='truncate'>
+          {creator.name ??
+            intl.formatMessage({ id: 'task.createdBy.unnamedAgent' })}
+        </span>
       </div>
     )
   }

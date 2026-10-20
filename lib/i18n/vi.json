@@ -754,6 +754,7 @@
   "task.createdBy": "Người tạo",
   "task.createdBy.formerMember": "Cựu thành viên",
   "task.createdBy.unrecorded": "Chưa ghi nhận",
+  "task.createdBy.unnamedAgent": "Tác tử",
   "task.priority": "Độ ưu tiên",
   "task.tags": "Nhãn",
   "task.title": "Title",

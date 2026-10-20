@@ -1888,6 +1888,7 @@
   "task.createdBy": "Created by",
   "task.createdBy.formerMember": "Former member",
   "task.createdBy.unrecorded": "Not recorded",
+  "task.createdBy.unnamedAgent": "Agent",
   "task.bulkDeleteConfirmDesc": "{count, plural, one {# task will move to the trash. You can restore it} other {# tasks will move to the trash. You can restore them}} from Settings → Trash for 30 days.",
   "task.bulkDeleteConfirmTitle": "Delete tasks?",
   "task.bulkDeleteFailure": "Failed to delete {failed} of {total} tasks",

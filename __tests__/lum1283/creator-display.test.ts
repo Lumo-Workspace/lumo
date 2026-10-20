@@ -34,6 +34,15 @@ describe('resolveCreatorDisplay', () => {
     ).toEqual({ kind: 'agent', name: 'Coding Agent' })
   })
 
+  it('leaves an unnamed agent creator without a name for the localized label', () => {
+    expect(
+      resolveCreatorDisplay(
+        { id: 'actor-a', type: 'AGENT', agent: null },
+        members
+      )
+    ).toEqual({ kind: 'agent', name: null })
+  })
+
   it('marks a human creator who is no longer a listed member', () => {
     expect(
       resolveCreatorDisplay({ id: 'actor-gone', type: 'HUMAN' }, members)

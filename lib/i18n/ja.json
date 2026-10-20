@@ -754,6 +754,7 @@
   "task.createdBy": "作成者",
   "task.createdBy.formerMember": "退会したメンバー",
   "task.createdBy.unrecorded": "記録なし",
+  "task.createdBy.unnamedAgent": "エージェント",
   "task.priority": "優先度",
   "task.tags": "タグ",
   "task.title": "Title",

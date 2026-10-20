@@ -754,6 +754,7 @@
   "task.createdBy": "만든 사람",
   "task.createdBy.formerMember": "이전 멤버",
   "task.createdBy.unrecorded": "기록 없음",
+  "task.createdBy.unnamedAgent": "에이전트",
   "task.priority": "우선순위",
   "task.tags": "태그",
   "task.title": "Title",

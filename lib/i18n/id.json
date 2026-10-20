@@ -754,6 +754,7 @@
   "task.createdBy": "Dibuat oleh",
   "task.createdBy.formerMember": "Mantan anggota",
   "task.createdBy.unrecorded": "Tidak tercatat",
+  "task.createdBy.unnamedAgent": "Agen",
   "task.priority": "Prioritas",
   "task.tags": "Label",
   "task.title": "Title",

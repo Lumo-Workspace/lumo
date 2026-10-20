@@ -4,9 +4,10 @@ import type { ActorInfo, WorkspaceMemberInfo } from '../../types'
  * LUM-1283: how the task detail shows the Actor that created a task.
  * `unrecorded` = no creator on the row (automation, or older than the column);
  * `former-member` = a human actor whose member is no longer listed.
+ * An agent with no name keeps `name: null`; the field renders a localized label.
  */
 export type CreatorDisplay =
-  | { kind: 'agent'; name: string }
+  | { kind: 'agent'; name: string | null }
   | { kind: 'member'; name: string; imageUrl: string | null }
   | { kind: 'former-member' }
   | { kind: 'unrecorded' }
@@ -18,7 +19,7 @@ export function resolveCreatorDisplay(
 ): CreatorDisplay {
   if (!createdBy) return { kind: 'unrecorded' }
   if (createdBy.type === 'AGENT') {
-    return { kind: 'agent', name: createdBy.agent?.name ?? 'Coding Agent' }
+    return { kind: 'agent', name: createdBy.agent?.name ?? null }
   }
   const member = members.find(m => m.actorId === createdBy.id)
   return member
