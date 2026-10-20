@@ -186,6 +186,8 @@ async function createFromCli(args: {
   teamId: string
   taskTags: Array<{ id: string; name: string }>
   nextSteps: NextStep[]
+  /** LUM-1285: e.g. the project is PAUSED. Empty when nothing to say. */
+  warnings: string[]
 }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
 
@@ -286,7 +288,7 @@ async function createFromCli(args: {
     )
   }
 
-  const { task, taskTags } = await taskService.createTask(
+  const { task, taskTags, warnings } = await taskService.createTask(
     projectId,
     {
       title: input.title,
@@ -332,6 +334,7 @@ async function createFromCli(args: {
     url,
     teamId: task.teamId,
     taskTags,
+    warnings,
     // A brand-new task: no crossings yet — the only unknown is whether this session can still be attached.
     nextSteps: computeNextSteps({
       taskIdentifier: identifier,

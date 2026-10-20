@@ -56,7 +56,12 @@ import { projectOverview } from './commands/overview'
 import { auditList, type AuditListOptions } from './commands/audit-list'
 import { tagCreate, tagList } from './commands/tag'
 import { taskDelete } from './commands/task-delete'
-import { projectCreate, projectUpdate } from './commands/project-manage'
+import {
+  projectCreate,
+  projectSetArchived,
+  projectUpdate,
+  type ProjectUpdateOptions,
+} from './commands/project-manage'
 import { taskShow, type TaskShowOptions } from './commands/task-show'
 import { findRemovedCommand, removedCommandLines } from './lib/removed-commands'
 import { taskOrBound } from './lib/task-or-bound'
@@ -2241,16 +2246,17 @@ projectCmd
   .command('list')
   .codex(SERVER_ONLY)
   .description(
-    'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
+    'List projects in the current workspace with their status. Slug column matches `task create --project <ref>`. Archived projects are hidden unless --all.'
   )
+  .option('--all', 'Include archived projects')
   .option('--json', 'Print { version, projects, total, nextCursor } as JSON')
-  .action(wrap(opts => projectList(opts as { json?: boolean })))
+  .action(wrap(opts => projectList(opts as { json?: boolean; all?: boolean })))
 
 projectCmd
   .command('show [project]')
   .codex(SERVER_ONLY)
   .description(
-    "A project's health and stats as on its web page: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions and the latest summary. Read-only."
+    "A project's status, dates, derived completion and its web page's stats: stalled and high-stakes tasks, stale PRs, overdue, status mix, workload, recent completions, latest summary. Read-only."
   )
   .option('--report', "Print the summary's full report under its TL;DR")
   .option('--json', 'Emit { project, stats, summary } as JSON')
@@ -2278,7 +2284,7 @@ projectCmd
   .command('update <project>')
   .codex(SERVER_ONLY)
   .description(
-    'Update a project (name or slug): --name, --description ("" clears), --owner (me | email | name; "" clears).'
+    'Update a project (name or slug): --name, --description, --owner, --start/--target (YYYY-MM-DD) — "" clears each; --status is a human ruling: without --confirm it exits 4 with an envelope.'
   )
   .option('--name <text>', 'New project name')
   .option('-d, --description <text>', 'Description; empty string clears it')
@@ -2286,11 +2292,37 @@ projectCmd
     '--owner <ref>',
     'Owner: me, an email or a member name; empty string clears it'
   )
+  .option(
+    '--status <status>',
+    'active | paused | canceled (case-insensitive). Paused/canceled projects drop out of `status --next`; canceled ones refuse task create'
+  )
+  .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
+  .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope. Without it a status change exits 4 and prints what it would do.'
+  )
   .action(
     wrap((ref, options) =>
-      projectUpdate(ref as string, options as Record<string, string>)
+      projectUpdate(ref as string, options as ProjectUpdateOptions)
     )
   )
+
+projectCmd
+  .command('archive <project>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Archive a project (name or slug): hidden from the sidebar and `project list` (unless --all), new tasks refused, history kept. Reversible with `project unarchive`.'
+  )
+  .action(wrap(ref => projectSetArchived(ref as string, true)))
+
+projectCmd
+  .command('unarchive <project>')
+  .codex(SERVER_ONLY)
+  .description(
+    'Restore an archived project so it shows in the sidebar and `project list` again and accepts new tasks.'
+  )
+  .action(wrap(ref => projectSetArchived(ref as string, false)))
 
 const memoryCmd = program
   .command('memory')

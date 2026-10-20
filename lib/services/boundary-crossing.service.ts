@@ -1827,7 +1827,10 @@ export const boundaryCrossingService = {
       },
       actorId,
       attribution.actorClerkId,
-      attribution.actorMemberId
+      attribution.actorMemberId,
+      // LUM-1285: a remediation records a crossing that already happened, so
+      // it lands even in a paused / canceled / archived project.
+      { automation: true }
     )
 
     await boundaryCrossingRepository.setRemediationTask(

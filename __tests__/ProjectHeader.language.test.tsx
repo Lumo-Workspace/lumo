@@ -60,6 +60,8 @@ const baseProps = {
   projectName: 'Lumo',
   onBack: jest.fn(),
   onDeleteProject: jest.fn(),
+  archived: false,
+  onArchivedChange: jest.fn(),
 }
 
 describe('project header language switcher persists the locale preference', () => {

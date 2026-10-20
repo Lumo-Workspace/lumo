@@ -138,6 +138,27 @@ export interface ApiProject {
   doneCount: number
   owner: { id: string; name: string } | null
   kanbanViewId?: string
+  /** LUM-1285: human ruling; absent on a stale cached row → ACTIVE. */
+  status?: ApiProjectStatus
+  startDate?: string | null
+  targetDate?: string | null
+  archivedAt?: string | null
+  /** Derived by the server (≥1 task, none open); never stored. */
+  completed?: boolean
+}
+
+export type ApiProjectStatus = 'ACTIVE' | 'PAUSED' | 'CANCELED'
+
+/** Fields the project page may PATCH (`PATCH /api/projects/:id`). */
+export interface ProjectUpdateFields {
+  name?: string
+  description?: string
+  ownerId?: string | null
+  /** LUM-1285 */
+  status?: ApiProjectStatus
+  startDate?: string | null
+  targetDate?: string | null
+  archived?: boolean
 }
 
 export type AgentStatusValue =

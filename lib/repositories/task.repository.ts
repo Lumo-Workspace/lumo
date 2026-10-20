@@ -464,6 +464,10 @@ const TASK_ASSIGNED_INCLUDE = {
     select: {
       id: true,
       name: true,
+      // LUM-1285: `lumo status --next` skips tasks of PAUSED / CANCELED /
+      // archived projects.
+      status: true,
+      archivedAt: true,
       owner: { select: { actor: { select: { id: true } } } },
     },
   },

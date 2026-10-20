@@ -13,6 +13,7 @@ import {
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
 import { listEnvelope, stripInternalFields } from '../lib/json-output'
+import { isProjectWorkable } from '../../../shared/src/project-lifecycle'
 import { isClosedStatus } from '../lib/task-closed'
 
 export interface NextOptions {
@@ -40,6 +41,21 @@ export interface NextResult {
   poolSize: number
   claimable: boolean
   excluded?: import('../lib/claimable-filter').ClaimableExclusions
+  /** LUM-1285: open tasks left out because their project is PAUSED,
+   *  CANCELED or archived (they are in neither the pool nor `excluded`). */
+  skippedInactiveProject?: number
+}
+
+/**
+ * LUM-1285: split open tasks into those agents may pick up and the count of
+ * those whose project is paused, canceled or archived. Pure.
+ */
+export function partitionByProjectWorkable(tasks: NextTask[]): {
+  workable: NextTask[]
+  skipped: number
+} {
+  const workable = tasks.filter(t => isProjectWorkable(t.project ?? {}))
+  return { workable, skipped: tasks.length - workable.length }
 }
 
 /** `--limit` as a count (default 3), or null when it is not a positive integer. */
@@ -130,7 +146,12 @@ export async function loadNext(
 
   const data = (await res.json()) as TasksMeResponse
   // LUM-1282: closed tasks (DONE, or CANCELED by the user) are never next.
-  const open = openTasksForNext(data.tasks)
+  // LUM-1285: tasks of a paused / canceled / archived project are not work an
+  // agent should pick up — they leave the pool before ranking or the gate.
+  const { workable: open, skipped } = partitionByProjectWorkable(
+    openTasksForNext(data.tasks)
+  )
+  const skippedField = skipped > 0 ? { skippedInactiveProject: skipped } : {}
 
   // LUM-646: the autonomy gate. Only when --claimable is passed; otherwise the
   // standard LUM-645 ranking is untouched.
@@ -145,6 +166,7 @@ export async function loadNext(
         poolSize: gate.kept.length,
         claimable: true,
         excluded: gate.excluded,
+        ...skippedField,
       }
     }
     // Older server predating F4 — degrade to the standard ranking with a
@@ -160,6 +182,7 @@ export async function loadNext(
     ranked: rankTasks(open, activeSprintIds, new Date()).slice(0, count),
     poolSize: open.length,
     claimable: false,
+    ...skippedField,
   }
 }
 
@@ -168,6 +191,9 @@ export function nextResultJson(r: NextResult): Record<string, unknown> {
   return nextJson(r.ranked, r.poolSize, {
     claimable: r.claimable,
     ...(r.excluded ? { excluded: r.excluded } : {}),
+    ...(r.skippedInactiveProject
+      ? { skippedInactiveProject: r.skippedInactiveProject }
+      : {}),
   })
 }
 
@@ -176,9 +202,19 @@ export function formatNextResult(
   r: NextResult,
   opts: Parameters<typeof formatNextOutput>[3] = {}
 ): string {
-  return r.claimable && r.excluded
-    ? formatClaimableOutput(r.ranked, r.poolSize, r.excluded, opts)
-    : formatNextOutput(r.ranked, r.poolSize, 'open', opts)
+  const body =
+    r.claimable && r.excluded
+      ? formatClaimableOutput(r.ranked, r.poolSize, r.excluded, opts)
+      : formatNextOutput(r.ranked, r.poolSize, 'open', opts)
+  const skipped = r.skippedInactiveProject ?? 0
+  if (skipped === 0) return body
+  return `${body}\n${formatSkippedInactiveProject(skipped)}`
+}
+
+/** LUM-1285: the note under the list when tasks were left out. */
+export function formatSkippedInactiveProject(n: number): string {
+  const noun = n === 1 ? 'task' : 'tasks'
+  return `(${n} ${noun} skipped: project paused, canceled or archived)`
 }
 
 /**
@@ -193,6 +229,7 @@ export function nextJson(
   extra: {
     claimable: boolean
     excluded?: import('../lib/claimable-filter').ClaimableExclusions
+    skippedInactiveProject?: number
   }
 ): Record<string, unknown> {
   return listEnvelope(
