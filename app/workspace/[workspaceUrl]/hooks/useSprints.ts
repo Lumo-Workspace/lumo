@@ -12,7 +12,6 @@ import type {
   SprintAttentionResponse,
   SprintAttentionScope,
   SprintBurnupResponse,
-  SprintTeamPerformanceResponse,
 } from '@/lib/api-client/sprints'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
@@ -319,29 +318,6 @@ export function useSprintBurnup(sprintId: string | null) {
 
   return {
     burnup: query.data ?? null,
-    isLoading: query.isPending && !!sprintId,
-    error: query.error ?? undefined,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// useSprintTeamPerformance
-// ---------------------------------------------------------------------------
-
-export function useSprintTeamPerformance(sprintId: string | null) {
-  const query = useQuery<SprintTeamPerformanceResponse | null>({
-    queryKey: sprintId
-      ? queryKeys.sprints.teamPerformance(sprintId)
-      : ['sprints', 'teamPerformance', 'disabled'],
-    queryFn: async () => {
-      const res = await sprintsClient.getTeamPerformance(sprintId as string)
-      return res ?? null
-    },
-    enabled: !!sprintId,
-  })
-
-  return {
-    performance: query.data ?? null,
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
   }

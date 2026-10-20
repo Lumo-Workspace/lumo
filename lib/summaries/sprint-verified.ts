@@ -79,3 +79,23 @@ export function isTaskVerified(input: {
     input.tests.fresh === input.tests.total
   )
 }
+
+/**
+ * LUM-1280 — when a verified task became verified: the later of its last move
+ * to DONE and the newest latest-run among its cases (the last piece of
+ * evidence to land). Null when not verified or no instant is known. Gate
+ * dispositions are not timestamped here, so a late ruling does not move it.
+ */
+export function verifiedAt(input: {
+  verified: boolean
+  doneAt: Date | null
+  latestRunAts: ReadonlyArray<Date | null>
+}): Date | null {
+  if (!input.verified) return null
+  let latest = input.doneAt?.getTime() ?? null
+  for (const at of input.latestRunAts) {
+    const t = at?.getTime()
+    if (t !== undefined && (latest === null || t > latest)) latest = t
+  }
+  return latest === null ? null : new Date(latest)
+}
