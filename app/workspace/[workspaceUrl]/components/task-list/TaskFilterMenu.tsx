@@ -19,6 +19,11 @@ import {
   type FilterDimension,
   type TaskFilters,
 } from '../../utils/filterTasks'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface TaskFilterMenuProps {
   /** The scope's tasks *before* filtering — the option values are read off these. */
@@ -71,25 +76,29 @@ export function TaskFilterMenu({
         if (!next) setDimension(null)
       }}
     >
-      <PopoverTrigger asChild>
-        {/* Icon-only, matching the Display trigger beside it (LUM-721) — the
-            label survives as tooltip/aria copy. The count badge is the only
-            visible text, so an active filter is never silent. */}
-        <Button
-          variant='ghost'
-          size='sm'
-          title={triggerLabel}
-          aria-label={triggerLabel}
-          className='h-8 w-auto min-w-8 gap-1 px-1.5 text-muted-foreground hover:text-foreground'
-        >
-          <ListFilter size={14} />
-          {activeCount > 0 && (
-            <span className='min-w-4 rounded-sm bg-muted px-1 text-caption text-foreground'>
-              {activeCount}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            {/* Icon-only, matching the Display trigger beside it (LUM-721) — the
+                label survives as tooltip/aria copy. The count badge is the only
+                visible text, so an active filter is never silent. */}
+            <Button
+              variant='ghost'
+              size='sm'
+              aria-label={triggerLabel}
+              className='h-8 w-auto min-w-8 gap-1 px-1.5 text-muted-foreground hover:text-foreground'
+            >
+              <ListFilter size={14} />
+              {activeCount > 0 && (
+                <span className='min-w-4 rounded-sm bg-muted px-1 text-caption text-foreground'>
+                  {activeCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{triggerLabel}</TooltipContent>
+      </Tooltip>
       <PopoverContent align='end' className='w-56 p-2'>
         {dimensions.length === 0 ? (
           <p className='px-2 py-1.5 text-body text-muted-foreground'>

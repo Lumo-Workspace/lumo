@@ -3,6 +3,7 @@ import type {
   MilestoneOutcomeClaim,
   OutcomeSignalCountRow,
 } from '@/lib/summaries/milestone-outcome'
+import { countsTowardCompletion } from '@/lib/task/status-semantics'
 
 /**
  * LUM-633 — milestone per-member delivery rollup.
@@ -285,7 +286,8 @@ export function computeMilestoneMemberDelivery(
         memberId === null
           ? null
           : (input.memberLabels.get(memberId) ?? memberId),
-      taskCount: rowTasks.length,
+      // LUM-1282: CANCELED is out of the done-of-total denominator.
+      taskCount: rowTasks.filter(t => countsTowardCompletion(t.status)).length,
       doneCount,
       mergedPrCount,
       fate: { rejectedTaskCount, noRecordDoneCount },

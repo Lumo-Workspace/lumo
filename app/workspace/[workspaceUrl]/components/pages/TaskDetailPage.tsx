@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -18,6 +18,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Kbd } from '@/components/ui/kbd'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { TaskDetail, Page } from '../../types'
 import { pageToPath } from '../../utils'
 import { tasksClient } from '@/lib/api-client'
@@ -150,6 +156,15 @@ export function TaskDetailPage({
 
   const mentionSources = useMentionSources(mentionableMembers)
 
+  // Comments incl. replies, for the quiet count on the Comments tab.
+  const commentCount = useMemo(
+    () => tc.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0),
+    [tc.comments]
+  )
+
+  // Below `lg` the property panel lives in a Sheet opened from the header.
+  const [propertiesOpen, setPropertiesOpen] = useState(false)
+
   // ── Anchor scroll ──────────────────────────────────────────────────────────
   const hasScrolled = useRef(false)
   useEffect(() => {
@@ -223,6 +238,23 @@ export function TaskDetailPage({
     }
   })
 
+  const propertyPanel = (
+    <TaskDetailSidebar
+      task={task}
+      members={members}
+      agentActors={agentActors}
+      projects={projects}
+      workspaceUrl={workspaceUrl}
+      onPatch={handlePatch}
+      allTags={allTags}
+      onTagsChange={tags => {
+        setTask(prev => ({ ...prev, tags }))
+        handlePatch({ tagIds: tags.map(t => t.id) })
+      }}
+      onCreateTag={createTag}
+    />
+  )
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SidebarProvider className='h-screen font-sans'>
@@ -245,110 +277,116 @@ export function TaskDetailPage({
           onDeleteTask={actions.handleDeleteTask}
           taskLinkCopied={actions.taskLinkCopied}
           onCopyTaskLink={actions.handleCopyTaskLink}
+          onOpenProperties={() => setPropertiesOpen(true)}
         />
 
-        {/* Two-column body */}
-        <div className='flex flex-1 overflow-hidden'>
-          {/* Left column */}
-          <div className='flex-1 overflow-y-auto px-8 pt-6 pb-24'>
-            {/* Editable title */}
-            <h1
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={e => {
-                const trimmed = e.currentTarget.textContent?.trim() ?? ''
-                if (!trimmed || trimmed === task.title) {
-                  e.currentTarget.textContent = task.title
-                  return
-                }
-                handlePatch({ title: trimmed })
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  e.currentTarget.blur()
-                }
-                if (e.key === 'Escape') {
-                  e.currentTarget.textContent = task.title
-                  e.currentTarget.blur()
-                }
-              }}
-              className='text-heading text-foreground outline-none cursor-text mb-6'
-            >
-              {task.title}
-            </h1>
+        {/* Two-column body: document column + property rail (from lg). */}
+        <div className='flex min-h-0 flex-1 overflow-hidden'>
+          <div className='min-w-0 flex-1 overflow-y-auto'>
+            <div className='mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8'>
+              {/* Editable title */}
+              <h1
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={e => {
+                  const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                  if (!trimmed || trimmed === task.title) {
+                    e.currentTarget.textContent = task.title
+                    return
+                  }
+                  handlePatch({ title: trimmed })
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.currentTarget.blur()
+                  }
+                  if (e.key === 'Escape') {
+                    e.currentTarget.textContent = task.title
+                    e.currentTarget.blur()
+                  }
+                }}
+                className='mb-4 cursor-text break-words text-heading text-foreground outline-none'
+              >
+                {task.title}
+              </h1>
 
-            {/* Description */}
-            {desc.descriptionLoading ? (
-              <Spinner className='size-4 text-muted-foreground' />
-            ) : (
-              <DescriptionEditor
-                value={desc.descriptionValue}
-                onCommit={actions.commitDescription}
-                mentionSources={mentionSources}
+              {/* Description */}
+              {desc.descriptionLoading ? (
+                <Spinner className='size-4 text-muted-foreground' />
+              ) : (
+                <DescriptionEditor
+                  value={desc.descriptionValue}
+                  onCommit={actions.commitDescription}
+                  mentionSources={mentionSources}
+                />
+              )}
+
+              {/* Spec — hidden: agent features disabled for now */}
+
+              {/* Agent Panel — hidden: agent features disabled for now */}
+
+              {/* Activity / Comments Timeline */}
+              <TimelineTabs
+                taskId={task.id}
+                taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+                taskStatus={task.status}
+                agentStatus={task.agentStatus}
+                workspaceId={task.project.workspaceId ?? ''}
+                workspaceUrl={workspaceUrl}
+                initialTimelinePresence={initialTimelinePresence}
+                commentCount={commentCount}
+                commentsProps={{
+                  workspaceUrl,
+                  projectName: task.project.name,
+                  teamIdentifier: task.teamIdentifier,
+                  taskNumber: task.number,
+                  members,
+                  agentActors,
+                  mentionableMembers,
+                  currentActorId: currentMember?.actorId,
+                  user,
+                  tc,
+                }}
+                slackConnected={slackConnected}
+                pullRequests={task.pullRequests ?? []}
+                onLinkPr={async () => {
+                  const data = await tasksClient.getById<{ task: TaskDetail }>(
+                    task.id
+                  )
+                  if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
+                }}
+                onUnlinkPr={async (prId: string) => {
+                  await tasksClient.unlinkPr(task.id, prId)
+                  const data = await tasksClient.getById<{ task: TaskDetail }>(
+                    task.id
+                  )
+                  if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
+                }}
               />
-            )}
-
-            {/* Spec — hidden: agent features disabled for now */}
-
-            {/* Agent Panel — hidden: agent features disabled for now */}
-
-            {/* Activity / Comments Timeline */}
-            <TimelineTabs
-              taskId={task.id}
-              taskIdentifier={`${task.teamIdentifier}-${task.number}`}
-              taskStatus={task.status}
-              agentStatus={task.agentStatus}
-              workspaceId={task.project.workspaceId ?? ''}
-              workspaceUrl={workspaceUrl}
-              initialTimelinePresence={initialTimelinePresence}
-              commentsProps={{
-                workspaceUrl,
-                projectName: task.project.name,
-                teamIdentifier: task.teamIdentifier,
-                taskNumber: task.number,
-                members,
-                agentActors,
-                mentionableMembers,
-                currentActorId: currentMember?.actorId,
-                user,
-                tc,
-              }}
-              slackConnected={slackConnected}
-              pullRequests={task.pullRequests ?? []}
-              onLinkPr={async () => {
-                const data = await tasksClient.getById<{ task: TaskDetail }>(
-                  task.id
-                )
-                if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
-              }}
-              onUnlinkPr={async (prId: string) => {
-                await tasksClient.unlinkPr(task.id, prId)
-                const data = await tasksClient.getById<{ task: TaskDetail }>(
-                  task.id
-                )
-                if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
-              }}
-            />
+            </div>
           </div>
 
-          {/* Right column */}
-          <TaskDetailSidebar
-            task={task}
-            members={members}
-            agentActors={agentActors}
-            projects={projects}
-            workspaceUrl={workspaceUrl}
-            onPatch={handlePatch}
-            allTags={allTags}
-            onTagsChange={tags => {
-              setTask(prev => ({ ...prev, tags }))
-              handlePatch({ tagIds: tags.map(t => t.id) })
-            }}
-            onCreateTag={createTag}
-          />
+          <aside className='hidden w-80 shrink-0 overflow-y-auto border-l border-border bg-background px-3 py-6 lg:block'>
+            {propertyPanel}
+          </aside>
         </div>
       </SidebarInset>
+
+      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen}>
+        <SheetContent
+          side='right'
+          aria-describedby={undefined}
+          className='overflow-y-auto px-3 py-6'
+        >
+          <SheetHeader className='sr-only'>
+            <SheetTitle>
+              {intl.formatMessage({ id: 'task.properties' })}
+            </SheetTitle>
+          </SheetHeader>
+          {propertyPanel}
+        </SheetContent>
+      </Sheet>
 
       {/* Delete-comment confirmation dialog */}
       <AlertDialog

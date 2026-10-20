@@ -59,10 +59,8 @@ export function MilestoneRow({
   const dotLabel = intl.formatMessage({ id: dot.labelId })
 
   return (
-    // The row fixes its own height instead of padding around its children: the
-    // kebab trigger is 36px (`h-control-md` beats the `size-7` on it — different
-    // tailwind-merge groups, so both survive and the custom one wins the
-    // cascade), which would otherwise set the row height and loosen the list.
+    // The row fixes its own height instead of padding around its children, so
+    // the list rhythm doesn't depend on the kebab trigger's size (`size-7`).
     <div className='group relative flex h-12 items-center gap-3 px-4 transition-colors hover:bg-muted/50'>
       <span
         className={cn('size-2 shrink-0 rounded-full', dot.className)}

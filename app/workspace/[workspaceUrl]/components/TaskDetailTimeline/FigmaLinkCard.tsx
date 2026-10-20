@@ -9,6 +9,11 @@ import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
   link: OptimisticFigmaLink
@@ -111,35 +116,55 @@ export function FigmaLinkCard({
             {!link.loading && (
               <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
                 {onRefreshAll && (
-                  <button
-                    onClick={e => {
-                      e.preventDefault()
-                      void handleRefreshAll()
-                    }}
-                    disabled={busy}
-                    title={intl.formatMessage({
-                      id: 'task.figma.card.refresh',
-                      defaultMessage: 'Refresh designs',
-                    })}
-                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                  >
-                    <RefreshCw size={14} />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={e => {
+                          e.preventDefault()
+                          void handleRefreshAll()
+                        }}
+                        disabled={busy}
+                        aria-label={intl.formatMessage({
+                          id: 'task.figma.card.refresh',
+                          defaultMessage: 'Refresh designs',
+                        })}
+                        className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {intl.formatMessage({
+                        id: 'task.figma.card.refresh',
+                        defaultMessage: 'Refresh designs',
+                      })}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
-                <button
-                  onClick={e => {
-                    e.preventDefault()
-                    setConfirmOpen(true)
-                  }}
-                  disabled={busy}
-                  title={intl.formatMessage({
-                    id: 'task.figma.card.delete',
-                    defaultMessage: 'Remove',
-                  })}
-                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-                >
-                  <Trash2 size={14} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={e => {
+                        e.preventDefault()
+                        setConfirmOpen(true)
+                      }}
+                      disabled={busy}
+                      aria-label={intl.formatMessage({
+                        id: 'task.figma.card.delete',
+                        defaultMessage: 'Remove',
+                      })}
+                      className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {intl.formatMessage({
+                      id: 'task.figma.card.delete',
+                      defaultMessage: 'Remove',
+                    })}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>

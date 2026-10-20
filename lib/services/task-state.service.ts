@@ -6,6 +6,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import {
   invalidTransitionMessage,
   isValidTaskTransition,
+  terminalTimestampPatch,
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
@@ -192,6 +193,18 @@ export async function updateTask(
     task.workStartedAt == null
   ) {
     data.workStartedAt = new Date()
+  }
+  // LUM-1282: completedAt / canceledAt follow the status — stamped on entering
+  // DONE / CANCELED, cleared when the task leaves it.
+  if (rest.status !== undefined) {
+    Object.assign(
+      data,
+      terminalTimestampPatch(
+        task.status as TaskStatusValue,
+        rest.status as TaskStatusValue,
+        new Date()
+      )
+    )
   }
   if (rest.priority !== undefined) data.priority = rest.priority
   if (rest.order !== undefined) data.order = rest.order
@@ -483,7 +496,10 @@ export async function reopen(
   }
   if (task.status !== 'DONE') return
 
-  await taskRepository.update(taskId, workspaceId, { status: 'TODO' })
+  await taskRepository.update(taskId, workspaceId, {
+    status: 'TODO',
+    ...terminalTimestampPatch('DONE', 'TODO', new Date()),
+  })
   await activityRepository.create({
     taskId,
     type: 'SENTRY_ALERT',

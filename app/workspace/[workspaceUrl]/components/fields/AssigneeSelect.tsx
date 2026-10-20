@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { WorkspaceMemberInfo } from '../../types'
-import { MemberAvatar } from './shared'
+import { MemberAvatar, fieldTriggerProps, type FieldVariant } from './shared'
 
 export interface AssigneeSelectProps {
   value: string | null // Actor.id
@@ -28,6 +28,8 @@ export interface AssigneeSelectProps {
   /** Current assignee from task detail — used as fallback when agentActors hasn't loaded */
   assignee?: { type: 'HUMAN' | 'AGENT'; agent?: { name: string } | null } | null
   triggerClassName?: string
+  /** LUM-1274: `ghost` = borderless inline row (task detail panel). */
+  variant?: FieldVariant
 }
 
 export function AssigneeSelect({
@@ -37,6 +39,7 @@ export function AssigneeSelect({
   agentActors,
   assignee,
   triggerClassName,
+  variant,
 }: AssigneeSelectProps) {
   const intl = useIntl()
   const assigneeMember = members.find(m => m.actorId === value)
@@ -68,7 +71,10 @@ export function AssigneeSelect({
     >
       <Tooltip>
         <TooltipTrigger asChild>
-          <SelectTrigger className={triggerClassName}>
+          <SelectTrigger
+            {...fieldTriggerProps(variant)}
+            className={triggerClassName}
+          >
             {resolvedAgent ? (
               <div className='flex items-center gap-1.5 text-info-text'>
                 <Bot size={14} />

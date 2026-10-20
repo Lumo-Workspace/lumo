@@ -10,6 +10,7 @@ import {
   type ConfirmFlags,
 } from '../lib/confirmation'
 import { errAuth, errHttp, errNotLoggedIn, httpFailed } from '../lib/errors'
+import { isClosedStatus } from '../lib/task-closed'
 
 export interface CloseSprintOptions extends ConfirmFlags {
   team?: string
@@ -21,7 +22,8 @@ export type CloseDecision = 'moveToNext' | 'backToBacklog'
 
 /**
  * Build the decisions map for POST /api/sprints/<id>/close.
- * Only non-DONE tasks get a decision entry; DONE tasks are excluded entirely.
+ * Only open tasks get a decision entry; closed ones (DONE, CANCELED) are
+ * excluded entirely (LUM-1282).
  */
 export function buildCloseDecisions(
   tasks: (TaskRow & { id: string })[],
@@ -31,7 +33,7 @@ export function buildCloseDecisions(
     mode === 'move' ? 'moveToNext' : 'backToBacklog'
   const result: Record<string, CloseDecision> = {}
   for (const task of tasks) {
-    if (task.status !== 'DONE') {
+    if (!isClosedStatus(task.status)) {
       result[task.id] = decision
     }
   }
@@ -40,16 +42,16 @@ export function buildCloseDecisions(
 
 /**
  * Format a refusal message when unfinished tasks exist and no mode flag was given.
- * Filters out DONE tasks before counting and rendering the list.
+ * Filters out closed (DONE / CANCELED) tasks before counting and rendering the list.
  */
 export function formatUnfinishedRefusal(
   number: number,
   name: string,
   tasks: (TaskRow & { id: string })[]
 ): string {
-  const unfinished = tasks.filter(t => t.status !== 'DONE')
+  const unfinished = tasks.filter(t => !isClosedStatus(t.status))
   const lines: string[] = [
-    `Refusing to close sprint #${number} "${sanitizeField(name)}": ${unfinished.length} task(s) not DONE.`,
+    `Refusing to close sprint #${number} "${sanitizeField(name)}": ${unfinished.length} task(s) not DONE or CANCELED.`,
     '',
     formatTaskListTable(unfinished),
     '',
@@ -71,7 +73,7 @@ export function describeSprintClose(
   tasks: (TaskRow & { id: string })[],
   mode: 'move' | 'backlog'
 ): string[] {
-  const unfinished = tasks.filter(t => t.status !== 'DONE')
+  const unfinished = tasks.filter(t => !isClosedStatus(t.status))
   const lines = [`Will close sprint #${number} "${sanitizeField(name)}"`]
   if (unfinished.length === 0) {
     lines.push('No unfinished tasks — nothing is moved')
@@ -161,7 +163,7 @@ export async function sprintClose(
     tasks: (TaskRow & { id: string })[]
   }
 
-  const unfinished = tasks.filter(t => t.status !== 'DONE')
+  const unfinished = tasks.filter(t => !isClosedStatus(t.status))
 
   // No mode flag: refuse if there are unfinished tasks.
   if (!opts.moveAll && !opts.backlogAll) {

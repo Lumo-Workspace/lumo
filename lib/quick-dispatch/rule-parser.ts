@@ -1,7 +1,14 @@
 import type { Mention, QuickAction, ParseResult } from './types'
+import type { TaskPriorityValue } from '@/lib/task/priority'
 
-type Status = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
-type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+type Status =
+  | 'BACKLOG'
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'DONE'
+  | 'CANCELED'
+type Priority = TaskPriorityValue
 
 export const STATUS_KEYWORDS: Record<string, Status> = {
   完成: 'DONE',
@@ -26,6 +33,14 @@ export const STATUS_KEYWORDS: Record<string, Status> = {
   待规划: 'BACKLOG',
   搁置: 'BACKLOG',
   someday: 'BACKLOG',
+  // LUM-1282: closed without doing it. Applies to updates only — a new task
+  // is never born CANCELED (see the create branch below).
+  cancel: 'CANCELED',
+  canceled: 'CANCELED',
+  cancelled: 'CANCELED',
+  取消: 'CANCELED',
+  作废: 'CANCELED',
+  不做了: 'CANCELED',
 }
 
 export const PRIORITY_KEYWORDS: Record<string, Priority> = {
@@ -39,6 +54,7 @@ export const PRIORITY_KEYWORDS: Record<string, Priority> = {
   中: 'MEDIUM',
   medium: 'MEDIUM',
   P3: 'LOW',
+  P4: 'LOW',
   低: 'LOW',
   low: 'LOW',
 }
@@ -175,8 +191,9 @@ export function parseQuickDispatch(
       actions.push({
         type: 'create',
         title,
-        status: status ?? 'TODO',
-        priority: priority ?? 'MEDIUM',
+        status: status === null || status === 'CANCELED' ? 'TODO' : status,
+        // LUM-1284: no priority keyword → NONE (not assessed); never invent one.
+        priority: priority ?? 'NONE',
         projectId: project?.id ?? null,
         projectName: project?.name ?? null,
         assigneeActorId: assignee?.actorId ?? null,

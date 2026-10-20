@@ -9,8 +9,9 @@ import {
 } from '@tanstack/react-query'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import type {
+  SprintAttentionResponse,
+  SprintAttentionScope,
   SprintBurnupResponse,
-  SprintTeamPerformanceResponse,
 } from '@/lib/api-client/sprints'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
@@ -323,23 +324,30 @@ export function useSprintBurnup(sprintId: string | null) {
 }
 
 // ---------------------------------------------------------------------------
-// useSprintTeamPerformance
+// useSprintAttention
 // ---------------------------------------------------------------------------
 
-export function useSprintTeamPerformance(sprintId: string | null) {
-  const query = useQuery<SprintTeamPerformanceResponse | null>({
+/**
+ * LUM-1278 — the attention-first Sprint page's single read: queue, per-task
+ * trust + verified, stages and cost. `scope` picks team-wide or "mine".
+ */
+export function useSprintAttention(
+  sprintId: string | null,
+  scope: SprintAttentionScope = 'team'
+) {
+  const query = useQuery<SprintAttentionResponse | null>({
     queryKey: sprintId
-      ? queryKeys.sprints.teamPerformance(sprintId)
-      : ['sprints', 'teamPerformance', 'disabled'],
+      ? queryKeys.sprints.attention(sprintId, scope)
+      : ['sprints', 'attention', 'disabled'],
     queryFn: async () => {
-      const res = await sprintsClient.getTeamPerformance(sprintId as string)
+      const res = await sprintsClient.getAttention(sprintId as string, scope)
       return res ?? null
     },
     enabled: !!sprintId,
   })
 
   return {
-    performance: query.data ?? null,
+    attention: query.data ?? null,
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
   }

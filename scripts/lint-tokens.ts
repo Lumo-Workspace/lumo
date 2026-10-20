@@ -17,6 +17,8 @@
  *   4. Free-form type classes in app UI (LUM-1244) — see TYPE_SCALE_* below.
  *      App UI uses only the six semantic tiers (text-caption / text-body /
  *      text-body-strong / text-title / text-heading / text-display).
+ *   5. Tailwind v3 CSS-variable shorthand in arbitrary values (LUM-1277) —
+ *      see CSS_VAR_SHORTHAND_RE below.
  *
  * Baseline gate
  *   The repo carries ~2 000 pre-existing violations. A strict gate
@@ -44,6 +46,7 @@ export type Rule =
   | 'shadow'
   | 'zindex'
   | 'type-scale'
+  | 'css-var-syntax'
 
 export type Violation = {
   file: string
@@ -78,10 +81,6 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // ARE the visual payload (not semantic colors), same rationale as the
   // icon set above.
   /^components\/ui\/shadcn-io\/aurora-background\/index\.tsx$/,
-  // Categorical tag palette (six fixed hues hashed onto inline tag badges) —
-  // decorative category colors, not semantic, so the hex stops are payload.
-  // Isolated to this module so the rest of the timeline stays tokenized.
-  /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
   // Tag color presets the user picks from (bright categorical palette) +
   // the custom-hex input's example placeholder — the raw hex IS the payload
   // stored on the tag, not a semantic token. Confined to this module.
@@ -94,8 +93,9 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // written into the document (TipTap marks), so the raw hex is payload data,
   // not a CSS token. Confined to this module.
   /\/bubble-menu\/editor-colors\.ts$/,
-  // Document tag color palettes (hashed onto tag badges / picker presets) —
-  // payload hex stored on the tag, not a CSS token. Confined to this module.
+  // Tag colour palettes + the light/dark derivation every tag renderer uses
+  // (LUM-1276) — payload hex stored on / hashed onto tags, not a CSS token.
+  // Confined to this module.
   /\/document\/tag-colors\.ts$/,
   // Payload color constants (e.g. the default Sentry "bug" tag color) — hex
   // stored as data in the DB, not a CSS token. Confined to this module.
@@ -213,6 +213,19 @@ const TEXT_BASE_RE = /(?<![-\w])text-base(?![-\w])/g
 const MD_TIER_RE =
   /(?<![-\w])md:text-(?:caption|body|body-strong|title|heading|display)(?![-\w])/
 
+// ─── CSS-variable arbitrary values (LUM-1277) ─────────────────────────────────
+// Tailwind v3 read a bare variable inside brackets (width with the sidebar
+// variable in square brackets) as `width: var(...)`. Tailwind v4 dropped that
+// shorthand: the class still compiles, but to an EMPTY rule, so the utility
+// silently does nothing (the collapsible sidebar overlapped the main panel;
+// Radix transform-origin / available-height never applied). v4 spells it
+// with parentheses, e.g. w-(--sidebar-width), or with an explicit var() in
+// brackets. Flags any utility whose bracket value starts with two dashes,
+// with or without a variant prefix. Runs before the colour ALLOWLIST: this
+// is a correctness bug, not a token-discipline one, so no file is exempt.
+const CSS_VAR_SYNTAX_SCOPE_RE = /^(?:app|components|ee)\/.+\.[jt]sx?$/
+const CSS_VAR_SHORTHAND_RE = /[\w-]+-\[--[^\]\s'"`]*\]/g
+
 export function isTypeScaleScoped(relPath: string): boolean {
   const p = normalizePath(relPath)
   return (
@@ -239,10 +252,13 @@ export function detectViolations(
   relPath: string,
   content: string
 ): Violation[] {
-  if (isAllowed(relPath)) return []
   // Skip co-located test files (routinely contain test-data colors).
   if (/\.test\.[tj]sx?$/.test(relPath)) return []
   const out: Violation[] = []
+  if (CSS_VAR_SYNTAX_SCOPE_RE.test(normalizePath(relPath))) {
+    out.push(...detectCssVarShorthand(relPath, content))
+  }
+  if (isAllowed(relPath)) return out
   const typeScale = isTypeScaleScoped(relPath)
   const lines = content.split('\n')
   for (let i = 0; i < lines.length; i++) {
@@ -331,6 +347,26 @@ export function detectViolations(
   return out
 }
 
+function detectCssVarShorthand(relPath: string, content: string): Violation[] {
+  const out: Violation[] = []
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    CSS_VAR_SHORTHAND_RE.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = CSS_VAR_SHORTHAND_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'css-var-syntax',
+      })
+    }
+  }
+  return out
+}
+
 const RULE_LABELS: Record<Rule, string> = {
   hex: 'hex literal  ',
   palette: 'palette class',
@@ -339,6 +375,21 @@ const RULE_LABELS: Record<Rule, string> = {
   shadow: 'raw shadow   ',
   zindex: 'arbitrary z  ',
   'type-scale': 'type scale   ',
+  'css-var-syntax': 'v3 css var   ',
+}
+
+/**
+ * Rules that are correctness bugs rather than token debt: any hit fails the
+ * gate, whatever the baseline says (the baseline can't grandfather them).
+ */
+export const ZERO_TOLERANCE_RULES: ReadonlySet<Rule> = new Set<Rule>([
+  'css-var-syntax',
+])
+
+export function findZeroToleranceViolations(
+  violations: Violation[]
+): Violation[] {
+  return violations.filter(v => ZERO_TOLERANCE_RULES.has(v.rule))
 }
 
 export function countByFile(violations: Violation[]): Baseline {
@@ -442,6 +493,22 @@ function main(): void {
       )
     }
     return
+  }
+
+  const hard = findZeroToleranceViolations(violations)
+  if (hard.length > 0) {
+    for (const v of hard) {
+      process.stderr.write(
+        `${v.file}:${v.line}:${v.col}  ${RULE_LABELS[v.rule]}  ${v.match}\n`
+      )
+    }
+    process.stderr.write(
+      '\n✗ lint-tokens: Tailwind v3 CSS-variable shorthand compiles to an empty\n'
+    )
+    process.stderr.write(
+      '  rule in Tailwind v4. Use parentheses, e.g. w-(--sidebar-width).\n'
+    )
+    process.exit(1)
   }
 
   const baseline = loadBaseline(root)

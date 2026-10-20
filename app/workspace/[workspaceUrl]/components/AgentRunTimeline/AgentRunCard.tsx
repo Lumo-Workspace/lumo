@@ -1,9 +1,14 @@
 'use client'
 
-import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
+import { ChevronRight, Bot, Sparkles } from 'lucide-react'
 import { MemberAvatar } from '@/components/MemberAvatar'
+import { Badge } from '@/components/ui/badge'
+import {
+  CollapsibleCard,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { deriveRunDigest } from './derive-run-digest'
@@ -26,8 +31,6 @@ export function AgentRunCard({
   defaultExpanded = false,
 }: AgentRunCardProps) {
   const intl = useIntl()
-  const [expanded, setExpanded] = useState(defaultExpanded)
-
   const preDedupe = runOverstated(run)
   const preDedupeNotice = intl.formatMessage({
     id: 'usage.preDedupe.notice',
@@ -45,22 +48,17 @@ export function AgentRunCard({
   })
 
   return (
-    <div className='border border-border rounded-lg bg-card'>
-      <button
-        type='button'
-        onClick={() => setExpanded(v => !v)}
-        className='w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted transition-colors rounded-lg'
-      >
-        {expanded ? (
-          <ChevronDown className='size-4 text-muted-foreground shrink-0' />
-        ) : (
-          <ChevronRight className='size-4 text-muted-foreground shrink-0' />
-        )}
-        {/* leading-4 caps the pill at 20px (py-0.5 + 16px line) so the avatar,
-            not the pill, sets the row height — keeps this header the same
-            height as the token-usage summary header above. */}
-        <span
-          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption font-semibold shrink-0'
+    <CollapsibleCard defaultOpen={defaultExpanded}>
+      <CollapsibleTrigger className='w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted transition-colors rounded-lg'>
+        <ChevronRight
+          className='size-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-90'
+          aria-hidden
+        />
+        <Badge
+          variant='muted'
+          size='sm'
+          shape='square'
+          className='shrink-0 gap-1.5 font-semibold text-foreground'
           data-testid='run-number'
         >
           <Bot className='size-3' />
@@ -68,7 +66,7 @@ export function AgentRunCard({
             { id: 'agentRun.runNumber', defaultMessage: 'Run #{n}' },
             { n: run.runNumber }
           )}
-        </span>
+        </Badge>
         {run.member && (
           <span
             className='flex items-center gap-1.5 shrink-0'
@@ -169,7 +167,7 @@ export function AgentRunCard({
             </>
           )}
         </span>
-      </button>
+      </CollapsibleTrigger>
 
       {run.runSummary ? (
         <div
@@ -203,7 +201,7 @@ export function AgentRunCard({
         </div>
       ) : null}
 
-      {expanded && (
+      <CollapsibleContent>
         <div className='border-t border-border/80 px-4 py-2'>
           {run.attribution && (
             <RunAttributionPanel attribution={run.attribution} />
@@ -243,7 +241,7 @@ export function AgentRunCard({
           {/* LUM-944: shown only to the session's member or a workspace OWNER. */}
           {run.sessionId && <RunRawRecordDelete sessionId={run.sessionId} />}
         </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </CollapsibleCard>
   )
 }

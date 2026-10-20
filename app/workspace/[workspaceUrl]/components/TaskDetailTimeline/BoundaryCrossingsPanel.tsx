@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import {
   Collapsible,
+  CollapsibleCard,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
@@ -31,6 +32,8 @@ import { tasksClient } from '@/lib/api-client'
 import { PluginSlot } from '@/lib/plugins/client'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -52,6 +55,14 @@ import { systemExplainState } from './boundary-explain'
 import { groupCrossings, type CrossingGroup } from './crossing-groups'
 import { Badge as UiBadge, badgeVariants } from '@/components/ui/badge'
 export { systemExplainState } from './boundary-explain'
+
+// Compact action buttons keep their 14px icons: Button's base `[&_svg]:size-4`
+// would otherwise win over the size on the icon itself.
+const COMPACT_ICON = '[&_svg]:size-3.5'
+// Toned outline actions: the shared outline Button plus a feedback tone. The
+// icon and label carry the meaning too, so colour is never the only signal.
+const TONE_DANGER = `${COMPACT_ICON} border-danger-border text-danger-text hover:bg-danger-subtle hover:text-danger-text`
+const TONE_WARNING = `${COMPACT_ICON} border-warning-border text-warning-text hover:bg-warning-subtle hover:text-warning-text`
 
 /**
  * Returns 'advisory' when the crossing is advisory (non-blocking), null when
@@ -433,12 +444,12 @@ export function BoundaryCrossingsPanel({
       {/* LUM-496 prep (Task 5): keeps an old deep link (e.g. #boundary-crossings)
       landing on the panel even after the id it targets moves to legacyAnchorId. */}
       {legacyAnchorId && <span id={legacyAnchorId} />}
-      <Collapsible
+      <CollapsibleCard
         open={expanded}
         onOpenChange={setExpanded}
         id={anchorId}
         ref={panelRef}
-        className={`overflow-hidden rounded-lg border ${
+        className={`overflow-hidden ${
           blockingCount > 0 ? 'border-danger-border' : 'border-border'
         }`}
       >
@@ -560,11 +571,11 @@ export function BoundaryCrossingsPanel({
           affordance below is unchanged. */}
             <div className='space-y-2'>
               {groups.map(g => (
-                <Collapsible
+                <CollapsibleCard
                   key={g.category}
                   open={isGroupOpen(g)}
                   onOpenChange={() => toggleGroup(g)}
-                  className='overflow-hidden rounded-md border border-border'
+                  className='overflow-hidden rounded-md'
                 >
                   <CollapsibleTrigger
                     data-testid={`crossing-group-${g.category}`}
@@ -662,7 +673,7 @@ export function BoundaryCrossingsPanel({
                       ))}
                     </div>
                   </CollapsibleContent>
-                </Collapsible>
+                </CollapsibleCard>
               ))}
             </div>
 
@@ -687,7 +698,7 @@ export function BoundaryCrossingsPanel({
             </p>
           </div>
         </CollapsibleContent>
-      </Collapsible>
+      </CollapsibleCard>
     </>
   )
 }
@@ -771,10 +782,10 @@ function CrossingRow({
     c.disposition === 'CONFIRMED' ? 'FALSE_POSITIVE' : 'CONFIRMED'
 
   return (
-    <Collapsible
+    <CollapsibleCard
       open={!collapsed}
       onOpenChange={o => setCollapsed(!o)}
-      className='rounded-md border border-border bg-background px-3 py-2.5'
+      className='rounded-md bg-background px-3 py-2.5'
     >
       {/* A div, not a button: the header holds InfoTooltip buttons, which
           can't nest inside one — so Enter/Space are wired by hand. */}
@@ -1134,12 +1145,14 @@ function CrossingRow({
             )
           }
           return (
-            <button
+            <Button
               type='button'
+              variant='outline'
+              size='sm'
               data-testid={`crossing-explain-btn-${c.id}`}
               disabled={explainLoading || pending}
               onClick={requestExplanation}
-              className='mt-1.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
+              className='mt-1.5'
             >
               {explainLoading
                 ? intl.formatMessage({
@@ -1150,7 +1163,7 @@ function CrossingRow({
                     id: 'boundary.explain.button',
                     defaultMessage: 'Explain',
                   })}
-            </button>
+            </Button>
           )
         })()}
 
@@ -1277,25 +1290,27 @@ function CrossingRow({
                 })}
               </span>
             ) : (
-              <button
+              <Button
                 type='button'
+                variant='link'
                 data-testid={`boundary-revoke-rule-${c.id}`}
                 disabled={pending}
                 onClick={onRevokeRule}
-                className='ml-2 underline hover:text-foreground disabled:opacity-50'
+                size='inline'
+                className='ml-2 text-caption font-normal text-current underline hover:text-foreground'
               >
                 {intl.formatMessage({
                   id: 'boundary.panel.revokeRule',
                   defaultMessage: 'Revoke rule',
                 })}
-              </button>
+              </Button>
             )}
           </p>
         )}
 
         {open && (
           <div className='mt-2.5 space-y-2'>
-            <input
+            <Input
               type='text'
               value={note}
               disabled={pending}
@@ -1304,7 +1319,7 @@ function CrossingRow({
                 id: 'boundary.panel.notePlaceholder',
                 defaultMessage: 'Disposition note (optional)',
               })}
-              className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              className='h-control-sm text-caption md:text-caption'
             />
             {/* LUM-751: per-repository auto-handle opt-in — only for a
               suppressible category with a coalescing target; never on the
@@ -1380,7 +1395,7 @@ function CrossingRow({
                 </p>
               )}
             {c.suppressible && suppress && (
-              <input
+              <Input
                 type='text'
                 data-testid={`boundary-suppress-reason-${c.id}`}
                 value={suppressReason}
@@ -1391,33 +1406,37 @@ function CrossingRow({
                   defaultMessage:
                     'Why this is never a real crossing here (optional)',
                 })}
-                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                className='h-control-sm text-caption md:text-caption'
               />
             )}
             <div className='flex items-center gap-2'>
-              <button
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-false-positive-${c.id}`}
+                className={COMPACT_ICON}
                 disabled={pending}
                 onClick={() => onDisposition('FALSE_POSITIVE')}
-                className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 <FlagOff className='size-3.5' aria-hidden />
                 {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-confirm-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition('CONFIRMED')}
-                className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-caption text-danger-text hover:bg-danger-subtle disabled:opacity-50'
+                className={TONE_DANGER}
               >
                 <AlertTriangle className='size-3.5' aria-hidden />
                 {intl.formatMessage({
                   id: 'boundary.panel.confirmCrossing',
                   defaultMessage: 'Confirm crossing',
                 })}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1427,7 +1446,7 @@ function CrossingRow({
           undispositioned, which re-blocks Done). Same human-only write path. */}
         {!open && (
           <div className='mt-2.5 space-y-2'>
-            <input
+            <Input
               type='text'
               value={note}
               disabled={pending}
@@ -1436,15 +1455,17 @@ function CrossingRow({
                 id: 'boundary.panel.redispositionNotePlaceholder',
                 defaultMessage: 'Reason for the change (optional)',
               })}
-              className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-caption text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              className='h-control-sm text-caption md:text-caption'
             />
             <div className='flex flex-wrap items-center gap-2'>
-              <button
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-change-${c.id}`}
+                className={COMPACT_ICON}
                 disabled={pending}
                 onClick={() => onDisposition(otherVerdict)}
-                className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
               >
                 <FlagOff className='size-3.5' aria-hidden />
                 {intl.formatMessage(
@@ -1454,20 +1475,22 @@ function CrossingRow({
                   },
                   { verdict: boundaryDispositionLabel(otherVerdict, intl) }
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='outline'
+                size='sm'
                 data-testid={`boundary-reopen-${c.id}`}
                 disabled={pending}
                 onClick={() => onDisposition('OPEN')}
-                className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-caption text-warning-text hover:bg-warning-subtle disabled:opacity-50'
+                className={TONE_WARNING}
               >
                 <Unlock className='size-3.5' aria-hidden />
                 {intl.formatMessage({
                   id: 'boundary.panel.reopen',
                   defaultMessage: 'Undo disposition (re-block Done)',
                 })}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1534,23 +1557,25 @@ function CrossingRow({
                   'Confirmed and unremediated — consider opening a fix.',
               })}
             </span>
-            <button
+            <Button
               type='button'
+              variant='outline'
+              size='sm'
               data-testid={`boundary-spawn-remediation-${c.id}`}
               disabled={pending}
               onClick={onSpawnRemediation}
-              className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-caption text-foreground hover:bg-muted disabled:opacity-50'
+              className={`ml-auto ${COMPACT_ICON}`}
             >
               <Plus className='size-3.5' aria-hidden />
               {intl.formatMessage({
                 id: 'boundary.panel.spawnRemediation',
                 defaultMessage: 'Spawn remediation task',
               })}
-            </button>
+            </Button>
           </div>
         )}
       </CollapsibleContent>
-    </Collapsible>
+    </CollapsibleCard>
   )
 }
 

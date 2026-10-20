@@ -10,6 +10,11 @@ import { getActorClerkId } from '@/lib/actor'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
+import type { ProjectStatus } from '@prisma/client'
+import {
+  isProjectCompleted,
+  isValidProjectDateWindow,
+} from '@/shared/src/project-lifecycle'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,6 +23,12 @@ export interface UpdateProjectInput {
   description?: string | null | undefined
   isIdea?: boolean | undefined
   ownerId?: string | null | undefined
+  /** LUM-1285: human ruling — the CLI gates it behind a confirmation. */
+  status?: ProjectStatus | undefined
+  startDate?: Date | null | undefined
+  targetDate?: Date | null | undefined
+  /** true stamps archivedAt (kept if already archived); false clears it. */
+  archived?: boolean | undefined
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -84,6 +95,7 @@ export const projectService = {
         IN_PROGRESS: 0,
         IN_REVIEW: 0,
         DONE: 0,
+        CANCELED: 0,
       }
       const { owner, ...rest } = p
       // Owner ids exposed to the API are actor ids — the same id space the
@@ -97,6 +109,8 @@ export const projectService = {
         inProgressCount: counts.IN_PROGRESS,
         inReviewCount: counts.IN_REVIEW,
         doneCount: counts.DONE,
+        // LUM-1285: derived for display only — never stored.
+        completed: isProjectCompleted(counts),
         owner:
           owner && ownerActorId
             ? {
@@ -193,6 +207,25 @@ export const projectService = {
     if (input.name !== undefined) data.name = input.name
     if (input.description !== undefined) data.description = input.description
     if (input.isIdea !== undefined) data.isIdea = input.isIdea
+    if (input.status !== undefined) data.status = input.status
+    if (input.startDate !== undefined) data.startDate = input.startDate
+    if (input.targetDate !== undefined) data.targetDate = input.targetDate
+    // The window is checked against the stored side too, so a lone --target
+    // before the existing start is refused as well.
+    const nextStart =
+      input.startDate !== undefined ? input.startDate : project.startDate
+    const nextTarget =
+      input.targetDate !== undefined ? input.targetDate : project.targetDate
+    if (!isValidProjectDateWindow(nextStart, nextTarget)) {
+      throw Object.assign(
+        new Error('Target date must be on or after the start date'),
+        { status: 400 }
+      )
+    }
+    if (input.archived !== undefined) {
+      if (!input.archived) data.archivedAt = null
+      else if (!project.archivedAt) data.archivedAt = new Date()
+    }
     if (input.ownerId !== undefined) {
       if (input.ownerId !== null) {
         const ownerMember = await memberRepository.findByActorId(input.ownerId)

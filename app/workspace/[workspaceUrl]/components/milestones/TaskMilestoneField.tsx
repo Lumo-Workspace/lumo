@@ -12,12 +12,15 @@ import { cn } from '@/lib/utils'
 import { FieldValueSkeleton } from '../fields'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useFormatDate } from '../../hooks/useFormatDate'
+import { fieldTriggerProps, type FieldVariant } from '../fields/shared'
 
 interface Props {
   projectId: string
   value: string | null
   onChange: (milestoneId: string | null) => void
   triggerClassName?: string
+  /** LUM-1274: `ghost` = borderless inline row (task detail panel). */
+  variant?: FieldVariant
   /**
    * SSR-prefetched name of the currently-bound milestone. Lets the trigger
    * render the correct name on first paint instead of flickering blank until
@@ -45,6 +48,7 @@ export function TaskMilestoneField({
   value,
   onChange,
   triggerClassName,
+  variant,
   milestone,
 }: Props) {
   const intl = useIntl()
@@ -84,7 +88,10 @@ export function TaskMilestoneField({
         if (open) setHasOpened(true)
       }}
     >
-      <SelectTrigger className={cn('max-w-full', triggerClassName)}>
+      <SelectTrigger
+        {...fieldTriggerProps(variant)}
+        className={cn('max-w-full', triggerClassName)}
+      >
         {triggerName ? (
           <span className='min-w-0 truncate'>
             {triggerName}

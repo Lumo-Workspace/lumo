@@ -98,6 +98,7 @@ describe('ProjectMilestonesOverview', () => {
           IN_PROGRESS: 1,
           IN_REVIEW: 0,
           DONE: 8,
+          CANCELED: 0,
         } satisfies Counts,
       }),
       milestone({
@@ -110,6 +111,7 @@ describe('ProjectMilestonesOverview', () => {
           IN_PROGRESS: 0,
           IN_REVIEW: 0,
           DONE: 0,
+          CANCELED: 0,
         } satisfies Counts,
       }),
     ])

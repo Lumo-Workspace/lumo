@@ -185,4 +185,21 @@ export const activityRepository = {
       select: { taskId: true, payload: true },
     })
   },
+
+  /**
+   * LUM-1278 attention read model: STATUS_CHANGED rows (with who made the
+   * change) for the given tasks in the caller's workspace, oldest first.
+   */
+  async listStatusChangesByTaskIds(workspaceId: string, taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.taskActivity.findMany({
+      where: {
+        taskId: { in: taskIds },
+        type: 'STATUS_CHANGED',
+        task: { workspaceId },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { taskId: true, actorId: true, payload: true, createdAt: true },
+    })
+  },
 }

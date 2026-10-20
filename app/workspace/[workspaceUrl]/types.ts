@@ -53,13 +53,15 @@ export interface ActorInfo {
   agent?: { id: string; name: string; avatarColor: string } | null
 }
 
-export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+/** LUM-1284: NONE = not assessed (the default for new tasks). */
+export type ApiPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiStatus =
   | 'BACKLOG'
   | 'TODO'
   | 'IN_PROGRESS'
   | 'IN_REVIEW'
   | 'DONE'
+  | 'CANCELED'
 
 // ─── Task pre-fill fields (used for draft restoration and NewTaskModal) ──────
 
@@ -137,6 +139,27 @@ export interface ApiProject {
   doneCount: number
   owner: { id: string; name: string } | null
   kanbanViewId?: string
+  /** LUM-1285: human ruling; absent on a stale cached row → ACTIVE. */
+  status?: ApiProjectStatus
+  startDate?: string | null
+  targetDate?: string | null
+  archivedAt?: string | null
+  /** Derived by the server (≥1 task, none open); never stored. */
+  completed?: boolean
+}
+
+export type ApiProjectStatus = 'ACTIVE' | 'PAUSED' | 'CANCELED'
+
+/** Fields the project page may PATCH (`PATCH /api/projects/:id`). */
+export interface ProjectUpdateFields {
+  name?: string
+  description?: string
+  ownerId?: string | null
+  /** LUM-1285 */
+  status?: ApiProjectStatus
+  startDate?: string | null
+  targetDate?: string | null
+  archived?: boolean
 }
 
 export type AgentStatusValue =
@@ -297,6 +320,11 @@ export interface TaskDetail {
   }
   assigneeActorId: string | null
   assignee: ActorInfo | null
+  /**
+   * LUM-1283: the creating WorkspaceMember (always a user); null when
+   * unrecorded. Optional for older payloads.
+   */
+  createdBy?: { id: string; clerkId: string } | null
   description: string | null
   updatedAt: string
   dueDate?: string | null

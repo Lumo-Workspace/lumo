@@ -334,7 +334,7 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
     write('package-lock.json', HEAD_LOCK)
     const { result, out } = await run(
       { deps: true, failOn: 'high' },
-      { fetchImpl: osvApi().fetch, now: NOW }
+      { osvFetch: osvApi().fetch, now: () => NOW }
     )
     expect(result).toBe(EXIT_FAIL_ON)
     const lines = out.split('\n')
@@ -358,7 +358,7 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
     write('package-lock.json', HEAD_LOCK)
     const human = await run(
       { deps: true },
-      { fetchImpl: unreachableFetch, now: NOW }
+      { osvFetch: unreachableFetch, now: () => NOW }
     )
     expect(human.result).toBe(1)
     expect(human.out.split('\n')[0]).toBe(
@@ -367,7 +367,7 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
     expect(human.out).toContain('Incomplete: DEPS — api.osv.dev unreachable')
     const json = await run(
       { deps: true, json: true },
-      { fetchImpl: unreachableFetch, now: NOW }
+      { osvFetch: unreachableFetch, now: () => NOW }
     )
     expect(json.result).toBe(1)
     expect(JSON.parse(json.out)).toMatchObject({
@@ -382,7 +382,7 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
     write('package-lock.json', HEAD_LOCK)
     const { result, out } = await run(
       { deps: true, json: true },
-      { fetchImpl: osvApi().fetch, now: NOW }
+      { osvFetch: osvApi().fetch, now: () => NOW }
     )
     expect(result).toBe(0)
     const json = JSON.parse(out)
@@ -407,10 +407,12 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
     })
   })
 
-  it('--full / --offline with --secrets only is a usage error', async () => {
+  it('--full with --secrets only is a usage error; --offline is not (it also covers the server context)', async () => {
     const { result, err } = await run({ secrets: true, full: true }, {})
     expect(result).toBe(EXIT_USAGE)
-    expect(err).toMatch(/--full and --offline apply to --deps/)
+    expect(err).toMatch(/--full applies to --deps/)
+    const offline = await run({ secrets: true, offline: true }, {})
+    expect(offline.result).toBe(0)
   })
 
   describe('osv-scanner (fake binary on PATH)', () => {
@@ -514,6 +516,22 @@ describe('scanDeps / securityScanCommand on a checkout', () => {
       }
       expect(OSV_SCANNER_INSTALL_HINT).toMatch(/brew install osv-scanner/)
       expect(OSV_SCANNER_INSTALL_HINT).toMatch(/never downloads it/)
+    })
+
+    it('--offline in fast mode without osv-scanner → DEPS incomplete, not a crash, not clean', async () => {
+      const empty = fs.mkdtempSync(path.join(sb.tmp, 'empty-'))
+      const base = resolveScanBase({ kind: 'default' }, sb.main)
+      const saved = process.env.PATH
+      process.env.PATH = empty
+      try {
+        const r = await scanDeps(base, { full: false, offline: true, now: NOW })
+        expect(r.findings).toEqual([])
+        expect(r.incomplete).toMatch(
+          /^--offline: osv-scanner is not on PATH.*unknown, not clean$/
+        )
+      } finally {
+        process.env.PATH = saved
+      }
     })
   })
 })

@@ -229,3 +229,50 @@ describe('taskCliService.showFromCli — linked pull requests (LUM-731)', () => 
     expect(result.pullRequests).toEqual([])
   })
 })
+
+describe('taskCliService.showFromCli — createdBy (LUM-1283)', () => {
+  const show = () =>
+    taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+  // The beforeEach fixture plus a createdBy relation.
+  const detailWith = async (createdBy: unknown) => {
+    const fixture = (await mockGetDetail()) as object
+    mockGetDetail.mockResolvedValueOnce({ ...fixture, createdBy })
+  }
+
+  it('returns the creating member as name and email', async () => {
+    await detailWith({ id: 'mem-1', clerkId: 'user_1' })
+    const { authService } = jest.requireMock('@/lib/services/auth.service') as {
+      authService: { fetchUserProfile: jest.Mock }
+    }
+    authService.fetchUserProfile.mockResolvedValueOnce({
+      name: 'Alice',
+      email: 'alice@example.com',
+    })
+    expect((await show()).createdBy).toEqual({
+      name: 'Alice',
+      email: 'alice@example.com',
+    })
+    expect(authService.fetchUserProfile).toHaveBeenCalledWith('user_1')
+  })
+
+  it('degrades to a placeholder name when the Clerk lookup fails', async () => {
+    await detailWith({ id: 'mem-1', clerkId: 'user_gone' })
+    const { authService } = jest.requireMock('@/lib/services/auth.service') as {
+      authService: { fetchUserProfile: jest.Mock }
+    }
+    authService.fetchUserProfile.mockRejectedValueOnce(new Error('404'))
+    expect((await show()).createdBy).toEqual({
+      name: '(unknown member)',
+      email: null,
+    })
+  })
+
+  it('returns null when no creator is recorded', async () => {
+    await detailWith(null)
+    expect((await show()).createdBy).toBeNull()
+  })
+})

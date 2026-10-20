@@ -1,15 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { Editor } from '@tiptap/core'
 import { AlignLeft, AlignCenter, AlignRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEditorSubmenu } from './useEditorSubmenu'
 
 const ALIGN_OPTIONS = [
   {
@@ -41,17 +47,8 @@ export function AlignMenu({
   alignRight: boolean
 }) {
   const intl = useIntl()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  const { open, setOpen, triggerProps, contentProps, itemProps } =
+    useEditorSubmenu(editor)
 
   const activeFlags = [alignLeft, alignCenter, alignRight]
   const options = ALIGN_OPTIONS.map((o, i) => ({
@@ -62,54 +59,43 @@ export function AlignMenu({
   const label = intl.formatMessage({ id: 'editor.align' })
 
   return (
-    <div ref={ref} className='relative'>
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type='button'
-            aria-label={label}
-            aria-haspopup='menu'
-            aria-expanded={open}
-            onMouseDown={e => {
-              e.preventDefault()
-              setOpen(o => !o)
-            }}
-            className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
-          >
-            {current.icon}
-            <ChevronDown size={12} />
-          </button>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              aria-label={label}
+              {...triggerProps}
+              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground transition-colors'
+            >
+              {current.icon}
+              <ChevronDown size={12} />
+            </button>
+          </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
-      {open && (
-        <div
-          role='menu'
-          className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
-        >
-          {options.map(o => (
-            <button
-              key={o.id}
-              role='menuitem'
-              type='button'
-              onMouseDown={e => {
-                e.preventDefault()
-                editor.chain().focus().setTextAlign(o.value).run()
-                setOpen(false)
-              }}
-              className={cn(
-                'w-full text-left flex items-center gap-2 px-3 py-1.5 text-caption transition-colors',
-                o.active
-                  ? 'bg-accent text-accent-foreground font-semibold'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              {o.icon}
-              {intl.formatMessage({ id: o.id })}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      <DropdownMenuContent
+        align='start'
+        className='min-w-[140px]'
+        {...contentProps}
+      >
+        {options.map(o => (
+          <DropdownMenuItem
+            key={o.id}
+            {...itemProps}
+            onSelect={() => editor.chain().focus().setTextAlign(o.value).run()}
+            className={cn(
+              'hover:bg-accent hover:text-accent-foreground',
+              o.active && 'bg-accent text-accent-foreground font-semibold'
+            )}
+          >
+            {o.icon}
+            {intl.formatMessage({ id: o.id })}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

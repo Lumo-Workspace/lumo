@@ -11,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { fieldTriggerProps, type FieldVariant } from './shared'
 import type { ApiProject } from '../../types'
 
 export interface ProjectSelectProps {
@@ -19,6 +20,8 @@ export interface ProjectSelectProps {
   projects: ApiProject[]
   placeholder?: string
   triggerClassName?: string
+  /** LUM-1274: `ghost` = borderless inline row (task detail panel). */
+  variant?: FieldVariant
 }
 
 export function ProjectSelect({
@@ -27,13 +30,17 @@ export function ProjectSelect({
   projects,
   placeholder = 'Select project',
   triggerClassName,
+  variant,
 }: ProjectSelectProps) {
   const project = projects.find(p => p.id === value)
   return (
     <Select value={value} onValueChange={onChange}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <SelectTrigger className={triggerClassName}>
+          <SelectTrigger
+            {...fieldTriggerProps(variant)}
+            className={triggerClassName}
+          >
             {project ? (
               <span>{project.name}</span>
             ) : (

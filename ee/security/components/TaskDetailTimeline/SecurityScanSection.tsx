@@ -63,13 +63,16 @@ import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
 import {
   Collapsible,
+  CollapsibleCard,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 
 /** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
@@ -110,9 +113,9 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
   const blocking = blockingFindings(data?.prs ?? [])
   if (blocking.length === 0) return null
   return (
-    <div
+    <Card
       data-testid='security-blocking-findings'
-      className='overflow-hidden rounded-lg border border-danger-border'
+      className='overflow-hidden border-danger-border'
     >
       <div className='flex flex-wrap items-center gap-2 bg-danger-subtle px-4 py-2.5'>
         <span className='text-body-strong text-foreground'>
@@ -135,7 +138,7 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -714,18 +717,19 @@ function ConfirmAllSuggested({
   }
   return (
     <div className='mt-2 flex flex-wrap items-center gap-2'>
-      <button
+      <Button
         type='button'
+        variant='outline'
+        size='sm'
         data-testid='security-confirm-all-suggested'
         disabled={submitting}
         onClick={confirmAll}
-        className='rounded-sm border border-border px-2 py-0.5 text-caption text-foreground hover:bg-muted'
       >
         {intl.formatMessage(
           { id: 'securityScan.action.confirmAllSuggested' },
           { count }
         )}
-      </button>
+      </Button>
       {error && <span className='text-caption text-danger-text'>{error}</span>}
     </div>
   )
@@ -1109,7 +1113,6 @@ function FindingRow({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [chainOpen, setChainOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -1176,14 +1179,14 @@ function FindingRow({
       : 'text-muted-foreground'
 
   return (
-    <Collapsible
+    <CollapsibleCard
       open={open}
       onOpenChange={setOpen}
       data-testid={`security-finding-${finding.id}`}
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
       data-queue-exit={finding.queueExit ?? undefined}
-      className={`rounded-md border border-border bg-background px-2.5 py-2${
+      className={`rounded-md bg-background px-2.5 py-2${
         muted && !open ? ' opacity-60' : ''
       }`}
     >
@@ -1237,14 +1240,16 @@ function FindingRow({
               </span>
             )}
             {suggestedOpen && (
-              <span
+              <Badge
                 data-testid='finding-suggested'
-                className='rounded-sm border border-warning/40 px-1 text-warning-text'
+                variant='warning'
+                size='xs'
+                shape='square'
               >
                 {intl.formatMessage({
                   id: 'securityScan.suggested.falsePositive',
                 })}
-              </span>
+              </Badge>
             )}
             {finding.kind === 'DEPENDENCY' && (
               <span
@@ -1335,16 +1340,11 @@ function FindingRow({
           </div>
         )}
         {finding.callChain && finding.callChain.length > 0 && (
-          <div className='mt-0.5'>
-            <button
-              type='button'
-              aria-expanded={chainOpen}
-              onClick={() => setChainOpen(o => !o)}
-              className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
-            >
+          <Collapsible className='mt-0.5'>
+            <CollapsibleTrigger className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'>
               {intl.formatMessage({ id: 'securityScan.callChain' })}
-            </button>
-            {chainOpen && (
+            </CollapsibleTrigger>
+            <CollapsibleContent asChild>
               <ol
                 data-testid='finding-call-chain'
                 className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
@@ -1353,8 +1353,8 @@ function FindingRow({
                   <li key={i}>{`${edge.from} → ${edge.to}`}</li>
                 ))}
               </ol>
-            )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
         {/* LUM-1234: a REWARD_HACK row's `evidence` is event ids — its
               evidence is read from the server, with session access checked. */}
@@ -1379,21 +1379,22 @@ function FindingRow({
         )}
         {finding.disposition && !changing && (
           <div className='mt-2 flex flex-wrap items-center gap-1.5'>
-            <button
+            <Button
               type='button'
               data-testid='finding-change-ruling'
               onClick={() => setChanging(true)}
-              className={ACTION_BUTTON}
+              variant='outline'
+              size='sm'
             >
               {intl.formatMessage({ id: 'securityScan.action.changeRuling' })}
-            </button>
+            </Button>
           </div>
         )}
         {(!finding.disposition || changing) && (
           <div className='mt-2 flex flex-wrap items-center gap-1.5'>
             {pending === null ? (
               <>
-                <button
+                <Button
                   type='button'
                   aria-label={intl.formatMessage({
                     id: copied
@@ -1404,7 +1405,9 @@ function FindingRow({
                     id: 'securityScan.action.copyForAgent',
                   })}
                   onClick={copyForAgent}
-                  className={`${ACTION_BUTTON} inline-flex items-center gap-1`}
+                  variant='outline'
+                  size='sm'
+                  className='[&_svg]:size-3'
                 >
                   {copied ? (
                     <Check className='size-3' aria-hidden />
@@ -1416,43 +1419,46 @@ function FindingRow({
                       ? 'securityScan.action.copied'
                       : 'securityScan.action.copyForAgent',
                   })}
-                </button>
+                </Button>
                 {finding.disposition !== 'FALSE_POSITIVE' && (
-                  <button
+                  <Button
                     type='button'
                     onClick={() => setPending('FALSE_POSITIVE')}
-                    className={ACTION_BUTTON}
+                    variant='outline'
+                    size='sm'
                   >
                     {intl.formatMessage({
                       id: 'securityScan.action.falsePositive',
                     })}
-                  </button>
+                  </Button>
                 )}
                 {finding.disposition !== 'ACCEPTED_RISK' && (
-                  <button
+                  <Button
                     type='button'
                     onClick={() => setPending('ACCEPTED_RISK')}
-                    className={ACTION_BUTTON}
+                    variant='outline'
+                    size='sm'
                   >
                     {intl.formatMessage({
                       id: 'securityScan.action.acceptRisk',
                     })}
-                  </button>
+                  </Button>
                 )}
                 {finding.disposition && (
                   // LUM-1128 follow-up: revert a mistaken ruling (e.g. a
                   // CLI one) — the finding is open again and, if policy
                   // says so, blocks DONE again. Web only.
-                  <button
+                  <Button
                     type='button'
                     data-testid='finding-reopen'
                     onClick={() => setPending('OPEN')}
-                    className={ACTION_BUTTON}
+                    variant='outline'
+                    size='sm'
                   >
                     {intl.formatMessage({
                       id: 'securityScan.action.reopen',
                     })}
-                  </button>
+                  </Button>
                 )}
               </>
             ) : (
@@ -1464,7 +1470,7 @@ function FindingRow({
                     })}
                   </span>
                 ) : (
-                  <input
+                  <Input
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder={intl.formatMessage({
@@ -1473,29 +1479,30 @@ function FindingRow({
                     aria-label={intl.formatMessage({
                       id: 'securityScan.action.notePlaceholder',
                     })}
-                    className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
+                    className='h-control-sm min-w-[12rem] flex-1 text-caption md:text-caption'
                   />
                 )}
-                <button
+                <Button
                   type='button'
+                  size='sm'
                   disabled={submitting}
                   onClick={submit}
-                  className='text-caption text-foreground'
                 >
                   {intl.formatMessage({ id: 'securityScan.action.confirm' })}
-                </button>
-                <button
+                </Button>
+                <Button
                   type='button'
+                  variant='ghost'
+                  size='sm'
                   disabled={submitting}
                   onClick={() => {
                     setPending(null)
                     setChanging(false)
                     setNote('')
                   }}
-                  className='text-caption text-muted-foreground'
                 >
                   {intl.formatMessage({ id: 'securityScan.action.cancel' })}
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -1509,12 +1516,9 @@ function FindingRow({
           {error}
         </p>
       )}
-    </Collapsible>
+    </CollapsibleCard>
   )
 }
-
-const ACTION_BUTTON =
-  'h-7 rounded-md border border-border bg-background px-2.5 text-caption text-foreground hover:bg-muted'
 
 /** Severity · title · file:line — the part of a finding row that is always shown. */
 function FindingHeadline({

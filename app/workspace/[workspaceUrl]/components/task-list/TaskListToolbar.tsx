@@ -7,6 +7,11 @@ import { DisplayOptionsMenu } from '../DisplayOptionsMenu'
 import { ViewToggle } from '../ViewToggle'
 import type { CompletedFilter } from '../../utils/filterCompletedTasks'
 import type { TaskOrdering } from '../../utils/sortTasks'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
   completedFilter: CompletedFilter
@@ -75,19 +80,23 @@ export function TaskListToolbar({
         />
         <ViewToggle value={viewMode} onChange={onViewModeChange} />
         {onToggleSidebar && (
-          <button
-            type='button'
-            onClick={onToggleSidebar}
-            title={sidebarLabel}
-            aria-label={sidebarLabel}
-            className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-          >
-            {sidebarCollapsed ? (
-              <PanelRightOpen className='size-4' />
-            ) : (
-              <PanelRightClose className='size-4' />
-            )}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                onClick={onToggleSidebar}
+                aria-label={sidebarLabel}
+                className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+              >
+                {sidebarCollapsed ? (
+                  <PanelRightOpen className='size-4' />
+                ) : (
+                  <PanelRightClose className='size-4' />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{sidebarLabel}</TooltipContent>
+          </Tooltip>
         )}
       </div>
     </div>

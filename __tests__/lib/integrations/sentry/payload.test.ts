@@ -19,6 +19,7 @@ function fields(
     title: 'Boom',
     culprit: 'renderThing',
     level: 'error',
+    reportedLevel: 'error',
     webUrl: 'https://example.com/issues/1',
     eventCount: 42,
     firstSeen: '2026-04-16T00:00:00.000Z',
@@ -67,11 +68,13 @@ describe('mapLevelToPriority', () => {
   it('maps debug → LOW', () => {
     expect(mapLevelToPriority('debug')).toBe('LOW')
   })
-  it('maps unknown → LOW', () => {
-    expect(mapLevelToPriority('something-new')).toBe('LOW')
+  it('maps unknown → NONE', () => {
+    expect(mapLevelToPriority('something-new')).toBe('NONE')
   })
-  it('maps undefined → LOW', () => {
-    expect(mapLevelToPriority(undefined)).toBe('LOW')
+  it('maps undefined / null / empty → NONE', () => {
+    expect(mapLevelToPriority(undefined)).toBe('NONE')
+    expect(mapLevelToPriority(null)).toBe('NONE')
+    expect(mapLevelToPriority('')).toBe('NONE')
   })
 })
 
@@ -133,6 +136,7 @@ describe('extractIssueFields', () => {
       title: "TypeError: Cannot read properties of undefined (reading 'map')",
       culprit: 'renderDashboard(app/dashboard/page.tsx)',
       level: 'error',
+      reportedLevel: 'error',
       webUrl: 'https://acme-inc.sentry.io/issues/4555555555/',
       triggeredRule: 'High-priority JS errors',
     })
@@ -155,7 +159,9 @@ describe('extractIssueFields', () => {
     expect(fields.culprit).toBeNull()
     expect(fields.triggeredRule).toBeNull()
     expect(fields.stackFrames).toEqual([])
-    expect(fields.level).toBe('info') // default
+    expect(fields.level).toBe('info') // display default
+    expect(fields.reportedLevel).toBeNull()
+    expect(mapLevelToPriority(fields.reportedLevel)).toBe('NONE')
   })
 
   it('truncates title to 200 chars', () => {

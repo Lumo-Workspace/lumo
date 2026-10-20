@@ -125,7 +125,8 @@ export async function POST(request: NextRequest, { params }: Params) {
       projectId,
       parsed.data,
       actorId ?? '',
-      userId
+      userId,
+      memberResult.id
     )
 
     return NextResponse.json({ task: result.task }, { status: 201 })

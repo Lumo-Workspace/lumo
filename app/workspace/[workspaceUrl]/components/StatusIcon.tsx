@@ -14,6 +14,7 @@ const STATUS_COLOR_CLASS: Record<string, string> = {
   IN_PROGRESS: 'text-status-in-progress',
   IN_REVIEW: 'text-status-in-review',
   DONE: 'text-status-done',
+  CANCELED: 'text-muted-foreground',
 }
 
 export function StatusIcon({
@@ -120,6 +121,36 @@ export function StatusIcon({
         aria-label={intl.formatMessage({ id: 'status.done' })}
       >
         <circle cx={cx} cy={cy} r={cr} fill='currentColor' />
+      </svg>
+    )
+  }
+
+  if (status === 'CANCELED') {
+    // Circle with a cross — closed without being delivered (LUM-1282).
+    const d = r * 0.5
+    return (
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        fill='none'
+        className={colorClass}
+        aria-label={intl.formatMessage({ id: 'status.canceled' })}
+      >
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          stroke='currentColor'
+          strokeWidth='1.5'
+          fill='none'
+        />
+        <path
+          d={`M ${cx - d} ${cy - d} L ${cx + d} ${cy + d} M ${cx + d} ${cy - d} L ${cx - d} ${cy + d}`}
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeLinecap='round'
+        />
       </svg>
     )
   }

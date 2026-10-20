@@ -22,7 +22,8 @@ import { runOsvScanner, type ScannerPackage } from './osv-scanner-run'
  *   binary.
  * - `full`: osv-scanner over the whole tree, as the managed scan runs it.
  * - `offline`: osv-scanner's local database instead of the API (fast mode
- *   then runs it on the changed lockfiles and keeps the changed packages).
+ *   then runs it on the changed lockfiles and keeps the changed packages;
+ *   without osv-scanner or its database the result is incomplete).
  *
  * An unreachable API makes the result `incomplete` — never clean.
  */
@@ -30,10 +31,10 @@ import { runOsvScanner, type ScannerPackage } from './osv-scanner-run'
 export interface DepsScanOptions {
   full: boolean
   offline: boolean
-  now?: Date
-  fetchImpl?: typeof fetch
+  now?: Date | undefined
+  fetchImpl?: typeof fetch | undefined
   /** osv-scanner binary; default: looked up on PATH. */
-  scannerBin?: string
+  scannerBin?: string | undefined
 }
 
 export interface DepsScanResult {
@@ -285,14 +286,26 @@ export async function scanDeps(
         c.packages.map(p => `${c.lockfile}\0${p.name}@${p.version}`)
       )
     )
-    pkgs = runOsvScanner({
-      root,
-      offline: true,
-      lockfiles: changed
-        .filter(c => c.packages.length > 0)
-        .map(c => c.lockfile),
-      bin: opts.scannerBin,
-    }).filter(p => wanted.has(`${p.filePath}\0${p.name}@${p.version}`))
+    try {
+      pkgs = runOsvScanner({
+        root,
+        offline: true,
+        lockfiles: changed
+          .filter(c => c.packages.length > 0)
+          .map(c => c.lockfile),
+        bin: opts.scannerBin,
+      }).filter(p => wanted.has(`${p.filePath}\0${p.name}@${p.version}`))
+    } catch (e) {
+      // `--offline` also serves the other scanners (a pre-commit hook that
+      // must not wait on the network): a missing binary or database leaves
+      // DEPS unknown rather than failing the whole scan.
+      const first = ((e as Error)?.message ?? '').split('\n')[0]
+      const why = `--offline: ${first}; dependency results are unknown, not clean`
+      return {
+        ...result,
+        incomplete: result.incomplete ? `${result.incomplete}; ${why}` : why,
+      }
+    }
   } else {
     try {
       pkgs = await lookUp(changed, opts.fetchImpl)

@@ -29,6 +29,20 @@ export interface ActiveReviewLearning {
   content: Prisma.JsonValue
 }
 
+/**
+ * LUM-1256 — a learning's keys only (no memory text), for the local scan's
+ * server context: which fingerprint / rule / path it covers.
+ */
+export interface ReviewLearningKeys {
+  memoryId: string
+  repo: string
+  pathGlob: string | null
+  ruleId: string
+  fingerprint: string
+  sourcePullRequestId: string | null
+  repoWideAt: Date | null
+}
+
 /** LUM-1157 — one row of the workspace's learnings listing. */
 export interface ListedReviewLearning {
   memoryId: string
@@ -216,5 +230,40 @@ export const prReviewLearningRepository = {
       data: { repoWideAt: at },
     })
     return res.count
+  },
+
+  /**
+   * LUM-1256 — the keys of the learnings whose memory is still ACTIVE,
+   * newest first: this repository's (`own`) or the workspace's other
+   * repositories' (`others`, the `global` scope). Never the memory text.
+   * Pinned to the workspace on both rows; names compare case-insensitively.
+   */
+  async findActiveKeys(
+    workspaceId: string,
+    repo: string,
+    which: 'own' | 'others',
+    limit: number
+  ): Promise<ReviewLearningKeys[]> {
+    const repoMatch = { equals: repo, mode: 'insensitive' as const }
+    return prisma.prReviewLearning.findMany({
+      where: {
+        workspaceId,
+        ...(which === 'own'
+          ? { repo: repoMatch }
+          : { NOT: { repo: repoMatch } }),
+        memory: { workspaceId, status: 'ACTIVE' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        memoryId: true,
+        repo: true,
+        pathGlob: true,
+        ruleId: true,
+        fingerprint: true,
+        sourcePullRequestId: true,
+        repoWideAt: true,
+      },
+    })
   },
 }

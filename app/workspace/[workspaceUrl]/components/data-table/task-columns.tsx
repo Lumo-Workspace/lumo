@@ -52,7 +52,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
-import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
+import {
+  cmpStatus,
+  cmpPriority,
+  prioritySortValue,
+} from '../../hooks/useTableSort'
 import { formatTimestamp } from '@/lib/utils/formatTimestamp'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -588,7 +592,11 @@ export function createTaskColumns(
 
     // ── Priority ───────────────────────────────────────────────────────────
     priority: {
-      accessorKey: 'priority',
+      id: 'priority',
+      // NONE reads as undefined so `sortUndefined: 'last'` pins it last in
+      // both directions (LUM-1284); cells render from row.original.
+      accessorFn: row => prioritySortValue(row.priority),
+      sortUndefined: 'last',
       meta: {
         headerClassName: 'w-28 px-8',
         cellClassName: 'px-8',

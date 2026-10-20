@@ -40,7 +40,8 @@ export async function POST(request: Request) {
       actions,
       workspaceId,
       actorId,
-      userId
+      userId,
+      member.id
     )
 
     return NextResponse.json({ results })

@@ -22,6 +22,7 @@ describe('statusFromDropTarget', () => {
       'IN_PROGRESS',
       'IN_REVIEW',
       'DONE',
+      'CANCELED',
     ])
   })
 })

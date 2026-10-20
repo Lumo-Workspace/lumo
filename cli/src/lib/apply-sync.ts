@@ -4,9 +4,17 @@ import {
   removeEntry,
   readIndex,
   writeIndex,
+  readTeamIndex,
+  writeTeamIndex,
+  removeTeamIndex,
 } from './local-memory-store'
 import { diffSync } from './memory-reconcile'
-import { upsertBlock, removeBlock } from './managed-block'
+import {
+  upsertBlock,
+  removeBlock,
+  blockLines,
+  teamIndexFile,
+} from './managed-block'
 import { clearThrottleState } from './sync-throttle'
 
 /**
@@ -34,6 +42,9 @@ export interface SyncSummary {
   updated: string[]
   removed: string[]
   skippedDrift: string[]
+  /** MEMORY.md's block or team/INDEX.md changes (or would change) — e.g. an
+   *  old full-list block being migrated, even with no memory file to write. */
+  indexChanged: boolean
   /** true when nothing was (or would be) written — used to confirm idempotency. */
   noop: boolean
 }
@@ -45,9 +56,12 @@ export interface ApplyOptions {
 
 /**
  * Apply a downsync bundle to the local memory dir. Owns only `root/team/*.md`
- * and the MEMORY.md managed block; dev-authored files and out-of-block index
- * content are never touched. `--clean` removes all owned files + the block;
- * `--dry-run` computes the plan and writes nothing.
+ * (including the full index `team/INDEX.md`) and the MEMORY.md managed block;
+ * dev-authored files and out-of-block index content are never touched. The
+ * block holds a pointer to `team/INDEX.md` plus the top entries within a byte
+ * budget, so MEMORY.md stays inside Claude Code's load limit (LUM-1288).
+ * `--clean` removes all owned files, the index and the block; `--dry-run`
+ * computes the plan and writes nothing.
  */
 export function applySync(
   root: string,
@@ -58,6 +72,7 @@ export function applySync(
     const owned = readOwned(root)
     if (!opts.dryRun) {
       for (const o of owned) removeEntry(root, o.id)
+      removeTeamIndex(root)
       writeIndex(root, removeBlock(readIndex(root)))
       clearThrottleState(root)
     }
@@ -66,6 +81,7 @@ export function applySync(
       updated: [],
       removed: owned.map(o => o.id),
       skippedDrift: [],
+      indexChanged: false,
       noop: owned.length === 0,
     }
   }
@@ -77,15 +93,31 @@ export function applySync(
   )
   const byId = new Map(bundle.entries.map(e => [e.id, e]))
 
+  // Index = every bundle entry's line (added/updated/unchanged/drift-skipped all
+  // still exist locally); removed ids are absent from the bundle so they drop out.
+  // The full list goes to team/INDEX.md; MEMORY.md keeps a budgeted pointer, and
+  // an empty corpus leaves no block at all.
+  const lines = bundle.entries.map(e => e.indexLine)
+  const currentMd = readIndex(root)
+  const nextMd =
+    lines.length > 0
+      ? upsertBlock(currentMd, blockLines(lines))
+      : removeBlock(currentMd)
+  const nextTeamIndex = lines.length > 0 ? teamIndexFile(lines) : null
+  const indexChanged =
+    nextMd !== currentMd || nextTeamIndex !== readTeamIndex(root)
+
   const summary: SyncSummary = {
     added: plan.add.map(a => a.id),
     updated: plan.update.map(u => u.id),
     removed: plan.remove,
     skippedDrift: plan.skipDrift,
+    indexChanged,
     noop:
       plan.add.length === 0 &&
       plan.update.length === 0 &&
-      plan.remove.length === 0,
+      plan.remove.length === 0 &&
+      !indexChanged,
   }
   if (opts.dryRun) return summary
 
@@ -99,14 +131,8 @@ export function applySync(
   }
   for (const id of plan.remove) removeEntry(root, id)
 
-  // Index = every bundle entry's line (added/updated/unchanged/drift-skipped all
-  // still exist locally); removed ids are absent from the bundle so they drop out.
-  writeIndex(
-    root,
-    upsertBlock(
-      readIndex(root),
-      bundle.entries.map(e => e.indexLine)
-    )
-  )
+  if (nextTeamIndex === null) removeTeamIndex(root)
+  else writeTeamIndex(root, nextTeamIndex)
+  if (nextMd !== currentMd) writeIndex(root, nextMd)
   return summary
 }

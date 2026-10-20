@@ -19,7 +19,7 @@ export interface StalledBlockerItem extends TopBlockerItem {
 
 /** Mirrors the Prisma `Priority` enum; declared here so this module stays
  *  free of workspace-UI imports. */
-export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 /** An open PR that has been awaiting review past the stale threshold. */
 export interface StalePrItem {

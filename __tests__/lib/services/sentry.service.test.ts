@@ -406,6 +406,18 @@ describe('sentryService.handleWebhook', () => {
     expect(result).toMatchObject({ created: true, taskId: 't1' })
   })
 
+  it('creates the task with NONE priority when the alert has no level', async () => {
+    const fixture = JSON.parse(JSON.stringify(alertFixture))
+    delete fixture.data.event.level
+    const body = JSON.stringify(fixture)
+    const sig = signed(body, PLAIN_SECRET)
+    await sentryService.handleWebhook({ rawBody: body, signature: sig })
+    expect(taskService.createFromAutomation).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ priority: 'NONE' })
+    )
+  })
+
   it('records activity and does NOT create task for repeated issue', async () => {
     ;(sentryRepository.findLink as jest.Mock).mockResolvedValue({
       id: 'link1',

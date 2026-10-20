@@ -10,6 +10,13 @@ import type { Sprint } from '@prisma/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { sprintsClient } from '@/lib/api-client'
@@ -398,15 +405,19 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
 
       {/* Empty state — no sprints at all */}
       {isEmpty ? (
-        <div className='mt-10 flex flex-col items-center gap-3 py-12 text-center'>
-          <p className='text-body text-muted-foreground'>
-            {intl.formatMessage({ id: 'sprints.landing.empty' })}
-          </p>
-          <Button onClick={() => setCreateOpen(true)} size='sm'>
-            <Plus className='size-4' />
-            {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
-          </Button>
-        </div>
+        <Empty className='mt-10'>
+          <EmptyHeader>
+            <EmptyDescription>
+              {intl.formatMessage({ id: 'sprints.landing.empty' })}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={() => setCreateOpen(true)} size='sm'>
+              <Plus className='size-4' />
+              {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : view === 'timeline' ? (
         <div className='mt-6'>
           {now != null && (
@@ -420,14 +431,16 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
       ) : (
         <div className='mt-6 space-y-9'>
           {noResults && (
-            <div className='py-16 text-center'>
-              <div className='text-body-strong text-muted-foreground'>
-                {intl.formatMessage({ id: 'sprints.landing.noResults' })}
-              </div>
-              <div className='mt-1 text-caption text-muted-foreground/70'>
-                {intl.formatMessage({ id: 'sprints.landing.noResultsHint' })}
-              </div>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle className='text-body-strong'>
+                  {intl.formatMessage({ id: 'sprints.landing.noResults' })}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {intl.formatMessage({ id: 'sprints.landing.noResultsHint' })}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
 
           {/* Current */}

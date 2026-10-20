@@ -17,17 +17,22 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEditorSubmenu } from './useEditorSubmenu'
 
-const ITEM_BASE =
-  'w-full text-left flex items-center gap-2 px-3 py-1.5 text-caption transition-colors'
-const ITEM_IDLE =
-  'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-const ITEM_DANGER = 'text-danger-text hover:bg-destructive/10'
-const ITEM_DISABLED = 'text-muted-foreground opacity-40 cursor-not-allowed'
+const ITEM_IDLE = 'hover:bg-accent hover:text-accent-foreground'
+const ITEM_DANGER =
+  'text-danger-text hover:bg-destructive/10 focus:bg-destructive/10 focus:text-danger-text'
 
 export function TableActionsMenu({
   editor,
@@ -39,10 +44,18 @@ export function TableActionsMenu({
   canSplitCell: boolean
 }) {
   const intl = useIntl()
-  const [open, setOpen] = useState(false)
+  const { open, setOpen, triggerProps, contentProps, itemProps } =
+    useEditorSubmenu(editor)
   const [confirmDeleteTable, setConfirmDeleteTable] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function disarmConfirm() {
+    if (confirmTimerRef.current) {
+      clearTimeout(confirmTimerRef.current)
+      confirmTimerRef.current = null
+    }
+    setConfirmDeleteTable(false)
+  }
 
   // Clear any pending confirm timer on unmount
   useEffect(
@@ -52,224 +65,171 @@ export function TableActionsMenu({
     []
   )
 
-  // Close on outside click; reset the delete-confirm (and its timer) when the menu closes
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) {
-        if (confirmTimerRef.current) {
-          clearTimeout(confirmTimerRef.current)
-          confirmTimerRef.current = null
-        }
-        setOpen(false)
-        setConfirmDeleteTable(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  function runAndClose(fn: () => void) {
-    // Disarm any pending delete-table confirm so it can't linger across a reopen
-    if (confirmTimerRef.current) {
-      clearTimeout(confirmTimerRef.current)
-      confirmTimerRef.current = null
-    }
-    setConfirmDeleteTable(false)
-    fn()
-    setOpen(false)
+  // Reset the delete-confirm (and its timer) whenever the menu closes, so it
+  // can't linger across a reopen.
+  function handleOpenChange(next: boolean) {
+    if (!next) disarmConfirm()
+    setOpen(next)
   }
 
-  function handleDeleteTableClick() {
+  function handleDeleteTableSelect(e: Event) {
     if (confirmDeleteTable) {
-      if (confirmTimerRef.current) {
-        clearTimeout(confirmTimerRef.current)
-        confirmTimerRef.current = null
-      }
-      setConfirmDeleteTable(false)
+      disarmConfirm()
       editor.chain().focus().deleteTable().run()
-      setOpen(false)
-    } else {
-      setConfirmDeleteTable(true)
-      confirmTimerRef.current = setTimeout(() => {
-        setConfirmDeleteTable(false)
-        confirmTimerRef.current = null
-      }, 3000)
+      return
     }
+    // First click arms the confirm: keep the menu open for the second one.
+    e.preventDefault()
+    setConfirmDeleteTable(true)
+    confirmTimerRef.current = setTimeout(() => {
+      setConfirmDeleteTable(false)
+      confirmTimerRef.current = null
+    }, 3000)
   }
+
+  const actions = [
+    {
+      id: 'table.addRowAbove',
+      icon: <BetweenHorizontalStart />,
+      run: () => editor.chain().focus().addRowBefore().run(),
+    },
+    {
+      id: 'table.addRowBelow',
+      icon: <BetweenHorizontalEnd />,
+      run: () => editor.chain().focus().addRowAfter().run(),
+    },
+    {
+      id: 'table.addColLeft',
+      icon: <BetweenVerticalStart />,
+      run: () => editor.chain().focus().addColumnBefore().run(),
+    },
+    {
+      id: 'table.addColRight',
+      icon: <BetweenVerticalEnd />,
+      run: () => editor.chain().focus().addColumnAfter().run(),
+    },
+  ]
+  const structure = [
+    {
+      id: 'table.toggleHeaderRow',
+      icon: <PanelTop />,
+      disabled: false,
+      run: () => editor.chain().focus().toggleHeaderRow().run(),
+    },
+    {
+      id: 'table.mergeCells',
+      icon: <TableCellsMerge />,
+      disabled: !canMergeCells,
+      run: () => editor.chain().focus().mergeCells().run(),
+    },
+    {
+      id: 'table.splitCell',
+      icon: <TableCellsSplit />,
+      disabled: !canSplitCell,
+      run: () => editor.chain().focus().splitCell().run(),
+    },
+  ]
+  const deletes = [
+    {
+      id: 'table.deleteRow',
+      run: () => editor.chain().focus().deleteRow().run(),
+    },
+    {
+      id: 'table.deleteCol',
+      run: () => editor.chain().focus().deleteColumn().run(),
+    },
+  ]
 
   return (
-    <div ref={ref} className='relative'>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange} modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type='button'
-            aria-label={intl.formatMessage({ id: 'table.actions' })}
-            aria-haspopup='menu'
-            aria-expanded={open}
-            onMouseDown={e => {
-              e.preventDefault()
-              setOpen(o => !o)
-            }}
-            className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
-          >
-            <Table2 size={14} />
-            <ChevronDown size={12} />
-          </button>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              aria-label={intl.formatMessage({ id: 'table.actions' })}
+              {...triggerProps}
+              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground transition-colors'
+            >
+              <Table2 size={14} />
+              <ChevronDown size={12} />
+            </button>
+          </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent>
           {intl.formatMessage({ id: 'table.actions' })}
         </TooltipContent>
       </Tooltip>
-      {open && (
-        <div
-          role='menu'
-          className='absolute top-full left-0 mt-1 z-dropdown min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
+      <DropdownMenuContent
+        align='start'
+        className='min-w-[180px]'
+        {...contentProps}
+      >
+        {/* rows / cols */}
+        {actions.map(a => (
+          <DropdownMenuItem
+            key={a.id}
+            {...itemProps}
+            onSelect={() => {
+              disarmConfirm()
+              a.run()
+            }}
+            className={ITEM_IDLE}
+          >
+            {a.icon}
+            {intl.formatMessage({ id: a.id })}
+          </DropdownMenuItem>
+        ))}
+
+        <DropdownMenuSeparator />
+
+        {/* structure */}
+        {structure.map(a => (
+          <DropdownMenuItem
+            key={a.id}
+            {...itemProps}
+            disabled={a.disabled}
+            onSelect={() => {
+              disarmConfirm()
+              a.run()
+            }}
+            className={cn(!a.disabled && ITEM_IDLE)}
+          >
+            {a.icon}
+            {intl.formatMessage({ id: a.id })}
+          </DropdownMenuItem>
+        ))}
+
+        <DropdownMenuSeparator />
+
+        {/* delete */}
+        {deletes.map(a => (
+          <DropdownMenuItem
+            key={a.id}
+            {...itemProps}
+            onSelect={() => {
+              disarmConfirm()
+              a.run()
+            }}
+            className={ITEM_DANGER}
+          >
+            <Trash2 />
+            {intl.formatMessage({ id: a.id })}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuItem
+          {...itemProps}
+          onSelect={handleDeleteTableSelect}
+          className={cn(ITEM_DANGER, confirmDeleteTable && 'bg-destructive/10')}
         >
-          {/* rows / cols */}
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_IDLE)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().addRowBefore().run())
-            }}
-          >
-            <BetweenHorizontalStart size={14} />
-            {intl.formatMessage({ id: 'table.addRowAbove' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_IDLE)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().addRowAfter().run())
-            }}
-          >
-            <BetweenHorizontalEnd size={14} />
-            {intl.formatMessage({ id: 'table.addRowBelow' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_IDLE)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().addColumnBefore().run())
-            }}
-          >
-            <BetweenVerticalStart size={14} />
-            {intl.formatMessage({ id: 'table.addColLeft' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_IDLE)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().addColumnAfter().run())
-            }}
-          >
-            <BetweenVerticalEnd size={14} />
-            {intl.formatMessage({ id: 'table.addColRight' })}
-          </button>
-
-          <div className='my-1 h-px bg-border' />
-
-          {/* structure */}
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_IDLE)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().toggleHeaderRow().run())
-            }}
-          >
-            <PanelTop size={14} />
-            {intl.formatMessage({ id: 'table.toggleHeaderRow' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            disabled={!canMergeCells}
-            className={cn(ITEM_BASE, canMergeCells ? ITEM_IDLE : ITEM_DISABLED)}
-            onMouseDown={e => {
-              e.preventDefault()
-              if (canMergeCells)
-                runAndClose(() => editor.chain().focus().mergeCells().run())
-            }}
-          >
-            <TableCellsMerge size={14} />
-            {intl.formatMessage({ id: 'table.mergeCells' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            disabled={!canSplitCell}
-            className={cn(ITEM_BASE, canSplitCell ? ITEM_IDLE : ITEM_DISABLED)}
-            onMouseDown={e => {
-              e.preventDefault()
-              if (canSplitCell)
-                runAndClose(() => editor.chain().focus().splitCell().run())
-            }}
-          >
-            <TableCellsSplit size={14} />
-            {intl.formatMessage({ id: 'table.splitCell' })}
-          </button>
-
-          <div className='my-1 h-px bg-border' />
-
-          {/* delete */}
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_DANGER)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().deleteRow().run())
-            }}
-          >
-            <Trash2 size={13} />
-            {intl.formatMessage({ id: 'table.deleteRow' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(ITEM_BASE, ITEM_DANGER)}
-            onMouseDown={e => {
-              e.preventDefault()
-              runAndClose(() => editor.chain().focus().deleteColumn().run())
-            }}
-          >
-            <Trash2 size={13} />
-            {intl.formatMessage({ id: 'table.deleteCol' })}
-          </button>
-          <button
-            role='menuitem'
-            type='button'
-            className={cn(
-              ITEM_BASE,
-              confirmDeleteTable
-                ? 'bg-destructive/10 text-danger-text'
-                : ITEM_DANGER
-            )}
-            onMouseDown={e => {
-              e.preventDefault()
-              handleDeleteTableClick()
-            }}
-          >
-            <Trash2 size={13} />
-            {intl.formatMessage({
-              id: confirmDeleteTable
-                ? 'table.deleteTableConfirm'
-                : 'table.deleteTable',
-            })}
-          </button>
-        </div>
-      )}
-    </div>
+          <Trash2 />
+          {intl.formatMessage({
+            id: confirmDeleteTable
+              ? 'table.deleteTableConfirm'
+              : 'table.deleteTable',
+          })}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

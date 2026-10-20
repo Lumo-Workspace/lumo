@@ -371,6 +371,10 @@ a.mention {
   content: '●';
   color: var(--status-done);
 }
+.mention-task[data-mention-status='CANCELED']::before {
+  content: '⊗';
+  color: var(--muted-foreground);
+}
 
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .ProseMirror table {

@@ -7,7 +7,8 @@ describe('SectionAddButton', () => {
     render(<SectionAddButton label='Add Slack message' />)
     const btn = screen.getByRole('button', { name: 'Add Slack message' })
     expect(btn).toBeInTheDocument()
-    expect(btn).toHaveAttribute('title', 'Add Slack message')
+    // LUM-1271: the label shows as a Tooltip, not a native title.
+    expect(btn).not.toHaveAttribute('title')
   })
 
   it('invokes onClick when clicked', () => {

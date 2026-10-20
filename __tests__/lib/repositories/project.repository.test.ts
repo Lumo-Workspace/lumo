@@ -160,6 +160,7 @@ describe('countTasksByStatus', () => {
       IN_PROGRESS: 1,
       IN_REVIEW: 0,
       DONE: 0,
+      CANCELED: 0,
     })
     expect(result.get('p2')).toEqual({
       BACKLOG: 0,
@@ -167,6 +168,7 @@ describe('countTasksByStatus', () => {
       IN_PROGRESS: 0,
       IN_REVIEW: 0,
       DONE: 7,
+      CANCELED: 0,
     })
   })
 
@@ -180,6 +182,8 @@ describe('countTasksByStatus', () => {
       by: ['projectId', 'status'],
       where: {
         workspaceId: 'ws-1',
+        // LUM-1285: trashed tasks don't count (derived completion).
+        deletedAt: null,
         project: {
           workspaceId: 'ws-1',
           OR: [

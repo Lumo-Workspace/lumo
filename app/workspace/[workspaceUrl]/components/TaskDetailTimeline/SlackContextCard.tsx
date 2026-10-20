@@ -8,6 +8,11 @@ import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
 import { SlackMrkdwn } from './slackMrkdwn'
 import { ContentSignalsBadge } from '../ContentSignalsBadge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
   context: SlackContextResource
@@ -74,28 +79,48 @@ export function SlackContextCard({
           )}
         </span>
         <div className='ml-auto flex items-center gap-1'>
-          <button
-            onClick={handleRefresh}
-            disabled={busy}
-            title={intl.formatMessage({
-              id: 'slackContext.refresh',
-              defaultMessage: 'Refresh',
-            })}
-            className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-          >
-            <RefreshCw size={14} />
-          </button>
-          <button
-            onClick={handleUnlink}
-            disabled={busy}
-            title={intl.formatMessage({
-              id: 'slackContext.unlink',
-              defaultMessage: 'Remove',
-            })}
-            className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
-          >
-            <Trash2 size={14} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleRefresh}
+                disabled={busy}
+                aria-label={intl.formatMessage({
+                  id: 'slackContext.refresh',
+                  defaultMessage: 'Refresh',
+                })}
+                className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+              >
+                <RefreshCw size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'slackContext.refresh',
+                defaultMessage: 'Refresh',
+              })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleUnlink}
+                disabled={busy}
+                aria-label={intl.formatMessage({
+                  id: 'slackContext.unlink',
+                  defaultMessage: 'Remove',
+                })}
+                className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
+              >
+                <Trash2 size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'slackContext.unlink',
+                defaultMessage: 'Remove',
+              })}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

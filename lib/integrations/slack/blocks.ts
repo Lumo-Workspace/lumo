@@ -159,6 +159,8 @@ const PRIORITY_EMOJI: Record<string, string> = {
   HIGH: '🟠',
   MEDIUM: '🟡',
   LOW: '⚪',
+  // LUM-1284: not assessed.
+  NONE: '➖',
 }
 
 /** A task status's name in `locale`, without emoji (unknown: as given). */
