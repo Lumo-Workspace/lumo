@@ -31,7 +31,10 @@ interface CarriedOverCardProps {
   onOpenTask: (taskId: string, identifier: string) => void
 }
 
-/** Tasks that left the sprint at close, and where each one went. */
+/**
+ * Tasks that left the sprint at close, and where each one went. A table from
+ * `md` up; a stacked list on phones.
+ */
 export function CarriedOverCard({
   readFailed,
   count,
@@ -58,8 +61,8 @@ export function CarriedOverCard({
       </CardHeader>
       {rows && rows.length > 0 && (
         <CardContent className='p-4 pt-0 sm:p-6 sm:pt-0'>
-          <div className='overflow-x-auto rounded-md border'>
-            <Table className='min-w-120'>
+          <div className='hidden rounded-md border md:block'>
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('task')}</TableHead>
@@ -98,6 +101,28 @@ export function CarriedOverCard({
               </TableBody>
             </Table>
           </div>
+          {/* Phones: a stacked list, so where each task went stays visible. */}
+          <ul className='overflow-hidden rounded-lg border md:hidden'>
+            {rows.map(r => (
+              <li key={r.taskId} className='border-b last:border-b-0'>
+                <button
+                  type='button'
+                  onClick={() => onOpenTask(r.taskId, r.identifier)}
+                  className='flex w-full flex-col gap-1.5 px-4 py-3 text-left'
+                >
+                  <span className='flex items-center justify-between gap-2'>
+                    <code className='text-caption text-muted-foreground'>
+                      {r.identifier}
+                    </code>
+                    <Badge variant='outline' size='sm'>
+                      {r.destination ?? t('backlog')}
+                    </Badge>
+                  </span>
+                  <span className='text-body-strong'>{r.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       )}
     </Card>

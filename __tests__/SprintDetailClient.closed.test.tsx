@@ -499,8 +499,9 @@ test('carried over: rows show where each task went (from the spillover read) and
   renderPage({ onOpenTask })
   const carried = card('sprints.detail.retro.carried.title')
   expect(within(carried).getAllByRole('columnheader')).toHaveLength(2)
+  const table = within(carried).getByRole('table')
   const row = (title: string) =>
-    within(carried).getByText(title).closest('tr') as HTMLElement
+    within(table).getByText(title).closest('tr') as HTMLElement
   expect(within(row('Moved on')).getByText('Sprint 14')).toBeInTheDocument()
   expect(
     within(row('Parked')).getByText('sprints.detail.retro.carried.backlog')
@@ -560,13 +561,40 @@ describe('CarriedOverCard', () => {
         onOpenTask={onOpenTask}
       />
     )
-    expect(screen.getByText('Sprint 14')).toBeInTheDocument()
+    const table = within(screen.getByRole('table'))
+    expect(table.getByText('Sprint 14')).toBeInTheDocument()
     expect(
-      screen.getByText('sprints.detail.retro.carried.backlog')
+      table.getByText('sprints.detail.retro.carried.backlog')
     ).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /LUM-9/ }))
+    fireEvent.click(table.getByRole('button', { name: /LUM-9/ }))
     expect(onOpenTask).toHaveBeenCalledWith('t9', 'LUM-9')
-    fireEvent.click(screen.getByText('Parked').closest('tr')!)
+    fireEvent.click(table.getByText('Parked').closest('tr')!)
+    expect(onOpenTask).toHaveBeenCalledWith('t8', 'LUM-8')
+  })
+
+  test('phones get a stacked list that keeps each destination visible', () => {
+    const onOpenTask = jest.fn()
+    render(
+      <CarriedOverCard
+        count={2}
+        rows={rows}
+        readFailed={false}
+        onOpenTask={onOpenTask}
+      />
+    )
+    const list = screen.getByRole('list')
+    expect(list.className).toContain('md:hidden')
+    const items = within(list).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(
+      within(items[0] as HTMLElement).getByText('Sprint 14')
+    ).toBeInTheDocument()
+    expect(
+      within(items[1] as HTMLElement).getByText(
+        'sprints.detail.retro.carried.backlog'
+      )
+    ).toBeInTheDocument()
+    fireEvent.click(within(items[1] as HTMLElement).getByRole('button'))
     expect(onOpenTask).toHaveBeenCalledWith('t8', 'LUM-8')
   })
 
