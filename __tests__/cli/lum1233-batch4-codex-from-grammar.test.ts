@@ -68,9 +68,11 @@ const DEVIATIONS = {
   sandboxedAdded: {
     'feedback create':
       'reads local files (--file …) — Codex asks first (--evidence-file)',
-    // LUM-1255: reads only git and the working tree, no Lumo API call.
+    // LUM-1255: reads git and the working tree, so it stays sandboxed;
+    // LUM-1256: it also reads server context from the Lumo API, which inside
+    // the sandbox falls back to the cache (or no context).
     'security scan':
-      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)',
   } as Record<string, string>,
 }
 

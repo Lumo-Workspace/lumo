@@ -4,6 +4,13 @@ import type {
 } from '../../../shared/src/secret-scan/core-types'
 import { secretDowngradeNote } from '../../../shared/src/security-scan'
 import { listEnvelope } from './json-output'
+import type { ContextSource, ScanContext } from './scan-context'
+import {
+  describeLabel,
+  type PrComparison,
+  type ServerLabel,
+  type ServerPrFinding,
+} from './scan-labels'
 import { sanitizeField } from './sanitize'
 import {
   bulletLines,
@@ -29,8 +36,38 @@ export const SEVERITIES: readonly SecuritySeverity[] = ['LOW', 'MEDIUM', 'HIGH']
 
 const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
 
-/** One finding, tagged with the scanner that reported it. */
-export type LocalFinding = RawSecretFinding & { scanner: LocalScanner }
+/**
+ * One finding, tagged with the scanner that reported it, and (LUM-1256) the
+ * server's reading of it when the scan had server context.
+ */
+export type LocalFinding = RawSecretFinding & {
+  scanner: LocalScanner
+  server?: ServerLabel | null
+}
+
+/** LUM-1256 — `--pr`: the branch's PR and its latest server scan. */
+export interface PrSection {
+  number: number
+  /** The head the server last scanned; null when unknown. */
+  headSha: string | null
+  /** Why the PR's findings could not be read or compared; null when they were. */
+  note: string | null
+  /** Null when the scan could not be read, or the scope is not the PR's diff. */
+  comparison: PrComparison | null
+}
+
+/** LUM-1256 — where the labels came from (and `--pr`'s merge). */
+export interface ServerSection {
+  source: ContextSource
+  note: string | null
+  repo: string | null
+  fetchedAt: string | null
+  /** The branch's open PR number, per the server. */
+  pullRequest: number | null
+  policy: ScanContext['policy'] | null
+  /** Only with `--pr`. */
+  pr: PrSection | null
+}
 
 export interface LocalScanResult {
   scanners: LocalScanner[]
@@ -41,6 +78,8 @@ export interface LocalScanResult {
   skipped: string[]
   elapsedMs: number
   findings: LocalFinding[]
+  /** LUM-1256 — absent when the run did not ask the server (tests, older callers). */
+  server?: ServerSection
 }
 
 export interface SeverityCounts {
@@ -101,6 +140,11 @@ function findingLines(f: LocalFinding, opts: LayoutOptions): string[] {
     // Already redacted by the scanner — the raw value never reaches here.
     { label: 'Evidence', value: sanitizeField(f.evidence.trim()), whole: true },
   ]
+  if (f.server)
+    fields.push({
+      label: 'Server',
+      value: sanitizeField(describeLabel(f.server)),
+    })
   const note = sanitizeField(secretDowngradeNote(f.downgrade))
   return [
     ...bulletLines(`[${f.severity}] ${sanitizeField(f.title)}${note}`, 2, opts),
@@ -126,16 +170,91 @@ export function formatLocalScan(
         .join(', ')}${r.skipped.length > 5 ? ', …' : ''}`
     )
   }
+  if (r.server) lines.push(...serverLines(r))
   for (const f of sortFindings(r.findings)) {
     lines.push('', ...findingLines(f, opts))
   }
+  if (r.server?.pr) lines.push('', ...prLines(r.server.pr, opts))
   return lines.join('\n')
+}
+
+/** LUM-1256 — findings the server's policy would block DONE on. */
+export function countWouldBlock(findings: LocalFinding[]): number {
+  return findings.filter(f => f.server?.wouldBlockDone).length
+}
+
+/** `Server: acme/app · live · 1 would block DONE` (or why there is none). */
+function serverLines(r: LocalScanResult): string[] {
+  const s = r.server as ServerSection
+  if (s.source === 'none')
+    return [`Server: no context — ${sanitizeField(s.note ?? 'unavailable')}`]
+  const parts = [
+    sanitizeField(s.repo ?? ''),
+    s.source === 'live' ? 'live' : sanitizeField(s.note ?? 'cached'),
+  ]
+  if (s.pullRequest !== null) parts.push(`PR #${s.pullRequest}`)
+  parts.push(`${countWouldBlock(r.findings)} would block DONE`)
+  return [
+    `Server: ${parts.join(' · ')}`,
+    'Local results are a preview: the PR scan stays the authority for DONE.',
+  ]
+}
+
+function findingRef(f: ServerPrFinding): string {
+  const where = f.line == null ? f.filePath : `${f.filePath}:${f.line}`
+  return `[${sanitizeField(f.severity)}] ${sanitizeField(f.title)} · ${sanitizeField(where)}`
+}
+
+/** `--pr`: still open vs fixed since the push, and the server-only layers. */
+function prLines(pr: PrSection, opts: LayoutOptions): string[] {
+  const head = pr.headSha ? ` (server scanned ${pr.headSha.slice(0, 7)})` : ''
+  const lines = [`PR #${pr.number}${head}`]
+  if (!pr.comparison) {
+    lines.push(`  ${sanitizeField(pr.note ?? 'not compared')}`)
+    return lines
+  }
+  const c = pr.comparison
+  lines.push(
+    `  ${c.stillOpen.length} still reported locally · ${c.fixedLocally.length} fixed locally since the last push`
+  )
+  for (const f of c.fixedLocally.slice(0, 10))
+    lines.push(...bulletLines(`fixed: ${findingRef(f)}`, 2, opts))
+  if (c.fixedLocally.length > 10)
+    lines.push(`  … ${c.fixedLocally.length - 10} more`)
+  lines.push(
+    `  Server-only layers: ${c.serverOnly.aiReview} AI review, ${c.serverOnly.hunt} hunt open — read with \`lumo pr show ${pr.number}\`, re-review after a push with \`lumo pr review ${pr.number}\``
+  )
+  return lines
+}
+
+/** `--pr` as `--json` shows it: fingerprints and positions, no evidence. */
+function prJson(pr: PrSection): Record<string, unknown> {
+  const ref = (f: ServerPrFinding) => ({
+    fingerprint: f.fingerprint ?? null,
+    ruleId: f.ruleId,
+    severity: f.severity,
+    title: f.title,
+    filePath: f.filePath,
+    line: f.line,
+  })
+  return {
+    number: pr.number,
+    headSha: pr.headSha,
+    note: pr.note,
+    stillOpen: pr.comparison ? pr.comparison.stillOpen.map(ref) : null,
+    fixedLocally: pr.comparison ? pr.comparison.fixedLocally.map(ref) : null,
+    serverOnly: pr.comparison ? pr.comparison.serverOnly : null,
+  }
 }
 
 /**
  * The `--json` list envelope (J-2): `findings` plus the scan's own facts as
  * siblings. Declared finding fields (J-3): scanner, kind, ruleId, severity,
- * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade.
+ * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade,
+ * server (LUM-1256: { status, by, at, pullRequest, carriesOver, learningId,
+ * wouldBlockDone } or null). Siblings: scanners, scope, filesScanned,
+ * skipped, elapsedMs, summary, and (LUM-1256) serverContext and
+ * wouldBlockDone.
  */
 export function localScanJson(r: LocalScanResult): Record<string, unknown> {
   const findings = sortFindings(r.findings).map(f => ({
@@ -150,6 +269,7 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
     fingerprint: f.fingerprint,
     detail: f.detail,
     downgrade: f.downgrade ?? null,
+    server: f.server ?? null,
   }))
   return listEnvelope(
     'findings',
@@ -162,6 +282,21 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
       skipped: r.skipped,
       elapsedMs: r.elapsedMs,
       summary: countSeverities(r.findings),
+      serverContext: r.server
+        ? {
+            source: r.server.source,
+            note: r.server.note,
+            repo: r.server.repo,
+            fetchedAt: r.server.fetchedAt,
+            pullRequest: r.server.pullRequest,
+            policy: r.server.policy,
+            pr: r.server.pr ? prJson(r.server.pr) : null,
+          }
+        : null,
+      wouldBlockDone:
+        r.server && r.server.source !== 'none'
+          ? countWouldBlock(r.findings)
+          : null,
     }
   )
 }

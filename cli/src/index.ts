@@ -873,11 +873,11 @@ security
   .command('scan')
   .codex(
     sandboxed(
-      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)'
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache)'
     )
   )
   .description(
-    "Scan the lines your changes add with the PR scan's rules: merge-base to working tree by default, untracked files included. No network; findings carry the server's fingerprints."
+    "Scan the lines your changes add with the PR scan's rules (merge-base to working tree by default, untracked included), labelled with the server's baseline, rulings, learnings and policy."
   )
   .option(
     '--secrets',
@@ -898,6 +898,18 @@ security
   .option(
     '--fail-on <severity>',
     'Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)'
+  )
+  .option(
+    '--offline',
+    'Label findings from the cached server context only; no Lumo API call'
+  )
+  .option(
+    '--pr',
+    "Merge in the branch's open PR scan: findings fixed locally since the last push vs still open"
+  )
+  .option(
+    '--repo <owner/repo>',
+    "The repository to read server context for, instead of origin's"
   )
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
