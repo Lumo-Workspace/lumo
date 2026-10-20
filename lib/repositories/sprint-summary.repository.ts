@@ -120,7 +120,8 @@ export const sprintSummaryRepository = {
         // does not hold back the rest of a batch.
         const queue = tasks.filter(t => t.status === 'DONE').map(t => t.id)
         const worker = async () => {
-          for (let id = queue.shift(); id; id = queue.shift()) {
+          while (queue.length > 0) {
+            const id = queue.shift() as string
             securityBlockingByTask.set(id, await securityBlocking(id))
           }
         }

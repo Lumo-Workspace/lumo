@@ -70,6 +70,24 @@ describe('taskStageDurations', () => {
     expect(d).toMatchObject({ ruling: 3 * H, agent: 7 * H, other: 0 })
   })
 
+  it('skips a ruled crossing that carries no disposition time', () => {
+    const d = taskStageDurations(
+      task({
+        crossings: [
+          {
+            detectedAt: at(12),
+            dispositionedAt: null,
+            disposition: 'FALSE_POSITIVE',
+            advisory: false,
+            severity: 'HIGH',
+          },
+        ],
+      }),
+      window
+    )
+    expect(d).toMatchObject({ ruling: 0, other: 10 * H })
+  })
+
   it('excludes a draft PR from review', () => {
     const d = taskStageDurations(
       task({

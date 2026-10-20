@@ -35,8 +35,10 @@ export type ProcessStage = (typeof PROCESS_STAGES)[number]
 
 export interface StageCrossing {
   detectedAt: Date
-  /** null while still open. */
+  /** null while still open (or when a disposition carries no time). */
   dispositionedAt: Date | null
+  /** Set once ruled on; a ruled crossing with no time contributes nothing. */
+  disposition?: string | null
   /** Advisory crossings never block DONE, so they never count as ruling. */
   advisory: boolean
   severity: string
@@ -102,7 +104,11 @@ export function taskStageDurations(
 
   const ruling: Span[] = task.crossings
     .filter(
-      c => !c.advisory && (window.crossingGateEnabled || c.severity === 'HIGH')
+      c =>
+        !c.advisory &&
+        (window.crossingGateEnabled || c.severity === 'HIGH') &&
+        // Ruled on but with no recorded time: its open span is unknowable.
+        !(c.disposition != null && c.dispositionedAt === null)
     )
     .map(c => [c.detectedAt.getTime(), c.dispositionedAt?.getTime() ?? to])
   const agent: Span[] = task.agentIntervals.map(([a, b]) => [a, b])
