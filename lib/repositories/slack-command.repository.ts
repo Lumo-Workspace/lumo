@@ -3,6 +3,7 @@
 // workspace the Slack install belongs to (LUM-979 scoped client).
 import { scopedPrisma as prisma } from '@/lib/db/workspace-scope'
 import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
+import { CLOSED_TASK_STATUSES } from '@/lib/task/status-semantics'
 
 const TASK_SUMMARY_SELECT = {
   id: true,
@@ -102,7 +103,7 @@ export const slackCommandRepository = {
     const where = {
       workspaceId,
       assigneeActorId: actorId,
-      status: { notIn: ['DONE' as const] },
+      status: { notIn: [...CLOSED_TASK_STATUSES] },
     }
     const [tasks, total] = await Promise.all([
       prisma.task.findMany({

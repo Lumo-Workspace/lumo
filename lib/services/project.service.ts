@@ -84,6 +84,7 @@ export const projectService = {
         IN_PROGRESS: 0,
         IN_REVIEW: 0,
         DONE: 0,
+        CANCELED: 0,
       }
       const { owner, ...rest } = p
       // Owner ids exposed to the API are actor ids — the same id space the

@@ -144,6 +144,18 @@ export function DependenciesSection({
         busy={busy}
         onRemove={id => remove.mutate(id)}
       />
+      <Group
+        titleId='task.dependencies.duplicateOf'
+        edges={grouped.duplicateOf}
+        busy={busy}
+        onRemove={id => remove.mutate(id)}
+      />
+      <Group
+        titleId='task.dependencies.duplicatedBy'
+        edges={grouped.duplicatedBy}
+        busy={busy}
+        onRemove={id => remove.mutate(id)}
+      />
 
       {grouped.suggested.length > 0 && (
         <div className='mt-3 rounded-md bg-muted/50 p-2'>

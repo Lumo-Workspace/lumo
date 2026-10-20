@@ -1,4 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
+import { countsTowardCompletion } from '@/lib/task/status-semantics'
 
 /**
  * LUM-650 — complexity-weighted progress reading for the milestone Overview
@@ -49,7 +50,9 @@ export function computeWeightedProgress(
   let doneWeight = 0
   let totalWeight = 0
   let measuredTasks = 0
-  for (const t of tasks) {
+  // LUM-1282: CANCELED is outside progress and the coverage denominator.
+  const counted = tasks.filter(t => countsTowardCompletion(t.status))
+  for (const t of counted) {
     // BACKLOG is unscheduled and outside progress (LUM-1057).
     if (t.changedFileCount === null || t.status === 'BACKLOG') continue
     measuredTasks++
@@ -66,6 +69,6 @@ export function computeWeightedProgress(
         ? Math.round((doneWeight / totalWeight) * 100)
         : null,
     measuredTasks,
-    totalTasks: tasks.length,
+    totalTasks: counted.length,
   }
 }

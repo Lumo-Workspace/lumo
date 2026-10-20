@@ -43,6 +43,7 @@ const ALLOWED_STATUSES = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
 
@@ -66,12 +67,18 @@ export interface UpdateTaskOptions {
   addTagId?: string[]
   removeTag?: string[]
   removeTagId?: string[]
+  /**
+   * LUM-1282: with `--status canceled`, the canonical task this one
+   * duplicates (`LUM-12`). Recorded as a DUPLICATES dependency.
+   */
+  duplicateOf?: string
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
   /**
    * LUM-755: the user has approved the DONE transition shown in the
-   * confirmation envelope. Only meaningful with `--status done`; there is
-   * deliberately no `--yes` alias on this command.
+   * confirmation envelope. Only meaningful with `--status done` or (LUM-1282)
+   * `--status canceled`; there is deliberately no `--yes` alias on this
+   * command.
    */
   confirm?: boolean
 }
@@ -185,6 +192,11 @@ export function buildUpdatePayload(opts: UpdateTaskOptions): {
   if (opts.claimable !== undefined) {
     payload.claimable = opts.claimable
     flagsGiven.push(opts.claimable ? '--claimable' : '--not-claimable')
+  }
+  // LUM-1282: the canonical task a canceled duplicate points at.
+  if (opts.duplicateOf !== undefined) {
+    payload.duplicateOfRef = opts.duplicateOf.trim().toUpperCase()
+    flagsGiven.push('--duplicate-of')
   }
 
   return { payload, flagsGiven }
@@ -326,10 +338,15 @@ export function otherFlagsThanStatus(
 }
 
 /** The envelope line naming the other changes, or nothing. */
-export function describeOtherChanges(otherFlags: string[]): string[] {
+export function describeOtherChanges(
+  otherFlags: string[],
+  target: 'DONE' | 'CANCELED' = 'DONE'
+): string[] {
   if (otherFlags.length === 0) return []
   return [
-    `Also updates: ${otherFlags.join(', ')} (one-step DONE covers a status-only change)`,
+    target === 'DONE'
+      ? `Also updates: ${otherFlags.join(', ')} (one-step DONE covers a status-only change)`
+      : `Also updates: ${otherFlags.join(', ')}`,
   ]
 }
 
@@ -465,6 +482,140 @@ function doneWorktreeLines(
   }
 }
 
+// ---------------------------------------------------------------------------
+// LUM-1282: CANCELED — a human ruling, always behind the envelope
+// ---------------------------------------------------------------------------
+
+const TASK_REF = /^[A-Za-z][A-Za-z0-9]*-\d+$/
+
+/**
+ * Validate `--duplicate-of` before any network call. Returns the usage error
+ * to print, or null when the flag is absent or fine: it needs
+ * `--status canceled`, a task identifier (`LUM-12`), and a task other than
+ * the one being updated.
+ */
+export function duplicateOfUsageError(
+  identifier: string,
+  status: Status | undefined,
+  duplicateOf: string | undefined
+): string | null {
+  if (duplicateOf === undefined) return null
+  const target = duplicateOf.trim()
+  if (status !== 'CANCELED') {
+    return 'Error: --duplicate-of needs --status canceled (a duplicate is canceled in favour of the canonical task)'
+  }
+  if (!TASK_REF.test(target)) {
+    return `Error: --duplicate-of expects a task identifier like LUM-12, got "${sanitizeField(duplicateOf)}"`
+  }
+  if (target.toUpperCase() === identifier.trim().toUpperCase()) {
+    return `Error: --duplicate-of cannot point at ${sanitizeField(identifier)} itself`
+  }
+  return null
+}
+
+/**
+ * The changes[] block of the CANCELED envelope. Canceling is the user's
+ * ruling: an agent may propose it and relay this block, never approve it.
+ */
+export function describeCancelTransition(
+  task: { identifier: string; title: string; status: string },
+  duplicateOf: { identifier: string; title: string } | null
+): string[] {
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
+  const lines = [
+    `Will move ${task.identifier} "${escapedTitle}" to CANCELED`,
+    `Status: ${task.status} → CANCELED`,
+  ]
+  if (duplicateOf) {
+    const dupTitle = sanitizeField(duplicateOf.title).replace(/"/g, '\\"')
+    lines.push(
+      `Duplicate of: ${duplicateOf.identifier} "${dupTitle}" (records a DUPLICATES dependency)`
+    )
+  }
+  lines.push(
+    'CANCELED leaves completion metrics and the next-task lists; only the user rules it — an agent may propose it, never approve it'
+  )
+  return lines
+}
+
+/** GET a task by identifier for an envelope; prints its own error. */
+async function lookupTask(
+  base: string,
+  apiUrl: string,
+  token: string,
+  identifier: string,
+  what: string
+): Promise<
+  | { ok: true; task: { identifier: string; title: string; status: string } }
+  | { ok: false; code: number }
+> {
+  let res: Response
+  try {
+    res = await fetch(
+      `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return { ok: false, code: 1 }
+  }
+  if (res.status === 401) {
+    console.error(errAuth())
+    return { ok: false, code: 1 }
+  }
+  if (res.status === 404) {
+    console.error(`Error: ${what} ${sanitizeField(identifier)} not found`)
+    return { ok: false, code: 1 }
+  }
+  if (!res.ok) {
+    console.error(errHttp('task lookup', res.status))
+    return { ok: false, code: 1 }
+  }
+  const { task } = (await res.json()) as {
+    task: { identifier: string; title: string; status: string }
+  }
+  return { ok: true, task }
+}
+
+/**
+ * CANCELED without `--confirm` always stops here with the envelope (exit 4)
+ * — there is no one-step path, unlike DONE's merged-PR shortcut. Runs before
+ * any side effect. A missing `--duplicate-of` target fails here (exit 1), so
+ * the user is never asked to approve a ruling the server would refuse.
+ */
+async function gateCanceled(args: {
+  base: string
+  apiUrl: string
+  token: string
+  identifier: string
+  duplicateOf: string | undefined
+  otherFlags: string[]
+}): Promise<number> {
+  const { base, apiUrl, token, identifier, duplicateOf, otherFlags } = args
+  const own = await lookupTask(base, apiUrl, token, identifier, 'Task')
+  if (!own.ok) return own.code
+  let canonical: { identifier: string; title: string } | null = null
+  if (duplicateOf !== undefined) {
+    const target = await lookupTask(
+      base,
+      apiUrl,
+      token,
+      duplicateOf.trim().toUpperCase(),
+      'Duplicate target'
+    )
+    if (!target.ok) return target.code
+    canonical = target.task
+  }
+  return emitConfirmation({
+    command: 'task update',
+    changes: [
+      ...describeCancelTransition(own.task, canonical),
+      ...describeOtherChanges(otherFlags, 'CANCELED'),
+    ],
+  })
+}
+
 /**
  * LUM-825: after a confirmed DONE lands, remove the task's worktrees the
  * envelope listed as removable — re-assessed now, so one that turned dirty
@@ -587,6 +738,13 @@ async function runTaskUpdate(
     status = n
   }
 
+  // LUM-1282: --duplicate-of rides only on a cancel, and never on itself.
+  const dupError = duplicateOfUsageError(identifier, status, opts.duplicateOf)
+  if (dupError) {
+    console.error(dupError)
+    return EXIT_USAGE
+  }
+
   let priority: string | undefined
   if (opts.priority !== undefined) {
     const n = normalizePriority(opts.priority)
@@ -641,6 +799,21 @@ async function runTaskUpdate(
     })
     if (gate.kind === 'exit') return gate.code
     oneStepSummary = gate.summary
+  }
+
+  // LUM-1282: CANCELED without --confirm always ends in the envelope.
+  if (status === 'CANCELED' && !opts.confirm) {
+    return gateCanceled({
+      base: trimTrailingSlash(apiUrl),
+      apiUrl,
+      token: creds.token,
+      identifier,
+      duplicateOf: opts.duplicateOf,
+      otherFlags: otherFlagsThanStatus(
+        flagsGiven.filter(f => f !== '--duplicate-of'),
+        opts
+      ),
+    })
   }
 
   // Resolve tag refs into ids

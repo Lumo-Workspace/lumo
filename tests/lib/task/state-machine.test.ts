@@ -101,7 +101,8 @@ describe('transitionTaskStatus', () => {
     expect(mockFindUnique).not.toHaveBeenCalled()
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { status: 'DONE' },
+      // LUM-1282: entering DONE stamps completedAt.
+      data: { status: 'DONE', completedAt: expect.any(Date) },
     })
   })
 
@@ -199,7 +200,8 @@ describe('transitionTaskStatus', () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { status: 'TODO' },
+      // LUM-1282: leaving DONE clears completedAt.
+      data: { status: 'TODO', completedAt: null },
     })
   })
 
@@ -210,7 +212,7 @@ describe('transitionTaskStatus', () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { status: 'IN_PROGRESS' },
+      data: { status: 'IN_PROGRESS', completedAt: null },
     })
   })
 })

@@ -1,3 +1,5 @@
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
+
 export type CompletedFilter =
   | 'all'
   | 'past_day'
@@ -22,20 +24,21 @@ const FILTER_WINDOW_MS: Partial<Record<CompletedFilter, number>> = {
 }
 
 /**
- * Filter completed (DONE) tasks based on how recently they were updated.
- * Non-DONE tasks are always kept.
+ * Filter closed tasks (DONE, and CANCELED since LUM-1282) based on how
+ * recently they were updated. Open tasks are always kept.
  */
 export function filterCompletedTasks<
   T extends { status: string; updatedAt: string },
 >(tasks: T[], filter: CompletedFilter): T[] {
   if (filter === 'all') return tasks
-  if (filter === 'none') return tasks.filter(t => t.status !== 'DONE')
+  if (filter === 'none') return tasks.filter(t => !isClosedTaskStatus(t.status))
 
   const windowMs = FILTER_WINDOW_MS[filter]
   if (!windowMs) return tasks
 
   const cutoff = Date.now() - windowMs
   return tasks.filter(
-    t => t.status !== 'DONE' || new Date(t.updatedAt).getTime() >= cutoff
+    t =>
+      !isClosedTaskStatus(t.status) || new Date(t.updatedAt).getTime() >= cutoff
   )
 }

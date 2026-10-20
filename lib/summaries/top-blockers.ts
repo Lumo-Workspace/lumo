@@ -1,4 +1,5 @@
 import type { TaskPriority, TopBlockers } from '@/types/summary'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 /**
  * How long a task can sit untouched before it counts as stalled, and how long
@@ -48,18 +49,16 @@ export function collectTopBlockers(input: {
 
   const overdueTaskIds = cap(
     tasks
-      .filter(t => t.dueDate !== null && t.dueDate < now && t.status !== 'DONE')
+      .filter(
+        t =>
+          t.dueDate !== null && t.dueDate < now && !isClosedTaskStatus(t.status)
+      )
       .map(t => ({ id: t.id, identifier: t.identifier, title: t.title }))
   )
 
   const stalledTaskIds = cap(
     tasks
-      .filter(
-        t =>
-          t.status !== 'DONE' &&
-          t.status !== 'CANCELLED' &&
-          t.updatedAt < stalledBefore
-      )
+      .filter(t => !isClosedTaskStatus(t.status) && t.updatedAt < stalledBefore)
       .map(t => ({
         id: t.id,
         identifier: t.identifier,

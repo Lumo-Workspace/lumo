@@ -60,6 +60,7 @@ export type ApiStatus =
   | 'IN_PROGRESS'
   | 'IN_REVIEW'
   | 'DONE'
+  | 'CANCELED'
 
 // ─── Task pre-fill fields (used for draft restoration and NewTaskModal) ──────
 

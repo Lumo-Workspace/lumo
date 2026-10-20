@@ -143,6 +143,50 @@ export const taskDependencyService = {
     })
   },
 
+  /**
+   * LUM-1282: record that `duplicateTaskId` (being canceled) duplicates
+   * `canonicalTaskId` — a MANUAL + CONFIRMED DUPLICATES edge, blocked side =
+   * the duplicate. Idempotent: an existing edge for the same pair (a BLOCKS /
+   * RELATES edge, or a detector suggestion) is turned into the DUPLICATES
+   * edge rather than refused, since the pair is unique whatever its kind.
+   * Duplicates never take part in the BLOCKS cycle check.
+   */
+  async recordDuplicate(input: {
+    workspaceId: string
+    duplicateTaskId: string
+    canonicalTaskId: string
+  }) {
+    const { workspaceId, duplicateTaskId, canonicalTaskId } = input
+    if (duplicateTaskId === canonicalTaskId) {
+      throw Object.assign(new Error('A task cannot duplicate itself'), {
+        status: 400,
+      })
+    }
+    const existing = await taskDependencyRepository.findByPair(
+      duplicateTaskId,
+      canonicalTaskId
+    )
+    if (existing) {
+      if (existing.kind === 'DUPLICATES' && existing.status === 'CONFIRMED') {
+        return existing
+      }
+      return taskDependencyRepository.update(existing.id, {
+        kind: 'DUPLICATES',
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+      })
+    }
+    return taskDependencyRepository.create({
+      workspaceId,
+      blockedTaskId: duplicateTaskId,
+      blockingTaskId: canonicalTaskId,
+      kind: 'DUPLICATES',
+      source: 'MANUAL',
+      status: 'CONFIRMED',
+      confirmedAt: new Date(),
+    })
+  },
+
   /** One-click confirm of a candidate edge; reverse flips the direction (the detector's direction is only a heuristic). */
   async confirm(input: { edgeId: string; reverse?: boolean | undefined }) {
     const edge = await taskDependencyRepository.findById(input.edgeId)

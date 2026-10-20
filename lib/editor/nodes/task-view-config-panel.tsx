@@ -29,6 +29,7 @@ const STATUS_ORDER = [
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',
+  'CANCELED',
 ] as const
 const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
 const GROUP_BY_ORDER: TaskViewGroupBy[] = [

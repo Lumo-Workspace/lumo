@@ -29,6 +29,8 @@ const STATUS: Record<TaskRow['status'], { id: string; dot: string }> = {
   IN_PROGRESS: { id: 'status.inProgress', dot: 'bg-status-in-progress' },
   IN_REVIEW: { id: 'status.inReview', dot: 'bg-status-in-review' },
   DONE: { id: 'status.done', dot: 'bg-status-done' },
+  // LUM-1282: muted, matching the CANCELED status icon.
+  CANCELED: { id: 'status.canceled', dot: 'bg-muted-foreground' },
 }
 
 function statusOf(intl: IntlShape, row: TaskRow) {

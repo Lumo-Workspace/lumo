@@ -38,7 +38,14 @@ export function BulkStatusPicker({
         <Command>
           <CommandList>
             {(
-              ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+              [
+                'BACKLOG',
+                'TODO',
+                'IN_PROGRESS',
+                'IN_REVIEW',
+                'DONE',
+                'CANCELED',
+              ] as const
             ).map(s => (
               <CommandItem
                 key={s}

@@ -13,6 +13,7 @@ import {
 } from '../lib/claimable-filter'
 import { errAuth, errHttp, errNotLoggedIn, warn } from '../lib/errors'
 import { listEnvelope, stripInternalFields } from '../lib/json-output'
+import { isClosedStatus } from '../lib/task-closed'
 
 export interface NextOptions {
   /** LUM-1233 3f: was `--count`; `-n` keeps working. */
@@ -128,7 +129,8 @@ export async function loadNext(
   }
 
   const data = (await res.json()) as TasksMeResponse
-  const open = data.tasks.filter(t => t.status !== 'DONE')
+  // LUM-1282: closed tasks (DONE, or CANCELED by the user) are never next.
+  const open = openTasksForNext(data.tasks)
 
   // LUM-646: the autonomy gate. Only when --claimable is passed; otherwise the
   // standard LUM-645 ranking is untouched.
@@ -228,9 +230,16 @@ export function formatClaimableOutput(
   return formatNextOutput(ranked, totalClaimable, 'claimable', opts)
 }
 
+/** The tasks `lumo status --next` may rank: everything not DONE or CANCELED. */
+export function openTasksForNext<T extends { status: string }>(
+  tasks: T[]
+): T[] {
+  return tasks.filter(t => !isClosedStatus(t.status))
+}
+
 /**
  * Render the ranked recommendation block. `ranked` is already sliced to the
- * requested count; `totalOpen` is the count of all non-DONE tasks (for the
+ * requested count; `totalOpen` is the count of all open (not DONE / CANCELED) tasks (for the
  * "(of N open)" header). Pure — no I/O.
  */
 export function formatNextOutput(

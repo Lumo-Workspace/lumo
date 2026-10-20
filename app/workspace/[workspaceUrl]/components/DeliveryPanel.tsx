@@ -5,6 +5,7 @@ import { useTaskProgress } from '../hooks/useTaskProgress'
 import { ForecastView } from './ForecastView'
 import { ProgressView } from './ProgressView'
 import type { ApiStatus } from '../types'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 /**
  * 交付卡编排器（LUM-733 起两态）。
@@ -29,7 +30,7 @@ export function DeliveryPanel({
   /** LUM-932: some run predates the usage-dedupe fix (token usage notice). */
   preDedupe?: boolean
 }) {
-  const isTerminal = status === 'DONE'
+  const isTerminal = isClosedTaskStatus(status)
   const { progress, isLoading, error } = useTaskProgress(taskId)
 
   if (isLoading || error || !progress) return null

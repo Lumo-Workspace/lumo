@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import { ApiClientError } from '@/lib/api-client/base'
+import { isClosedTaskStatus } from '@/lib/task/status-semantics'
 
 type Decision = 'moveToNext' | 'backToBacklog'
 
@@ -79,7 +80,8 @@ export function CloseSprintDialog({
     setLoading(true)
     try {
       const result = await tasksClient.listBySprint<{ tasks: Task[] }>(sprintId)
-      const unfinished = result.tasks.filter(t => t.status !== 'DONE')
+      // LUM-1282: closed tasks (DONE, CANCELED) need no spillover decision.
+      const unfinished = result.tasks.filter(t => !isClosedTaskStatus(t.status))
       setTasks(unfinished)
     } finally {
       setLoading(false)
