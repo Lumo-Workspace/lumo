@@ -407,20 +407,21 @@ export async function taskCreate(
   }
 
   // Surface server error message when present, otherwise the status
-  let serverMsg: string | null = null
+  let errBody: { error?: string } | null = null
   try {
-    const errBody = (await res.json()) as { error?: string }
-    // LUM-1286: the duplicate gate is not an error — it asks the user.
-    if (res.status === 409 && isPossibleDuplicates(errBody)) {
-      return emitConfirmation({
-        command: 'task create',
-        changes: duplicateEnvelopeChanges(title.trim(), errBody.duplicates),
-      })
-    }
-    if (typeof errBody.error === 'string') serverMsg = errBody.error
+    errBody = (await res.json()) as { error?: string }
   } catch {
     // Body wasn't JSON; fall through to status-only message
   }
+  // LUM-1286: the duplicate gate is not an error — it asks the user. Kept
+  // outside the parse try so a formatting fault is not mistaken for bad JSON.
+  if (res.status === 409 && isPossibleDuplicates(errBody)) {
+    return emitConfirmation({
+      command: 'task create',
+      changes: duplicateEnvelopeChanges(title.trim(), errBody.duplicates),
+    })
+  }
+  const serverMsg = typeof errBody?.error === 'string' ? errBody.error : null
   if (serverMsg) {
     console.error(`Error: ${sanitizeField(serverMsg)}`)
   } else {
