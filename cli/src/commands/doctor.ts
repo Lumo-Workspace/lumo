@@ -16,7 +16,11 @@ import {
   PREPARE_COMMIT_MSG_HOOK,
   type GitHookSpec,
 } from '../lib/git-hook-template'
-import { SCAN_HOOKS, scanHookFor } from '../lib/scan-hook-template'
+import {
+  SCAN_HOOKS,
+  SCAN_LOG_HOOKS,
+  scanHookFor,
+} from '../lib/scan-hook-template'
 import { resolveGitHooksDir } from '../lib/git-hooks-dir'
 import {
   CODEX_HOOK_EVENTS,
@@ -327,7 +331,7 @@ function gitHookRow(
   const upToDate = block === spec.block
   const refresh =
     kind === 'scan-hook'
-      ? `${refreshCommand('project')} --scan-hooks`
+      ? `${refreshCommand('project')} ${spec.initFlags ?? '--scan-hooks'}`
       : refreshCommand('project')
   const row: DoctorRow = {
     path: file,
@@ -346,7 +350,10 @@ function gitHookRow(
   if (kind === 'scan-hook')
     row.detail = [
       row.detail,
-      'blocks only on a finding that would block DONE; skip once with --no-verify',
+      // LUM-1259: the post-commit log hook never blocks anything.
+      spec.hook === 'post-commit'
+        ? 'records each commit’s local scan on the Lumo server in the background (git config lumo.scanLog); never blocks a commit'
+        : 'blocks only on a finding that would block DONE; skip once with --no-verify',
     ]
       .filter(Boolean)
       .join('; ')
@@ -565,7 +572,7 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   // recorded ones. A hook file without the Lumo block is not listed.
   const scanFiles = new Map<string, 'user' | 'project'>()
   if (current)
-    for (const spec of SCAN_HOOKS)
+    for (const spec of [...SCAN_HOOKS, ...SCAN_LOG_HOOKS])
       scanFiles.set(path.join(current.dir, spec.hook), 'project')
   for (const rec of registry.installs) {
     if (rec.kind !== 'scan-hook') continue

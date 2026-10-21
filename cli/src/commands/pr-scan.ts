@@ -225,6 +225,42 @@ export interface PrScanPayload {
   redactedSecrets?: number
   /** LUM-901 — the workspace has scanning off; absent on an older server. */
   scanningOff?: boolean
+  /** LUM-1259 — the head's local scan log; null / absent when none. */
+  localHistory?: LocalHistory | null
+}
+
+/** LUM-1259 — what developers' CLIs logged for the PR head (client-reported). */
+export interface LocalHistory {
+  source: 'LOCAL'
+  headSha: string
+  runs: Array<{
+    commitSha: string
+    matchedBy: 'sha' | 'patch-id'
+    trigger: string
+    scannedAt: string
+    findingCount: number
+  }>
+  flaggedAt: string[]
+}
+
+/**
+ * LUM-1259 — one line on the head's local history: flagged locally and
+ * pushed anyway, or scanned locally with nothing found. Always LOCAL: the
+ * CLI reported it, and it never blocks or clears DONE.
+ */
+export function formatLocalHistoryLines(h: LocalHistory): string[] {
+  const short = (sha: string) => sanitizeField(sha.slice(0, 7))
+  const runs = plural(h.runs.length, 'local run', 'local runs')
+  const amended = h.runs.some(r => r.matchedBy === 'patch-id')
+    ? ', including the same change before an amend / rebase'
+    : ''
+  const head =
+    h.flaggedAt.length > 0
+      ? `⚠ Flagged locally at ${h.flaggedAt.map(short).join(', ')} and pushed anyway`
+      : '✓ Scanned locally before the push: no findings'
+  return [
+    `${head} (${runs}${amended}; LOCAL — reported by the CLI, never blocks or clears DONE)`,
+  ]
 }
 
 /**
@@ -628,6 +664,9 @@ export function formatPrScan(
         )
       )
   }
+  if (data.localHistory)
+    for (const l of formatLocalHistoryLines(data.localHistory))
+      lines.push(...wrapLines(l, 0, layout))
   if (data.scans.length === 0) {
     lines.push('')
     lines.push(

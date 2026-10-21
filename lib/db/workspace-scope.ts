@@ -54,6 +54,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'GoogleDriveIntegration',
   'HookEvent',
   'LineageEdge',
+  'LocalScanRun',
   'Memory',
   'MemoryStaleAnchorReport',
   'MilestoneMemoryEdge',

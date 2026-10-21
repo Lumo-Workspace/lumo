@@ -489,6 +489,9 @@ export const PLUGIN_MODELS = [
   'PrReviewLearning',
   // LUM-1150: the single-writer claim on creating a PR's summary comment.
   'PrSecuritySummaryClaim',
+  // LUM-1259: local scan results the CLI logs per commit (opt-in).
+  'LocalScanRun',
+  'LocalScanFinding',
 ] as const
 
 /**
@@ -612,6 +615,7 @@ export const PLUGIN_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'securityAllowAuthorApproval',
     'securityLearningsScope',
     'securityReviewAutoPauseAfter',
+    'securityLocalScanLogEnabled',
     'scanEvidenceRetentionDays',
   ],
   ProjectRepository: ['lastSarifIngestAt', 'securityBaseline'],

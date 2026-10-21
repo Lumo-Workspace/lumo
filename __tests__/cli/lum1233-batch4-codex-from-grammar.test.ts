@@ -71,9 +71,10 @@ const DEVIATIONS = {
     // LUM-1255: reads git and the working tree, so it stays sandboxed;
     // LUM-1256: it also reads server context from the Lumo API, which inside
     // the sandbox falls back to the cache (or no context);
-    // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network.
+    // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network;
+    // LUM-1259: --log uploads to the API and writes its offline queue under .git.
     'security scan':
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)',
   } as Record<string, string>,
 }
 

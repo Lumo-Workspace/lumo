@@ -95,6 +95,8 @@ export const updateSecurityScanSettingsSchema = z
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).
     securityReviewAutoPauseAfter: autoPauseAfterSchema.optional(),
+    // LUM-1259: log local scan results per commit (default off).
+    securityLocalScanLogEnabled: z.boolean().optional(),
   })
   .strict()
   .refine(v => Object.keys(v).length > 0, {

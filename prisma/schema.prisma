@@ -497,6 +497,11 @@ model Workspace {
   // `--resume --limit` (PullRequest.reviewCommitLimit) overrides it. A CHECK
   // constraint keeps it to 0–100.
   securityReviewAutoPauseAfter Int @default(5)
+  // LUM-1259: log local scan results (`lumo security scan --log`, the
+  // post-commit / pre-push hooks) on the server, one LocalScanRun per commit.
+  // Off by default: unpushed-commit metadata is sensitive, so an OWNER opts
+  // in. Off = the upload endpoint refuses; rows already logged stay.
+  securityLocalScanLogEnabled Boolean @default(false)
   workspaceExports        WorkspaceExport[]
 
   // LUM-918: pending deletion. An OWNER's delete schedules it 48h out
@@ -512,6 +517,8 @@ model Workspace {
   subprocessorNotices SubprocessorNoticeDelivery[]
   llmSpend            WorkspaceLlmSpend[]
   feedback            Feedback[]
+  // LUM-1259: local scan results reported by the CLI (security plugin).
+  localScanRuns       LocalScanRun[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -1736,6 +1743,105 @@ model PrReviewLearning {
   @@index([workspaceId, repo])
   @@index([sourcePullRequestId])
   @@map("pr_review_learnings")
+}
+
+// LUM-1259: who ran a logged local scan — a person at a terminal, or a
+// coding agent (Claude Code / Codex session variable present).
+enum LocalScanActor {
+  USER
+  AGENT
+}
+
+// LUM-1259: what ran the logged scan.
+enum LocalScanTrigger {
+  // the post-commit hook, with the real sha
+  POST_COMMIT
+  // the pre-push hook, once per commit in the pushed range
+  PRE_PUSH
+  // `lumo security scan --log` by hand
+  MANUAL
+}
+
+// LUM-1259: one local `lumo security scan` of ONE commit (its first parent ->
+// the commit), reported by the CLI when the workspace opted in
+// (Workspace.securityLocalScanLogEnabled). Client-reported and labelled LOCAL:
+// nothing proves a clean local scan happened, and nothing here feeds or
+// clears the DONE gate (that stays PrSecurityScan). Holds no code, no raw
+// secret, no evidence beyond the scanner's redacted title, and never a commit
+// message. `patchId` (`git patch-id --stable`) is what ties a commit to its
+// amended / rebased successors; a PR head finds its local history by sha or
+// patch-id.
+model LocalScanRun {
+  id             String           @id @default(cuid())
+  workspaceId    String
+  // "owner/name", as on PullRequest.repo (a repository of this workspace).
+  repo           String
+  commitSha      String
+  // The first parent; null for a root commit.
+  parentSha      String?
+  // `git patch-id --stable` of parent -> commit; null when the diff is empty.
+  patchId        String?
+  // The branch checked out when the scan ran; null on a detached HEAD.
+  branch         String?
+  // The coding-agent session that ran it (Session.id, checked to belong to
+  // this workspace) and the task that session was bound to. No FK: the log
+  // outlives a deleted task or session.
+  sessionId      String?
+  taskId         String?
+  actor          LocalScanActor
+  // WorkspaceMember whose CLI key uploaded it.
+  memberId       String
+  trigger        LocalScanTrigger
+  // The local scanners that ran (e.g. ["SECRETS"]).
+  scanners       String[]
+  // e.g. "secrets@1", as PrSecurityScan.detectorVersion names a scanner.
+  scannerVersion String
+  // The @lumoai/cli version; null when the CLI could not tell.
+  cliVersion     String?
+  filesScanned   Int
+  findingCount   Int
+  // sha256 over scanners, scanner version and the sorted findings
+  // (fingerprint, rule, file, line, label): an identical rerun of the same
+  // commit is the same row (dedupe), a changed result is a new row.
+  resultKey      String
+  // When the CLI ran the scan (client clock); createdAt is when it arrived
+  // (a queued offline upload arrives later).
+  scannedAt      DateTime
+  createdAt      DateTime         @default(now())
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  findings  LocalScanFinding[]
+
+  @@unique([workspaceId, repo, commitSha, resultKey])
+  @@index([workspaceId, repo, patchId])
+  @@index([workspaceId, createdAt])
+  @@map("local_scan_runs")
+}
+
+// LUM-1259: one finding of a logged local scan. Fingerprint, rule, position
+// and the scanner's own redacted title only — never the matched value, never
+// the evidence line.
+model LocalScanFinding {
+  id          String                    @id @default(cuid())
+  runId       String
+  // e.g. "SECRETS".
+  scanner     String
+  // The server's fingerprint (a truncated hash of rule + value).
+  fingerprint String
+  ruleId      String
+  severity    PrSecurityFindingSeverity
+  filePath    String
+  line        Int
+  // The scanner's title, redacted again on the server.
+  title       String
+  // The server's reading when the scan ran (NEW | ON_MAIN | FALSE_POSITIVE |
+  // ACCEPTED_RISK | LEARNING); null when it ran without server context.
+  label       String?
+
+  run LocalScanRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("local_scan_findings")
 }
 
 // LUM-1154: a question a human asked Lumo on a pull request — a reply in a

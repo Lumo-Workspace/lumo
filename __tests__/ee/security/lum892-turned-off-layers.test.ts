@@ -164,6 +164,7 @@ const ALL_ON = {
   securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
+  securityLocalScanLogEnabled: false,
 }
 const switches = (patch: Partial<typeof ALL_ON>) =>
   colRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })
