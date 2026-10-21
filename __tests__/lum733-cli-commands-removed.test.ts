@@ -55,14 +55,14 @@ describe('LUM-733 CLI surface reduction', () => {
 
     // 3. The skill docs the agent reads.
     const docs = [
-      '.claude/skills/lumo/SKILL.md',
+      'cli/skill/SKILL.md',
       ...fs
-        .readdirSync(path.join(ROOT, '.claude/skills/lumo/references'))
-        .map(f => `.claude/skills/lumo/references/${f}`),
+        .readdirSync(path.join(ROOT, 'cli/skill/references'))
+        .map(f => `cli/skill/references/${f}`),
     ]
-    expect(docs).not.toContain('.claude/skills/lumo/references/fidelity.md')
-    expect(docs).not.toContain('.claude/skills/lumo/references/verify.md')
-    expect(docs).not.toContain('.claude/skills/lumo/references/criteria.md')
+    expect(docs).not.toContain('cli/skill/references/fidelity.md')
+    expect(docs).not.toContain('cli/skill/references/verify.md')
+    expect(docs).not.toContain('cli/skill/references/criteria.md')
     for (const d of docs) {
       const body = read(d)
       // Only the explicit "does not exist" / removal notes may name them.

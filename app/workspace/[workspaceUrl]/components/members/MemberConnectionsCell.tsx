@@ -1,33 +1,10 @@
 'use client'
 
-import { useIntl, type IntlShape } from 'react-intl'
+import { useIntl } from 'react-intl'
 import type { TaskArtifactAgent } from '@prisma/client'
 import { AGENT_META, useAgentLabel } from '../AgentBadge'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import type { MemberConnectionView } from '@/lib/services/member-connection.service'
-
-/** Localized label for a reported skill version (see SKILL_VERSION_RE). */
-export function skillVersionLabel(
-  intl: IntlShape,
-  skill: string | null
-): string | null {
-  if (!skill) return null
-  if (skill === 'none')
-    return intl.formatMessage({ id: 'members.connection.skillNone' })
-  if (skill === 'source')
-    return intl.formatMessage({ id: 'members.connection.skillSource' })
-  if (skill === 'modified')
-    return intl.formatMessage({ id: 'members.connection.skillModifiedUnknown' })
-  if (skill.endsWith(' modified'))
-    return intl.formatMessage(
-      { id: 'members.connection.skillModified' },
-      { version: skill.slice(0, -' modified'.length) }
-    )
-  return intl.formatMessage(
-    { id: 'members.connection.skill' },
-    { version: skill }
-  )
-}
 
 /** Tinted brand glyph for a coding agent. */
 export function AgentGlyph({

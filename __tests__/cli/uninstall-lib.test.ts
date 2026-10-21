@@ -49,7 +49,8 @@ describe('removeLumoHooks', () => {
       },
     }
     const r = removeLumoHooks(existing as never)
-    expect(r.removed).toBe(2)
+    // ownership: a `lumo hook …` entry goes whichever event it sits under
+    expect(r.removed).toBe(3)
     expect(r.result).toEqual({
       model: 'x',
       hooks: {
@@ -60,7 +61,6 @@ describe('removeLumoHooks', () => {
             hooks: [{ type: 'command', command: 'my-linter' }],
           },
         ],
-        Custom: existing.hooks.Custom,
       },
     })
   })

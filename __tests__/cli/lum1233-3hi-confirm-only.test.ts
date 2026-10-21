@@ -96,9 +96,11 @@ describe('--yes', () => {
     expect(grammar.commands['doc rebuild-source']!.flags).not.toHaveProperty([
       '--force',
     ])
-    // --force keeps its one meaning (discard local edits) where it stays.
-    for (const p of ['worktree rm', 'init', 'skill update', 'uninstall'])
-      expect(grammar.commands[p]!.flags).toHaveProperty(['--force'])
+    // --force keeps its one meaning (discard local edits) where it stays;
+    // LUM-1292 removed it from init and uninstall (no skill copies).
+    expect(grammar.commands['worktree rm']!.flags).toHaveProperty(['--force'])
+    for (const p of ['init', 'uninstall'])
+      expect(grammar.commands[p]!.flags).not.toHaveProperty(['--force'])
   })
 })
 

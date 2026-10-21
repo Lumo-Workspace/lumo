@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import { stringifyJson, withVersion } from '../lib/json-output'
+import { stringifyJson } from '../lib/json-output'
 import * as os from 'os'
 import * as path from 'path'
 import { WARN_PREFIX } from '../lib/errors'
@@ -22,7 +22,7 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
   isLumoHookCommand,
-  retiredLumoHookEvents,
+  staleLumoHookEvents,
 } from '../lib/hooks-template'
 import {
   codexEventKey,
@@ -37,41 +37,40 @@ import {
   codexNetworkState,
   codexRulesPath,
 } from '../lib/codex-rules'
+import { isPathGitTracked, resolveInstallRoot } from '../lib/repo-root'
+import { projectClaudeSettingsTarget } from '../lib/install-plan'
 import {
-  detectInstalledSkills,
-  isLumoSkillSource,
-  repoRoot,
-  type InstallLocation,
-} from '../lib/install-locations'
-import { GIT_HOOK_AGENT, readRegistryChecked } from '../lib/install-registry'
-import {
-  classifySkillDir,
-  isNewerVersion,
-  isPathGitTracked,
-} from '../lib/install-state'
+  classifySkillStub,
+  skillStubAgent,
+  skillStubPaths,
+} from '../lib/skill-stub'
+import { readCredentials, type Credentials } from '../lib/config'
+import { resolveAuthedApiUrl, verifyToken } from '../lib/api'
 
-export type DoctorGroup =
-  | 'machine'
-  | 'repo-committed'
-  | 'repo-uncommitted'
-  | 'other-repos'
+/**
+ * LUM-1292: `lumo doctor` reports the Lumo install of the current git repo
+ * only — Claude Code / Codex hooks, the Codex rule, the git hooks — plus
+ * login and whether the Lumo API answers. `--json` schema version 2.
+ */
+export const DOCTOR_JSON_VERSION = 2
+
 export type DoctorKind =
-  | 'skill'
   | 'claude-settings'
   | 'git-hook'
   | 'codex-hooks'
   | 'codex-rules'
+  | 'skill-stub'
   | 'scan-hook'
+
+/** The agent label of the git hooks (they belong to no coding agent). */
+export const GIT_HOOK_AGENT = 'git'
 
 export interface DoctorRow {
   path: string
   kind: DoctorKind
-  scope: 'user' | 'project'
   agent: string
-  group: DoctorGroup
   /** Whether git tracks the path (fails closed: unknown counts as tracked). */
-  tracked?: boolean
-  version?: string
+  tracked: boolean
   state: string
   suggestion?: string
   detail?: string
@@ -82,8 +81,35 @@ export interface DoctorWarning {
   message: string
 }
 
+/**
+ * - `ok`: the API accepted the key;
+ * - `invalid-key`: reached, key rejected;
+ * - `unreachable`: no answer (offline, or inside Codex's sandbox);
+ * - `error`: any other failure;
+ * - `not-checked`: not logged in, so nothing to check.
+ */
+export type ApiState =
+  | 'ok'
+  | 'invalid-key'
+  | 'unreachable'
+  | 'error'
+  | 'not-checked'
+
+export interface DoctorAuth {
+  loggedIn: boolean
+  email?: string
+  workspace?: string
+  apiUrl?: string
+  api: ApiState
+  detail?: string
+}
+
 export interface DoctorReport {
   cliVersion: string | null
+  /** The install root (git repo root or, outside git, the folder), or null when refused ($HOME, /). */
+  repo: string | null
+  /** The root is a plain folder, not a git repo (Task 11). */
+  folder: boolean
   rows: DoctorRow[]
   warnings: DoctorWarning[]
   autoUpdate: AutoUpdateStatus
@@ -91,6 +117,7 @@ export interface DoctorReport {
 
 /** Test seams: everything defaults to the real environment. */
 export interface DoctorDeps {
+  /** Home dir holding `~/.codex/config.toml` (Codex trust) and user rules. */
   homeDir?: string
   cwd?: string
   cliVersion?: string | null
@@ -100,25 +127,26 @@ export interface DoctorDeps {
   /** Package root and spawnSync for the default eligibility probe (same seams as the worker). */
   pkgRoot?: string | null
   spawnSync?: SpawnSyncFn
+  /** Saved credentials (default: `~/.lumo/credentials.json`). */
+  credentials?: () => Credentials | null
+  /** Check the key against the API; throws on failure (default: `/api/auth/verify`). */
+  checkApi?: (apiUrl: string, token: string) => Promise<void>
+  /** Timeout of the default API check (default {@link API_TIMEOUT_MS}). */
+  apiTimeoutMs?: number
 }
 
 /**
- * LUM-1118: the refresh for an install is re-running `lumo init` for its
- * scope, narrowed to its agent so no other agent gets set up on the way.
+ * LUM-1118: the refresh for an install is re-running `lumo init`, narrowed
+ * to its agent so no other agent gets set up on the way.
  */
-export function refreshCommand(
-  scope: 'user' | 'project',
-  agent?: string
-): string {
-  return `lumo init --scope ${scope}${agent ? ` --agent ${agent}` : ''}`
+export function refreshCommand(agent?: string): string {
+  return `lumo init${agent ? ` --agent ${agent}` : ''}`
 }
 
-/** State for an install older than what the running CLI would write. */
+/** State for a file older than what the running CLI would write. */
 function behindCli(cliVersion: string | null): string {
   return cliVersion ? `behind CLI ${cliVersion}` : 'behind'
 }
-const CMD_FORCE = 'lumo init --force'
-const CMD_UPDATE = 'lumo update'
 const CODEX_HINT = 'open /hooks in Codex and Trust'
 
 /** Whether an executable named `lumo` exists in any directory of `pathVar`. */
@@ -168,79 +196,19 @@ function eventCommands(hooks: unknown, event: string): string[] {
   return out
 }
 
-const SOURCE_STATE = 'Lumo skill source (not an install)'
-
 /** Tracked status of a hook/settings file; paths under a `.git` dir never are. */
 function fileTracked(file: string): boolean {
   if (file.split(path.sep).includes('.git')) return false
   return isPathGitTracked(file)
 }
 
-function inRepo(root: string | null, p: string): boolean {
-  if (!root) return false
-  const rel = path.relative(root, p)
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
-}
-
-/** Paths outside the current repo (and not user-scope) are "other repos". */
-function groupFor(
-  scope: 'user' | 'project',
-  root: string | null,
-  p: string,
-  tracked: () => boolean
-): DoctorGroup {
-  if (scope === 'user') return 'machine'
-  if (!inRepo(root, p)) return 'other-repos'
-  return tracked() ? 'repo-committed' : 'repo-uncommitted'
-}
-
-function skillRow(
-  loc: InstallLocation,
-  cliVersion: string | null,
-  root: string | null
-): DoctorRow | null {
-  const cls = classifySkillDir(loc.path)
-  if (cls.state === 'missing') return null
-  const base = {
-    path: loc.path,
-    kind: 'skill' as const,
-    scope: loc.scope,
-    agent: loc.agent,
-    group: groupFor(loc.scope, root, loc.path, () => cls.gitTracked),
-    tracked: cls.gitTracked,
-  }
-  if (isLumoSkillSource(loc.path)) return { ...base, state: SOURCE_STATE }
-  if (cls.state === 'modified')
-    return {
-      ...base,
-      state: 'modified',
-      suggestion: CMD_FORCE,
-      detail: 'edited locally; the suggested command discards those edits',
-    }
-  const v = cls.version as string
-  if (cliVersion && isNewerVersion(v, cliVersion))
-    return {
-      ...base,
-      version: v,
-      state: behindCli(cliVersion),
-      suggestion: refreshCommand(loc.scope, loc.agent),
-    }
-  if (cliVersion && isNewerVersion(cliVersion, v))
-    return {
-      ...base,
-      version: v,
-      state: 'newer than CLI',
-      suggestion: CMD_UPDATE,
-    }
-  return { ...base, version: v, state: 'up to date' }
-}
-
 function settingsRow(
-  file: string,
-  scope: 'user' | 'project',
-  warnings: DoctorWarning[],
-  root: string | null
+  root: string,
+  warnings: DoctorWarning[]
 ): DoctorRow | null {
+  const file = path.join(root, '.claude', 'settings.json')
+  // The agent token baked into the entries (`--agent`), for the refresh.
+  const agent = projectClaudeSettingsTarget(root)?.agent ?? 'claude-code'
   const data = readJson(file)
   if (!data) return null
   const missing: string[] = []
@@ -252,14 +220,12 @@ function settingsRow(
     if (has) any = true
     else missing.push(event)
   }
-  const retired = retiredLumoHookEvents(data.hooks)
+  const retired = staleLumoHookEvents(data.hooks)
   if (!any && retired.length === 0) return null
   const row: DoctorRow = {
     path: file,
     kind: 'claude-settings',
-    scope,
-    agent: 'claude-code',
-    group: groupFor(scope, root, file, () => isPathGitTracked(file)),
+    agent,
     tracked: isPathGitTracked(file),
     state:
       missing.length === 0 && retired.length === 0
@@ -274,17 +240,17 @@ function settingsRow(
       message: `${file} is missing Lumo hook events: ${missing.join(', ')}`,
     })
   }
-  // LUM-1235: a Lumo WorktreeCreate entry replaces Claude Code's own worktree
-  // creation and makes it fail; `lumo init` removes it.
+  // Lumo entries for events no longer registered (e.g. an old WorktreeCreate,
+  // which breaks Claude Code worktrees); `lumo init` removes them.
   if (retired.length > 0) {
-    details.push(`retired hook event(s) to remove: ${retired.join(', ')}`)
+    details.push(`stale hook event(s) to remove: ${retired.join(', ')}`)
     warnings.push({
       code: 'retired-hook-events',
-      message: `${file} still has retired Lumo hook events that break Claude Code worktrees: ${retired.join(', ')}`,
+      message: `${file} still has Lumo hook events that are no longer registered: ${retired.join(', ')}`,
     })
   }
   if (details.length > 0) {
-    row.suggestion = `lumo init --scope ${scope}`
+    row.suggestion = refreshCommand(agent)
     row.detail = details.join('; ')
   }
   return row
@@ -296,9 +262,7 @@ function settingsRow(
  */
 function gitHookRow(
   file: string,
-  scope: 'user' | 'project',
-  root: string | null,
-  current: { dir: string; coreHooksPath: string | null } | null,
+  coreHooksPath: string | null,
   cliVersion: string | null,
   spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK,
   kind: 'git-hook' | 'scan-hook' = 'git-hook'
@@ -314,32 +278,20 @@ function gitHookRow(
   const end = text.indexOf(LUMO_HOOK_END, begin)
   const block =
     end === -1 ? null : text.slice(begin, end + LUMO_HOOK_END.length)
-  const isCurrent =
-    current !== null && path.join(current.dir, spec.hook) === file
-  const hooksPath = isCurrent ? current.coreHooksPath : null
-  // The default hooks dir lives under .git and is never tracked; only a
-  // configured core.hooksPath dir can be committed.
-  const group: DoctorGroup = isCurrent
-    ? hooksPath
-      ? groupFor('project', root, file, () => isPathGitTracked(file))
-      : 'machine'
-    : groupFor(scope, root, file, () => isPathGitTracked(file))
   const upToDate = block === spec.block
   const refresh =
-    kind === 'scan-hook'
-      ? `${refreshCommand('project')} --scan-hooks`
-      : refreshCommand('project')
+    kind === 'scan-hook' ? `${refreshCommand()} --scan-hooks` : refreshCommand()
   const row: DoctorRow = {
     path: file,
     kind,
-    scope,
     agent: GIT_HOOK_AGENT,
-    group,
-    tracked: isCurrent && !hooksPath ? false : fileTracked(file),
+    // The default hooks dir lives under .git and is never tracked; only a
+    // configured core.hooksPath dir can be committed.
+    tracked: coreHooksPath ? fileTracked(file) : false,
     state: upToDate ? 'up to date' : behindCli(cliVersion),
   }
   if (!upToDate) {
-    if (hooksPath)
+    if (coreHooksPath)
       row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`${refresh}\` prints`
     else row.suggestion = refresh
   }
@@ -354,16 +306,14 @@ function gitHookRow(
 }
 
 /**
- * A Codex hooks.json with `lumo hook` entries: user (`~/.codex/hooks.json`) or
- * project (`<repo>/.codex/hooks.json`, written by `init --agent codex
- * --project`). Codex keeps trust for both in `~/.codex/config.toml`, keyed by
- * the hooks file's absolute path.
+ * The repo's `.codex/hooks.json` with `lumo hook` entries. Codex keeps trust
+ * in `~/.codex/config.toml`, keyed by the hooks file's absolute path; a
+ * project file is loaded only once the project is trusted, so its trust is
+ * reported as unverified rather than missing.
  */
 function codexRow(
   file: string,
-  scope: 'user' | 'project',
   home: string,
-  root: string | null,
   warnings: DoctorWarning[]
 ): DoctorRow | null {
   const data = readJson(file)
@@ -386,40 +336,28 @@ function codexRow(
     ([event, slug]) =>
       !eventCommands(hooks, event).some(c => isLumoHookCommand(c, slug))
   ).map(([event]) => event)
-  const tracked = isPathGitTracked(file)
   const row: DoctorRow = {
     path: file,
     kind: 'codex-hooks',
-    scope,
     agent: 'codex',
-    group: groupFor(scope, root, file, () => tracked),
-    tracked,
+    tracked: isPathGitTracked(file),
     state:
       untrusted.length === 0
         ? 'trusted (hash not verified)'
-        : scope === 'project'
-          ? 'trust unverified'
-          : 'not trusted',
+        : 'trust unverified',
   }
   const details: string[] = []
   if (untrusted.length > 0) {
-    const projectHint = `${CODEX_HINT} if Lumo hooks don't fire`
-    details.push(
-      scope === 'project'
-        ? `${projectHint}: ${untrusted.join(', ')}`
-        : `${CODEX_HINT}: ${untrusted.join(', ')}`
-    )
+    const hint = `${CODEX_HINT} if Lumo hooks don't fire`
+    details.push(`${hint}: ${untrusted.join(', ')}`)
     warnings.push({
       code: 'codex-untrusted',
-      message:
-        scope === 'project'
-          ? `Codex hooks trust unverified (${file}) — ${projectHint} (${untrusted.join(', ')})`
-          : `Codex hooks not trusted (${file}) — ${CODEX_HINT} (${untrusted.join(', ')})`,
+      message: `Codex hooks trust unverified (${file}) — ${hint} (${untrusted.join(', ')})`,
     })
   }
   if (missing.length > 0) {
     details.push(`missing ${missing.length} hook event(s)`)
-    row.suggestion = refreshCommand(scope, 'codex')
+    row.suggestion = refreshCommand('codex')
     warnings.push({
       code: 'missing-hook-events',
       message: `${file} is missing Lumo Codex hook events: ${missing.join(', ')}`,
@@ -435,10 +373,10 @@ function codexRow(
     details.push(
       "network: lumo commands have no network in Codex's sandbox (no .codex/rules/lumo.rules)"
     )
-    row.suggestion ??= `lumo init --agent codex --${scope}`
+    row.suggestion ??= refreshCommand('codex')
     warnings.push({
       code: 'codex-no-network',
-      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`lumo init --agent codex --${scope}\` to add the Codex rule for server-only lumo commands`,
+      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`${refreshCommand('codex')}\` to add Lumo's Codex rules`,
     })
   }
   if (details.length > 0) row.detail = details.join('; ')
@@ -449,239 +387,231 @@ function codexRow(
  * The Lumo rules file (LUM-1054). Only a file carrying the Lumo marker is an
  * install; a `lumo.rules` the user wrote is theirs and not listed.
  */
-function codexRulesRow(
-  file: string,
-  scope: 'user' | 'project',
-  root: string | null
-): DoctorRow | null {
+function codexRulesRow(file: string): DoctorRow | null {
   const state = classifyCodexRules(file)
   if (state === 'missing' || state === 'foreign') return null
-  const tracked = isPathGitTracked(file)
   const row: DoctorRow = {
     path: file,
     kind: 'codex-rules',
-    scope,
     agent: 'codex',
-    group: groupFor(scope, root, file, () => tracked),
-    tracked,
+    tracked: isPathGitTracked(file),
     state: state === 'current' ? 'up to date' : 'outdated',
     detail:
-      scope === 'project'
-        ? "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others (loaded once the project is trusted in Codex)"
-        : "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others",
+      "`lumo` commands run outside Codex's sandbox; Codex asks before local-writing ones (loaded once the project is trusted in Codex)",
   }
-  if (state === 'outdated') row.suggestion = refreshCommand(scope, 'codex')
+  if (state === 'outdated') row.suggestion = refreshCommand('codex')
   return row
 }
 
-/** Gather every Lumo install this machine/repo knows about. Never writes. */
+/**
+ * The frozen skill stubs (`/lumo`, `$lumo`). A stub is listed when the file
+ * exists, or when that agent's hooks are installed (then a missing one is a
+ * finding); `ok` | `missing` | `differs`.
+ */
+function skillStubRows(
+  root: string,
+  haveClaude: boolean,
+  haveCodex: boolean
+): DoctorRow[] {
+  const rows: DoctorRow[] = []
+  for (const file of skillStubPaths(root)) {
+    const agent = skillStubAgent(
+      root,
+      file,
+      projectClaudeSettingsTarget(root)?.agent
+    )
+    const state = classifySkillStub(file)
+    if (state === 'missing' && !(agent === 'codex' ? haveCodex : haveClaude))
+      continue
+    const row: DoctorRow = {
+      path: file,
+      kind: 'skill-stub',
+      agent,
+      tracked: state !== 'missing' && isPathGitTracked(file),
+      state: state === 'current' ? 'ok' : state,
+    }
+    if (state !== 'current') row.suggestion = refreshCommand(agent)
+    rows.push(row)
+  }
+  return rows
+}
+
+/** The repo's Lumo files `lumo init` writes, as rows. Never writes. */
+function repoRows(
+  root: string,
+  home: string,
+  cliVersion: string | null,
+  warnings: DoctorWarning[]
+): DoctorRow[] {
+  const rows: Array<DoctorRow | null> = [settingsRow(root, warnings)]
+  const { dir, coreHooksPath } = resolveGitHooksDir(root)
+  if (dir) {
+    rows.push(
+      gitHookRow(
+        path.join(dir, PREPARE_COMMIT_MSG_HOOK.hook),
+        coreHooksPath,
+        cliVersion
+      )
+    )
+    // LUM-1258 scan hooks (opt-in): a hook file without the Lumo block is not listed.
+    for (const spec of SCAN_HOOKS) {
+      const file = path.join(dir, spec.hook)
+      if (scanHookFor(file))
+        rows.push(
+          gitHookRow(file, coreHooksPath, cliVersion, spec, 'scan-hook')
+        )
+    }
+  }
+  rows.push(codexRow(codexHooksPath(root), home, warnings))
+  rows.push(codexRulesRow(codexRulesPath(root)))
+  const found = rows.filter((r): r is DoctorRow => r !== null)
+  found.push(
+    ...skillStubRows(
+      root,
+      found.some(r => r.kind === 'claude-settings'),
+      found.some(r => r.kind === 'codex-hooks' || r.kind === 'codex-rules')
+    )
+  )
+  return found
+}
+
+/** Gather the current repo's Lumo install. Never writes, no network. */
 export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   const home = deps.homeDir ?? os.homedir()
-  const cwd = deps.cwd ?? process.cwd()
   const cliVersion =
     deps.cliVersion !== undefined ? deps.cliVersion : readCliVersion()
   const env = deps.env ?? process.env
   const warnings: DoctorWarning[] = []
-  const rows: DoctorRow[] = []
-
-  const { registry, corrupt } = readRegistryChecked()
-  if (corrupt)
-    warnings.push({
-      code: 'registry-corrupt',
-      message:
-        'installs.json is unreadable; doctor ignored it and did not rewrite it',
-    })
-
-  const root = repoRoot(cwd)
-  const stale = (p: string): void => {
-    warnings.push({
-      code: 'registry-stale',
-      message: `registry lists ${p} but it no longer exists`,
-    })
-  }
-
-  // Skills: detected locations plus anything the registry recorded.
-  const locs = new Map<string, InstallLocation>()
-  for (const l of detectInstalledSkills({ homeDir: home, cwd }))
-    locs.set(l.path, l)
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'skill' || locs.has(rec.path)) continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    locs.set(rec.path, { path: rec.path, scope: rec.scope, agent: rec.agent })
-  }
-  for (const l of locs.values()) {
-    const row = skillRow(l, cliVersion, root)
-    if (row) rows.push(row)
-  }
-
-  // Claude settings: the two standard files plus recorded ones.
-  const settingsFiles = new Map<string, 'user' | 'project'>()
-  settingsFiles.set(path.join(home, '.claude', 'settings.json'), 'user')
-  if (root)
-    settingsFiles.set(path.join(root, '.claude', 'settings.json'), 'project')
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'claude-settings') continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    if (settingsFiles.has(rec.path)) continue
-    settingsFiles.set(rec.path, rec.scope)
-  }
-  for (const [file, scope] of settingsFiles) {
-    const row = settingsRow(file, scope, warnings, root)
-    if (row) rows.push(row)
-  }
-
-  // prepare-commit-msg: this repo's hooks dir plus recorded hooks.
-  let current: { dir: string; coreHooksPath: string | null } | null = null
-  const hookFiles = new Map<string, { scope: 'user' | 'project' }>()
-  if (root) {
-    const { dir, coreHooksPath } = resolveGitHooksDir(root)
-    if (dir) {
-      current = { dir, coreHooksPath }
-      hookFiles.set(path.join(dir, PREPARE_COMMIT_MSG_HOOK.hook), {
-        scope: 'project',
-      })
-    }
-  }
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'git-hook') continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    if (hookFiles.has(rec.path)) continue
-    hookFiles.set(rec.path, { scope: rec.scope })
-  }
-  for (const [file, t] of hookFiles) {
-    const row = gitHookRow(file, t.scope, root, current, cliVersion)
-    if (row) rows.push(row)
-  }
-  // LUM-1258 scan hooks (opt-in): this repo's pre-commit / pre-push plus
-  // recorded ones. A hook file without the Lumo block is not listed.
-  const scanFiles = new Map<string, 'user' | 'project'>()
-  if (current)
-    for (const spec of SCAN_HOOKS)
-      scanFiles.set(path.join(current.dir, spec.hook), 'project')
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'scan-hook') continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    if (!scanFiles.has(rec.path)) scanFiles.set(rec.path, rec.scope)
-  }
-  for (const [file, scope] of scanFiles) {
-    const spec = scanHookFor(file)
-    if (!spec) continue
-    const row = gitHookRow(
-      file,
-      scope,
-      root,
-      current,
-      cliVersion,
-      spec,
-      'scan-hook'
-    )
-    if (row) rows.push(row)
-  }
-  // Codex hooks.json: user + this repo's file plus recorded ones.
-  const codexFiles = new Map<string, 'user' | 'project'>()
-  codexFiles.set(codexHooksPath(home), 'user')
-  if (root) codexFiles.set(codexHooksPath(root), 'project')
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'codex-hooks') continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    if (codexFiles.has(rec.path)) continue
-    codexFiles.set(rec.path, rec.scope)
-  }
-  for (const [file, scope] of codexFiles) {
-    const row = codexRow(file, scope, home, root, warnings)
-    if (row) rows.push(row)
-  }
-  // Codex rules: user + this repo's file plus recorded ones.
-  const rulesFiles = new Map<string, 'user' | 'project'>()
-  rulesFiles.set(codexRulesPath(home), 'user')
-  if (root) rulesFiles.set(codexRulesPath(root), 'project')
-  for (const rec of registry.installs) {
-    if (rec.kind !== 'codex-rules') continue
-    if (!fs.existsSync(rec.path)) {
-      stale(rec.path)
-      continue
-    }
-    if (rulesFiles.has(rec.path)) continue
-    rulesFiles.set(rec.path, rec.scope)
-  }
-  for (const [file, scope] of rulesFiles) {
-    const row = codexRulesRow(file, scope, root)
-    if (row) rows.push(row)
-  }
-
-  // The same agent's skill at user and project scope with different versions.
-  const skills = rows.filter(
-    r => r.kind === 'skill' && r.version && r.group !== 'other-repos'
-  )
-  for (const u of skills.filter(r => r.scope === 'user')) {
-    for (const p of skills.filter(
-      r => r.scope === 'project' && r.agent === u.agent
-    )) {
-      if (u.version !== p.version)
-        warnings.push({
-          code: 'scope-version-mismatch',
-          message: `${u.agent}: user copy is ${u.version} but project copy is ${p.version} (${u.path} vs ${p.path})`,
-        })
-    }
-  }
-
+  const resolved = resolveInstallRoot(deps.cwd ?? process.cwd(), home)
+  const root = resolved.ok ? resolved.root : null
+  const folder = resolved.ok && resolved.kind === 'folder'
+  const rows = root ? repoRows(root, home, cliVersion, warnings) : []
+  if (!resolved.ok)
+    warnings.push({ code: 'not-a-repo', message: resolved.error })
   if (!lumoOnPath(env.PATH))
     warnings.push({
       code: 'lumo-not-on-path',
       message:
         '`lumo` is not resolvable on PATH, so installed hooks cannot run; install it globally (npm install -g @lumoai/cli)',
     })
-
-  // A project install of another repo is refreshed from inside that repo.
-  for (const r of rows)
-    if (r.group === 'other-repos' && r.suggestion?.startsWith('lumo init '))
-      r.detail = r.detail
-        ? `${r.detail}; run the command in that repo`
-        : 'run the command in that repo'
-
-  return { cliVersion, rows, warnings, autoUpdate: getAutoUpdateStatus(env) }
+  return {
+    cliVersion,
+    repo: root,
+    folder,
+    rows,
+    warnings,
+    autoUpdate: getAutoUpdateStatus(env),
+  }
 }
 
-const GROUP_TITLES: Array<[DoctorGroup, string]> = [
-  ['machine', 'This machine'],
-  ['repo-committed', 'This repo — committed'],
-  ['repo-uncommitted', 'This repo — uncommitted'],
-  ['other-repos', 'Other repos'],
-]
+/** How long doctor waits for the Lumo API before calling it unreachable. */
+export const API_TIMEOUT_MS = 5_000
 
-function renderText(report: DoctorReport): string {
+/**
+ * The default API check: `/api/auth/verify`, aborted (socket closed) after
+ * `timeoutMs`, so doctor never waits on — or stays alive for — a stalled
+ * server. An abort surfaces as "Could not reach Lumo API …".
+ */
+export async function defaultCheckApi(
+  apiUrl: string,
+  token: string,
+  timeoutMs: number = API_TIMEOUT_MS
+): Promise<void> {
+  await verifyToken(apiUrl, token, { signal: AbortSignal.timeout(timeoutMs) })
+}
+
+/** Login (saved credentials) and whether the Lumo API accepts the key. */
+export async function probeAuth(deps: DoctorDeps = {}): Promise<DoctorAuth> {
+  const creds = (deps.credentials ?? readCredentials)()
+  if (!creds) return { loggedIn: false, api: 'not-checked' }
+  const base = {
+    loggedIn: true,
+    email: creds.email,
+    workspace: creds.workspaceSlug,
+  }
+  let apiUrl: string
+  try {
+    apiUrl = resolveAuthedApiUrl(creds.apiUrl, { warn: () => {} })
+  } catch (err) {
+    return {
+      ...base,
+      apiUrl: creds.apiUrl,
+      api: 'error',
+      detail: err instanceof Error ? err.message : String(err),
+    }
+  }
+  try {
+    const check =
+      deps.checkApi ??
+      ((url: string, token: string) =>
+        defaultCheckApi(url, token, deps.apiTimeoutMs ?? API_TIMEOUT_MS))
+    await check(apiUrl, creds.token)
+    return { ...base, apiUrl, api: 'ok' }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    const api: ApiState = /invalid or revoked/i.test(detail)
+      ? 'invalid-key'
+      : /could not reach/i.test(detail)
+        ? 'unreachable'
+        : 'error'
+    return { ...base, apiUrl, api, detail }
+  }
+}
+
+function describeAuth(auth: DoctorAuth): string[] {
+  if (!auth.loggedIn) return ['Login', '  not logged in', '  lumo auth login']
+  const lines = [
+    'Login',
+    `  ${auth.email ?? '?'} · workspace ${auth.workspace ?? '?'}`,
+    `  API ${auth.apiUrl ?? '?'}: ${auth.api}`,
+  ]
+  if (auth.detail) lines.push(`  ${auth.detail}`)
+  if (auth.api === 'invalid-key') lines.push('  lumo auth login')
+  return lines
+}
+
+function renderRows(title: string, rows: readonly DoctorRow[]): string[] {
+  if (rows.length === 0) return []
+  const lines = ['', title]
+  for (const r of rows) {
+    lines.push(`  ${r.path}`)
+    lines.push(`    ${r.kind} · ${r.state}`)
+    if (r.detail) lines.push(`    ${r.detail}`)
+    // LUM-1232 S-1: a command sits on its own line with no arrow.
+    if (r.suggestion) lines.push(`    ${r.suggestion}`)
+  }
+  return lines
+}
+
+function renderText(report: DoctorReport, auth: DoctorAuth): string {
   const lines: string[] = [
     `Lumo doctor — CLI ${report.cliVersion ?? 'unknown version'}`,
     describeAutoUpdate(report.autoUpdate),
+    '',
+    ...describeAuth(auth),
   ]
-  if (report.rows.length === 0) lines.push('', 'No Lumo installs found.')
-  for (const [group, title] of GROUP_TITLES) {
-    const rows = report.rows.filter(r => r.group === group)
-    if (rows.length === 0) continue
-    lines.push('', title)
-    for (const r of rows) {
-      lines.push(`  ${r.path}`)
-      const parts = [r.kind, r.version ? `v${r.version}` : null, r.state]
-      lines.push(`    ${parts.filter(Boolean).join(' · ')}`)
-      if (r.detail) lines.push(`    ${r.detail}`)
-      // LUM-1232 S-1: a command sits on its own line with no arrow.
-      if (r.suggestion) lines.push(`    ${r.suggestion}`)
-    }
+  if (report.repo) {
+    lines.push(
+      '',
+      `${report.folder ? 'Folder (not a git repo)' : 'Repo'} ${report.repo}`
+    )
+    if (report.rows.length === 0)
+      lines.push(
+        `  No Lumo hooks in this ${report.folder ? 'folder' : 'repo'}.`,
+        '  lumo init'
+      )
+    lines.push(
+      ...renderRows(
+        'Committed (shared with the team)',
+        report.rows.filter(r => r.tracked)
+      ),
+      ...renderRows(
+        report.folder
+          ? 'Local (this folder only — not under git)'
+          : 'Not committed (this checkout only)',
+        report.rows.filter(r => !r.tracked)
+      )
+    )
   }
   if (report.warnings.length > 0) {
     lines.push('', 'Warnings')
@@ -691,14 +621,17 @@ function renderText(report: DoctorReport): string {
   return lines.join('\n') + '\n'
 }
 
-/** `lumo doctor`: read-only report of every Lumo install; always exits 0. */
+/**
+ * `lumo doctor`: read-only report of the current repo's Lumo hooks, rule and
+ * git hooks, plus login and API reachability; always exits 0.
+ */
 export async function doctor(
   options: { json?: boolean } = {},
   deps: DoctorDeps = {}
 ): Promise<number> {
   const report = collectDoctor(deps)
   // Probed here, not in collectDoctor: uninstall reuses the collector and must
-  // not pay for an `npm root -g` spawn.
+  // not pay for an `npm root -g` spawn or an API call.
   if (report.autoUpdate.enabled) {
     // One-shot diagnostic: a synchronous `npm root -g` (5 s cap) is fine here.
     const isGlobal =
@@ -710,8 +643,11 @@ export async function doctor(
         ))
     report.autoUpdate = { ...report.autoUpdate, eligible: isGlobal() }
   }
+  const auth = await probeAuth(deps)
   process.stdout.write(
-    options.json ? stringifyJson(withVersion(report)) : renderText(report)
+    options.json
+      ? stringifyJson({ version: DOCTOR_JSON_VERSION, ...report, auth })
+      : renderText(report, auth)
   )
   return 0
 }

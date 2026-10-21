@@ -16,41 +16,19 @@ export const LUMO_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
   ['SessionEnd', 'session-end'],
   ['SubagentStart', 'subagent-start'],
   ['SubagentStop', 'subagent-stop'],
-  ['FileChanged', 'file-changed'],
-  ['ConfigChange', 'config-change'],
   ['TaskCreated', 'task-created'],
-  ['TaskCompleted', 'task-completed'],
   ['PostToolBatch', 'post-tool-batch'],
-  ['UserPromptExpansion', 'user-prompt-expansion'],
   ['Notification', 'notification'],
   ['Elicitation', 'elicitation'],
   ['ElicitationResult', 'elicitation-result'],
-  ['CwdChanged', 'cwd-changed'],
-  ['InstructionsLoaded', 'instructions-loaded'],
-]
-
-/**
- * LUM-1235: Claude Code events Lumo used to install and now removes. A
- * WorktreeCreate command hook *replaces* `git worktree add` — it must create
- * the worktree and print its path — so a forwarder that prints nothing breaks
- * `claude --worktree`, `isolation: "worktree"` and the desktop app's worktree
- * sessions. WorktreeRemove only fires for hook-created worktrees, and exiting
- * 0 there means "removed" without git deleting anything. `mergeLumoHooks`
- * strips Lumo's own entries for these, so `lumo init`, the first-run sync and
- * the SessionStart drift note clean existing installs.
- */
-export const RETIRED_LUMO_HOOK_EVENTS: ReadonlyArray<
-  readonly [string, string]
-> = [
-  ['WorktreeCreate', 'worktree-create'],
-  ['WorktreeRemove', 'worktree-remove'],
 ]
 
 /**
  * LUM-1051: the Codex hook events Lumo handles (codex-cli 0.162.0, LUM-1050
- * probe). Nine share a Claude Code name; PreCompact / PostCompact / Interrupt
- * are Codex-only. The other 16 Claude events have no Codex counterpart — an
- * unknown name in hooks.json is silently ignored, so they are left out rather
+ * probe). Only events that share a Claude Code name are registered; Codex's
+ * compaction and interrupt events are not (SessionStart re-runs with
+ * source=compact, and the timeline does not need the rest). An unknown name in
+ * hooks.json is silently ignored, so Claude-only events are left out rather
  * than written as dead entries.
  */
 export const CODEX_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
@@ -60,12 +38,9 @@ export const CODEX_HOOK_EVENTS: ReadonlyArray<readonly [string, string]> = [
   ['PreToolUse', 'pre-tool-use'],
   ['PermissionRequest', 'permission-request'],
   ['PostToolUse', 'post-tool-use'],
-  ['PreCompact', 'pre-compact'],
-  ['PostCompact', 'post-compact'],
   ['SubagentStart', 'subagent-start'],
   ['SubagentStop', 'subagent-stop'],
   ['Stop', 'stop'],
-  ['Interrupt', 'interrupt'],
 ]
 
 type HookEntry = { type: 'command'; command: string }
@@ -114,29 +89,79 @@ export function buildLumoHookFragment(
   return { hooks }
 }
 
-// Idempotent merge: copies every key from `existing` (preserving user config),
-// then for each Lumo event ensures exactly one `lumo hook <slug> --agent
-// <token>` entry is present. An existing Lumo entry (with any/no `--agent`
-// suffix) is rewritten in place to the desired command — so re-running setup
-// with a different agent, or upgrading a legacy flagless entry, never leaves a
-// duplicate. Existing non-lumo hook groups for the same event are left alone.
+/**
+ * A hook command belongs to Lumo when it is `lumo hook` or starts with
+ * `lumo hook ` (any slug, any flags). Ownership is by command, not by event:
+ * a merge replaces every such entry, so events dropped from the template —
+ * and entries baked with another `--agent` — never linger.
+ */
+export function isLumoHookEntry(command: string): boolean {
+  return command === 'lumo hook' || command.startsWith('lumo hook ')
+}
+
+// Ownership merge: copies every key from `existing` (preserving user config),
+// then makes Lumo's entries exactly one `lumo hook <slug> --agent <token>` per
+// event in `events`. A Lumo entry that is already exactly right is left where
+// it is (so a re-run is byte-identical); any other Lumo entry — an older flag
+// form, another agent token, or an event no longer in the set — is removed,
+// together with groups and events that emptied. Non-Lumo hooks are never
+// touched. Codex tolerates events at the file root as well as under `hooks`;
+// Lumo entries at the root are moved under `hooks`.
 // Returns the merged object plus stats describing what changed.
 export type MergeStats = {
   addedEvents: string[]
   alreadyPresent: string[]
   updatedEvents: string[]
-  /** Retired events whose Lumo entry was removed (LUM-1235). */
+  /** Events whose Lumo entries were removed and are not in the new set. */
   removedEvents: string[]
+}
+
+type Holder = Record<string, unknown>
+
+/** Lumo-owned commands per event in `holder`, in file order. */
+function lumoCommandsByEvent(holder: Holder): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  for (const [event, groups] of Object.entries(holder)) {
+    if (!Array.isArray(groups)) continue
+    for (const g of groups) {
+      const list = (g as { hooks?: unknown } | null)?.hooks
+      if (!Array.isArray(list)) continue
+      for (const h of list) {
+        const c = (h as { command?: unknown } | null)?.command
+        if (typeof c !== 'string' || !isLumoHookEntry(c)) continue
+        out.set(event, [...(out.get(event) ?? []), c])
+      }
+    }
+  }
+  return out
+}
+
+/** Drop Lumo entries (and what that emptied) of `event` from `holder`. */
+function dropLumoEntries(holder: Holder, event: string): void {
+  const groups = holder[event]
+  if (!Array.isArray(groups)) return
+  const kept: unknown[] = []
+  for (const g of groups) {
+    const list = (g as { hooks?: unknown } | null)?.hooks
+    if (!Array.isArray(list)) {
+      kept.push(g)
+      continue
+    }
+    const left = list.filter(h => {
+      const c = (h as { command?: unknown } | null)?.command
+      return !(typeof c === 'string' && isLumoHookEntry(c))
+    })
+    if (left.length === list.length) kept.push(g)
+    else if (left.length > 0) kept.push({ ...(g as object), hooks: left })
+  }
+  if (kept.length > 0) holder[event] = kept
+  else delete holder[event]
 }
 
 export function mergeLumoHooks(
   existing: SettingsShape | undefined | null,
   agentToken: string = DEFAULT_AGENT_TOKEN,
-  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS,
-  retired: ReadonlyArray<readonly [string, string]> = events ===
-  LUMO_HOOK_EVENTS
-    ? RETIRED_LUMO_HOOK_EVENTS
-    : []
+  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS
 ): {
   merged: SettingsShape
   stats: MergeStats
@@ -145,53 +170,46 @@ export function mergeLumoHooks(
     ? JSON.parse(JSON.stringify(existing))
     : {}
   if (!base.hooks) base.hooks = {}
+  const hooks = base.hooks as Holder
   const stats: MergeStats = {
     addedEvents: [],
     alreadyPresent: [],
     updatedEvents: [],
     removedEvents: [],
   }
+  const wanted = new Set(events.map(([e]) => e))
 
-  if (retired.length > 0) {
-    const { result, removedEvents } = stripRetired(base, retired)
-    base.hooks = result.hooks ?? {}
-    stats.removedEvents = removedEvents
+  // Lumo entries at the file root (Codex): always moved under `hooks`.
+  const root = base as unknown as Holder
+  const rootOwned = lumoCommandsByEvent(
+    Object.fromEntries(Object.entries(root).filter(([k]) => k !== 'hooks'))
+  )
+  for (const event of rootOwned.keys()) {
+    dropLumoEntries(root, event)
+    if (!wanted.has(event)) stats.removedEvents.push(event)
+  }
+
+  const owned = lumoCommandsByEvent(hooks)
+  for (const event of owned.keys()) {
+    if (wanted.has(event)) continue
+    dropLumoEntries(hooks, event)
+    if (!stats.removedEvents.includes(event)) stats.removedEvents.push(event)
   }
 
   for (const [event, slug] of events) {
     const ourCmd = `lumo hook ${slug} --agent ${agentToken}`
-    const groups = base.hooks[event] ?? []
-
-    let exact = false
-    let rewritten = false
-    for (const g of groups) {
-      if (!Array.isArray(g.hooks)) continue
-      for (const h of g.hooks) {
-        if (h.command === ourCmd) {
-          exact = true
-        } else if (isLumoHookCommand(h.command, slug)) {
-          // legacy flagless or a different agent token — bring it up to date
-          h.command = ourCmd
-          rewritten = true
-        }
-      }
-    }
-
-    if (exact) {
+    const have = owned.get(event) ?? []
+    if (have.length === 1 && have[0] === ourCmd && !rootOwned.has(event)) {
       stats.alreadyPresent.push(event)
-      base.hooks[event] = groups
       continue
     }
-    if (rewritten) {
-      stats.updatedEvents.push(event)
-      base.hooks[event] = groups
-      continue
-    }
-    base.hooks[event] = [
-      ...groups,
+    dropLumoEntries(hooks, event)
+    hooks[event] = [
+      ...((hooks[event] as unknown[] | undefined) ?? []),
       { hooks: [{ type: 'command', command: ourCmd }] },
     ]
-    stats.addedEvents.push(event)
+    if (have.length > 0 || rootOwned.has(event)) stats.updatedEvents.push(event)
+    else stats.addedEvents.push(event)
   }
 
   return { merged: base, stats }
@@ -201,7 +219,7 @@ export function mergeLumoHooks(
  * Remove Lumo hook entries, keeping every other key, group and hook. Groups
  * and event arrays that this call emptied are dropped (ones already empty are
  * left alone), and so is a `hooks` object that ends up empty. `isOurs`
- * defaults to the canonical `lumo hook <slug>` match for the event; pass your
+ * defaults to the `lumo hook` ownership match; pass your
  * own for other agents. With `topLevel` the events live at the root of the
  * file instead of under `hooks` (Codex tolerates both). Never mutates input.
  */
@@ -252,38 +270,22 @@ export function removeLumoHooks(
   return { result: base as SettingsShape, removed }
 }
 
-/** Remove Lumo's entries for `retired` events, naming the events touched. */
-function stripRetired(
-  settings: SettingsShape,
-  retired: ReadonlyArray<readonly [string, string]>
-): { result: SettingsShape; removedEvents: string[] } {
-  const removedEvents: string[] = []
-  let result = settings
-  for (const [event, slug] of retired) {
-    const out = removeLumoHooks(
-      result,
-      (e, c) => e === event && isLumoHookCommand(c, slug)
-    )
-    if (out.removed === 0) continue
-    result = out.result
-    removedEvents.push(event)
-  }
-  return { result, removedEvents }
-}
-
 /**
- * The retired events (see `RETIRED_LUMO_HOOK_EVENTS`) that still carry a
- * Lumo entry in `hooks` — what `lumo doctor` reports as stale.
+ * The events in `hooks` that carry a Lumo entry although `events` no longer
+ * includes them — what `lumo doctor` and the SessionStart drift check report
+ * as stale.
  */
-export function retiredLumoHookEvents(hooks: unknown): string[] {
-  const { removedEvents } = stripRetired(
-    { hooks: hooks as NonNullable<SettingsShape['hooks']> },
-    RETIRED_LUMO_HOOK_EVENTS
+export function staleLumoHookEvents(
+  hooks: unknown,
+  events: ReadonlyArray<readonly [string, string]> = LUMO_HOOK_EVENTS
+): string[] {
+  if (!hooks || typeof hooks !== 'object') return []
+  const wanted = new Set(events.map(([e]) => e))
+  return [...lumoCommandsByEvent(hooks as Holder).keys()].filter(
+    e => !wanted.has(e)
   )
-  return removedEvents
 }
 
-function defaultIsOurs(event: string, command: string): boolean {
-  const slug = LUMO_HOOK_EVENTS.find(([e]) => e === event)?.[1]
-  return slug !== undefined && isLumoHookCommand(command, slug)
+function defaultIsOurs(_event: string, command: string): boolean {
+  return isLumoHookEntry(command)
 }

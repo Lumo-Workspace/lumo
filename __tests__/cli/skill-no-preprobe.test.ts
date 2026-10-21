@@ -4,7 +4,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-const SKILL_DIR = path.resolve(__dirname, '../../.claude/skills/lumo')
+const SKILL_DIR = path.resolve(__dirname, '../../cli/skill')
 
 function skillDocs(): Array<[string, string]> {
   const files = [

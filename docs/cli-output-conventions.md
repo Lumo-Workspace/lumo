@@ -664,7 +664,7 @@ Helper: `icons` in `ui.ts` (existing; add `separator`, `child`, `ellipsis`, `cou
 Before (`lumo doctor`):
 
 ```
-    -> lumo init --force
+    -> lumo init
 Warnings
   ! codex-untrusted: Codex hooks trust unverified (…)
 ```
@@ -672,7 +672,7 @@ Warnings
 After:
 
 ```
-    lumo init --force
+    lumo init
 Warnings
   ⚠ codex-untrusted: Codex hooks trust unverified (…)
 ```
@@ -1296,7 +1296,7 @@ These outputs are parsed by agents or documented byte-for-byte in the skill. A b
 - the `<untrusted-…>` wrappers;
 - the task context body of `lumo task show --full` (Markdown, written for model context; formerly `lumo task context`).
 
-Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and the affected `references/*.md` in the same PR, regenerates `grammar.json` when flags change, and keeps the doc-examples test green.
+Every batch that changes text output updates `cli/skill/SKILL.md` and the affected `references/*.md` in the same PR, regenerates `grammar.json` when flags change, and keeps the doc-examples test green.
 
 ---
 

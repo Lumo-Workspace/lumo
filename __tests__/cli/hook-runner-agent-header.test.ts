@@ -51,21 +51,13 @@ describe('runHookWithBody — X-Lumo-Agent header', () => {
   })
 })
 
-describe('runHookWithBody — X-Lumo-Skill-Version header (LUM-1136)', () => {
-  it('is only sent on session-start', async () => {
-    await runHookWithBody('stop', '{}', 'claude-code')
-    expect(lastFetchHeaders()).not.toHaveProperty('X-Lumo-Skill-Version')
-  })
-
-  it('session-start sends a well-formed skill version', async () => {
+describe('runHookWithBody — no skill version header (LUM-1292)', () => {
+  it('session-start does not report a skill version', async () => {
     await runHookWithBody(
       'session-start',
       JSON.stringify({ session_id: 's1', cwd: process.cwd() }),
       'claude-code'
     )
-    const sent = lastFetchHeaders()['X-Lumo-Skill-Version']
-    expect(sent).toMatch(
-      /^(?:\d+\.\d+\.\d+(?: modified)?|modified|source|none)$/
-    )
+    expect(lastFetchHeaders()).not.toHaveProperty('X-Lumo-Skill-Version')
   })
 })

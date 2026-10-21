@@ -13,7 +13,6 @@ jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertForHookEvent: jest.fn(),
     upsertChildForHookEvent: jest.fn(),
-    recordClientVersions: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/attribution.repository', () => ({
@@ -42,7 +41,7 @@ const identity = {
   workspace: { id: 'ws_1', slug: 'ws', name: 'WS' },
   apiKey: { id: 'key_1', name: 'laptop', prefix: 'lum_abc' },
 }
-const versions = { cliVersion: '1.121.0', skillVersion: '1.120.0' }
+const versions = { cliVersion: '1.121.0' }
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -60,16 +59,16 @@ beforeEach(() => {
 })
 
 describe('recordHookEvent — client versions', () => {
-  it('SESSION_START records the skill version on the session', async () => {
+  it('SESSION_START passes the CLI version on the upsert only', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'SESSION_START',
       payload: { session_id: 'sess_1' },
       clientVersions: versions,
     })
-    expect(sess.recordClientVersions).toHaveBeenCalledWith('sess_1', {
-      skillVersion: versions.skillVersion,
-    })
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ cliVersion: '1.121.0' })
+    )
   })
 
   it('every event passes the CLI version to the session upsert', async () => {
@@ -84,16 +83,6 @@ describe('recordHookEvent — client versions', () => {
     )
   })
 
-  it('other event types do not write the skill version', async () => {
-    await hookEventService.recordHookEvent({
-      identity,
-      type: 'PRE_TOOL_USE',
-      payload: { session_id: 'sess_1', tool_name: 'Read' },
-      clientVersions: versions,
-    })
-    expect(sess.recordClientVersions).not.toHaveBeenCalled()
-  })
-
   it('no CLI header → the upsert carries no cliVersion (never clears it)', async () => {
     await hookEventService.recordHookEvent({
       identity,
@@ -103,15 +92,5 @@ describe('recordHookEvent — client versions', () => {
     expect(sess.upsertForHookEvent.mock.calls[0]?.[0]).not.toHaveProperty(
       'cliVersion'
     )
-  })
-
-  it('a subagent SessionStart does not touch versions', async () => {
-    await hookEventService.recordHookEvent({
-      identity,
-      type: 'SESSION_START',
-      payload: { session_id: 'sess_1', agent_id: 'a1' },
-      clientVersions: versions,
-    })
-    expect(sess.recordClientVersions).not.toHaveBeenCalled()
   })
 })

@@ -42,7 +42,7 @@ export interface RootCauseInput {
   maskedFailure: boolean
   /** AST-offending token (hallucinated flag/subcommand), when present. */
   astOffending: string | null
-  /** Whether the offending token appears in .claude/skills/lumo docs. */
+  /** Whether the offending token appears in cli/skill docs. */
   offendingInSkillDocs: boolean
 }
 
