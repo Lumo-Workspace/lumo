@@ -119,10 +119,12 @@ export const CODEX_PROMPTED_COMMANDS: Readonly<Record<string, string>> =
 /** A human-readable reason Codex shows when it asks about a command. */
 function promptJustification(c: Extract<CodexClass, { serverOnly: false }>) {
   if (c.localFiles === 'reads')
-    return `reads the local file named by ${c.detail} and uploads it to Lumo`
+    return c.detail.startsWith('-')
+      ? `reads the local file named by ${c.detail} and uploads it to Lumo`
+      : c.detail.charAt(0).toUpperCase() + c.detail.slice(1)
   if (c.localFiles === 'writes')
     return `changes local files or starts local processes: ${c.detail}`
-  return `not a plain Lumo API call: ${c.detail}`
+  return `not a plain Lumo API call (${c.detail})`
 }
 
 /**
@@ -343,12 +345,13 @@ export const CODEX_SANDBOX_NETWORK_HINT = hint(
 )
 
 /**
- * Appended instead when the failing command is one Lumo's rule leaves
- * sandboxed on purpose (it writes local files or runs local processes).
+ * Appended instead when the failing command is one Lumo's rules make Codex
+ * ask about (it reads or writes local files or runs local processes): once
+ * approved, Codex runs it outside the sandbox.
  */
 export function codexSandboxedCommandHint(commandPath: string): string {
   return hint(
-    `this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` reads or changes local files or runs local processes, so Lumo's Codex rule leaves it sandboxed on purpose (only server-only lumo commands run outside it without asking). ` +
+    `this ran inside Codex's sandbox, which has no network by default. \`lumo ${commandPath}\` reads or changes local files or runs local processes, so Lumo's Codex rules make Codex ask before running it (only an approved run goes outside the sandbox, where it has network). ` +
       "Re-run it with Codex's approval to run outside the sandbox, or ask the user to run it in their own terminal."
   )
 }

@@ -27,7 +27,12 @@ describe('flagsBeforeCommandWords', () => {
     [['-x', 'task', 'update', 'LUM-1'], 'task update', true],
     [['task', 'update', 'LUM-1', '--no-hints'], 'task update', false],
     [['doc', 'create', '--', '--x'], 'doc create', false],
-    [[], 'init', false],
+    [['--', 'init'], 'init', true],
+    [['task', '--', 'update'], 'task update', true],
+    [['--no-hints', '--', 'init'], 'init', true],
+    [['--', 'worktree', 'add', 'LUM-1'], 'worktree add', true],
+    [['doc', 'create', '--', '--x'], 'doc create', false],
+    [[], 'init', true], // fail closed: command words not found
   ])('%j for `%s` -> %s', (argv, path, expected) => {
     expect(flagsBeforeCommandWords(argv, path)).toBe(expected)
   })
@@ -98,6 +103,10 @@ describe('spawned CLI', () => {
     ['--project', 'app', 'doc', 'create', '--file', 'x'],
     ['doc', '--project', 'app', 'create', '--file', 'x'],
     ['--no-hints', 'update'],
+    ['--', 'init'],
+    ['--no-hints', '--', 'init'],
+    ['task', '--', 'update', 'LUM-1'],
+    ['--no-hints', '--', 'auth', 'logout'],
   ])(
     '`lumo %s` exits 2 with Error and Hint before doing anything',
     (...args) => {

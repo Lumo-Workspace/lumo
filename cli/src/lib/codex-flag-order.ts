@@ -21,7 +21,7 @@ export function isServerOnlyPath(commandPath: string): boolean {
 /**
  * True when a `-…` token appears before the last word of `commandPath` in
  * `argv` (the arguments after `lumo`). The command words are matched in order,
- * skipping everything else, so a flag's value never counts as a command word
+ * skipping everything else (`--` counts as a flag), so a flag's value never counts as a command word
  * unless it spells one (which can only make the check stricter).
  */
 export function flagsBeforeCommandWords(
@@ -32,13 +32,19 @@ export function flagsBeforeCommandWords(
   let next = 0
   let sawFlag = false
   for (const tok of argv) {
-    if (tok === '--') break
+    // `--` is swallowed by the parser and the operands after it still reach
+    // the subcommand, so while command words are unmatched it counts as a flag.
+    if (tok === '--') {
+      if (next < words.length) sawFlag = true
+      continue
+    }
     if (next < words.length && tok === words[next]) {
       next++
       if (next === words.length) return sawFlag
     } else if (tok.startsWith('-')) sawFlag = true
   }
-  return false
+  // Fail closed: the command words were not all found in argv.
+  return true
 }
 
 /** The `Error:` / `Hint:` lines to print, or null when the order is fine. */
