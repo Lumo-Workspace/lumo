@@ -3065,7 +3065,7 @@ model Session {
   // predates the header.
   cliVersion            String?
   // DEPRECATED (LUM-1292): no longer written or read; historical rows keep
-  // their value. Drop the column in the release after next.
+  // their value. Drop the column in the next release.
   skillVersion          String?
   // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
   // row) or INHERITED (copied from the parent's explicit binding).

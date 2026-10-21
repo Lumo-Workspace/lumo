@@ -66,10 +66,17 @@ export function codexFlagOrderError(
     }
     if (next < words.length) {
       // before the last command word: a global flag (and maybe its value)
-      flags.push(tok)
+      if (tok !== '--') flags.push(tok)
     } else rest.push(tok)
   }
-  const reordered = ['lumo', ...words, ...rest, ...flags].join(' ')
+  // Operands after a `--` stay after it; the flags go in front of it. A bare
+  // `--` in front of the command words carries no meaning and is dropped.
+  const dd = rest.indexOf('--')
+  const operands = dd < 0 ? rest : rest.slice(0, dd)
+  const afterDd = dd < 0 ? [] : rest.slice(dd)
+  const reordered = ['lumo', ...words, ...operands, ...flags, ...afterDd].join(
+    ' '
+  )
   return [
     `Error: global flags before the command words are not accepted for \`lumo ${commandPath}\` (it writes local files, reads local files or is a human-only ruling, and Codex's rules only recognise it when the command words come first).`,
     `Hint: put the global flags after the command words, e.g. \`${reordered}\`.`,

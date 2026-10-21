@@ -38,7 +38,7 @@ function statusDetail(
         { id: 'members.status.cliDetail' },
         { from: cli.cliVersion, to: latestCliVersion }
       )
-    // Latest unknown: still say which CLI is behind, never blame the skill.
+    // Latest unknown: still say which CLI is behind.
     if (cli?.cliVersion)
       return formatMessage(
         { id: 'members.connection.cli' },

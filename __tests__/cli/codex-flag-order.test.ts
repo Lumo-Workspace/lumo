@@ -51,6 +51,18 @@ describe('codexFlagOrderError', () => {
     ])
   })
 
+  it('keeps operands after `--` behind it and drops a bare leading `--`', () => {
+    const hint = (argv: string[], path: string) =>
+      codexFlagOrderError(argv, path)![1]
+    expect(hint(['--x', 'y', 'init', '--', '-z'], 'init')).toContain(
+      '`lumo init --x y -- -z`'
+    )
+    expect(hint(['--', 'init'], 'init')).toContain('`lumo init`.')
+    expect(hint(['--no-hints', '--', 'init'], 'init')).toContain(
+      '`lumo init --no-hints`.'
+    )
+  })
+
   it('is silent for server-only commands and for correct order', () => {
     expect(isServerOnlyPath('skill read')).toBe(true)
     expect(isServerOnlyPath('init')).toBe(false)
