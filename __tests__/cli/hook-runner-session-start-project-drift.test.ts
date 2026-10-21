@@ -46,6 +46,7 @@ jest.mock('@/cli/src/lib/project-install-drift', () => {
 })
 
 import { CODEX_RULES_MARKER } from '@/cli/src/lib/codex-rules'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 import { readCredentials } from '@/cli/src/lib/config'
 import { runHookWithBody } from '@/cli/src/lib/hook-runner'
 
@@ -92,6 +93,9 @@ function staleRules(): void {
   const file = path.join(repo, '.codex', 'rules', 'lumo.rules')
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${CODEX_RULES_MARKER}\n# old rules\n`)
+  const stub = path.join(repo, '.agents', 'skills', 'lumo', 'SKILL.md')
+  fs.mkdirSync(path.dirname(stub), { recursive: true })
+  fs.writeFileSync(stub, LUMO_SKILL_STUB)
 }
 
 const commit = () =>
@@ -189,6 +193,9 @@ describe('committed Lumo install behind the CLI', () => {
         },
       })
     )
+    const stub = path.join(repo, '.claude', 'skills', 'lumo', 'SKILL.md')
+    fs.mkdirSync(path.dirname(stub), { recursive: true })
+    fs.writeFileSync(stub, LUMO_SKILL_STUB)
     const note =
       'local Lumo install behind lumo 1.70.0: .claude/settings.json — run `lumo init --agent claude-code` (preview with `--dry-run`)'
     expect(await statusLine('claude-code', 's1')).toBe(

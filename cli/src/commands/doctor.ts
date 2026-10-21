@@ -39,6 +39,11 @@ import {
 } from '../lib/codex-rules'
 import { isPathGitTracked, repoRoot } from '../lib/repo-root'
 import { projectClaudeSettingsTarget } from '../lib/install-plan'
+import {
+  classifySkillStub,
+  skillStubAgent,
+  skillStubPaths,
+} from '../lib/skill-stub'
 import { readCredentials, type Credentials } from '../lib/config'
 import { resolveAuthedApiUrl, verifyToken } from '../lib/api'
 
@@ -54,6 +59,7 @@ export type DoctorKind =
   | 'git-hook'
   | 'codex-hooks'
   | 'codex-rules'
+  | 'skill-stub'
   | 'scan-hook'
 
 /** The agent label of the git hooks (they belong to no coding agent). */
@@ -395,6 +401,35 @@ function codexRulesRow(file: string): DoctorRow | null {
   return row
 }
 
+/**
+ * The frozen skill stubs (`/lumo`, `$lumo`). A stub is listed when the file
+ * exists, or when that agent's hooks are installed (then a missing one is a
+ * finding); `ok` | `missing` | `differs`.
+ */
+function skillStubRows(
+  root: string,
+  haveClaude: boolean,
+  haveCodex: boolean
+): DoctorRow[] {
+  const rows: DoctorRow[] = []
+  for (const file of skillStubPaths(root)) {
+    const agent = skillStubAgent(root, file)
+    const state = classifySkillStub(file)
+    if (state === 'missing' && !(agent === 'codex' ? haveCodex : haveClaude))
+      continue
+    const row: DoctorRow = {
+      path: file,
+      kind: 'skill-stub',
+      agent,
+      tracked: state !== 'missing' && isPathGitTracked(file),
+      state: state === 'current' ? 'ok' : state,
+    }
+    if (state !== 'current') row.suggestion = refreshCommand(agent)
+    rows.push(row)
+  }
+  return rows
+}
+
 /** The repo's Lumo files `lumo init` writes, as rows. Never writes. */
 function repoRows(
   root: string,
@@ -423,7 +458,15 @@ function repoRows(
   }
   rows.push(codexRow(codexHooksPath(root), home, warnings))
   rows.push(codexRulesRow(codexRulesPath(root)))
-  return rows.filter((r): r is DoctorRow => r !== null)
+  const found = rows.filter((r): r is DoctorRow => r !== null)
+  found.push(
+    ...skillStubRows(
+      root,
+      found.some(r => r.kind === 'claude-settings'),
+      found.some(r => r.kind === 'codex-hooks' || r.kind === 'codex-rules')
+    )
+  )
+  return found
 }
 
 /** Gather the current repo's Lumo install. Never writes, no network. */

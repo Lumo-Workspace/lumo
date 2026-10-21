@@ -20,6 +20,7 @@ import { join } from 'path'
 import { init, initAgentTokens } from '@/cli/src/commands/init'
 import { collectDoctor } from '@/cli/src/commands/doctor'
 import { uninstall } from '@/cli/src/commands/uninstall'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 import {
   CODEX_RULES_MARKER,
   LUMO_CODEX_RULES,
@@ -99,8 +100,13 @@ function expectBothAgents(root: string): void {
   expect(codex).toContain('lumo hook session-start --agent codex')
   expect(codex).not.toContain('claude-code')
   expect(readFileSync(codexRulesPath(root), 'utf8')).toBe(LUMO_CODEX_RULES)
-  expect(existsSync(join(root, '.agents'))).toBe(false)
-  expect(existsSync(join(root, '.claude', 'skills'))).toBe(false)
+  // The frozen skill stubs, and nothing else under .agents / .claude/skills.
+  expect(readFileSync(join(root, '.agents/skills/lumo/SKILL.md'), 'utf8')).toBe(
+    LUMO_SKILL_STUB
+  )
+  expect(readFileSync(join(root, '.claude/skills/lumo/SKILL.md'), 'utf8')).toBe(
+    LUMO_SKILL_STUB
+  )
 }
 
 describe('lumo init with no --agent installs Claude Code and Codex', () => {
@@ -112,7 +118,14 @@ describe('lumo init with no --agent installs Claude Code and Codex', () => {
       doctorOf(e)
         .rows.map(r => r.kind)
         .sort()
-    ).toEqual(['claude-settings', 'codex-hooks', 'codex-rules', 'git-hook'])
+    ).toEqual([
+      'claude-settings',
+      'codex-hooks',
+      'codex-rules',
+      'git-hook',
+      'skill-stub',
+      'skill-stub',
+    ])
     expect(stdout).toContain('Codex runs these hooks only after you trust them')
     expect(stdout).toContain("run outside Codex's sandbox")
     expect(stdout).toContain('trust the project')
@@ -167,7 +180,7 @@ describe('--agent still installs a single agent', () => {
       doctorOf(e)
         .rows.map(r => r.kind)
         .sort()
-    ).toEqual(['codex-hooks', 'codex-rules', 'git-hook'])
+    ).toEqual(['codex-hooks', 'codex-rules', 'git-hook', 'skill-stub'])
   })
 
   it('--agent claude-code: only .claude (+ the git hook)', async () => {
@@ -178,7 +191,7 @@ describe('--agent still installs a single agent', () => {
       doctorOf(e)
         .rows.map(r => r.kind)
         .sort()
-    ).toEqual(['claude-settings', 'git-hook'])
+    ).toEqual(['claude-settings', 'git-hook', 'skill-stub'])
     expect(stdout).not.toContain('Codex')
   })
 

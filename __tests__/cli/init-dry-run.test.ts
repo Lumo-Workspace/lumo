@@ -184,7 +184,8 @@ describe('lumo init --dry-run', () => {
     expect(await init({ dryRun: true }, e.deps)).toBe(0)
     expect(snapshot(roots)).toEqual(before)
     expect(readdirSync(process.env.LUMO_CONFIG_DIR as string)).toEqual([])
-    expect(stdout).not.toMatch(/skill/i)
+    expect(stdout).toContain('.claude/skills/lumo/SKILL.md')
+    expect(stdout).toContain('.agents/skills/lumo/SKILL.md')
     expect(stdout).toContain(
       'would install .claude/settings.json — Claude settings hooks: add'
     )

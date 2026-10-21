@@ -621,7 +621,7 @@ describe('doctor command', () => {
     expect(stdout).toContain('Not committed (this checkout only)')
     expect(stdout).toContain(p)
     expect(stdout).toContain('    lumo init --agent claude-code')
-    expect(stdout).not.toMatch(/--scope|skill|--upgrade|-> lumo init/)
+    expect(stdout).not.toMatch(/--scope|--upgrade|-> lumo init/)
     expect(stdout).toContain('lumo-not-on-path')
     // LUM-1232 S-1: warnings use the one warning marker, never `!`.
     expect(stdout).toMatch(/^  ⚠ lumo-not-on-path: /m)

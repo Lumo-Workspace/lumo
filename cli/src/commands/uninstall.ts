@@ -7,6 +7,7 @@ import { removeGitHookBlock } from '../lib/git-hook-template'
 import { scanHookFor } from '../lib/scan-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
+import { removeSkillStub } from '../lib/skill-stub'
 import { ENUM_TO_TOKEN, normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import {
@@ -37,6 +38,7 @@ type ActionKind =
   | 'strip-git-hook'
   | 'strip-codex'
   | 'remove-codex-rules'
+  | 'remove-skill-stub'
   | 'strip-scan-hook'
 
 export interface PlannedAction {
@@ -60,6 +62,7 @@ const ACTION_FOR_KIND: Record<DoctorKind, ActionKind> = {
   'git-hook': 'strip-git-hook',
   'codex-hooks': 'strip-codex',
   'codex-rules': 'remove-codex-rules',
+  'skill-stub': 'remove-skill-stub',
   'scan-hook': 'strip-scan-hook',
 }
 
@@ -91,6 +94,8 @@ export function planUninstall(
     : undefined
   const actions = report.rows
     .filter(row => !agent || row.agent === agent)
+    // A stub doctor lists as missing is already gone: nothing to remove.
+    .filter(row => !(row.kind === 'skill-stub' && row.state === 'missing'))
     .map(row => ({ row, action: ACTION_FOR_KIND[row.kind] }))
   return { repo: report.repo, actions }
 }
@@ -108,6 +113,8 @@ function describeAction(a: PlannedAction): string {
       return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${team}`
     case 'remove-codex-rules':
       return `Delete the Lumo Codex rule ${row.path} (lets \`lumo\` run outside Codex's sandbox)${team}`
+    case 'remove-skill-stub':
+      return `Delete the Lumo skill stub ${row.path} (its lumo directory too if then empty; other skills are kept)${team}`
   }
 }
 
@@ -227,6 +234,10 @@ function applyAction(a: PlannedAction): Applied {
       }
       return { line: `Deleted Codex rule ${row.path}`, changed: true }
     }
+    case 'remove-skill-stub':
+      return removeSkillStub(row.path)
+        ? { line: `Deleted skill stub ${row.path}`, changed: true }
+        : { line: `No skill stub at ${row.path}`, changed: false }
   }
 }
 

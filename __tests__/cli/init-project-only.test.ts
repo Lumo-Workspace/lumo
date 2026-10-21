@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 // LUM-1292 Task 6: `lumo init` / `uninstall` / `doctor` handle only the
-// current git repo — hooks, Codex rules and the git hook. No skill copy, no
-// install registry, no user scope.
+// current git repo — hooks, Codex rules, the frozen skill stub and the git
+// hook. No full skill copy, no install registry, no user scope.
 import { execFileSync, spawnSync } from 'child_process'
 import {
   existsSync,
@@ -27,6 +27,7 @@ import {
   LUMO_HOOK_EVENTS,
 } from '@/cli/src/lib/hooks-template'
 import { planInit } from '@/cli/src/lib/init-dry-run'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 
 jest.mock('@/cli/src/lib/session-record-notice', () => ({
   fetchSessionRecordNotice: async () => null,
@@ -119,11 +120,15 @@ afterEach(() => {
 })
 
 describe('lumo init — current repo only', () => {
-  it('writes hooks, the Codex rule and the git hook, and no skill or registry', async () => {
+  it('writes hooks, the Codex rule, the skill stubs and the git hook, and no registry', async () => {
     expect(await init({}, { cwd: repo, ...notGlobal })).toBe(0)
 
     const all = [...tree(repo), ...tree(home)]
-    expect(all.filter(f => f.includes(join('skills', 'lumo')))).toEqual([])
+    // The skill dirs hold exactly the one stub file each, in the repo only.
+    expect(all.filter(f => f.includes(join('skills', 'lumo'))).sort()).toEqual([
+      join('.agents', 'skills', 'lumo', 'SKILL.md'),
+      join('.claude', 'skills', 'lumo', 'SKILL.md'),
+    ])
     // No install registry or anything else under the Lumo config dir / HOME.
     expect(existsSync(join(home, '.lumo'))).toBe(false)
     expect(tree(home)).toEqual([])
@@ -159,7 +164,6 @@ describe('lumo init — current repo only', () => {
     expect(await init({ dryRun: true }, { cwd: repo, ...notGlobal })).toBe(0)
     expect(snapshot(repo)).toEqual(before)
     expect(tree(home)).toEqual([])
-    expect(stdout).not.toMatch(/skill/i)
 
     const planned = planInit({ tokens: ['claude-code', 'codex'], root: repo })
     expect(planned.every(i => i.action === 'install')).toBe(true)
@@ -228,10 +232,12 @@ describe('lumo uninstall / doctor — current repo only', () => {
       'codex-hooks',
       'codex-rules',
       'git-hook',
+      'skill-stub',
+      'skill-stub',
     ])
     for (const r of report.rows) expect(r.path.startsWith(repo)).toBe(true)
     expect(report.auth).toMatchObject({ loggedIn: false, api: 'not-checked' })
-    expect(stdout).not.toMatch(/skill|installs\.json|scope/i)
+    expect(stdout).not.toMatch(/installs\.json|scope/i)
   })
 
   it('doctor reports login and API reachability from the saved credentials', async () => {
@@ -331,6 +337,19 @@ describe('removed flags — real CLI process', () => {
     },
     90_000
   )
+
+  it('init in a temp repo creates both stubs and nothing under HOME', () => {
+    const r = run(['init'])
+    expect(r.status).toBe(0)
+    for (const rel of ['.claude', '.agents'])
+      expect(
+        readFileSync(join(repo, rel, 'skills', 'lumo', 'SKILL.md'), 'utf8')
+      ).toBe(LUMO_SKILL_STUB)
+    // Only the CLI's own last-command bookkeeping lives under HOME.
+    expect(
+      tree(home).filter(f => f !== join('.lumo', 'last-command.json'))
+    ).toEqual([])
+  }, 90_000)
 
   it.each([[['skill', 'status']], [['skill', 'update']]])(
     '%j is gone (exit 2)',

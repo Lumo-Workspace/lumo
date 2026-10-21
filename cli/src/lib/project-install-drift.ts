@@ -11,11 +11,12 @@ import {
   projectCodexRulesTarget,
 } from './install-plan'
 import { isPathGitTracked, repoRoot } from './repo-root'
+import { classifySkillStub, skillStubAgent, skillStubPaths } from './skill-stub'
 
 /**
  * LUM-1108 — the committed (git-tracked) Lumo install of the current repo
  * that is behind the running CLI: `.claude/settings.json` hooks,
- * `.codex/hooks.json` and `.codex/rules/lumo.rules`. Nothing rewrites these
+ * `.codex/hooks.json`, `.codex/rules/lumo.rules` and the frozen skill stubs. Nothing rewrites these
  * on its own (they are shared with the team through git), so the
  * SessionStart status line names them once per session with the fix command.
  * The decisions are the ones `lumo init` acts on. Purely local and read-only; every entry point swallows its failures.
@@ -30,7 +31,11 @@ import { isPathGitTracked, repoRoot } from './repo-root'
  * words the fix accordingly.
  */
 
-export type ProjectDriftKind = 'claude-settings' | 'codex-hooks' | 'codex-rules'
+export type ProjectDriftKind =
+  | 'claude-settings'
+  | 'codex-hooks'
+  | 'codex-rules'
+  | 'skill-stub'
 
 export interface ProjectDriftItem {
   kind: ProjectDriftKind
@@ -111,6 +116,18 @@ export function projectInstallDrift(opts: {
   const rules = safe(() => projectCodexRulesTarget(root), null)
   if (rules && safe(() => classifyCodexRules(rules) === 'outdated', false))
     add('codex-rules', rules, 'codex')
+
+  // The frozen skill stub (`/lumo`): reported, tracked or not, when it is
+  // missing or differs — but only for an agent whose Lumo install is here.
+  const have: Record<string, boolean> = {
+    'claude-code': settings !== null,
+    codex: safe(() => hasLumoCodexHooks(codexHooks), false) || rules !== null,
+  }
+  for (const file of skillStubPaths(root)) {
+    const agent = skillStubAgent(root, file)
+    if (have[agent] && safe(() => classifySkillStub(file) !== 'current', false))
+      add('skill-stub', file, agent)
+  }
 
   return items
 }

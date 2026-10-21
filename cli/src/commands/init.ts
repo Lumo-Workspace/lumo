@@ -33,6 +33,11 @@ import {
   type SpawnSyncFn,
 } from '../lib/auto-update'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
+import {
+  classifySkillStub,
+  installSkillStub,
+  skillStubPaths,
+} from '../lib/skill-stub'
 
 export type InitOptions = {
   agent?: string
@@ -99,7 +104,8 @@ export function initAgentTokens(
 /**
  * `lumo init`: write the Lumo hooks of the current git repo — Claude Code's
  * `.claude/settings.json`, Codex's `.codex/hooks.json` and
- * `.codex/rules/lumo.rules` — and its prepare-commit-msg hook (plus the scan
+ * `.codex/rules/lumo.rules` — the frozen skill stub (`.claude/skills/lumo`,
+ * `.agents/skills/lumo`) and its prepare-commit-msg hook (plus the scan
  * hooks with `--scan-hooks`). Nothing outside the repo is written.
  */
 export async function init(
@@ -149,6 +155,7 @@ export async function init(
     else process.stdout.write('\n')
     if (token === 'codex') installCodex(root)
     else mergeHooksFile(path.join(root, '.claude', 'settings.json'), token)
+    for (const file of skillStubPaths(root, [token])) writeSkillStub(file)
   }
   process.stdout.write('\n')
   installGitHook(root)
@@ -241,6 +248,24 @@ function installCodex(root: string): void {
     process.stdout.write(`${codexRulesNote(rulesPath)}\n`)
   }
   process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
+}
+
+/**
+ * The frozen skill stub (LUM-1292): always written, different content is
+ * overwritten (no local-modification protection), identical is a no-op.
+ */
+function writeSkillStub(file: string): void {
+  const tracked =
+    classifySkillStub(file) !== 'missing' && isPathGitTracked(file)
+  const res = installSkillStub(file)
+  if (res === 'unchanged') {
+    process.stdout.write(`✓ skill stub already up to date: ${file}\n`)
+    return
+  }
+  process.stdout.write(
+    `✓ ${res === 'created' ? 'wrote' : 'updated'} skill stub: ${file}\n`
+  )
+  if (tracked) process.stdout.write(gitDiffNote(file))
 }
 
 function gitDiffNote(file: string): string {

@@ -16,6 +16,7 @@ import { join } from 'path'
 import { init } from '@/cli/src/commands/init'
 import { CODEX_HOOK_EVENTS } from '@/cli/src/lib/hooks-template'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 import {
   classifyCodexRules,
   CODEX_RULES_MARKER,
@@ -156,7 +157,9 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
 
     stdout = ''
     expect(await init({}, { ...e.deps, cliVersion: '2.0.0' })).toBe(0)
-    expect(existsSync(join(e.project, '.claude', 'skills'))).toBe(false)
+    expect(
+      readFileSync(join(e.project, '.claude/skills/lumo/SKILL.md'), 'utf8')
+    ).toBe(LUMO_SKILL_STUB)
     expect(JSON.parse(readFileSync(settings, 'utf8')).hooks.Stop).toBeDefined()
     expect(
       JSON.parse(readFileSync(codex, 'utf8')).hooks.SubagentStop

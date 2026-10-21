@@ -1,12 +1,13 @@
 /**
  * @jest-environment node
  */
-// LUM-1292: init / uninstall / doctor no longer know about skill dirs at all,
-// so a committed `skills/lumo` dir under `.claude/` or `.agents/` — the Lumo
-// source repo's own, or a copy a team committed — is never written, deleted
-// or reported.
+// LUM-1292: init / uninstall / doctor only know the frozen `SKILL.md` stub in
+// `.claude/skills/lumo` and `.agents/skills/lumo`: an old full copy there is
+// replaced by the stub (and removed again by uninstall), but its other files
+// (`references/`) are never touched.
 import { execFileSync } from 'child_process'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -19,6 +20,7 @@ import { join } from 'path'
 import { collectDoctor } from '@/cli/src/commands/doctor'
 import { init } from '@/cli/src/commands/init'
 import { uninstall } from '@/cli/src/commands/uninstall'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 
 jest.mock('@/cli/src/lib/session-record-notice', () => ({
   fetchSessionRecordNotice: async () => null,
@@ -50,7 +52,7 @@ afterEach(() => {
   for (const d of roots) rmSync(d, { recursive: true, force: true })
 })
 
-it('init, doctor and uninstall leave committed skill dirs untouched', async () => {
+it('init and uninstall touch only SKILL.md of a committed skill dir', async () => {
   const root = tmp()
   execFileSync('git', ['init', '-q'], { cwd: root })
   const dirs = [
@@ -66,11 +68,13 @@ it('init, doctor and uninstall leave committed skill dirs untouched', async () =
   expect(await init({}, { cwd: root, isGlobalInstall: () => false })).toBe(0)
   const paths = collectDoctor({ cwd: root }).rows.map(r => r.path)
   expect(paths.length).toBeGreaterThan(0)
-  expect(paths.filter(p => p.includes('skills'))).toEqual([])
+  expect(paths.filter(p => p.includes('references'))).toEqual([])
+  for (const d of dirs)
+    expect(readFileSync(join(d, 'SKILL.md'), 'utf8')).toBe(LUMO_SKILL_STUB)
   expect(await uninstall({ confirm: true }, { cwd: root })).toBe(0)
 
   for (const d of dirs) {
-    expect(readFileSync(join(d, 'SKILL.md'), 'utf8')).toBe('OLD COPY')
+    expect(existsSync(join(d, 'SKILL.md'))).toBe(false)
     expect(readFileSync(join(d, 'references', 'a.md'), 'utf8')).toBe('ref')
   }
 })

@@ -88,7 +88,7 @@ Dropping/renaming a column, table or enum value takes two releases: stop using i
 
 ## CLI & Skills 同步
 
-- Lumo skill 不再安装到任何位置：源在 `cli/skill/`（SKILL.md + `references/`），由 `lumo skill read [path]` 从 npm 包按需输出；SessionStart 只注入一段指针（文本在 `cli/src/lib/skill-pointer.ts`，≤600 字符、类别级，不逐命令枚举）
+- Lumo skill 指南不再安装到任何位置；`lumo init` 只写项目级**冻结 stub**（`.claude/skills/lumo/SKILL.md`、`.agents/skills/lumo/SKILL.md`，源在 `cli/src/lib/skill-stub.ts`）。**永远不要改 `LUMO_SKILL_STUB`**（改了=所有仓库须重跑 init；`skill-stub.test.ts` 有冻结守卫）。指南源在 `cli/skill/`（SKILL.md + `references/`），由 `lumo skill read [path]` 从 npm 包按需输出；SessionStart 只注入一段指针（文本在 `cli/src/lib/skill-pointer.ts`，≤600 字符、类别级，不逐命令枚举）
 - 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `cli/skill/`：对应章节反映真实行为（flags、示例、空字符串语义、状态枚举）；示例 / flags / "When to suggest" 归 `references/`，SKILL.md 只留一行摘要 + 链接。无 frontmatter/description 上限；**单文件预算**≤24KB、SKILL.md ≤10KB，由 `__tests__/cli/skill-budget.test.ts` 强制
 - 例外：纯内部重构、错误文案微调、不影响调用方式的 bug fix 不需要更新文档
 - 命令树变了同 PR 跑 `npx tsx scripts/cli-grammar/emit-grammar.ts` 重生成 grammar.json

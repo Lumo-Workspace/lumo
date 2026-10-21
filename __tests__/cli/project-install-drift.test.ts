@@ -20,6 +20,7 @@ import {
   projectClaudeSettingsTarget,
   projectCodexRulesTarget,
 } from '@/cli/src/lib/install-plan'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 import {
   alreadyNoted,
   markNoted,
@@ -71,6 +72,12 @@ function olderHooks(
   return json(buildLumoHookFragment(agent, events.slice(0, -1)))
 }
 
+/** Both frozen skill stubs, as `lumo init` writes them. */
+function stubs(): void {
+  write('.claude/skills/lumo/SKILL.md', LUMO_SKILL_STUB)
+  write('.agents/skills/lumo/SKILL.md', LUMO_SKILL_STUB)
+}
+
 /** A repo whose committed installs are all current (plus an old skill copy). */
 function currentInstall(): void {
   git('init', '-q')
@@ -81,6 +88,7 @@ function currentInstall(): void {
     json(buildLumoHookFragment('codex', CODEX_HOOK_EVENTS))
   )
   write('.codex/rules/lumo.rules', LUMO_CODEX_RULES)
+  stubs()
 }
 
 const kinds = () =>
@@ -96,12 +104,38 @@ describe('projectInstallDrift', () => {
     expect(kinds()).toEqual([])
   })
 
-  it('a committed skill copy is never reported (no skill install any more)', () => {
+  it('an old full skill copy at a stub path is a differing stub (init replaces it)', () => {
     currentInstall()
     skill('.agents', '1.102.0')
     skill('.claude', '1.0.0')
     git('add', '-A')
+    expect(kinds()).toEqual([
+      ['skill-stub', '.claude/skills/lumo/SKILL.md'],
+      ['skill-stub', '.agents/skills/lumo/SKILL.md'],
+    ])
+  })
+
+  it('a missing stub is reported only for an agent whose Lumo install is here', () => {
+    currentInstall()
+    fs.rmSync(path.join(repo, '.agents'), { recursive: true })
+    git('add', '-A')
+    expect(kinds()).toEqual([['skill-stub', '.agents/skills/lumo/SKILL.md']])
+    fs.rmSync(path.join(repo, '.codex'), { recursive: true })
+    git('add', '-A')
     expect(kinds()).toEqual([])
+  })
+
+  it('stub drift is worded like the other items: committed vs local', () => {
+    currentInstall()
+    write('.claude/skills/lumo/SKILL.md', 'x')
+    git('add', '-A')
+    const tracked = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(projectDriftNote(tracked, CLI)).toBe(
+      'committed Lumo install behind lumo 1.120.0: .claude/skills/lumo/SKILL.md — run `lumo init --agent claude-code` (preview with `--dry-run`), then commit the changes in a PR'
+    )
+    git('rm', '-q', '--cached', '.claude/skills/lumo/SKILL.md')
+    const local = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(projectDriftNote(local, CLI)).toMatch(/^local Lumo install behind/)
   })
 
   it('committed hooks and rules behind the CLI are reported', () => {
@@ -161,7 +195,7 @@ describe('projectInstallDrift', () => {
 
   it('the same stale files, not tracked by git: only the outdated Codex rules are reported (fail-open), marked untracked', () => {
     git('init', '-q')
-    skill('.agents', '1.102.0')
+    stubs()
     write('.codex/hooks.json', olderHooks('codex', CODEX_HOOK_EVENTS))
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
     const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
@@ -172,6 +206,7 @@ describe('projectInstallDrift', () => {
 
   it('a tracked outdated rules file is reported as tracked', () => {
     git('init', '-q')
+    stubs()
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
     git('add', '-A')
     const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
@@ -180,12 +215,14 @@ describe('projectInstallDrift', () => {
 
   it('current untracked rules: nothing reported', () => {
     git('init', '-q')
+    stubs()
     write('.codex/rules/lumo.rules', LUMO_CODEX_RULES)
     expect(kinds()).toEqual([])
   })
 
   it('uncommitted settings still holding Lumo hooks for dropped events are reported as drifted', () => {
     git('init', '-q')
+    stubs()
     const settings = buildLumoHookFragment('claude-code')
     settings.hooks!.WorktreeCreate = [
       {
@@ -206,6 +243,7 @@ describe('projectInstallDrift', () => {
 
   it('uncommitted settings that are merely behind (no retired entries): nothing reported', () => {
     git('init', '-q')
+    stubs()
     write('.claude/settings.json', olderHooks('claude-code', LUMO_HOOK_EVENTS))
     expect(kinds()).toEqual([])
   })
@@ -237,7 +275,7 @@ describe('projectInstallDrift', () => {
 
 describe('projectDriftNote', () => {
   const item = (
-    kind: 'codex-rules' | 'claude-settings',
+    kind: 'codex-rules' | 'claude-settings' | 'skill-stub',
     relPath: string,
     agent = kind === 'claude-settings' ? 'claude-code' : 'codex',
     tracked = true

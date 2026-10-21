@@ -84,15 +84,15 @@ Enforced: the grammar test above (`isInvokable && hasSubcommands` must be false)
 
 Commands about the CLI itself, or about "me" across everything, have no noun:
 
-| Command      | Job                                                                                                |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| `init`       | install the hooks and Codex rule into this repo (frozen; project only, no `--scope`, no `--force`) |
-| `uninstall`  | remove what `init` installed from this repo (no `--scope`, no `--force`)                           |
-| `skill read` | print the Lumo skill (SKILL.md or a `references/` file) from the installed CLI package             |
-| `update`     | update the CLI                                                                                     |
-| `doctor`     | diagnose the local install (frozen)                                                                |
-| `whoami`     | the logged-in identity                                                                             |
-| `status`     | my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next)) |
+| Command      | Job                                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `init`       | install the hooks, Codex rule and skill stub into this repo (frozen; project only, no `--scope`, no `--force`) |
+| `uninstall`  | remove what `init` installed from this repo (no `--scope`, no `--force`)                                       |
+| `skill read` | print the Lumo skill (SKILL.md or a `references/` file) from the installed CLI package                         |
+| `update`     | update the CLI                                                                                                 |
+| `doctor`     | diagnose the local install (frozen)                                                                            |
+| `whoami`     | the logged-in identity                                                                                         |
+| `status`     | my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next))             |
 
 The list is closed: a new tool-level command needs a change to this table. `setup` (an alias of `init`) is removed under [RN-1](#rn-1-no-aliases).
 

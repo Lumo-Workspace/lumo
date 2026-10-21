@@ -19,6 +19,11 @@ import {
   type HooksMergePlan,
 } from './install-plan'
 import { isPathGitTracked } from './repo-root'
+import {
+  classifySkillStub,
+  LUMO_SKILL_STUB,
+  skillStubPaths,
+} from './skill-stub'
 import { icons } from './ui'
 import { formatUnifiedDiff } from './unified-diff'
 
@@ -39,6 +44,7 @@ export type InitItemKind =
   | 'claude-settings'
   | 'codex-hooks'
   | 'codex-rules'
+  | 'skill-stub'
   | 'git-hook'
   | 'scan-hook'
 
@@ -71,6 +77,7 @@ const KIND_LABEL: Record<InitItemKind, string> = {
   'claude-settings': 'Claude settings hooks',
   'codex-hooks': 'Codex hooks',
   'codex-rules': 'Codex rule',
+  'skill-stub': 'Lumo skill stub',
   'git-hook': 'prepare-commit-msg hook',
   'scan-hook': 'scan hook',
 }
@@ -311,6 +318,41 @@ function codexRulesItem(file: string): InitItem {
   }
 }
 
+function skillStubItem(file: string): InitItem {
+  const base = { kind: 'skill-stub' as const, path: file, retrust: false }
+  const state = classifySkillStub(file)
+  if (state === 'current')
+    return {
+      ...base,
+      action: 'unchanged',
+      summary: 'up to date',
+      notes: [],
+      diffs: [],
+    }
+  if (state === 'missing')
+    return {
+      ...base,
+      action: 'install',
+      summary: 'frozen pointer to `lumo skill read` (gives the agent /lumo)',
+      notes: [],
+      diffs: [],
+    }
+  return {
+    ...base,
+    action: 'update',
+    summary: 'differs from the Lumo stub — overwritten',
+    notes: isPathGitTracked(file) ? [GIT_NOTE] : [],
+    diffs: [
+      textDiff(
+        readOrEmpty(file),
+        LUMO_SKILL_STUB,
+        `${path.basename(path.dirname(file))}/SKILL.md (now)`,
+        `${path.basename(path.dirname(file))}/SKILL.md (after)`
+      ),
+    ].filter(Boolean),
+  }
+}
+
 /** The Lumo block of a hook file ('' when its end marker is missing). */
 function lumoBlock(text: string, beginMarker: string): string {
   const begin = text.indexOf(beginMarker)
@@ -457,6 +499,8 @@ export function planInit(args: {
         )
       )
     }
+    for (const stub of skillStubPaths(args.root, [token]))
+      attempt('skill-stub', stub, () => skillStubItem(stub))
   }
   attempt('git-hook', args.root, () => gitHookItem(args.root))
   if (args.scanHooks)

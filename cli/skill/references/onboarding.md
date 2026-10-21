@@ -1,6 +1,6 @@
 # Onboarding, authentication & self-update
 
-Nothing of Lumo is installed into an agent's skill directory: this guide is read on demand with `lumo skill read`, and `lumo init` only wires hooks into the **current git repository**.
+This guide is never copied into a repo or home: it is read on demand with `lumo skill read`. `lumo init` wires hooks into the **current git repository** and writes a tiny frozen skill stub there (below) that only points at `lumo skill read`.
 
 ## `lumo skill read [path]` — read this guide
 
@@ -19,9 +19,10 @@ Run inside the git repository. Without `--agent` it sets up **Claude Code and Co
 
 - **Claude Code** — merges the Lumo hook entries into `./.claude/settings.json` (your own permissions and non-Lumo hooks are kept; a re-run replaces only Lumo's entries and removes ones it no longer uses).
 - **Codex** — merges the Lumo hook entries into `./.codex/hooks.json` and writes `./.codex/rules/lumo.rules`, which lets `lumo` commands reach the Lumo API from Codex's no-network sandbox (see [codex.md](codex.md)). **Codex runs a hook only after the user trusts it** (Codex CLI `/hooks`, Codex app Settings → Hooks); until then it is skipped silently. A re-run rewrites `hooks.json` only when the Lumo entries changed and then names the events to trust again. Codex loads rules at startup — restart it after `init`.
+- **Skill stub** — `./.claude/skills/lumo/SKILL.md` (Claude Code) and `./.agents/skills/lumo/SKILL.md` (Codex), per selected agent. It gives the agent `/lumo` / `$lumo` and a Lumo row in its skill list; its body only says to run `lumo skill read`. Its content never changes between CLI versions, so it is never out of date with the guide; an existing file with different content is overwritten, an identical one is left alone.
 - **git** — a `prepare-commit-msg` hook that appends the branch's task id (`[LUM-N]`, from a `lumo/LUM-N-…` branch) to a commit subject that lacks it. Pure sh + git, merged between `# >>> lumo prepare-commit-msg >>>` / `# <<< lumo <<<` markers, keeping any existing hook. Under `core.hooksPath` (husky etc.) it is printed with instructions instead of written.
 
-`--agent <token>` narrows to one agent (`claude-code` → `.claude/` only, `codex` → `.codex/` only) and is baked into every hook command (`lumo hook <slug> --agent <token>`) so sessions and memories are attributed to that agent. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini`, `copilot` accepted); other agents use the Claude Code layout. An unknown token aborts before writing anything.
+`--agent <token>` narrows to one agent (`claude-code` → `.claude/` only, `codex` → `.codex/` and `.agents/` only) and is baked into every hook command (`lumo hook <slug> --agent <token>`) so sessions and memories are attributed to that agent. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini`, `copilot` accepted); other agents use the Claude Code layout. An unknown token aborts before writing anything.
 
 `--scan-hooks` (opt-in) also adds `pre-commit` / `pre-push` hooks running `lumo security scan` ([security-scan.md](security-scan.md#git-hooks)): they block only on a finding that would block DONE; a failed scan, no network or no `lumo` on PATH never blocks; `git commit|push --no-verify` skips them. A re-run without the flag leaves installed scan hooks alone.
 
@@ -42,7 +43,7 @@ lumo init --scan-hooks          # also pre-commit / pre-push security scans
 
 ## `lumo doctor [--json]` — check this repo's setup (read-only)
 
-Reports the current repo's Lumo hooks in `.claude/settings.json` and `.codex/hooks.json` (missing events, entries from another `--agent`), the Codex rule `.codex/rules/lumo.rules`, Codex hook trust (a text scan of `~/.codex/config.toml`, shown as `trusted (hash not verified)` or "open `/hooks` and Trust"), the git hooks, whether `lumo` is on PATH, and login / server connectivity — each row with a fix command. Exit code is always 0. `--json` prints `{ version: 2, cliVersion, repo, rows, warnings, autoUpdate, auth }`.
+Reports the current repo's Lumo hooks in `.claude/settings.json` and `.codex/hooks.json` (missing events, entries from another `--agent`), the Codex rule `.codex/rules/lumo.rules`, the skill stubs (`ok` / `missing` / `differs` → `lumo init`), Codex hook trust (a text scan of `~/.codex/config.toml`, shown as `trusted (hash not verified)` or "open `/hooks` and Trust"), the git hooks, whether `lumo` is on PATH, and login / server connectivity — each row with a fix command. Exit code is always 0. `--json` prints `{ version: 2, cliVersion, repo, rows, warnings, autoUpdate, auth }`.
 
 ```bash
 lumo doctor
@@ -53,7 +54,7 @@ lumo doctor --json
 
 ## `lumo uninstall [--agent <token>] [--purge] --confirm` — remove this repo's Lumo entries (gated)
 
-Removes only Lumo's entries from this repo: the `lumo hook` entries in `.claude/settings.json` and `.codex/hooks.json` (the files and every other hook stay), the Lumo-marked `.codex/rules/lumo.rules`, and the marked blocks of `prepare-commit-msg` / `pre-commit` / `pre-push`. `--agent` limits it to one agent's entries (`--agent git` = the git hooks); `--purge` also empties `~/.lumo` (credentials, caches — the user logs in again). Without `--confirm` it prints the confirmation envelope (exit 4) listing every path and action and changes nothing — relay it, re-run `confirmCommand` only after the user approves ([confirmation.md](confirmation.md)). Committed paths are flagged; nothing is committed for you. The last line is the manual step `npm rm -g @lumoai/cli`.
+Removes only Lumo's entries from this repo: the `lumo hook` entries in `.claude/settings.json` and `.codex/hooks.json` (the files and every other hook stay), the Lumo-marked `.codex/rules/lumo.rules`, the skill stub files (their `lumo` directory too when empty; other skills are never touched), and the marked blocks of `prepare-commit-msg` / `pre-commit` / `pre-push`. `--agent` limits it to one agent's entries (`--agent git` = the git hooks); `--purge` also empties `~/.lumo` (credentials, caches — the user logs in again). Without `--confirm` it prints the confirmation envelope (exit 4) listing every path and action and changes nothing — relay it, re-run `confirmCommand` only after the user approves ([confirmation.md](confirmation.md)). Committed paths are flagged; nothing is committed for you. The last line is the manual step `npm rm -g @lumoai/cli`.
 
 ```bash
 lumo uninstall                          # envelope, nothing changes
