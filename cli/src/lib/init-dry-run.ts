@@ -301,7 +301,7 @@ function codexRulesItem(file: string): InitItem {
     action: state === 'missing' ? 'install' : 'update',
     summary:
       state === 'missing'
-        ? "Lumo's rule for server-only `lumo` commands"
+        ? "Lumo's rules: run `lumo` outside the sandbox, ask before local-writing commands"
         : 'Lumo-managed file differs from this CLI — rewritten',
     notes,
     diffs:

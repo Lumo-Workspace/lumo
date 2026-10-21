@@ -374,7 +374,7 @@ function codexRow(
     row.suggestion ??= refreshCommand('codex')
     warnings.push({
       code: 'codex-no-network',
-      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`${refreshCommand('codex')}\` to add the Codex rule for server-only lumo commands`,
+      message: `\`lumo\` commands cannot reach the Lumo API from Codex's sandbox for ${file} — run \`${refreshCommand('codex')}\` to add Lumo's Codex rules`,
     })
   }
   if (details.length > 0) row.detail = details.join('; ')
@@ -395,7 +395,7 @@ function codexRulesRow(file: string): DoctorRow | null {
     tracked: isPathGitTracked(file),
     state: state === 'current' ? 'up to date' : 'outdated',
     detail:
-      "server-only `lumo` commands run outside Codex's sandbox; Codex asks before the others (loaded once the project is trusted in Codex)",
+      "`lumo` commands run outside Codex's sandbox; Codex asks before local-writing ones (loaded once the project is trusted in Codex)",
   }
   if (state === 'outdated') row.suggestion = refreshCommand('codex')
   return row

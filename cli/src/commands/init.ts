@@ -236,7 +236,7 @@ function installCodex(root: string): void {
   const res = installCodexRules(rulesPath)
   if (res === 'skipped-foreign') {
     process.stdout.write(
-      `⚠ ${rulesPath} exists and was not written by Lumo — left as is, so server-only \`lumo\` commands may not reach the Lumo API from Codex's sandbox.\n` +
+      `⚠ ${rulesPath} exists and was not written by Lumo — left as is, so \`lumo\` commands may not reach the Lumo API from Codex's sandbox.\n` +
         `  To use Lumo's rule instead, move that file aside and re-run \`lumo init\`.\n`
     )
   } else {
