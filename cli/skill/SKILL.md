@@ -82,7 +82,7 @@ Read with `lumo skill read references/<file>`:
 
 - Lists print their ref in column 1; piped output is TAB-separated, headerless, untruncated. A `Showing a-b of n.` + `Next page: …` footer means there is more ([task-list.md](references/task-list.md)).
 - `--json` on every read prints one object with `version` (lists add `total`, `nextCursor`).
-- `--project <ref>` and `--no-hints` are global (no `-p`). `Next:` hint blocks (≤3, server-computed) are silenced by `--no-hints` / `LUMO_NO_HINTS=1`.
+- `--project <ref>` and `--no-hints` are global (no `-p`); put them after the command words (`lumo doc create --project app …`) — commands that write locally, read local files or are human-only rulings refuse them before the command words (exit 2). `Next:` hint blocks (≤3, server-computed) are silenced by `--no-hints` / `LUMO_NO_HINTS=1`.
 
 ## Common mistakes
 

@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { hint } from './feedback'
 import { CODEX_CLASSES } from './codex-classes.generated'
+import type { CodexClass } from './command-class'
 
 /**
  * LUM-1054: Codex's default `workspace-write` sandbox has no network, so every
@@ -110,8 +111,19 @@ function startsWith(argv: readonly string[], prefix: readonly string[]) {
  */
 export const CODEX_PROMPTED_COMMANDS: Readonly<Record<string, string>> =
   Object.fromEntries(
-    classified.flatMap(([path, c]) => (c.serverOnly ? [] : [[path, c.detail]]))
+    classified.flatMap(([path, c]) =>
+      c.serverOnly ? [] : [[path, promptJustification(c)]]
+    )
   )
+
+/** A human-readable reason Codex shows when it asks about a command. */
+function promptJustification(c: Extract<CodexClass, { serverOnly: false }>) {
+  if (c.localFiles === 'reads')
+    return `reads the local file named by ${c.detail} and uploads it to Lumo`
+  if (c.localFiles === 'writes')
+    return `changes local files or starts local processes: ${c.detail}`
+  return `not a plain Lumo API call: ${c.detail}`
+}
 
 /**
  * Build the rules file: one catch-all `allow` for `lumo`, then one `prompt`
@@ -164,8 +176,10 @@ export function buildCodexRules(
 export const LUMO_CODEX_RULES = buildCodexRules()
 
 /**
- * Whether Lumo's Codex rules let `lumo <args…>` run outside the sandbox —
- * the same positional prefix match Codex applies (`args` excludes `lumo`).
+ * Whether `lumo <args…>` is a server-only command (the class lists, by
+ * positional prefix; `args` excludes `lumo`). Used for the sandbox network
+ * hints. Not what the rules file allows: that allows every `lumo` command and
+ * prompts the non-server-only ones.
  */
 export function isCodexServerOnly(args: readonly string[]): boolean {
   return CODEX_SERVER_ONLY_COMMANDS.some(p => startsWith(args, tokens(p)))
@@ -308,7 +322,7 @@ export function codexRulesNote(
   scope: 'user' | 'project'
 ): string {
   return (
-    `ℹ \`lumo\` commands now run outside Codex's sandbox without a prompt; Codex still asks before the ones that read or write local files or start local processes (init, update, auth, worktree, memory sync/push, session attach, task update, doc create/update/patch --file …) and everything else stays sandboxed without network.\n` +
+    `ℹ \`lumo\` commands now run outside Codex's sandbox without asking, except the ones Lumo lists as touching local files or processes (init, update, auth, worktree, memory sync/push, session attach, task update, doc create/update/patch --file …): Codex asks first, and the CLI requires global flags (--project, --no-hints) after those command words. A lumo command that is not on that list (for example one newer than this rules file) runs outside the sandbox without asking; re-run \`lumo init\` after updating lumo to refresh it.\n` +
     `  Restart Codex to load ${file}.` +
     (scope === 'project'
       ? ' Codex loads a project rules file only once you trust the project.'
@@ -324,7 +338,7 @@ export function codexRulesNote(
 export const CODEX_SANDBOX_NETWORK_HINT = hint(
   "this ran inside Codex's sandbox, which has no network by default, so lumo could not reach the Lumo API. " +
     'Fix: run `lumo init` (or `lumo init --agent codex`) to add the Codex rule that runs `lumo` commands outside the sandbox (.codex/rules/lumo.rules), then restart Codex — a project rules file loads only in a trusted project. ' +
-    'Run lumo as its own command with flags after the subcommand: piped or redirected (`lumo … | head`), or `lumo --no-hints task …`, it stays sandboxed. ' +
+    'Run lumo as its own command: piped or redirected (`lumo … | head`) it stays sandboxed. ' +
     'Alternatively allow network for every sandboxed command: add `[sandbox_workspace_write]` with `network_access = true` to ~/.codex/config.toml.'
 )
 

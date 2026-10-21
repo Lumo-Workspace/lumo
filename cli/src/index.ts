@@ -187,6 +187,7 @@ import {
 } from './lib/update-check'
 import { finalizeErrorOutput, installErrorOutput } from './lib/error-output'
 import { EXIT_ERROR, EXIT_USAGE } from './lib/exit-codes'
+import { codexFlagOrderError } from './lib/codex-flag-order'
 import { attachHelpSections } from './lib/help-text'
 import { describeThrownError } from './lib/errors'
 import {
@@ -445,6 +446,18 @@ const program = new LumoCommand()
 // opts(), so the global `--no-hints` is folded into the env channel before any
 // action runs. One silencing path (`nextStepsSilenced`) instead of two.
 program.hook('preAction', (thisCommand, actionCommand) => {
+  // LUM-1292: Codex's prompt rules match the leading tokens, so a flag before
+  // the command words of a non-server-only command would skip the prompt.
+  const flagOrder = codexFlagOrderError(
+    (
+      (program as unknown as { rawArgs?: string[] }).rawArgs ?? process.argv
+    ).slice(2),
+    commandPathOf(actionCommand) ?? ''
+  )
+  if (flagOrder) {
+    for (const line of flagOrder) console.error(line)
+    exitWith(EXIT_USAGE)
+  }
   if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
   // The global --project lands in the action's own options, so every command
   // keeps reading `opts.project` exactly as when it declared the flag.

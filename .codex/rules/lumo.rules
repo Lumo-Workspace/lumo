@@ -13,210 +13,210 @@ prefix_rule(
 prefix_rule(
     pattern = ["lumo", "auth", "login"],
     decision = "prompt",
-    justification = "writes ~/.lumo credentials and opens a browser",
+    justification = "changes local files or starts local processes: writes ~/.lumo credentials and opens a browser",
     match = ["lumo auth login"],
 )
 prefix_rule(
     pattern = ["lumo", "auth", "logout"],
     decision = "prompt",
-    justification = "deletes ~/.lumo credentials",
+    justification = "changes local files or starts local processes: deletes ~/.lumo credentials",
     match = ["lumo auth logout"],
 )
 prefix_rule(
     pattern = ["lumo", "crossing", "disposition"],
     decision = "prompt",
-    justification = "a human-only ruling: keep Codex asking the user first",
+    justification = "not a plain Lumo API call: a human-only ruling: keep Codex asking the user first",
     match = ["lumo crossing disposition"],
 )
 prefix_rule(
     pattern = ["lumo", "crossing", "explain"],
     decision = "prompt",
-    justification = "--file <json>",
+    justification = "reads the local file named by --file <json> and uploads it to Lumo",
     match = ["lumo crossing explain"],
 )
 prefix_rule(
     pattern = ["lumo", "doc", "append"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo doc append"],
 )
 prefix_rule(
     pattern = ["lumo", "doc", "create"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo doc create"],
 )
 prefix_rule(
     pattern = ["lumo", "doc", "diff"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo doc diff"],
 )
 prefix_rule(
     pattern = ["lumo", "doc", "patch"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo doc patch"],
 )
 prefix_rule(
     pattern = ["lumo", "doc", "update"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo doc update"],
 )
 prefix_rule(
     pattern = ["lumo", "doctor"],
     decision = "prompt",
-    justification = "local-only diagnosis, no Lumo API call (runs fine sandboxed)",
+    justification = "not a plain Lumo API call: local-only diagnosis, no Lumo API call (runs fine sandboxed)",
     match = ["lumo doctor"],
 )
 prefix_rule(
     pattern = ["lumo", "feedback", "create"],
     decision = "prompt",
-    justification = "--evidence-file",
+    justification = "reads the local file named by --evidence-file and uploads it to Lumo",
     match = ["lumo feedback create"],
 )
 prefix_rule(
     pattern = ["lumo", "finding", "disposition"],
     decision = "prompt",
-    justification = "a human-only ruling: keep Codex asking the user first",
+    justification = "not a plain Lumo API call: a human-only ruling: keep Codex asking the user first",
     match = ["lumo finding disposition"],
 )
 prefix_rule(
     pattern = ["lumo", "hook"],
     decision = "prompt",
-    justification = "agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself",
+    justification = "changes local files or starts local processes: agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself",
     match = ["lumo hook"],
 )
 prefix_rule(
     pattern = ["lumo", "init"],
     decision = "prompt",
-    justification = "writes skill, hook and rules files",
+    justification = "changes local files or starts local processes: writes skill, hook and rules files",
     match = ["lumo init"],
 )
 prefix_rule(
     pattern = ["lumo", "memory", "push"],
     decision = "prompt",
-    justification = "deletes local memory files after pushing",
+    justification = "changes local files or starts local processes: deletes local memory files after pushing",
     match = ["lumo memory push"],
 )
 prefix_rule(
     pattern = ["lumo", "memory", "sync"],
     decision = "prompt",
-    justification = "writes the local memory directory",
+    justification = "changes local files or starts local processes: writes the local memory directory",
     match = ["lumo memory sync"],
 )
 prefix_rule(
     pattern = ["lumo", "milestone", "testcase", "disposition"],
     decision = "prompt",
-    justification = "a human-only ruling: keep Codex asking the user first",
+    justification = "not a plain Lumo API call: a human-only ruling: keep Codex asking the user first",
     match = ["lumo milestone testcase disposition"],
 )
 prefix_rule(
     pattern = ["lumo", "milestone", "testcase", "download"],
     decision = "prompt",
-    justification = "writes local files (saves evidence into <dir>) — Codex asks first",
+    justification = "changes local files or starts local processes: writes local files (saves evidence into <dir>) — Codex asks first",
     match = ["lumo milestone testcase download"],
 )
 prefix_rule(
     pattern = ["lumo", "milestone", "testcase", "run"],
     decision = "prompt",
-    justification = "--evidence-file, --step-evidence <step>=<file>",
+    justification = "reads the local file named by --evidence-file, --step-evidence <step>=<file> and uploads it to Lumo",
     match = ["lumo milestone testcase run"],
 )
 prefix_rule(
     pattern = ["lumo", "security", "scan"],
     decision = "prompt",
-    justification = "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH",
+    justification = "not a plain Lumo API call: reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH",
     match = ["lumo security scan"],
 )
 prefix_rule(
     pattern = ["lumo", "session", "attach"],
     decision = "prompt",
-    justification = "can create a git worktree (--worktree / autoWorktree) and sync local memory",
+    justification = "changes local files or starts local processes: can create a git worktree (--worktree / autoWorktree) and sync local memory",
     match = ["lumo session attach"],
 )
 prefix_rule(
     pattern = ["lumo", "skill", "status"],
     decision = "prompt",
-    justification = "local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)",
+    justification = "not a plain Lumo API call: local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)",
     match = ["lumo skill status"],
 )
 prefix_rule(
     pattern = ["lumo", "skill", "update"],
     decision = "prompt",
-    justification = "writes skill files",
+    justification = "changes local files or starts local processes: writes skill files",
     match = ["lumo skill update"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "artifact", "add"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo task artifact add"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "template", "create"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo task template create"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "template", "update"],
     decision = "prompt",
-    justification = "--file",
+    justification = "reads the local file named by --file and uploads it to Lumo",
     match = ["lumo task template update"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "testcase", "disposition"],
     decision = "prompt",
-    justification = "a human-only ruling: keep Codex asking the user first",
+    justification = "not a plain Lumo API call: a human-only ruling: keep Codex asking the user first",
     match = ["lumo task testcase disposition"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "testcase", "download"],
     decision = "prompt",
-    justification = "writes local files (saves evidence into <dir>) — Codex asks first",
+    justification = "changes local files or starts local processes: writes local files (saves evidence into <dir>) — Codex asks first",
     match = ["lumo task testcase download"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "testcase", "run"],
     decision = "prompt",
-    justification = "--evidence-file, --step-evidence <step>=<file>",
+    justification = "reads the local file named by --evidence-file, --step-evidence <step>=<file> and uploads it to Lumo",
     match = ["lumo task testcase run"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "update"],
     decision = "prompt",
-    justification = "a confirmed DONE removes local git worktrees",
+    justification = "changes local files or starts local processes: a confirmed DONE removes local git worktrees",
     match = ["lumo task update"],
 )
 prefix_rule(
     pattern = ["lumo", "uninstall"],
     decision = "prompt",
-    justification = "deletes skill, hook and rules files",
+    justification = "changes local files or starts local processes: deletes skill, hook and rules files",
     match = ["lumo uninstall"],
 )
 prefix_rule(
     pattern = ["lumo", "update"],
     decision = "prompt",
-    justification = "runs npm install -g",
+    justification = "changes local files or starts local processes: runs npm install -g",
     match = ["lumo update"],
 )
 prefix_rule(
     pattern = ["lumo", "usage", "resync"],
     decision = "prompt",
-    justification = "reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)",
+    justification = "reads the local file named by reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects) and uploads it to Lumo",
     match = ["lumo usage resync"],
 )
 prefix_rule(
     pattern = ["lumo", "whoami"],
     decision = "prompt",
-    justification = "local-only (reads credentials, no Lumo API call; runs fine sandboxed)",
+    justification = "not a plain Lumo API call: local-only (reads credentials, no Lumo API call; runs fine sandboxed)",
     match = ["lumo whoami"],
 )
 prefix_rule(
     pattern = ["lumo", "worktree"],
     decision = "prompt",
-    justification = "creates/removes git worktrees and branches (list: local git only)",
+    justification = "changes local files or starts local processes: creates/removes git worktrees and branches (list: local git only)",
     match = ["lumo worktree"],
 )

@@ -16,6 +16,10 @@ import {
   buildCodexRules,
   isCodexServerOnly,
 } from '@/cli/src/lib/codex-rules'
+import {
+  codexFlagOrderError,
+  isServerOnlyPath,
+} from '@/cli/src/lib/codex-flag-order'
 import { CODEX_CLASSES } from '@/cli/src/lib/codex-classes.generated'
 
 type Decision = 'allow' | 'prompt' | 'forbidden'
@@ -88,6 +92,32 @@ describe('Codex rules coverage (allow all lumo, prompt the risky ones)', () => {
       )
     }
   )
+
+  // Documented, pinned limitation: a rule matches the leading tokens, so a
+  // flag before the command words evaluates to the catch-all allow. The CLI
+  // refuses that ordering for every prompted command (codex-flag-order.ts).
+  describe.each(Object.keys(CODEX_PROMPTED_COMMANDS))(
+    'flag before the command words of `lumo %s`',
+    command => {
+      it.each([['--no-hints'], ['--project', 'x']])(
+        'rules say allow for `lumo %s …` but the CLI guard refuses it',
+        (...flag) => {
+          const argv = [...flag, ...command.split(' ')]
+          expect(decide(rules, ['lumo', ...argv])).toBe('allow')
+          const err = codexFlagOrderError(argv, command)
+          expect(err?.[0]).toMatch(/^Error: /)
+          expect(err?.[1]).toMatch(/^Hint: .*`lumo /)
+        }
+      )
+    }
+  )
+
+  it('server-only commands keep free flag order', () => {
+    expect(isServerOnlyPath('task show')).toBe(true)
+    expect(
+      codexFlagOrderError(['--no-hints', 'task', 'show'], 'task show')
+    ).toBeNull()
+  })
 
   it('the prompted set is exactly the non-serverOnly classes', () => {
     expect(Object.keys(CODEX_PROMPTED_COMMANDS).sort()).toEqual(
