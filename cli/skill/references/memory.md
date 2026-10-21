@@ -293,8 +293,8 @@ rather than deleting it; deleting a never-used memory records nothing.
 Claude Code / the Claude API may expose a file-based **memory tool** (a
 `/memories` directory the model writes autonomously). That store is the agent's
 private scratchpad — un-grounded, free-form, invisible to the team, and outside
-Lumo's flywheel. **Project engineering lessons always go through `lumo task/project
-memory add`** — never record them only in the harness memory tool, and never bulk-copy
+Lumo's flywheel. **Project engineering lessons always go through `lumo memory add
+[--scope project]`** — never record them only in the harness memory tool, and never bulk-copy
 harness memory files into Lumo memory (they are ungrounded drafts; Lumo's
 extract→ground→reconcile write path is the only vetted entry). The two stores are
 layered, not mirrored: transient working notes may live in the harness tool,

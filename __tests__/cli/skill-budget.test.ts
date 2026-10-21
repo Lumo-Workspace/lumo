@@ -78,6 +78,37 @@ describe('skill size budget (one `lumo skill read` per file)', () => {
     expect(broken).toEqual([])
   })
 
+  it('heading anchors of relative links exist (GitHub slug rules)', () => {
+    const slug = (h: string) =>
+      h
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+        .replace(/\s/g, '-')
+    const anchors = (file: string): Set<string> => {
+      const out = new Set<string>()
+      let fenced = false
+      for (const line of readFileSync(file, 'utf8').split('\n')) {
+        if (/^\s*```/.test(line)) fenced = !fenced
+        const m = !fenced && line.match(/^#{1,6}\s+(.*)$/)
+        if (m) out.add(slug(m[1]!))
+      }
+      return out
+    }
+    const broken: string[] = []
+    for (const file of files) {
+      const text = readFileSync(file, 'utf8')
+      for (const m of text.matchAll(/\]\(([^)#\s]*\.md)?#([^)\s]+)\)/g)) {
+        const target = m[1] ? resolve(file, '..', m[1]) : file
+        if (m[1] && /^[a-z]+:/i.test(m[1])) continue
+        if (!existsSync(target)) continue // reported by the test above
+        if (!anchors(target).has(m[2]!))
+          broken.push(`${rel(file)} → ${m[1] ?? ''}#${m[2]}`)
+      }
+    }
+    expect(broken).toEqual([])
+  })
+
   it('SKILL.md frontmatter carries no trigger description', () => {
     const skill = readFileSync(join(root, 'SKILL.md'), 'utf8')
     const fm = skill.match(/^---\n([\s\S]*?)\n---/)
