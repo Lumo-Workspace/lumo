@@ -78,7 +78,12 @@ describe('SKILL_POINTER_TEXT', () => {
   it('is short and points at `lumo skill read`', () => {
     expect(SKILL_POINTER_TEXT.length).toBeLessThanOrEqual(600)
     expect(SKILL_POINTER_TEXT).toContain('`lumo skill read`')
-    expect(SKILL_POINTER_TEXT).toContain('LUM-42')
+    expect(SKILL_POINTER_TEXT).toMatch(/tasks and bugs/)
+    expect(SKILL_POINTER_TEXT).toMatch(/create/)
+    expect(SKILL_POINTER_TEXT).toMatch(/not in other trackers/)
+    // does not assume the LUM- prefix
+    expect(SKILL_POINTER_TEXT).toMatch(/team-specific/)
+    expect(SKILL_POINTER_TEXT).toContain('SPEC-12')
   })
 })
 
