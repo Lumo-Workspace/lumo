@@ -5,6 +5,7 @@ import * as path from 'path'
 import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
+import { scanHookFor } from '../lib/scan-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
 import {
@@ -46,6 +47,7 @@ type ActionKind =
   | 'strip-git-hook'
   | 'strip-codex'
   | 'remove-codex-rules'
+  | 'strip-scan-hook'
 
 export interface PlannedAction {
   row: DoctorRow
@@ -80,6 +82,7 @@ const ACTION_FOR_KIND: Record<DoctorKind, ActionKind> = {
   'git-hook': 'strip-git-hook',
   'codex-hooks': 'strip-codex',
   'codex-rules': 'remove-codex-rules',
+  'scan-hook': 'strip-scan-hook',
 }
 
 function inRepo(root: string | null, p: string): boolean {
@@ -164,6 +167,7 @@ function describeAction(a: PlannedAction): string {
     case 'strip-settings':
       return `Remove the Lumo hook entries from ${row.path}; other settings and hooks are kept${tag}${team}`
     case 'strip-git-hook':
+    case 'strip-scan-hook':
       return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${tag}${team}`
     case 'strip-codex':
       return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${tag}${team}`
@@ -240,9 +244,15 @@ function applyAction(a: PlannedAction): Applied {
         changed: true,
       }
     }
-    case 'strip-git-hook': {
+    case 'strip-git-hook':
+    case 'strip-scan-hook': {
+      const begin =
+        a.action === 'strip-scan-hook'
+          ? scanHookFor(row.path)?.begin
+          : undefined
       const { content, changed } = removeGitHookBlock(
-        fs.readFileSync(row.path, 'utf8')
+        fs.readFileSync(row.path, 'utf8'),
+        begin
       )
       if (!changed)
         return {
@@ -303,6 +313,7 @@ const REGISTRY_KIND: Record<ActionKind, InstallKind | null> = {
   'strip-git-hook': 'git-hook',
   'strip-codex': 'codex-hooks',
   'remove-codex-rules': 'codex-rules',
+  'strip-scan-hook': 'scan-hook',
 }
 
 /** Empty configDir() without removing the directory itself where possible. */

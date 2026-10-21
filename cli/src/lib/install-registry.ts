@@ -16,6 +16,8 @@ export type InstallKind =
   | 'git-hook'
   | 'codex-hooks'
   | 'codex-rules'
+  /** LUM-1258: a pre-commit / pre-push scan hook (`lumo init --scan-hooks`). */
+  | 'scan-hook'
 
 export interface InstallRecord {
   kind: InstallKind
@@ -28,7 +30,7 @@ export interface InstallRecord {
   installedAt: string
 }
 
-/** Agent label for prepare-commit-msg installs: the hook serves git, not an agent. */
+/** Agent label for git hook installs (prepare-commit-msg, scan hooks): they serve git, not an agent. */
 export const GIT_HOOK_AGENT = 'git'
 
 /**
@@ -38,7 +40,9 @@ export const GIT_HOOK_AGENT = 'git'
 export function recordAgent(
   rec: Pick<InstallRecord, 'kind' | 'agent'>
 ): string {
-  return rec.kind === 'git-hook' ? GIT_HOOK_AGENT : rec.agent
+  return rec.kind === 'git-hook' || rec.kind === 'scan-hook'
+    ? GIT_HOOK_AGENT
+    : rec.agent
 }
 
 export interface SyncAttempt {

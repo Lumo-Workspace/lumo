@@ -232,7 +232,7 @@ describe('lumo security scan with server context', () => {
     git(sb.main, 'add', 'config.ts')
     const { out } = await run({ pr: true, staged: true }, api(context()))
     expect(out).toContain(
-      'not compared: --staged / --since do not cover the PR diff'
+      'not compared: --staged / --since / --until do not cover the PR diff'
     )
   })
 

@@ -1593,6 +1593,14 @@
           "enumCaseInsensitive": false,
           "description": "Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write"
         },
+        "--scan-hooks": {
+          "long": "--scan-hooks",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE"
+        },
         "--scope": {
           "long": "--scope",
           "short": null,
@@ -2995,9 +3003,9 @@
           "long": "--fail-on",
           "short": null,
           "value": "required",
-          "enum": ["low", "medium", "high"],
+          "enum": ["low", "medium", "high", "done"],
           "enumCaseInsensitive": true,
-          "description": "Exit 3 when any finding is at or above this severity: low | medium | high (case-insensitive)"
+          "description": "Exit 3 when a finding meets this level: low | medium | high | done (case-insensitive; done = a finding that would block DONE under the workspace policy)"
         },
         "--full": {
           "long": "--full",
@@ -3062,6 +3070,22 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Scan only staged changes (git diff --cached), for a pre-commit hook"
+        },
+        "--timeout": {
+          "long": "--timeout",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Wait at most this many seconds for the network: the Lumo server (default 8, then the cached context) and api.osv.dev (default 10)"
+        },
+        "--until": {
+          "long": "--until",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "End the scan at this commit instead of the working tree (untracked files not read), for a pre-push hook"
         }
       },
       "hasSubcommands": false,
@@ -5216,7 +5240,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Only installs of this agent (claude-code, codex, git, ...); the prepare-commit-msg hook is labelled git, so it is included only by --agent git"
+          "description": "Only installs of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git"
         },
         "--confirm": {
           "long": "--confirm",

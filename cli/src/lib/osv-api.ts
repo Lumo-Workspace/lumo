@@ -14,6 +14,18 @@ export const OSV_API = 'https://api.osv.dev'
 /** Per-request budget. */
 export const OSV_TIMEOUT_MS = 10_000
 
+/**
+ * LUM-1258 — `--timeout`: an absolute deadline (epoch ms) shared by every
+ * request of one lookup, instead of `OSV_TIMEOUT_MS` per request.
+ */
+export type OsvDeadline = number | undefined
+
+function budgetMs(deadline: OsvDeadline): number {
+  return deadline === undefined
+    ? OSV_TIMEOUT_MS
+    : Math.max(1, deadline - Date.now())
+}
+
 /** The API's own per-call query cap. */
 const BATCH_SIZE = 1000
 
@@ -34,31 +46,40 @@ export interface OsvQuery {
 async function postJson(
   url: string,
   body: unknown,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  deadline?: OsvDeadline
 ): Promise<unknown> {
-  return request(url, fetchImpl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  return request(
+    url,
+    fetchImpl,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    deadline
+  )
 }
 
 async function request(
   url: string,
   fetchImpl: typeof fetch,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  deadline?: OsvDeadline
 ): Promise<unknown> {
   let res: Response
   try {
     res = await fetchImpl(url, {
       ...init,
-      signal: AbortSignal.timeout(OSV_TIMEOUT_MS),
+      signal: AbortSignal.timeout(budgetMs(deadline)),
     })
   } catch (e) {
     const name = (e as Error)?.name
     throw new OsvUnavailableError(
       name === 'TimeoutError' || name === 'AbortError'
-        ? `api.osv.dev did not answer within ${OSV_TIMEOUT_MS / 1000}s`
+        ? deadline === undefined
+          ? `api.osv.dev did not answer within ${OSV_TIMEOUT_MS / 1000}s`
+          : 'api.osv.dev did not answer within --timeout'
         : `api.osv.dev unreachable (${(e as Error)?.message || 'network error'})`
     )
   }
@@ -87,7 +108,8 @@ function idsOf(result: unknown): { ids: string[]; next: string | null } {
 /** Advisory ids per query, in query order (`/v1/querybatch`, paged). */
 export async function queryBatch(
   queries: OsvQuery[],
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  deadline?: OsvDeadline
 ): Promise<string[][]> {
   const out: string[][] = queries.map(() => [])
   for (let start = 0; start < queries.length; start += BATCH_SIZE) {
@@ -107,7 +129,8 @@ export async function queryBatch(
             ...(p.page ? { page_token: p.page } : {}),
           })),
         },
-        fetchImpl
+        fetchImpl,
+        deadline
       )
       const results = (body as { results?: unknown[] })?.results
       if (!Array.isArray(results) || results.length !== pending.length) {
@@ -130,7 +153,8 @@ export async function queryBatch(
 /** Full records for `ids` (`/v1/vulns/<id>`), `CONCURRENCY` at a time. */
 export async function fetchVulns(
   ids: string[],
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  deadline?: OsvDeadline
 ): Promise<Map<string, OsvVuln>> {
   const out = new Map<string, OsvVuln>()
   const queue = [...new Set(ids)]
@@ -145,7 +169,9 @@ export async function fetchVulns(
       try {
         const body = (await request(
           `${OSV_API}/v1/vulns/${encodeURIComponent(id)}`,
-          fetchImpl
+          fetchImpl,
+          {},
+          deadline
         )) as OsvVuln | null
         if (!body || typeof body.id !== 'string') {
           throw new OsvUnavailableError(

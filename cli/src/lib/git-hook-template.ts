@@ -32,6 +32,27 @@ awk -v id="$lumo_id" '
 ' "$1" > "$lumo_tmp" && mv "$lumo_tmp" "$1"
 ${LUMO_HOOK_END}`
 
+/**
+ * LUM-1258 — one Lumo-managed block in one git hook file: the
+ * prepare-commit-msg tagger above, or a scan hook (`scan-hook-template.ts`).
+ * Every block ends with {@link LUMO_HOOK_END}; the begin marker names it.
+ */
+export interface GitHookSpec {
+  /** The hook's file name in the hooks dir, e.g. `pre-commit`. */
+  hook: string
+  begin: string
+  block: string
+  /** What the block does, for the hand-install instructions. */
+  purpose: string
+}
+
+export const PREPARE_COMMIT_MSG_HOOK: GitHookSpec = {
+  hook: 'prepare-commit-msg',
+  begin: LUMO_HOOK_BEGIN,
+  block: HOOK_SCRIPT_BLOCK,
+  purpose: 'auto-tag commits with [LUM-N]',
+}
+
 export type MergeGitHookStatus =
   | 'created'
   | 'updated'
@@ -39,26 +60,30 @@ export type MergeGitHookStatus =
   | 'appended'
 
 /**
- * Idempotently fold the Lumo block into an existing prepare-commit-msg file.
+ * Idempotently fold a Lumo block (prepare-commit-msg's unless `spec` says
+ * otherwise) into an existing hook file.
  * - null/blank existing      → fresh file with shebang + block ('created')
  * - existing has our markers  → replace block in place ('updated' / 'unchanged')
  * - existing foreign content  → preserve it, append our block ('appended')
  */
-export function mergeGitHook(existing: string | null): {
+export function mergeGitHook(
+  existing: string | null,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK
+): {
   content: string
   status: MergeGitHookStatus
 } {
   if (existing === null || existing.trim() === '') {
-    return { content: `${SHEBANG}\n${HOOK_SCRIPT_BLOCK}\n`, status: 'created' }
+    return { content: `${SHEBANG}\n${spec.block}\n`, status: 'created' }
   }
 
-  const beginIdx = existing.indexOf(LUMO_HOOK_BEGIN)
+  const beginIdx = existing.indexOf(spec.begin)
   if (beginIdx !== -1) {
     const endIdx = existing.indexOf(LUMO_HOOK_END, beginIdx)
     if (endIdx !== -1) {
       const before = existing.slice(0, beginIdx)
       const after = existing.slice(endIdx + LUMO_HOOK_END.length)
-      const content = before + HOOK_SCRIPT_BLOCK + after
+      const content = before + spec.block + after
       return {
         content,
         status: content === existing ? 'unchanged' : 'updated',
@@ -69,7 +94,7 @@ export function mergeGitHook(existing: string | null): {
 
   const sep = existing.endsWith('\n') ? '\n' : '\n\n'
   return {
-    content: `${existing}${sep}${HOOK_SCRIPT_BLOCK}\n`,
+    content: `${existing}${sep}${spec.block}\n`,
     status: 'appended',
   }
 }
@@ -91,11 +116,14 @@ export function resolveHookInstall(
  * with no (or an unterminated) block is returned unchanged. `content: null`
  * means nothing but an optional shebang remains, so the caller deletes the file.
  */
-export function removeGitHookBlock(existing: string): {
+export function removeGitHookBlock(
+  existing: string,
+  begin: string = LUMO_HOOK_BEGIN
+): {
   content: string | null
   changed: boolean
 } {
-  const beginIdx = existing.indexOf(LUMO_HOOK_BEGIN)
+  const beginIdx = existing.indexOf(begin)
   if (beginIdx === -1) return { content: existing, changed: false }
   const endIdx = existing.indexOf(LUMO_HOOK_END, beginIdx)
   if (endIdx === -1) return { content: existing, changed: false }

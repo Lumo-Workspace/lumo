@@ -12,10 +12,11 @@ import {
   type AutoUpdateStatus,
 } from '../lib/auto-update'
 import {
-  HOOK_SCRIPT_BLOCK,
-  LUMO_HOOK_BEGIN,
   LUMO_HOOK_END,
+  PREPARE_COMMIT_MSG_HOOK,
+  type GitHookSpec,
 } from '../lib/git-hook-template'
+import { SCAN_HOOKS, scanHookFor } from '../lib/scan-hook-template'
 import { resolveGitHooksDir } from '../lib/git-hooks-dir'
 import {
   CODEX_HOOK_EVENTS,
@@ -60,6 +61,7 @@ export type DoctorKind =
   | 'git-hook'
   | 'codex-hooks'
   | 'codex-rules'
+  | 'scan-hook'
 
 export interface DoctorRow {
   path: string
@@ -288,12 +290,18 @@ function settingsRow(
   return row
 }
 
+/**
+ * A git hook file holding a Lumo block: prepare-commit-msg, or (LUM-1258) a
+ * pre-commit / pre-push scan hook (`kind: 'scan-hook'`).
+ */
 function gitHookRow(
   file: string,
   scope: 'user' | 'project',
   root: string | null,
-  current: { path: string; coreHooksPath: string | null } | null,
-  cliVersion: string | null
+  current: { dir: string; coreHooksPath: string | null } | null,
+  cliVersion: string | null,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK,
+  kind: 'git-hook' | 'scan-hook' = 'git-hook'
 ): DoctorRow | null {
   let text: string
   try {
@@ -301,12 +309,13 @@ function gitHookRow(
   } catch {
     return null
   }
-  const begin = text.indexOf(LUMO_HOOK_BEGIN)
+  const begin = text.indexOf(spec.begin)
   if (begin === -1) return null
   const end = text.indexOf(LUMO_HOOK_END, begin)
   const block =
     end === -1 ? null : text.slice(begin, end + LUMO_HOOK_END.length)
-  const isCurrent = current !== null && current.path === file
+  const isCurrent =
+    current !== null && path.join(current.dir, spec.hook) === file
   const hooksPath = isCurrent ? current.coreHooksPath : null
   // The default hooks dir lives under .git and is never tracked; only a
   // configured core.hooksPath dir can be committed.
@@ -315,10 +324,14 @@ function gitHookRow(
       ? groupFor('project', root, file, () => isPathGitTracked(file))
       : 'machine'
     : groupFor(scope, root, file, () => isPathGitTracked(file))
-  const upToDate = block === HOOK_SCRIPT_BLOCK
+  const upToDate = block === spec.block
+  const refresh =
+    kind === 'scan-hook'
+      ? `${refreshCommand('project')} --scan-hooks`
+      : refreshCommand('project')
   const row: DoctorRow = {
     path: file,
-    kind: 'git-hook',
+    kind,
     scope,
     agent: GIT_HOOK_AGENT,
     group,
@@ -327,9 +340,16 @@ function gitHookRow(
   }
   if (!upToDate) {
     if (hooksPath)
-      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`lumo init --scope project\` prints`
-    else row.suggestion = refreshCommand('project')
+      row.detail = `core.hooksPath hook is managed by you: replace the Lumo block by hand with the one \`${refresh}\` prints`
+    else row.suggestion = refresh
   }
+  if (kind === 'scan-hook')
+    row.detail = [
+      row.detail,
+      'blocks only on a finding that would block DONE; skip once with --no-verify',
+    ]
+      .filter(Boolean)
+      .join('; ')
   return row
 }
 
@@ -517,13 +537,15 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   }
 
   // prepare-commit-msg: this repo's hooks dir plus recorded hooks.
-  let current: { path: string; coreHooksPath: string | null } | null = null
+  let current: { dir: string; coreHooksPath: string | null } | null = null
   const hookFiles = new Map<string, { scope: 'user' | 'project' }>()
   if (root) {
     const { dir, coreHooksPath } = resolveGitHooksDir(root)
     if (dir) {
-      current = { path: path.join(dir, 'prepare-commit-msg'), coreHooksPath }
-      hookFiles.set(current.path, { scope: 'project' })
+      current = { dir, coreHooksPath }
+      hookFiles.set(path.join(dir, PREPARE_COMMIT_MSG_HOOK.hook), {
+        scope: 'project',
+      })
     }
   }
   for (const rec of registry.installs) {
@@ -537,6 +559,34 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   }
   for (const [file, t] of hookFiles) {
     const row = gitHookRow(file, t.scope, root, current, cliVersion)
+    if (row) rows.push(row)
+  }
+  // LUM-1258 scan hooks (opt-in): this repo's pre-commit / pre-push plus
+  // recorded ones. A hook file without the Lumo block is not listed.
+  const scanFiles = new Map<string, 'user' | 'project'>()
+  if (current)
+    for (const spec of SCAN_HOOKS)
+      scanFiles.set(path.join(current.dir, spec.hook), 'project')
+  for (const rec of registry.installs) {
+    if (rec.kind !== 'scan-hook') continue
+    if (!fs.existsSync(rec.path)) {
+      stale(rec.path)
+      continue
+    }
+    if (!scanFiles.has(rec.path)) scanFiles.set(rec.path, rec.scope)
+  }
+  for (const [file, scope] of scanFiles) {
+    const spec = scanHookFor(file)
+    if (!spec) continue
+    const row = gitHookRow(
+      file,
+      scope,
+      root,
+      current,
+      cliVersion,
+      spec,
+      'scan-hook'
+    )
     if (row) rows.push(row)
   }
   // Codex hooks.json: user + this repo's file plus recorded ones.

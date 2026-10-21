@@ -7,10 +7,11 @@ import {
   LUMO_CODEX_RULES,
 } from './codex-rules'
 import {
-  HOOK_SCRIPT_BLOCK,
-  LUMO_HOOK_BEGIN,
   LUMO_HOOK_END,
+  PREPARE_COMMIT_MSG_HOOK,
+  type GitHookSpec,
 } from './git-hook-template'
+import { SCAN_HOOKS } from './scan-hook-template'
 import { CODEX_HOOK_EVENTS } from './hooks-template'
 import {
   decideSkillInstall,
@@ -49,6 +50,7 @@ export type InitItemKind =
   | 'codex-hooks'
   | 'codex-rules'
   | 'git-hook'
+  | 'scan-hook'
 
 /**
  * - `install`: a new file / dir would be written;
@@ -80,6 +82,8 @@ export interface InitItem {
   diffs: string[]
   /** Codex will ask to trust these hooks (again). */
   retrust: boolean
+  /** Overrides the kind's label (a scan hook names its git hook). */
+  label?: string
 }
 
 const KIND_LABEL: Record<InitItemKind, string> = {
@@ -88,6 +92,7 @@ const KIND_LABEL: Record<InitItemKind, string> = {
   'codex-hooks': 'Codex hooks',
   'codex-rules': 'Codex rule',
   'git-hook': 'prepare-commit-msg hook',
+  'scan-hook': 'scan hook',
 }
 
 // ── normalized hook-file view ──────────────────────────────────────────────
@@ -404,15 +409,25 @@ function codexRulesItem(file: string, force: boolean): InitItem {
 }
 
 /** The Lumo block of a hook file ('' when its end marker is missing). */
-function lumoBlock(text: string): string {
-  const begin = text.indexOf(LUMO_HOOK_BEGIN)
+function lumoBlock(text: string, beginMarker: string): string {
+  const begin = text.indexOf(beginMarker)
   const end = begin === -1 ? -1 : text.indexOf(LUMO_HOOK_END, begin)
   return end === -1 ? '' : text.slice(begin, end + LUMO_HOOK_END.length) + '\n'
 }
 
-function gitHookItem(root: string, home: string): InitItem {
-  const plan = planGitHookInstall(root)
-  const base = { kind: 'git-hook' as const, retrust: false, diffs: [] }
+function gitHookItem(
+  root: string,
+  home: string,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK,
+  kind: 'git-hook' | 'scan-hook' = 'git-hook'
+): InitItem {
+  const plan = planGitHookInstall(root, spec)
+  const base = {
+    kind,
+    retrust: false,
+    diffs: [],
+    ...(kind === 'scan-hook' ? { label: `${spec.hook} scan hook` } : {}),
+  }
   switch (plan.status) {
     case 'not-repo':
       return {
@@ -427,8 +442,7 @@ function gitHookItem(root: string, home: string): InitItem {
         ...base,
         path: plan.coreHooksPath,
         action: 'skip',
-        summary:
-          'core.hooksPath is set (husky or a custom dir) — never written; `lumo init --scope project` prints the block to add by hand',
+        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init --scope project${kind === 'scan-hook' ? ' --scan-hooks' : ''}\` prints the block to add by hand`,
         notes: [],
       }
     case 'no-dir':
@@ -458,14 +472,15 @@ function gitHookItem(root: string, home: string): InitItem {
       summary: 'new hook with the Lumo block',
       notes: [],
     }
-  const old = plan.status === 'updated' ? lumoBlock(plan.existing ?? '') : ''
+  const old =
+    plan.status === 'updated' ? lumoBlock(plan.existing ?? '', spec.begin) : ''
   return {
     ...base,
     path: file,
     action: 'update',
     summary:
       plan.status === 'appended'
-        ? (plan.existing ?? '').includes(LUMO_HOOK_BEGIN)
+        ? (plan.existing ?? '').includes(spec.begin)
           ? 'Lumo block has no end marker — a fresh block is appended'
           : 'Lumo block appended; the existing hook is kept'
         : 'Lumo block replaced',
@@ -475,7 +490,7 @@ function gitHookItem(root: string, home: string): InitItem {
     diffs: [
       textDiff(
         old,
-        `${HOOK_SCRIPT_BLOCK}\n`,
+        `${spec.block}\n`,
         `${label} (now, Lumo block)`,
         `${label} (after, Lumo block)`
       ),
@@ -515,6 +530,8 @@ export function planInit(args: {
   bundled: string
   cliVersion: string
   force: boolean
+  /** LUM-1258: `--scan-hooks` — also plan the pre-commit / pre-push scan hooks. */
+  scanHooks?: boolean
 }): InitItem[] {
   const items: InitItem[] = []
   const attempt = (kind: InitItemKind, file: string, fn: () => InitItem) => {
@@ -555,19 +572,26 @@ export function planInit(args: {
       )
     }
   }
-  if (args.scope === 'project')
+  if (args.scope === 'project') {
     attempt('git-hook', args.root, () => gitHookItem(args.root, args.homeDir))
+    if (args.scanHooks)
+      for (const spec of SCAN_HOOKS)
+        attempt('scan-hook', args.root, () =>
+          gitHookItem(args.root, args.homeDir, spec, 'scan-hook')
+        )
+  }
   return items
 }
 
 /** The `lumo init …` command that applies a dry run with the same flags. */
 export function initApplyCommand(
   scope: 'user' | 'project',
-  opts: { agent?: string; force?: boolean }
+  opts: { agent?: string; force?: boolean; scanHooks?: boolean }
 ): string {
   let cmd = `lumo init --scope ${scope}`
   if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
   if (opts.force) cmd += ' --force'
+  if (opts.scanHooks) cmd += ' --scan-hooks'
   return cmd
 }
 
@@ -605,7 +629,7 @@ export function renderInitPlan(
 ): string {
   let out = `Lumo init --dry-run — ${opts.scope} scope, nothing is written (CLI ${opts.cliVersion})\n\n`
   for (const i of items) {
-    out += `${VERB[i.action]} ${displayPath(i.path, opts.home)} — ${KIND_LABEL[i.kind]}: ${i.summary}\n`
+    out += `${VERB[i.action]} ${displayPath(i.path, opts.home)} — ${i.label ?? KIND_LABEL[i.kind]}: ${i.summary}\n`
     for (const n of i.notes) out += `    ${n}\n`
     for (const f of i.files ?? []) out += formatSkillChangeLine(f)
     for (const d of i.diffs) out += `\n${indent(d)}\n`

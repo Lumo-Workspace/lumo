@@ -21,7 +21,11 @@ import {
   installCodexRules,
 } from '../lib/codex-rules'
 import { formatNextSteps, type NextStep } from '../lib/next-steps'
-import { HOOK_SCRIPT_BLOCK } from '../lib/git-hook-template'
+import {
+  PREPARE_COMMIT_MSG_HOOK,
+  type GitHookSpec,
+} from '../lib/git-hook-template'
+import { SCAN_HOOKS } from '../lib/scan-hook-template'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
@@ -52,6 +56,8 @@ export type InitOptions = {
   agent?: string
   upgrade?: boolean
   dryRun?: boolean
+  /** LUM-1258: also install the pre-commit / pre-push scan hooks (opt-in). */
+  scanHooks?: boolean
 }
 
 /** Test seams: everything defaults to the real environment. */
@@ -168,6 +174,12 @@ export async function init(
   const bundled = deps.bundledSkillDir ?? bundledSkillDir()
 
   const scope = resolveScope(options)
+  if (options.scanHooks && scope !== 'project') {
+    process.stderr.write(
+      'Error: --scan-hooks installs git hooks into this repo; it needs --scope project.\n'
+    )
+    return EXIT_USAGE
+  }
 
   const root = scope === 'user' ? homeDir : cwd
   if (options.dryRun) {
@@ -179,6 +191,7 @@ export async function init(
       bundled,
       cliVersion,
       force: options.force === true,
+      scanHooks: options.scanHooks === true,
     })
     process.stdout.write(
       renderInitPlan(items, {
@@ -229,6 +242,20 @@ export async function init(
     const hookPath = installGitHook(root)
     if (hookPath) {
       recordInstall('git-hook', hookPath, scope, GIT_HOOK_AGENT, cliVersion)
+    }
+    if (options.scanHooks) {
+      let installed = 0
+      for (const spec of SCAN_HOOKS) {
+        const scanPath = installGitHook(root, spec)
+        if (!scanPath) continue
+        installed++
+        recordInstall('scan-hook', scanPath, scope, GIT_HOOK_AGENT, cliVersion)
+      }
+      // Only about hooks that are in place (not a husky print-out or a non-repo).
+      if (installed > 0)
+        process.stdout.write(
+          '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
+        )
     }
   }
   await printSessionRecordNotice()
@@ -518,26 +545,33 @@ export function mergeHooksFile(
   return { path: settingsPath, stats }
 }
 
-/** Returns the hook file path when Lumo's block is in place, else null. */
-export function installGitHook(projectRoot: string): string | null {
-  const plan = planGitHookInstall(projectRoot)
+/**
+ * Returns the hook file path when Lumo's block is in place, else null.
+ * `spec` picks the hook: prepare-commit-msg, or a scan hook (LUM-1258).
+ */
+export function installGitHook(
+  projectRoot: string,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK
+): string | null {
+  const name = spec.hook
+  const plan = planGitHookInstall(projectRoot, spec)
   switch (plan.status) {
     case 'not-repo':
       process.stdout.write(
-        '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
+        `⚠ Not a git repository (or git unavailable) — skipped ${name} hook.\n`
       )
       return null
     case 'degrade':
-      printGitHookManualInstructions(plan.coreHooksPath)
+      printGitHookManualInstructions(plan.coreHooksPath, spec)
       return null
     case 'no-dir':
       process.stdout.write(
-        '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
+        `⚠ could not resolve git hooks dir — skipped ${name} hook.\n`
       )
       return null
     case 'unchanged':
       process.stdout.write(
-        `✓ prepare-commit-msg hook already up to date: ${plan.hookPath}\n`
+        `✓ ${name} hook already up to date: ${plan.hookPath}\n`
       )
       return plan.hookPath
   }
@@ -549,7 +583,7 @@ export function installGitHook(projectRoot: string): string | null {
     fs.chmodSync(hookPath, 0o755)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    process.stdout.write(`⚠ could not write prepare-commit-msg hook: ${msg}\n`)
+    process.stdout.write(`⚠ could not write ${name} hook: ${msg}\n`)
     return null
   }
 
@@ -559,17 +593,20 @@ export function installGitHook(projectRoot: string): string | null {
       : status === 'appended'
         ? 'appended to'
         : 'updated'
-  process.stdout.write(`✓ ${verb} prepare-commit-msg hook: ${hookPath}\n`)
+  process.stdout.write(`✓ ${verb} ${name} hook: ${hookPath}\n`)
   return hookPath
 }
 
-function printGitHookManualInstructions(coreHooksPath: string): void {
+function printGitHookManualInstructions(
+  coreHooksPath: string,
+  spec: GitHookSpec
+): void {
   process.stdout.write(
     `\n⚠ core.hooksPath is set to "${coreHooksPath}" (husky or a custom hooks dir).\n` +
-      `  Skipped auto-install to avoid clobbering it. To auto-tag commits with\n` +
-      `  [LUM-N], add this block to your prepare-commit-msg hook\n` +
-      `  (e.g. .husky/prepare-commit-msg), then make it executable:\n\n` +
-      HOOK_SCRIPT_BLOCK +
+      `  Skipped auto-install to avoid clobbering it. To ${spec.purpose},\n` +
+      `  add this block to your ${spec.hook} hook\n` +
+      `  (e.g. .husky/${spec.hook}), then make it executable:\n\n` +
+      spec.block +
       `\n\n`
   )
 }

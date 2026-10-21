@@ -35,6 +35,8 @@ export interface DepsScanOptions {
   fetchImpl?: typeof fetch | undefined
   /** osv-scanner binary; default: looked up on PATH. */
   scannerBin?: string | undefined
+  /** LUM-1258 — `--timeout`: the whole api.osv.dev lookup's budget (ms). */
+  timeoutMs?: number | undefined
 }
 
 export interface DepsScanResult {
@@ -76,18 +78,29 @@ function showAt(root: string, rev: string, rel: string): string | null {
 }
 
 /** Lockfiles present at head, repo-relative. */
-function headLockfiles(root: string, head: ScanBase['head']): string[] {
+function headLockfiles(root: string, scope: ScanBase): string[] {
   const args =
-    head === 'index'
+    scope.head === 'index'
       ? ['-c', 'core.quotePath=false', 'ls-files', '-z']
-      : [
-          '-c',
-          'core.quotePath=false',
-          'ls-files',
-          '-co',
-          '--exclude-standard',
-          '-z',
-        ]
+      : scope.head === 'commit'
+        ? // LUM-1258 `--until`: the files of that commit, not the working tree.
+          [
+            '-c',
+            'core.quotePath=false',
+            'ls-tree',
+            '-r',
+            '--name-only',
+            '-z',
+            scope.until!,
+          ]
+        : [
+            '-c',
+            'core.quotePath=false',
+            'ls-files',
+            '-co',
+            '--exclude-standard',
+            '-z',
+          ]
   const r = git(root, args)
   if (!r.ok) throw new Error('git ls-files failed')
   return r.out
@@ -100,12 +113,9 @@ function headLockfiles(root: string, head: ScanBase['head']): string[] {
     })
 }
 
-function readHead(
-  root: string,
-  head: ScanBase['head'],
-  rel: string
-): string | null {
-  if (head === 'index') return showAt(root, '', rel)
+function readHead(root: string, scope: ScanBase, rel: string): string | null {
+  if (scope.head === 'index') return showAt(root, '', rel)
+  if (scope.head === 'commit') return showAt(root, scope.until!, rel)
   try {
     return fs.readFileSync(path.join(root, rel), 'utf8')
   } catch {
@@ -177,8 +187,10 @@ function collect(
 /** Fast mode's API path: delta packages → OSV ids → records → grouped per package. */
 async function lookUp(
   changed: { lockfile: string; packages: NpmPackage[] }[],
-  fetchImpl: typeof fetch | undefined
+  fetchImpl: typeof fetch | undefined,
+  timeoutMs: number | undefined
 ): Promise<ScannerPackage[]> {
+  const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
   const queries = new Map<string, NpmPackage>()
   for (const c of changed) {
     for (const p of c.packages) queries.set(`${p.name}@${p.version}`, p)
@@ -187,11 +199,12 @@ async function lookUp(
   if (list.length === 0) return []
   const ids = await queryBatch(
     list.map(p => ({ ecosystem: 'npm', name: p.name, version: p.version })),
-    fetchImpl
+    fetchImpl,
+    deadline
   )
   const idsByKey = new Map<string, string[]>()
   list.forEach((p, i) => idsByKey.set(`${p.name}@${p.version}`, ids[i] ?? []))
-  const records = await fetchVulns(ids.flat(), fetchImpl)
+  const records = await fetchVulns(ids.flat(), fetchImpl, deadline)
   const out: ScannerPackage[] = []
   for (const c of changed) {
     for (const p of c.packages) {
@@ -246,8 +259,8 @@ export async function scanDeps(
   const changed: { lockfile: string; packages: NpmPackage[] }[] = []
   const notCovered: string[] = []
   const unreadable: string[] = []
-  for (const rel of headLockfiles(root, scope.head)) {
-    const head = readHead(root, scope.head, rel)
+  for (const rel of headLockfiles(root, scope)) {
+    const head = readHead(root, scope, rel)
     if (head === null) continue
     const base = showAt(root, scope.base, rel)
     if (base === head) continue
@@ -308,7 +321,7 @@ export async function scanDeps(
     }
   } else {
     try {
-      pkgs = await lookUp(changed, opts.fetchImpl)
+      pkgs = await lookUp(changed, opts.fetchImpl, opts.timeoutMs)
     } catch (e) {
       if (!(e instanceof OsvUnavailableError)) throw e
       const why = `${e.message}; dependency results are unknown, not clean — retry, or use --offline / --full`
