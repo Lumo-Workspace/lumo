@@ -14,10 +14,14 @@ export function isSkillRead(argv: readonly string[]): boolean {
 
 /**
  * LUM-1113: `lumo init --dry-run` promises zero writes, so the update check /
- * background auto-update may not run before it.
+ * background auto-update may not run before it. `setup --dry-run` (a
+ * tombstone that only prints its replacement) is gated the same way.
  */
 export function isInitDryRun(argv: readonly string[]): boolean {
-  return argv[2] === 'init' && argv.slice(3).includes('--dry-run')
+  return (
+    (argv[2] === 'init' || argv[2] === 'setup') &&
+    argv.slice(3).includes('--dry-run')
+  )
 }
 
 /**

@@ -4,6 +4,8 @@
 // `lumo doctor` (LUM-1292): the current repo's hooks, Codex rule and git
 // hooks, plus login and API reachability.
 import { execFileSync } from 'child_process'
+import { createServer, type Server } from 'http'
+import type { Socket } from 'net'
 import {
   chmodSync,
   mkdirSync,
@@ -21,6 +23,7 @@ import {
   collectDoctor,
   codexTrustedEvents,
   doctor,
+  API_TIMEOUT_MS,
   lumoOnPath,
   probeAuth,
   type DoctorReport,
@@ -536,6 +539,73 @@ describe('login and API', () => {
       }
     )
     expect(stdout).toContain('API https://lumo.example: invalid-key')
+  })
+})
+
+describe('API check timeout (a server that accepts and never answers)', () => {
+  let server: Server
+  let url: string
+  let closed: Promise<void>
+  let prevApiUrl: string | undefined
+
+  beforeEach(async () => {
+    prevApiUrl = process.env.LUMO_API_URL
+    delete process.env.LUMO_API_URL
+    let onClose!: () => void
+    closed = new Promise(r => (onClose = r))
+    // Never writes a response: the request hangs until the client gives up.
+    server = createServer(() => {})
+    server.on('connection', (sock: Socket) => sock.on('close', onClose))
+    await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
+    const addr = server.address() as { port: number }
+    url = `http://127.0.0.1:${addr.port}`
+  })
+  afterEach(async () => {
+    if (prevApiUrl !== undefined) process.env.LUMO_API_URL = prevApiUrl
+    server.closeAllConnections()
+    await new Promise(r => server.close(r))
+  })
+
+  const creds = () => ({
+    token: 'tok',
+    apiUrl: url,
+    userId: 'u',
+    email: 'a@b.c',
+    workspaceId: 'w',
+    workspaceSlug: 'acme',
+    workspaceName: 'Acme',
+    apiKeyId: 'k',
+    apiKeyName: 'k',
+    apiKeyPrefix: 'lum_x',
+  })
+
+  it('the default timeout is 5 s', () => {
+    expect(API_TIMEOUT_MS).toBe(5_000)
+  })
+
+  it('doctor reports unreachable within the timeout and aborts the request (socket closed)', async () => {
+    const f = fixture()
+    const { checkApi: _noStub, ...deps } = f.deps
+    const timeout = 300
+    const t0 = Date.now()
+    expect(
+      await doctor(
+        { json: true },
+        { ...deps, credentials: creds, apiTimeoutMs: timeout }
+      )
+    ).toBe(0)
+    const elapsed = Date.now() - t0
+    expect(elapsed).toBeGreaterThanOrEqual(timeout - 50)
+    expect(elapsed).toBeLessThan(timeout + 2_000)
+    const auth = (JSON.parse(stdout) as { auth: { api: string } }).auth
+    expect(auth.api).toBe('unreachable')
+    // The client closed its socket: nothing keeps the process alive.
+    await Promise.race([
+      closed,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('socket still open')), 1_000)
+      ),
+    ])
   })
 })
 

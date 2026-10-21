@@ -12,11 +12,15 @@ import {
 const argv = (...a: string[]): string[] => ['node', 'lumo', ...a]
 
 describe('update-check gate', () => {
-  it('isInitDryRun: only `init … --dry-run`', () => {
+  it('isInitDryRun: `init` / `setup` with --dry-run only', () => {
     expect(isInitDryRun(argv('init', '--dry-run'))).toBe(true)
     expect(isInitDryRun(argv('init', '--agent', 'codex', '--dry-run'))).toBe(
       true
     )
+    // The `setup` tombstone keeps the same gating as before.
+    expect(isInitDryRun(argv('setup', '--project', '--dry-run'))).toBe(true)
+    expect(shouldCheckForUpdates(argv('setup', '--dry-run'))).toBe(false)
+    expect(isInitDryRun(argv('setup'))).toBe(false)
     expect(isInitDryRun(argv('init'))).toBe(false)
     expect(isInitDryRun(argv('memory', 'push', '--dry-run'))).toBe(false)
   })

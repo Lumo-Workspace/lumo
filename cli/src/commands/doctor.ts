@@ -123,6 +123,8 @@ export interface DoctorDeps {
   credentials?: () => Credentials | null
   /** Check the key against the API; throws on failure (default: `/api/auth/verify`). */
   checkApi?: (apiUrl: string, token: string) => Promise<void>
+  /** Timeout of the default API check (default {@link API_TIMEOUT_MS}). */
+  apiTimeoutMs?: number
 }
 
 /**
@@ -454,26 +456,20 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   }
 }
 
-const API_TIMEOUT_MS = 5_000
+/** How long doctor waits for the Lumo API before calling it unreachable. */
+export const API_TIMEOUT_MS = 5_000
 
-async function defaultCheckApi(apiUrl: string, token: string): Promise<void> {
-  let timer: NodeJS.Timeout | undefined
-  try {
-    await Promise.race([
-      verifyToken(apiUrl, token),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(`Could not reach Lumo API at ${apiUrl} (timeout)`)
-            ),
-          API_TIMEOUT_MS
-        )
-      }),
-    ])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
+/**
+ * The default API check: `/api/auth/verify`, aborted (socket closed) after
+ * `timeoutMs`, so doctor never waits on — or stays alive for — a stalled
+ * server. An abort surfaces as "Could not reach Lumo API …".
+ */
+export async function defaultCheckApi(
+  apiUrl: string,
+  token: string,
+  timeoutMs: number = API_TIMEOUT_MS
+): Promise<void> {
+  await verifyToken(apiUrl, token, { signal: AbortSignal.timeout(timeoutMs) })
 }
 
 /** Login (saved credentials) and whether the Lumo API accepts the key. */
@@ -497,7 +493,11 @@ export async function probeAuth(deps: DoctorDeps = {}): Promise<DoctorAuth> {
     }
   }
   try {
-    await (deps.checkApi ?? defaultCheckApi)(apiUrl, creds.token)
+    const check =
+      deps.checkApi ??
+      ((url: string, token: string) =>
+        defaultCheckApi(url, token, deps.apiTimeoutMs ?? API_TIMEOUT_MS))
+    await check(apiUrl, creds.token)
     return { ...base, apiUrl, api: 'ok' }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
