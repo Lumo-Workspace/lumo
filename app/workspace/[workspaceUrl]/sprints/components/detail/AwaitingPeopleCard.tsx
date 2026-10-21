@@ -1,5 +1,6 @@
 'use client'
 
+import { Fragment } from 'react'
 import { useIntl } from 'react-intl'
 import { Inbox } from 'lucide-react'
 import type { SprintAttentionScope } from '@/lib/api-client/sprints'
@@ -19,6 +20,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { QueueKindSummary, QueueRow } from './view-model'
@@ -70,9 +80,9 @@ function QueueDetail({ row }: { row: QueueRow }) {
     )
   if (parts.length === 0) return null
   return (
-    <span className='text-caption text-muted-foreground'>
+    <ItemDescription className='text-caption'>
       {parts.join(' · ')}
-    </span>
+    </ItemDescription>
   )
 }
 
@@ -116,7 +126,11 @@ function MineRow({
 }) {
   const intl = useIntl()
   return (
-    <li className='flex flex-col gap-2 border-b border-border px-4 py-3 last:border-b-0 sm:min-h-14 sm:flex-row sm:items-center sm:gap-4 sm:py-2'>
+    <Item
+      role='listitem'
+      size='sm'
+      className='flex-col items-stretch gap-2 rounded-none sm:min-h-14 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-4 sm:py-2'
+    >
       <div className='flex items-center justify-between gap-2 sm:w-32 sm:flex-none'>
         <Badge variant='muted' size='sm'>
           {intl.formatMessage({ id: KIND_KEY[row.kind] })}
@@ -125,22 +139,22 @@ function MineRow({
           {formatWait(intl, row.waitingSec)}
         </span>
       </div>
-      <div className='flex min-w-0 flex-1 flex-col'>
-        <span className='flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2.5'>
-          <code className='text-caption text-muted-foreground'>
+      <ItemContent className='min-w-0 gap-0'>
+        <ItemTitle className='w-full min-w-0 flex-col items-start gap-0 sm:flex-row sm:items-baseline sm:gap-2.5'>
+          <code className='text-caption font-normal text-muted-foreground'>
             {row.identifier}
           </code>
-          <span className='truncate text-body-strong'>{row.title}</span>
-        </span>
+          <span className='min-w-0 max-w-full truncate'>{row.title}</span>
+        </ItemTitle>
         <QueueDetail row={row} />
-      </div>
+      </ItemContent>
       <span className='hidden w-22 flex-none text-right text-body text-muted-foreground tabular-nums sm:block'>
         {formatWait(intl, row.waitingSec)}
       </span>
-      <div className='sm:flex-none'>
+      <ItemActions className='sm:flex-none'>
         <QueueAction row={row} onOpenTask={onOpenTask} />
-      </div>
-    </li>
+      </ItemActions>
+    </Item>
   )
 }
 
@@ -154,41 +168,43 @@ function TeamRow({
 }) {
   const intl = useIntl()
   return (
-    <li className='border-b border-border last:border-b-0'>
-      <button
-        type='button'
-        onClick={() => onOpenTask(row.taskId)}
-        className='flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/50 sm:min-h-12 sm:flex-row sm:items-center sm:gap-4 sm:py-2'
+    <div role='listitem'>
+      <Item
+        asChild
+        size='sm'
+        className='w-full flex-col items-stretch gap-1 rounded-none text-left hover:bg-accent/50 sm:min-h-12 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-4 sm:py-2'
       >
-        <span className='flex items-center justify-between gap-2 sm:w-32 sm:flex-none'>
-          <Badge variant='muted' size='sm'>
-            {intl.formatMessage({ id: KIND_KEY[row.kind] })}
-          </Badge>
-          <span className='text-body text-muted-foreground tabular-nums sm:hidden'>
+        <button type='button' onClick={() => onOpenTask(row.taskId)}>
+          <span className='flex items-center justify-between gap-2 sm:w-32 sm:flex-none'>
+            <Badge variant='muted' size='sm'>
+              {intl.formatMessage({ id: KIND_KEY[row.kind] })}
+            </Badge>
+            <span className='text-body text-muted-foreground tabular-nums sm:hidden'>
+              {formatWait(intl, row.waitingSec)}
+            </span>
+          </span>
+          <code className='text-caption text-muted-foreground sm:w-20 sm:flex-none'>
+            {row.identifier}
+          </code>
+          <span className='min-w-0 flex-1 truncate text-body-strong'>
+            {row.title}
+          </span>
+          <span className='text-caption text-muted-foreground sm:w-28 sm:flex-none'>
+            {intl.formatMessage(
+              { id: 'sprints.detail.queue.owner' },
+              {
+                name:
+                  row.ownerName ??
+                  intl.formatMessage({ id: 'sprints.detail.queue.noOwner' }),
+              }
+            )}
+          </span>
+          <span className='hidden w-20 flex-none text-right text-body text-muted-foreground tabular-nums sm:block'>
             {formatWait(intl, row.waitingSec)}
           </span>
-        </span>
-        <code className='text-caption text-muted-foreground sm:w-20 sm:flex-none'>
-          {row.identifier}
-        </code>
-        <span className='min-w-0 flex-1 truncate text-body-strong'>
-          {row.title}
-        </span>
-        <span className='text-caption text-muted-foreground sm:w-28 sm:flex-none'>
-          {intl.formatMessage(
-            { id: 'sprints.detail.queue.owner' },
-            {
-              name:
-                row.ownerName ??
-                intl.formatMessage({ id: 'sprints.detail.queue.noOwner' }),
-            }
-          )}
-        </span>
-        <span className='hidden w-20 flex-none text-right text-body text-muted-foreground tabular-nums sm:block'>
-          {formatWait(intl, row.waitingSec)}
-        </span>
-      </button>
-    </li>
+        </button>
+      </Item>
+    </div>
   )
 }
 
@@ -257,40 +273,48 @@ export function AwaitingPeopleCard({
         ) : (
           <>
             {scope === 'team' && (
-              <div className='grid grid-cols-3 gap-2 px-4 sm:gap-3 sm:px-0'>
+              <ItemGroup className='grid grid-cols-3 gap-2 px-4 sm:gap-3 sm:px-0'>
                 {kinds.map(k => (
-                  <div
+                  <Item
                     key={k.kind}
-                    className='flex flex-col gap-0.5 rounded-md border border-border px-3 py-2 sm:px-4 sm:py-3'
+                    role='listitem'
+                    variant='outline'
+                    size='sm'
+                    className='px-3 py-2 sm:px-4 sm:py-3'
                   >
-                    <span className='text-caption text-muted-foreground'>
-                      {intl.formatMessage({ id: KIND_KEY[k.kind] })}
-                    </span>
-                    <span className='flex flex-wrap items-baseline gap-x-2'>
-                      <span className='text-heading tabular-nums'>
-                        {k.count}
-                      </span>
-                      {k.oldestSec !== null && (
-                        <span className='text-caption text-muted-foreground'>
-                          {t('oldest', {
-                            wait: formatWait(intl, k.oldestSec),
-                          })}
+                    <ItemContent className='gap-0.5'>
+                      <ItemDescription className='text-caption'>
+                        {intl.formatMessage({ id: KIND_KEY[k.kind] })}
+                      </ItemDescription>
+                      <span className='flex flex-wrap items-baseline gap-x-2'>
+                        <span className='text-heading tabular-nums'>
+                          {k.count}
                         </span>
-                      )}
-                    </span>
-                  </div>
+                        {k.oldestSec !== null && (
+                          <span className='text-caption text-muted-foreground'>
+                            {t('oldest', {
+                              wait: formatWait(intl, k.oldestSec),
+                            })}
+                          </span>
+                        )}
+                      </span>
+                    </ItemContent>
+                  </Item>
                 ))}
-              </div>
+              </ItemGroup>
             )}
-            <ul className='overflow-hidden border-t border-border sm:rounded-md sm:border'>
-              {rows.map(row =>
-                scope === 'mine' ? (
-                  <MineRow key={row.key} row={row} onOpenTask={onOpenTask} />
-                ) : (
-                  <TeamRow key={row.key} row={row} onOpenTask={onOpenTask} />
-                )
-              )}
-            </ul>
+            <ItemGroup className='overflow-hidden border-t border-border sm:rounded-md sm:border'>
+              {rows.map((row, i) => (
+                <Fragment key={row.key}>
+                  {i > 0 && <ItemSeparator />}
+                  {scope === 'mine' ? (
+                    <MineRow row={row} onOpenTask={onOpenTask} />
+                  ) : (
+                    <TeamRow row={row} onOpenTask={onOpenTask} />
+                  )}
+                </Fragment>
+              ))}
+            </ItemGroup>
             {scope === 'team' && (
               <p className='px-4 pb-4 text-caption text-muted-foreground sm:p-0'>
                 {t('ownerNote')}

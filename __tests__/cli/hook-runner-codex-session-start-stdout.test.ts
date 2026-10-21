@@ -20,13 +20,6 @@ jest.mock('@/cli/src/lib/git-task', () => ({
 jest.mock('@/cli/src/lib/cli-version', () => ({
   readCliVersion: () => '1.102.0',
 }))
-// The local skill probe (LUM-1111) is covered by session-start-skill tests;
-// here it reports nothing so the lines stay byte-for-byte as before.
-jest.mock('@/cli/src/lib/session-start-skill', () => ({
-  sessionStartSkillInfo: () => ({ tag: null, notes: [] }),
-  skillVersionHeaderValue: () => null,
-}))
-
 import { readCredentials } from '@/cli/src/lib/config'
 import { extractTaskFromGit } from '@/cli/src/lib/git-task'
 import {
@@ -34,6 +27,7 @@ import {
   runHookWithBody,
   type HookPath,
 } from '@/cli/src/lib/hook-runner'
+import { SKILL_POINTER_TEXT as P } from '@/cli/src/lib/skill-pointer'
 import payloads from '../fixtures/codex-hooks/payloads.json'
 
 type Fixture = { event: string; payload: Record<string, unknown> }
@@ -94,7 +88,7 @@ describe('Codex session-start prints a single JSON object', () => {
     const out = singleJson(await run('session-start', 'codex', SESSION_START))
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart')
     expect(out.hookSpecificOutput.additionalContext).toBe(
-      `[Lumo] session_id=${SID} | lumo 1.102.0 · cli@uselumo.ai (lumo) | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".\n${NOTICE}`
+      `${P}\n[Lumo] session_id=${SID} | lumo 1.102.0 · cli@uselumo.ai (lumo) | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".\n${NOTICE}`
     )
   })
 
@@ -130,7 +124,8 @@ describe('Codex session-start prints a single JSON object', () => {
     }
     const ctx = singleJson(await run('session-start', 'codex', SESSION_START))
       .hookSpecificOutput.additionalContext
-    const [banner, ...rest] = ctx.split('\n')
+    const [pointer, banner, ...rest] = ctx.split('\n')
+    expect(pointer).toBe(P)
     expect(banner).toBe(
       `[Lumo] session_id=${SID} | lumo 1.102.0 · cli@uselumo.ai (lumo) | Current task: LUM-12 - Add [31mOAuth`
     )
@@ -140,9 +135,12 @@ describe('Codex session-start prints a single JSON object', () => {
     )
   })
 
-  it('prints nothing when the server returns no session', async () => {
+  it('a server answer without a session still prints the pointer', async () => {
     respond = {}
-    expect(await run('session-start', 'codex', SESSION_START)).toBe('')
+    expect(
+      singleJson(await run('session-start', 'codex', SESSION_START))
+        .hookSpecificOutput.additionalContext
+    ).toBe(P)
   })
 })
 
@@ -158,7 +156,7 @@ describe('Claude Code session-start stdout is unchanged', () => {
         JSON.stringify({
           hookSpecificOutput: {
             hookEventName: 'SessionStart',
-            additionalContext: NOTICE,
+            additionalContext: `${P}\n\n${NOTICE}`,
           },
         }) +
         '\n'
@@ -169,7 +167,14 @@ describe('Claude Code session-start stdout is unchanged', () => {
     respond = { sessionId: SID, taskBinding: { bound: false } }
     await runHookWithBody('session-start', '{}', undefined)
     expect(written()).toBe(
-      `[Lumo] session_id=${SID} | lumo 1.102.0 · cli@uselumo.ai (lumo) | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".\n`
+      `[Lumo] session_id=${SID} | lumo 1.102.0 · cli@uselumo.ai (lumo) | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".\n` +
+        JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: P,
+          },
+        }) +
+        '\n'
     )
   })
 })

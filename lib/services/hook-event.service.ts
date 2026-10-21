@@ -204,13 +204,6 @@ export const hookEventService = {
       if (isStop && split) {
         childUsageToSettle = Object.entries(split.bySubagent)
       }
-      // The skill copy is loaded once per session, so only SessionStart
-      // reports it; the CLI version rides on the upsert above (every event).
-      if (type === 'SESSION_START' && clientVersions?.skillVersion) {
-        await sessionRepository.recordClientVersions(sessionId, {
-          skillVersion: clientVersions.skillVersion,
-        })
-      }
     }
 
     const toolName = extractStringField(payload, 'tool_name')

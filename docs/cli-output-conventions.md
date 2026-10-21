@@ -664,7 +664,7 @@ Helper: `icons` in `ui.ts` (existing; add `separator`, `child`, `ellipsis`, `cou
 Before (`lumo doctor`):
 
 ```
-    -> lumo init --force
+    -> lumo init
 Warnings
   ! codex-untrusted: Codex hooks trust unverified (…)
 ```
@@ -672,7 +672,7 @@ Warnings
 After:
 
 ```
-    lumo init --force
+    lumo init
 Warnings
   ⚠ codex-untrusted: Codex hooks trust unverified (…)
 ```
@@ -1126,7 +1126,7 @@ Hint: cd into your project and run it again.
 | 0    | success, including an empty result                                                                       | data, footer, hints                   | runtime warnings, if any                                 |
 | 1    | the command failed: not found, auth, permission, server, network                                         | nothing (or the rows already printed) | `Error:` + its `Hint:`; JSON error under `--json`        |
 | 2    | usage error: unknown flag, missing or extra argument, invalid flag value ([Q4](#q4-usage-errors-exit-2)) | nothing                               | `Error:` + `Usage:` + `Hint:`; JSON error under `--json` |
-| 3    | `security scan --fail-on`: a finding is at or above the threshold (a hook blocks; 1 and 2 fail open)     | the scan report                       | —                                                        |
+| 3    | `security scan --fail-on`: a finding meets the threshold or `done` (a hook blocks; 1 and 2 fail open)    | the scan report                       | —                                                        |
 | 4    | confirmation required: an exit-4 envelope was printed; unchanged                                         | the envelope                          | —                                                        |
 | 5    | blocked by a human-only gate (`DONE_BLOCKED`); unchanged                                                 | the `DONE_BLOCKED` error              | —                                                        |
 
@@ -1296,7 +1296,7 @@ These outputs are parsed by agents or documented byte-for-byte in the skill. A b
 - the `<untrusted-…>` wrappers;
 - the task context body of `lumo task show --full` (Markdown, written for model context; formerly `lumo task context`).
 
-Every batch that changes text output updates `.claude/skills/lumo/SKILL.md` and the affected `references/*.md` in the same PR, regenerates `grammar.json` when flags change, and keeps the doc-examples test green.
+Every batch that changes text output updates `cli/skill/SKILL.md` and the affected `references/*.md` in the same PR, regenerates `grammar.json` when flags change, and keeps the doc-examples test green.
 
 ---
 

@@ -121,11 +121,11 @@ describe('codexLikelyUntrustedEvents', () => {
     const p = installUserHooks()
     trust(
       p,
-      ALL.filter(e => e !== 'Interrupt' && e !== 'PostCompact')
+      ALL.filter(e => e !== 'SubagentStop' && e !== 'SubagentStart')
     )
     expect(codexLikelyUntrustedEvents({ home, cwd })).toEqual([
-      'PostCompact',
-      'Interrupt',
+      'SubagentStart',
+      'SubagentStop',
     ])
   })
 
@@ -145,18 +145,18 @@ describe('codexLikelyUntrustedEvents', () => {
   })
 
   it('does not report events of a hooks file whose trust it cannot read', () => {
-    // User file: old set without Interrupt, all trusted. Repo file: the full
+    // User file: old set without SubagentStop, all trusted. Repo file: the full
     // set, trusted under a key the scan does not see (none of its events
-    // match) — its Interrupt may well be trusted, so it is not reported.
+    // match) — its SubagentStop may well be trusted, so it is not reported.
     const user = installUserHooks()
     const raw = JSON.parse(readFileSync(user, 'utf8')) as {
       hooks: Record<string, unknown>
     }
-    delete raw.hooks.Interrupt
+    delete raw.hooks.SubagentStop
     writeFileSync(user, JSON.stringify(raw, null, 2))
     trust(
       user,
-      ALL.filter(e => e !== 'Interrupt')
+      ALL.filter(e => e !== 'SubagentStop')
     )
     const repo = mkdtempSync(join(tmpdir(), 'lum1112-repo-'))
     try {
@@ -188,9 +188,9 @@ describe('codexLikelyUntrustedEvents', () => {
 })
 
 it('the warning hedges and points at /hooks', () => {
-  const w = codexUntrustedEventsWarning(['Interrupt', 'Stop'])
+  const w = codexUntrustedEventsWarning(['SubagentStop', 'Stop'])
   expect(w).toContain('may not be trusted')
-  expect(w).toContain('Interrupt, Stop')
+  expect(w).toContain('SubagentStop, Stop')
   expect(w).toContain('/hooks')
 })
 
@@ -243,11 +243,11 @@ describe.each([
     const p = installUserHooks()
     trust(
       p,
-      ALL.filter(e => e !== 'Interrupt')
+      ALL.filter(e => e !== 'SubagentStop')
     )
     mockSessionServer(5)
     const out = await run()
-    expect(out).toContain('may not be trusted in Codex: Interrupt')
+    expect(out).toContain('may not be trusted in Codex: SubagentStop')
   })
 
   it('does not warn when every Lumo event is trusted', async () => {
@@ -264,7 +264,7 @@ describe.each([
     const p = installUserHooks()
     trust(
       p,
-      ALL.filter(e => e !== 'Interrupt')
+      ALL.filter(e => e !== 'SubagentStop')
     )
     mockSessionServer(5)
     expect(await run()).not.toContain('may not be trusted')

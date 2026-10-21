@@ -4,12 +4,7 @@ const DEFAULT_API_URL = 'https://www.uselumo.ai'
 // else MUST be https:// so the Bearer token is never sent in the clear.
 // `URL.hostname` returns IPv6 literals wrapped in brackets, so `::1` appears
 // as `[::1]`.
-const LOCALHOST_HOSTNAMES = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  '[::1]',
-])
+const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
 
 /**
  * Throw if `url` is not a safe target for sending the API token.
@@ -113,15 +108,21 @@ export interface VerifyResponse {
   apiKey: { id: string; name: string; prefix: string }
 }
 
+/**
+ * `opts.signal` aborts the request itself (connect, headers and body), so a
+ * caller's timeout also closes the socket instead of leaving it open.
+ */
 export async function verifyToken(
   apiUrl: string,
-  token: string
+  token: string,
+  opts: { signal?: AbortSignal } = {}
 ): Promise<VerifyResponse> {
   let res: Response
   try {
     res = await fetch(`${trimTrailingSlash(apiUrl)}/api/auth/verify`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
+      ...(opts.signal ? { signal: opts.signal } : {}),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

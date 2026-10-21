@@ -63,7 +63,7 @@ interface LabeledRecord extends InvocationRecord {
  * advertisements, so the section is stripped before matching.
  */
 function loadSkillDocsCorpus(): string {
-  const root = join(HERE, '../../../.claude/skills/lumo')
+  const root = join(HERE, '../../../cli/skill')
   const parts: string[] = []
   const readDir = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

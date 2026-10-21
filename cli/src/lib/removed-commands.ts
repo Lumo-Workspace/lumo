@@ -303,45 +303,53 @@ const STATUS_TOMBSTONES: readonly Tombstone[] = [
   },
 ]
 
-/** `init` / `skill update` options with the old scope booleans as `--scope`. */
-export function scopeOptions(options: string[]): string[] {
-  return options.flatMap(o =>
-    o === '--project'
-      ? ['--scope', 'project']
-      : o === '--user'
-        ? ['--scope', 'user']
-        : [o]
-  )
+/**
+ * `init` options without the removed scope flags: LUM-1233 3g turned
+ * `--project` / `--user` into `--scope`, and LUM-1292 removed `--scope`
+ * (init sets up the current repo only) and `--force`.
+ */
+export function initOptions(options: string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < options.length; i++) {
+    const o = options[i]!
+    if (o === '--project' || o === '--user' || o === '--force') continue
+    if (o === '--scope') {
+      i++
+      continue
+    }
+    if (o.startsWith('--scope=')) continue
+    out.push(o)
+  }
+  return out
 }
 
 /**
  * LUM-1233 3g (Q6, GF-1, GF-2): `--project <ref>` is one global flag, so the
- * scope booleans of `init` / `skill update` became `--scope user|project`;
- * the hidden `setup` alias and `task list -p` went.
+ * scope booleans of `init` went (and, LUM-1292, `--scope` with them); the
+ * hidden `setup` alias and `task list -p` went.
  */
 const PROJECT_TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'setup',
     optionsOf: 'init',
-    booleanFlags: ['--project', '--user'],
+    booleanFlags: ['--project', '--user', '--force'],
+    valueFlags: ['--scope'],
     replacement: (_a, _f, options) =>
-      cmd('lumo init', [], scopeOptions(options)),
+      cmd('lumo init', [], initOptions(options)),
     help: 'lumo init',
   },
-  ...(['init', 'skill update'] as const).map(
-    (path): Tombstone => ({
-      path,
-      match: (_a, flags) =>
-        flags.some(f => f === '--project' || f === '--user'),
-      label: `lumo ${path} --project / --user`,
-      // The old booleans took no value: never let the global --project
-      // swallow the next token here.
-      booleanFlags: ['--project', '--user'],
-      replacement: (args, _f, options) =>
-        cmd(`lumo ${path}`, args, scopeOptions(options)),
-      help: `lumo ${path}`,
-    })
-  ),
+  {
+    path: 'init',
+    match: (_a, flags) => flags.some(f => f === '--project' || f === '--user'),
+    label: 'lumo init --project / --user',
+    // The old booleans took no value: never let the global --project
+    // swallow the next token here.
+    booleanFlags: ['--project', '--user', '--force'],
+    valueFlags: ['--scope'],
+    replacement: (args, _f, options) =>
+      cmd('lumo init', args, initOptions(options)),
+    help: 'lumo init',
+  },
   {
     path: 'task list',
     match: (_a, flags) => flags.includes('-p'),

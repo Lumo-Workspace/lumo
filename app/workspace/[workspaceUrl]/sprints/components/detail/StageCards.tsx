@@ -2,34 +2,57 @@
 
 import { useIntl } from 'react-intl'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import type { StageCardsModel } from './view-model'
 import { formatDwellDays } from './format'
 
-interface StageCardProps {
+export interface StageCardProps {
   label: string
   badge: string | null
-  count: number
+  /** The big figure: a count, or a preformatted value ("27 / 31"). */
+  count: number | string
   foot: string | null
   sub: string | null
 }
 
-function StageCard({ label, badge, count, foot, sub }: StageCardProps) {
+/**
+ * One metric card; also the closed-sprint outcome card (LUM-1281). Built as
+ * shadcn's metric card: label + figure in the header with the badge as its
+ * action, the explanation in the footer.
+ */
+export function StageCard({ label, badge, count, foot, sub }: StageCardProps) {
   return (
-    <Card className='flex flex-col gap-1.5 p-4 sm:p-6'>
-      <div className='flex items-start justify-between gap-2'>
-        <span className='text-caption text-muted-foreground sm:text-body'>
+    <Card className='flex flex-col'>
+      <CardHeader className='space-y-1 p-4 sm:p-6'>
+        <CardDescription className='text-caption sm:text-body'>
           {label}
-        </span>
+        </CardDescription>
+        <CardTitle className='text-heading tabular-nums sm:text-display'>
+          {count}
+        </CardTitle>
         {badge && (
-          <Badge variant='outline' size='sm' className='hidden sm:inline-flex'>
-            {badge}
-          </Badge>
+          <CardAction className='hidden sm:block'>
+            <Badge variant='outline' size='sm'>
+              {badge}
+            </Badge>
+          </CardAction>
         )}
-      </div>
-      <span className='text-heading tabular-nums sm:text-display'>{count}</span>
-      {foot && <span className='text-body-strong'>{foot}</span>}
-      {sub && <span className='text-body text-muted-foreground'>{sub}</span>}
+      </CardHeader>
+      {(foot || sub) && (
+        <CardFooter className='flex-col items-start gap-1 p-4 pt-0 sm:p-6 sm:pt-0'>
+          {foot && <span className='text-body-strong'>{foot}</span>}
+          {sub && (
+            <span className='text-body text-muted-foreground'>{sub}</span>
+          )}
+        </CardFooter>
+      )}
     </Card>
   )
 }

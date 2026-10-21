@@ -27,26 +27,20 @@ const mockIntl = {
 }
 
 import { fireEvent, render, screen } from '@testing-library/react'
-import {
-  MemberConnectionsCell,
-  skillVersionLabel,
-} from '@/app/workspace/[workspaceUrl]/components/members/MemberConnectionsCell'
+import { MemberConnectionsCell } from '@/app/workspace/[workspaceUrl]/components/members/MemberConnectionsCell'
 import { MemberVersionStatus } from '@/app/workspace/[workspaceUrl]/components/members/MemberVersionStatus'
 import { MemberConnectionDetails } from '@/app/workspace/[workspaceUrl]/components/members/MemberConnectionDetails'
 import { ConnectionUpdateBanner } from '@/app/workspace/[workspaceUrl]/components/members/ConnectionUpdateBanner'
 import { MemberFilterTabs } from '@/app/workspace/[workspaceUrl]/components/members/MemberFilterTabs'
 import type { MemberConnectionView } from '@/lib/services/member-connection.service'
-import type { IntlShape } from 'react-intl'
 
 const NOW = Date.parse('2026-10-14T12:00:00Z')
 const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
   agent: 'CLAUDE_CODE',
   cliVersion: '1.121.0',
-  skillVersion: '1.121.0',
   lastSeenAt: '2026-10-14T10:00:00Z',
   stale: false,
   cliBehind: false,
-  skillBehind: false,
   ...p,
 })
 
@@ -71,7 +65,7 @@ describe('MemberConnectionsCell (Agents column)', () => {
   it('renders one chip per agent with its last-seen time and no versions', () => {
     const { container } = render(
       <MemberConnectionsCell
-        connections={[conn(), conn({ agent: 'CODEX', skillVersion: 'source' })]}
+        connections={[conn(), conn({ agent: 'CODEX' })]}
         unknown={false}
         now={NOW}
       />
@@ -113,18 +107,7 @@ describe('MemberVersionStatus', () => {
     expect(screen.getByText('CLI 1.118.2 → 1.121.0')).toBeTruthy()
   })
 
-  it('only the skill behind → skill detail', () => {
-    render(
-      <MemberVersionStatus
-        connections={[conn({ skillBehind: true })]}
-        latestCliVersion='1.121.0'
-        unknown={false}
-      />
-    )
-    expect(screen.getByText('Skill behind its CLI')).toBeTruthy()
-  })
-
-  it('CLI behind with the latest version unknown names the CLI, not the skill', () => {
+  it('CLI behind with the latest version unknown names the CLI', () => {
     render(
       <MemberVersionStatus
         connections={[conn({ cliVersion: '1.118.2', cliBehind: true })]}
@@ -133,7 +116,6 @@ describe('MemberVersionStatus', () => {
       />
     )
     expect(screen.getByText('CLI 1.118.2')).toBeTruthy()
-    expect(screen.queryByText('Skill behind its CLI')).toBeNull()
   })
 
   it('up to date shows the CLI in use', () => {
@@ -222,7 +204,6 @@ describe('MemberConnectionDetails', () => {
           conn({
             agent: 'CODEX',
             cliVersion: '1.118.2',
-            skillVersion: '1.118.2 modified',
             cliBehind: true,
           }),
         ]}
@@ -233,20 +214,28 @@ describe('MemberConnectionDetails', () => {
     expect(text).toContain('Last seen 2h ago')
     expect(text).toContain('CLI 1.121.0')
     expect(text).toContain('latest')
-    expect(text).toContain('skill 1.118.2 (modified)')
+    expect(text).not.toMatch(/skill/i)
     expect(screen.getAllByText('behind')).toHaveLength(1)
     expect(screen.getByText('lumo update')).toBeTruthy()
   })
 
-  it('skill behind → lumo skill update; current → no command', () => {
-    const { rerender } = render(
-      <MemberConnectionDetails
-        connections={[conn({ skillBehind: true })]}
-        now={NOW}
-      />
+  it('a historical session that carried a skill version renders no skill row and does not throw', () => {
+    // Rows read before LUM-1292 could still carry skillVersion/skillBehind.
+    const legacy = conn({
+      ...({ skillVersion: '1.118.2 modified', skillBehind: true } as object),
+    })
+    const { container } = render(
+      <MemberConnectionDetails connections={[legacy]} now={NOW} />
     )
-    expect(screen.getByText('lumo skill update')).toBeTruthy()
-    rerender(<MemberConnectionDetails connections={[conn()]} now={NOW} />)
+    const text = container.textContent ?? ''
+    expect(text).toContain('CLI 1.121.0')
+    expect(text).not.toMatch(/skill/i)
+    expect(screen.queryByText('behind')).toBeNull()
+    expect(screen.queryByText('lumo skill update')).toBeNull()
+  })
+
+  it('current connection → no fix command', () => {
+    render(<MemberConnectionDetails connections={[conn()]} now={NOW} />)
     expect(screen.queryByText('To update, run:')).toBeNull()
   })
 
@@ -307,16 +296,4 @@ describe('MemberFilterTabs', () => {
     fireEvent.click(all)
     expect(onChange).not.toHaveBeenCalled()
   })
-})
-
-describe('skillVersionLabel', () => {
-  const intl = mockIntl as unknown as IntlShape
-  it.each([
-    ['1.2.3', 'skill 1.2.3'],
-    ['1.2.3 modified', 'skill 1.2.3 (modified)'],
-    ['modified', 'skill (modified)'],
-    ['source', 'skill from source'],
-    ['none', 'no skill installed'],
-  ])('%s → %s', (v, label) => expect(skillVersionLabel(intl, v)).toBe(label))
-  it('null → null', () => expect(skillVersionLabel(intl, null)).toBeNull())
 })

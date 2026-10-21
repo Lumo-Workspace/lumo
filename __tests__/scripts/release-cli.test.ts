@@ -453,8 +453,8 @@ describe('release-cli: renderChangelog', () => {
         after: parseHookEvents(HOOKS_NEW),
       },
       changedFiles: [
-        { status: 'M', path: '.claude/skills/lumo/SKILL.md' },
-        { status: 'A', path: '.claude/skills/lumo/references/report.md' },
+        { status: 'M', path: 'cli/skill/SKILL.md' },
+        { status: 'A', path: 'cli/skill/references/report.md' },
         { status: 'M', path: 'cli/src/lib/hook-runner.ts' },
         { status: 'M', path: 'cli/src/commands/task.ts' },
       ],
@@ -567,7 +567,7 @@ describe('release-cli: createGit against a real repository', () => {
 
   it('reads history, diffs and ancestry, and creates an annotated tag', () => {
     const c1 = commit('cli/package.json', '{"version":"1.0.0"}', 'feat: one')
-    const c2 = commit('.claude/skills/lumo/SKILL.md', 'x', 'docs: skill')
+    const c2 = commit('cli/skill/SKILL.md', 'x', 'docs: skill')
     commit('lib/other.ts', 'x', 'chore: unrelated')
     const c4 = commit('cli/package.json', '{"version":"1.1.0"}', 'feat: two')
     const git = createGit(dir)
@@ -586,13 +586,13 @@ describe('release-cli: createGit against a real repository', () => {
       { sha: c4, version: '1.1.0' },
       { sha: c1, version: '1.0.0' },
     ])
-    expect(git.log(c1, c4, ['cli', '.claude/skills/lumo'])).toEqual([
+    expect(git.log(c1, c4, ['cli', 'cli/skill'])).toEqual([
       { sha: c4, subject: 'feat: two' },
       { sha: c2, subject: 'docs: skill' },
     ])
-    expect(
-      git.diffNameStatus(c1, c4, ['.claude/skills/lumo', 'cli/src'])
-    ).toEqual([{ status: 'A', path: '.claude/skills/lumo/SKILL.md' }])
+    expect(git.diffNameStatus(c1, c4, ['cli/skill', 'cli/src'])).toEqual([
+      { status: 'A', path: 'cli/skill/SKILL.md' },
+    ])
 
     git.createTag('cli-v1.1.0', '## notes')
     expect(git.listTags('cli-v*')).toEqual(['cli-v1.1.0'])

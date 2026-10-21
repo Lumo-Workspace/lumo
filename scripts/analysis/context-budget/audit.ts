@@ -10,9 +10,10 @@
  * retention 0.965). Anthropic's "Effective context engineering" frames the same
  * goal: keep "the smallest possible set of high-signal tokens".
  *
- * Lumo already enforces budget DISCIPLINE manually — the SKILL.md description
- * ≤1000-char gate (LUM-415) and the CLAUDE.md ~9500-char soft budget (LUM-406),
- * plus references/ loaded on demand. What it never had is a QUANTIFIED measure
+ * Lumo already enforces budget DISCIPLINE — the per-file skill byte budget
+ * (LUM-1292: every file ≤ 24KB, SKILL.md ≤ 10KB, asserted by
+ * __tests__/cli/skill-budget.test.ts) and the CLAUDE.md ~9500-char soft budget
+ * (LUM-406), plus references/ read on demand. What it never had is a QUANTIFIED measure
  * of how much of each context file is actionable vs free prose. This script is
  * that measure: per target file it reports token count + a structural breakdown
  * (command-spec / flags-table / code-example / when-to-suggest trigger vs free
@@ -27,18 +28,15 @@
  *
  * Caliber reuse (no new dependency, no duplicate gate):
  *   - token counting   → estimateTokens (lib/context/budget.ts, char/4 proxy)
- *   - description cap   → readSkillDescription (the LUM-415 reader); the audit
- *     SURFACES the description's char length informationally and defers the
- *     actual ≤1000 assertion to the existing `description cap` test.
+ *   - byte budget      → the audit SURFACES each file's UTF-8 size
+ *     informationally and defers the assertion to skill-budget.test.ts.
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { estimateTokens } from '../../../lib/context/budget'
-import { readSkillDescription } from '../../cli-grammar/doc-examples'
 
 /** Repo root, derived from this file's location (scripts/analysis/context-budget). */
 export const REPO_ROOT = join(__dirname, '..', '..', '..')
-const SKILL_ROOT = join(REPO_ROOT, '.claude', 'skills', 'lumo')
 
 /**
  * Structural categories. The first four are ACTIONABLE (high-signal: a command
@@ -177,8 +175,8 @@ export interface FileAudit {
   actionableTokens: number
   /** freeProse / (freeProse + actionable). 0 when the denominator is 0. */
   proseRatio: number
-  /** SKILL.md only: the LUM-415 routing-description length (informational). */
-  descriptionChars?: number
+  /** UTF-8 size of the file (informational; the budget is asserted elsewhere). */
+  bytes: number
   flags: FlagCode[]
 }
 
@@ -209,15 +207,11 @@ export const DEFAULT_CONFIG: AuditConfig = {
   maxProseRatio: 0.75,
 }
 
-/**
- * Audit a single file's content against the config. Pure — no IO. The optional
- * `descriptionChars` is threaded in by the caller for SKILL.md.
- */
+/** Audit a single file's content against the config. Pure — no IO. */
 export function auditContent(
   path: string,
   content: string,
-  config: AuditConfig = DEFAULT_CONFIG,
-  descriptionChars?: number
+  config: AuditConfig = DEFAULT_CONFIG
 ): FileAudit {
   const { breakdown, tokens } = classify(content)
   const actionableTokens = ACTIONABLE_CATEGORIES.reduce(
@@ -237,7 +231,7 @@ export function auditContent(
     breakdown,
     actionableTokens,
     proseRatio,
-    ...(descriptionChars !== undefined ? { descriptionChars } : {}),
+    bytes: Buffer.byteLength(content, 'utf8'),
     flags,
   }
 }
@@ -249,7 +243,7 @@ export function auditContent(
  * test re-derives it independently and asserts no file is missed.
  */
 export function discoverContextFiles(repoRoot: string = REPO_ROOT): string[] {
-  const skillRoot = join(repoRoot, '.claude', 'skills', 'lumo')
+  const skillRoot = join(repoRoot, 'cli', 'skill')
   const refDir = join(skillRoot, 'references')
   const refs = readdirSync(refDir)
     .filter(f => f.endsWith('.md'))
@@ -270,20 +264,9 @@ export function auditAll(
   repoRoot: string = REPO_ROOT,
   config: AuditConfig = DEFAULT_CONFIG
 ): FileAudit[] {
-  const skillRelative = relative(repoRoot, join(SKILL_ROOT, 'SKILL.md'))
-    .split('\\')
-    .join('/')
-  const descriptionChars = readSkillDescription(SKILL_ROOT).length
-
-  return discoverContextFiles(repoRoot).map(rel => {
-    const content = readFileSync(join(repoRoot, rel), 'utf8')
-    return auditContent(
-      rel,
-      content,
-      config,
-      rel === skillRelative ? descriptionChars : undefined
-    )
-  })
+  return discoverContextFiles(repoRoot).map(rel =>
+    auditContent(rel, readFileSync(join(repoRoot, rel), 'utf8'), config)
+  )
 }
 
 function pct(n: number): string {
@@ -313,11 +296,15 @@ export function formatReport(
     'Actionable = command-spec + flags-table + code-example + when-to-suggest.'
   )
   lines.push('')
-  lines.push('| file | tokens | prose% | cmd | flag | code | trig | flags |')
-  lines.push('| ---- | -----: | -----: | --: | ---: | ---: | ---: | ----- |')
+  lines.push(
+    '| file | bytes | tokens | prose% | cmd | flag | code | trig | flags |'
+  )
+  lines.push(
+    '| ---- | ----: | -----: | -----: | --: | ---: | ---: | ---: | ----- |'
+  )
   for (const a of sorted) {
     lines.push(
-      `| ${a.path} | ${a.tokens} | ${pct(a.proseRatio)} | ` +
+      `| ${a.path} | ${a.bytes} | ${a.tokens} | ${pct(a.proseRatio)} | ` +
         `${a.breakdown.commandSpec} | ${a.breakdown.flagsTable} | ` +
         `${a.breakdown.codeExample} | ${a.breakdown.whenToSuggest} | ` +
         `${a.flags.join(', ') || '—'} |`
@@ -332,14 +319,6 @@ export function formatReport(
           .map(a => a.path)
           .join(', ')}`
   )
-  const skill = audits.find(a => a.descriptionChars !== undefined)
-  if (skill) {
-    lines.push('')
-    lines.push(
-      `SKILL.md routing description: ${skill.descriptionChars}/1000 chars ` +
-        `(LUM-415 cap; enforced by the existing \`description cap\` test).`
-    )
-  }
   return lines.join('\n')
 }
 

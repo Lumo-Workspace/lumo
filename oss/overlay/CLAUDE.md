@@ -85,7 +85,7 @@ Dropping/renaming a column, table or enum value takes two releases: stop using i
 
 ## CLI & Skill docs
 
-- When you change a command under `cli/src/commands/` (new subcommand, flag, output format, trigger condition), update `.claude/skills/lumo/SKILL.md` and its `references/` in the same pull request — agents decide how to call the CLI from these docs, so drift causes repeated failures.
+- When you change a command under `cli/src/commands/` (new subcommand, flag, output format, trigger condition), update `cli/skill/SKILL.md` and its `references/` in the same pull request — agents decide how to call the CLI from these docs, so drift causes repeated failures.
   - Keep the frontmatter `description` category-level and under 1000 characters; put new usage triggers in the matching section's "When to suggest".
   - Keep the `##` / `###` sections in step with the real behavior (flags, examples, empty-string semantics, status enums).
 - Exceptions: pure internal refactors, error-copy tweaks and bug fixes that don't change how the command is called.

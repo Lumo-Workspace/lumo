@@ -70,10 +70,6 @@
       "reason": "test helpers (LUM-1033 2/5: PUBLIC)"
     },
     {
-      "glob": ".claude/skills/lumo/**",
-      "reason": "LUM-1033 ruling D1: the lumo skill is public (source of the CLI's bundled skill assets)"
-    },
-    {
       "glob": ".claude/package.json",
       "reason": "module-type marker for .claude/ scripts"
     },

@@ -88,13 +88,11 @@ Dropping/renaming a column, table or enum value takes two releases: stop using i
 
 ## CLI & Skills 同步
 
-- 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `.claude/skills/lumo/SKILL.md`：
-  - frontmatter `description` **保持类别级、硬上限 1000 字符**——它是每个 session 常驻 context 的触发 prompt，不逐命令追加枚举触发词（LUM-392 前曾堆到 4k 字符/250 个短语）。只有出现全新 domain（新资源类型/新工作流环节）才动 description；新增用法的触发场景写进 SKILL.md 对应章节的 "When to suggest"（正文按需加载，不占常驻预算）
-  - 对应的 `##` / `###` 章节要反映命令的真实行为（flags、示例、空字符串语义、状态枚举等）
-  - **SKILL.md 正文软预算 ~30k 字符**（`wc -m`）：正文每次 skill 调用整体载入。catalog 每条只放一行摘要 + `references/` 链接；示例 / flags / "When to suggest" 一律归 references（按需加载）。新 domain 先建 reference 再进 catalog
+- Lumo skill 指南不再安装到任何位置；`lumo init` 只写项目级**冻结 stub**（`.claude/skills/lumo/SKILL.md`、`.agents/skills/lumo/SKILL.md`，源在 `cli/src/lib/skill-stub.ts`）。**永远不要改 `LUMO_SKILL_STUB`**（改了=所有仓库须重跑 init；`skill-stub.test.ts` 有冻结守卫）。指南源在 `cli/skill/`（SKILL.md + `references/`），由 `lumo skill read [path]` 从 npm 包按需输出；SessionStart 只注入一段指针（文本在 `cli/src/lib/skill-pointer.ts`，≤600 字符、类别级，不逐命令枚举）
+- 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `cli/skill/`：对应章节反映真实行为（flags、示例、空字符串语义、状态枚举）；示例 / flags / "When to suggest" 归 `references/`，SKILL.md 只留一行摘要 + 链接。无 frontmatter/description 上限；**单文件预算**≤24KB、SKILL.md ≤10KB，由 `__tests__/cli/skill-budget.test.ts` 强制
 - 例外：纯内部重构、错误文案微调、不影响调用方式的 bug fix 不需要更新文档
-- 不要让 CLI 文档和实际行为漂移——agent 依赖 SKILL.md 决定调用方式;命令树变了同 PR 跑 `npx tsx scripts/cli-grammar/emit-grammar.ts` 重生成 grammar.json
-- **本地 commit-msg 钩子会机械化这条规则**(LUM-405,`scripts/drift-check.ts`)：commit 暂存了 `cli/src/commands/**` 却没动 `.claude/skills/lumo/SKILL.md`(或 `references/`)时打一条**非阻塞**漂移提醒。属上面「例外」清单(纯内部重构等)时，在 commit message 里加 `[skip-drift]` 静默该次检查——检查永不替你判断意图，由你显式断言、并留痕在 git 历史里
+- 命令树变了同 PR 跑 `npx tsx scripts/cli-grammar/emit-grammar.ts` 重生成 grammar.json
+- **本地 commit-msg 钩子会机械化这条规则**(LUM-405,`scripts/drift-check.ts`)：commit 暂存了 `cli/src/commands/**` 却没动 `cli/skill/**` 时打一条**非阻塞**漂移提醒。属「例外」时在 commit message 加 `[skip-drift]` 静默——由你显式断言、留痕在 git 历史里
 
 ## Forbidden
 
@@ -105,13 +103,13 @@ Dropping/renaming a column, table or enum value takes two releases: stop using i
 
 ## PR Checklist
 
-Before opening a PR: tests + `npx tsc --noEmit` pass, no `console.log`; branch/PR-title follow the **Git** conventions; if `cli/src/commands/` changed, `.claude/skills/lumo/SKILL.md` is updated (see **CLI & Skills 同步**); honor the **Forbidden** list.
+Before opening a PR: tests + `npx tsc --noEmit` pass, no `console.log`; branch/PR-title follow the **Git** conventions; if `cli/src/commands/` changed, `cli/skill/` is updated (see **CLI & Skills 同步**); honor the **Forbidden** list.
 
 ## 维护本文件(软预算)
 
 CLAUDE.md 是常驻 context,每条指令都被遵守且必付推理成本,收益只在信息**非冗余**时出现(ETH, arXiv 2602.11988);context file 易「只加不删」单调膨胀(arXiv 2511.12884)。故:
 
-- **软预算 ~9500 字符**(`wc -m CLAUDE.md`):软上限,超出时**先瘦身再加**——对应 SKILL.md `description` 的 1000 字符上限回路(LUM-392)。
+- **软预算 ~9500 字符**(`wc -m CLAUDE.md`):软上限,超出时**先瘦身再加**。
 - **新增段落先自证非冗余**:agent 靠探索 / strict TS+Prisma+Zod / README / `docs/` 推得出的(目录枚举、通用 SOLID/React 规则)不写(ETH 证伪目录枚举式 overview 对探索步数零增益)。
 - **保留 Lumo 独有指令**:删减只动他处已有同等信息的确定冗余;Forbidden / Database Migrations 等安全红线一字不动。
 - **不做 LLM 自动生成**本文件(ETH:删仓库文档后让模型自动生成反增 ~2.7% 成本)。

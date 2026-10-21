@@ -2,16 +2,18 @@
 
 import { useCallback } from 'react'
 import {
+  useMutation,
   useQuery,
   useQueryClient,
   type QueryClient,
   type Updater,
 } from '@tanstack/react-query'
-import { sprintsClient, tasksClient } from '@/lib/api-client'
+import { ApiClientError, sprintsClient, tasksClient } from '@/lib/api-client'
 import type {
   SprintAttentionResponse,
   SprintAttentionScope,
   SprintBurnupResponse,
+  SprintSpilloverItem,
 } from '@/lib/api-client/sprints'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
@@ -273,6 +275,18 @@ export function useBacklogTasks(teamId: string | null) {
  * Returns null if the summary has not been generated yet.
  * Returns { summary, isLoading, error, refetch }.
  */
+/** Same budget as react-query's default (3 retries). */
+const SUMMARY_MAX_RETRIES = 3
+
+/**
+ * LUM-1281 — a 404 summary means "retro not generated yet", a stable answer:
+ * retrying it only delays the closed-sprint page by several seconds.
+ */
+export function retrySummaryRead(failureCount: number, error: Error): boolean {
+  if (error instanceof ApiClientError && error.status === 404) return false
+  return failureCount < SUMMARY_MAX_RETRIES
+}
+
 export function useSprintSummary(sprintId: string | null) {
   const query = useQuery<SprintSummary | null>({
     queryKey: sprintId
@@ -286,6 +300,7 @@ export function useSprintSummary(sprintId: string | null) {
       return res ?? null
     },
     enabled: !!sprintId,
+    retry: retrySummaryRead,
   })
 
   return {
@@ -293,6 +308,59 @@ export function useSprintSummary(sprintId: string | null) {
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
     refetch: query.refetch,
+  }
+}
+
+/**
+ * LUM-1281 — a closed sprint's carried-over tasks with where each one went.
+ * Pass null to skip the read (a live sprint has no carry-over yet).
+ */
+export function useSprintSpillover(sprintId: string | null) {
+  const query = useQuery<SprintSpilloverItem[]>({
+    queryKey: sprintId
+      ? queryKeys.sprints.spillover(sprintId)
+      : ['sprints', 'spillover', 'disabled'],
+    queryFn: async () =>
+      (await sprintsClient.getSpillover(sprintId as string)) ?? [],
+    enabled: !!sprintId,
+  })
+
+  return {
+    spillover: query.data ?? null,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
+  }
+}
+
+/** How long to give the server-side generation before re-reading. */
+const RETRO_RETRY_SETTLE_MS = 2000
+
+/**
+ * LUM-1281 — re-trigger retro generation for a closed sprint (the retired
+ * RetroPanel's path): POST retry, give the async job a moment, then re-read
+ * the summary.
+ */
+export function useRetrySprintSummary(sprintId: string | null) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation<void, Error>({
+    mutationFn: async () => {
+      await sprintsClient.retrySummary(sprintId as string)
+      await new Promise(resolve => setTimeout(resolve, RETRO_RETRY_SETTLE_MS))
+    },
+    onSettled: () => {
+      if (!sprintId) return
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.sprints.summary(sprintId),
+      })
+    },
+  })
+
+  return {
+    retry: () => {
+      if (sprintId) mutation.mutate()
+    },
+    retrying: mutation.isPending,
+    retryError: mutation.error ?? undefined,
   }
 }
 

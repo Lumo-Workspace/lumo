@@ -41,7 +41,8 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   doctor: {
     serverOnly: false,
     localFiles: 'none',
-    detail: 'local-only diagnosis, no Lumo API call (runs fine sandboxed)',
+    detail:
+      "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
   },
   'feedback create': {
     serverOnly: false,
@@ -64,7 +65,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   init: {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'writes skill, hook and rules files',
+    detail: 'writes hook and rules files in this repo',
   },
   'member list': { serverOnly: true, localFiles: 'none' },
   'memory add': { serverOnly: true, localFiles: 'none' },
@@ -129,7 +130,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
     serverOnly: false,
     localFiles: 'none',
     detail:
-      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
   },
   'session attach': {
     serverOnly: false,
@@ -138,17 +139,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
       'can create a git worktree (--worktree / autoWorktree) and sync local memory',
   },
   'session status': { serverOnly: true, localFiles: 'none' },
-  'skill status': {
-    serverOnly: false,
-    localFiles: 'none',
-    detail:
-      'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
-  },
-  'skill update': {
-    serverOnly: false,
-    localFiles: 'writes',
-    detail: 'writes skill files',
-  },
+  'skill read': { serverOnly: true, localFiles: 'none' },
   'sprint add': { serverOnly: true, localFiles: 'none' },
   'sprint close': { serverOnly: true, localFiles: 'none' },
   'sprint create': { serverOnly: true, localFiles: 'none' },
@@ -233,7 +224,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   uninstall: {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'deletes skill, hook and rules files',
+    detail: 'deletes hook and rules entries in this repo',
   },
   update: {
     serverOnly: false,

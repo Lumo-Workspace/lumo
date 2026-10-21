@@ -11,11 +11,9 @@ import type { MemberConnectionView } from '@/lib/services/member-connection.serv
 const conn = (p: Partial<MemberConnectionView> = {}): MemberConnectionView => ({
   agent: 'CLAUDE_CODE',
   cliVersion: '1.121.0',
-  skillVersion: '1.121.0',
   lastSeenAt: '2026-10-14T10:00:00Z',
   stale: false,
   cliBehind: false,
-  skillBehind: false,
   ...p,
 })
 
@@ -24,7 +22,7 @@ describe('memberVersionStatus', () => {
     expect(
       memberVersionStatus([
         conn({ cliVersion: '1.122.0' }),
-        conn({ agent: 'CODEX', cliVersion: null, skillVersion: null }),
+        conn({ agent: 'CODEX', cliVersion: null }),
       ])
     ).toBe('upToDate')
     expect(
@@ -37,7 +35,7 @@ describe('memberVersionStatus', () => {
   it('an unversioned connection never hides one that is behind', () => {
     expect(
       memberVersionStatus([
-        conn({ cliVersion: null, skillVersion: '1.120.0' }),
+        conn({ cliVersion: null }),
         conn({ agent: 'CODEX', cliBehind: true }),
       ])
     ).toBe('needsUpdate')
@@ -62,10 +60,8 @@ describe('memberVersionStatus', () => {
       'upToDate'
     )
   })
-  it('any behind (CLI or skill) → needsUpdate, even next to an unknown one', () => {
-    expect(memberVersionStatus([conn({ skillBehind: true })])).toBe(
-      'needsUpdate'
-    )
+  it('any CLI behind → needsUpdate, even next to an unknown one', () => {
+    expect(memberVersionStatus([conn({ cliBehind: true })])).toBe('needsUpdate')
     expect(
       memberVersionStatus([
         conn({ cliVersion: null }),
@@ -115,8 +111,8 @@ describe('countConnectionsNeedingUpdate', () => {
   it('counts connections, not members', () => {
     expect(
       countConnectionsNeedingUpdate({
-        a: [conn(), conn({ agent: 'CODEX', skillBehind: true })],
-        b: [conn({ cliBehind: true, skillBehind: true })],
+        a: [conn(), conn({ agent: 'CODEX', cliBehind: true })],
+        b: [conn({ cliBehind: true })],
         c: [conn({ cliVersion: null })],
       })
     ).toBe(2)
@@ -130,15 +126,9 @@ describe('connectionNeedsUpdate / connectionFixCommand', () => {
     expect(connectionFixCommand(conn())).toBeNull()
   })
   it('CLI behind → lumo update; unreported → nothing (not known to be out of date)', () => {
-    expect(
-      connectionFixCommand(conn({ cliBehind: true, skillBehind: true }))
-    ).toBe('lumo update')
+    expect(connectionFixCommand(conn({ cliBehind: true }))).toBe('lumo update')
     expect(connectionFixCommand(conn({ cliVersion: null }))).toBeNull()
   })
-  it('only the skill behind → lumo skill update', () =>
-    expect(connectionFixCommand(conn({ skillBehind: true }))).toBe(
-      'lumo skill update'
-    ))
 })
 
 describe('connectionFixCommand on a stale connection', () => {

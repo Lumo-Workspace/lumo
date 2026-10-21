@@ -5,6 +5,7 @@
  * LUM-1255 — the shared `lumo scan` output contract: parseable first line,
  * severity threshold, ordering, redaction-only evidence, JSON v1 shape.
  */
+import type { RawSecretFinding } from '../../shared/src/secret-scan/core-types'
 import {
   countSeverities,
   formatLocalScan,
@@ -17,7 +18,9 @@ import {
   type LocalScanResult,
 } from '../../cli/src/lib/local-scan-report'
 
-function finding(over: Partial<LocalFinding>): LocalFinding {
+function finding(
+  over: Partial<RawSecretFinding & { scanner: 'SECRETS' }>
+): LocalFinding {
   return {
     scanner: 'SECRETS',
     kind: 'SECRET',
@@ -150,6 +153,8 @@ describe('localScanJson', () => {
       fingerprint: '0123456789abcdef',
       detail: 'AWS access key ID committed in src/a.ts:1',
       downgrade: null,
+      // LUM-1256: the server's label; null without server context.
+      server: null,
     })
   })
 })

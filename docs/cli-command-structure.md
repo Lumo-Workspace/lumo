@@ -84,14 +84,15 @@ Enforced: the grammar test above (`isInvokable && hasSubcommands` must be false)
 
 Commands about the CLI itself, or about "me" across everything, have no noun:
 
-| Command     | Job                                                                                                |
-| ----------- | -------------------------------------------------------------------------------------------------- |
-| `init`      | install the skill, hooks and Codex rule (frozen)                                                   |
-| `uninstall` | remove what `init` installed                                                                       |
-| `update`    | update the CLI                                                                                     |
-| `doctor`    | diagnose the local install (frozen)                                                                |
-| `whoami`    | the logged-in identity                                                                             |
-| `status`    | my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next)) |
+| Command      | Job                                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `init`       | install the hooks, Codex rule and skill stub into this repo (frozen; project only, no `--scope`, no `--force`) |
+| `uninstall`  | remove what `init` installed from this repo (no `--scope`, no `--force`)                                       |
+| `skill read` | print the Lumo skill (SKILL.md or a `references/` file) from the installed CLI package                         |
+| `update`     | update the CLI                                                                                                 |
+| `doctor`     | diagnose the local install (frozen)                                                                            |
+| `whoami`     | the logged-in identity                                                                                         |
+| `status`     | my inbox, drafts and next tasks ([Q1](#q1-name-of-the-summary-that-replaces-inbox-draft-and-next))             |
 
 The list is closed: a new tool-level command needs a change to this table. `setup` (an alias of `init`) is removed under [RN-1](#rn-1-no-aliases).
 
@@ -134,7 +135,7 @@ Some actions are not any of the eight. They are allowed when they name a real do
 
 | Verb                                                                  | Where                                                        | Why not a core verb                                                                      |
 | --------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `status`                                                              | `task`, `session`, `skill`                                   | a computed state check, not a stored object (`task status`, `session status` are frozen) |
+| `status`                                                              | `task`, `session`                                            | a computed state check, not a stored object (`task status`, `session status` are frozen) |
 | `attach`                                                              | `session`                                                    | frozen                                                                                   |
 | `decide`                                                              | `task`                                                       | records a ruling in the task's Decisions                                                 |
 | `disposition`                                                         | `crossing`, `finding`, `task testcase`, `milestone testcase` | the human-only ruling handshake                                                          |
@@ -173,7 +174,7 @@ Enforced: new grammar test — leaves whose verb is `list`, `show` or `status` m
 
 ### RW-2. A write runs when called; `--dry-run` previews
 
-A write command does its job when called. If it can preview, the preview is `--dry-run` (as `init`, `skill update`, `memory sync`, `memory push` already do). A write that needs the user's approval uses `--confirm` and exit 4 ([CF-1](#cf-1-confirmation-is---confirm-plus-exit-4-only)), never a default-off "apply" switch. `usage resync --apply` was the one switch of that kind; it goes ([Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync)).
+A write command does its job when called. If it can preview, the preview is `--dry-run` (as `init`, `memory sync`, `memory push` already do). A write that needs the user's approval uses `--confirm` and exit 4 ([CF-1](#cf-1-confirmation-is---confirm-plus-exit-4-only)), never a default-off "apply" switch. `usage resync --apply` was the one switch of that kind; it goes ([Q7](#q7-shape-of-usage-and-the---apply-switch-on-usage-resync)).
 
 ### RW-3. A write ends with its result, not a second read
 
@@ -271,7 +272,9 @@ A `delete` or `remove` never takes its target from the binding: `task delete` re
 - **Global** means defined once on the program: every command accepts it and it means the same everywhere. A command that has no use for it (`--project` on `whoami`) accepts and ignores it.
 - **Standard** means defined per command, with the same name and meaning wherever it exists. `--json` exists on every read command. A write command gains `--json` when a batch touches it; until then `--json` on that write is an unknown option and fails like any other usage error (exit 2) — it is never silently ignored.
 
-`--project` today has two meanings: a project name on most commands, and a boolean "install into this repo" on `init`, `setup` and `skill update`. The boolean has to move before `--project` can be global ([Q6](#q6-the-boolean---project-on-init-and-skill-update)).
+`--project` is a project name everywhere; `init` and `uninstall` no longer take a scope or project flag (they install into the current repo only), so the old boolean ([Q6](#q6-the-boolean---project-on-init-and-skill-update)) is gone.
+
+**Flag order (LUM-1292).** For commands that are not server-only (they write local files, read local files or are human-only rulings: `init`, `update`, `auth`, `worktree`, `memory sync/push`, `session attach`, `task update`, `doc create/update/patch --file`, …), global flags go **after** the command words: `lumo memory sync --project x`, not `lumo --project x memory sync`. Codex's rules only recognise those commands when the command words come first, so the CLI refuses the other order with exit 2 and a hint showing the reordered command. Server-only commands accept either order.
 
 `--help` and `--version` stay as they are.
 
@@ -294,21 +297,19 @@ A `delete` or `remove` never takes its target from the binding: `task delete` re
 A gated write without `--confirm` prints the `confirmation_required` envelope on stdout and exits 4; the user approves; the agent runs the envelope's `confirmCommand` verbatim. That protocol is frozen ([§11](#11-frozen-commands-do-not-change)).
 
 - **`--yes` is removed** from the 11 commands that still accept it as an alias of `--confirm` ([mapping 3i](#3i---yes-removed)), including the frozen `worktree rm` (see [§11](#11-frozen-commands-do-not-change) for why that is not a conflict).
-- No interactive y/N prompt anywhere; `priority` without text went with [Q2](#q2-where-priority-lives), and `init` without `--scope` no longer asks user-or-project on a terminal — it defaults to `--scope project` (follow-up, user ruling 2026-10-19).
+- No interactive y/N prompt anywhere; `priority` without text went with [Q2](#q2-where-priority-lives), and `init` never asks inside a git repo: it installs into that repo (`--scope` was removed in LUM-1292; earlier it defaulted to `--scope project`, user ruling 2026-10-19). One exception to this no-prompt decision, by user ruling 2026-10-21 (LUM-1292 Task 11): `lumo init` outside a git repo is a folder install and asks `[y/N]` (stdin; EOF or a 60 s timeout = no) because that path is run by a human and the files cannot be shared via git; agents must relay the question to the user, not answer it. `$HOME` and `/` are refused; doctor/uninstall work in a folder install (uninstall keeps `--confirm`).
 - The three disposition handshakes (`--confirm-read`, `--receipt`, `--confirm`) on `crossing disposition`, `finding disposition` and test-case `disposition` keep their flags exactly.
 
 ### CF-2. `--force` has one meaning: discard local edits on this machine
 
-`--force` means "go ahead even though it throws away local changes": uncommitted work in a worktree, or skill files edited by hand. It never means "approve" (that is `--confirm`) and never touches server data.
+`--force` means "go ahead even though it throws away local changes": uncommitted work in a worktree. It never means "approve" (that is `--confirm`) and never touches server data.
 
-| Command              | `--force` today                                                 | Target                                                                        |
-| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `worktree rm`        | remove with uncommitted changes                                 | unchanged                                                                     |
-| `init`               | overwrite locally modified skill files and a foreign Codex rule | unchanged                                                                     |
-| `skill update`       | overwrite locally modified skill copies                         | unchanged                                                                     |
-| `uninstall`          | also delete locally edited skill copies                         | unchanged                                                                     |
-| `doc rebuild-source` | replace the existing server-side source                         | **removed**: the exit-4 envelope already gates it, `--confirm` alone approves |
-| `setup`              | as `init`                                                       | command removed                                                               |
+| Command              | `--force` today                                                               | Target                                                                        |
+| -------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `worktree rm`        | remove with uncommitted changes                                               | unchanged                                                                     |
+| `init`, `uninstall`  | (LUM-1292) no `--force`: nothing Lumo installs is a user-edited copy any more | **removed**                                                                   |
+| `doc rebuild-source` | replace the existing server-side source                                       | **removed**: the exit-4 envelope already gates it, `--confirm` alone approves |
+| `setup`              | as `init`                                                                     | command removed                                                               |
 
 ---
 
@@ -499,44 +500,44 @@ As built: bare `lumo status` prints the priority line, then Inbox, Drafts and Ne
 
 Spelling stays `--project <ref>` where it is a project name, so most rows need no release note.
 
-| Current                                | Target                                                                                      | Release note                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `init --project` / `--user` (booleans) | `init --scope project\|user` (per [Q6](#q6-the-boolean---project-on-init-and-skill-update)) | Changed: `init --project`/`--user` → `init --scope project\|user` |
-| `skill update --project` (boolean)     | `skill update --scope project\|user`                                                        | Changed: `skill update --project` → `--scope project`             |
-| `setup` (alias of `init`)              | removed                                                                                     | `setup` removed → use `init`                                      |
-| `task list -p <project>`               | `task list --project <project>` (no short form)                                             | `task list -p` removed → use `--project`                          |
-| `task create --project`                | global `--project`                                                                          | —                                                                 |
-| `task list --project`                  | global `--project`                                                                          | —                                                                 |
-| `doc create --project`                 | global `--project`                                                                          | —                                                                 |
-| `doc list --project`                   | global `--project`                                                                          | —                                                                 |
-| `doc update --project`                 | global `--project`                                                                          | —                                                                 |
-| `memory sync --project`                | global `--project`                                                                          | —                                                                 |
-| `memory push --project`                | global `--project`                                                                          | —                                                                 |
-| `milestone add --project`              | global `--project`                                                                          | —                                                                 |
-| `milestone archive --project`          | global `--project`                                                                          | —                                                                 |
-| `milestone changelog --project`        | global `--project` (command itself: 3j)                                                     | —                                                                 |
-| `milestone create --project`           | global `--project`                                                                          | —                                                                 |
-| `milestone delete --project`           | global `--project`                                                                          | —                                                                 |
-| `milestone list --project`             | global `--project`                                                                          | —                                                                 |
-| `milestone move --project`             | global `--project`                                                                          | —                                                                 |
-| `milestone remove --project`           | global `--project`                                                                          | —                                                                 |
-| `milestone reorder --project`          | global `--project`                                                                          | —                                                                 |
-| `milestone show --project`             | global `--project`                                                                          | —                                                                 |
-| `milestone summary --project`          | global `--project` (command itself: 3j)                                                     | —                                                                 |
-| `milestone triage --project`           | global `--project`                                                                          | —                                                                 |
-| `milestone unarchive --project`        | global `--project`                                                                          | —                                                                 |
-| `milestone update --project`           | global `--project`                                                                          | —                                                                 |
-| `report --project`                     | global `--project` (command itself: 3e)                                                     | —                                                                 |
-| `milestone testcase * --project`       | global `--project` (case argument: 3a)                                                      | —                                                                 |
+| Current                                | Target                                                                                                                  | Release note                                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `init --project` / `--user` (booleans) | `init` (project only; LUM-1292 removed `--scope` as well, see [Q6](#q6-the-boolean---project-on-init-and-skill-update)) | `init --project`/`--user`/`--scope` removed → `init` installs into this repo |
+| `skill update --project` (boolean)     | removed with `skill update` / `skill status` (the skill is served by `skill read`)                                      | `skill update`, `skill status` removed → use `lumo skill read`               |
+| `setup` (alias of `init`)              | removed                                                                                                                 | `setup` removed → use `init`                                                 |
+| `task list -p <project>`               | `task list --project <project>` (no short form)                                                                         | `task list -p` removed → use `--project`                                     |
+| `task create --project`                | global `--project`                                                                                                      | —                                                                            |
+| `task list --project`                  | global `--project`                                                                                                      | —                                                                            |
+| `doc create --project`                 | global `--project`                                                                                                      | —                                                                            |
+| `doc list --project`                   | global `--project`                                                                                                      | —                                                                            |
+| `doc update --project`                 | global `--project`                                                                                                      | —                                                                            |
+| `memory sync --project`                | global `--project`                                                                                                      | —                                                                            |
+| `memory push --project`                | global `--project`                                                                                                      | —                                                                            |
+| `milestone add --project`              | global `--project`                                                                                                      | —                                                                            |
+| `milestone archive --project`          | global `--project`                                                                                                      | —                                                                            |
+| `milestone changelog --project`        | global `--project` (command itself: 3j)                                                                                 | —                                                                            |
+| `milestone create --project`           | global `--project`                                                                                                      | —                                                                            |
+| `milestone delete --project`           | global `--project`                                                                                                      | —                                                                            |
+| `milestone list --project`             | global `--project`                                                                                                      | —                                                                            |
+| `milestone move --project`             | global `--project`                                                                                                      | —                                                                            |
+| `milestone remove --project`           | global `--project`                                                                                                      | —                                                                            |
+| `milestone reorder --project`          | global `--project`                                                                                                      | —                                                                            |
+| `milestone show --project`             | global `--project`                                                                                                      | —                                                                            |
+| `milestone summary --project`          | global `--project` (command itself: 3j)                                                                                 | —                                                                            |
+| `milestone triage --project`           | global `--project`                                                                                                      | —                                                                            |
+| `milestone unarchive --project`        | global `--project`                                                                                                      | —                                                                            |
+| `milestone update --project`           | global `--project`                                                                                                      | —                                                                            |
+| `report --project`                     | global `--project` (command itself: 3e)                                                                                 | —                                                                            |
+| `milestone testcase * --project`       | global `--project` (case argument: 3a)                                                                                  | —                                                                            |
 
-As built: `--project <ref>` is defined once on the program, so it works before or after the command words, and each command's `--help` lists it under Global Options. Its value lands in the command's own `project` option, so the commands above behave exactly as before; the others accept it and ignore it. This also covers `task testcase * --project`, `usage show --project` (still `--tasks` only) and `memory add|list --project`, which the table does not list. `grammar.json` records the program flags as `globalFlags`, and the validator accepts them on every command. Tombstones: `setup` → `init`, and `init` / `skill update` with `--user` or `--project` → `--scope user|project`. The old booleans never take a value, so the tombstone runs before the global `--project` could swallow the next word. `task list -p <x>` → `--project <x>`.
+As built: `--project <ref>` is defined once on the program, so it works before or after the command words, and each command's `--help` lists it under Global Options. Its value lands in the command's own `project` option, so the commands above behave exactly as before; the others accept it and ignore it. This also covers `task testcase * --project`, `usage show --project` (still `--tasks` only) and `memory add|list --project`, which the table does not list. `grammar.json` records the program flags as `globalFlags`, and the validator accepts them on every command. Tombstone: `setup` → `init` (LUM-1292 later removed `init --scope`, `skill update` and `skill status` outright, with no tombstones). `task list -p <x>` → `--project <x>`.
 
 #### 3h. `--force` has one meaning
 
-| Current                                                                            | Target                                     | Release note                                                                        |
-| ---------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `doc rebuild-source --force --confirm`                                             | `doc rebuild-source --confirm`             | `doc rebuild-source --force` removed; `--confirm` alone replaces an existing source |
-| `worktree rm --force`, `init --force`, `skill update --force`, `uninstall --force` | unchanged (all mean "discard local edits") | —                                                                                   |
+| Current                                | Target                            | Release note                                                                        |
+| -------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
+| `doc rebuild-source --force --confirm` | `doc rebuild-source --confirm`    | `doc rebuild-source --force` removed; `--confirm` alone replaces an existing source |
+| `worktree rm --force`                  | unchanged ("discard local edits") | `init --force`, `skill update --force`, `uninstall --force` removed in LUM-1292     |
 
 #### 3i. `--yes` removed
 
@@ -626,7 +627,7 @@ As built:
 
 ### Not affected
 
-Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill status`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
+Every other leaf keeps its name and flags: `audit list`, `auth login/logout`, `crossing disposition/explain/list`, `doc append/create/delete/diff/list/move/patch/show/sync/update` (except the flags above), `doctor`, `finding disposition`, all `hook *`, `init` (except Q6), `member list`, `milestone add/archive/create/delete/list/move/remove/reorder/show/triage/unarchive/update`, `project create/list/update`, `session attach/status`, `skill read`, `sprint add/close/create/delete/list/remove/show/start/update`, `tag create/list`, `task artifact add/list/show/update`, `task create/decide/delete/statuses/update`, `task figma add/list/refresh`, `task pr show`, `task slack show`, `task web show`, `task template create/list/show`, `uninstall`, `update`, `whoami`, `worktree add/list/prune/rm`.
 
 ### Counts
 
@@ -692,7 +693,7 @@ The review draft listed nine open questions. The user decided all of them on 202
 ### Q4. What a removed command prints
 
 - **Decision (2026-10-18):** a tombstone error, not an alias: `Error: lumo task context was removed. Use: lumo task show --full`, exit 2, `"code": "COMMAND_REMOVED"` under `--json`. The command never runs. Tombstones are hidden from `--help` and `grammar.json`, live in one table that also feeds the release notes and the skill's "do not exist" list, and are dropped two minor releases after the removal ([RN-3](#rn-3-running-a-removed-name)).
-- **Why:** skill copies in customer repos lag the CLI (`skill update` skips locally edited copies and never downgrades), so agents with an old `SKILL.md` keep calling removed names after an upgrade; one line saves a `--help` round trip and a guess.
+- **Why:** agents reading a stale skill keep calling removed names after an upgrade (since LUM-1292 the skill is served by `lumo skill read` from the installed CLI, so it only lags the CLI itself); one line saves a `--help` round trip and a guess.
 
 ### Q5. What `task show --full` prints
 
@@ -701,13 +702,13 @@ The review draft listed nine open questions. The user decided all of them on 202
 
 ### Q6. The boolean `--project` on `init` and `skill update`
 
-- **Decision (2026-10-18):** `init --project` / `--user` and `skill update --project` become `--scope project|user`, as `uninstall --scope` already is. `--project <ref>` is then global (GF-1).
+- **Decision (2026-10-18, superseded by LUM-1292):** `init --project` / `--user` became `--scope project|user`; LUM-1292 then removed the scope entirely (`init`/`uninstall` are project-only, `skill update` is gone). `--project <ref>` is global (GF-1).
 - **Why:** one flag, one meaning. The `init` command name, its behaviour and the hook names it writes are unchanged, so the freeze is not touched; only the typed flag changes, with a release note.
 
 ### Q7. Shape of `usage` and the `--apply` switch on `usage resync`
 
 - **Decision (2026-10-18):** one `usage show` with `--by tool|model|member|session` (default `tool`), the local-day window flags of `report` (`--since`, `--until`), and `--tasks` to append the completed-task list. `usage resync` applies when called; `--dry-run` previews; `--apply` is removed.
-- **Why:** one noun and one read verb for usage (VB-1), and RW-2: writes run when called and preview with `--dry-run`, like `init`, `skill update`, `memory sync` and `memory push`.
+- **Why:** one noun and one read verb for usage (VB-1), and RW-2: writes run when called and preview with `--dry-run`, like `init`, `memory sync` and `memory push`.
 
 ### Q8. Keep `pr scan`, or rename it to `pr show`
 

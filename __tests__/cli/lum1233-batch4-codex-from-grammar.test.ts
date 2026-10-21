@@ -11,6 +11,7 @@ import fs from 'fs'
 import path from 'path'
 import {
   CODEX_FILE_READING_COMMANDS,
+  CODEX_PROMPTED_COMMANDS,
   CODEX_SANDBOXED_COMMANDS,
   CODEX_SERVER_ONLY_COMMANDS,
   LUMO_CODEX_RULES,
@@ -35,7 +36,6 @@ const hand = JSON.parse(
   fileReading: Record<string, string>
   sandboxed: Record<string, string>
 }
-const handRules = read('__tests__/fixtures/lum1233-codex-hand-rules.txt')
 const grammar = JSON.parse(
   read('scripts/cli-grammar/grammar.json')
 ) as CliGrammar
@@ -59,6 +59,8 @@ const DEVIATIONS = {
     // LUM-1285: project archive / unarchive.
     'project archive',
     'project unarchive',
+    // LUM-1292: reads only files inside the CLI package.
+    'skill read',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<
@@ -68,10 +70,21 @@ const DEVIATIONS = {
   sandboxedAdded: {
     'feedback create':
       'reads local files (--file …) — Codex asks first (--evidence-file)',
-    // LUM-1255: reads only git and the working tree, no Lumo API call.
+    // LUM-1255: reads git and the working tree, so it stays sandboxed;
+    // LUM-1256: it also reads server context from the Lumo API, which inside
+    // the sandbox falls back to the cache (or no context);
+    // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network.
     'security scan':
-      'local-only (reads git and the working tree, no Lumo API call; runs fine sandboxed)',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+    // LUM-1292: init / uninstall touch only the repo's hooks/rules; doctor now also
+    // probes the Lumo API (login + connectivity).
+    init: 'writes hook and rules files in this repo',
+    uninstall: 'deletes hook and rules entries in this repo',
+    doctor:
+      "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
   } as Record<string, string>,
+  // LUM-1292: `skill status` / `skill update` were deleted.
+  sandboxedRemoved: ['skill status', 'skill update'],
 }
 
 /**
@@ -108,29 +121,22 @@ describe('generated lists vs the last hand-kept ones', () => {
       ...renameKeys(hand.fileReading),
       ...DEVIATIONS.fileReadingAdded,
     })
-    expect(CODEX_SANDBOXED_COMMANDS).toEqual({
+    const sandboxed: Record<string, string> = {
       ...renameKeys(hand.sandboxed),
       ...DEVIATIONS.sandboxedAdded,
-    })
+    }
+    for (const p of DEVIATIONS.sandboxedRemoved) delete sandboxed[p]
+    expect(CODEX_SANDBOXED_COMMANDS).toEqual(sandboxed)
   })
 
-  it('the rules file is the hand-kept one, except the priority rule and the 3j names', () => {
-    // The fixture is exactly what the hand-kept lists produced…
-    expect(buildCodexRules(hand.serverOnly, hand.sandboxed)).toBe(handRules)
-    // …and applying the deviation and the renames to those lists gives today's file.
-    const adjusted = [
-      ...handServerOnly.filter(p => !DEVIATIONS.serverOnlyRemoved.includes(p)),
-      ...DEVIATIONS.serverOnlyAdded,
-    ]
-    expect(LUMO_CODEX_RULES).toBe(
-      buildCodexRules(adjusted, {
-        ...renameKeys(hand.sandboxed),
-        ...DEVIATIONS.sandboxedAdded,
-      })
-    )
+  it('the rules file prompts exactly the non-server-only commands (LUM-1292)', () => {
+    const prompted = Object.keys(CODEX_SANDBOXED_COMMANDS).sort()
+    expect(Object.keys(CODEX_PROMPTED_COMMANDS).sort()).toEqual(prompted)
+    expect(LUMO_CODEX_RULES).toBe(buildCodexRules())
     expect(LUMO_CODEX_RULES).toContain(
-      'pattern = ["lumo", "priority", ["create", "list"]]'
+      'pattern = ["lumo"],\n    decision = "allow"'
     )
+    expect(LUMO_CODEX_RULES).not.toContain('"priority"')
   })
 })
 

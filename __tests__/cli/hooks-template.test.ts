@@ -8,7 +8,8 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
   mergeLumoHooks,
-  retiredLumoHookEvents,
+  isLumoHookEntry,
+  staleLumoHookEvents,
 } from '@/cli/src/lib/hooks-template'
 
 type Settings = Parameters<typeof mergeLumoHooks>[0]
@@ -194,40 +195,177 @@ describe('retired WorktreeCreate / WorktreeRemove hooks (LUM-1235)', () => {
     expect(twice.merged).toEqual(once)
   })
 
-  it('an explicit event list (Codex) does not strip anything', () => {
-    const existing = olderInstall()
+  it('an explicit event list (Codex) drops Lumo entries outside it', () => {
     const { merged, stats } = mergeLumoHooks(
-      existing,
+      olderInstall(),
       'codex',
       CODEX_HOOK_EVENTS
     )
-    expect(stats.removedEvents).toEqual([])
-    expect(merged.hooks).toHaveProperty('WorktreeCreate')
+    expect(merged.hooks).not.toHaveProperty('WorktreeCreate')
+    expect(Object.keys(merged.hooks!).sort()).toEqual(
+      CODEX_HOOK_EVENTS.map(([e]) => e).sort()
+    )
+    expect(stats.removedEvents).toContain('WorktreeCreate')
   })
 
-  it('retiredLumoHookEvents names only the retired events Lumo still holds', () => {
-    expect(retiredLumoHookEvents(olderInstall().hooks)).toEqual([
+  it('staleLumoHookEvents names the events Lumo holds outside the set', () => {
+    expect(staleLumoHookEvents(olderInstall().hooks)).toEqual([
       'WorktreeCreate',
       'WorktreeRemove',
     ])
-    expect(retiredLumoHookEvents(buildLumoHookFragment().hooks)).toEqual([])
+    expect(staleLumoHookEvents(buildLumoHookFragment().hooks)).toEqual([])
     expect(
-      retiredLumoHookEvents({
+      staleLumoHookEvents({
         WorktreeCreate: [
           { hooks: [{ type: 'command', command: 'my-vcs-worktree.sh' }] },
         ],
       })
     ).toEqual([])
-    expect(retiredLumoHookEvents(undefined)).toEqual([])
+    expect(staleLumoHookEvents(undefined)).toEqual([])
   })
 
-  it("this repo's own .claude/settings.json carries no Lumo worktree hooks", () => {
+  it("this repo's own .claude/settings.json carries no stale Lumo hooks", () => {
     const settings = JSON.parse(
       readFileSync(
         join(__dirname, '..', '..', '.claude', 'settings.json'),
         'utf8'
       )
     ) as { hooks?: unknown }
-    expect(retiredLumoHookEvents(settings.hooks)).toEqual([])
+    expect(staleLumoHookEvents(settings.hooks)).toEqual([])
+  })
+})
+
+describe('hook event sets', () => {
+  it('registers 17 Claude Code events and 9 Codex events', () => {
+    const claude = LUMO_HOOK_EVENTS.map(([e]) => e)
+    expect(claude).toHaveLength(17)
+    for (const dropped of [
+      'FileChanged',
+      'ConfigChange',
+      'InstructionsLoaded',
+      'CwdChanged',
+      'UserPromptExpansion',
+      'TaskCompleted',
+      'PreCompact',
+    ])
+      expect(claude).not.toContain(dropped)
+    expect(claude).toContain('SubagentStart')
+    const codex = CODEX_HOOK_EVENTS.map(([e]) => e)
+    for (const dropped of ['PreCompact', 'PostCompact', 'Interrupt'])
+      expect(codex).not.toContain(dropped)
+  })
+
+  it('isLumoHookEntry matches `lumo hook` commands only', () => {
+    expect(isLumoHookEntry('lumo hook')).toBe(true)
+    expect(isLumoHookEntry('lumo hook stop --agent codex')).toBe(true)
+    expect(isLumoHookEntry('lumo hooks')).toBe(false)
+    expect(isLumoHookEntry('echo lumo hook stop')).toBe(false)
+    expect(isLumoHookEntry('lumo task show')).toBe(false)
+  })
+})
+
+describe('ownership merge', () => {
+  const entry = (command: string) => ({
+    hooks: [{ type: 'command' as const, command }],
+  })
+
+  it('leaves exactly one Lumo entry per current event and keeps user hooks', () => {
+    const hooks: NonNullable<Settings>['hooks'] = {}
+    for (const e of [
+      ...LUMO_HOOK_EVENTS,
+      ['FileChanged', 'file-changed'],
+      ['ConfigChange', 'config-change'],
+      ['InstructionsLoaded', 'instructions-loaded'],
+      ['CwdChanged', 'cwd-changed'],
+      ['UserPromptExpansion', 'user-prompt-expansion'],
+      ['TaskCompleted', 'task-completed'],
+      ['PreCompact', 'pre-compact'],
+      ['WorktreeCreate', 'worktree-create'],
+    ] as const)
+      hooks[e[0]] = [entry(`lumo hook ${e[1]} --agent claude-code`)]
+    hooks.Stop!.push(entry('lumo hook stop --agent codex'))
+    hooks.PreToolUse!.push(entry('echo hi'))
+    const { merged, stats } = mergeLumoHooks({ hooks }, 'claude-code')
+    for (const [event, slug] of LUMO_HOOK_EVENTS) {
+      const lumo = commandsFor(merged, event).filter(c =>
+        c.startsWith('lumo hook')
+      )
+      expect(lumo).toEqual([`lumo hook ${slug} --agent claude-code`])
+    }
+    expect(Object.keys(merged.hooks!)).toHaveLength(LUMO_HOOK_EVENTS.length)
+    expect(merged.hooks).not.toHaveProperty('WorktreeCreate')
+    expect(merged.hooks).not.toHaveProperty('FileChanged')
+    expect(commandsFor(merged, 'PreToolUse')).toContain('echo hi')
+    expect(stats.removedEvents).toHaveLength(8)
+    expect(stats.updatedEvents).toEqual(['Stop'])
+  })
+
+  it('a re-merge is byte-identical (user hooks after Lumo keep their place)', () => {
+    const existing: Settings = {
+      hooks: {
+        Stop: [
+          entry('lumo hook stop --agent claude-code'),
+          entry('echo after'),
+        ],
+      },
+    }
+    const once = mergeLumoHooks(existing, 'claude-code').merged
+    const twice = mergeLumoHooks(once, 'claude-code')
+    expect(JSON.stringify(twice.merged)).toBe(JSON.stringify(once))
+    expect(commandsFor(once, 'Stop')).toEqual([
+      'lumo hook stop --agent claude-code',
+      'echo after',
+    ])
+    expect(twice.stats.updatedEvents).toEqual([])
+    expect(twice.stats.addedEvents).toEqual([])
+  })
+
+  it('Codex: drops a stale interrupt entry, keeps the user entry', () => {
+    const { hooks } = buildLumoHookFragment('codex', CODEX_HOOK_EVENTS)
+    const existing: Settings = {
+      hooks: {
+        ...hooks,
+        Interrupt: [entry('lumo hook interrupt --agent codex')],
+        PreCompact: [
+          entry('lumo hook pre-compact --agent codex'),
+          entry('my-compact.sh'),
+        ],
+        PreToolUse: [...hooks!.PreToolUse!, entry('echo hi')],
+      },
+    }
+    const { merged, stats } = mergeLumoHooks(
+      existing,
+      'codex',
+      CODEX_HOOK_EVENTS
+    )
+    expect(merged.hooks).not.toHaveProperty('Interrupt')
+    expect(commandsFor(merged, 'PreCompact')).toEqual(['my-compact.sh'])
+    expect(commandsFor(merged, 'PreToolUse')).toEqual([
+      'lumo hook pre-tool-use --agent codex',
+      'echo hi',
+    ])
+    expect(stats.removedEvents).toEqual(['Interrupt', 'PreCompact'])
+  })
+
+  it('Codex: Lumo entries at the file root move under hooks', () => {
+    const existing = {
+      Interrupt: [entry('lumo hook interrupt --agent codex')],
+      Stop: [entry('lumo hook stop --agent codex'), entry('echo bye')],
+      model: 'x',
+    } as unknown as Settings
+    const { merged, stats } = mergeLumoHooks(
+      existing,
+      'codex',
+      CODEX_HOOK_EVENTS
+    )
+    const root = merged as unknown as Record<string, unknown>
+    expect(root).not.toHaveProperty('Interrupt')
+    expect(root.model).toBe('x')
+    expect(root.Stop).toEqual([entry('echo bye')])
+    expect(commandsFor(merged, 'Stop')).toEqual([
+      'lumo hook stop --agent codex',
+    ])
+    expect(stats.removedEvents).toEqual(['Interrupt'])
+    expect(stats.updatedEvents).toContain('Stop')
   })
 })
