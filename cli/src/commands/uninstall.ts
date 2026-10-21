@@ -7,6 +7,8 @@ import { removeGitHookBlock } from '../lib/git-hook-template'
 import { scanHookFor } from '../lib/scan-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
+import { ENUM_TO_TOKEN, normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { EXIT_USAGE } from '../lib/exit-codes'
 import {
   collectDoctor,
   type DoctorDeps,
@@ -61,6 +63,20 @@ const ACTION_FOR_KIND: Record<DoctorKind, ActionKind> = {
   'scan-hook': 'strip-scan-hook',
 }
 
+/** The git hooks belong to no coding agent; `--agent git` selects them. */
+const GIT_AGENT = 'git'
+
+/**
+ * Canonicalize `--agent` to the token the doctor rows carry (aliases such as
+ * `gemini` or `Claude_Code` resolve like in `lumo init`); null when unknown.
+ */
+export function resolveUninstallAgent(raw: string): string | null {
+  const key = raw.trim().toLowerCase()
+  if (key === GIT_AGENT) return GIT_AGENT
+  const e = normalizeAgent(raw)
+  return (e && ENUM_TO_TOKEN[e]) || null
+}
+
 /**
  * What uninstall would touch, derived from the same collector `lumo doctor`
  * uses so the two can never disagree about what is installed. Read-only.
@@ -70,8 +86,11 @@ export function planUninstall(
   deps: UninstallDeps = {}
 ): UninstallPlan {
   const report = collectDoctor(deps)
+  const agent = opts.agent
+    ? (resolveUninstallAgent(opts.agent) ?? opts.agent)
+    : undefined
   const actions = report.rows
-    .filter(row => !opts.agent || row.agent === opts.agent)
+    .filter(row => !agent || row.agent === agent)
     .map(row => ({ row, action: ACTION_FOR_KIND[row.kind] }))
   return { repo: report.repo, actions }
 }
@@ -232,6 +251,12 @@ export async function uninstall(
   opts: UninstallOptions = {},
   deps: UninstallDeps = {}
 ): Promise<number> {
+  if (opts.agent && !resolveUninstallAgent(opts.agent)) {
+    process.stderr.write(
+      `Error: unknown --agent "${opts.agent}". Valid values: ${[...VALID_AGENT_TOKENS, GIT_AGENT].join(', ')}.\n`
+    )
+    return EXIT_USAGE
+  }
   const plan = planUninstall(opts, deps)
   if (!plan.repo && !opts.purge) {
     process.stderr.write(

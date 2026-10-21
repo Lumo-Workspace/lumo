@@ -320,4 +320,23 @@ describe('purge and final step', () => {
     expect(stdout).toContain('Nothing to uninstall')
     expect(stdout.trimEnd().endsWith('npm rm -g @lumoai/cli')).toBe(true)
   })
+
+  it('accepts agent aliases and spellings like init does', () => {
+    const f = fixture()
+    writeSettings(f.settings)
+    for (const a of ['Claude_Code', 'claude code', 'CLAUDE-CODE'])
+      expect(
+        planUninstall({ agent: a }, f.deps).actions.map(x => x.row.kind)
+      ).toEqual(['claude-settings'])
+  })
+
+  it('an unknown --agent exits 2 listing the valid values and touches nothing', async () => {
+    const f = fixture()
+    writeSettings(f.settings)
+    expect(await uninstall({ agent: 'bogus', confirm: true }, f.deps)).toBe(2)
+    expect(stderr).toContain('unknown --agent "bogus"')
+    expect(stderr).toContain('claude-code')
+    expect(stderr).toContain('git')
+    expect(json(f.settings).hooks).toHaveProperty('PreToolUse')
+  })
 })
