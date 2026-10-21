@@ -1,11 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import { Plus } from 'lucide-react'
 import type { Sprint } from '@prisma/client'
 import type { DerivedSprintState } from '@/lib/services/sprint-date'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { SprintDateRange } from '../SprintDateRange'
 
 const STATE_I18N_KEY: Record<DerivedSprintState, string> = {
@@ -23,26 +22,21 @@ interface SprintDetailHeaderProps {
   state: DerivedSprintState | null
   /** Whole days until the inclusive end; null before mount. */
   daysLeft: number | null
-  canClose: boolean
   onRefresh: () => void
-  onCloseSprint: () => void
-  onNewTask: () => void
+  /** The page's actions — live (`LiveSprintActions`) or closed
+   *  (`ClosedSprintActions`), composed by the page. */
+  actions: ReactNode
 }
 
-/**
- * Title, state, team · dates · days left, and the page's two actions: "Close
- * sprint" (outline) and the single primary "New task".
- */
+/** Title, state, team · dates · days left, and the page's actions slot. */
 export function SprintDetailHeader({
   sprint,
   name,
   teamName,
   state,
   daysLeft,
-  canClose,
   onRefresh,
-  onCloseSprint,
-  onNewTask,
+  actions,
 }: SprintDetailHeaderProps) {
   const intl = useIntl()
   return (
@@ -77,21 +71,7 @@ export function SprintDetailHeader({
           )}
         </p>
       </div>
-      <div className='flex w-full gap-2 sm:w-auto'>
-        {canClose && (
-          <Button
-            variant='outline'
-            className='flex-1 sm:flex-none'
-            onClick={onCloseSprint}
-          >
-            {intl.formatMessage({ id: 'sprints.detail.closeSprint' })}
-          </Button>
-        )}
-        <Button className='flex-1 sm:flex-none' onClick={onNewTask}>
-          <Plus className='size-4' />
-          {intl.formatMessage({ id: 'sprints.detail.newTask' })}
-        </Button>
-      </div>
+      <div className='flex w-full gap-2 sm:w-auto'>{actions}</div>
     </section>
   )
 }

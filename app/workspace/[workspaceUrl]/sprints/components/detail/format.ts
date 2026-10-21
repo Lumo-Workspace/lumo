@@ -30,3 +30,18 @@ export function formatWait(intl: IntlShape, sec: number): string {
 export function formatDwellDays(intl: IntlShape, sec: number): string {
   return intl.formatNumber(sec / DAY, { maximumFractionDigits: 1 })
 }
+
+/**
+ * A stored stage median (ms) as one unit: minutes or hours under a day, then
+ * days with one decimal ("0.9 days" never reads as "21 hours" twice). Neutral
+ * text only — no tone derived from the value.
+ */
+export function formatStageMedian(intl: IntlShape, ms: number): string {
+  const s = Math.max(0, ms / 1000)
+  if (s < DAY) return formatWait(intl, s)
+  return intl.formatMessage(
+    { id: 'sprints.detail.retro.stages.days' },
+    // A number (not a preformatted string) so plural rules can pick the form.
+    { days: Math.round((s / DAY) * 10) / 10 }
+  )
+}
