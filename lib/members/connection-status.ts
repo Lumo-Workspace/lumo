@@ -21,7 +21,7 @@ export const MEMBER_FILTERS: readonly MemberFilter[] = [
 ]
 
 export function connectionNeedsUpdate(c: MemberConnectionView): boolean {
-  return c.cliBehind || c.skillBehind
+  return c.cliBehind
 }
 
 /**
@@ -77,8 +77,7 @@ export function countConnectionsNeedingUpdate(
 
 /**
  * The command that brings a connection up to date: a CLI behind the latest
- * needs `lumo update` (which also refreshes the skill); a skill behind its
- * CLI needs `lumo skill update`. An unreported CLI gets none — every current
+ * needs `lumo update`. An unreported CLI gets none — every current
  * CLI reports its version, so a missing one only means the connection hasn't
  * been seen since reporting started, not that it is out of date.
  */
@@ -86,7 +85,6 @@ export function connectionFixCommand(c: MemberConnectionView): string | null {
   // A stale snapshot can't tell whether anything still needs fixing.
   if (c.stale) return null
   if (c.cliBehind) return 'lumo update'
-  if (c.skillBehind) return 'lumo skill update'
   return null
 }
 

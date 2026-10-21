@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-1136 — members page connections: per member × agent, last seen plus
- * the latest reported CLI / skill versions, with "behind" marks.
+ * the latest reported CLI version, with "behind" marks.
  */
 jest.mock('@/lib/cli/latest-version', () => ({
   fetchLatestCliVersion: jest.fn(),
@@ -53,13 +53,11 @@ describe('buildMemberConnections', () => {
           workspaceMemberId: 'm1',
           agent: 'CLAUDE_CODE',
           cliVersion: '1.121.0',
-          skillVersion: '1.121.0',
         },
         {
           workspaceMemberId: 'm1',
           agent: 'CODEX',
           cliVersion: '1.121.0',
-          skillVersion: 'source',
         },
       ]
     )
@@ -68,20 +66,16 @@ describe('buildMemberConnections', () => {
         {
           agent: 'CLAUDE_CODE',
           cliVersion: '1.121.0',
-          skillVersion: '1.121.0',
           lastSeenAt: '2026-10-14T00:00:00.000Z',
           stale: false,
           cliBehind: false,
-          skillBehind: false,
         },
         {
           agent: 'CODEX',
           cliVersion: '1.121.0',
-          skillVersion: 'source',
           lastSeenAt: '2026-10-10T00:00:00.000Z',
           stale: false,
           cliBehind: false,
-          skillBehind: false,
         },
       ],
     })
@@ -101,9 +95,7 @@ describe('buildMemberConnections', () => {
     expect(out.m2).toEqual([
       expect.objectContaining({
         cliVersion: null,
-        skillVersion: null,
         cliBehind: false,
-        skillBehind: false,
       }),
     ])
   })
@@ -127,13 +119,11 @@ describe('buildMemberConnections', () => {
           workspaceMemberId: 'a',
           agent: 'CLAUDE_CODE',
           cliVersion: '1.9.0',
-          skillVersion: null,
         },
         {
           workspaceMemberId: 'b',
           agent: 'CLAUDE_CODE',
           cliVersion: '1.10.0',
-          skillVersion: null,
         },
       ]
     )
@@ -141,33 +131,33 @@ describe('buildMemberConnections', () => {
     expect(out.b?.[0]?.cliBehind).toBe(false)
   })
 
-  it('marks a managed skill older than its CLI; modified / source / none never behind', () => {
-    const rows = [
-      '1.120.0',
-      '1.120.0 modified',
-      'modified',
-      'source',
-      'none',
-    ].map((skillVersion, i) => ({
-      workspaceMemberId: `m${i}`,
-      agent: 'CLAUDE_CODE' as const,
-      cliVersion: '1.121.0',
-      skillVersion,
-    }))
+  it('exposes no skill fields, even for a version row that still carries one', () => {
     const out = build(
-      rows.map(r => ({
-        workspaceMemberId: r.workspaceMemberId,
-        agent: r.agent,
-        lastActivityAt: d('2026-10-14T00:00:00Z'),
-      })),
-      rows
+      [
+        {
+          workspaceMemberId: 'a',
+          agent: 'CLAUDE_CODE',
+          lastActivityAt: d('2026-10-14T00:00:00Z'),
+        },
+      ],
+      [
+        {
+          workspaceMemberId: 'a',
+          agent: 'CLAUDE_CODE',
+          cliVersion: '1.121.0',
+          ...({ skillVersion: '1.119.0' } as object),
+        },
+      ]
     )
-    expect(rows.map(r => out[r.workspaceMemberId]?.[0]?.skillBehind)).toEqual([
-      true,
-      false,
-      false,
-      false,
-      false,
+    const c = out.a?.[0]
+    expect(c).not.toHaveProperty('skillVersion')
+    expect(c).not.toHaveProperty('skillBehind')
+    expect(Object.keys(c ?? {}).sort()).toEqual([
+      'agent',
+      'cliBehind',
+      'cliVersion',
+      'lastSeenAt',
+      'stale',
     ])
   })
 
@@ -185,7 +175,6 @@ describe('buildMemberConnections', () => {
           workspaceMemberId: 'a',
           agent: 'CLAUDE_CODE',
           cliVersion: '1.121.0',
-          skillVersion: null,
         },
       ],
       '1.122.0'
@@ -214,13 +203,11 @@ describe('buildMemberConnections', () => {
           workspaceMemberId: 'm',
           agent: 'CODEX',
           cliVersion: '1.121.0',
-          skillVersion: '1.120.0',
         },
         {
           workspaceMemberId: 'm',
           agent: 'CLAUDE_CODE',
           cliVersion: '1.121.0',
-          skillVersion: '1.120.0',
         },
       ],
       '1.122.0'
@@ -230,12 +217,10 @@ describe('buildMemberConnections', () => {
       stale: true,
       cliVersion: '1.121.0',
       cliBehind: false,
-      skillBehind: false,
     })
     expect(byAgent.CLAUDE_CODE).toMatchObject({
       stale: false,
       cliBehind: true,
-      skillBehind: true,
     })
   })
 
@@ -263,7 +248,6 @@ describe('memberConnectionService.listConnections', () => {
         workspaceMemberId: 'm1',
         agent: 'CLAUDE_CODE',
         cliVersion: '1.121.0',
-        skillVersion: '1.121.0',
       },
     ] as never)
     mockLatest.mockResolvedValue('1.122.0')

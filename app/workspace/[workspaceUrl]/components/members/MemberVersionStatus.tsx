@@ -44,7 +44,7 @@ function statusDetail(
         { id: 'members.connection.cli' },
         { version: cli.cliVersion }
       )
-    return formatMessage({ id: 'members.status.skillDetail' })
+    return null
   }
   if (status === 'unknown')
     return formatMessage({ id: 'members.status.unknownDetail' })
