@@ -36,6 +36,7 @@ let dirs: string[]
 let home: string
 let repo: string
 let stdout: string
+let stderr = ''
 let spies: jest.SpyInstance[]
 const saved: Record<string, string | undefined> = {}
 const ENV_KEYS = ['HOME', 'LUMO_CONFIG_DIR', 'LUMO_NO_AUTO_UPDATE']
@@ -78,9 +79,10 @@ beforeEach(() => {
       stdout += s
       return true
     }) as never),
-    jest
-      .spyOn(process.stderr, 'write')
-      .mockImplementation((() => true) as never),
+    jest.spyOn(process.stderr, 'write').mockImplementation(((s: string) => {
+      stderr += s
+      return true
+    }) as never),
   ]
 })
 afterEach(() => {
@@ -131,6 +133,44 @@ describe('init writes the stub', () => {
     expect(stdout).toContain(CODEX)
     expect(exists('.claude')).toBe(false)
     expect(exists('.agents')).toBe(false)
+  })
+})
+
+describe('--agent cursor (non-codex tokens share the .claude stub)', () => {
+  it('init writes it, doctor/drift attribute it to cursor, uninstall --agent cursor removes it', async () => {
+    await init({ agent: 'cursor' }, { cwd: repo, ...notGlobal })
+    expect(exists(CLAUDE)).toBe(true)
+    expect(exists(CODEX)).toBe(false)
+    expect(doctorStubs()).toEqual([['cursor', CLAUDE, 'ok']])
+    git('add', '-A')
+    rmSync(join(repo, CLAUDE))
+    const items = projectInstallDrift({ cwd: repo, cliVersion: '2.0.0' })
+    expect(items.map(i => [i.kind, i.agent])).toEqual([
+      ['skill-stub', 'cursor'],
+    ])
+    expect(projectDriftNote(items, '2.0.0')).toContain(
+      'lumo init --agent cursor'
+    )
+    await init({ agent: 'cursor' }, { cwd: repo, ...notGlobal })
+    await uninstall(
+      { agent: 'cursor', confirm: true },
+      { cwd: repo, homeDir: home }
+    )
+    expect(exists(CLAUDE)).toBe(false)
+    expect(exists('.claude/skills/lumo')).toBe(false)
+  })
+})
+
+describe('init when the stub cannot be written', () => {
+  it('reports the error, still writes the other files, exits 1', async () => {
+    mkdirSync(join(repo, CLAUDE), { recursive: true }) // a directory at the path
+    stderr = ''
+    expect(
+      await init({ agent: 'claude-code' }, { cwd: repo, ...notGlobal })
+    ).toBe(1)
+    expect(stderr).toContain('could not write skill stub')
+    expect(stderr).toContain(CLAUDE)
+    expect(exists('.claude/settings.json')).toBe(true)
   })
 })
 

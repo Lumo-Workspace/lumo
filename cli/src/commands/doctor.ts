@@ -413,7 +413,11 @@ function skillStubRows(
 ): DoctorRow[] {
   const rows: DoctorRow[] = []
   for (const file of skillStubPaths(root)) {
-    const agent = skillStubAgent(root, file)
+    const agent = skillStubAgent(
+      root,
+      file,
+      projectClaudeSettingsTarget(root)?.agent
+    )
     const state = classifySkillStub(file)
     if (state === 'missing' && !(agent === 'codex' ? haveCodex : haveClaude))
       continue

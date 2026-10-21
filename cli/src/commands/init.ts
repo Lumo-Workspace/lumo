@@ -149,13 +149,15 @@ export async function init(
   }
 
   process.stdout.write(`\nInstalling Lumo hooks for this repo: ${root}\n`)
+  let stubFailures = 0
 
   for (const token of tokens) {
     if (tokens.length > 1) process.stdout.write(`\n${agentHeading(token)}\n`)
     else process.stdout.write('\n')
     if (token === 'codex') installCodex(root)
     else mergeHooksFile(path.join(root, '.claude', 'settings.json'), token)
-    for (const file of skillStubPaths(root, [token])) writeSkillStub(file)
+    for (const file of skillStubPaths(root, [token]))
+      if (!writeSkillStub(file)) stubFailures++
   }
   process.stdout.write('\n')
   installGitHook(root)
@@ -172,7 +174,7 @@ export async function init(
   printPostInstall(tokens)
   process.stdout.write(`${describeAutoUpdate(autoUpdateForInstall(deps))}\n`)
 
-  return 0
+  return stubFailures > 0 ? 1 : 0
 }
 
 /**
@@ -253,19 +255,29 @@ function installCodex(root: string): void {
 /**
  * The frozen skill stub (LUM-1292): always written, different content is
  * overwritten (no local-modification protection), identical is a no-op.
+ * Returns false (error on stderr) when the file cannot be written; init then
+ * finishes the other files and exits 1.
  */
-function writeSkillStub(file: string): void {
-  const tracked =
-    classifySkillStub(file) !== 'missing' && isPathGitTracked(file)
-  const res = installSkillStub(file)
+function writeSkillStub(file: string): boolean {
+  let res: ReturnType<typeof installSkillStub>
+  let tracked = false
+  try {
+    tracked = classifySkillStub(file) !== 'missing' && isPathGitTracked(file)
+    res = installSkillStub(file)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stderr.write(`Error: could not write skill stub ${file}: ${msg}\n`)
+    return false
+  }
   if (res === 'unchanged') {
     process.stdout.write(`✓ skill stub already up to date: ${file}\n`)
-    return
+    return true
   }
   process.stdout.write(
     `✓ ${res === 'created' ? 'wrote' : 'updated'} skill stub: ${file}\n`
   )
   if (tracked) process.stdout.write(gitDiffNote(file))
+  return true
 }
 
 function gitDiffNote(file: string): string {

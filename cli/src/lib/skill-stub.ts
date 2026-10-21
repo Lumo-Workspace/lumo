@@ -35,11 +35,19 @@ export const CODEX_SKILL_STUB_REL = path.join(
   'SKILL.md'
 )
 
-/** The agent token (as `init` resolves it) whose stub lives at `file`. */
-export function skillStubAgent(root: string, file: string): string {
+/**
+ * The agent token that owns the stub at `file`: `codex` for the `.agents`
+ * one; the `.claude` one belongs to every non-codex token, so it carries
+ * `claudeAgent` (the token baked into the repo's settings: `cursor`, …).
+ */
+export function skillStubAgent(
+  root: string,
+  file: string,
+  claudeAgent = 'claude-code'
+): string {
   return path.relative(root, file) === CODEX_SKILL_STUB_REL
     ? 'codex'
-    : 'claude-code'
+    : claudeAgent
 }
 
 /**

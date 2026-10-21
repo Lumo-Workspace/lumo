@@ -124,8 +124,11 @@ export function projectInstallDrift(opts: {
     codex: safe(() => hasLumoCodexHooks(codexHooks), false) || rules !== null,
   }
   for (const file of skillStubPaths(root)) {
-    const agent = skillStubAgent(root, file)
-    if (have[agent] && safe(() => classifySkillStub(file) !== 'current', false))
+    const agent = skillStubAgent(root, file, settings?.agent)
+    if (
+      have[agent === 'codex' ? 'codex' : 'claude-code'] &&
+      safe(() => classifySkillStub(file) !== 'current', false)
+    )
       add('skill-stub', file, agent)
   }
 
