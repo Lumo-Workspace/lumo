@@ -88,6 +88,6 @@ Read with `lumo skill read references/<file>`:
 
 - No subtasks / `--parent` — use a milestone, `task dep add`, or fold follow-ups into the original task.
 - No `session start` / `session detach` / steward role switch.
-- No `--yes` and no interactive prompts anywhere — approval is `--confirm`, supplied only after the user approves.
+- No `--yes`, no prompts — approval is `--confirm`, only after the user approves. Sole exception: `lumo init` outside a git repo asks `[y/N]` (stdin; EOF/60 s = no); relay it to the user, never answer it.
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done`.
 - Evidence is `lumo task testcase`; a PR's scans are `lumo pr show`. Comment bodies are positional (`task comment add "<body>"`).

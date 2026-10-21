@@ -8,7 +8,7 @@ Some `lumo` commands change or destroy state that a human should sign off on fir
 4. The user approves or rejects.
 5. Only on approval, you re-run the envelope's `confirmCommand` — the same invocation with `--confirm` appended.
 
-There is no interactive yes/no prompt on a TTY either: a human and an agent walk the same steps.
+There is no interactive yes/no prompt on a TTY either: a human and an agent walk the same steps. The one exception is `lumo init` outside a git repository (a folder install): it prints the files and warnings, then asks `Install Lumo here anyway? [y/N]` on stdin (only `y`/`yes` proceeds; EOF or no answer within 60 s writes nothing and exits 0). An agent must not answer it: show the user the warnings, and run `lumo init` again with the user's answer on stdin only after they say yes.
 
 ## The envelope
 

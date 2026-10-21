@@ -15,7 +15,7 @@ The Lumo SessionStart context tells the agent to run it before other `lumo` comm
 
 ## `lumo init [--agent <token>] [--dry-run] [--scan-hooks]` — set up this repo
 
-Run inside the git repository. Without `--agent` it sets up **Claude Code and Codex** at once:
+Run inside the git repository (or, see below, a plain folder). Without `--agent` it sets up **Claude Code and Codex** at once:
 
 - **Claude Code** — merges the Lumo hook entries into `./.claude/settings.json` (your own permissions and non-Lumo hooks are kept; a re-run replaces only Lumo's entries and removes ones it no longer uses).
 - **Codex** — merges the Lumo hook entries into `./.codex/hooks.json` and writes `./.codex/rules/lumo.rules`, which lets `lumo` commands reach the Lumo API from Codex's no-network sandbox (see [codex.md](codex.md)). **Codex runs a hook only after the user trusts it** (Codex CLI `/hooks`, Codex app Settings → Hooks); until then it is skipped silently. A re-run rewrites `hooks.json` only when the Lumo entries changed and then names the events to trust again. Codex loads rules at startup — restart it after `init`.
@@ -27,6 +27,8 @@ Run inside the git repository. Without `--agent` it sets up **Claude Code and Co
 `--scan-hooks` (opt-in) also adds `pre-commit` / `pre-push` hooks running `lumo security scan` ([security-scan.md](security-scan.md#git-hooks)): they block only on a finding that would block DONE; a failed scan, no network or no `lumo` on PATH never blocks; `git commit|push --no-verify` skips them. A re-run without the flag leaves installed scan hooks alone.
 
 `--dry-run` writes nothing and prints, per file, `would install` / `would update` / `·` (up to date) / `⚠ skip` / `✗ cannot plan` (exit 1) with a diff. Settings and `hooks.json` diffs show **only** the `lumo hook …` entries (everything else folded to `"… N other …"`); a Codex change is flagged `⚠ Codex will ask to trust these hooks again — events: …`. It ends with `N of M would change` and the command to apply.
+
+**Not a git repo (folder install).** Outside any git repo `init` installs into the current folder (for projects that live under a non-git parent such as `~/projects/`). It prints the files it would write, warns that they cannot be shared via git and apply only to sessions started in that folder (a project inside it with its own `lumo init` uses its own install; verified: Claude Code and Codex run only the install of the folder they start in, never both), then asks `Install Lumo here anyway? [y/N]`. Only `y`/`yes` proceeds; anything else, EOF or no answer in 60 s prints `Nothing written.` and exits 0. **An agent must not answer this prompt itself**: relay the warnings to the user and pipe their answer in. No git hook is installed; `--scan-hooks` needs a repo (exit 2); `--dry-run` previews with the warnings and never prompts. `$HOME` and `/` are refused (exit 1). `doctor` and `uninstall` work in a folder install too (files are "local", never "committed"); `uninstall` keeps its `--confirm` gate.
 
 When logged in, `init` ends with one `ℹ Session records in this workspace: …` line (retention mode; an OWNER changes it in Settings → Data retention). The files it writes are plain repo files — commit them in a PR so the team gets the same hooks.
 
