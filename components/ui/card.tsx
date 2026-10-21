@@ -32,11 +32,36 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('flex flex-col space-y-1.5 p-6', className)}
+    data-slot='card-header'
+    className={cn(
+      'flex flex-col space-y-1.5 p-6',
+      // With a CardAction the header becomes shadcn's two-column grid: title
+      // and description on the left, the action pinned top-right. Headers
+      // without one keep the plain column above.
+      'has-data-[slot=card-action]:grid has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-action]:gap-x-2 has-data-[slot=card-action]:gap-y-1.5 has-data-[slot=card-action]:space-y-0',
+      className
+    )}
     {...props}
   />
 ))
 CardHeader.displayName = 'CardHeader'
+
+/** Top-right slot of a CardHeader (a badge, menu or button), as in shadcn. */
+const CardAction = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    data-slot='card-action'
+    className={cn(
+      'col-start-2 row-span-2 row-start-1 self-start justify-self-end',
+      className
+    )}
+    {...props}
+  />
+))
+CardAction.displayName = 'CardAction'
 
 const CardTitle = React.forwardRef<
   HTMLParagraphElement,
@@ -78,4 +103,12 @@ const CardFooter = React.forwardRef<
 ))
 CardFooter.displayName = 'CardFooter'
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export {
+  Card,
+  CardHeader,
+  CardAction,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+}

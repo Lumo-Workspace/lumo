@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Item, ItemGroup } from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
 import { fmtCompact } from '../../../components/AgentRunTimeline/model-cost-format'
 
@@ -81,30 +82,37 @@ export function CostOutputCard({
         {reworkTop.length > 0 && (
           <>
             <Separator />
-            <ul className='flex flex-col'>
+            <ItemGroup>
               {reworkTop.map(r => {
                 const why: string[] = []
                 if (r.reopens > 0) why.push(t('reopened', { count: r.reopens }))
                 if (r.reverts > 0) why.push(t('reverted', { count: r.reverts }))
                 return (
-                  <li key={r.taskId}>
-                    <button
-                      type='button'
-                      onClick={() => onOpenTask(r.taskId)}
-                      className='flex h-9 w-full items-center gap-2.5 rounded-sm text-left text-body hover:bg-muted/50'
+                  <div role='listitem' key={r.taskId}>
+                    <Item
+                      asChild
+                      size='sm'
+                      className='h-9 w-full flex-nowrap gap-2.5 px-2 py-0 text-left hover:bg-accent/50'
                     >
-                      <code className='flex-none text-caption text-muted-foreground'>
-                        {r.identifier}
-                      </code>
-                      <span className='min-w-0 flex-1 truncate'>{r.title}</span>
-                      <span className='flex-none text-caption text-muted-foreground'>
-                        {why.join(' · ')}
-                      </span>
-                    </button>
-                  </li>
+                      <button
+                        type='button'
+                        onClick={() => onOpenTask(r.taskId)}
+                      >
+                        <code className='flex-none text-caption text-muted-foreground'>
+                          {r.identifier}
+                        </code>
+                        <span className='min-w-0 flex-1 truncate'>
+                          {r.title}
+                        </span>
+                        <span className='flex-none text-caption text-muted-foreground'>
+                          {why.join(' · ')}
+                        </span>
+                      </button>
+                    </Item>
+                  </div>
                 )
               })}
-            </ul>
+            </ItemGroup>
           </>
         )}
       </CardContent>

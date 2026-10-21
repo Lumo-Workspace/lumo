@@ -1,7 +1,9 @@
 'use client'
 
+import { Fragment } from 'react'
 import { useIntl } from 'react-intl'
 import { Badge } from '@/components/ui/badge'
+import { Item, ItemGroup, ItemSeparator } from '@/components/ui/item'
 import {
   Card,
   CardContent,
@@ -102,27 +104,35 @@ export function CarriedOverCard({
             </Table>
           </div>
           {/* Phones: a stacked list, so where each task went stays visible. */}
-          <ul className='overflow-hidden rounded-lg border md:hidden'>
-            {rows.map(r => (
-              <li key={r.taskId} className='border-b last:border-b-0'>
-                <button
-                  type='button'
-                  onClick={() => onOpenTask(r.taskId, r.identifier)}
-                  className='flex w-full flex-col gap-1.5 px-4 py-3 text-left'
-                >
-                  <span className='flex items-center justify-between gap-2'>
-                    <code className='text-caption text-muted-foreground'>
-                      {r.identifier}
-                    </code>
-                    <Badge variant='outline' size='sm'>
-                      {r.destination ?? t('backlog')}
-                    </Badge>
-                  </span>
-                  <span className='text-body-strong'>{r.title}</span>
-                </button>
-              </li>
+          <ItemGroup className='overflow-hidden rounded-lg border md:hidden'>
+            {rows.map((r, i) => (
+              <Fragment key={r.taskId}>
+                {i > 0 && <ItemSeparator />}
+                <div role='listitem'>
+                  <Item
+                    asChild
+                    size='sm'
+                    className='w-full flex-col items-stretch gap-1.5 rounded-none text-left hover:bg-accent/50'
+                  >
+                    <button
+                      type='button'
+                      onClick={() => onOpenTask(r.taskId, r.identifier)}
+                    >
+                      <span className='flex items-center justify-between gap-2'>
+                        <code className='text-caption text-muted-foreground'>
+                          {r.identifier}
+                        </code>
+                        <Badge variant='outline' size='sm'>
+                          {r.destination ?? t('backlog')}
+                        </Badge>
+                      </span>
+                      <span className='text-body-strong'>{r.title}</span>
+                    </button>
+                  </Item>
+                </div>
+              </Fragment>
             ))}
-          </ul>
+          </ItemGroup>
         </CardContent>
       )}
     </Card>
