@@ -1,12 +1,16 @@
-import { readCredentials, type Credentials } from './config'
+import { configDir, readCredentials, type Credentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { readCliVersion } from './cli-version'
+import { SKILL_POINTER_TEXT } from './skill-pointer'
 import {
-  sessionStartSkillInfo,
-  skillVersionHeaderValue,
-} from './session-start-skill'
+  projectDriftNote,
+  projectDriftOnce,
+  projectNotesPath,
+  retiredHooksNote,
+  type ProjectDriftItem,
+} from './project-install-drift'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
@@ -373,8 +377,6 @@ export interface CliIdentity {
   version: string | null
   email?: string | null
   workspaceSlug?: string | null
-  /** LUM-1111: the loaded skill's tag (`skill 1.2.3`); null/absent adds nothing. */
-  skill?: string | null
 }
 
 const STATUS_LINE_PREFIX = '[Lumo] session_id='
@@ -393,8 +395,7 @@ export function withCliIdentity(lines: string[], id: CliIdentity): string[] {
   const who = id.email
     ? ` · ${sanitizeField(id.email)}${id.workspaceSlug ? ` (${sanitizeField(id.workspaceSlug)})` : ''}`
     : ''
-  const skill = id.skill ? ` · ${sanitizeField(id.skill)}` : ''
-  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}${skill}`
+  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}`
   const cut = first.indexOf(' | ')
   const decorated =
     cut === -1
@@ -405,8 +406,8 @@ export function withCliIdentity(lines: string[], id: CliIdentity): string[] {
 
 /**
  * LUM-1111: append ` | <note>` segments to the end of the session-start
- * status line — the one extension point for local hints (skill behind the
- * CLI, CLI upgraded mid-session, …). Existing segments are never rewritten;
+ * status line — the one extension point for local hints (committed install
+ * behind the CLI, …). Existing segments are never rewritten;
  * no notes, or no status line, returns the lines unchanged.
  */
 export function withStatusNotes(
@@ -432,9 +433,90 @@ function payloadCwd(body: string): string {
 }
 
 /**
+ * Fold SKILL_POINTER_TEXT into the SessionStart context: it leads the
+ * `additionalContext` of the existing envelope line (memory / PR todo
+ * follow), or becomes an envelope of its own when there is none. Plain
+ * lines (the status line) are untouched. Codex has no separate context
+ * channel — its lines are folded into one object afterwards, so the pointer
+ * goes first there to stay the lead of the injected text.
+ */
+export function withSkillPointer(lines: string[], codex = false): string[] {
+  if (codex) return [SKILL_POINTER_TEXT, ...lines]
+  const idx = lines.findIndex(line => {
+    try {
+      const ctx = (
+        JSON.parse(line) as {
+          hookSpecificOutput?: { additionalContext?: unknown }
+        }
+      )?.hookSpecificOutput?.additionalContext
+      return typeof ctx === 'string'
+    } catch {
+      return false
+    }
+  })
+  if (idx === -1) {
+    const envelope = JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'SessionStart',
+        additionalContext: SKILL_POINTER_TEXT,
+      },
+    })
+    return [...lines, envelope]
+  }
+  const parsed = JSON.parse(lines[idx] as string) as {
+    hookSpecificOutput: { additionalContext: string }
+  }
+  const rest = parsed.hookSpecificOutput.additionalContext
+  return lines.map((l, i) =>
+    i === idx
+      ? JSON.stringify({
+          ...parsed,
+          hookSpecificOutput: {
+            ...parsed.hookSpecificOutput,
+            additionalContext: `${SKILL_POINTER_TEXT}\n\n${rest}`,
+          },
+        })
+      : l
+  )
+}
+
+/**
+ * LUM-1108/1235: local hints about the repo's committed Lumo install
+ * (behind the CLI, retired hooks), once per session. Never throws.
+ */
+function projectInstallNotes(
+  cwd: string,
+  cliVersion: string | null,
+  sessionId: string | null
+): string[] {
+  if (!cliVersion) return []
+  try {
+    let drift: ProjectDriftItem[] = []
+    try {
+      drift = projectDriftOnce({
+        cwd,
+        cliVersion,
+        sessionId,
+        notedFile: projectNotesPath(configDir()),
+      })
+    } catch {
+      // a failed probe only drops the reminder
+    }
+    const notes: string[] = []
+    const driftNote = projectDriftNote(drift, cliVersion)
+    if (driftNote) notes.push(driftNote)
+    const retiredNote = retiredHooksNote(drift)
+    if (retiredNote) notes.push(retiredNote)
+    return notes
+  } catch {
+    return []
+  }
+}
+
+/**
  * The session-start stdout: server-driven lines, decorated with the CLI
- * version + identity (LUM-843) and the local skill version / hints
- * (LUM-1111). The skill probe never throws and only adds text.
+ * version + identity (LUM-843), the local install hints and — always — the
+ * skill pointer (LUM-1292).
  */
 function sessionStartLines(
   responseBody: unknown,
@@ -445,24 +527,36 @@ function sessionStartLines(
   const base = resolveSessionStartStdout(responseBody, {
     extractTask: () => extractTaskFromGit(),
   })
-  if (base.length === 0) return base
+  const codex = agentEnum === 'CODEX'
+  if (base.length === 0) return withSkillPointer(base, codex)
   const version = readCliVersion()
   const sid = (responseBody as { sessionId?: unknown }).sessionId
-  const skill = sessionStartSkillInfo({
-    agentEnum,
-    cliVersion: version,
-    sessionId: typeof sid === 'string' ? sid : null,
-    cwd: payloadCwd(hookBody),
-  })
-  return withStatusNotes(
-    withCliIdentity(base, {
-      version,
-      email: creds.email,
-      workspaceSlug: creds.workspaceSlug,
-      skill: skill.tag,
-    }),
-    skill.notes
+  const notes = projectInstallNotes(
+    payloadCwd(hookBody),
+    version,
+    typeof sid === 'string' ? sid : null
   )
+  return withSkillPointer(
+    withStatusNotes(
+      withCliIdentity(base, {
+        version,
+        email: creds.email,
+        workspaceSlug: creds.workspaceSlug,
+      }),
+      notes
+    ),
+    codex
+  )
+}
+
+/**
+ * The pointer alone, in the shape the agent accepts: used when the server
+ * could not be asked (not logged in, offline, non-2xx) — the agent still has
+ * to learn that Lumo exists here.
+ */
+function skillPointerOnly(agentEnum: string | null): string[] {
+  const lines = withSkillPointer([], agentEnum === 'CODEX')
+  return agentEnum === 'CODEX' ? codexHookStdout('SessionStart', lines) : lines
 }
 
 /**
@@ -750,6 +844,30 @@ export async function runHookWithBody(
   body: string,
   agentToken?: string
 ): Promise<void> {
+  // LUM-1292: SessionStart always tells the agent about `lumo skill read`,
+  // also when the server could not be asked (no login, offline, non-2xx).
+  const stdoutState = { written: false }
+  try {
+    await runHookBody(path, body, agentToken, stdoutState)
+  } finally {
+    if (path === 'session-start' && !stdoutState.written) {
+      try {
+        const agentEnum = agentToken ? normalizeAgent(agentToken) : null
+        for (const line of skillPointerOnly(agentEnum))
+          process.stdout.write(line + '\n')
+      } catch {
+        // never block the agent
+      }
+    }
+  }
+}
+
+async function runHookBody(
+  path: HookPath,
+  body: string,
+  agentToken: string | undefined,
+  stdoutState: { written: boolean }
+): Promise<void> {
   try {
     const creds = readCredentials()
     if (!creds) {
@@ -783,16 +901,6 @@ export async function runHookWithBody(
     }
     const agentEnum = agentToken ? normalizeAgent(agentToken) : null
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
-    // LUM-1136: which skill copy this session loads, for the members page.
-    // The CLI version already rides on every request (X-Lumo-Cli-Version).
-    if (path === 'session-start') {
-      const skillVersion = skillVersionHeaderValue({
-        agentEnum,
-        cliVersion: readCliVersion(),
-        cwd: payloadCwd(body),
-      })
-      if (skillVersion) headers['X-Lumo-Skill-Version'] = skillVersion
-    }
 
     const outgoingBody =
       augmentBodyWithGitTask(
@@ -838,6 +946,7 @@ export async function runHookWithBody(
           for (const line of out) {
             process.stdout.write(line + '\n')
           }
+          if (out.length > 0) stdoutState.written = true
         } catch {
           // response body parse failure is non-fatal
         }

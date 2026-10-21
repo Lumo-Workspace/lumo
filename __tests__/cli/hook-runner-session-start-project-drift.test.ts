@@ -117,11 +117,17 @@ async function statusLine(agent: string, sid: string): Promise<string> {
     agent
   )
   const out = stdoutSpy.mock.calls.map(c => String(c[0])).join('')
-  if (agent === 'codex')
-    return (
-      JSON.parse(out) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext
-  return out.trimEnd()
+  // LUM-1292: the skill pointer follows the status line (Claude Code) or leads
+  // the folded context (Codex); the status line is the one that starts [Lumo].
+  const text =
+    agent === 'codex'
+      ? (
+          JSON.parse(out) as {
+            hookSpecificOutput: { additionalContext: string }
+          }
+        ).hookSpecificOutput.additionalContext
+      : out
+  return text.split('\n').find(l => l.startsWith('[Lumo] session_id=')) ?? ''
 }
 
 const RULES_NOTE =
@@ -132,11 +138,11 @@ describe('committed Lumo install behind the CLI', () => {
     skill(home, '.claude', '1.70.0')
     staleRules()
     commit()
-    const reminded = `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND} | ${RULES_NOTE}`
+    const reminded = `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${RULES_NOTE}`
     expect(await statusLine('claude-code', 's1')).toBe(reminded)
     // resume / clear / compact of the same session: not again
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
     // a new session is reminded again
     expect(await statusLine('claude-code', 's2')).toBe(
@@ -144,15 +150,15 @@ describe('committed Lumo install behind the CLI', () => {
     )
   })
 
-  it("Codex: the session's own committed copy — one combined hint, not two", async () => {
+  it('Codex: a stale committed skill copy is reminded once per session', async () => {
     skill(repo, '.agents', '1.69.0')
     commit()
     expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --scope project\`, then commit the changes in a PR, then restart the session`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --scope project\`, then commit the changes in a PR`
     )
-    // later SessionStarts of the session fall back to the plain skill hint
+    // later SessionStarts of the session: not again
     expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | skill 1.69.0 is older than lumo 1.70.0 — run \`lumo skill update\`, then restart the session`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
   })
 
@@ -199,7 +205,7 @@ describe('committed Lumo install behind the CLI', () => {
     commit()
     mockThrow = true
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
   })
 })
