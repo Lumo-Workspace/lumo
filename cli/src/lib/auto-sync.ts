@@ -37,7 +37,20 @@ const NO_AUTO_SYNC_COMMANDS = new Set(['doctor', 'uninstall', 'skill'])
  * none of them may rewrite installs first.
  */
 export function shouldAutoSync(argv: readonly string[]): boolean {
-  return !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '') && !isInitDryRun(argv)
+  return (
+    !NO_AUTO_SYNC_COMMANDS.has(argv[2] ?? '') &&
+    !isInitDryRun(argv) &&
+    !isSkillRead(argv)
+  )
+}
+
+/**
+ * LUM-1292: `lumo skill read` is a pure local read of package files — no
+ * login, no network, no writes under ~/.lumo — so neither the first-run sync
+ * nor the update check / background worker may run before it.
+ */
+export function isSkillRead(argv: readonly string[]): boolean {
+  return argv[2] === 'skill' && argv[3] === 'read'
 }
 
 /**
@@ -58,7 +71,7 @@ export function isInitDryRun(argv: readonly string[]): boolean {
  * `npm rm -g`, or recreate ~/.lumo after `--purge`.
  */
 export function shouldCheckForUpdates(argv: readonly string[]): boolean {
-  return argv[2] !== 'uninstall' && !isInitDryRun(argv)
+  return argv[2] !== 'uninstall' && !isInitDryRun(argv) && !isSkillRead(argv)
 }
 
 const LOCK_FILE = 'auto-sync.lock'
