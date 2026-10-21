@@ -42,7 +42,7 @@ lumo init --scan-hooks          # also pre-commit / pre-push security scans
 
 ## `lumo doctor [--json]` — check this repo's setup (read-only)
 
-Reports the current repo's Lumo hooks in `.claude/settings.json` and `.codex/hooks.json` (missing events, entries from another `--agent`), the Codex rule `.codex/rules/lumo.rules`, Codex hook trust (a text scan of `~/.codex/config.toml`, shown as `trusted (hash not verified)` or "open `/hooks` and Trust"), the git hooks, whether `lumo` is on PATH, and login / server connectivity — each row with a fix command. Exit code is always 0. `--json` prints `{ version, cliVersion, rows, warnings, autoUpdate }`.
+Reports the current repo's Lumo hooks in `.claude/settings.json` and `.codex/hooks.json` (missing events, entries from another `--agent`), the Codex rule `.codex/rules/lumo.rules`, Codex hook trust (a text scan of `~/.codex/config.toml`, shown as `trusted (hash not verified)` or "open `/hooks` and Trust"), the git hooks, whether `lumo` is on PATH, and login / server connectivity — each row with a fix command. Exit code is always 0. `--json` prints `{ version: 2, cliVersion, repo, rows, warnings, autoUpdate, auth }`.
 
 ```bash
 lumo doctor
@@ -51,9 +51,9 @@ lumo doctor --json
 
 **When to suggest:** hooks do not fire, Codex says hooks are untrusted, or the user asks whether Lumo is set up correctly. For a file-level diff use `lumo init --dry-run`.
 
-## `lumo uninstall [--agent <token>] --confirm` — remove this repo's Lumo entries (gated)
+## `lumo uninstall [--agent <token>] [--purge] --confirm` — remove this repo's Lumo entries (gated)
 
-Removes only Lumo's entries from this repo: the `lumo hook` entries in `.claude/settings.json` and `.codex/hooks.json` (the files and every other hook stay), the Lumo-marked `.codex/rules/lumo.rules`, and the marked blocks of `prepare-commit-msg` / `pre-commit` / `pre-push`. `--agent` limits it to one agent's entries (`--agent git` = the git hooks). Without `--confirm` it prints the confirmation envelope (exit 4) listing every path and action and changes nothing — relay it, re-run `confirmCommand` only after the user approves ([confirmation.md](confirmation.md)). Committed paths are flagged; nothing is committed for you. The last line is the manual step `npm rm -g @lumoai/cli`.
+Removes only Lumo's entries from this repo: the `lumo hook` entries in `.claude/settings.json` and `.codex/hooks.json` (the files and every other hook stay), the Lumo-marked `.codex/rules/lumo.rules`, and the marked blocks of `prepare-commit-msg` / `pre-commit` / `pre-push`. `--agent` limits it to one agent's entries (`--agent git` = the git hooks); `--purge` also empties `~/.lumo` (credentials, caches — the user logs in again). Without `--confirm` it prints the confirmation envelope (exit 4) listing every path and action and changes nothing — relay it, re-run `confirmCommand` only after the user approves ([confirmation.md](confirmation.md)). Committed paths are flagged; nothing is committed for you. The last line is the manual step `npm rm -g @lumoai/cli`.
 
 ```bash
 lumo uninstall                          # envelope, nothing changes
@@ -62,13 +62,6 @@ lumo uninstall --agent codex --confirm
 ```
 
 **When to suggest:** the user wants Lumo removed from this repo. Never run it, or add `--confirm`, on your own initiative.
-
-<!-- TRANSITIONAL: `skill status` / `skill update` are still in grammar.json until the command removal lands in this same PR; these two lines keep the doc-example coverage test green and must be deleted together with the commands (the doc-example validity test fails on them once grammar.json is regenerated).
-```bash
-lumo skill status
-lumo skill update --dry-run
-```
--->
 
 ## Authentication
 

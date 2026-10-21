@@ -14,7 +14,6 @@ import {
   appendFileSync,
   chmodSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -27,7 +26,6 @@ import { join } from 'path'
 import { init, installGitHook } from '@/cli/src/commands/init'
 import { collectDoctor } from '@/cli/src/commands/doctor'
 import { planUninstall, uninstall } from '@/cli/src/commands/uninstall'
-import { readRegistry } from '@/cli/src/lib/install-registry'
 import {
   PRE_COMMIT_SCAN_BLOCK,
   PRE_COMMIT_SCAN_HOOK,
@@ -42,7 +40,6 @@ import {
   type Sandbox,
 } from '@/cli/test-support/real-git'
 
-jest.mock('@/cli/src/lib/skill-version-hashes.json', () => ({}))
 jest.mock('@/cli/src/lib/cli-version', () => ({
   readCliVersion: jest.fn(() => '2.0.0'),
   findCliPackageRoot: jest.fn(() => null),
@@ -92,17 +89,11 @@ afterEach(() => {
   for (const d of roots) rmSync(d, { recursive: true, force: true })
 })
 
-/** A bundled skill + fake home, the way init's deps take them. */
+/** init's deps for a repo. */
 function initDeps(project: string) {
-  const bundled = join(tmp(), 'skill')
-  mkdirSync(join(bundled, 'references'), { recursive: true })
-  writeFileSync(join(bundled, 'SKILL.md'), 'body')
-  writeFileSync(join(bundled, 'references', 'a.md'), 'ref')
   return {
     cliVersion: '2.0.0',
-    homeDir: tmp(),
     cwd: project,
-    bundledSkillDir: bundled,
     isGlobalInstall: () => false,
   }
 }
@@ -415,15 +406,10 @@ describe('pre-push scan hook', () => {
 // ── init / dry-run / doctor / uninstall ────────────────────────────────────
 
 describe('lumo init --scan-hooks', () => {
-  it('installs pre-commit and pre-push, records them, and keeps prepare-commit-msg', async () => {
+  it('installs pre-commit and pre-push and keeps prepare-commit-msg', async () => {
     const repo = plainRepo()
     const deps = initDeps(repo)
-    expect(
-      await init(
-        { scope: 'project', agent: 'claude-code', scanHooks: true },
-        deps
-      )
-    ).toBe(0)
+    expect(await init({ agent: 'claude-code', scanHooks: true }, deps)).toBe(0)
     expect(readFileSync(join(hooksDir(repo), 'pre-commit'), 'utf8')).toContain(
       PRE_COMMIT_SCAN_BLOCK
     )
@@ -431,34 +417,14 @@ describe('lumo init --scan-hooks', () => {
       PRE_PUSH_SCAN_BLOCK
     )
     expect(existsSync(join(hooksDir(repo), 'prepare-commit-msg'))).toBe(true)
-    const scanRecords = readRegistry()
-      .installs.filter(r => r.kind === 'scan-hook')
-      .map(r => `${r.path}:${r.agent}:${r.scope}`)
-      .sort()
-    expect(scanRecords).toEqual([
-      `${join(hooksDir(repo), 'pre-commit')}:git:project`,
-      `${join(hooksDir(repo), 'pre-push')}:git:project`,
-    ])
     expect(stdout).toContain('block only on a finding that would block DONE')
   })
 
   it('is opt-in: plain init writes no scan hook', async () => {
     const repo = plainRepo()
-    await init({ scope: 'project', agent: 'claude-code' }, initDeps(repo))
+    await init({ agent: 'claude-code' }, initDeps(repo))
     expect(existsSync(join(hooksDir(repo), 'pre-commit'))).toBe(false)
     expect(existsSync(join(hooksDir(repo), 'pre-push'))).toBe(false)
-    expect(readRegistry().installs.some(r => r.kind === 'scan-hook')).toBe(
-      false
-    )
-  })
-
-  it('exits 2 with --scope user and writes nothing', async () => {
-    const repo = plainRepo()
-    const deps = initDeps(repo)
-    expect(await init({ scope: 'user', scanHooks: true }, deps)).toBe(2)
-    expect(stderr).toContain('--scan-hooks installs git hooks into this repo')
-    expect(existsSync(join(deps.homeDir, '.claude'))).toBe(false)
-    expect(readRegistry().installs).toEqual([])
   })
 
   it('--dry-run previews both hooks and the apply command carries the flag', async () => {
@@ -466,7 +432,6 @@ describe('lumo init --scan-hooks', () => {
     expect(
       await init(
         {
-          scope: 'project',
           agent: 'claude-code',
           scanHooks: true,
           dryRun: true,
@@ -476,9 +441,7 @@ describe('lumo init --scan-hooks', () => {
     ).toBe(0)
     expect(stdout).toMatch(/would install \S+pre-commit — pre-commit scan hook/)
     expect(stdout).toMatch(/would install \S+pre-push — pre-push scan hook/)
-    expect(stdout).toContain(
-      'lumo init --scope project --agent claude-code --scan-hooks'
-    )
+    expect(stdout).toContain('lumo init --agent claude-code --scan-hooks')
     expect(existsSync(join(hooksDir(repo), 'pre-commit'))).toBe(false)
   })
 })
@@ -489,13 +452,9 @@ describe('doctor and uninstall cover the scan hooks', () => {
     const hook = join(hooksDir(repo), 'pre-commit')
     writeFileSync(hook, '#!/bin/sh\necho mine\n')
     chmodSync(hook, 0o755)
-    const deps = initDeps(repo)
-    await init(
-      { scope: 'project', agent: 'claude-code', scanHooks: true },
-      deps
-    )
+    await init({ agent: 'claude-code', scanHooks: true }, initDeps(repo))
     const doctorDeps = {
-      homeDir: deps.homeDir,
+      homeDir: tmp(),
       cwd: repo,
       cliVersion: '2.0.0',
       env: { PATH: '' },
@@ -508,9 +467,9 @@ describe('doctor and uninstall cover the scan hooks', () => {
     const rows = collectDoctor(doctorDeps).rows.filter(
       r => r.kind === 'scan-hook'
     )
-    expect(rows.map(r => [r.path, r.agent, r.state, r.group])).toEqual([
-      [join(hooksDir(repo), 'pre-commit'), 'git', 'up to date', 'machine'],
-      [join(hooksDir(repo), 'pre-push'), 'git', 'up to date', 'machine'],
+    expect(rows.map(r => [r.path, r.agent, r.state, r.tracked])).toEqual([
+      [join(hooksDir(repo), 'pre-commit'), 'git', 'up to date', false],
+      [join(hooksDir(repo), 'pre-push'), 'git', 'up to date', false],
     ])
     expect(rows[0]!.detail).toContain('skip once with --no-verify')
   })
@@ -523,28 +482,20 @@ describe('doctor and uninstall cover the scan hooks', () => {
     )
     const row = collectDoctor(doctorDeps).rows.find(r => r.path === hook)!
     expect(row.state).toBe('behind CLI 2.0.0')
-    expect(row.suggestion).toBe('lumo init --scope project --scan-hooks')
+    expect(row.suggestion).toBe('lumo init --scan-hooks')
   })
 
-  it('uninstall --agent git strips only the Lumo blocks and drops the records', async () => {
+  it('uninstall --agent git strips only the Lumo blocks', async () => {
     const { repo, hook, doctorDeps } = await installed()
-    const plan = planUninstall({ scope: 'project', agent: 'git' }, doctorDeps)
+    const plan = planUninstall({ agent: 'git' }, doctorDeps)
     expect(
       plan.actions
         .filter(a => a.action === 'strip-scan-hook')
         .map(a => a.row.path)
     ).toEqual([hook, join(hooksDir(repo), 'pre-push')])
-    expect(
-      await uninstall(
-        { scope: 'project', agent: 'git', confirm: true },
-        doctorDeps
-      )
-    ).toBe(0)
+    expect(await uninstall({ agent: 'git', confirm: true }, doctorDeps)).toBe(0)
     expect(readFileSync(hook, 'utf8')).toBe('#!/bin/sh\necho mine\n')
     expect(existsSync(join(hooksDir(repo), 'pre-push'))).toBe(false)
-    expect(readRegistry().installs.some(r => r.kind === 'scan-hook')).toBe(
-      false
-    )
     expect(
       collectDoctor(doctorDeps).rows.some(r => r.kind === 'scan-hook')
     ).toBe(false)
@@ -616,14 +567,8 @@ describe('init --scan-hooks under core.hooksPath', () => {
   it('prints the blocks but no "scan hooks block only…" confirmation', async () => {
     const repo = plainRepo()
     git(repo, 'config', 'core.hooksPath', '.husky/_')
-    await init(
-      { scope: 'project', agent: 'claude-code', scanHooks: true },
-      initDeps(repo)
-    )
+    await init({ agent: 'claude-code', scanHooks: true }, initDeps(repo))
     expect(stdout).toContain(PRE_COMMIT_SCAN_BLOCK)
     expect(stdout).not.toContain('Scan hooks block only')
-    expect(readRegistry().installs.some(r => r.kind === 'scan-hook')).toBe(
-      false
-    )
   })
 })

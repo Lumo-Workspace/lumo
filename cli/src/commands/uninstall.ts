@@ -1,4 +1,3 @@
-import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -9,29 +8,19 @@ import { scanHookFor } from '../lib/scan-hook-template'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
 import {
-  isLumoSkillSource,
-  isSkillsLumoPath,
-  repoRoot,
-} from '../lib/install-locations'
-import {
-  readRegistryChecked,
-  recordAgent,
-  removeInstall,
-  type InstallKind,
-} from '../lib/install-registry'
-import {
   collectDoctor,
   type DoctorDeps,
   type DoctorKind,
   type DoctorRow,
 } from './doctor'
 
-export type UninstallScope = 'user' | 'project' | 'all'
-
+/**
+ * LUM-1292: `lumo uninstall` removes what `lumo init` wrote into the current
+ * git repo (hook entries, the Codex rule, the git hook blocks); `--purge`
+ * also empties the Lumo config dir (credentials, caches).
+ */
 export interface UninstallOptions {
-  scope?: string | undefined
   agent?: string | undefined
-  force?: boolean | undefined
   purge?: boolean | undefined
   confirm?: boolean | undefined
 }
@@ -42,7 +31,6 @@ export interface UninstallDeps extends DoctorDeps {
 }
 
 type ActionKind =
-  | 'remove-skill'
   | 'strip-settings'
   | 'strip-git-hook'
   | 'strip-codex'
@@ -54,21 +42,10 @@ export interface PlannedAction {
   action: ActionKind
 }
 
-export interface SkippedRow {
-  row: DoctorRow
-  reason: string
-}
-
-export interface StaleRecord {
-  kind: InstallKind
-  path: string
-}
-
 export interface UninstallPlan {
+  /** The git repo root, or null outside a repo. */
+  repo: string | null
   actions: PlannedAction[]
-  skipped: SkippedRow[]
-  staleRecords: StaleRecord[]
-  registryCorrupt: boolean
 }
 
 const NPM_RM = 'npm rm -g @lumoai/cli'
@@ -77,28 +54,11 @@ const CODEX_NOTE =
   'Codex trust entries left in ~/.codex/config.toml are harmless and are not touched'
 
 const ACTION_FOR_KIND: Record<DoctorKind, ActionKind> = {
-  skill: 'remove-skill',
   'claude-settings': 'strip-settings',
   'git-hook': 'strip-git-hook',
   'codex-hooks': 'strip-codex',
   'codex-rules': 'remove-codex-rules',
   'scan-hook': 'strip-scan-hook',
-}
-
-function inRepo(root: string | null, p: string): boolean {
-  if (!root) return false
-  const rel = path.relative(root, p)
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
-}
-
-function inScope(
-  scope: UninstallScope,
-  scopeOf: 'user' | 'project',
-  otherRepo: boolean
-): boolean {
-  if (scope === 'all') return true
-  if (scope === 'user') return scopeOf === 'user'
-  return scopeOf === 'project' && !otherRepo
 }
 
 /**
@@ -109,80 +69,33 @@ export function planUninstall(
   opts: UninstallOptions,
   deps: UninstallDeps = {}
 ): UninstallPlan {
-  const scope = (opts.scope ?? 'all') as UninstallScope
-  const cwd = deps.cwd ?? process.cwd()
   const report = collectDoctor(deps)
-  const { registry, corrupt } = readRegistryChecked()
-  const actions: PlannedAction[] = []
-  const skipped: SkippedRow[] = []
-
-  for (const row of report.rows) {
-    if (!inScope(scope, row.scope, row.group === 'other-repos')) continue
-    if (opts.agent && row.agent !== opts.agent) continue
-    if (row.kind === 'skill' && isLumoSkillSource(row.path)) {
-      skipped.push({
-        row,
-        reason:
-          'Lumo skill source (not an install) — never removed, even with --force',
-      })
-      continue
-    }
-    if (row.kind === 'skill' && !isSkillsLumoPath(row.path)) {
-      skipped.push({
-        row,
-        reason:
-          'not a skills/lumo directory — never removed, even with --force',
-      })
-      continue
-    }
-    if (row.kind === 'skill' && row.state === 'modified' && !opts.force) {
-      skipped.push({
-        row,
-        reason: 'edited locally — skipped (pass --force to remove it anyway)',
-      })
-      continue
-    }
-    actions.push({ row, action: ACTION_FOR_KIND[row.kind] })
-  }
-
-  const root = repoRoot(cwd)
-  const staleRecords: StaleRecord[] = []
-  for (const rec of registry.installs) {
-    if (fs.existsSync(rec.path)) continue
-    if (!inScope(scope, rec.scope, !inRepo(root, rec.path))) continue
-    if (opts.agent && recordAgent(rec) !== opts.agent) continue
-    staleRecords.push({ kind: rec.kind, path: rec.path })
-  }
-  return { actions, skipped, staleRecords, registryCorrupt: corrupt }
+  const actions = report.rows
+    .filter(row => !opts.agent || row.agent === opts.agent)
+    .map(row => ({ row, action: ACTION_FOR_KIND[row.kind] }))
+  return { repo: report.repo, actions }
 }
 
 function describeAction(a: PlannedAction): string {
   const { row } = a
-  const tag = row.group === 'other-repos' ? ' [other repo]' : ''
   const team = row.tracked ? ` ⚠ ${COMMITTED_NOTE}` : ''
-  const ver = row.version ? ` v${row.version}` : ''
   switch (a.action) {
-    case 'remove-skill':
-      return `Delete skill dir ${row.path} (${row.agent}${ver})${tag}${team}`
     case 'strip-settings':
-      return `Remove the Lumo hook entries from ${row.path}; other settings and hooks are kept${tag}${team}`
+      return `Remove the Lumo hook entries from ${row.path}; other settings and hooks are kept${team}`
     case 'strip-git-hook':
     case 'strip-scan-hook':
-      return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${tag}${team}`
+      return `Remove the Lumo block from ${row.path}; the file is deleted only if nothing else is left${team}`
     case 'strip-codex':
-      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${tag}${team}`
+      return `Remove the \`lumo hook\` entries from ${row.path}; the file and other hooks are kept${team}`
     case 'remove-codex-rules':
-      return `Delete the Lumo Codex rule ${row.path} (lets \`lumo\` run outside Codex's sandbox)${tag}${team}`
+      return `Delete the Lumo Codex rule ${row.path} (lets \`lumo\` run outside Codex's sandbox)${team}`
   }
 }
 
 function describePlan(plan: UninstallPlan, opts: UninstallOptions): string[] {
   const lines = plan.actions.map(describeAction)
-  for (const s of plan.skipped) lines.push(`Skip ${s.row.path}: ${s.reason}`)
-  for (const s of plan.staleRecords)
-    lines.push(
-      `Drop stale registry record for ${s.path} (path no longer exists)`
-    )
+  if (plan.actions.length === 0)
+    lines.push(`No Lumo hooks in ${plan.repo ?? 'this directory'}`)
   if (plan.actions.some(a => a.action === 'strip-codex'))
     lines.push(`Note: ${CODEX_NOTE}`)
   if (
@@ -193,15 +106,9 @@ function describePlan(plan: UninstallPlan, opts: UninstallOptions): string[] {
     lines.push(
       'Note: settings/hooks JSON files are rewritten with normalized 2-space formatting (content other than Lumo entries is kept)'
     )
-  if (plan.registryCorrupt)
-    lines.push(
-      opts.purge
-        ? 'installs.json is unreadable; --purge deletes it with the rest of the config directory'
-        : 'installs.json is unreadable; uninstall works from what it detects and will not rewrite that file (use --purge to delete it)'
-    )
   if (opts.purge)
     lines.push(
-      `--purge: delete everything inside ${configDir()} (credentials, caches, install registry); you will need to log in again`
+      `--purge: delete everything inside ${configDir()} (credentials, caches); you will need to log in again`
     )
   lines.push(
     'Nothing is committed; git-tracked changes are left for you to review and commit'
@@ -229,9 +136,6 @@ interface Applied {
 function applyAction(a: PlannedAction): Applied {
   const { row } = a
   switch (a.action) {
-    case 'remove-skill':
-      fs.rmSync(row.path, { recursive: true, force: true })
-      return { line: `Deleted skill dir ${row.path}`, changed: true }
     case 'strip-settings': {
       const { result, removed } = removeLumoHooks(
         readJsonObject(row.path) as never
@@ -307,15 +211,6 @@ function applyAction(a: PlannedAction): Applied {
   }
 }
 
-const REGISTRY_KIND: Record<ActionKind, InstallKind | null> = {
-  'remove-skill': 'skill',
-  'strip-settings': 'claude-settings',
-  'strip-git-hook': 'git-hook',
-  'strip-codex': 'codex-hooks',
-  'remove-codex-rules': 'codex-rules',
-  'strip-scan-hook': 'scan-hook',
-}
-
 /** Empty configDir() without removing the directory itself where possible. */
 function purgeConfigDir(): string {
   const dir = path.resolve(configDir())
@@ -337,20 +232,13 @@ export async function uninstall(
   opts: UninstallOptions = {},
   deps: UninstallDeps = {}
 ): Promise<number> {
-  const scope = opts.scope ?? 'all'
-  if (!['user', 'project', 'all'].includes(scope)) {
-    process.stderr.write(
-      `Error: --scope must be user, project or all (got "${scope}")\n`
-    )
-    return EXIT_USAGE
-  }
-  if (opts.purge && scope !== 'all') {
-    process.stderr.write(
-      `Error: --purge empties the whole Lumo config directory, so it cannot be combined with --scope ${scope}; use --scope all (the default).\n`
-    )
-    return EXIT_USAGE
-  }
   const plan = planUninstall(opts, deps)
+  if (!plan.repo && !opts.purge) {
+    process.stderr.write(
+      'Error: lumo uninstall removes the Lumo hooks of the current repo — run it inside a git repository (or pass --purge to only empty the Lumo config dir).\n'
+    )
+    return 1
+  }
 
   if (!isConfirmed(opts)) {
     return emitConfirmation({
@@ -362,52 +250,26 @@ export async function uninstall(
 
   const out: string[] = []
   let failures = 0
-  const fail = (what: string, err: unknown): void => {
-    failures++
-    out.push(`✗ ${what}: ${err instanceof Error ? err.message : String(err)}`)
-  }
-  // A corrupt installs.json is never rewritten — --purge deletes it instead.
-  const touchRegistry = !plan.registryCorrupt && !opts.purge
-
   for (const a of plan.actions) {
     try {
       const applied = applyAction(a)
-      if (!applied.changed) {
-        out.push(`- ${applied.line}`)
-        continue
-      }
-      out.push(`✓ ${applied.line}`)
+      out.push(`${applied.changed ? '✓' : '-'} ${applied.line}`)
     } catch (err) {
-      fail(a.row.path, err)
-      continue
-    }
-    const kind = REGISTRY_KIND[a.action]
-    if (touchRegistry && kind) {
-      try {
-        removeInstall(kind, a.row.path)
-      } catch (err) {
-        fail(`registry record for ${a.row.path}`, err)
-      }
+      failures++
+      out.push(
+        `✗ ${a.row.path}: ${err instanceof Error ? err.message : String(err)}`
+      )
     }
   }
-  for (const s of plan.staleRecords) {
-    if (!touchRegistry) continue
-    try {
-      removeInstall(s.kind, s.path)
-      out.push(`✓ Dropped stale registry record for ${s.path}`)
-    } catch (err) {
-      fail(`registry record for ${s.path}`, err)
-    }
-  }
-  for (const s of plan.skipped) out.push(`- Skipped ${s.row.path}: ${s.reason}`)
   if (opts.purge) {
     try {
       out.push(`✓ ${purgeConfigDir()}`)
     } catch (err) {
-      fail('purge', err)
+      failures++
+      out.push(`✗ purge: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
-  if (plan.actions.length === 0 && !opts.purge && failures === 0)
+  if (plan.actions.length === 0 && !opts.purge)
     out.push('Nothing to uninstall.')
   if (plan.actions.some(a => a.action === 'strip-codex'))
     out.push(`Note: ${CODEX_NOTE}.`)

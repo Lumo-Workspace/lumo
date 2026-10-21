@@ -67,7 +67,7 @@ prefix_rule(
 prefix_rule(
     pattern = ["lumo", "doctor"],
     decision = "prompt",
-    justification = "not a plain Lumo API call (local-only diagnosis, no Lumo API call (runs fine sandboxed))",
+    justification = "not a plain Lumo API call (reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable))",
     match = ["lumo doctor"],
 )
 prefix_rule(
@@ -91,7 +91,7 @@ prefix_rule(
 prefix_rule(
     pattern = ["lumo", "init"],
     decision = "prompt",
-    justification = "changes local files or starts local processes: writes skill, hook and rules files",
+    justification = "changes local files or starts local processes: writes hook and rules files in this repo",
     match = ["lumo init"],
 )
 prefix_rule(
@@ -135,18 +135,6 @@ prefix_rule(
     decision = "prompt",
     justification = "changes local files or starts local processes: can create a git worktree (--worktree / autoWorktree) and sync local memory",
     match = ["lumo session attach"],
-)
-prefix_rule(
-    pattern = ["lumo", "skill", "status"],
-    decision = "prompt",
-    justification = "not a plain Lumo API call (local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed))",
-    match = ["lumo skill status"],
-)
-prefix_rule(
-    pattern = ["lumo", "skill", "update"],
-    decision = "prompt",
-    justification = "changes local files or starts local processes: writes skill files",
-    match = ["lumo skill update"],
 )
 prefix_rule(
     pattern = ["lumo", "task", "artifact", "add"],
@@ -193,7 +181,7 @@ prefix_rule(
 prefix_rule(
     pattern = ["lumo", "uninstall"],
     decision = "prompt",
-    justification = "changes local files or starts local processes: deletes skill, hook and rules files",
+    justification = "changes local files or starts local processes: deletes hook and rules entries in this repo",
     match = ["lumo uninstall"],
 )
 prefix_rule(

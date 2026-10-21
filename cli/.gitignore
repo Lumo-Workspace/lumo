@@ -1,10 +1,8 @@
 # Build output
 dist/
 
-# Generated at build time; source of truth lives in
-# skill/ (SKILL.md + references/) and package.json. Shipped in
-# the npm tarball via the `files` field but not tracked in git to avoid drift.
-# assets/ is the pre-LUM-1049 skill location, kept ignored for old checkouts.
+# Build outputs of older CLIs (assets/ before LUM-1049; skills/ and
+# plugin.json before LUM-1292), kept ignored for old checkouts.
 assets/
 /skills/
 /plugin.json

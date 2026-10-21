@@ -1,10 +1,9 @@
 /**
  * @jest-environment node
  *
- * LUM-1233 follow-up (user ruling 2026-10-19): `lumo init` without `--scope`
- * no longer asks user-or-project on a TTY — it installs for the repo
- * (`--scope project`) and says so in one line. Run through `script`, so the
- * CLI really sees a terminal on stdin and stdout.
+ * LUM-1233 follow-up (user ruling 2026-10-19): `lumo init` never asks
+ * anything on a TTY; since LUM-1292 it always sets up the current repo. Run
+ * through `script`, so the CLI really sees a terminal on stdin and stdout.
  */
 import { spawnSync } from 'child_process'
 import { mkdtempSync, readdirSync, writeFileSync } from 'fs'
@@ -35,8 +34,7 @@ function underTty(
   writeFileSync(
     driver,
     `import { init } from ${JSON.stringify(join(ROOT, 'cli/src/commands/init.ts'))}\n` +
-      // The skill source stands in for the bundled asset of a built CLI.
-      `init(${JSON.stringify(options)}, { bundledSkillDir: ${JSON.stringify(join(ROOT, 'cli/skill'))} })` +
+      `init(${JSON.stringify(options)})` +
       `.then(code => process.exit(code ?? 0))\n`
   )
   const argv = [TSX, driver]
@@ -62,8 +60,8 @@ function underTty(
   return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
 }
 
-;(hasScript ? describe : describe.skip)('init on a TTY without --scope', () => {
-  it('defaults to project scope, asks nothing and writes nothing on --dry-run', () => {
+;(hasScript ? describe : describe.skip)('init on a TTY', () => {
+  it('sets up the current repo, asks nothing and writes nothing on --dry-run', () => {
     const repo = mkdtempSync(join(tmpdir(), 'lumo-init-tty-repo-'))
     const home = mkdtempSync(join(tmpdir(), 'lumo-init-tty-home-'))
     spawnSync('git', ['init', '-q'], { cwd: repo })
@@ -74,10 +72,8 @@ function underTty(
       LUMO_NO_UPDATE_CHECK: '1',
     }
     const r = underTty({ agent: 'claude-code', dryRun: true }, repo, env)
-    expect(r.out).toContain(
-      'No --scope given: installing for this repo (--scope project)'
-    )
-    expect(r.out).toContain('project scope, nothing is written')
+    expect(r.out).toContain(', nothing is written')
+    expect(r.out).not.toContain('--scope')
     expect(r.out).not.toMatch(/\[u\/P\]|Install Lumo for \[u\]ser/)
     expect(r.status).toBe(0)
     expect(readdirSync(repo).filter(f => f !== '.git')).toEqual([])

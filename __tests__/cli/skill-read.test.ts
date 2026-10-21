@@ -13,7 +13,7 @@ import {
 } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { shouldAutoSync, shouldCheckForUpdates } from '@/cli/src/lib/auto-sync'
+import { shouldCheckForUpdates } from '@/cli/src/lib/update-gate'
 import { skillRead } from '@/cli/src/commands/skill-read'
 import {
   readSkillFile,
@@ -180,15 +180,13 @@ describe('lumo skill read — real CLI process', () => {
 
 describe('startup gating for skill read', () => {
   const argv = (...a: string[]) => ['node', 'lumo', ...a]
-  it('skips the update check / background worker and first-run sync', () => {
+  it('skips the update check / background worker', () => {
     expect(shouldCheckForUpdates(argv('skill', 'read'))).toBe(false)
     expect(
       shouldCheckForUpdates(argv('skill', 'read', 'references/x.md'))
     ).toBe(false)
-    expect(shouldAutoSync(argv('skill', 'read'))).toBe(false)
   })
-  it('still runs them for other commands', () => {
-    expect(shouldCheckForUpdates(argv('skill', 'status'))).toBe(true)
-    expect(shouldAutoSync(argv('status'))).toBe(true)
+  it('still runs it for other commands', () => {
+    expect(shouldCheckForUpdates(argv('status'))).toBe(true)
   })
 })

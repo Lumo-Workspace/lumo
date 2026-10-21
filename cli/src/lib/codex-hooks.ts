@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { CODEX_HOOK_EVENTS, isLumoHookCommand } from './hooks-template'
-import { repoRoot } from './install-locations'
+import { repoRoot } from './repo-root'
 
 /**
  * LUM-1051: Codex runs a hook only after the user trusts it — per entry, in

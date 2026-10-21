@@ -173,7 +173,6 @@ import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
-import { skillStatus, skillUpdate } from './commands/skill'
 import { skillRead } from './commands/skill-read'
 import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
@@ -190,11 +189,7 @@ import { EXIT_ERROR, EXIT_USAGE } from './lib/exit-codes'
 import { codexFlagOrderError } from './lib/codex-flag-order'
 import { attachHelpSections } from './lib/help-text'
 import { describeThrownError } from './lib/errors'
-import {
-  maybeAutoSync,
-  shouldAutoSync,
-  shouldCheckForUpdates,
-} from './lib/auto-sync'
+import { shouldCheckForUpdates } from './lib/update-gate'
 import {
   feedbackCreate,
   feedbackList,
@@ -236,11 +231,6 @@ if (isUpdateCheckWorker) {
     printUpdateNoticeIfAny(pkg.name, pkg.version)
     maybeRefreshInBackground(pkg.name)
   }
-  // First run of a new version: refresh user-scope installs. Silent for
-  // `lumo hook …` (its output is consumed by the agent). Skipped entirely for
-  // read-only `doctor` and `uninstall`. Never throws.
-  if (shouldAutoSync(process.argv))
-    maybeAutoSync(pkg.version, { quiet: process.argv[2] === 'hook' })
 }
 
 // LUM-1232 batch E: one error shape on stderr (`Error:` / `Usage:` / `Hint:`),
@@ -509,21 +499,13 @@ program
 function registerInit(): void {
   program
     .command('init')
-    .codex(writesLocal('writes skill, hook and rules files'))
+    .codex(writesLocal('writes hook and rules files in this repo'))
     .description(
-      'Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.'
-    )
-    .option(
-      '--scope <scope>',
-      'user | project (case-insensitive) — user: ~/.claude, ~/.agents + ~/.codex, for every project of this user; project: ./.claude, ./.agents + ./.codex, this repo only'
-    )
-    .option(
-      '--force',
-      'Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write'
+      'Set up Lumo in this git repo: Claude Code / Codex hooks, a Codex sandbox rule and the git hook. Writes only inside the repo; re-run to refresh. --dry-run previews, --agent sets up one agent.'
     )
     .option(
       '--agent <token>',
-      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Default: claude-code and codex.'
+      'Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf) — for a team that uses one agent. Default: claude-code and codex.'
     )
     .option(
       '--dry-run',
@@ -539,8 +521,6 @@ function registerInit(): void {
       wrap(options =>
         init(
           options as {
-            scope?: string
-            force?: boolean
             agent?: string
             upgrade?: boolean
             dryRun?: boolean
@@ -555,9 +535,7 @@ registerInit()
 
 const skill = program
   .command('skill')
-  .description(
-    'Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook'
-  )
+  .description('Read the Lumo skill guide shipped with this CLI')
 
 skill
   .command('read [path]')
@@ -570,90 +548,30 @@ skill
   )
   .action(wrap(p => skillRead(p as string | undefined)))
 
-skill
-  .command('status')
-  .codex(
-    sandboxed(
-      'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)'
-    )
-  )
-  .description(
-    'Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.'
-  )
-  .option(
-    '--json',
-    'Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }'
-  )
-  .action(wrap(options => skillStatus(options as { json?: boolean })))
-
-skill
-  .command('update')
-  .codex(writesLocal('writes skill files'))
-  .description(
-    'Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.'
-  )
-  .option(
-    '--scope <scope>',
-    "user | project (case-insensitive) — user: only ~/.claude, ~/.agents copies; project: only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
-  )
-  .option(
-    '--agent <token>',
-    'Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)'
-  )
-  .option(
-    '--dry-run',
-    'List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing'
-  )
-  .option(
-    '--force',
-    'Also overwrite locally modified copies (discards those edits); still never downgrades'
-  )
-  .action(
-    wrap(options =>
-      skillUpdate(
-        options as {
-          scope?: string
-          agent?: string
-          dryRun?: boolean
-          force?: boolean
-        }
-      )
-    )
-  )
-
 program
   .command('doctor')
   .codex(
-    sandboxed('local-only diagnosis, no Lumo API call (runs fine sandboxed)')
+    sandboxed(
+      "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)"
+    )
   )
   .description(
-    'Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.'
+    "Read-only report of this repo's Lumo install (Claude Code / Codex hooks, Codex rule, git hooks) with the command that fixes each, plus login and whether the Lumo API answers. Always exits 0."
   )
   .option('--json', 'Machine-readable output')
   .action(wrap(options => doctor(options as { json?: boolean })))
 
 program
   .command('uninstall')
-  .codex(writesLocal('deletes skill, hook and rules files'))
+  .codex(writesLocal('deletes hook and rules entries in this repo'))
   .description(
-    'Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.'
-  )
-  .option(
-    '--scope <scope>',
-    'user (this machine), project (the current repo) or all (also recorded installs in other repos). Default: all'
+    'Remove what `lumo init` wrote into this repo: hook entries, the Codex rule and the git hook blocks. Without --confirm exits 4 listing every path; never commits.'
   )
   .option(
     '--agent <token>',
-    'Only installs of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git'
+    'Only entries of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git'
   )
-  .option(
-    '--force',
-    'Also delete skill copies that were edited locally (discards those edits)'
-  )
-  .option(
-    '--purge',
-    'Also delete everything in ~/.lumo (credentials, caches, install registry)'
-  )
+  .option('--purge', 'Also delete everything in ~/.lumo (credentials, caches)')
   .option(
     '--confirm',
     'Apply the removal after the user has approved the envelope'
@@ -662,9 +580,7 @@ program
     wrap(options =>
       uninstall(
         options as {
-          scope?: string
           agent?: string
-          force?: boolean
           purge?: boolean
           confirm?: boolean
         }

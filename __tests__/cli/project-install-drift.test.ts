@@ -20,7 +20,6 @@ import {
   projectClaudeSettingsTarget,
   projectCodexRulesTarget,
 } from '@/cli/src/lib/install-plan'
-import { writeMarker } from '@/cli/src/lib/install-registry'
 import {
   alreadyNoted,
   markNoted,
@@ -28,7 +27,6 @@ import {
   projectDriftOnce,
   projectInstallDrift,
 } from '@/cli/src/lib/project-install-drift'
-import { hashSkillDir } from '@/cli/src/lib/skill-hash'
 
 const CLI = '1.120.0'
 let tmp: string
@@ -55,19 +53,12 @@ function write(rel: string, content: string): string {
   return file
 }
 
-function skill(agentDir: string, version: string): string {
-  const dir = path.join(repo, agentDir, 'skills', 'lumo')
+/** A committed skill copy (pre-LUM-1292): never a drift item any more. */
+function skill(agentDir: string, version: string): void {
   write(
     path.join(agentDir, 'skills', 'lumo', 'SKILL.md'),
     `# lumo ${version}\n`
   )
-  writeMarker(dir, {
-    version,
-    hash: hashSkillDir(dir),
-    agent: agentDir === '.agents' ? 'codex' : 'claude-code',
-    installedAt: '2026-10-13T00:00:00.000Z',
-  })
-  return dir
 }
 
 const json = (v: unknown): string => JSON.stringify(v, null, 2) + '\n'
@@ -80,7 +71,7 @@ function olderHooks(
   return json(buildLumoHookFragment(agent, events.slice(0, -1)))
 }
 
-/** A repo whose four committed installs are all current. */
+/** A repo whose committed installs are all current (plus an old skill copy). */
 function currentInstall(): void {
   git('init', '-q')
   skill('.agents', CLI)
@@ -96,7 +87,6 @@ const kinds = () =>
   projectInstallDrift({ cwd: repo, cliVersion: CLI }).map(i => [
     i.kind,
     i.relPath,
-    i.version,
   ])
 
 describe('projectInstallDrift', () => {
@@ -106,11 +96,12 @@ describe('projectInstallDrift', () => {
     expect(kinds()).toEqual([])
   })
 
-  it('a committed skill copy behind the CLI is reported with its version', () => {
+  it('a committed skill copy is never reported (no skill install any more)', () => {
     currentInstall()
     skill('.agents', '1.102.0')
+    skill('.claude', '1.0.0')
     git('add', '-A')
-    expect(kinds()).toEqual([['skill', '.agents/skills/lumo', '1.102.0']])
+    expect(kinds()).toEqual([])
   })
 
   it('committed hooks and rules behind the CLI are reported', () => {
@@ -120,9 +111,9 @@ describe('projectInstallDrift', () => {
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
     git('add', '-A')
     expect(kinds()).toEqual([
-      ['claude-settings', '.claude/settings.json', null],
-      ['codex-hooks', '.codex/hooks.json', null],
-      ['codex-rules', '.codex/rules/lumo.rules', null],
+      ['claude-settings', '.claude/settings.json'],
+      ['codex-hooks', '.codex/hooks.json'],
+      ['codex-rules', '.codex/rules/lumo.rules'],
     ])
   })
 
@@ -141,9 +132,7 @@ describe('projectInstallDrift', () => {
     ]
     write('.claude/settings.json', json(settings))
     git('add', '-A')
-    expect(kinds()).toEqual([
-      ['claude-settings', '.claude/settings.json', null],
-    ])
+    expect(kinds()).toEqual([['claude-settings', '.claude/settings.json']])
   })
 
   it('a settings file holding only the retired entries is still a target (LUM-1235)', () => {
@@ -219,15 +208,6 @@ describe('projectInstallDrift', () => {
     expect(kinds()).toEqual([])
   })
 
-  it('newer and modified copies are not reported (the fix would skip them)', () => {
-    git('init', '-q')
-    skill('.agents', '9.0.0')
-    const claude = skill('.claude', '1.0.0')
-    fs.appendFileSync(path.join(claude, 'SKILL.md'), 'edited\n')
-    git('add', '-A')
-    expect(kinds()).toEqual([])
-  })
-
   it('unreadable files are skipped, never thrown', () => {
     currentInstall()
     write('.codex/hooks.json', '{ "lumo hook x --agent codex" ')
@@ -240,15 +220,13 @@ describe('projectInstallDrift', () => {
 
 describe('projectDriftNote', () => {
   const item = (
-    kind: 'skill' | 'codex-rules' | 'claude-settings',
+    kind: 'codex-rules' | 'claude-settings',
     relPath: string,
-    version: string | null = null,
     agent = kind === 'claude-settings' ? 'claude-code' : 'codex'
   ) => ({
     kind,
     path: path.join(repo, relPath),
     relPath,
-    version,
     agent,
   })
 
@@ -256,29 +234,21 @@ describe('projectDriftNote', () => {
     expect(projectDriftNote([], CLI)).toBeNull()
   })
 
-  it('skill only: `lumo skill update --scope project` and the PR step', () => {
-    expect(
-      projectDriftNote([item('skill', '.agents/skills/lumo', '1.102.0')], CLI)
-    ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0 — run `lumo skill update --scope project`, then commit the changes in a PR'
-    )
-  })
-
-  it('hooks / rules only: re-run `lumo init --scope project` for their agent, with its dry run', () => {
+  it('one agent: re-run `lumo init --agent <token>`, with its dry run', () => {
     expect(
       projectDriftNote([item('codex-rules', '.codex/rules/lumo.rules')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR (an outdated rules file may let newer lumo commands run outside the sandbox)'
+      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --agent codex` (preview with `--dry-run`), then commit the changes in a PR (an outdated rules file may let newer lumo commands run outside the sandbox)'
     )
     expect(
       projectDriftNote(
-        [item('claude-settings', '.claude/settings.json', null, 'cursor')],
+        [item('claude-settings', '.claude/settings.json', 'cursor')],
         CLI
       )
-    ).toContain('run `lumo init --scope project --agent cursor` (preview with')
+    ).toContain('run `lumo init --agent cursor` (preview with')
   })
 
-  it('hooks of two agents: plain `lumo init --scope project`', () => {
+  it('two agents: plain `lumo init`, never --scope / skill update', () => {
     const note = projectDriftNote(
       [
         item('claude-settings', '.claude/settings.json'),
@@ -286,25 +256,8 @@ describe('projectDriftNote', () => {
       ],
       CLI
     )
-    expect(note).toContain(
-      'run `lumo init --scope project` (preview with `--dry-run`)'
-    )
-    expect(note).not.toContain('--upgrade')
-  })
-
-  it('both, with the session copy among them: both commands and the restart', () => {
-    expect(
-      projectDriftNote(
-        [
-          item('skill', '.agents/skills/lumo', '1.102.0'),
-          item('codex-rules', '.codex/rules/lumo.rules'),
-        ],
-        CLI,
-        { restart: true }
-      )
-    ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --scope project` and `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session (an outdated rules file may let newer lumo commands run outside the sandbox)'
-    )
+    expect(note).toContain('run `lumo init` (preview with `--dry-run`)')
+    expect(note).not.toMatch(/--scope|skill update|--upgrade/)
   })
 })
 

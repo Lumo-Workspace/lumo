@@ -76,7 +76,15 @@ const DEVIATIONS = {
     // LUM-1257: its --deps calls api.osv.dev, so inside Codex that needs network.
     'security scan':
       'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+    // LUM-1292: init / uninstall touch only the repo's hooks/rules; doctor now also
+    // probes the Lumo API (login + connectivity).
+    init: 'writes hook and rules files in this repo',
+    uninstall: 'deletes hook and rules entries in this repo',
+    doctor:
+      "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
   } as Record<string, string>,
+  // LUM-1292: `skill status` / `skill update` were deleted.
+  sandboxedRemoved: ['skill status', 'skill update'],
 }
 
 /**
@@ -113,10 +121,12 @@ describe('generated lists vs the last hand-kept ones', () => {
       ...renameKeys(hand.fileReading),
       ...DEVIATIONS.fileReadingAdded,
     })
-    expect(CODEX_SANDBOXED_COMMANDS).toEqual({
+    const sandboxed: Record<string, string> = {
       ...renameKeys(hand.sandboxed),
       ...DEVIATIONS.sandboxedAdded,
-    })
+    }
+    for (const p of DEVIATIONS.sandboxedRemoved) delete sandboxed[p]
+    expect(CODEX_SANDBOXED_COMMANDS).toEqual(sandboxed)
   })
 
   it('the rules file prompts exactly the non-server-only commands (LUM-1292)', () => {

@@ -30,17 +30,15 @@
   "files": [
     "dist",
     "skill",
-    "skills",
-    "plugin.json",
     "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/cli/src/index.js && node ./scripts/bundle-assets.js",
+    "build": "tsc && chmod +x dist/cli/src/index.js",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist assets skills plugin.json",
+    "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {

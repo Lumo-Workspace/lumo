@@ -10,18 +10,15 @@ import {
   projectClaudeSettingsTarget,
   projectCodexRulesTarget,
 } from './install-plan'
-import { isLumoSkillSource, repoRoot } from './install-locations'
-import { isPathGitTracked } from './install-state'
-import { skillCopyStatus } from './skill-copies'
+import { isPathGitTracked, repoRoot } from './repo-root'
 
 /**
  * LUM-1108 — the committed (git-tracked) Lumo install of the current repo
- * that is behind the running CLI: project skill copies, `.claude/settings.json`
- * hooks, `.codex/hooks.json` and `.codex/rules/lumo.rules`. Auto-sync never
- * touches these (they are shared with the team through git), so the
+ * that is behind the running CLI: `.claude/settings.json` hooks,
+ * `.codex/hooks.json` and `.codex/rules/lumo.rules`. Nothing rewrites these
+ * on its own (they are shared with the team through git), so the
  * SessionStart status line names them once per session with the fix command.
- * The decisions are the ones `lumo skill update` / `lumo init --scope project`
- * act on. Purely local and read-only; every entry point swallows its failures.
+ * The decisions are the ones `lumo init` acts on. Purely local and read-only; every entry point swallows its failures.
  *
  * One exception to "committed only": an uncommitted `.claude/settings.json`
  * that still holds Lumo entries for events the CLI no longer registers (an old
@@ -29,11 +26,7 @@ import { skillCopyStatus } from './skill-copies'
  * too — nothing else would point at it.
  */
 
-export type ProjectDriftKind =
-  | 'skill'
-  | 'claude-settings'
-  | 'codex-hooks'
-  | 'codex-rules'
+export type ProjectDriftKind = 'claude-settings' | 'codex-hooks' | 'codex-rules'
 
 export interface ProjectDriftItem {
   kind: ProjectDriftKind
@@ -41,8 +34,6 @@ export interface ProjectDriftItem {
   path: string
   /** Path relative to the repo root, for the reminder. */
   relPath: string
-  /** Skill copies: the managed version that is behind. */
-  version: string | null
   /** Agent token the install belongs to (the `--agent` of its refresh). */
   agent: string
 }
@@ -67,38 +58,8 @@ export function projectInstallDrift(opts: {
   const root = safe(() => repoRoot(opts.cwd), null)
   if (!root) return []
   const items: ProjectDriftItem[] = []
-  const add = (
-    kind: ProjectDriftKind,
-    file: string,
-    agent: string,
-    version: string | null = null
-  ): void => {
-    items.push({
-      kind,
-      path: file,
-      relPath: path.relative(root, file),
-      version,
-      agent,
-    })
-  }
-
-  for (const [dir, agent] of [
-    ['.claude', 'claude-code'],
-    ['.agents', 'codex'],
-  ] as const) {
-    const skill = path.join(root, dir, 'skills', 'lumo')
-    if (!fs.existsSync(skill) || safe(() => isLumoSkillSource(skill), true))
-      continue
-    const copy = safe(
-      () =>
-        skillCopyStatus(
-          { path: skill, scope: 'project', agent },
-          opts.cliVersion
-        ),
-      null
-    )
-    if (copy?.state === 'behind' && copy.gitTracked)
-      add('skill', skill, agent, copy.version)
+  const add = (kind: ProjectDriftKind, file: string, agent: string): void => {
+    items.push({ kind, path: file, relPath: path.relative(root, file), agent })
   }
 
   const behindAndTracked = (file: string, behind: () => boolean): boolean =>
@@ -144,36 +105,22 @@ export function projectInstallDrift(opts: {
 }
 
 /**
- * One status-line segment naming what is behind and how to fix it: skill
- * copies → `lumo skill update --scope project` (never touches hooks, so Codex keeps
- * its trust); hooks / rules → re-run `lumo init --scope project` (narrowed with
- * `--agent` when they all belong to one agent), previewed with `--dry-run`.
- * Either way the result is uncommitted: open a PR. `restart` adds the
- * restart step when the session's own skill copy is among them.
+ * One status-line segment naming what is behind and how to fix it: re-run
+ * `lumo init` (narrowed with `--agent` when everything belongs to one agent),
+ * previewed with `--dry-run`. The result is uncommitted: open a PR.
  */
 export function projectDriftNote(
   items: readonly ProjectDriftItem[],
-  cliVersion: string,
-  opts: { restart?: boolean } = {}
+  cliVersion: string
 ): string | null {
   if (items.length === 0) return null
-  const what = items
-    .map(i => (i.version ? `${i.relPath} ${i.version}` : i.relPath))
-    .join(', ')
-  const cmds: string[] = []
-  if (items.some(i => i.kind === 'skill'))
-    cmds.push('`lumo skill update --scope project`')
-  const hooks = items.filter(i => i.kind !== 'skill')
-  if (hooks.length > 0) {
-    const agents = [...new Set(hooks.map(i => i.agent))]
-    const init = `lumo init --scope project${agents.length === 1 ? ` --agent ${agents[0]}` : ''}`
-    cmds.push(`\`${init}\` (preview with \`--dry-run\`)`)
-  }
-  const then = opts.restart ? ', then restart the session' : ''
+  const what = items.map(i => i.relPath).join(', ')
+  const agents = [...new Set(items.map(i => i.agent))]
+  const init = `lumo init${agents.length === 1 ? ` --agent ${agents[0]}` : ''}`
   const rulesWarning = items.some(i => i.kind === 'codex-rules')
     ? ' (an outdated rules file may let newer lumo commands run outside the sandbox)'
     : ''
-  return `committed Lumo install behind lumo ${cliVersion}: ${what} — run ${cmds.join(' and ')}, then commit the changes in a PR${then}${rulesWarning}`
+  return `committed Lumo install behind lumo ${cliVersion}: ${what} — run \`${init}\` (preview with \`--dry-run\`), then commit the changes in a PR${rulesWarning}`
 }
 
 const NOTED_FILE = 'session-project-install-notes.json'

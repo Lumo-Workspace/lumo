@@ -201,8 +201,9 @@ describe('Codex rules file (LUM-1054)', () => {
     expect(classifyCodexRules(file)).toBe('foreign')
     expect(installCodexRules(file)).toBe('skipped-foreign')
     expect(readFileSync(file, 'utf8')).toBe('prefix_rule(pattern = ["mine"])\n')
-    expect(installCodexRules(file, true)).toBe('updated')
-    expect(readFileSync(file, 'utf8')).toBe(LUMO_CODEX_RULES)
+    // The user's own file is never overwritten (no --force any more).
+    expect(installCodexRules(file)).toBe('skipped-foreign')
+    expect(readFileSync(file, 'utf8')).toBe('prefix_rule(pattern = ["mine"])\n')
   })
 
   it('configTomlAllowsNetwork reads the section and the dotted form', () => {

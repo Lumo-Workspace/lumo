@@ -41,7 +41,8 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   doctor: {
     serverOnly: false,
     localFiles: 'none',
-    detail: 'local-only diagnosis, no Lumo API call (runs fine sandboxed)',
+    detail:
+      "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
   },
   'feedback create': {
     serverOnly: false,
@@ -64,7 +65,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   init: {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'writes skill, hook and rules files',
+    detail: 'writes hook and rules files in this repo',
   },
   'member list': { serverOnly: true, localFiles: 'none' },
   'memory add': { serverOnly: true, localFiles: 'none' },
@@ -139,17 +140,6 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   },
   'session status': { serverOnly: true, localFiles: 'none' },
   'skill read': { serverOnly: true, localFiles: 'none' },
-  'skill status': {
-    serverOnly: false,
-    localFiles: 'none',
-    detail:
-      'local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)',
-  },
-  'skill update': {
-    serverOnly: false,
-    localFiles: 'writes',
-    detail: 'writes skill files',
-  },
   'sprint add': { serverOnly: true, localFiles: 'none' },
   'sprint close': { serverOnly: true, localFiles: 'none' },
   'sprint create': { serverOnly: true, localFiles: 'none' },
@@ -234,7 +224,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   uninstall: {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'deletes skill, hook and rules files',
+    detail: 'deletes hook and rules entries in this repo',
   },
   update: {
     serverOnly: false,

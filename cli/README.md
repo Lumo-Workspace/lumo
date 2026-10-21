@@ -16,26 +16,25 @@ lumo --version
 
 ## One-Shot Setup for Claude Code and Codex
 
-Wire up the Lumo skill + hooks for [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex) in one command — no install required upfront:
+Wire up the Lumo hooks for [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex) in one command — no install required upfront:
 
 ```bash
 npx @lumoai/cli init
 ```
 
-Without `--scope` it installs for the current project (`./.claude/`, `./.agents/`, `./.codex/`); `--scope user` installs for the current user (`~/.claude/`, `~/.agents/`, `~/.codex/`). It never asks. Then it:
+Run it inside a git repository: it sets up that repo only (`.claude/`, `.codex/` and the git hook at the repo root) and writes nothing outside it. It never asks. It:
 
-1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/` (Claude Code) and `.agents/skills/lumo/` (Codex)
-2. Idempotently merges the Lumo hook handlers into `.claude/settings.json` and `.codex/hooks.json` (existing hooks and permissions are preserved). Codex runs hooks only after you trust them: Codex app Settings → Hooks, or `/hooks` in the Codex CLI
-3. Writes `.codex/rules/lumo.rules`, Codex rules that let the server-only `lumo` commands (they only call the Lumo API, read no arbitrary local file and write none — `task show/context/list`, `doc show/list`, `session status`, …) run outside Codex's sandbox (which has no network) without a prompt. Every other command stays sandboxed, including the `lumo` commands that change local files or start local processes (`init`, `uninstall`, `update`, `auth`, `worktree`, `memory sync/push`, `session attach`, `task update`, `hook`) or can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone testcase run`, `usage resync`): Codex asks before running those outside the sandbox. Restart Codex to load it (a project rule loads once the project is trusted)
+1. Idempotently merges the Lumo hook handlers into `.claude/settings.json` and `.codex/hooks.json` (existing hooks and permissions are preserved). Codex runs hooks only after you trust them: Codex app Settings → Hooks, or `/hooks` in the Codex CLI
+2. Writes `.codex/rules/lumo.rules`, Codex rules that let the server-only `lumo` commands (they only call the Lumo API, read no arbitrary local file and write none — `task show/context/list`, `doc show/list`, `session status`, …) run outside Codex's sandbox (which has no network) without a prompt. Every other command stays sandboxed, including the `lumo` commands that change local files or start local processes (`init`, `uninstall`, `update`, `auth`, `worktree`, `memory sync/push`, `session attach`, `task update`, `hook`) or can read a local file and upload it (`doc create/update/patch/append/diff`, `task artifact add`, `task template create/edit`, `task testcase run`, `crossing explain`, `milestone testcase run`, `usage resync`): Codex asks before running those outside the sandbox. Restart Codex to load it (a project rule loads once the project is trusted)
+3. Adds the `prepare-commit-msg` git hook block
 4. Prints any remaining steps (global install, `lumo auth login`)
 
 Non-interactive flags for CI / scripts:
 
 ```bash
-npx @lumoai/cli init --scope project
-npx @lumoai/cli init --scope user --force
-npx @lumoai/cli init --scope project --agent codex        # only Codex
-npx @lumoai/cli init --scope project --agent claude-code  # only Claude Code
+npx @lumoai/cli init --dry-run            # preview, nothing written
+npx @lumoai/cli init --agent codex        # only Codex
+npx @lumoai/cli init --agent claude-code  # only Claude Code
 ```
 
 After `init`, install the CLI globally so the agents' hooks can resolve the `lumo` binary at startup:
@@ -54,13 +53,13 @@ Checks npm for a newer release and runs `npm install -g @lumoai/cli@latest` if o
 
 Auto-update is on by default: the CLI installs new releases in the background. Turn it off with `lumo update --auto off` (back on with `lumo update --auto on`), or set `LUMO_NO_AUTO_UPDATE=1` in the environment. It is also off whenever `CI` is set (CI runs never self-update).
 
-### Keeping installs in sync
+### Checking and removing a repo's setup
 
-User-scope installs (`~/.claude/`, `~/.agents/`) are synced automatically after the CLI upgrades. Project-scope and git-tracked files are never auto-written, modified copies are never overwritten, and the CLI never downgrades an install that is newer than itself. Re-run `lumo init --scope user` or `lumo init --scope project` (in each repo) to refresh an install by hand; add `--dry-run` to preview the diff.
+The skill guide ships inside the CLI (`lumo skill read`), so updating the CLI updates it; nothing is copied into your repo or home. After an upgrade the session start names any committed hook file that is behind — re-run `lumo init` in that repo (`--dry-run` previews the diff).
 
 ```bash
-lumo doctor      # read-only report of every Lumo install and its state
-lumo uninstall   # remove Lumo-owned skills, hooks, the Codex rule and the git hook block
+lumo doctor      # read-only report of this repo's hooks, Codex rule and git hook, plus login / API reachability
+lumo uninstall   # remove the Lumo hook entries, the Codex rule and the git hook block from this repo
 ```
 
 `lumo uninstall --agent <token>` filters by agent (`claude-code`, `codex`, …); the `prepare-commit-msg` hook is labelled `git`, so it is only included by `--agent git` (or no `--agent`).

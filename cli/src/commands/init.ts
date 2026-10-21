@@ -1,6 +1,5 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
-import * as os from 'os'
 import * as path from 'path'
 import { execSync } from 'child_process'
 import {
@@ -9,11 +8,7 @@ import {
   type MergeStats,
 } from '../lib/hooks-template'
 import { codexHooksPath, codexTrustInstructions } from '../lib/codex-hooks'
-import {
-  decideSkillInstall,
-  planGitHookInstall,
-  planHooksMerge,
-} from '../lib/install-plan'
+import { planGitHookInstall, planHooksMerge } from '../lib/install-plan'
 import { planInit, renderInitPlan, initApplyCommand } from '../lib/init-dry-run'
 import {
   codexRulesNote,
@@ -29,16 +24,7 @@ import { SCAN_HOOKS } from '../lib/scan-hook-template'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
-import { bundledSkillDir, copySkillTree, listFiles } from '../lib/codex-plugin'
-import { hashSkillDir } from '../lib/skill-hash'
-import {
-  GIT_HOOK_AGENT,
-  readMarker,
-  upsertInstall,
-  writeMarker,
-  type InstallRecord,
-} from '../lib/install-registry'
-import { isPathGitTracked } from '../lib/install-state'
+import { isPathGitTracked, repoRoot } from '../lib/repo-root'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
@@ -47,12 +33,8 @@ import {
   type SpawnSyncFn,
 } from '../lib/auto-update'
 import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
-import { parseInstallScope } from '../lib/install-scope'
 
 export type InitOptions = {
-  /** LUM-1233 3g (Q6): `user | project` (was the booleans --user / --project). */
-  scope?: string
-  force?: boolean
   agent?: string
   upgrade?: boolean
   dryRun?: boolean
@@ -62,10 +44,8 @@ export type InitOptions = {
 
 /** Test seams: everything defaults to the real environment. */
 export type InitDeps = {
-  cliVersion?: string
-  homeDir?: string
+  cliVersion?: string | null
   cwd?: string
-  bundledSkillDir?: string
   /** Whether the running CLI is a global npm install (auto-update only runs for those). */
   isGlobalInstall?: () => boolean
   /** Package root and spawnSync for the default eligibility probe (same seams as doctor). */
@@ -73,24 +53,13 @@ export type InitDeps = {
   spawnSync?: SpawnSyncFn
 }
 
-export type SkillInstallResult =
-  | 'installed'
-  | 'upgraded'
-  | 'up-to-date'
-  | 'skipped-modified'
-  | 'skipped-newer'
-  | 'skipped-source'
-
-export type SkillInstallContext = {
-  cliVersion: string
-  agent: string
-}
-
-type Scope = 'user' | 'project'
-
 /** LUM-1118: `lumo init --upgrade` is gone; re-running init refreshes an install. */
 export const UPGRADE_REMOVED =
-  '`lumo init --upgrade` was removed — re-run `lumo init` for the scope to refresh (`--scope user|project`, optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
+  '`lumo init --upgrade` was removed — re-run `lumo init` in the repo to refresh (optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
+
+/** LUM-1292: init only sets up the git repo it runs in. */
+export const NOT_A_REPO =
+  'lumo init sets up the current repo — run it inside a git repository.'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
@@ -115,7 +84,7 @@ export function resolveAgentToken(
 /**
  * LUM-1054: the agents `lumo init` sets up. No `--agent` → Claude Code and
  * Codex together (user ruling: no agent detection, always both); `--agent
- * <token>` narrows it to that one, as before.
+ * <token>` narrows it to that one — for a team that uses only one agent.
  */
 export const DEFAULT_INIT_AGENTS = ['claude-code', 'codex'] as const
 
@@ -127,31 +96,18 @@ export function initAgentTokens(
   return 'error' in res ? res : { tokens: [res.token] }
 }
 
-function requireCliVersion(): string {
-  const v = readCliVersion()
-  if (!v) {
-    throw new Error(
-      'Could not determine the @lumoai/cli version — reinstall @lumoai/cli.'
-    )
-  }
-  return v
-}
-
+/**
+ * `lumo init`: write the Lumo hooks of the current git repo — Claude Code's
+ * `.claude/settings.json`, Codex's `.codex/hooks.json` and
+ * `.codex/rules/lumo.rules` — and its prepare-commit-msg hook (plus the scan
+ * hooks with `--scan-hooks`). Nothing outside the repo is written.
+ */
 export async function init(
   options: InitOptions,
   deps: InitDeps = {}
 ): Promise<number> {
   if (options.upgrade) {
     process.stderr.write(`Error: ${UPGRADE_REMOVED}\n`)
-    return EXIT_USAGE
-  }
-  if (
-    options.scope !== undefined &&
-    parseInstallScope(options.scope) === null
-  ) {
-    process.stderr.write(
-      `Error: invalid --scope "${options.scope}". Valid values: user, project.\n`
-    )
     return EXIT_USAGE
   }
 
@@ -162,101 +118,48 @@ export async function init(
   }
   const tokens = agentResult.tokens
 
-  const cliVersion = deps.cliVersion ?? readCliVersion()
-  if (!cliVersion) {
-    process.stderr.write(
-      'Error: could not determine the @lumoai/cli version — reinstall @lumoai/cli.\n'
-    )
+  const root = repoRoot(deps.cwd ?? process.cwd())
+  if (!root) {
+    process.stderr.write(`Error: ${NOT_A_REPO}\n`)
     return 1
   }
-  const homeDir = deps.homeDir ?? os.homedir()
-  const cwd = deps.cwd ?? process.cwd()
-  const bundled = deps.bundledSkillDir ?? bundledSkillDir()
+  const cliVersion =
+    deps.cliVersion !== undefined ? deps.cliVersion : readCliVersion()
 
-  const scope = resolveScope(options)
-  if (options.scanHooks && scope !== 'project') {
-    process.stderr.write(
-      'Error: --scan-hooks installs git hooks into this repo; it needs --scope project.\n'
-    )
-    return EXIT_USAGE
-  }
-
-  const root = scope === 'user' ? homeDir : cwd
   if (options.dryRun) {
     const items = planInit({
-      scope,
       tokens,
       root,
-      homeDir,
-      bundled,
-      cliVersion,
-      force: options.force === true,
       scanHooks: options.scanHooks === true,
     })
     process.stdout.write(
       renderInitPlan(items, {
         cliVersion,
-        home: homeDir,
-        scope,
-        applyCommand: initApplyCommand(scope, options),
+        root,
+        applyCommand: initApplyCommand(options),
       })
     )
     return items.some(i => i.action === 'error') ? 1 : 0
   }
-  const configRoots = tokens.flatMap(t =>
-    t === 'codex'
-      ? [path.join(root, '.agents'), path.join(root, '.codex')]
-      : [path.join(root, '.claude')]
-  )
 
-  process.stdout.write(
-    `\nInstalling Lumo for ${scope} scope: ${[...new Set(configRoots)].join(', ')}\n`
-  )
+  process.stdout.write(`\nInstalling Lumo hooks for this repo: ${root}\n`)
 
   for (const token of tokens) {
     if (tokens.length > 1) process.stdout.write(`\n${agentHeading(token)}\n`)
     else process.stdout.write('\n')
-    const skillDir = skillInstallDir(root, token)
-    const skillResult = installSkill(
-      bundled,
-      skillDir,
-      options.force === true,
-      {
-        cliVersion,
-        agent: token,
-      }
-    )
-    if (isInstalledResult(skillResult)) {
-      recordSkill(skillDir, scope, token, cliVersion)
-    }
-    if (token === 'codex') {
-      installCodex(root, scope, cliVersion, options.force === true)
-    } else {
-      const settingsPath = path.join(root, '.claude', 'settings.json')
-      mergeHooksFile(settingsPath, token)
-      recordInstall('claude-settings', settingsPath, scope, token, cliVersion)
-    }
+    if (token === 'codex') installCodex(root)
+    else mergeHooksFile(path.join(root, '.claude', 'settings.json'), token)
   }
-  if (scope === 'project') {
-    process.stdout.write('\n')
-    const hookPath = installGitHook(root)
-    if (hookPath) {
-      recordInstall('git-hook', hookPath, scope, GIT_HOOK_AGENT, cliVersion)
-    }
-    if (options.scanHooks) {
-      let installed = 0
-      for (const spec of SCAN_HOOKS) {
-        const scanPath = installGitHook(root, spec)
-        if (!scanPath) continue
-        installed++
-        recordInstall('scan-hook', scanPath, scope, GIT_HOOK_AGENT, cliVersion)
-      }
-      // Only about hooks that are in place (not a husky print-out or a non-repo).
-      if (installed > 0)
-        process.stdout.write(
-          '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
-        )
-    }
+  process.stdout.write('\n')
+  installGitHook(root)
+  if (options.scanHooks) {
+    let installed = 0
+    for (const spec of SCAN_HOOKS) if (installGitHook(root, spec)) installed++
+    // Only about hooks that are in place (not a husky print-out).
+    if (installed > 0)
+      process.stdout.write(
+        '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
+      )
   }
   await printSessionRecordNotice()
   printPostInstall(tokens)
@@ -303,15 +206,9 @@ function agentHeading(token: string): string {
  * rules file that lets `lumo` reach the API from the sandbox, and the trust
  * instructions.
  */
-function installCodex(
-  root: string,
-  scope: Scope,
-  cliVersion: string,
-  force: boolean
-): void {
+function installCodex(root: string): void {
   const hooksPath = codexHooksPath(root)
   const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
-  recordInstall('codex-hooks', hooksPath, scope, 'codex', cliVersion)
   // LUM-1112: rewriting a file that already held Lumo entries makes Codex ask
   // for trust again — name the entries it will ask about. A file without
   // Lumo entries (new, or only the user's hooks) needs a first trust instead.
@@ -327,11 +224,11 @@ function installCodex(
 
   const rulesPath = codexRulesPath(root)
   const tracked = fs.existsSync(rulesPath) && isPathGitTracked(rulesPath)
-  const res = installCodexRules(rulesPath, force)
+  const res = installCodexRules(rulesPath)
   if (res === 'skipped-foreign') {
     process.stdout.write(
       `⚠ ${rulesPath} exists and was not written by Lumo — left as is, so server-only \`lumo\` commands may not reach the Lumo API from Codex's sandbox.\n` +
-        `  Re-run with --force to replace it with Lumo's rules.\n`
+        `  To use Lumo's rule instead, move that file aside and re-run \`lumo init\`.\n`
     )
   } else {
     process.stdout.write(
@@ -341,165 +238,13 @@ function installCodex(
     )
     if (tracked && res !== 'unchanged')
       process.stdout.write(gitDiffNote(rulesPath))
-    recordInstall('codex-rules', rulesPath, scope, 'codex', cliVersion)
-    process.stdout.write(`${codexRulesNote(rulesPath, scope)}\n`)
+    process.stdout.write(`${codexRulesNote(rulesPath)}\n`)
   }
   process.stdout.write(`\n${codexTrustInstructions(hooksPath)}\n`)
 }
 
-/**
- * Where setup installs the lumo skill: Codex loads skills from
- * `<root>/.agents/skills/` (repo or ~), every other agent token keeps the
- * Claude Code layout `<root>/.claude/skills/`.
- */
-export function skillInstallDir(root: string, agentToken: string): string {
-  return agentToken === 'codex'
-    ? path.join(root, '.agents', 'skills', 'lumo')
-    : path.join(root, '.claude', 'skills', 'lumo')
-}
-
-/**
- * The scope init installs into: `--scope`, else `project` — never an
- * interactive question (LUM-1233 follow-up, CF-1: no prompt anywhere), on a
- * TTY or not. The default is said in one line so it is never a surprise.
- */
-export function resolveScope(options: InitOptions): Scope {
-  const given = parseInstallScope(options.scope)
-  if (given) return given
-  process.stdout.write(
-    'No --scope given: installing for this repo (--scope project). Pass --scope user to install for every project.\n'
-  )
-  return 'project'
-}
-
-function isInstalledResult(r: SkillInstallResult): boolean {
-  return r === 'installed' || r === 'upgraded' || r === 'up-to-date'
-}
-
-function recordInstall(
-  kind: InstallRecord['kind'],
-  installPath: string,
-  scope: Scope,
-  agent: string,
-  version: string,
-  hash?: string
-): void {
-  upsertInstall({
-    kind,
-    path: installPath,
-    scope,
-    agent,
-    version,
-    ...(hash ? { hash } : {}),
-    installedAt: new Date().toISOString(),
-  })
-}
-
-/** Registry record for a skill dir, using the version/hash its marker holds. */
-function recordSkill(
-  skillDir: string,
-  scope: Scope,
-  agent: string,
-  fallbackVersion: string
-): void {
-  const marker = readMarker(skillDir)
-  recordInstall(
-    'skill',
-    skillDir,
-    scope,
-    agent,
-    marker?.version ?? fallbackVersion,
-    marker?.hash
-  )
-}
-
-function gitDiffNote(skillDir: string): string {
-  return `ℹ ${skillDir} is tracked by git — the change shows up in \`git diff\`; review and commit it for your team.\n`
-}
-
-/**
- * Install or upgrade the bundled skill into `skillDir`.
- *
- * - missing → install; `managed` + bundled newer → replace the whole dir
- *   (explicit user command, so git-tracked paths may be written);
- * - same version → up to date; installed newer than the CLI → skip (never
- *   downgrade); `modified` → skip unless `force`.
- * A marker (`.lumo-install.json`) is written after every write.
- */
-export function installSkill(
-  skillSrcDir: string,
-  skillDir: string,
-  force: boolean,
-  ctx: SkillInstallContext = {
-    cliVersion: requireCliVersion(),
-    agent: 'claude-code',
-  }
-): SkillInstallResult {
-  if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
-    throw new Error(
-      `Bundled skill asset missing at ${skillSrcDir} — reinstall @lumoai/cli.`
-    )
-  }
-
-  const relFiles = listFiles(skillSrcDir)
-  const decision = decideSkillInstall(
-    skillSrcDir,
-    skillDir,
-    force,
-    ctx.cliVersion
-  )
-  switch (decision.kind) {
-    case 'skipped-source':
-      // The Lumo repo's own .claude/skills/lumo is the skill source: never write it.
-      process.stdout.write(
-        `ℹ ${skillDir} is the Lumo skill source (not an install) — left untouched.\n`
-      )
-      return 'skipped-source'
-    case 'skipped-newer':
-      // No-downgrade has no --force exception.
-      process.stdout.write(
-        `⚠ your CLI (${ctx.cliVersion}) is older than the installed skill (${decision.installed}) — run lumo update\n`
-      )
-      return 'skipped-newer'
-    case 'up-to-date':
-      if (decision.adoptVersion !== null) {
-        // Adopt a legacy copy: explicit command, so a tracked dir may get the marker.
-        writeSkillMarker(skillDir, ctx, decision.adoptVersion)
-        if (decision.gitTracked) process.stdout.write(gitDiffNote(skillDir))
-      }
-      process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
-      return 'up-to-date'
-    case 'skipped-modified':
-      process.stdout.write(
-        `⚠ ${skillDir} exists and differs from the bundled version (modified locally).\n` +
-          `  Skipped. Re-run with --force to overwrite.\n`
-      )
-      return 'skipped-modified'
-  }
-
-  // Fresh install, upgrade, or --force: the whole skills/lumo/ dir is
-  // Lumo-managed, so replace it wholesale — stale files (top-level or under
-  // references/) don't linger — then copy every bundled file.
-  copySkillTree(skillSrcDir, skillDir)
-  writeSkillMarker(skillDir, ctx, ctx.cliVersion)
-  process.stdout.write(
-    `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
-  )
-  if (decision.gitTracked) process.stdout.write(gitDiffNote(skillDir))
-  return decision.result
-}
-
-function writeSkillMarker(
-  skillDir: string,
-  ctx: SkillInstallContext,
-  version: string
-): void {
-  writeMarker(skillDir, {
-    version,
-    hash: hashSkillDir(skillDir),
-    agent: ctx.agent,
-    installedAt: new Date().toISOString(),
-  })
+function gitDiffNote(file: string): string {
+  return `ℹ ${file} is tracked by git — the change shows up in \`git diff\`; review and commit it for your team.\n`
 }
 
 /**
@@ -661,10 +406,10 @@ function printPostInstall(tokens: readonly string[]): void {
       command: null,
       why:
         codex && claude
-          ? 'All set. Open Claude Code in this directory, or start a new Codex session once its hooks are trusted (above) — the lumo skill and hooks are installed for both.'
+          ? 'All set. Open Claude Code in this repo, or start a new Codex session once its hooks are trusted (above) — the Lumo hooks are installed for both.'
           : codex
-            ? 'All set once the hooks are trusted (above). Start a new Codex session in this directory — the lumo skill and hooks are installed.'
-            : 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
+            ? 'All set once the hooks are trusted (above). Start a new Codex session in this repo — the Lumo hooks are installed.'
+            : 'All set. Open Claude Code in this repo — the Lumo hooks are wired in.',
     })
   }
   process.stdout.write(`\n${formatNextSteps(steps)}\n\n`)

@@ -240,15 +240,12 @@ export type CodexRulesInstallResult =
 
 /**
  * Write the Lumo rules file. A current file is left byte-identical; a foreign
- * file (no Lumo marker) is overwritten only with `force`.
+ * file (no Lumo marker) is the user's and is never overwritten.
  */
-export function installCodexRules(
-  file: string,
-  force = false
-): CodexRulesInstallResult {
+export function installCodexRules(file: string): CodexRulesInstallResult {
   const state = classifyCodexRules(file)
   if (state === 'current') return 'unchanged'
-  if (state === 'foreign' && !force) return 'skipped-foreign'
+  if (state === 'foreign') return 'skipped-foreign'
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, LUMO_CODEX_RULES)
   return state === 'missing' ? 'created' : 'updated'
@@ -319,16 +316,10 @@ export function codexNetworkState(
 }
 
 /** Printed by init after writing the rules file. */
-export function codexRulesNote(
-  file: string,
-  scope: 'user' | 'project'
-): string {
+export function codexRulesNote(file: string): string {
   return (
     `ℹ \`lumo\` commands now run outside Codex's sandbox without asking, except the ones Lumo lists as touching local files or processes (init, update, auth, worktree, memory sync/push, session attach, task update, doc create/update/patch --file …): Codex asks first, and the CLI requires global flags (--project, --no-hints) after those command words. A lumo command that is not on that list (for example one newer than this rules file) runs outside the sandbox without asking; re-run \`lumo init\` after updating lumo to refresh it.\n` +
-    `  Restart Codex to load ${file}.` +
-    (scope === 'project'
-      ? ' Codex loads a project rules file only once you trust the project.'
-      : '')
+    `  Restart Codex to load ${file}. Codex loads a project rules file only once you trust the project.`
   )
 }
 
