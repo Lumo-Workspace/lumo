@@ -42,9 +42,11 @@ import {
 import payloads from '../fixtures/codex-hooks/payloads.json'
 
 type Fixture = { event: string; payload: Record<string, unknown> }
-const FIXTURES = payloads as Fixture[]
 const slugOf = (event: string) =>
   CODEX_HOOK_EVENTS.find(([e]) => e === event)?.[1]
+// Payloads of the events Lumo registers (the probe also saw compaction and
+// interrupt events, which Lumo no longer hooks).
+const FIXTURES = (payloads as Fixture[]).filter(f => slugOf(f.event))
 
 let stdoutSpy: jest.SpyInstance
 beforeEach(() => {
@@ -63,14 +65,11 @@ beforeEach(() => {
 afterEach(() => stdoutSpy.mockRestore())
 
 describe('CODEX_HOOK_EVENTS', () => {
-  it('covers the 12 Codex 0.162.0 events', () => {
+  it('covers the 9 registered Codex events', () => {
     expect(CODEX_HOOK_EVENTS.map(([e]) => e).sort()).toEqual(
       [
-        'Interrupt',
         'PermissionRequest',
-        'PostCompact',
         'PostToolUse',
-        'PreCompact',
         'PreToolUse',
         'SessionEnd',
         'SessionStart',
@@ -83,7 +82,8 @@ describe('CODEX_HOOK_EVENTS', () => {
   })
 
   it('every probed event has a hook, and every hook a server route', () => {
-    for (const { event } of FIXTURES) expect(slugOf(event)).toBeDefined()
+    for (const [event] of CODEX_HOOK_EVENTS)
+      expect(FIXTURES.some(f => f.event === event)).toBe(true)
     for (const [, slug] of CODEX_HOOK_EVENTS) {
       expect(existsSync(join('app/api/hooks', slug, 'route.ts'))).toBe(true)
     }
@@ -309,7 +309,7 @@ describe('sumCodexRolloutUsage', () => {
 // ─── setup --agent codex ────────────────────────────────────────────────────
 
 describe('mergeHooksFile for Codex', () => {
-  it('writes the 12 Codex events into .codex/hooks.json, idempotently, keeping user hooks', () => {
+  it('writes the 9 Codex events into .codex/hooks.json, idempotently, keeping user hooks', () => {
     const root = mkdtempSync(join(tmpdir(), 'lumo-codex-setup-'))
     try {
       const file = codexHooksPath(root)
@@ -329,8 +329,8 @@ describe('mergeHooksFile for Codex', () => {
       expect(Object.keys(parsed.hooks).sort()).toEqual(
         CODEX_HOOK_EVENTS.map(([e]) => e).sort()
       )
-      expect(parsed.hooks.Interrupt[0].hooks[0].command).toBe(
-        'lumo hook interrupt --agent codex'
+      expect(parsed.hooks.SubagentStop[0].hooks[0].command).toBe(
+        'lumo hook subagent-stop --agent codex'
       )
       expect(parsed.hooks.Stop[0].hooks[0].command).toBe('my-hook')
       expect(parsed.hooks.PostToolBatch).toBeUndefined()

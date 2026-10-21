@@ -148,7 +148,7 @@ const STALE_BLOCK =
 /**
  * Installs at 1.0.0 (user + project), then the CLI moves to 2.0.0 with a new
  * skill body and every hook file drifts: Claude settings lose a Lumo event
- * and carry foreign settings, ~/.codex/hooks.json loses Interrupt, the Codex
+ * and carry foreign settings, ~/.codex/hooks.json loses SubagentStop, the Codex
  * rule is an older Lumo version, the git hook block is stale.
  */
 async function driftedInstall() {
@@ -175,7 +175,7 @@ async function driftedInstall() {
 
   const codexHooks = join(e.home, '.codex', 'hooks.json')
   const c = JSON.parse(readFileSync(codexHooks, 'utf8'))
-  delete c.hooks.Interrupt
+  delete c.hooks.SubagentStop
   writeFileSync(codexHooks, JSON.stringify(c, null, 2) + '\n')
 
   const rules = join(e.home, '.codex', 'rules', 'lumo.rules')
@@ -227,7 +227,7 @@ describe('lumo init --dry-run', () => {
       `would install ${join(e.project, '.claude', 'settings.json')} — Claude settings hooks: add`
     )
     expect(stdout).toContain(
-      `would install ${join(e.project, '.codex', 'hooks.json')} — Codex hooks: add 12`
+      `would install ${join(e.project, '.codex', 'hooks.json')} — Codex hooks: add 9`
     )
     expect(stdout).toContain(
       '⚠ Codex runs these hooks only after you trust them — events:'
@@ -265,7 +265,9 @@ describe('lumo init --dry-run', () => {
     expect(stdout).toContain(
       'would update ~/.codex/hooks.json — Codex hooks: add 1, update 0 Lumo event'
     )
-    expect(stdout).toContain('"command": "lumo hook interrupt --agent codex"')
+    expect(stdout).toContain(
+      '"command": "lumo hook subagent-stop --agent codex"'
+    )
     // Codex rules: whole Lumo-owned file diffed
     expect(stdout).toContain(
       'would update ~/.codex/rules/lumo.rules — Codex rule: Lumo-managed file differs from this CLI — rewritten'
@@ -339,7 +341,7 @@ describe('lumo init --dry-run', () => {
       d.codexHooks,
     ])
     expect(stdout).toContain(
-      '⚠ Codex will ask to trust these hooks again — events: Interrupt (added)'
+      '⚠ Codex will ask to trust these hooks again — events: SubagentStop (added)'
     )
     expect(stdout).toContain('1 would make Codex ask to trust hooks')
   })

@@ -190,7 +190,7 @@ describe('committed Lumo install behind the CLI', () => {
       })
     )
     const note =
-      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
+      'committed Lumo install behind lumo 1.70.0: .claude/settings.json — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`), then commit the changes in a PR'
     expect(await statusLine('claude-code', 's1')).toBe(
       `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )

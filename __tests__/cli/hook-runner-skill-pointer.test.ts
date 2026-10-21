@@ -20,7 +20,6 @@ jest.mock('@/cli/src/lib/cli-version', () => ({
 jest.mock('@/cli/src/lib/project-install-drift', () => ({
   projectDriftOnce: () => [],
   projectDriftNote: () => null,
-  retiredHooksNote: () => null,
   projectNotesPath: () => '/tmp/none',
 }))
 

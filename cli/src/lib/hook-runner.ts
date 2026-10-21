@@ -8,7 +8,6 @@ import {
   projectDriftNote,
   projectDriftOnce,
   projectNotesPath,
-  retiredHooksNote,
   type ProjectDriftItem,
 } from './project-install-drift'
 import { normalizeAgent } from './agent'
@@ -505,8 +504,6 @@ function projectInstallNotes(
     const notes: string[] = []
     const driftNote = projectDriftNote(drift, cliVersion)
     if (driftNote) notes.push(driftNote)
-    const retiredNote = retiredHooksNote(drift)
-    if (retiredNote) notes.push(retiredNote)
     return notes
   } catch {
     return []

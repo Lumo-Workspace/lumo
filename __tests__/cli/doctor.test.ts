@@ -722,14 +722,16 @@ describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
     const p = join(f.home, '.codex', 'hooks.json')
     writeCodex(
       p,
-      CODEX_HOOK_EVENTS.filter(([ev]) => ev !== 'Interrupt')
+      CODEX_HOOK_EVENTS.filter(([ev]) => ev !== 'SubagentStop')
     )
     const r = collectDoctor(f.deps)
     const row = rowFor(r, p)!
     expect(row.suggestion).toBe('lumo init --scope user --agent codex')
     expect(row.detail).toContain('missing 1 hook event(s)')
     expect(
-      warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))
+      warn(r, 'missing-hook-events').some(w =>
+        w.message.includes('SubagentStop')
+      )
     ).toBe(true)
   })
 

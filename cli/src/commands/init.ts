@@ -506,7 +506,7 @@ function writeSkillMarker(
  * Merge the Lumo hook entries into a hooks file — Claude Code's
  * `settings.json`, or Codex's `hooks.json` (LUM-1051) — keeping every other
  * key and non-Lumo hook as is. An existing file is rewritten only when a Lumo
- * entry was added, updated or removed (a retired event, LUM-1235), so re-running init leaves it byte-identical
+ * entry was added, updated or removed (including one for an event no longer registered), so re-running init leaves it byte-identical
  * (Codex re-asks for trust after any change).
  */
 export function mergeHooksFile(
@@ -539,7 +539,7 @@ export function mergeHooksFile(
   }
   if (stats.removedEvents.length > 0)
     process.stdout.write(
-      `  removed retired Lumo hooks: ${stats.removedEvents.join(', ')} (they replaced Claude Code's own worktree creation)\n`
+      `  removed Lumo hooks for events no longer registered: ${stats.removedEvents.join(', ')}\n`
     )
   if (tracked && changed > 0) process.stdout.write(gitDiffNote(settingsPath))
   return { path: settingsPath, stats }

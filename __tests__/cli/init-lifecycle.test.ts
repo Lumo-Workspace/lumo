@@ -309,7 +309,7 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
     writeFileSync(settings, JSON.stringify(s, null, 2) + '\n')
     const codex = join(e.project, '.codex', 'hooks.json')
     const c = JSON.parse(readFileSync(codex, 'utf8'))
-    delete c.hooks.Interrupt
+    delete c.hooks.SubagentStop
     writeFileSync(codex, JSON.stringify(c, null, 2) + '\n')
     const rules = join(e.project, '.codex', 'rules', 'lumo.rules')
     writeFileSync(rules, `${CODEX_RULES_MARKER}\n# an older Lumo rule\n`)
@@ -325,10 +325,10 @@ describe('re-running lumo init refreshes an install (LUM-1118)', () => {
     }
     expect(JSON.parse(readFileSync(settings, 'utf8')).hooks.Stop).toBeDefined()
     expect(
-      JSON.parse(readFileSync(codex, 'utf8')).hooks.Interrupt
+      JSON.parse(readFileSync(codex, 'utf8')).hooks.SubagentStop
     ).toBeDefined()
     expect(classifyCodexRules(rules)).toBe('current')
-    expect(stdout).toContain('Events to trust again: Interrupt (added)')
+    expect(stdout).toContain('Events to trust again: SubagentStop (added)')
   })
 })
 
@@ -525,20 +525,24 @@ describe('Codex hooks lifecycle (LUM-1052 x LUM-1051)', () => {
     await init({ scope: 'user', agent: 'codex' }, e.deps)
     const file = codexFile(e.home)
     const parsed = JSON.parse(readFileSync(file, 'utf8'))
-    delete parsed.hooks.Interrupt
+    delete parsed.hooks.SubagentStop
     parsed.hooks.Stop[0].hooks[0].command = 'lumo hook stop' // legacy, flagless
     parsed.hooks.Stop.push({ hooks: [{ type: 'command', command: 'mine' }] })
     writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
     stdout = ''
     expect(await init({ scope: 'user', agent: 'codex' }, e.deps)).toBe(0)
     const after = JSON.parse(readFileSync(file, 'utf8'))
-    expect(after.hooks.Interrupt[0].hooks[0].command).toBe(
-      'lumo hook interrupt --agent codex'
+    expect(after.hooks.SubagentStop[0].hooks[0].command).toBe(
+      'lumo hook subagent-stop --agent codex'
     )
-    expect(after.hooks.Stop[1].hooks[0].command).toBe('mine')
+    // the stale Lumo entry is replaced; the new one goes after the user's
+    expect(after.hooks.Stop[0].hooks[0].command).toBe('mine')
+    expect(after.hooks.Stop[1].hooks[0].command).toBe(
+      'lumo hook stop --agent codex'
+    )
     expect(stdout).toContain('re-trust in Codex /hooks')
     expect(stdout).toContain(
-      'Events to trust again: Interrupt (added), Stop (updated)'
+      'Events to trust again: SubagentStop (added), Stop (updated)'
     )
   })
 

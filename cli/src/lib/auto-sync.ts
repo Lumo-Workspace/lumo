@@ -134,7 +134,7 @@ function syncSkill(
   return { kind: 'updated' }
 }
 
-/** Re-merge Lumo hooks only when the Lumo event set differs (incl. retired ones). */
+/** Re-merge Lumo hooks only when the Lumo event set differs (incl. dropped ones). */
 function syncSettings(rec: InstallRecord, version: string): void {
   if (!fs.existsSync(rec.path) || isPathGitTracked(rec.path)) return
   const existing = JSON.parse(fs.readFileSync(rec.path, 'utf8')) as Parameters<

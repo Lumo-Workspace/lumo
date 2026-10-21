@@ -11,10 +11,8 @@ import {
 } from './git-hook-template'
 import { gitCapture, resolveGitHooksDir } from './git-hooks-dir'
 import {
-  isLumoHookCommand,
-  LUMO_HOOK_EVENTS,
+  isLumoHookEntry,
   mergeLumoHooks,
-  RETIRED_LUMO_HOOK_EVENTS,
   type MergeStats,
 } from './hooks-template'
 import { isLumoSkillSource } from './install-locations'
@@ -229,21 +227,17 @@ export function projectClaudeSettingsTarget(
   }
   const hooks = (parsed as { hooks?: unknown } | null)?.hooks
   if (!hooks || typeof hooks !== 'object') return null
-  for (const [event, slug] of [
-    ...LUMO_HOOK_EVENTS,
-    ...RETIRED_LUMO_HOOK_EVENTS,
-  ]) {
-    const groups = (hooks as Record<string, unknown>)[event]
+  for (const groups of Object.values(hooks as Record<string, unknown>)) {
     if (!Array.isArray(groups)) continue
     for (const g of groups) {
       const list = (g as { hooks?: unknown } | null)?.hooks
       if (!Array.isArray(list)) continue
       for (const h of list) {
         const cmd = (h as { command?: unknown } | null)?.command
-        if (typeof cmd !== 'string' || !isLumoHookCommand(cmd, slug)) continue
+        if (typeof cmd !== 'string' || !isLumoHookEntry(cmd)) continue
         // Only the `--agent <token>` right after the slug, and only a known
         // agent: anything else falls back to the Claude Code default.
-        const m = /^--agent (\S+)/.exec(cmd.slice(`lumo hook ${slug} `.length))
+        const m = /^lumo hook \S+ --agent (\S+)/.exec(cmd)
         const e = m?.[1] ? normalizeAgent(m[1]) : null
         return { path: file, agent: (e && ENUM_TO_TOKEN[e]) || 'claude-code' }
       }

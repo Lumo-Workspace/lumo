@@ -3,7 +3,7 @@ import * as path from 'path'
 import { codexHooksPath } from './codex-hooks'
 import { classifyCodexRules } from './codex-rules'
 import { acquireFileLock, releaseFileLock } from './file-lock'
-import { CODEX_HOOK_EVENTS, retiredLumoHookEvents } from './hooks-template'
+import { CODEX_HOOK_EVENTS, staleLumoHookEvents } from './hooks-template'
 import {
   hasLumoCodexHooks,
   planHooksMerge,
@@ -23,11 +23,10 @@ import { skillCopyStatus } from './skill-copies'
  * The decisions are the ones `lumo skill update` / `lumo init --scope project`
  * act on. Purely local and read-only; every entry point swallows its failures.
  *
- * LUM-1235 — one exception to "committed only": an uncommitted
- * `.claude/settings.json` that still holds Lumo's retired hook entries
- * (`claude-settings-retired`). Auto-sync is user-scope only, so nothing else
- * would point at it, and its retired WorktreeCreate hook breaks every Claude
- * Code worktree. It gets its own note (`retiredHooksNote`), without the PR step.
+ * One exception to "committed only": an uncommitted `.claude/settings.json`
+ * that still holds Lumo entries for events the CLI no longer registers (an old
+ * WorktreeCreate hook breaks every Claude Code worktree) counts as drifted
+ * too — nothing else would point at it.
  */
 
 export type ProjectDriftKind =
@@ -35,7 +34,6 @@ export type ProjectDriftKind =
   | 'claude-settings'
   | 'codex-hooks'
   | 'codex-rules'
-  | 'claude-settings-retired'
 
 export interface ProjectDriftItem {
   kind: ProjectDriftKind
@@ -47,8 +45,6 @@ export interface ProjectDriftItem {
   version: string | null
   /** Agent token the install belongs to (the `--agent` of its refresh). */
   agent: string
-  /** `claude-settings-retired`: the retired events that still carry Lumo entries. */
-  retiredEvents?: string[]
 }
 
 /** Never throws: an unreadable / unplannable file is simply not reported. */
@@ -111,34 +107,21 @@ export function projectInstallDrift(opts: {
   const settings = safe(() => projectClaudeSettingsTarget(root), null)
   if (
     settings &&
-    behindAndTracked(
-      settings.path,
-      () => planHooksMerge(settings.path, settings.agent).writes
-    )
+    safe(() => planHooksMerge(settings.path, settings.agent).writes, false) &&
+    (safe(() => isPathGitTracked(settings.path), false) ||
+      safe(
+        () =>
+          staleLumoHookEvents(
+            (
+              JSON.parse(fs.readFileSync(settings.path, 'utf8')) as {
+                hooks?: unknown
+              }
+            ).hooks
+          ).length > 0,
+        false
+      ))
   )
     add('claude-settings', settings.path, settings.agent)
-  else if (settings && !safe(() => isPathGitTracked(settings.path), true)) {
-    const retired = safe(
-      () =>
-        retiredLumoHookEvents(
-          (
-            JSON.parse(fs.readFileSync(settings.path, 'utf8')) as {
-              hooks?: unknown
-            }
-          ).hooks
-        ),
-      []
-    )
-    if (retired.length > 0)
-      items.push({
-        kind: 'claude-settings-retired',
-        path: settings.path,
-        relPath: path.relative(root, settings.path),
-        version: null,
-        agent: settings.agent,
-        retiredEvents: retired,
-      })
-  }
 
   const codexHooks = codexHooksPath(root)
   if (
@@ -173,7 +156,6 @@ export function projectDriftNote(
   cliVersion: string,
   opts: { restart?: boolean } = {}
 ): string | null {
-  items = items.filter(i => i.kind !== 'claude-settings-retired')
   if (items.length === 0) return null
   const what = items
     .map(i => (i.version ? `${i.relPath} ${i.version}` : i.relPath))
@@ -189,20 +171,6 @@ export function projectDriftNote(
   }
   const then = opts.restart ? ', then restart the session' : ''
   return `committed Lumo install behind lumo ${cliVersion}: ${what} — run ${cmds.join(' and ')}, then commit the changes in a PR${then}`
-}
-
-/**
- * LUM-1235 — the segment for an uncommitted settings file still holding
- * retired Lumo hooks: the file, the events and `lumo init --scope project`, which
- * strips them. Nothing to commit, so no PR step. Null when there is none.
- */
-export function retiredHooksNote(
-  items: readonly ProjectDriftItem[]
-): string | null {
-  const item = items.find(i => i.kind === 'claude-settings-retired')
-  if (!item) return null
-  const events = (item.retiredEvents ?? []).join(', ')
-  return `uncommitted ${item.relPath} still has retired Lumo hooks (${events}) that break Claude Code worktrees — run \`lumo init --scope project --agent ${item.agent}\` (preview with \`--dry-run\`) to remove them`
 }
 
 const NOTED_FILE = 'session-project-install-notes.json'

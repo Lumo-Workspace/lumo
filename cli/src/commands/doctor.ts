@@ -22,7 +22,7 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
   isLumoHookCommand,
-  retiredLumoHookEvents,
+  staleLumoHookEvents,
 } from '../lib/hooks-template'
 import {
   codexEventKey,
@@ -252,7 +252,7 @@ function settingsRow(
     if (has) any = true
     else missing.push(event)
   }
-  const retired = retiredLumoHookEvents(data.hooks)
+  const retired = staleLumoHookEvents(data.hooks)
   if (!any && retired.length === 0) return null
   const row: DoctorRow = {
     path: file,
@@ -274,13 +274,13 @@ function settingsRow(
       message: `${file} is missing Lumo hook events: ${missing.join(', ')}`,
     })
   }
-  // LUM-1235: a Lumo WorktreeCreate entry replaces Claude Code's own worktree
-  // creation and makes it fail; `lumo init` removes it.
+  // Lumo entries for events no longer registered (e.g. an old WorktreeCreate,
+  // which breaks Claude Code worktrees); `lumo init` removes them.
   if (retired.length > 0) {
-    details.push(`retired hook event(s) to remove: ${retired.join(', ')}`)
+    details.push(`stale hook event(s) to remove: ${retired.join(', ')}`)
     warnings.push({
       code: 'retired-hook-events',
-      message: `${file} still has retired Lumo hook events that break Claude Code worktrees: ${retired.join(', ')}`,
+      message: `${file} still has Lumo hook events that are no longer registered: ${retired.join(', ')}`,
     })
   }
   if (details.length > 0) {

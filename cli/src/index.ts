@@ -3434,8 +3434,8 @@ const hook = program
 // --agent <token>`); the value rides to the server as the X-Lumo-Agent header
 // so auto-sedimented memories are attributed to the agent that produced them.
 // Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
-// and the server-side HookEventType slugs. The worktree-* pair is retired
-// (RETIRED_LUMO_HOOK_EVENTS) but stays registered for settings written before.
+// and the server-side HookEventType slugs. Slugs no longer in
+// LUMO_HOOK_EVENTS stay registered so settings written before keep working.
 const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
   [
     'pre-tool-use',
