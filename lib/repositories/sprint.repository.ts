@@ -68,8 +68,8 @@ export const sprintRepository = {
     })
   },
 
-  async findActiveByTeam(teamId: string) {
-    return prisma.sprint.findFirst({
+  async findActiveByTeam(teamId: string, tx?: Prisma.TransactionClient) {
+    return (tx ?? prisma).sprint.findFirst({
       where: { teamId, status: 'ACTIVE' },
     })
   },
@@ -114,10 +114,11 @@ export const sprintRepository = {
 
   async listByTeam(
     teamId: string,
-    opts: { status?: SprintStatus; limit?: number; cursor?: string } = {}
+    opts: { status?: SprintStatus; limit?: number; cursor?: string } = {},
+    tx?: Prisma.TransactionClient
   ) {
     const { status, limit = 20, cursor } = opts
-    return prisma.sprint.findMany({
+    return (tx ?? prisma).sprint.findMany({
       where: { teamId, ...(status ? { status } : {}) },
       orderBy: { number: 'desc' },
       take: limit,
@@ -137,11 +138,20 @@ export const sprintRepository = {
     return prisma.sprint.create({ data: input })
   },
 
-  async update(sprintId: string, data: UpdateSprintInput) {
-    return prisma.sprint.update({ where: { id: sprintId }, data })
+  async update(
+    sprintId: string,
+    data: UpdateSprintInput,
+    tx?: Prisma.TransactionClient
+  ) {
+    return (tx ?? prisma).sprint.update({ where: { id: sprintId }, data })
   },
 
-  /** Row lock inside a transaction. Used for serialising start/close/task-membership. */
+  /**
+   * Row lock inside a transaction. Used for serialising start/close/task-membership.
+   * Every later statement in that transaction must run on `tx`: one sent through
+   * the global client uses another connection, waits on this very lock until the
+   * transaction times out and rolls back, then autocommits (LUM-1290).
+   */
   async lockForUpdate(tx: Prisma.TransactionClient, sprintId: string) {
     const rows = await tx.$queryRaw<{ id: string; status: SprintStatus }[]>`
       SELECT id, status FROM sprints WHERE id = ${sprintId} FOR UPDATE
@@ -247,16 +257,20 @@ export const sprintRepository = {
         if (locked.status !== 'DRAFT')
           httpError(409, `cannot start sprint in ${locked.status} state`)
 
-        const active = await sprintRepository.findActiveByTeam(sprint.teamId)
+        const active = await sprintRepository.findActiveByTeam(
+          sprint.teamId,
+          tx
+        )
         if (active && active.id !== sprintId) {
           httpError(409, `team already has ACTIVE sprint ${active.id}`)
         }
 
         try {
-          return await sprintRepository.update(sprintId, {
-            status: 'ACTIVE',
-            startedAt: new Date(),
-          })
+          return await sprintRepository.update(
+            sprintId,
+            { status: 'ACTIVE', startedAt: new Date() },
+            tx
+          )
         } catch (err) {
           if (isPrismaUniqueViolation(err))
             httpError(409, 'team already has ACTIVE sprint')
@@ -310,10 +324,11 @@ export const sprintRepository = {
         let nextSprintId: string | null = null
         const needsNext = Object.values(decisions).some(d => d === 'moveToNext')
         if (needsNext) {
-          const drafts = await sprintRepository.listByTeam(sprint.teamId, {
-            status: 'DRAFT',
-            limit: 1,
-          })
+          const drafts = await sprintRepository.listByTeam(
+            sprint.teamId,
+            { status: 'DRAFT', limit: 1 },
+            tx
+          )
           if (drafts.length > 0 && drafts[0]) {
             nextSprintId = drafts[0].id
           } else {
@@ -361,10 +376,11 @@ export const sprintRepository = {
           await activityRepository.createManySprintChanged(activities, tx)
         }
 
-        const closed = await sprintRepository.update(sprintId, {
-          status: 'CLOSED',
-          closedAt: new Date(),
-        })
+        const closed = await sprintRepository.update(
+          sprintId,
+          { status: 'CLOSED', closedAt: new Date() },
+          tx
+        )
 
         await generationJobRepository.createSprintPending(sprintId, tx)
 
