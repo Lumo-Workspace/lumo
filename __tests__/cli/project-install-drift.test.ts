@@ -159,11 +159,28 @@ describe('projectInstallDrift', () => {
     })
   })
 
-  it('the same stale files, not tracked by git: nothing reported', () => {
+  it('the same stale files, not tracked by git: only the outdated Codex rules are reported (fail-open), marked untracked', () => {
     git('init', '-q')
     skill('.agents', '1.102.0')
     write('.codex/hooks.json', olderHooks('codex', CODEX_HOOK_EVENTS))
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
+    const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(items.map(i => [i.kind, i.tracked])).toEqual([
+      ['codex-rules', false],
+    ])
+  })
+
+  it('a tracked outdated rules file is reported as tracked', () => {
+    git('init', '-q')
+    write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
+    git('add', '-A')
+    const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(items.map(i => [i.kind, i.tracked])).toEqual([['codex-rules', true]])
+  })
+
+  it('current untracked rules: nothing reported', () => {
+    git('init', '-q')
+    write('.codex/rules/lumo.rules', LUMO_CODEX_RULES)
     expect(kinds()).toEqual([])
   })
 
@@ -222,12 +239,14 @@ describe('projectDriftNote', () => {
   const item = (
     kind: 'codex-rules' | 'claude-settings',
     relPath: string,
-    agent = kind === 'claude-settings' ? 'claude-code' : 'codex'
+    agent = kind === 'claude-settings' ? 'claude-code' : 'codex',
+    tracked = true
   ) => ({
     kind,
     path: path.join(repo, relPath),
     relPath,
     agent,
+    tracked,
   })
 
   it('no drift: no note', () => {
@@ -246,6 +265,17 @@ describe('projectDriftNote', () => {
         CLI
       )
     ).toContain('run `lumo init --agent cursor` (preview with')
+  })
+
+  it('untracked items: "local" wording, no commit-in-a-PR step', () => {
+    expect(
+      projectDriftNote(
+        [item('codex-rules', '.codex/rules/lumo.rules', 'codex', false)],
+        CLI
+      )
+    ).toBe(
+      'local Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --agent codex` (preview with `--dry-run`) (an outdated rules file may let newer lumo commands run outside the sandbox)'
+    )
   })
 
   it('two agents: plain `lumo init`, never --scope / skill update', () => {

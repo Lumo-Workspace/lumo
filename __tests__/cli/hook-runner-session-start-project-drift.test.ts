@@ -160,10 +160,12 @@ describe('committed Lumo install behind the CLI', () => {
     )
   })
 
-  it('an uncommitted (untracked) stale install: no reminder', async () => {
+  it('an uncommitted (untracked) stale rules file is still reminded (fail-open), without the PR step', async () => {
     staleRules()
+    const note =
+      'local Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --agent codex` (preview with `--dry-run`) (an outdated rules file may let newer lumo commands run outside the sandbox)'
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )
   })
 
@@ -188,7 +190,7 @@ describe('committed Lumo install behind the CLI', () => {
       })
     )
     const note =
-      'committed Lumo install behind lumo 1.70.0: .claude/settings.json — run `lumo init --agent claude-code` (preview with `--dry-run`), then commit the changes in a PR'
+      'local Lumo install behind lumo 1.70.0: .claude/settings.json — run `lumo init --agent claude-code` (preview with `--dry-run`)'
     expect(await statusLine('claude-code', 's1')).toBe(
       `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )

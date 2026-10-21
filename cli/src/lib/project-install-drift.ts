@@ -20,10 +20,14 @@ import { isPathGitTracked, repoRoot } from './repo-root'
  * SessionStart status line names them once per session with the fix command.
  * The decisions are the ones `lumo init` acts on. Purely local and read-only; every entry point swallows its failures.
  *
- * One exception to "committed only": an uncommitted `.claude/settings.json`
+ * Two exceptions to "committed only": an uncommitted `.claude/settings.json`
  * that still holds Lumo entries for events the CLI no longer registers (an old
  * WorktreeCreate hook breaks every Claude Code worktree) counts as drifted
- * too — nothing else would point at it.
+ * too — nothing else would point at it; and an outdated
+ * `.codex/rules/lumo.rules` is reported tracked or not (security: the rules
+ * decide which `lumo` commands run outside Codex's sandbox, and an old file
+ * fails open for newer commands). Each item carries `tracked` so the note
+ * words the fix accordingly.
  */
 
 export type ProjectDriftKind = 'claude-settings' | 'codex-hooks' | 'codex-rules'
@@ -36,6 +40,8 @@ export interface ProjectDriftItem {
   relPath: string
   /** Agent token the install belongs to (the `--agent` of its refresh). */
   agent: string
+  /** Whether git tracks the file (shared with the team) or it is local only. */
+  tracked: boolean
 }
 
 /** Never throws: an unreadable / unplannable file is simply not reported. */
@@ -58,8 +64,16 @@ export function projectInstallDrift(opts: {
   const root = safe(() => repoRoot(opts.cwd), null)
   if (!root) return []
   const items: ProjectDriftItem[] = []
+  const tracked = (file: string): boolean =>
+    safe(() => isPathGitTracked(file), false)
   const add = (kind: ProjectDriftKind, file: string, agent: string): void => {
-    items.push({ kind, path: file, relPath: path.relative(root, file), agent })
+    items.push({
+      kind,
+      path: file,
+      relPath: path.relative(root, file),
+      agent,
+      tracked: tracked(file),
+    })
   }
 
   const behindAndTracked = (file: string, behind: () => boolean): boolean =>
@@ -69,7 +83,7 @@ export function projectInstallDrift(opts: {
   if (
     settings &&
     safe(() => planHooksMerge(settings.path, settings.agent).writes, false) &&
-    (safe(() => isPathGitTracked(settings.path), false) ||
+    (tracked(settings.path) ||
       safe(
         () =>
           staleLumoHookEvents(
@@ -95,10 +109,7 @@ export function projectInstallDrift(opts: {
     add('codex-hooks', codexHooks, 'codex')
 
   const rules = safe(() => projectCodexRulesTarget(root), null)
-  if (
-    rules &&
-    behindAndTracked(rules, () => classifyCodexRules(rules) === 'outdated')
-  )
+  if (rules && safe(() => classifyCodexRules(rules) === 'outdated', false))
     add('codex-rules', rules, 'codex')
 
   return items
@@ -120,7 +131,10 @@ export function projectDriftNote(
   const rulesWarning = items.some(i => i.kind === 'codex-rules')
     ? ' (an outdated rules file may let newer lumo commands run outside the sandbox)'
     : ''
-  return `committed Lumo install behind lumo ${cliVersion}: ${what} — run \`${init}\` (preview with \`--dry-run\`), then commit the changes in a PR${rulesWarning}`
+  // Untracked files are local only: there is no PR to open for them.
+  const anyTracked = items.some(i => i.tracked)
+  const tail = anyTracked ? ', then commit the changes in a PR' : ''
+  return `${anyTracked ? 'committed' : 'local'} Lumo install behind lumo ${cliVersion}: ${what} — run \`${init}\` (preview with \`--dry-run\`)${tail}${rulesWarning}`
 }
 
 const NOTED_FILE = 'session-project-install-notes.json'
