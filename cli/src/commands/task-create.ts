@@ -80,7 +80,7 @@ export function duplicateEnvelopeChanges(
     `Not created yet: "${title}" looks like ${duplicates.length === 1 ? 'a duplicate of an existing task' : `a duplicate of ${duplicates.length} existing tasks`}`,
     ...duplicates.map(
       d =>
-        `${d.identifier}  ${d.status}  ${Math.round(d.score * 100)}%  "${d.title}"  ${d.url}`
+        `${sanitizeField(d.identifier)}  ${sanitizeField(d.status)}  ${Math.round(d.score * 100)}%  "${sanitizeField(d.title)}"  ${sanitizeField(d.url)}`
     ),
     `Re-running with --confirm creates "${title}" anyway`,
   ]

@@ -82,6 +82,15 @@ describe('findBlockingDuplicates (LUM-1286)', () => {
     expect(args.abortSignal).toBeInstanceOf(AbortSignal)
   })
 
+  it('bounds the whole check, not just the LLM call', async () => {
+    mockFind.mockReturnValue(new Promise(() => {}))
+
+    await expect(
+      findBlockingDuplicates('Google OAuth sign-in', 'p-1', 50)
+    ).resolves.toEqual([])
+    expect(mockGenerate).not.toHaveBeenCalled()
+  })
+
   it('skips the LLM when the project has no tasks', async () => {
     mockFind.mockResolvedValue([])
 

@@ -153,13 +153,26 @@ export const CLI_DUPLICATE_CANDIDATES = 20
  */
 export async function findBlockingDuplicates(
   title: string,
-  projectId: string
+  projectId: string,
+  timeoutMs: number = CLI_DUPLICATE_TIMEOUT_MS
 ): Promise<DuplicateMatch[]> {
-  try {
-    const matches = await checkDuplicates(title, projectId, {
-      abortSignal: AbortSignal.timeout(CLI_DUPLICATE_TIMEOUT_MS),
-      candidateLimit: CLI_DUPLICATE_CANDIDATES,
+  const signal = AbortSignal.timeout(timeoutMs)
+  // The signal cancels the LLM call; the race bounds the whole check (the
+  // task read and the assignee-name lookup too), so a create never waits
+  // past timeoutMs.
+  const timedOut = new Promise<never>((_, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), {
+      once: true,
     })
+  })
+  try {
+    const matches = await Promise.race([
+      checkDuplicates(title, projectId, {
+        abortSignal: signal,
+        candidateLimit: CLI_DUPLICATE_CANDIDATES,
+      }),
+      timedOut,
+    ])
     return matches.filter(m => m.score >= CLI_DUPLICATE_BLOCK_SCORE)
   } catch (err) {
     logger.warn('[duplicate-check] CLI check skipped (fail-open):', err)

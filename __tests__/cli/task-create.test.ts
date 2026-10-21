@@ -12,7 +12,10 @@ jest.mock('../../cli/src/lib/session-id', () => ({
   AmbiguousSessionError: class extends Error {},
 }))
 
-import { taskCreate } from '@/cli/src/commands/task-create'
+import {
+  duplicateEnvelopeChanges,
+  taskCreate,
+} from '@/cli/src/commands/task-create'
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -151,6 +154,19 @@ describe('task create — duplicate gate (LUM-1286)', () => {
     expect(changes).toMatch(/https:\/\/app\/LUM-12/)
     expect(changes).toMatch(/not created/i)
     expect(stderr).toEqual([])
+  })
+
+  it('strips terminal control characters from server-supplied candidate fields', () => {
+    const [, line] = duplicateEnvelopeChanges('x', [
+      {
+        identifier: 'LUM-12',
+        title: 'evil\u001b[2Jtitle',
+        status: 'TODO',
+        score: 0.9,
+        url: 'https://app/LUM-12',
+      },
+    ])
+    expect(line).not.toContain('\u001b')
   })
 
   it('sends confirmDuplicates only with --confirm', async () => {

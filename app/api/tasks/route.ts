@@ -71,7 +71,10 @@ export async function POST(request: Request): Promise<Response> {
     }
     // LUM-1286: the duplicate gate's candidates ride along so the CLI can
     // render its confirmation envelope.
-    const { code, duplicates } = err as { code?: unknown; duplicates?: unknown }
+    const { code, duplicates } = (err ?? {}) as {
+      code?: unknown
+      duplicates?: unknown
+    }
     if (code === 'POSSIBLE_DUPLICATES' && Array.isArray(duplicates)) {
       return NextResponse.json({ error: message, code, duplicates }, { status })
     }
