@@ -170,7 +170,10 @@ export function projectDriftNote(
     cmds.push(`\`${init}\` (preview with \`--dry-run\`)`)
   }
   const then = opts.restart ? ', then restart the session' : ''
-  return `committed Lumo install behind lumo ${cliVersion}: ${what} — run ${cmds.join(' and ')}, then commit the changes in a PR${then}`
+  const rulesWarning = items.some(i => i.kind === 'codex-rules')
+    ? ' (an outdated rules file may let newer lumo commands run outside the sandbox)'
+    : ''
+  return `committed Lumo install behind lumo ${cliVersion}: ${what} — run ${cmds.join(' and ')}, then commit the changes in a PR${then}${rulesWarning}`
 }
 
 const NOTED_FILE = 'session-project-install-notes.json'

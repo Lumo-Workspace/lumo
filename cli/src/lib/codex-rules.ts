@@ -10,17 +10,14 @@ import { CODEX_CLASSES } from './codex-classes.generated'
  *
  * Instead of turning on network for every sandboxed command
  * (`[sandbox_workspace_write] network_access = true`), `lumo init` writes a
- * Codex rules file whose `prefix_rule`s let the **server-only** `lumo`
- * commands run outside the sandbox without prompting: the ones that only talk
- * to the Lumo API (reading only Lumo's own config/credentials, read-only git)
- * and never read an arbitrary local file to upload, write local files or start
- * local processes with side effects. Every other `lumo` command — init/uninstall/update, auth,
- * worktrees, memory sync/push, hooks, `session attach` (can create a
- * worktree), `task update` (a confirmed DONE removes worktrees) — and every
- * non-lumo command stays sandboxed, so Codex asks (or the command fails) as
- * usual. Codex loads `<layer>/rules/*.rules` at startup — the user layer
- * `~/.codex/rules/` always, a project's `<repo>/.codex/rules/` only once that
- * project is trusted.
+ * Codex rules file that allows every `lumo` command outside the sandbox
+ * (LUM-1292) and adds a `prompt` rule for each command that is not
+ * server-only: it reads a local file to upload, writes local files or starts
+ * local processes (init/uninstall/update, auth, worktrees, memory sync/push,
+ * hooks, `session attach`, `task update`, `doc create --file` …). Codex takes
+ * the strictest matching decision, so those still ask. Codex loads
+ * `<layer>/rules/*.rules` at startup — the user layer `~/.codex/rules/`
+ * always, a project's `<repo>/.codex/rules/` only once that project is trusted.
  *
  * Every leaf of the commander tree carries a Codex class (its own `.codex()`
  * or its group's); emit-grammar refuses to run without one, so a new command
@@ -106,86 +103,59 @@ function startsWith(argv: readonly string[], prefix: readonly string[]) {
 }
 
 /**
- * Build the rules file: one `prefix_rule` per parent command, the allowed
- * children as a list of alternatives (`["lumo", "task", ["show", "list"]]`).
- * `match` examples are the allowed commands; `not_match` the sandboxed
- * siblings — Codex validates both when it loads the file.
+ * LUM-1292: every non-server-only command path with the reason it needs a
+ * prompt (the `detail` of its `.codex()` class). These — and only these —
+ * get a `prompt` rule; everything else under `lumo` is allowed by the single
+ * catch-all rule. Generated from {@link CODEX_CLASSES}, never kept by hand.
+ */
+export const CODEX_PROMPTED_COMMANDS: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    classified.flatMap(([path, c]) => (c.serverOnly ? [] : [[path, c.detail]]))
+  )
+
+/**
+ * Build the rules file: one catch-all `allow` for `lumo`, then one `prompt`
+ * rule per command that is not server-only. Codex takes the strictest
+ * decision of all matching rules, so a prompted path wins over the allow.
+ * Both rule kinds carry `match` / `not_match` examples — Codex validates them
+ * when it loads the file.
+ *
+ * Deliberately fail-open for a command missing from the prompt list (a new
+ * command is allowed until classified); the coverage test and emit-grammar's
+ * refusal to run on an unclassified command are the safety net.
  */
 export function buildCodexRules(
-  allowed: readonly string[] = CODEX_SERVER_ONLY_COMMANDS,
-  sandboxed: Readonly<Record<string, string>> = CODEX_SANDBOXED_COMMANDS
+  prompted: Readonly<Record<string, string>> = CODEX_PROMPTED_COMMANDS
 ): string {
-  const paths = allowed.map(tokens)
-  // A path already covered by a shorter allowed path adds nothing.
+  const paths = Object.keys(prompted).sort()
+  // A path already covered by a shorter prompted path adds nothing.
   const effective = paths.filter(
-    p => !paths.some(q => q.length < p.length && startsWith(p, q))
-  )
-  const groups = new Map<string, { parent: string[]; leaves: string[] }>()
-  for (const p of effective) {
-    const parent = p.slice(0, -1)
-    const key = parent.join(' ')
-    const g = groups.get(key) ?? { parent, leaves: [] }
-    g.leaves.push(p[p.length - 1]!)
-    groups.set(key, g)
-  }
-  const ordered = [...groups.values()].sort((a, b) =>
-    a.parent.join(' ').localeCompare(b.parent.join(' '))
-  )
-  // Each sandboxed command is a not_match example of the rule for its nearest
-  // parent (its siblings' rule), else of the top-level rule.
-  const notMatch = new Map<string, string[]>()
-  const top = ''
-  for (const path of Object.keys(sandboxed)) {
-    const t = tokens(path)
-    let best = top
-    for (const g of ordered) {
-      const key = g.parent.join(' ')
-      if (
-        g.parent.length > 0 &&
-        startsWith(t, g.parent) &&
-        key.length > best.length
+    p =>
+      !paths.some(
+        q => q !== p && startsWith(tokens(p), tokens(q)) && q.length < p.length
       )
-        best = key
-    }
-    const list = notMatch.get(best) ?? []
-    list.push(`lumo ${path}`)
-    notMatch.set(best, list)
-  }
-  const topList = notMatch.get(top) ?? []
-  topList.push(
-    'lumo uninstall --confirm',
-    'lumo worktree add LUM-1',
-    'lumox status'
   )
-  notMatch.set(top, topList)
-
   const lines: string[] = [
     CODEX_RULES_MARKER,
-    '# Lets the server-only `lumo` commands (they only call the Lumo API, read no',
-    "# local file to upload and write none) run outside Codex's no-network sandbox",
-    '# without prompting. Every other command, including `lumo init`, `lumo update`,',
-    '# `lumo uninstall`, `lumo auth`, `lumo worktree`, `lumo memory sync/push`,',
-    '# `lumo session attach`, `lumo task update` and the commands that take a',
-    '# `--file` (`lumo doc create/update/patch …`), stays sandboxed, so Codex asks.',
+    "# Every `lumo` command runs outside Codex's no-network sandbox without a",
+    '# prompt, except the commands below that touch local files, start local',
+    '# processes or change local setup: Codex asks first for those (the strictest',
+    '# matching rule wins). A command missing from this list is allowed.',
+    'prefix_rule(',
+    `${RULE_INDENT}pattern = ["lumo"],`,
+    `${RULE_INDENT}decision = "allow",`,
+    `${RULE_INDENT}justification = "Lumo CLI command: needs network to reach the Lumo API",`,
+    `${RULE_INDENT}match = ["lumo status"],`,
+    `${RULE_INDENT}not_match = ["lumox status"],`,
+    ')',
   ]
-  for (const g of ordered) {
-    const leaves = [...g.leaves].sort()
-    const last =
-      leaves.length === 1
-        ? quote(leaves[0]!)
-        : `[${leaves.map(quote).join(', ')}]`
-    const pattern = ['lumo', ...g.parent].map(quote).concat(last).join(', ')
-    const match = leaves.map(l => quote(['lumo', ...g.parent, l].join(' ')))
-    const nm = [...new Set(notMatch.get(g.parent.join(' ')) ?? [])].sort()
+  for (const path of effective) {
+    const pattern = ['lumo', ...tokens(path)].map(quote).join(', ')
     lines.push('prefix_rule(')
     lines.push(`${RULE_INDENT}pattern = [${pattern}],`)
-    lines.push(`${RULE_INDENT}decision = "allow",`)
-    lines.push(
-      `${RULE_INDENT}justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",`
-    )
-    lines.push(`${RULE_INDENT}match = [${match.join(', ')}],`)
-    if (nm.length > 0)
-      lines.push(`${RULE_INDENT}not_match = [${nm.map(quote).join(', ')}],`)
+    lines.push(`${RULE_INDENT}decision = "prompt",`)
+    lines.push(`${RULE_INDENT}justification = ${quote(prompted[path]!)},`)
+    lines.push(`${RULE_INDENT}match = [${quote(`lumo ${path}`)}],`)
     lines.push(')')
   }
   return `${lines.join('\n')}\n`
@@ -338,7 +308,7 @@ export function codexRulesNote(
   scope: 'user' | 'project'
 ): string {
   return (
-    `ℹ Server-only \`lumo\` commands (they only call the Lumo API) now run outside Codex's sandbox without a prompt; Codex still asks before any other lumo command (init, update, auth, worktree, memory sync/push, session attach, task update, and the ones that read a local file such as doc create/update/patch --file) and everything else stays sandboxed without network.\n` +
+    `ℹ \`lumo\` commands now run outside Codex's sandbox without a prompt; Codex still asks before the ones that read or write local files or start local processes (init, update, auth, worktree, memory sync/push, session attach, task update, doc create/update/patch --file …) and everything else stays sandboxed without network.\n` +
     `  Restart Codex to load ${file}.` +
     (scope === 'project'
       ? ' Codex loads a project rules file only once you trust the project.'
@@ -353,7 +323,7 @@ export function codexRulesNote(
  */
 export const CODEX_SANDBOX_NETWORK_HINT = hint(
   "this ran inside Codex's sandbox, which has no network by default, so lumo could not reach the Lumo API. " +
-    'Fix: run `lumo init` (or `lumo init --agent codex`) to add the Codex rule that runs server-only `lumo` commands outside the sandbox (.codex/rules/lumo.rules), then restart Codex — a project rules file loads only in a trusted project. ' +
+    'Fix: run `lumo init` (or `lumo init --agent codex`) to add the Codex rule that runs `lumo` commands outside the sandbox (.codex/rules/lumo.rules), then restart Codex — a project rules file loads only in a trusted project. ' +
     'Run lumo as its own command with flags after the subcommand: piped or redirected (`lumo … | head`), or `lumo --no-hints task …`, it stays sandboxed. ' +
     'Alternatively allow network for every sandboxed command: add `[sandbox_workspace_write]` with `network_access = true` to ~/.codex/config.toml.'
 )

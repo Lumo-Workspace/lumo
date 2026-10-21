@@ -11,6 +11,7 @@ import fs from 'fs'
 import path from 'path'
 import {
   CODEX_FILE_READING_COMMANDS,
+  CODEX_PROMPTED_COMMANDS,
   CODEX_SANDBOXED_COMMANDS,
   CODEX_SERVER_ONLY_COMMANDS,
   LUMO_CODEX_RULES,
@@ -35,7 +36,6 @@ const hand = JSON.parse(
   fileReading: Record<string, string>
   sandboxed: Record<string, string>
 }
-const handRules = read('__tests__/fixtures/lum1233-codex-hand-rules.txt')
 const grammar = JSON.parse(
   read('scripts/cli-grammar/grammar.json')
 ) as CliGrammar
@@ -119,23 +119,14 @@ describe('generated lists vs the last hand-kept ones', () => {
     })
   })
 
-  it('the rules file is the hand-kept one, except the priority rule and the 3j names', () => {
-    // The fixture is exactly what the hand-kept lists produced…
-    expect(buildCodexRules(hand.serverOnly, hand.sandboxed)).toBe(handRules)
-    // …and applying the deviation and the renames to those lists gives today's file.
-    const adjusted = [
-      ...handServerOnly.filter(p => !DEVIATIONS.serverOnlyRemoved.includes(p)),
-      ...DEVIATIONS.serverOnlyAdded,
-    ]
-    expect(LUMO_CODEX_RULES).toBe(
-      buildCodexRules(adjusted, {
-        ...renameKeys(hand.sandboxed),
-        ...DEVIATIONS.sandboxedAdded,
-      })
-    )
+  it('the rules file prompts exactly the non-server-only commands (LUM-1292)', () => {
+    const prompted = Object.keys(CODEX_SANDBOXED_COMMANDS).sort()
+    expect(Object.keys(CODEX_PROMPTED_COMMANDS).sort()).toEqual(prompted)
+    expect(LUMO_CODEX_RULES).toBe(buildCodexRules())
     expect(LUMO_CODEX_RULES).toContain(
-      'pattern = ["lumo", "priority", ["create", "list"]]'
+      'pattern = ["lumo"],\n    decision = "allow"'
     )
+    expect(LUMO_CODEX_RULES).not.toContain('"priority"')
   })
 })
 

@@ -131,7 +131,7 @@ async function statusLine(agent: string, sid: string): Promise<string> {
 }
 
 const RULES_NOTE =
-  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR (an outdated rules file may let newer lumo commands run outside the sandbox)'
 
 describe('committed Lumo install behind the CLI', () => {
   it('Claude Code: one reminder with the fix command, once per session', async () => {

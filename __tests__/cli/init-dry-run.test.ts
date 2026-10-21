@@ -294,7 +294,7 @@ describe('lumo init --dry-run', () => {
       await init({ scope: 'user', agent: 'codex', dryRun: true }, d.deps)
     ).toBe(0)
     expect(stdout).toContain('~/.agents/skills/lumo')
-    expect(stdout).not.toContain('~/.claude/')
+    expect(stdout).not.toContain('~/.claude/settings.json')
     expect(stdout).toContain(
       'Run `lumo init --scope user --agent codex` to apply'
     )

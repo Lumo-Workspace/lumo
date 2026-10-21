@@ -268,7 +268,7 @@ describe('projectDriftNote', () => {
     expect(
       projectDriftNote([item('codex-rules', '.codex/rules/lumo.rules')], CLI)
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+      'committed Lumo install behind lumo 1.120.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR (an outdated rules file may let newer lumo commands run outside the sandbox)'
     )
     expect(
       projectDriftNote(
@@ -303,7 +303,7 @@ describe('projectDriftNote', () => {
         { restart: true }
       )
     ).toBe(
-      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --scope project` and `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session'
+      'committed Lumo install behind lumo 1.120.0: .agents/skills/lumo 1.102.0, .codex/rules/lumo.rules — run `lumo skill update --scope project` and `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR, then restart the session (an outdated rules file may let newer lumo commands run outside the sandbox)'
     )
   })
 })

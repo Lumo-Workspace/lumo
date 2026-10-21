@@ -42,66 +42,42 @@ afterEach(() => {
 })
 
 describe('Codex rules file (LUM-1054)', () => {
-  it('carries the Lumo marker first and only allow rules, never the bare `lumo` prefix', () => {
+  it('carries the Lumo marker first, one catch-all allow for `lumo`, and prompt rules otherwise (LUM-1292)', () => {
     expect(LUMO_CODEX_RULES.startsWith(CODEX_RULES_MARKER)).toBe(true)
-    expect(LUMO_CODEX_RULES).not.toContain('pattern = ["lumo"]')
-    expect(LUMO_CODEX_RULES).not.toMatch(/decision = "(?!allow")/)
+    expect(LUMO_CODEX_RULES).toContain(
+      'pattern = ["lumo"],\n    decision = "allow"'
+    )
+    expect(LUMO_CODEX_RULES.match(/decision = "allow"/g)).toHaveLength(1)
+    expect(LUMO_CODEX_RULES).not.toMatch(/decision = "(?!allow"|prompt")/)
+    expect(LUMO_CODEX_RULES).toContain('not_match = ["lumox status"]')
     expect(LUMO_CODEX_RULES).toBe(buildCodexRules())
   })
 
-  it('allows the server-only commands as narrow prefixes', () => {
-    expect(LUMO_CODEX_RULES).toContain(
-      'pattern = ["lumo", "session", "status"]'
-    )
-    expect(LUMO_CODEX_RULES).toMatch(
-      /pattern = \["lumo", "task", \[[^\]]*"show"[^\]]*\]\]/
-    )
-    expect(LUMO_CODEX_RULES).toMatch(
-      /pattern = \["lumo", "doc", \[[^\]]*"show"[^\]]*\]\]/
-    )
-    expect(LUMO_CODEX_RULES).toContain('match = ["lumo session status"]')
-  })
-
-  it('leaves the local-effect commands out and names them as not_match examples', () => {
-    for (const denied of [
+  it('prompts the local-effect commands, each with its own command as the match example', () => {
+    for (const cmd of [
       'init',
       'uninstall',
       'update',
-      'auth',
+      'auth login',
       'worktree',
       'hook',
-      'whoami',
       'doctor',
-      'setup',
-    ])
-      expect(LUMO_CODEX_RULES).not.toMatch(
-        new RegExp(`pattern = \\["lumo", (\\[[^\\]]*)?"${denied}"`)
+      'session attach',
+      'task update',
+      'memory sync',
+      'doc create',
+    ]) {
+      const pattern = ['lumo', ...cmd.split(' ')].map(t => `"${t}"`).join(', ')
+      expect(LUMO_CODEX_RULES).toContain(
+        `pattern = [${pattern}],\n    decision = "prompt"`
       )
-    // Sandboxed siblings of allowed commands never appear in their rule.
-    const patternOf = (parent: string) =>
-      new RegExp(`pattern = \\[${parent}, (\\[[^\\]]*\\]|"[^"]*")\\]`).exec(
-        LUMO_CODEX_RULES
-      )?.[1]
-    expect(patternOf('"lumo", "task"')).toContain('"show"')
-    expect(patternOf('"lumo", "task"')).not.toContain('"update"')
-    expect(patternOf('"lumo", "session"')).toBe('"status"')
-    expect(patternOf('"lumo", "memory"')).not.toMatch(/"sync"|"push"/)
-    expect(patternOf('"lumo", "task", "testcase"')).not.toContain(
-      '"disposition"'
-    )
-    // LUM-1187: only the read-only `crossing list` is server-only; the
-    // ruling / explaining siblings stay sandboxed.
-    expect(patternOf('"lumo", "crossing"')).toBe('"list"')
-    for (const example of [
-      '"lumo init"',
-      '"lumo uninstall --confirm"',
-      '"lumo worktree add LUM-1"',
-      '"lumo session attach"',
-      '"lumo task update"',
-      '"lumo memory sync"',
-      '"lumo task testcase disposition"',
-    ])
-      expect(LUMO_CODEX_RULES).toContain(example)
+      expect(LUMO_CODEX_RULES).toContain(`match = ["lumo ${cmd}"]`)
+    }
+    // Server-only commands get no rule of their own.
+    for (const cmd of ['task show', 'session status', 'doc show', 'skill read'])
+      expect(LUMO_CODEX_RULES).not.toContain(
+        `pattern = [${['lumo', ...cmd.split(' ')].map(t => `"${t}"`).join(', ')}]`
+      )
   })
 
   it('isCodexServerOnly mirrors the positional prefix match', () => {
@@ -119,7 +95,7 @@ describe('Codex rules file (LUM-1054)', () => {
     expect(codexCommandPath(['nope'])).toBeNull()
   })
 
-  it('keeps every file-reading command out of the allow list and the rules text', () => {
+  it('prompts every file-reading command', () => {
     const fileReading = Object.keys(CODEX_FILE_READING_COMMANDS)
     expect(fileReading.length).toBeGreaterThan(0)
     for (const cmd of fileReading) {
@@ -134,15 +110,8 @@ describe('Codex rules file (LUM-1054)', () => {
       expect(CODEX_SANDBOXED_COMMANDS[cmd]).toContain(
         'reads local files (--file …) — Codex asks first'
       )
-      // Its leaf never appears in the pattern of its parent's rule.
-      const parts = cmd.split(' ')
-      const leaf = parts.pop()!
-      const parent = ['lumo', ...parts].map(t => `"${t}"`).join(', ')
-      const rule = new RegExp(
-        `pattern = \\[${parent}, (\\[[^\\]]*\\]|"[^"]*")\\]`
-      ).exec(LUMO_CODEX_RULES)?.[1]
-      expect([cmd, rule?.includes(`"${leaf}"`) ?? false]).toEqual([cmd, false])
-      expect(LUMO_CODEX_RULES).toContain(`"lumo ${cmd}"`) // a not_match example
+      // It has its own prompt rule.
+      expect(LUMO_CODEX_RULES).toContain(`match = ["lumo ${cmd}"]`)
     }
   })
 
