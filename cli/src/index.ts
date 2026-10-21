@@ -308,12 +308,14 @@ function noteLastCommand(code: number): void {
     options: ReadonlyArray<{ long?: string; attributeName(): string }>
     getOptionValueSource(key: string): string | undefined
   }
+  const path = commandPathOf(cmd)
+  // `skill read` is a pure local read: it must not write under ~/.lumo, and
+  // must not clobber the record `lumo feedback create` reads.
+  if (path === 'skill read') return
   const flags = cmd.options
     .filter(o => cmd.getOptionValueSource(o.attributeName()) === 'cli')
     .map(o => o.long ?? '')
-  recordLastCommand(
-    buildLastCommand(commandPathOf(cmd), flags, code, new Date())
-  )
+  recordLastCommand(buildLastCommand(path, flags, code, new Date()))
 }
 
 function exitWith(code: number): never {
@@ -389,7 +391,9 @@ function wrap(fn: CommandFn) {
 
 const program = new LumoCommand()
   .name('lumo')
-  .description('Lumo CLI — manage tasks and sessions from the terminal')
+  .description(
+    'Lumo CLI — manage tasks and sessions from the terminal. Agents: read the guide with `lumo skill read`.'
+  )
   .version(pkg.version)
   // Make usage errors actionable for agents: suggest near-miss spellings and
   // point at --help instead of dead-ending on "unknown option". Subcommands

@@ -108,11 +108,11 @@ describe('lumo skill read', () => {
   })
 })
 
-/** Only the local last-command record may appear under ~/.lumo. */
+/** `skill read` writes nothing under HOME (not even last-command.json). */
 function expectNoInstallOrUpdateState(home: string): void {
   const dir = join(home, '.lumo')
   const names = existsSync(dir) ? readdirSync(dir) : []
-  expect(names.filter(n => n !== 'last-command.json')).toEqual([])
+  expect(names).toEqual([])
   expect(readdirSync(home).filter(n => n !== '.lumo')).toEqual([])
 }
 
