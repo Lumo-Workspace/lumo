@@ -248,10 +248,12 @@ describe('projectInstallDrift', () => {
     expect(kinds()).toEqual([])
   })
 
-  it('not a git repo: nothing reported', () => {
+  it('a folder install (not a git repo): drift is reported, never as committed', () => {
     skill('.agents', '1.102.0')
     write('.codex/rules/lumo.rules', `${CODEX_RULES_MARKER}\n# old rules\n`)
-    expect(kinds()).toEqual([])
+    const items = projectInstallDrift({ cwd: repo, cliVersion: CLI })
+    expect(items.map(i => i.kind)).toEqual(['codex-rules', 'skill-stub'])
+    expect(items.every(i => !i.tracked)).toBe(true)
   })
 
   it('a git repo without any Lumo install: nothing reported', () => {

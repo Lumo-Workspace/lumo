@@ -10,7 +10,7 @@ import {
   projectClaudeSettingsTarget,
   projectCodexRulesTarget,
 } from './install-plan'
-import { isPathGitTracked, repoRoot } from './repo-root'
+import { isPathGitTracked, resolveInstallRoot } from './repo-root'
 import { classifySkillStub, skillStubAgent, skillStubPaths } from './skill-stub'
 
 /**
@@ -66,7 +66,10 @@ export function projectInstallDrift(opts: {
   cwd: string
   cliVersion: string
 }): ProjectDriftItem[] {
-  const root = safe(() => repoRoot(opts.cwd), null)
+  const root = safe(() => {
+    const r = resolveInstallRoot(opts.cwd)
+    return r.ok ? r.root : null
+  }, null)
   if (!root) return []
   const items: ProjectDriftItem[] = []
   const tracked = (file: string): boolean =>

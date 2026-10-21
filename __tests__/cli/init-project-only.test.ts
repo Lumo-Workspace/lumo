@@ -177,10 +177,10 @@ describe('lumo init — current repo only', () => {
     expect(after.map(i => i.path)).toEqual(planned.map(i => i.path))
   })
 
-  it('exits 1 outside a git repository and writes nothing', async () => {
+  it('refuses $HOME and writes nothing', async () => {
     const plain = tmp('lumo-t6-plain-')
-    expect(await init({}, { cwd: plain, ...notGlobal })).toBe(1)
-    expect(stderr).toContain('run it inside a git repository')
+    expect(await init({}, { cwd: plain, homeDir: plain, ...notGlobal })).toBe(1)
+    expect(stderr).toContain('home directory')
     expect(tree(plain)).toEqual([])
     expect(tree(home)).toEqual([])
   })

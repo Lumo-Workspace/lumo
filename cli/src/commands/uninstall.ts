@@ -271,7 +271,7 @@ export async function uninstall(
   const plan = planUninstall(opts, deps)
   if (!plan.repo && !opts.purge) {
     process.stderr.write(
-      'Error: lumo uninstall removes the Lumo hooks of the current repo — run it inside a git repository (or pass --purge to only empty the Lumo config dir).\n'
+      'Error: lumo uninstall removes the Lumo files of the current repo or folder — run it inside a git repository or a project folder, not $HOME or / (or pass --purge to only empty the Lumo config dir).\n'
     )
     return 1
   }

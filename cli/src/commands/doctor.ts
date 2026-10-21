@@ -37,7 +37,7 @@ import {
   codexNetworkState,
   codexRulesPath,
 } from '../lib/codex-rules'
-import { isPathGitTracked, repoRoot } from '../lib/repo-root'
+import { isPathGitTracked, resolveInstallRoot } from '../lib/repo-root'
 import { projectClaudeSettingsTarget } from '../lib/install-plan'
 import {
   classifySkillStub,
@@ -106,8 +106,10 @@ export interface DoctorAuth {
 
 export interface DoctorReport {
   cliVersion: string | null
-  /** The git repo root, or null outside a repo. */
+  /** The install root (git repo root or, outside git, the folder), or null when refused ($HOME, /). */
   repo: string | null
+  /** The root is a plain folder, not a git repo (Task 11). */
+  folder: boolean
   rows: DoctorRow[]
   warnings: DoctorWarning[]
   autoUpdate: AutoUpdateStatus
@@ -480,14 +482,12 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
     deps.cliVersion !== undefined ? deps.cliVersion : readCliVersion()
   const env = deps.env ?? process.env
   const warnings: DoctorWarning[] = []
-  const root = repoRoot(deps.cwd ?? process.cwd())
+  const resolved = resolveInstallRoot(deps.cwd ?? process.cwd(), home)
+  const root = resolved.ok ? resolved.root : null
+  const folder = resolved.ok && resolved.kind === 'folder'
   const rows = root ? repoRows(root, home, cliVersion, warnings) : []
-  if (!root)
-    warnings.push({
-      code: 'not-a-repo',
-      message:
-        'not inside a git repository — Lumo hooks are set up per repo; run `lumo init` inside one',
-    })
+  if (!resolved.ok)
+    warnings.push({ code: 'not-a-repo', message: resolved.error })
   if (!lumoOnPath(env.PATH))
     warnings.push({
       code: 'lumo-not-on-path',
@@ -497,6 +497,7 @@ export function collectDoctor(deps: DoctorDeps = {}): DoctorReport {
   return {
     cliVersion,
     repo: root,
+    folder,
     rows,
     warnings,
     autoUpdate: getAutoUpdateStatus(env),
@@ -590,16 +591,24 @@ function renderText(report: DoctorReport, auth: DoctorAuth): string {
     ...describeAuth(auth),
   ]
   if (report.repo) {
-    lines.push('', `Repo ${report.repo}`)
+    lines.push(
+      '',
+      `${report.folder ? 'Folder (not a git repo)' : 'Repo'} ${report.repo}`
+    )
     if (report.rows.length === 0)
-      lines.push('  No Lumo hooks in this repo.', '  lumo init')
+      lines.push(
+        `  No Lumo hooks in this ${report.folder ? 'folder' : 'repo'}.`,
+        '  lumo init'
+      )
     lines.push(
       ...renderRows(
         'Committed (shared with the team)',
         report.rows.filter(r => r.tracked)
       ),
       ...renderRows(
-        'Not committed (this checkout only)',
+        report.folder
+          ? 'Local (this folder only — not under git)'
+          : 'Not committed (this checkout only)',
         report.rows.filter(r => !r.tracked)
       )
     )

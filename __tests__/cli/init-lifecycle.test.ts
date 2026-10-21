@@ -119,9 +119,9 @@ describe('init (fresh install)', () => {
     ).toContain('Managed by `lumo init`')
   })
 
-  it('fails with exit 1 outside a git repository', async () => {
+  it('fails with exit 1 in $HOME', async () => {
     const dir = tmp()
-    expect(await init({}, { cwd: dir })).toBe(1)
+    expect(await init({}, { cwd: dir, homeDir: dir })).toBe(1)
     expect(existsSync(join(dir, '.claude'))).toBe(false)
   })
 

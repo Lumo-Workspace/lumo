@@ -204,10 +204,10 @@ describe('lumo init --dry-run', () => {
     expect(stdout).toContain('Run `lumo init` to apply.')
   })
 
-  it('exits 1 outside a git repository, writing nothing', async () => {
+  it('refuses $HOME, writing nothing', async () => {
     const dir = tmp()
-    expect(await init({ dryRun: true }, { cwd: dir })).toBe(1)
-    expect(stderr).toContain('run it inside a git repository')
+    expect(await init({ dryRun: true }, { cwd: dir, homeDir: dir })).toBe(1)
+    expect(stderr).toContain('home directory')
     expect(stdout).toBe('')
   })
 

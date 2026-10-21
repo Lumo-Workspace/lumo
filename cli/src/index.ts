@@ -505,7 +505,7 @@ function registerInit(): void {
     .command('init')
     .codex(writesLocal('writes hook and rules files in this repo'))
     .description(
-      'Set up Lumo in this git repo: Claude Code / Codex hooks, a Codex sandbox rule and the git hook. Writes only inside the repo; re-run to refresh. --dry-run previews, --agent sets up one agent.'
+      'Set up Lumo in this git repo: agent hooks, Codex rule, /lumo skill stub, git hook. Re-run to refresh. Outside a git repo it asks [y/N] before installing into the folder. --dry-run previews.'
     )
     .option(
       '--agent <token>',

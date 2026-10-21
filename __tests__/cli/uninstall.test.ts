@@ -163,11 +163,11 @@ describe('confirmation envelope', () => {
   })
 })
 
-describe('outside a git repository', () => {
+describe('in $HOME (no folder install possible)', () => {
   it('exits 1 without an envelope', async () => {
     const dir = tmp()
-    expect(await uninstall({}, { cwd: dir, homeDir: tmp() })).toBe(1)
-    expect(stderr).toContain('run it inside a git repository')
+    expect(await uninstall({}, { cwd: dir, homeDir: dir })).toBe(1)
+    expect(stderr).toContain('not $HOME or /')
     expect(stdout).toBe('')
   })
 

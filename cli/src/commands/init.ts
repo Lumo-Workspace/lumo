@@ -9,7 +9,14 @@ import {
 } from '../lib/hooks-template'
 import { codexHooksPath, codexTrustInstructions } from '../lib/codex-hooks'
 import { planGitHookInstall, planHooksMerge } from '../lib/install-plan'
-import { planInit, renderInitPlan, initApplyCommand } from '../lib/init-dry-run'
+import {
+  planInit,
+  renderInitPlan,
+  initApplyCommand,
+  folderWarnings,
+  renderFolderPlan,
+} from '../lib/init-dry-run'
+import { askYesNo, type AnswerStream } from '../lib/ask-yes-no'
 import {
   codexRulesNote,
   codexRulesPath,
@@ -24,7 +31,7 @@ import { SCAN_HOOKS } from '../lib/scan-hook-template'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
-import { isPathGitTracked, repoRoot } from '../lib/repo-root'
+import { isPathGitTracked, resolveInstallRoot } from '../lib/repo-root'
 import {
   describeAutoUpdate,
   getAutoUpdateStatus,
@@ -36,6 +43,7 @@ import { findCliPackageRoot, readCliVersion } from '../lib/cli-version'
 import {
   classifySkillStub,
   installSkillStub,
+  skillStubAgent,
   skillStubPaths,
 } from '../lib/skill-stub'
 
@@ -56,15 +64,16 @@ export type InitDeps = {
   /** Package root and spawnSync for the default eligibility probe (same seams as doctor). */
   pkgRoot?: string | null
   spawnSync?: SpawnSyncFn
+  /** Folder-install prompt seams (default: stdin, 60 s). */
+  stdin?: AnswerStream
+  answerTimeoutMs?: number
+  /** Home directory for the `$HOME` refusal (default: os.homedir()). */
+  homeDir?: string
 }
 
 /** LUM-1118: `lumo init --upgrade` is gone; re-running init refreshes an install. */
 export const UPGRADE_REMOVED =
   '`lumo init --upgrade` was removed — re-run `lumo init` in the repo to refresh (optionally `--agent <token>`); preview it with `lumo init --dry-run`.'
-
-/** LUM-1292: init only sets up the git repo it runs in. */
-export const NOT_A_REPO =
-  'lumo init sets up the current repo — run it inside a git repository.'
 
 /**
  * Validate the `--agent` flag and canonicalize it to the CLI token baked into
@@ -124,10 +133,18 @@ export async function init(
   }
   const tokens = agentResult.tokens
 
-  const root = repoRoot(deps.cwd ?? process.cwd())
-  if (!root) {
-    process.stderr.write(`Error: ${NOT_A_REPO}\n`)
+  const resolved = resolveInstallRoot(deps.cwd ?? process.cwd(), deps.homeDir)
+  if (!resolved.ok) {
+    process.stderr.write(`Error: ${resolved.error}\n`)
     return 1
+  }
+  const { root } = resolved
+  const folder = resolved.kind === 'folder'
+  if (folder && options.scanHooks) {
+    process.stderr.write(
+      'Error: --scan-hooks needs a git repository (it installs git hooks) — run `lumo init --scan-hooks` inside a repo, or drop the flag for a folder install.\n'
+    )
+    return EXIT_USAGE
   }
   const cliVersion =
     deps.cliVersion !== undefined ? deps.cliVersion : readCliVersion()
@@ -143,24 +160,56 @@ export async function init(
         cliVersion,
         root,
         applyCommand: initApplyCommand(options),
+        folder,
       })
     )
     return items.some(i => i.action === 'error') ? 1 : 0
   }
 
-  process.stdout.write(`\nInstalling Lumo hooks for this repo: ${root}\n`)
+  if (folder) {
+    const items = planInit({ tokens, root })
+    process.stdout.write(
+      `\nLumo would install in this folder: ${root}\n${renderFolderPlan(items, root)}\n${folderWarnings(root).join('\n')}\n\n`
+    )
+    const yes = await askYesNo('Install Lumo here anyway? [y/N] ', {
+      ...(deps.stdin ? { stdin: deps.stdin } : {}),
+      ...(deps.answerTimeoutMs !== undefined
+        ? { timeoutMs: deps.answerTimeoutMs }
+        : {}),
+    })
+    if (!yes) {
+      process.stdout.write('Nothing written.\n')
+      return 0
+    }
+  }
+
+  process.stdout.write(`\n${installHeadline(root, tokens, folder)}\n`)
+  const written: string[] = []
   let stubFailures = 0
 
   for (const token of tokens) {
     if (tokens.length > 1) process.stdout.write(`\n${agentHeading(token)}\n`)
     else process.stdout.write('\n')
-    if (token === 'codex') installCodex(root)
-    else mergeHooksFile(path.join(root, '.claude', 'settings.json'), token)
+    if (token === 'codex') installCodex(root, written)
+    else
+      mergeHooksFile(
+        path.join(root, '.claude', 'settings.json'),
+        token,
+        undefined,
+        {
+          written,
+        }
+      )
     for (const file of skillStubPaths(root, [token]))
-      if (!writeSkillStub(file)) stubFailures++
+      if (!writeSkillStub(file, root, written, tokens.includes('codex')))
+        stubFailures++
   }
   process.stdout.write('\n')
-  installGitHook(root)
+  if (folder)
+    process.stdout.write(
+      'ℹ Not a git repository — no git hook installed (folder install).\n'
+    )
+  else installGitHook(root)
   if (options.scanHooks) {
     let installed = 0
     for (const spec of SCAN_HOOKS) if (installGitHook(root, spec)) installed++
@@ -171,6 +220,7 @@ export async function init(
       )
   }
   await printSessionRecordNotice()
+  process.stdout.write(commitBlock(root, written, folder))
   printPostInstall(tokens)
   process.stdout.write(`${describeAutoUpdate(autoUpdateForInstall(deps))}\n`)
 
@@ -201,6 +251,43 @@ function autoUpdateForInstall(deps: InitDeps): AutoUpdateStatus {
   return { ...status, eligible }
 }
 
+/** The one-line headline of a real run, naming what is installed. */
+export function installHeadline(
+  root: string,
+  tokens: readonly string[],
+  folder: boolean
+): string {
+  const parts = [
+    'agent hooks',
+    ...(tokens.includes('codex') ? ['Codex rules'] : []),
+    'a /lumo skill stub',
+    ...(folder ? [] : ['a git hook']),
+  ]
+  const list =
+    parts.length > 1
+      ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+      : (parts[0] as string)
+  return `Installing Lumo for this ${folder ? 'folder' : 'repo'}: ${list} — ${root}`
+}
+
+/**
+ * What to commit so teammates get Lumo too: the files this run wrote or
+ * changed (the git hook lives in .git and is never committed). A folder
+ * install has nothing to commit.
+ */
+export function commitBlock(
+  root: string,
+  written: readonly string[],
+  folder: boolean
+): string {
+  if (folder)
+    return 'ℹ Not a git repo — these files stay local to this folder.\n'
+  if (written.length === 0) return ''
+  const rels = written.map(f => path.relative(root, f))
+  const dirs = [...new Set(rels.map(r => r.split(path.sep)[0] as string))]
+  return `\nCommit these so teammates get Lumo too:\n  ${rels.join('  ')}\n  git add ${dirs.join(' ')}\n`
+}
+
 function agentHeading(token: string): string {
   return token === 'codex'
     ? 'Codex'
@@ -215,9 +302,11 @@ function agentHeading(token: string): string {
  * rules file that lets `lumo` reach the API from the sandbox, and the trust
  * instructions.
  */
-function installCodex(root: string): void {
+function installCodex(root: string, written: string[]): void {
   const hooksPath = codexHooksPath(root)
-  const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS)
+  const { stats } = mergeHooksFile(hooksPath, 'codex', CODEX_HOOK_EVENTS, {
+    written,
+  })
   // LUM-1112: rewriting a file that already held Lumo entries makes Codex ask
   // for trust again — name the entries it will ask about. A file without
   // Lumo entries (new, or only the user's hooks) needs a first trust instead.
@@ -245,6 +334,7 @@ function installCodex(root: string): void {
         ? `✓ Codex rule already in place: ${rulesPath}\n`
         : `✓ wrote Codex rule: ${rulesPath}\n`
     )
+    if (res !== 'unchanged') written.push(rulesPath)
     if (tracked && res !== 'unchanged')
       process.stdout.write(gitDiffNote(rulesPath))
     process.stdout.write(`${codexRulesNote(rulesPath)}\n`)
@@ -258,7 +348,12 @@ function installCodex(root: string): void {
  * Returns false (error on stderr) when the file cannot be written; init then
  * finishes the other files and exits 1.
  */
-function writeSkillStub(file: string): boolean {
+function writeSkillStub(
+  file: string,
+  root: string,
+  written: string[],
+  withCodex: boolean
+): boolean {
   let res: ReturnType<typeof installSkillStub>
   let tracked = false
   try {
@@ -269,12 +364,19 @@ function writeSkillStub(file: string): boolean {
     process.stderr.write(`Error: could not write skill stub ${file}: ${msg}\n`)
     return false
   }
+  const gives =
+    skillStubAgent(root, file) === 'codex'
+      ? 'gives Codex $lumo'
+      : `gives the agent /lumo${withCodex ? ' ($lumo in Codex)' : ''}`
   if (res === 'unchanged') {
-    process.stdout.write(`✓ skill stub already up to date: ${file}\n`)
+    process.stdout.write(
+      `✓ skill stub already up to date: ${file} — ${gives}; its content never changes\n`
+    )
     return true
   }
+  written.push(file)
   process.stdout.write(
-    `✓ ${res === 'created' ? 'wrote' : 'updated'} skill stub: ${file}\n`
+    `✓ ${res === 'created' ? 'wrote' : 'updated'} skill stub: ${file} — ${gives}; its content never changes\n`
   )
   if (tracked) process.stdout.write(gitDiffNote(file))
   return true
@@ -295,7 +397,7 @@ export function mergeHooksFile(
   settingsPath: string,
   agentToken: string,
   events?: Parameters<typeof mergeLumoHooks>[2],
-  opts: { quiet?: boolean } = {}
+  opts: { quiet?: boolean; written?: string[] } = {}
 ): { path: string; stats: MergeStats } {
   const plan = planHooksMerge(settingsPath, agentToken, events)
   const { exists, merged, stats } = plan
@@ -307,6 +409,7 @@ export function mergeHooksFile(
   if (plan.writes) {
     if (!exists) fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
+    opts.written?.push(settingsPath)
   }
   if (opts.quiet) return { path: settingsPath, stats }
 

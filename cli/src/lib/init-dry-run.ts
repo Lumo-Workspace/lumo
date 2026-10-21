@@ -378,7 +378,7 @@ function gitHookItem(
         ...base,
         path: root,
         action: 'skip',
-        summary: 'not a git repository — no hook',
+        summary: 'not a git repository — no git hook (folder install)',
         notes: [],
       }
     case 'degrade':
@@ -460,7 +460,7 @@ function errorItem(kind: InitItemKind, file: string, err: unknown): InitItem {
  */
 export function planInit(args: {
   tokens: readonly string[]
-  /** The git repo root. */
+  /** The install root: the git repo root, or the folder (Task 11). */
   root: string
   /** LUM-1258: `--scan-hooks` — also plan the pre-commit / pre-push scan hooks. */
   scanHooks?: boolean
@@ -522,6 +522,28 @@ export function initApplyCommand(opts: {
   return cmd
 }
 
+/** Task 11: the warnings shown before a folder (non-git) install. */
+export function folderWarnings(root: string): string[] {
+  return [
+    `${icons.warning} ${root} is not a git repository — these files can't be shared with teammates via git.`,
+    `${icons.warning} They apply only to agent sessions started in this folder (a project inside it that has its own \`lumo init\` uses that install instead).`,
+  ]
+}
+
+/** Task 11: the files a folder install would write (changing items only). */
+export function renderFolderPlan(
+  items: readonly InitItem[],
+  root: string
+): string {
+  const lines = items
+    .filter(i => i.action === 'install' || i.action === 'update')
+    .map(
+      i =>
+        `  ${VERB[i.action]} ${displayPath(i.path, root)} — ${i.label ?? KIND_LABEL[i.kind]}`
+    )
+  return lines.length > 0 ? lines.join('\n') + '\n' : '  (nothing to change)\n'
+}
+
 // ── rendering ──────────────────────────────────────────────────────────────
 
 const VERB: Record<InitAction, string> = {
@@ -551,9 +573,16 @@ export function renderInitPlan(
     root: string
     /** The command that applies the plan, e.g. `lumo init --agent codex`. */
     applyCommand: string
+    /** Folder install (not a git repo): shows the folder warnings. */
+    folder?: boolean
   }
 ): string {
-  let out = `Lumo init --dry-run — repo ${opts.root}, nothing is written (CLI ${opts.cliVersion ?? 'unknown version'})\n\n`
+  let out = `Lumo init --dry-run — ${opts.folder ? 'folder' : 'repo'} ${opts.root}, nothing is written (CLI ${opts.cliVersion ?? 'unknown version'})\n\n`
+  if (opts.folder)
+    out +=
+      folderWarnings(opts.root)
+        .map(w => `${w}\n`)
+        .join('') + '\n'
   for (const i of items) {
     out += `${VERB[i.action]} ${displayPath(i.path, opts.root)} — ${i.label ?? KIND_LABEL[i.kind]}: ${i.summary}\n`
     for (const n of i.notes) out += `    ${n}\n`

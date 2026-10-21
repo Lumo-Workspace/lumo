@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { CODEX_HOOK_EVENTS, isLumoHookCommand } from './hooks-template'
-import { repoRoot } from './repo-root'
+import { resolveInstallRoot } from './repo-root'
 
 /**
  * LUM-1051: Codex runs a hook only after the user trusts it — per entry, in
@@ -139,7 +139,8 @@ export function codexLikelyUntrustedEvents(args: {
   cwd: string
 }): string[] | null {
   const files = [codexHooksPath(args.home)]
-  const root = repoRoot(args.cwd)
+  const resolved = resolveInstallRoot(args.cwd, args.home)
+  const root = resolved.ok ? resolved.root : null
   if (root) files.push(codexHooksPath(root))
   let toml = ''
   try {

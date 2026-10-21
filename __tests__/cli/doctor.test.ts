@@ -140,9 +140,10 @@ describe('scope: only the current repo', () => {
     expect(r.rows).toEqual([])
   })
 
-  it('outside a git repo: no rows and a not-a-repo warning', () => {
+  it('in $HOME: no rows, no root and a not-a-repo warning', () => {
     const f = fixture()
-    const r = collectDoctor({ ...f.deps, cwd: tmp() })
+    const dir = tmp()
+    const r = collectDoctor({ ...f.deps, cwd: dir, homeDir: dir })
     expect(r.repo).toBeNull()
     expect(r.rows).toEqual([])
     expect(warn(r, 'not-a-repo')).toHaveLength(1)
