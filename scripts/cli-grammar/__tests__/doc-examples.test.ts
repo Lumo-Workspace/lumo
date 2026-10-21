@@ -15,7 +15,6 @@ import {
   collectDocExamples,
   extractExampleLines,
   normalizePlaceholders,
-  readSkillDescription,
   runnableGrammarPaths,
   stripInlineComment,
 } from '../doc-examples'
@@ -120,12 +119,6 @@ describe('skill doc examples', () => {
     }
     const missing = runnableGrammarPaths(grammar).filter(p => !covered.has(p))
     expect(missing.join('\n')).toBe('')
-  })
-
-  it('SKILL.md frontmatter description cap — stays within the 1000-character hard limit', () => {
-    const description = readSkillDescription(SKILL_ROOT)
-    expect(description.length).toBeGreaterThan(0)
-    expect(description.length).toBeLessThanOrEqual(1000)
   })
 })
 

@@ -1,6 +1,6 @@
 # Tags
 
-### `lumo tag list [--json]` — workspace tags (LUM-821)
+### `lumo tag list [--json]` — workspace tags
 
 Every tag in the workspace, sorted by name, with its color and how many tasks / docs carry it:
 
@@ -16,7 +16,7 @@ lumo tag list
 lumo tag list --json
 ```
 
-`--json` prints `{ version, tags: [{ id, name, color, taskCount, documentCount, createdAt, workspaceId }], total, nextCursor }` (`nextCursor` is always `null`). Before CLI batch C (LUM-1232) it printed the bare `tags` array — read `.tags` now.
+`--json` prints `{ version, tags: [{ id, name, color, taskCount, documentCount, createdAt, workspaceId }], total, nextCursor }` (`nextCursor` is always `null`). Before CLI batch C it printed the bare `tags` array — read `.tags` now.
 
 ### `lumo tag create <name> [--color <hex>]`
 

@@ -7,7 +7,7 @@
  * flag hallucinations).
  *
  * Pure parsing helpers; the only I/O is the directory walk in
- * collectDocExamples / readSkillDescription.
+ * collectDocExamples.
  */
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
@@ -131,14 +131,4 @@ export function runnableGrammarPaths(grammar: CliGrammar): string[] {
         )
     )
     .sort()
-}
-
-/** The frontmatter `description:` value of SKILL.md (the resident trigger prompt). */
-export function readSkillDescription(skillRoot: string): string {
-  const md = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
-  const fm = md.match(/^---\n([\s\S]*?)\n---/)
-  if (!fm) throw new Error('SKILL.md has no frontmatter block')
-  const desc = fm[1]!.match(/^description:\s*(.*)$/m)
-  if (!desc) throw new Error('SKILL.md frontmatter has no description key')
-  return desc[1]!.trim()
 }

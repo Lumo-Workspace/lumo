@@ -34,17 +34,15 @@ This is a pure authoring convention — the server stores your markdown **byte-f
 
 Use this when the user wants to write a new document from the terminal. Title is positional and optional. When omitted, the doc title defaults to empty (server renders as "Untitled" via i18n).
 
-| Flag               | Type                | Notes                                                                                                            |
-| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--content <text>` | string              | Inline markdown body.                                                                                            |
-| `--file <path>`    | string              | Read markdown body from file.                                                                                    |
-| (stdin)            | —                   | Pipe markdown; treated as content when stdin is not a TTY.                                                       |
-| `--scope <scope>`  | enum                | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.                                                |
-| `--project <ref>`  | string              | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
-| `--task <LUM-N>`   | string              | Bind to this task immediately after create.                                                                      |
-| `--tag <name>`     | string (repeatable) | Attach tag by name. Creates tag if missing. Max 20 per call.                                                     |
-| `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
-| `--parent <doc>`   | string              | slug, case-insensitive title or cuid. Files the new doc under this parent. Omit for root.                        |
+- `--content <text>` (string) — Inline markdown body.
+- `--file <path>` (string) — Read markdown body from file.
+- (stdin) (—) — Pipe markdown; treated as content when stdin is not a TTY.
+- `--scope <scope>` (enum) — `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.
+- `--project <ref>` (string) — Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.)
+- `--task <LUM-N>` (string) — Bind to this task immediately after create.
+- `--tag <name>` (string (repeatable)) — Attach tag by name. Creates tag if missing. Max 20 per call.
+- `--tag-id <cuid>` (string (repeatable)) — Attach tag by id. Combines with `--tag`. Max 20 per call.
+- `--parent <doc>` (string) — slug, case-insensitive title or cuid. Files the new doc under this parent. Omit for root.
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one. **`--file` is sandboxed:** the CLI rejects a path that resolves outside the current project directory (parent-traversal, absolute, escaping symlinks) or matches a sensitive-file denylist (`.env*`, private keys, `*.pem`/`*.key`, `credentials`, `.ssh`/`.aws` contents, …). Pass only project-local, non-secret files; there is no override flag.
 
@@ -64,7 +62,7 @@ Created rfc-doc-cli-42 "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/doc
 Tags: rfc, draft
 ```
 
-The doc is named by its slug (`slugify(title)-<number>`, the segment of its web URL — LUM-1230), which every `lumo doc ...` command accepts as `<doc>`; the cuid is no longer printed (it still works as input). The `Tags:` line is omitted when no tags were attached.
+The doc is named by its slug (`slugify(title)-<number>`, the segment of its web URL), which every `lumo doc ...` command accepts as `<doc>`; the cuid is no longer printed (it still works as input). The `Tags:` line is omitted when no tags were attached.
 
 ### When to suggest `doc create`
 
@@ -75,21 +73,19 @@ The doc is named by its slug (`slugify(title)-<number>`, the segment of its web 
 
 `<doc>` accepts the slug (`<title>-<number>`, as in the web URL and `doc list` column 1), a case-insensitive title or the cuid. An old slug from before a rename still works: when no slug or title matches, a slug-shaped ref falls back to its `-<number>` tail (stable across renames) and a `Note:` on stderr names the doc it landed on. Ambiguous titles fail with a candidate list by slug — re-run with the slug. Every `lumo doc` command names the doc by its slug in its output.
 
-| Flag                     | Type                | Notes                                                                                                                                                                       |
-| ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--title <text>`         | string              | New title (cannot be empty).                                                                                                                                                |
-| `--content <text>`       | string              | Replace content (inline).                                                                                                                                                   |
-| `--file <path>`          | string              | Replace content from file.                                                                                                                                                  |
-| (stdin)                  | —                   | Pipe to replace content. Empty / whitespace-only stdin (a non-TTY shell with nothing piped — the common agent case) is treated as **no content channel**, not a body clear. |
-| `--scope <scope>`        | enum                | `personal` / `workspace`.                                                                                                                                                   |
-| `--project <ref>`        | string              | Project name/slug. `--project ""` clears the filing.                                                                                                                        |
-| `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                               |
-| `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                         |
-| `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                |
-| `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                                                                   |
-| `--remove-tag <name>`    | string (repeatable) | Detach tag by name (find-or-create; an unknown name creates an orphan Tag row before the no-op detach — use `--remove-tag-id` to avoid orphans). Max 20.                    |
-| `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op. Max 20.                                                                                                                          |
-| `--allow-shrink`         | boolean             | Let a body update through even when it drops tables/rows/headings versus the stored body (see structure guard below).                                                       |
+- `--title <text>` (string) — New title (cannot be empty).
+- `--content <text>` (string) — Replace content (inline).
+- `--file <path>` (string) — Replace content from file.
+- (stdin) (—) — Pipe to replace content. Empty / whitespace-only stdin (a non-TTY shell with nothing piped — the common agent case) is treated as **no content channel**, not a body clear.
+- `--scope <scope>` (enum) — `personal` / `workspace`.
+- `--project <ref>` (string) — Project name/slug. `--project ""` clears the filing.
+- `--tag <name>` (string (repeatable)) — **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.
+- `--tag-id <cuid>` (string (repeatable)) — **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.
+- `--add-tag <name>` (string (repeatable)) — Attach tag by name (find-or-create). Max 20.
+- `--add-tag-id <cuid>` (string (repeatable)) — Attach tag by id. Max 20.
+- `--remove-tag <name>` (string (repeatable)) — Detach tag by name (find-or-create; an unknown name creates an orphan Tag row before the no-op detach — use `--remove-tag-id` to avoid orphans). Max 20.
+- `--remove-tag-id <cuid>` (string (repeatable)) — Detach tag by id. Unknown ids are a no-op. Max 20.
+- `--allow-shrink` (boolean) — Let a body update through even when it drops tables/rows/headings versus the stored body (see structure guard below).
 
 A **metadata-only update leaves the body untouched**: when no content channel is supplied (`--title`/`--scope`/`--project`/tag flags only), the body is omitted from the PATCH — it does not get blanked and the structure guard cannot fire. To deliberately clear or replace the body you must supply a content channel explicitly (`--content ""` to clear, which then hits the structure guard as a shrink → pair with `--allow-shrink`).
 
@@ -124,14 +120,12 @@ lumo doc update RFC --tag final --add-tag oops
 
 Default behavior: lists every document the current user can see, as table rows: `<slug>  <SCOPE>  <project|->  <title>` (header `REF`; the slug is what `<doc>` takes), columns sized to the widest value. On a terminal (stdout is a TTY) a header row is printed first and the title is cut with `…` to fit the terminal width; piped / agent output (non-TTY) has no header, is never truncated and keeps this column order, so column 1 is always the slug.
 
-| Flag              | Type    | Notes                                                                                        |
-| ----------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                            |
-| `--project <ref>` | string  | Only that project's docs (name or slug; an unknown or ambiguous ref is an error, 404 / 409). |
-| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.                |
-| `--limit <n>`     | int     | Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.        |
-| `--cursor <c>`    | string  | Next page, copied from the footer (see **Paging** in [tasks.md](tasks.md)).                  |
-| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table.       |
+- `--scope <scope>` (enum) — `personal`, `workspace`, or `all`. Default `all`.
+- `--project <ref>` (string) — Only that project's docs (name or slug; an unknown or ambiguous ref is an error, 404 / 409).
+- `--task <LUM-N>` (string) — Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.
+- `--limit <n>` (int) — Docs per page (1-500, default 50); more ends with `Showing X-Y of N.` + next command.
+- `--cursor <c>` (string) — Next page, copied from the footer (see **Paging** in [task-list.md](task-list.md)).
+- `--tree` (boolean) — Render as an indented tree (two spaces per depth level) instead of the flat row table.
 
 `--tree` plus filters work together: the CLI fetches with filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result render as top-level rows. With `--tree` the page is cut **after** tree ordering, so each page reads top to bottom and rows keep their real depth. When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
 
@@ -169,24 +163,22 @@ lumo doc move "Sub-doc" --root
 
 ## `lumo doc delete <doc> --confirm` — move a document to the trash
 
-Moves the document **and every document nested under it** to the trash (LUM-918): restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). Immediate erasure is Settings → Trash → Delete permanently.
+Moves the document **and every document nested under it** to the trash: restorable for **30 days** from the web app's **Settings → Trash** (only the document's owner sees it there), then permanently deleted by the daily purge. While trashed they are hidden from lists, the doc tree and task context. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will move document cmd_xxx "Title" to the trash — …` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). Immediate erasure is Settings → Trash → Delete permanently.
 
 ```bash
 lumo doc delete cmd_xxx            # exit 4 + envelope
 lumo doc delete cmd_xxx --confirm  # after the user approved
 ```
 
-## Task linkage and member sharing — fields of `doc update` (LUM-1233)
+## Task linkage and member sharing — fields of `doc update`
 
-Like `--add-tag` / `--remove-tag`, sharing and task binding are flags of `doc update`; the member list is `doc show --members`. (`doc bind`, `doc unbind`, `doc share`, `doc unshare` and `doc share-list` were removed; they print `was removed. Use: …` and exit 2.) Each flag is repeatable. Field changes (title, body, tags …) apply first, then members, then tasks, stopping at the first failure; with only these flags the body is not touched and stdin is not read.
+Like `--add-tag` / `--remove-tag`, sharing and task binding are flags of `doc update`; the member list is `doc show --members`. Each flag is repeatable. Field changes (title, body, tags …) apply first, then members, then tasks, stopping at the first failure; with only these flags the body is not touched and stdin is not read.
 
-| Flag                             | Effect                                                                                                                                                                                                                                                                               |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--add-task <LUM-N>`             | adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the pair, it is upgraded to EXPLICIT so a later `--remove-task` can remove it. Idempotent.                                                                     |
-| `--remove-task <LUM-N>`          | removes EXPLICIT mentions only — a purely CONTENT-derived mention fails with 409, telling the user to remove the `@LUM-N` from the doc body in the Web UI.                                                                                                                           |
-| `--add-member <member>`          | adds (or updates) a DocumentShare row. `<member>` resolves like `task --assignee`: `me`, an email, or a display name (case-insensitive). **Auto-promotion**: on a PRIVATE doc the server flips visibility to SHARED first. A second call with another role updates the row in place. |
-| `--role viewer\|editor\|manager` | with `--add-member` only (default `viewer`; case-insensitive).                                                                                                                                                                                                                       |
-| `--remove-member <member>`       | idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that with `doc update --scope personal`.                                                                                                                        |
+- `--add-task <LUM-N>` — adds an explicit DocumentMention row (survives Web UI content edits). If a CONTENT-derived mention already exists for the pair, it is upgraded to EXPLICIT so a later `--remove-task` can remove it. Idempotent.
+- `--remove-task <LUM-N>` — removes EXPLICIT mentions only — a purely CONTENT-derived mention fails with 409, telling the user to remove the `@LUM-N` from the doc body in the Web UI.
+- `--add-member <member>` — adds (or updates) a DocumentShare row. `<member>` resolves like `task --assignee`: `me`, an email, or a display name (case-insensitive). **Auto-promotion**: on a PRIVATE doc the server flips visibility to SHARED first. A second call with another role updates the row in place.
+- `--role viewer|editor|manager` — with `--add-member` only (default `viewer`; case-insensitive).
+- `--remove-member <member>` — idempotent (prints `Not shared with <name>`, exit 0 if no row). It does **not** flip visibility back to PRIVATE — do that with `doc update --scope personal`.
 
 `doc show <doc> --members` prints table rows `<displayName>  <ROLE>` (a `NAME  ROLE` header on a TTY only); empty output = no shares (the doc may still be WORKSPACE-visible). It cannot be combined with `--raw`, `--section` or `--json`.
 
@@ -210,12 +202,10 @@ lumo doc show "RFC" --members
 
 ## `lumo doc import --gdoc <url> [--scope …] [--task LUM-N]` — import a Google Doc
 
-One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `--gdoc <url>` accepts a Google Doc URL or a bare doc id (`doc import-gdoc <url>` was removed in LUM-1233; it prints `was removed. Use: lumo doc import --gdoc <url>`).
+One-way import of a Google Doc into Lumo. The doc is exported from Google as markdown and turned into a native Lumo document (markdown → HTML), storing the source `googleDocId` and importer so it can be re-synced later (`lumo doc sync`). `--gdoc <url>` accepts a Google Doc URL or a bare doc id.
 
-| Flag              | Type   | Notes                                                                                      |
-| ----------------- | ------ | ------------------------------------------------------------------------------------------ |
-| `--scope <scope>` | enum   | `personal` (→ PRIVATE) or `workspace` (→ WORKSPACE). Omit to use the server default scope. |
-| `--task <LUM-N>`  | string | Bind the imported doc to this task immediately after import.                               |
+- `--scope <scope>` (enum) — `personal` (→ PRIVATE) or `workspace` (→ WORKSPACE). Omit to use the server default scope.
+- `--task <LUM-N>` (string) — Bind the imported doc to this task immediately after import.
 
 **Over-share note:** once imported, the content follows **Lumo's** sharing model (PRIVATE / SHARED / WORKSPACE) and is **no longer gated by Google permissions**. Importing a `workspace`-scoped doc can expose it to everyone in the workspace even if the Google Doc was restricted — the command prints this reminder on success. Requires a connected Google Drive integration (connect in the Web UI at `/settings/integrations`; there is no CLI `google auth` command).
 

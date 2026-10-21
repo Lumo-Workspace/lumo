@@ -7,7 +7,7 @@ git; the only server calls are a `GET /api/teams` to expand a **bare number**
 to your default team prefix (see "Accepted identifier forms"), and — for DONE
 cleanup and `prune` — a task lookup for its status and merged PR heads.
 
-Works in any git repo (LUM-825): the base branch is the **remote's default
+Works in any git repo: the base branch is the **remote's default
 branch** (`origin/HEAD` — `main`, `master`, `develop`, …), nothing Node- or
 husky-specific happens unless the repo has it, and repo-specific behaviour
 comes from an optional `.lumo/worktree.json` (below). **Run `add` and `rm`
@@ -85,7 +85,7 @@ Default-branch detection: `origin/HEAD` → (online) `git remote set-head origin
 ## Lifecycle integration
 
 - **`session attach`** — after the bind, lists the task's worktree(s) by path (all of them when several match — it never picks one silently), marks the one you are in, or hints `lumo worktree add <id>`. It **creates** one (slug = first words of the title) only with `--worktree` or `autoWorktree: true` (`--no-worktree` overrides), only from the main checkout (in any linked worktree it says so and creates nothing), and a creation failure is a warning — attach still succeeds. See [sessions.md](sessions.md).
-- **`task update <id> --status done`** — the DONE envelope gets one line per task worktree: `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>`. After `--confirm` (or a one-step DONE — every linked PR merged, nothing blocks, LUM-1106) and a successful DONE, only the removable ones are removed (re-checked at that moment). See the safety rules below and [confirmation.md](confirmation.md).
+- **`task update <id> --status done`** — the DONE envelope gets one line per task worktree: `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>`. After `--confirm` (or a one-step DONE — every linked PR merged, nothing blocks) and a successful DONE, only the removable ones are removed (re-checked at that moment). See the safety rules below and [confirmation.md](confirmation.md).
 - **`lumo worktree prune`** — the catch-all for tasks closed on the web or on another machine.
 
 ### Safety rules (DONE cleanup and `prune`)
@@ -94,7 +94,7 @@ A worktree is removed only when nothing can be lost:
 
 1. the current directory is **not** inside it (else: kept, with a `git -C <main> worktree remove <path>` to run later);
 2. `git status --porcelain` is empty (uncommitted or untracked changes → kept);
-3. every commit is on some remote ref, **or** HEAD is exactly the head commit of a **merged linked PR** — so a squash-merged branch whose remote branch was deleted is removable, but a commit added after the merge keeps it. (Servers older than LUM-825 don't send PR head commits; then only "pushed" counts, which only ever keeps more.)
+3. every commit is on some remote ref, **or** HEAD is exactly the head commit of a **merged linked PR** — so a squash-merged branch whose remote branch was deleted is removable, but a commit added after the merge keeps it.
 
 Never `--force`, and **branches are never deleted** by the cleanup — use `worktree rm --delete-branch` for that.
 
@@ -126,8 +126,7 @@ Removes the worktree for a task. Gated by the confirmation protocol
 uncommitted changes and no `--force` — it exits **4** with an envelope naming
 the path and branch, a `⚠ … uncommitted changes … discarded` line when dirty,
 and whether the branch is kept or deleted; nothing is removed. A dirty tree's
-`confirmCommand` carries `--force --confirm`. (`--yes` was removed in
-LUM-1233: it prints `was removed. Use: … --confirm` and exits 2.) Keeps the branch by default (it may hold unpushed work / an open
+`confirmCommand` carries `--force --confirm`. Keeps the branch by default (it may hold unpushed work / an open
 PR); `--delete-branch` removes it with `git branch -d` (which itself refuses
 an unmerged branch — including a squash-merged one).
 

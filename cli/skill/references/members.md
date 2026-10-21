@@ -1,6 +1,6 @@
 # Members
 
-### `lumo member list [--json]` — the workspace member directory (LUM-821)
+### `lumo member list [--json]` — the workspace member directory
 
 Lists every workspace member as `name  email  ROLE` (on a TTY aligned by display width under a `NAME  EMAIL  ROLE` header; piped, TAB-separated with no header), then the agent actors. These are exactly the refs `--assignee` accepts on `task create`, `task update` and `task list` (`me`, an email, a member name; `task list` also takes an agent name, `none` or `any`).
 

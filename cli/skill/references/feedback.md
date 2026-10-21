@@ -4,11 +4,11 @@
 
 ### When to suggest / file it yourself
 
-- Lumo itself misbehaves: the CLI crashes or prints something wrong, the server returns 5xx, an error gives no way forward, or this skill / `--help` says one thing and the command does another.
+- Lumo itself misbehaves: the CLI crashes or prints something wrong, the server returns 5xx, an error gives no way forward, or this guide / `--help` says one thing and the command does another.
 - You retried once (and ran `lumo doctor` for install problems) and it still fails.
 - The user wants something Lumo cannot do (`--kind idea`), or the docs leave a question open (`--kind question`).
 
-**Do not file** for bugs in the user's own project, for task content, for things `--help` or this skill already answer, or for a crossing / security finding (those have their own rulings).
+**Do not file** for bugs in the user's own project, for task content, for things `--help` or this guide already answer, or for a crossing / security finding (those have their own rulings).
 
 **How**
 

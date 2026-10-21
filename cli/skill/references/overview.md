@@ -1,10 +1,10 @@
 # Status, inbox, drafts and overviews (read-only)
 
-What the web shows on the Inbox, the composer drafts and a project's page, from the terminal (LUM-1192). None of these commands writes: none marks a notification read, deletes a draft or generates a summary. Everything is scoped to the workspace your API key belongs to.
+What the web shows on the Inbox, the composer drafts and a project's page, from the terminal. None of these commands writes: none marks a notification read, deletes a draft or generates a summary. Everything is scoped to the workspace your API key belongs to.
 
 ### `lumo status [--inbox [--all]] [--drafts] [--next [--claimable] [-n, --limit N]] [--json]` — me across the workspace
 
-One call for "what is on my plate" (LUM-1233 Q1; it replaced `inbox list`, `draft list` and `next`, which now print `was removed. Use: lumo status --inbox|--drafts|--next …` and exit 2). Without a section flag it prints the team's current priority as one line (`Priority: <statement> (since <day>)`, or `Priority: none declared`), then the sections **Inbox**, **Drafts** and **Next**. `--inbox`, `--drafts` and `--next` print only those sections; one flag prints exactly that section's own output (no heading) and, with `--json`, its own envelope (below). It never takes a task ref — for one task use `lumo task status`; for this session's binding, `lumo session status`.
+One call for "what is on my plate". Without a section flag it prints the team's current priority as one line (`Priority: <statement> (since <day>)`, or `Priority: none declared`), then the sections **Inbox**, **Drafts** and **Next**. `--inbox`, `--drafts` and `--next` print only those sections; one flag prints exactly that section's own output (no heading) and, with `--json`, its own envelope (below). It never takes a task ref — for one task use `lumo task status`; for this session's binding, `lumo session status`.
 
 ```bash
 lumo status
@@ -14,7 +14,7 @@ lumo status --next --limit 5 --claimable
 lumo status --json
 ```
 
-- The Inbox shows **unread** notifications only (LUM-1233); `--all` brings back the read ones too. `--all` shapes only the Inbox: with section flags that leave Inbox out it exits 2.
+- The Inbox shows **unread** notifications only; `--all` brings back the read ones too. `--all` shapes only the Inbox: with section flags that leave Inbox out it exits 2.
 - `--claimable` and `-n, --limit <N>` shape the Next section ([tasks.md](tasks.md#lumo-status---next---claimable--n---limit-n--recommend-the-next-task-to-work-on)); with section flags that leave Next out they exit 2. `--limit` must be a positive integer.
 - `--json` with no section flag (or with two) prints `{ version, priority, inbox, drafts, next }` — `priority` only in the full view (the current declaration or `null`), and each section is the single-section envelope without its own `version`.
 - A section whose request fails prints its error on stderr; the other sections still print (in `--json` the failed key is `null`) and the command exits 1.
@@ -44,7 +44,7 @@ Other
     "can you look at this?"
 ```
 
-A notification about a task that has since been deleted reads `… a deleted task` (LUM-1232).
+A notification about a task that has since been deleted reads `… a deleted task`.
 
 `--json` prints `{ version, notifications: [...], unreadCount, total, nextCursor, filter }` — `filter` is `"unread"` (default: `notifications` holds unread rows only) or `"all"` (`--all`). The server returns the newest 50, unpaged: `nextCursor` is always `null`, `total` is the row count, or `null` when 50 came back and older ones may exist; `unreadCount` counts the unread rows returned. Each notification has `id, type, read, requiresAction, actionTakenAt, createdAt, actor, task {teamIdentifier, number, title}, sprint, project, milestone, document, commentPreview`. Mark read / delete stays in the web inbox.
 
@@ -67,7 +67,7 @@ lumo project show "Apollo Moon" --report
 lumo project show apollo --json
 ```
 
-`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one (unarchived) project. First prints the project's lifecycle (LUM-1285): **State** (`ACTIVE` / `PAUSED` / `CANCELED`, plus `· archived <day>`), **Start** and **Target** dates (`-` when unset) and **Complete** — derived, never stored: `yes (every task closed)` when the project has at least one task and none open (DONE and CANCELED count as closed), else `no`. Then total / completed / overdue tasks, average completion time (hours and minutes — `12h 21m`, `1301h 6m`, never days; `-` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
+`<project>` is the name or slug (`lumo project list`); omit it when the workspace has one (unarchived) project. First prints the project's lifecycle: **State** (`ACTIVE` / `PAUSED` / `CANCELED`, plus `· archived <day>`), **Start** and **Target** dates (`-` when unset) and **Complete** — derived, never stored: `yes (every task closed)` when the project has at least one task and none open (DONE and CANCELED count as closed), else `no`. Then total / completed / overdue tasks, average completion time (hours and minutes — `12h 21m`, `1301h 6m`, never days; `-` when nothing is done), the status distribution (BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, then any other status), member workload and completions per day for the last 7 days that had any, plus the project page's health row — **Stalled · High stakes · Stale PRs · Overdue** counts, then the high-stakes and stalled tasks (`LUM-3  title  idle 10d`) and the stale PRs (`#42  opened <day>  <url>`) — and the latest stored project summary. A project in another workspace answers like a missing one.
 
 `--json` prints `{ version, project: { id, name, status, startDate, targetDate, archivedAt, completed }, stats, summary }` (the lifecycle fields are absent against an older server).
 

@@ -62,14 +62,11 @@ describe('context-budget audit', () => {
       expect(sum).toBe(a.tokens)
     }
 
-    // SKILL.md specifically splits out the frontmatter routing description (the
-    // LUM-415 caliber) — that sub-metric must be present for it and absent for
-    // the body-only files.
+    // Every file carries its UTF-8 size (LUM-1292: the skill's per-file byte
+    // budget is asserted in __tests__/cli/skill-budget.test.ts).
     const skill = audits.find(a => a.path.endsWith('SKILL.md'))!
-    expect(skill.descriptionChars).toBeGreaterThan(0)
-    expect(
-      audits.find(a => a.path.endsWith('CLAUDE.md'))!.descriptionChars
-    ).toBeUndefined()
+    expect(skill.bytes).toBeGreaterThan(0)
+    for (const a of audits) expect(a.bytes).toBeGreaterThan(0)
   })
 
   it('context-budget audit flags only files over the prose/token budget', () => {

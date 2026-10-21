@@ -1,6 +1,6 @@
 # Outcome well (post-hoc oracle) — `lumo task show --outcome`
 
-The **post-hoc outcome well** (LUM-598) is the single external oracle for correctness + fidelity. It records the real-world fate a delivery met **after** it shipped — facts the agent cannot construct and that occur post-delivery (a revert, a rollback, CI turning red, a reopen, a downstream redirect of the design).
+The **post-hoc outcome well** is the single external oracle for correctness + fidelity. It records the real-world fate a delivery met **after** it shipped — facts the agent cannot construct and that occur post-delivery (a revert, a rollback, CI turning red, a reopen, a downstream redirect of the design).
 
 ## The one invariant: falsifier, not verifier
 
@@ -14,11 +14,11 @@ There is **no `SATISFIED` / `PASS`**. "N sprints and nobody touched it" is the _
 ## Collection (where signals come from)
 
 - **Automatic** — a DONE task reopened (the lineage `REWORKED` transition) is folded into the well as a `REOPENED` signal. No action needed; it happens server-side.
-- **Git-derived** — a revert (or a content reversal) of the delivery's commits landing on the default branch is recorded from the push webhook as `REVERTED` / `DOWNSTREAM_REDIRECT` (LUM-607). No manual recording path exists any more: the former `lumo outcome record` command was removed in LUM-733 (it was never used — 0 MANUAL signals all-time); CI-derived signals (`CI_REGRESSION` / `ROLLED_BACK`) are a follow-up.
+- **Git-derived** — a revert (or a content reversal) of the delivery's commits landing on the default branch is recorded from the push webhook as `REVERTED` / `DOWNSTREAM_REDIRECT`. There is no manual recording path; CI-derived signals (`CI_REGRESSION` / `ROLLED_BACK`) are a follow-up.
 
 ## `lumo task show <task> --outcome`
 
-`lumo outcome show` was removed in LUM-1233; the well is an aspect of `task show`. `--json` puts `{ version, outcome: { verdict, signals }, task }` under the envelope's `outcome` key.
+The well is an aspect of `task show`. `--json` puts `{ version, outcome: { verdict, signals }, task }` under the envelope's `outcome` key.
 
 Read the well for a task — the verdict plus its backing signals.
 

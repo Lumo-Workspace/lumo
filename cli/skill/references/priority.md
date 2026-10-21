@@ -11,13 +11,13 @@ command — to change the priority, declare a new one.
 
 ## `lumo priority create <text>`
 
-Declare the current team priority (LUM-1233 Q2; formerly `lumo priority [text]`):
+Declare the current team priority:
 
 ```bash
 lumo priority create "Ship the billing MVP; defer SSO to next quarter."
 ```
 
-On success it prints `Recorded priority: <statement>`. There is no interactive prompt: an empty or blank `<text>` exits 2 and records nothing, and a missing one is a usage error. The old `lumo priority "<text>"` prints `was removed. Use: lumo priority create '<text>'` and exits 2; bare `lumo priority` prints the group's help.
+On success it prints `Recorded priority: <statement>`. There is no interactive prompt: an empty or blank `<text>` exits 2 and records nothing, and a missing one is a usage error. Bare `lumo priority` prints the group's help.
 
 ## `lumo priority list`
 

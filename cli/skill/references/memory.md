@@ -9,11 +9,11 @@ on task→done) already run; these commands are the manual override. A third,
 **MILESTONE** scope is written automatically only (no manual command): when a
 milestone closes and its retro is generated, the durable forward-looking
 learnings are distilled into MILESTONE-scope memories and injected at the next
-milestone's steward session start (LUM-647) — see [sessions.md](sessions.md).
+milestone's steward session start — see [sessions.md](sessions.md).
 
 ### Commands
 
-One `memory` noun; the scope is a flag (LUM-1233). `--scope task` (the default) records onto / lists a task — `--task <LUM-N>` or the session-bound task; `--scope project` records onto / lists a project — `--project <ref>` or the bound task's project. `--project <ref>` alone also means the project scope. The old `task memory …`, `project memory …`, `memory promote`, `memory rm` and `workspace learnings` print `was removed. Use: …` and exit 2.
+One `memory` noun; the scope is a flag. `--scope task` (the default) records onto / lists a task — `--task <LUM-N>` or the session-bound task; `--scope project` records onto / lists a project — `--project <ref>` or the bound task's project. `--project <ref>` alone also means the project scope. The old `task memory …`, `project memory …`, `memory promote`, `memory rm` and `workspace learnings` print `was removed. Use: …` and exit 2.
 
 ```bash
 # List (ID  SCOPE  CATEGORY  SOURCE  HEADLINE — TAB-separated when piped)
@@ -80,7 +80,7 @@ lumo memory delete kp5brom5 --confirm
 
 ### PR-review learnings — `lumo memory list --learnings`
 
-(LUM-1157; was `workspace learnings`.) Lists the workspace's PR-review learnings — what reviewers told Lumo in its review threads ("this is intentional because …", LUM-1131) — newest first, ACTIVE only, at most 200. Every reviewed repository of the workspace gets learnings, whether or not it is linked to a Lumo project; a learning of a repository linked to no project belongs to no project's memory (it is scoped to the workspace + repository), so this command is where it is found. Any member may read.
+(was `workspace learnings`.) Lists the workspace's PR-review learnings — what reviewers told Lumo in its review threads ("this is intentional because …") — newest first, ACTIVE only, at most 200. Every reviewed repository of the workspace gets learnings, whether or not it is linked to a Lumo project; a learning of a repository linked to no project belongs to no project's memory (it is scoped to the workspace + repository), so this command is where it is found. Any member may read.
 
 ```bash
 lumo memory list --learnings                     # every repository
@@ -94,7 +94,7 @@ Each learning prints `<id>  <repo>  [<path glob>]  @<author>  <date>  <scope>[  
 ### `lumo memory show <memory>` (progressive disclosure)
 
 Fetches one memory's full card from the server and prints it as a detail view
-(LUM-1232): `<short ref>  <summary or headline>`, a `Type:  TRAP` row, then
+: `<short ref>  <summary or headline>`, a `Type:  TRAP` row, then
 one section per content field (`What`, `Why`, `Trigger`, `Outcome`, `Steps` as
 bullets, …) — never raw JSON.
 
@@ -130,7 +130,7 @@ existing injection, so during the transition both paths are active and overlap i
   `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`: a pointer to
   `team/INDEX.md` plus the top entries within a ~2KB budget and a "…and N more"
   line. Claude Code loads only the first ~24KB of `MEMORY.md`, so the full list
-  never goes there (LUM-1288); an older full-list block is replaced in place on
+  never goes there; an older full-list block is replaced in place on
   the next sync. `--dir <path>` overrides the resolved directory.
 - **Only touches what it owns**: a file is owned only if its frontmatter carries
   `metadata.lumo.source: team`. Your own hand-written memory files and any
@@ -252,18 +252,16 @@ how the next auto-fold pass would collapse it.
 
 The command prints **one** of these outcome lines:
 
-| Output line                                                      | Meaning                                                                                  |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `Added <CATEGORY> <SCOPE> memory …`                              | No near-duplicate found; stored as a new row.                                            |
-| `Merged into existing memory <id> (near-duplicate) …`            | Near-duplicate found; the existing row was refined/updated in-place (UPDATE).            |
-| `Superseded an existing memory; new version <id> …`              | New content contradicts an old memory; old row invalidated, new row created (SUPERSEDE). |
-| `Skipped — duplicate of existing memory <id>, nothing written …` | Exact or near-exact duplicate; no write performed (NOOP).                                |
+- `Added <CATEGORY> <SCOPE> memory …` — No near-duplicate found; stored as a new row.
+- `Merged into existing memory <id> (near-duplicate) …` — Near-duplicate found; the existing row was refined/updated in-place (UPDATE).
+- `Superseded an existing memory; new version <id> …` — New content contradicts an old memory; old row invalidated, new row created (SUPERSEDE).
+- `Skipped — duplicate of existing memory <id>, nothing written …` — Exact or near-exact duplicate; no write performed (NOOP).
 
 Content is **always normalized to English** before storing — the memory store has
 a single canonical language. If you supply text in another language the CLI
 translates it automatically; the stored memory will be in English.
 
-### The write gate — what gets refused (LUM-793)
+### The write gate — what gets refused
 
 Memory is the one agent-writable store that is re-injected into **every** future
 session, so the content checks run at **write** time, not only at injection
@@ -272,16 +270,14 @@ time. Every path — `memory add`, `memory push`, the web form, `PATCH
 gate. A refusal is a **422** with the matched sentence quoted; nothing is
 stored. Three reasons:
 
-| Reason             | What trips it                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `INJECTION_SIGNAL` | An imperative aimed at the model, text hidden in a comment, or a long encoded blob.                               |
-| `AGENT_DIRECTIVE`  | A **standing order to future agents** — "from now on you must …", 「以后每次…都要…」 — rather than a description. |
-| `POLICY_CONFLICT`  | The text permits what a deterministic, blocking CLAUDE.md rule forbids; the message names the rule id.            |
+- `INJECTION_SIGNAL` — An imperative aimed at the model, text hidden in a comment, or a long encoded blob.
+- `AGENT_DIRECTIVE` — A **standing order to future agents** — "from now on you must …", 「以后每次…都要…」 — rather than a description.
+- `POLICY_CONFLICT` — The text permits what a deterministic, blocking CLAUDE.md rule forbids; the message names the rule id.
 
 What does **not** trip it: ordinary imperative PROCEDURAL steps ("Run `lumo
 verify` when done", "All tests go in `__tests__/`"), or invisible characters /
 `javascript:` links — those are still stored and marked on the row, exactly as
-LUM-783 does for every other source card.
+for every other source card.
 
 **If a write is refused, rewrite the memory as a description of what happens**
 (what the trap is, what the convention is) instead of an instruction to whoever

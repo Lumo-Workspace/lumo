@@ -46,9 +46,9 @@ When to suggest: user says "create a sprint", "new sprint", "start a new iterati
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 
-Output (LUM-1090): a `#<number>  <name>` first line (LUM-1232), then `Label:  value` rows padded to the widest label (`Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done/total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
+Output: a `#<number>  <name>` first line, then `Label:  value` rows padded to the widest label (`Status:`, `Team:`, `Start:`, `End:`, `Started:`, `Closed:`), a blank line and `Progress:  done/total` in the same column, then **Blockers**, **Burnup** and **Team performance** sections and a **Tasks (N)** section — the task table indented two spaces (header row on a TTY only, title cut to the terminal width there; piped output headerless and untruncated), or `None — no task is in this sprint.`
 
-**Blockers** lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`), **one per line** under the category's value column (a title too long for the line is cut with `…`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no Blockers section at all. (There is no risk score or `Health:` line — LUM-709 removed the risk-assessment layer.)
+**Blockers** lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`), **one per line** under the category's value column (a title too long for the line is cut with `…`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no Blockers section at all. (There is no risk score or `Health:` line.)
 
 ```
 Progress:  4/10
@@ -61,9 +61,9 @@ Blockers
               #15
 ```
 
-**Burnup (LUM-1190)** — the web burnup card as text (`/api/sprints/<id>/burnup`): `Done:  c / scope  (as of <day>)` for the latest measured day, `Trend:` a one-char-per-day sparkline (`·` = a day not measured yet — the future of an ACTIVE sprint), then a per-day table with a header row even when piped: `DAY  SCOPE  DONE  PLAN` — scope = member tasks that existed that day, done = DONE at end of day (`-` for a future day, never 0), plan = the web chart's straight line from 0 to the final scope (halves print one decimal). Days are UTC calendar-day keys printed as-is (same frame as `Start:`/`End:`). `Not enough data yet.` when the series is empty.
+**Burnup** — the web burnup card as text (`/api/sprints/<id>/burnup`): `Done:  c / scope  (as of <day>)` for the latest measured day, `Trend:` a one-char-per-day sparkline (`·` = a day not measured yet — the future of an ACTIVE sprint), then a per-day table with a header row even when piped: `DAY  SCOPE  DONE  PLAN` — scope = member tasks that existed that day, done = DONE at end of day (`-` for a future day, never 0), plan = the web chart's straight line from 0 to the final scope (halves print one decimal). Days are UTC calendar-day keys printed as-is (same frame as `Start:`/`End:`). `Not enough data yet.` when the series is empty.
 
-**Team performance (LUM-1190)** — the web panel as text (`/api/sprints/<id>/team-performance`): `Total:  tokens · agent time · runs  (measured on N tasks)`, then one line per member (`Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs`; share = the member's slice of the sprint's tokens; the member-less bucket reads `Unattributed`, last) with that member's top 5 tasks by tokens under it as a table `ID  TOKENS  AGENT TIME  DONE  MODELS  TITLE` (title last, cut to the terminal on a TTY; TAB-separated when piped; the rest counted as `Showing 5 of N (all of them in --json).`). Tokens attribute to the session spender; `tasks done` to the task's biggest spender. When the token side is unmeasured, tokens and share read `-` (not 0 / 0%).
+**Team performance** — the web panel as text (`/api/sprints/<id>/team-performance`): `Total:  tokens · agent time · runs  (measured on N tasks)`, then one line per member (`Alice  75% · 2 tasks done · 3M tokens · 1h agent time · 4 runs`; share = the member's slice of the sprint's tokens; the member-less bucket reads `Unattributed`, last) with that member's top 5 tasks by tokens under it as a table `ID  TOKENS  AGENT TIME  DONE  MODELS  TITLE` (title last, cut to the terminal on a TTY; TAB-separated when piped; the rest counted as `Showing 5 of N (all of them in --json).`). Tokens attribute to the session spender; `tasks done` to the task's biggest spender. When the token side is unmeasured, tokens and share read `-` (not 0 / 0%).
 
 Both reads run in parallel with the main sprint/task reads. Either section prints `Could not read (…)` if its read fails or returns an unexpected shape (`HTTP 500`, a network error, `unexpected response shape`) — the rest of `sprint show` still renders.
 
@@ -156,7 +156,7 @@ When to suggest: user says "close the sprint", "end sprint 3", "wrap up the spri
 
 ### `lumo sprint show <identifier> --summary` — the AI-generated sprint retro
 
-An aspect of `sprint show` (LUM-1233 3j; formerly `sprint summary`): the detail view, then a **Summary** section with the AI-generated retrospective; `--json` adds `summary` (`null` when none generated yet). `lumo sprint update <identifier> --refresh-summary` (formerly `summary --retry`) queues a regeneration (async, server returns 202).
+An aspect of `sprint show`: the detail view, then a **Summary** section with the AI-generated retrospective; `--json` adds `summary` (`null` when none generated yet). `lumo sprint update <identifier> --refresh-summary` queues a regeneration (async, server returns 202).
 
 ```bash
 lumo sprint show 3 --summary
