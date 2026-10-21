@@ -52,6 +52,8 @@ function sourceRepo() {
   execFileSync('git', ['init', '-q'], { cwd: root })
   mkdirSync(join(root, 'cli'), { recursive: true })
   writeFileSync(join(root, 'cli', 'package.json'), '{"name":"@lumoai/cli"}')
+  mkdirSync(join(root, 'cli', 'skill'), { recursive: true })
+  writeFileSync(join(root, 'cli', 'skill', 'SKILL.md'), 'SOURCE')
   const skill = join(root, '.claude', 'skills', 'lumo')
   mkdirSync(skill, { recursive: true })
   writeFileSync(join(skill, 'SKILL.md'), 'SOURCE')
@@ -100,7 +102,7 @@ describe('isLumoSourceRepo / isLumoSkillSource', () => {
     expect(isLumoSkillSource(join(root, '.agents', 'skills', 'lumo'))).toBe(
       false
     )
-    rmSync(join(skill, 'SKILL.md'))
+    rmSync(join(root, 'cli', 'skill', 'SKILL.md'))
     expect(isLumoSourceRepo(root)).toBe(false)
     const other = tmp()
     mkdirSync(join(other, 'cli'))

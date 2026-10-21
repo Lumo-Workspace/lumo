@@ -10,11 +10,11 @@ const path = require('path')
 const repoRoot = path.resolve(__dirname, '..', '..')
 const cliRoot = path.resolve(__dirname, '..')
 
-// The lumo skill (SKILL.md + references/*.md) is copied to cli/skills/lumo/,
+// The lumo skill (cli/skill/: SKILL.md + references/*.md) is copied to cli/skills/lumo/,
 // next to a generated plugin.json, so the package root is also a portable
 // Agent Plugins package (LUM-1049). `setup` installs that same skills/lumo/
 // directory into .claude/skills/lumo/ or .agents/skills/lumo/.
-const skillSrcDir = path.join(repoRoot, '.claude', 'skills', 'lumo')
+const skillSrcDir = path.join(cliRoot, 'skill')
 
 try {
   const { writePluginBundle } = require(

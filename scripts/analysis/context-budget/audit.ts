@@ -38,7 +38,7 @@ import { readSkillDescription } from '../../cli-grammar/doc-examples'
 
 /** Repo root, derived from this file's location (scripts/analysis/context-budget). */
 export const REPO_ROOT = join(__dirname, '..', '..', '..')
-const SKILL_ROOT = join(REPO_ROOT, '.claude', 'skills', 'lumo')
+const SKILL_ROOT = join(REPO_ROOT, 'cli', 'skill')
 
 /**
  * Structural categories. The first four are ACTIONABLE (high-signal: a command
@@ -249,7 +249,7 @@ export function auditContent(
  * test re-derives it independently and asserts no file is missed.
  */
 export function discoverContextFiles(repoRoot: string = REPO_ROOT): string[] {
-  const skillRoot = join(repoRoot, '.claude', 'skills', 'lumo')
+  const skillRoot = join(repoRoot, 'cli', 'skill')
   const refDir = join(skillRoot, 'references')
   const refs = readdirSync(refDir)
     .filter(f => f.endsWith('.md'))

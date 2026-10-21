@@ -36,7 +36,7 @@ function underTty(
     driver,
     `import { init } from ${JSON.stringify(join(ROOT, 'cli/src/commands/init.ts'))}\n` +
       // The skill source stands in for the bundled asset of a built CLI.
-      `init(${JSON.stringify(options)}, { bundledSkillDir: ${JSON.stringify(join(ROOT, '.claude/skills/lumo'))} })` +
+      `init(${JSON.stringify(options)}, { bundledSkillDir: ${JSON.stringify(join(ROOT, 'cli/skill'))} })` +
       `.then(code => process.exit(code ?? 0))\n`
   )
   const argv = [TSX, driver]

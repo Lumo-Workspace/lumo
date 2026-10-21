@@ -174,6 +174,7 @@ import { update } from './commands/update'
 import { init } from './commands/init'
 import { doctor } from './commands/doctor'
 import { skillStatus, skillUpdate } from './commands/skill'
+import { skillRead } from './commands/skill-read'
 import { uninstall } from './commands/uninstall'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
@@ -544,6 +545,17 @@ const skill = program
   .description(
     'Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook'
   )
+
+skill
+  .command('read [path]')
+  // Reads only files inside the CLI package: no network, no login. Same
+  // Codex class as other no-side-effect commands (SERVER_ONLY = no local
+  // files, no sandbox prompt needed).
+  .codex(SERVER_ONLY)
+  .description(
+    'Print the Lumo skill guide (SKILL.md, or a file under it such as references/tasks.md) from this CLI package. Local read; needs no login.'
+  )
+  .action(wrap(p => skillRead(p as string | undefined)))
 
 skill
   .command('status')

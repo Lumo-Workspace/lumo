@@ -1,12 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { skillRoot } from './skill-content'
 
 /**
  * LUM-1049: the npm package root doubles as a portable Agent Plugins package
  * (https://developers.openai.com/plugins/build/plugins), so a Codex / ChatGPT
  * marketplace can reference `@lumoai/cli` with an `npm` source. The package
  * root carries `plugin.json` plus `skills/lumo/` — both generated at build
- * time from `.claude/skills/lumo/` (the single source) and package.json, so
+ * time from `cli/skill/` (the single source) and package.json, so
  * neither can drift from what `lumo init` installs.
  */
 
@@ -86,7 +87,7 @@ export function listFiles(dir: string, base: string = dir): string[] {
  * (`<pkg>/dist/cli/src/lib`), four levels below the package root.
  */
 export function bundledSkillDir(fromDir: string = __dirname): string {
-  return path.resolve(fromDir, '../../../..', BUNDLED_SKILL_REL)
+  return skillRoot(fromDir)
 }
 
 const STAGING_PREFIX = '.lumo-staging-'

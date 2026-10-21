@@ -3167,6 +3167,14 @@
       "isInvokable": false,
       "description": "Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook"
     },
+    "skill read": {
+      "arguments": [{ "name": "path", "required": false, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Print the Lumo skill guide (SKILL.md, or a file under it such as references/tasks.md) from this CLI package. Local read; needs no login.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "skill status": {
       "arguments": [],
       "flags": {

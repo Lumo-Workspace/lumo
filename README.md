@@ -521,7 +521,7 @@ npm start
 
 Lumo is open source under the [MIT License](LICENSE). Copyright © 2026 Lumo AI.
 
-The Lumo CLI ([`cli/`](cli/), published to npm as `@lumoai/cli`) and the shared code in [`shared/`](shared/) are MIT as well and carry their own copies of the license ([cli/LICENSE](cli/LICENSE), [shared/LICENSE](shared/LICENSE)); the agent skill files shipped with the CLI (source: `.claude/skills/lumo`) are covered by [cli/LICENSE](cli/LICENSE).
+The Lumo CLI ([`cli/`](cli/), published to npm as `@lumoai/cli`) and the shared code in [`shared/`](shared/) are MIT as well and carry their own copies of the license ([cli/LICENSE](cli/LICENSE), [shared/LICENSE](shared/LICENSE)); the agent skill files shipped with the CLI (source: `cli/skill`) are covered by [cli/LICENSE](cli/LICENSE).
 
 Lumo follows an open-core model. Pull-request vulnerability checks and the advanced boundary-crossing detection are a commercial plugin of [Lumo Cloud](https://www.uselumo.ai): the plugin is proprietary, is not part of this repository and is not covered by the MIT License. Everything in this repository works without it.
 

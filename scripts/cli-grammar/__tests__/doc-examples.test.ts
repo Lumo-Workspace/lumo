@@ -26,7 +26,7 @@ import {
 } from '../../../cli/src/lib/help-text'
 
 const grammar = grammarJson as CliGrammar
-const SKILL_ROOT = join(process.cwd(), '.claude/skills/lumo')
+const SKILL_ROOT = join(process.cwd(), 'cli/skill')
 
 const examples = collectDocExamples(SKILL_ROOT)
 

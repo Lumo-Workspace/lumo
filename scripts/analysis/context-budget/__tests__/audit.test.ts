@@ -30,7 +30,7 @@ describe('context-budget audit', () => {
   it('context-budget audit covers all resident/loaded context files', () => {
     // Independently re-derive the target set (SKILL.md + every references/*.md +
     // CLAUDE.md) and assert the audit covers it with NO omission.
-    const skillRoot = join(REPO_ROOT, '.claude', 'skills', 'lumo')
+    const skillRoot = join(REPO_ROOT, 'cli', 'skill')
     const refDir = join(skillRoot, 'references')
     const expected = [
       join(skillRoot, 'SKILL.md'),

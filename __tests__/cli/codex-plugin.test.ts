@@ -22,7 +22,7 @@ import {
 } from '@/cli/src/lib/codex-plugin'
 
 const repoRoot = join(__dirname, '..', '..')
-const skillSrc = join(repoRoot, '.claude', 'skills', 'lumo')
+const skillSrc = join(repoRoot, 'cli', 'skill')
 const cliPkg = JSON.parse(
   readFileSync(join(repoRoot, 'cli', 'package.json'), 'utf8')
 ) as { version: string; license: string }
@@ -61,7 +61,7 @@ describe('listFiles', () => {
 })
 
 describe('writePluginBundle', () => {
-  it('copies .claude/skills/lumo byte-for-byte into skills/lumo and writes plugin.json', () => {
+  it('copies cli/skill byte-for-byte into skills/lumo and writes plugin.json', () => {
     const out = tmp()
     try {
       writePluginBundle(skillSrc, out, cliPkg)
@@ -113,11 +113,12 @@ describe('writePluginBundle', () => {
 })
 
 describe('bundledSkillDir', () => {
-  it('resolves to <pkg>/skills/lumo from the compiled lib depth', () => {
-    const pkg = join(tmpdir(), 'pkg')
-    expect(bundledSkillDir(join(pkg, 'dist', 'cli', 'src', 'lib'))).toBe(
-      join(pkg, 'skills', 'lumo')
-    )
+  it('resolves to <pkg>/skill from the compiled lib depth', () => {
+    const pkg = tmp()
+    writeFileSync(join(pkg, 'package.json'), '{"name":"@lumoai/cli"}')
+    const lib = join(pkg, 'dist', 'cli', 'src', 'lib')
+    mkdirSync(lib, { recursive: true })
+    expect(bundledSkillDir(lib)).toBe(join(pkg, 'skill'))
   })
 })
 

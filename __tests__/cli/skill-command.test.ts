@@ -205,6 +205,8 @@ describe('lumo skill status', () => {
       join(w.project, 'cli', 'package.json'),
       JSON.stringify({ name: '@lumoai/cli' })
     )
+    mkdirSync(join(w.project, 'cli', 'skill'), { recursive: true })
+    writeFileSync(join(w.project, 'cli', 'skill', 'SKILL.md'), 'SOURCE')
     writeSkill(w.projClaude, 'source body\n')
     managedSkill(w.projCodex, '1.0.0')
     git(w.project, 'add', '.')
@@ -380,6 +382,8 @@ describe('lumo skill update', () => {
       join(w.project, 'cli', 'package.json'),
       JSON.stringify({ name: '@lumoai/cli' })
     )
+    mkdirSync(join(w.project, 'cli', 'skill'), { recursive: true })
+    writeFileSync(join(w.project, 'cli', 'skill', 'SKILL.md'), 'SOURCE')
     writeSkill(w.projClaude, 'source body\n')
     const before = snapshot(w.projClaude)
     expect(await skillUpdate({ force: true }, w.deps)).toBe(0)

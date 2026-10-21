@@ -45,10 +45,10 @@ describe('globToRegExp / matchesGlob', () => {
   })
 
   it('a single-segment glob does not reach into subdirectories', () => {
-    // .claude/skills/* are symlinks into .agents/; .claude/skills/lumo/** is public.
+    // .claude/skills/* are symlinks into .agents/; nested files are not matched.
     expect(matchesGlob('.claude/skills/clerk', '.claude/skills/*')).toBe(true)
     expect(
-      matchesGlob('.claude/skills/lumo/SKILL.md', '.claude/skills/*')
+      matchesGlob('.claude/skills/clerk/SKILL.md', '.claude/skills/*')
     ).toBe(false)
   })
 })
@@ -672,15 +672,12 @@ describe('oss/manifest.json', () => {
       '.claude/settings.json',
       'scripts/analysis/lum988/results.json',
       'scripts/eval/memory/vectors.fixture.json',
-      '.claude/skills/lumo/SKILL.md',
+      'cli/skill/SKILL.md',
       'app/page.tsx',
     ]
     const cls = classifyFiles(files, manifest)
     expect(cls.unclassified).toEqual([])
-    expect(cls.included).toEqual([
-      '.claude/skills/lumo/SKILL.md',
-      'app/page.tsx',
-    ])
+    expect(cls.included).toEqual(['cli/skill/SKILL.md', 'app/page.tsx'])
   })
 
   it('the snapshot keeps exactly the crons whose route ships, in vercel.json and the crontab (LUM-1065)', () => {

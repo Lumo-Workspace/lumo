@@ -59,6 +59,8 @@ const DEVIATIONS = {
     // LUM-1285: project archive / unarchive.
     'project archive',
     'project unarchive',
+    // LUM-1292: reads only files inside the CLI package.
+    'skill read',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   fileReadingAdded: { 'feedback create': '--evidence-file' } as Record<

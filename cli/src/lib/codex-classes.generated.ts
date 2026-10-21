@@ -138,6 +138,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
       'can create a git worktree (--worktree / autoWorktree) and sync local memory',
   },
   'session status': { serverOnly: true, localFiles: 'none' },
+  'skill read': { serverOnly: true, localFiles: 'none' },
   'skill status': {
     serverOnly: false,
     localFiles: 'none',

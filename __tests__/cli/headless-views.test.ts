@@ -399,8 +399,8 @@ describe('lumo workspace overview is gone (LUM-1228)', () => {
     for (const f of [
       'cli/src/index.ts',
       'cli/src/lib/codex-rules.ts',
-      '.claude/skills/lumo/SKILL.md',
-      '.claude/skills/lumo/references/overview.md',
+      'cli/skill/SKILL.md',
+      'cli/skill/references/overview.md',
     ]) {
       expect(read(f)).not.toMatch(/workspace overview|workspaceOverview/)
     }

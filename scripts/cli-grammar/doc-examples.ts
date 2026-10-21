@@ -1,6 +1,6 @@
 /**
  * LUM-415: mine `lumo …` invocation examples out of the skill docs
- * (.claude/skills/lumo/SKILL.md + references/*.md) so they can be judged by
+ * (cli/skill/SKILL.md + references/*.md) so they can be judged by
  * the LUM-413 AST validator. Documentation examples are the agent's few-shot
  * set — an example that doesn't parse against the live grammar IS
  * documentation/behavior drift (the exact failure mode behind the LUM-392

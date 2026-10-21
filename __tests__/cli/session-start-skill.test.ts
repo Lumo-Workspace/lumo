@@ -163,6 +163,8 @@ describe('sessionStartSkillInfo', () => {
       path.join(cwd, 'cli', 'package.json'),
       JSON.stringify({ name: '@lumoai/cli', version: '1.70.0' })
     )
+    fs.mkdirSync(path.join(cwd, 'cli', 'skill'), { recursive: true })
+    fs.writeFileSync(path.join(cwd, 'cli', 'skill', 'SKILL.md'), '# source\n')
     const src = path.join(cwd, '.claude', 'skills', 'lumo')
     fs.mkdirSync(src, { recursive: true })
     fs.writeFileSync(path.join(src, 'SKILL.md'), '# source\n')

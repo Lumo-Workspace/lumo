@@ -131,7 +131,7 @@ lumo sprint close --help
 
 ## Claude Code Integration
 
-Inside a Claude Code session, the agent skill auto-discovers the CLI and uses it to load task context, bind sessions, and update task state. See the [Lumo Claude Code skill](https://github.com/Lumo-Workspace/lumo/tree/main/.claude/skills/lumo) for the full agent contract.
+Inside a Claude Code session, the agent skill auto-discovers the CLI and uses it to load task context, bind sessions, and update task state. See the [Lumo Claude Code skill](https://github.com/Lumo-Workspace/lumo/tree/main/cli/skill) for the full agent contract.
 
 ## License
 
