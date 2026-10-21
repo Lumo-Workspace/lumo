@@ -138,3 +138,28 @@ describe('other hooks', () => {
     expect(out()).toBe('')
   })
 })
+
+describe('subagent-start (LUM-1292)', () => {
+  it('Claude Code: the subagent gets the pointer as SubagentStart context', async () => {
+    server({})
+    await runHookWithBody('subagent-start', '{}', 'claude-code')
+    expect(JSON.parse(out().trimEnd())).toEqual({
+      hookSpecificOutput: {
+        hookEventName: 'SubagentStart',
+        additionalContext: SKILL_POINTER_TEXT,
+      },
+    })
+  })
+
+  it('prints the pointer even when not logged in', async () => {
+    ;(readCredentials as jest.Mock).mockReturnValue(null)
+    await runHookWithBody('subagent-start', '{}', 'claude-code')
+    expect(out()).toContain(SKILL_POINTER_TEXT)
+  })
+
+  it('Codex: stays silent (its SubagentStart output shape is untested)', async () => {
+    server({})
+    await runHookWithBody('subagent-start', '{}', 'codex')
+    expect(out()).toBe('')
+  })
+})

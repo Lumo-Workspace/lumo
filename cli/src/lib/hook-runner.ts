@@ -549,6 +549,16 @@ function sessionStartLines(
   )
 }
 
+/** SubagentStart context carrying the pointer (Claude Code). */
+export function subagentPointerEnvelope(): string {
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'SubagentStart',
+      additionalContext: SKILL_POINTER_TEXT,
+    },
+  })
+}
+
 /**
  * The pointer alone, in the shape the agent accepts: used when the server
  * could not be asked (not logged in, offline, non-2xx) — the agent still has
@@ -846,18 +856,23 @@ export async function runHookWithBody(
 ): Promise<void> {
   // LUM-1292: SessionStart always tells the agent about `lumo skill read`,
   // also when the server could not be asked (no login, offline, non-2xx).
+  // A Claude Code subagent starts without the parent's context (and without
+  // a SessionStart of its own), so SubagentStart carries the pointer too.
   const stdoutState = { written: false }
   try {
     await runHookBody(path, body, agentToken, stdoutState)
   } finally {
-    if (path === 'session-start' && !stdoutState.written) {
-      try {
-        const agentEnum = agentToken ? normalizeAgent(agentToken) : null
-        for (const line of skillPointerOnly(agentEnum))
-          process.stdout.write(line + '\n')
-      } catch {
-        // never block the agent
-      }
+    try {
+      const agentEnum = agentToken ? normalizeAgent(agentToken) : null
+      const lines =
+        path === 'session-start' && !stdoutState.written
+          ? skillPointerOnly(agentEnum)
+          : path === 'subagent-start' && agentEnum !== 'CODEX'
+            ? [subagentPointerEnvelope()]
+            : []
+      for (const line of lines) process.stdout.write(line + '\n')
+    } catch {
+      // never block the agent
     }
   }
 }
