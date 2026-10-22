@@ -163,4 +163,20 @@ describe('POST /api/tasks', () => {
     const body = await res.json()
     expect(body.error).toBe('Internal Server Error')
   })
+
+  it('reports that a background duplicate check was scheduled (LUM-1286)', async () => {
+    mockVerify.mockResolvedValue(IDENTITY)
+    mockCreate.mockResolvedValue({
+      id: 't',
+      identifier: 'LUM-1',
+      title: 'x',
+      url: 'u',
+      duplicateCheck: 'scheduled',
+    })
+
+    const res = await POST(makeRequest({ title: 'x' }))
+
+    expect(res.status).toBe(201)
+    expect((await res.json()).duplicateCheck).toBe('scheduled')
+  })
 })

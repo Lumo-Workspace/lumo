@@ -5,6 +5,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
 import { normalizeRichText } from '@/lib/utils/markdown'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { isWorkStartedStatus } from '@/lib/task/work-started'
 import { slugify } from '@/lib/utils/slugify'
 import {
@@ -243,6 +244,14 @@ export async function createFromAutomation(
   if (input.tagIds.length > 0) {
     await tagRepository.syncTaskTags(task.id, input.tagIds)
   }
+
+  // LUM-1286: the automation path skips dispatchCreateTaskSideEffects, so it
+  // stamps the title embedding itself (dynamic import: see that helper).
+  waitUntil(
+    import('@/lib/services/task-embedding.service').then(m =>
+      m.stampTaskTitleEmbedding(task.id, task.title)
+    )
+  )
 
   return { task }
 }

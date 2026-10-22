@@ -56,6 +56,8 @@ interface CreatedTaskResponse {
   nextSteps?: NextStep[]
   /** LUM-1285: e.g. the project is paused. Absent on older servers. */
   warnings?: string[]
+  /** LUM-1286: a background duplicate check was scheduled. Absent on older servers. */
+  duplicateCheck?: 'scheduled'
 }
 
 interface SprintInfo {
@@ -328,6 +330,12 @@ export async function taskCreate(
     // LUM-1285: the task exists; the warning (e.g. a paused project) goes to
     // stderr so stdout stays the one created-line contract.
     for (const w of data.warnings ?? []) console.error(warn(sanitizeField(w)))
+    // LUM-1286: create first, flag later — say where suggestions will land.
+    if (data.duplicateCheck === 'scheduled') {
+      console.error(
+        `Checking for duplicates in the background; any likely duplicate is suggested in \`lumo task show ${sanitizeField(data.task.identifier)} --deps\`.`
+      )
+    }
 
     // Sprint binding (optional): if --sprint was passed, bind the new task.
     if (opts.sprint) {
@@ -363,13 +371,13 @@ export async function taskCreate(
   }
 
   // Surface server error message when present, otherwise the status
-  let serverMsg: string | null = null
+  let errBody: { error?: string } | null = null
   try {
-    const errBody = (await res.json()) as { error?: string }
-    if (typeof errBody.error === 'string') serverMsg = errBody.error
+    errBody = (await res.json()) as { error?: string }
   } catch {
     // Body wasn't JSON; fall through to status-only message
   }
+  const serverMsg = typeof errBody?.error === 'string' ? errBody.error : null
   if (serverMsg) {
     console.error(`Error: ${sanitizeField(serverMsg)}`)
   } else {

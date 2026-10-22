@@ -44,6 +44,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
+import { PossibleDuplicateBanner } from '../../dependencies/components/PossibleDuplicateBanner'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail
@@ -310,6 +311,12 @@ export function TaskDetailPage({
               >
                 {task.title}
               </h1>
+
+              {/* LUM-1286: likely duplicates from the background check. */}
+              <PossibleDuplicateBanner
+                taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+                workspaceUrl={workspaceUrl}
+              />
 
               {/* Description */}
               {desc.descriptionLoading ? (

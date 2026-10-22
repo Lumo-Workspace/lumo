@@ -113,3 +113,35 @@ describe('task create — rework/new-scope flags', () => {
     expect(stderr.join('\n')).toMatch(/This belongs on LUM-7/)
   })
 })
+
+describe('task create — background duplicate check (LUM-1286)', () => {
+  it('says where possible duplicates will show up', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { task: created, duplicateCheck: 'scheduled' })
+    )
+
+    const code = await taskCreate('New task', {})
+
+    expect(code).toBeUndefined()
+    expect(stdout.join('')).toMatch(/Created LUM-9/)
+    // stdout stays the created-line contract; the note goes to stderr.
+    expect(stdout.join('')).not.toMatch(/--deps/)
+    expect(stderr.join('\n')).toMatch(/lumo task show LUM-9 --deps/)
+  })
+
+  it('prints no note when the server did not schedule a check', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+
+    await taskCreate('New task', {})
+
+    expect(stderr.join('\n')).not.toMatch(/--deps/)
+  })
+
+  it('never sends a confirmation flag', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+    await taskCreate('New task', {})
+    expect(
+      JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).confirmDuplicates
+    ).toBeUndefined()
+  })
+})

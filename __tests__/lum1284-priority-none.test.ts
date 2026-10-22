@@ -308,11 +308,13 @@ describe('LUM-1284 migrations', () => {
   it('ADD VALUE ships alone, in an earlier migration than SET DEFAULT', () => {
     const names = readdirSync(dir).filter(n => n.includes('lum1284'))
     expect(names.sort()).toEqual([ENUM, DEFAULT])
-    const latestOther = readdirSync(dir)
-      .filter(n => /^\d{14}_/.test(n) && !n.includes('lum1284'))
+    // The enum value must commit in its own migration before the default
+    // uses it, with nothing in between. (Was "newer than every other
+    // migration", which any later migration broke — LUM-1286.)
+    const all = readdirSync(dir)
+      .filter(n => /^\d{14}_/.test(n))
       .sort()
-      .pop()!
-    expect(ENUM > latestOther).toBe(true)
+    expect(all.indexOf(DEFAULT)).toBe(all.indexOf(ENUM) + 1)
     expect(stmts(ENUM)).toEqual([
       `ALTER TYPE "TaskPriority" ADD VALUE IF NOT EXISTS 'NONE' BEFORE 'LOW'`,
     ])

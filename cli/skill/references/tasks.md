@@ -25,6 +25,12 @@ lumo task create "Spike: evaluate caching options" --tag rfc --tag-id clm_abc123
 lumo task create "Add CSV export" --template agent-brief
 ```
 
+**Background duplicate check (LUM-1286).** `task create` always creates the task right away. After the response, the server asks an LLM whether the project already holds the same task. It sends the 10 tasks whose titles are closest in meaning across the whole project (any age or language, trash excluded), plus the 3 recent titles closest by spelling. Each likely duplicate (score ≥ 70%) becomes a **SUGGESTED** `DUPLICATES` edge from the new task to the existing one, with evidence `possible_duplicate(NN%)`. The CLI prints a stderr note saying where to look. The check fails open: if the LLM times out (45s) or errors, nothing is suggested.
+
+Plain `lumo task show <id>` prints a **⚠ Possible duplicate** block under the fields. Each likely original appears with its match score and two ready-to-run lines: `Confirm duplicate: lumo task dep confirm <id> <original>` and `Not a duplicate: lumo task dep dismiss <id> <original>`; `--json` carries them as `possibleDuplicates`. `session attach` and the session-start context name them too, and tell you to ask the user before working. The task page on the web shows the same block as a banner under the title. All suggestions, duplicates included, are also listed in `lumo task show <id> --deps` and the web dependency panel. Confirm one with `lumo task dep confirm <id> <edge>` (records the duplicate relation; it does not close the task) or drop it with `task dep dismiss`. To close the new task as a duplicate, run `task update <id> --status canceled --duplicate-of <original>`, which is the user's call.
+
+When to suggest: an agent is about to file a task that may already exist. Run `lumo task list --search <words>` first; after creating, check `task show <id> --deps` and relay any suggested duplicate to the user.
+
 Output: `Created LUM-55 "Title"  <url>`, a `Tags:` line when tags were attached, then the `Next:` block.
 
 **Next-step hints.** `task create`, `task update`, `session attach`, `task show --full` and `status --next` end with a server-computed `Next:` block (≤3 suggestions from task status × session binding × open crossings) after the result line — the result line stays first. `--no-hints` / `LUMO_NO_HINTS=1` silence it.
