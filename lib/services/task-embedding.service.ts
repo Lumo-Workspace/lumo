@@ -49,11 +49,16 @@ export async function backfillTaskTitleEmbeddings(opts: {
       )
       return { embedded, failed: rows.length }
     }
+    let stored = 0
     for (const [i, row] of rows.entries()) {
       const vector = vectors[i]
-      if (vector) await taskRepository.setTitleEmbedding(row.id, vector)
+      if (!vector) continue
+      await taskRepository.setTitleEmbedding(row.id, vector)
+      stored++
     }
-    embedded += rows.length
+    embedded += stored
+    // A short batch leaves rows NULL that the next fetch would return again.
+    if (stored < rows.length) return { embedded, failed: rows.length - stored }
   }
   return { embedded, failed: 0 }
 }

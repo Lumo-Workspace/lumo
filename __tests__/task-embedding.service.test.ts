@@ -93,3 +93,19 @@ describe('backfillTaskTitleEmbeddings', () => {
     expect(mockMissing).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('backfillTaskTitleEmbeddings — partial batches (LUM-1286)', () => {
+  it('counts only stored vectors and stops when a batch comes back short', async () => {
+    mockMissing.mockResolvedValue([
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B' },
+    ])
+    mockEmbed.mockResolvedValue([[1]]) // one vector for two titles
+
+    const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
+
+    expect(out).toEqual({ embedded: 1, failed: 1 })
+    expect(mockSet).toHaveBeenCalledTimes(1)
+    expect(mockMissing).toHaveBeenCalledTimes(1)
+  })
+})

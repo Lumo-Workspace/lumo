@@ -30,10 +30,6 @@ export interface DuplicateMatch {
   priority: string
 }
 
-/**
- * Check for duplicate/similar tasks using AI semantic matching.
- * Returns up to 5 matches with score >= 0.4.
- */
 type DuplicateCheckRow = Awaited<
   ReturnType<typeof taskRepository.findForDuplicateCheck>
 >[number]
@@ -72,17 +68,23 @@ async function recallCandidates(
   title: string,
   projectId: string,
   recent: DuplicateCheckRow[],
-  limit: number
+  limit: number,
+  excludeTaskId: string | undefined
 ): Promise<DuplicateCheckRow[]> {
   let ids: string[] = []
   try {
     const [vector] = await embedTexts([title])
     if (vector) {
-      ids = await taskRepository.findNearestByTitleEmbedding(
-        projectId,
-        vector,
-        limit
+      // One spare neighbour: the excluded task is usually its own nearest.
+      ids = (
+        await taskRepository.findNearestByTitleEmbedding(
+          projectId,
+          vector,
+          excludeTaskId === undefined ? limit : limit + 1
+        )
       )
+        .filter(id => id !== excludeTaskId)
+        .slice(0, limit)
     }
   } catch (err) {
     logger.warn(
@@ -94,7 +96,10 @@ async function recallCandidates(
     return closestByBigram(title, recent, CLI_BIGRAM_FALLBACK_CANDIDATES)
   }
 
-  const nearest = await taskRepository.findForDuplicateCheckByIds(projectId, ids)
+  const nearest = await taskRepository.findForDuplicateCheckByIds(
+    projectId,
+    ids
+  )
   const seen = new Set(nearest.map(t => t.id))
   const extra = closestByBigram(
     title,
@@ -117,13 +122,25 @@ export async function checkDuplicates(
      *  recall, bigram fallback) instead of all recent titles — 200 titles
      *  took the model 15–35s locally. Omitted on the web path. */
     candidateLimit?: number
+    /** LUM-1286: a task never sent as a candidate — the one just created
+     *  from `title`, which would otherwise match itself at 1.0 and take one
+     *  of the 5 match slots. */
+    excludeTaskId?: string
   } = {}
 ): Promise<DuplicateMatch[]> {
-  const all = await taskRepository.findForDuplicateCheck(projectId)
+  const all = (await taskRepository.findForDuplicateCheck(projectId)).filter(
+    t => t.id !== options.excludeTaskId
+  )
   const tasks =
     options.candidateLimit === undefined
       ? all
-      : await recallCandidates(title, projectId, all, options.candidateLimit)
+      : await recallCandidates(
+          title,
+          projectId,
+          all,
+          options.candidateLimit,
+          options.excludeTaskId
+        )
   if (tasks.length === 0) return []
 
   const taskList = tasks.map(t => `${t.id}: ${t.title}`).join('\n')
@@ -244,6 +261,7 @@ export async function findLikelyDuplicates(
       checkDuplicates(title, projectId, {
         abortSignal: signal,
         candidateLimit: CLI_DUPLICATE_CANDIDATES,
+        ...(opts.excludeTaskId ? { excludeTaskId: opts.excludeTaskId } : {}),
       }),
       timedOut,
     ])

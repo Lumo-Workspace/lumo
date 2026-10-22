@@ -309,3 +309,43 @@ describe('suggestDuplicateEdges (LUM-1286)', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+describe('the task being checked never reaches the LLM (LUM-1286)', () => {
+  const ids = (prompt: string) =>
+    (prompt.match(/^[a-z]+-\d+: /gm) ?? []).map(l => l.slice(0, -2))
+
+  it('drops it from the recent tasks (bigram path)', async () => {
+    mockFind.mockResolvedValue([
+      task('new-1', 'Sign in with Google', 300),
+      task('t-1', 'Add Google OAuth login', 12),
+    ])
+    mockGenerate.mockResolvedValue({ object: { matches: [] } })
+
+    await findLikelyDuplicates('Sign in with Google', 'p-1', {
+      excludeTaskId: 'new-1',
+    })
+
+    expect(ids(mockGenerate.mock.calls[0]![0].prompt)).toEqual(['t-1'])
+  })
+
+  it('drops it from the embedding neighbours and still sends a full set', async () => {
+    mockFind.mockResolvedValue([task('new-1', 'Sign in with Google', 300)])
+    mockEmbed.mockResolvedValue([[0.1]])
+    mockNearest.mockResolvedValue(['new-1', 'old-1'])
+    mockByIds.mockImplementation(async (_p: string, wanted: string[]) =>
+      wanted.map(id => task(id, `title ${id}`, 1))
+    )
+    mockGenerate.mockResolvedValue({ object: { matches: [] } })
+
+    await findLikelyDuplicates('Sign in with Google', 'p-1', {
+      excludeTaskId: 'new-1',
+    })
+
+    expect(mockNearest).toHaveBeenCalledWith(
+      'p-1',
+      [0.1],
+      CLI_DUPLICATE_CANDIDATES + 1
+    )
+    expect(ids(mockGenerate.mock.calls[0]![0].prompt)).toEqual(['old-1'])
+  })
+})
