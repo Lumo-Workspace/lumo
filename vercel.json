@@ -60,6 +60,10 @@
     {
       "path": "/api/cron/prune-audit-events",
       "schedule": "25 4 * * *"
+    },
+    {
+      "path": "/api/cron/backfill-task-title-embeddings",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

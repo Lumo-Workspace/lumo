@@ -32,9 +32,14 @@ export async function stampTaskTitleEmbedding(
 export async function backfillTaskTitleEmbeddings(opts: {
   batchSize: number
   limit: number
-}): Promise<{ embedded: number; failed: number }> {
+  /** Stop between batches once this passes (a serverless time budget). */
+  deadline?: Date
+}): Promise<{ embedded: number; failed: number; stoppedAtDeadline: boolean }> {
   let embedded = 0
   while (embedded < opts.limit) {
+    if (opts.deadline && Date.now() >= opts.deadline.getTime()) {
+      return { embedded, failed: 0, stoppedAtDeadline: true }
+    }
     const rows = await taskRepository.findMissingTitleEmbeddings(
       Math.min(opts.batchSize, opts.limit - embedded)
     )
@@ -47,7 +52,7 @@ export async function backfillTaskTitleEmbeddings(opts: {
         '[task-embedding] backfill batch failed:',
         err instanceof Error ? err.message : err
       )
-      return { embedded, failed: rows.length }
+      return { embedded, failed: rows.length, stoppedAtDeadline: false }
     }
     let stored = 0
     for (const [i, row] of rows.entries()) {
@@ -58,7 +63,57 @@ export async function backfillTaskTitleEmbeddings(opts: {
     }
     embedded += stored
     // A short batch leaves rows NULL that the next fetch would return again.
-    if (stored < rows.length) return { embedded, failed: rows.length - stored }
+    if (stored < rows.length) {
+      return {
+        embedded,
+        failed: rows.length - stored,
+        stoppedAtDeadline: false,
+      }
+    }
   }
-  return { embedded, failed: 0 }
+  return { embedded, failed: 0, stoppedAtDeadline: false }
+}
+
+export interface TaskTitleEmbeddingBackfillReport {
+  dryRun: boolean
+  /** Live tasks without a title embedding when the run started. */
+  missingBefore: number
+  embedded: number
+  failed: number
+  missingAfter: number
+  /** True when the time budget ran out with rows left — the next run resumes. */
+  stoppedAtDeadline: boolean
+}
+
+/**
+ * LUM-1286: one run of the scheduled backfill (`/api/cron/backfill-task-title-
+ * embeddings`). Counts first; a dry run stops there. Otherwise embeds until
+ * nothing is missing or the deadline passes, then counts again. Idempotent —
+ * only NULL rows are written, so the next scheduled run picks up the rest.
+ */
+export async function runTaskTitleEmbeddingBackfill(opts: {
+  dryRun: boolean
+  deadline: Date
+  batchSize?: number
+}): Promise<TaskTitleEmbeddingBackfillReport> {
+  const missingBefore = await taskRepository.countMissingTitleEmbeddings()
+  if (opts.dryRun || missingBefore === 0) {
+    return {
+      dryRun: opts.dryRun,
+      missingBefore,
+      embedded: 0,
+      failed: 0,
+      missingAfter: missingBefore,
+      stoppedAtDeadline: false,
+    }
+  }
+  const result = await backfillTaskTitleEmbeddings({
+    batchSize: opts.batchSize ?? 96,
+    limit: missingBefore,
+    deadline: opts.deadline,
+  })
+  const missingAfter = await taskRepository.countMissingTitleEmbeddings()
+  const report = { dryRun: false, missingBefore, ...result, missingAfter }
+  logger.info('[task-embedding] backfill run:', JSON.stringify(report))
+  return report
 }

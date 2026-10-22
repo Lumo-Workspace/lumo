@@ -860,10 +860,12 @@ export const taskRepository = {
   /** LUM-1286: duplicate-check rows for the given ids, in the given order. */
   async findForDuplicateCheckByIds(projectId: string, ids: string[]) {
     if (ids.length === 0) return []
-    const rows = await followUp('tasks of an authorized project').task.findMany({
-      where: { projectId, id: { in: ids } },
-      select: TASK_DUPLICATE_CHECK_SELECT,
-    })
+    const rows = await followUp('tasks of an authorized project').task.findMany(
+      {
+        where: { projectId, id: { in: ids } },
+        select: TASK_DUPLICATE_CHECK_SELECT,
+      }
+    )
     const byId = new Map(rows.map(r => [r.id, r]))
     return ids.flatMap(id => {
       const row = byId.get(id)
@@ -909,6 +911,19 @@ export const taskRepository = {
       `
     )
     return rows.map(r => r.id)
+  },
+
+  /** LUM-1286: how many live tasks still lack a title embedding (backfill report). */
+  async countMissingTitleEmbeddings(): Promise<number> {
+    const [row] = await systemJob(
+      'count missing task title embeddings'
+    ).$queryRaw<{ count: bigint }[]>(
+      PrismaSql.sql`
+        SELECT count(*) AS count FROM "tasks"
+        WHERE "titleEmbedding" IS NULL AND "deletedAt" IS NULL
+      `
+    )
+    return Number(row?.count ?? 0)
   },
 
   /** Live tasks still missing a title embedding, newest first (backfill). */

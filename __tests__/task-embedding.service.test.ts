@@ -8,6 +8,7 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     setTitleEmbedding: jest.fn(),
     findMissingTitleEmbeddings: jest.fn(),
+    countMissingTitleEmbeddings: jest.fn(),
   },
 }))
 jest.mock('@/lib/logger', () => ({
@@ -18,12 +19,14 @@ import { embedTexts } from '@/lib/ai/embedding'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import {
   backfillTaskTitleEmbeddings,
+  runTaskTitleEmbeddingBackfill,
   stampTaskTitleEmbedding,
 } from '@/lib/services/task-embedding.service'
 
 const mockEmbed = embedTexts as jest.Mock
 const mockSet = taskRepository.setTitleEmbedding as jest.Mock
 const mockMissing = taskRepository.findMissingTitleEmbeddings as jest.Mock
+const mockCount = taskRepository.countMissingTitleEmbeddings as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -65,7 +68,7 @@ describe('backfillTaskTitleEmbeddings', () => {
 
     const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
 
-    expect(out).toEqual({ embedded: 3, failed: 0 })
+    expect(out).toEqual({ embedded: 3, failed: 0, stoppedAtDeadline: false })
     expect(mockSet).toHaveBeenCalledTimes(3)
     expect(mockMissing).toHaveBeenNthCalledWith(1, 2)
   })
@@ -89,7 +92,7 @@ describe('backfillTaskTitleEmbeddings', () => {
 
     const out = await backfillTaskTitleEmbeddings({ batchSize: 1, limit: 100 })
 
-    expect(out).toEqual({ embedded: 0, failed: 1 })
+    expect(out).toEqual({ embedded: 0, failed: 1, stoppedAtDeadline: false })
     expect(mockMissing).toHaveBeenCalledTimes(1)
   })
 })
@@ -104,8 +107,64 @@ describe('backfillTaskTitleEmbeddings — partial batches (LUM-1286)', () => {
 
     const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
 
-    expect(out).toEqual({ embedded: 1, failed: 1 })
+    expect(out).toEqual({ embedded: 1, failed: 1, stoppedAtDeadline: false })
     expect(mockSet).toHaveBeenCalledTimes(1)
     expect(mockMissing).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('backfillTaskTitleEmbeddings — deadline (LUM-1286)', () => {
+  it('stops between batches once the deadline has passed', async () => {
+    mockMissing.mockResolvedValue([{ id: 'a', title: 'A' }])
+    mockEmbed.mockImplementation(async (xs: string[]) => xs.map(() => [1]))
+
+    const out = await backfillTaskTitleEmbeddings({
+      batchSize: 1,
+      limit: 100,
+      deadline: new Date(Date.now() - 1),
+    })
+
+    expect(out).toEqual({ embedded: 0, failed: 0, stoppedAtDeadline: true })
+    expect(mockMissing).not.toHaveBeenCalled()
+  })
+})
+
+describe('runTaskTitleEmbeddingBackfill (LUM-1286)', () => {
+  it('reports what was missing, what it embedded and what is left', async () => {
+    mockCount.mockResolvedValueOnce(2).mockResolvedValueOnce(0)
+    mockMissing
+      .mockResolvedValueOnce([
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+      ])
+      .mockResolvedValueOnce([])
+    mockEmbed.mockImplementation(async (xs: string[]) => xs.map(() => [1]))
+
+    const out = await runTaskTitleEmbeddingBackfill({
+      dryRun: false,
+      deadline: new Date(Date.now() + 60_000),
+    })
+
+    expect(out).toEqual({
+      dryRun: false,
+      missingBefore: 2,
+      embedded: 2,
+      failed: 0,
+      missingAfter: 0,
+      stoppedAtDeadline: false,
+    })
+  })
+
+  it('only counts on a dry run', async () => {
+    mockCount.mockResolvedValue(7)
+
+    const out = await runTaskTitleEmbeddingBackfill({
+      dryRun: true,
+      deadline: new Date(Date.now() + 60_000),
+    })
+
+    expect(out).toMatchObject({ dryRun: true, missingBefore: 7, embedded: 0, missingAfter: 7 })
+    expect(mockEmbed).not.toHaveBeenCalled()
+    expect(mockSet).not.toHaveBeenCalled()
   })
 })

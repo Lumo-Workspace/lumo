@@ -99,3 +99,14 @@ describe('taskRepository.findMissingTitleEmbeddings', () => {
     expect(sqlOf(mockQueryRaw).values).toContain(50)
   })
 })
+
+describe('taskRepository.countMissingTitleEmbeddings (LUM-1286)', () => {
+  it('counts live tasks without an embedding', async () => {
+    mockQueryRaw.mockResolvedValueOnce([{ count: BigInt(42) }])
+
+    await expect(taskRepository.countMissingTitleEmbeddings()).resolves.toBe(42)
+    const text = sqlOf(mockQueryRaw).strings.join('')
+    expect(text).toContain('"titleEmbedding" IS NULL')
+    expect(text).toContain('"deletedAt" IS NULL')
+  })
+})

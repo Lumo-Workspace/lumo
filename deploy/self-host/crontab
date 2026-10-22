@@ -21,4 +21,5 @@
 20 * * * * /opt/lumo/cron-run.sh execute-workspace-deletions /api/cron/execute-workspace-deletions
 10 4 * * * /opt/lumo/cron-run.sh purge-trash /api/cron/purge-trash
 25 4 * * * /opt/lumo/cron-run.sh prune-audit-events /api/cron/prune-audit-events
+*/10 * * * * /opt/lumo/cron-run.sh backfill-task-title-embeddings /api/cron/backfill-task-title-embeddings
 40 3 * * * /opt/lumo/cron-run.sh workflow-queue-cleanup /api/cron/workflow-queue-cleanup
