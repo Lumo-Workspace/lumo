@@ -966,6 +966,7 @@
   "task.dependencies.added": "Ajouté",
   "task.dependencies.loading": "Chargement des dépendances…",
   "task.dependencies.empty": "Aucune dépendance pour l'instant",
+  "task.dependencies.evidence.possibleDuplicate": "Doublon possible · {score} %",
   "task.dependencies.actionFailed": "Impossible de mettre à jour les dépendances",
   "task.dependencies.field.label": "Dép.",
   "task.dependencies.field.blocks": "bloque {count}",

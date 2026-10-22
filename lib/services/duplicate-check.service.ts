@@ -6,6 +6,7 @@ import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { taskRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { bigramSimilarity } from '@/lib/similarity'
 import { embedTexts } from '@/lib/ai/embedding'
 
@@ -39,7 +40,11 @@ type DuplicateCheckRow = Awaited<
 
 /** LUM-1286 step 2: bigram hits from the recent tasks added to the embedding
  *  candidates, so a task whose embedding is not stamped yet still shows up. */
-const BIGRAM_EXTRA_CANDIDATES = 5
+const BIGRAM_EXTRA_CANDIDATES = 3
+
+/** LUM-1286: candidates when embedding recall is unavailable — the step-1
+ *  bigram top-20 over the recent tasks. */
+export const CLI_BIGRAM_FALLBACK_CANDIDATES = 20
 
 function closestByBigram(
   title: string,
@@ -56,10 +61,12 @@ function closestByBigram(
 /**
  * LUM-1286 step 2: the project's `limit` tasks nearest by title embedding
  * (any age, not only the recent 200), plus the top bigram hits among the
- * recent ones. Falls back to the bigram top `limit` when the title cannot be
+ * recent ones. Falls back to the bigram top 20 when the title cannot be
  * embedded or the project has no embeddings yet. Measured on 7 public repos
- * (1,555 duplicate pairs): embedding top-20 recall 79% vs bigram 69%, and
- * 87% vs 42% on Chinese titles.
+ * (1,555 duplicate pairs): embedding top-10 recall 73% vs bigram top-20 69%
+ * (Chinese titles: embedding top-20 87% vs bigram 42%). Kept at 10 because
+ * 25 close candidates made the LLM 10-20s slower and time out (LUM-1286
+ * Decisions).
  */
 async function recallCandidates(
   title: string,
@@ -83,7 +90,9 @@ async function recallCandidates(
       err instanceof Error ? err.message : err
     )
   }
-  if (ids.length === 0) return closestByBigram(title, recent, limit)
+  if (ids.length === 0) {
+    return closestByBigram(title, recent, CLI_BIGRAM_FALLBACK_CANDIDATES)
+  }
 
   const nearest = await taskRepository.findForDuplicateCheckByIds(projectId, ids)
   const seen = new Set(nearest.map(t => t.id))
@@ -194,36 +203,37 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
 }
 
 /**
- * LUM-1286: score at which `lumo task create` stops and asks the user. Higher
- * than the web modal's 0.4 floor, which only warns — the CLI gate blocks, so
- * "related" (0.5–0.8 in the prompt's scale) must not trip it.
+ * LUM-1286: score at which a CLI-created task gets a suggested DUPLICATES
+ * edge. Higher than the web modal's 0.4 floor so plain "related" tasks
+ * (0.5–0.7 in the prompt's scale) are not suggested; kept at 0.7 by the
+ * user's ruling (LUM-1286 Decisions).
  */
-export const CLI_DUPLICATE_BLOCK_SCORE = 0.7
+export const DUPLICATE_SUGGEST_SCORE = 0.7
 
 /**
- * LUM-1286: upper bound on the LLM call a CLI create waits for. Measured
- * 5–35s on GENERATION_MODEL even with the top-20 prefilter, so 8s never let
- * the gate fire; the user chose 45s over a faster model (LUM-1286 Decisions).
+ * LUM-1286: upper bound on one background duplicate check. Measured 5–35s on
+ * GENERATION_MODEL; POST /api/tasks keeps a 60s maxDuration so the check can
+ * finish inside waitUntil.
  */
 export const CLI_DUPLICATE_TIMEOUT_MS = 45_000
 
-/** LUM-1286: titles sent to the LLM after the bigram prefilter. */
-export const CLI_DUPLICATE_CANDIDATES = 20
+/** LUM-1286: tasks recalled by title embedding for the LLM (plus up to 3
+ *  bigram hits; 20 bigram hits when embedding recall is unavailable). */
+export const CLI_DUPLICATE_CANDIDATES = 10
 
 /**
- * LUM-1286: candidates strong enough to stop a CLI create for confirmation.
- * Fails open — a timeout or gateway error must never block creating a task
- * (our outage is not the customer's problem), so it logs and returns [].
+ * LUM-1286: tasks in the project likely to duplicate `title`, never `excludeTaskId`
+ * (the task just created from it). Fails open — a timeout or gateway error
+ * logs and returns [].
  */
-export async function findBlockingDuplicates(
+export async function findLikelyDuplicates(
   title: string,
   projectId: string,
-  timeoutMs: number = CLI_DUPLICATE_TIMEOUT_MS
+  opts: { excludeTaskId?: string; timeoutMs?: number } = {}
 ): Promise<DuplicateMatch[]> {
-  const signal = AbortSignal.timeout(timeoutMs)
+  const signal = AbortSignal.timeout(opts.timeoutMs ?? CLI_DUPLICATE_TIMEOUT_MS)
   // The signal cancels the LLM call; the race bounds the whole check (the
-  // task read and the assignee-name lookup too), so a create never waits
-  // past timeoutMs.
+  // task read and the assignee-name lookup too).
   const timedOut = new Promise<never>((_, reject) => {
     signal.addEventListener('abort', () => reject(signal.reason), {
       once: true,
@@ -237,9 +247,46 @@ export async function findBlockingDuplicates(
       }),
       timedOut,
     ])
-    return matches.filter(m => m.score >= CLI_DUPLICATE_BLOCK_SCORE)
+    return matches.filter(
+      m => m.score >= DUPLICATE_SUGGEST_SCORE && m.taskId !== opts.excludeTaskId
+    )
   } catch (err) {
-    logger.warn('[duplicate-check] CLI check skipped (fail-open):', err)
+    logger.warn('[duplicate-check] check skipped (fail-open):', err)
     return []
+  }
+}
+
+/**
+ * LUM-1286: after a CLI create, suggest a DUPLICATES edge (new task → likely
+ * original) for each likely duplicate, for a human to confirm or dismiss in
+ * `lumo task show --deps` or the web dependency panel. Runs after the
+ * response; never throws.
+ */
+export async function suggestDuplicateEdges(input: {
+  taskId: string
+  title: string
+  projectId: string
+  workspaceId: string
+}): Promise<void> {
+  try {
+    const matches = await findLikelyDuplicates(input.title, input.projectId, {
+      excludeTaskId: input.taskId,
+    })
+    if (matches.length === 0) return
+    await taskDependencyRepository.createManySuggested(
+      matches.map(m => ({
+        workspaceId: input.workspaceId,
+        blockedTaskId: input.taskId,
+        blockingTaskId: m.taskId,
+        kind: 'DUPLICATES' as const,
+        reason: 'possible_duplicate',
+        detail: { score: m.score },
+      }))
+    )
+  } catch (err) {
+    logger.warn(
+      '[duplicate-check] could not record suggested duplicates:',
+      err instanceof Error ? err.message : err
+    )
   }
 }

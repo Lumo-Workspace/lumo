@@ -12,7 +12,6 @@ Title is positional and required. Flags (`lumo task create --help` for the full 
 - `--project <ref>` — **required when the workspace has more than one project** (the error names them).
 - `--milestone <ref>` (slug or name; ambiguous names are rejected with the slugs), `--sprint <ref>` (number or UUID), `--due YYYY-MM-DD` (your local day).
 - `--tag <name>` / `--tag-id <cuid>` — repeatable.
-- `--confirm` — only after the user approved a duplicate-gate envelope (below). Never add it yourself.
 - **Mid-task** it refuses the bare form and requires `--rework-of <id>` (creates nothing — fix the existing task) or `--new-scope`; on a review bounce fix in place — see [task-status.md](task-status.md).
 
 ```bash
@@ -26,7 +25,11 @@ lumo task create "Spike: evaluate caching options" --tag rfc --tag-id clm_abc123
 lumo task create "Add CSV export" --template agent-brief
 ```
 
-**Duplicate gate (LUM-1286).** Before creating, the server asks an LLM whether the project already holds the same task: of the 200 most recently updated tasks (trash excluded), the 20 titles closest by spelling are sent. A candidate scoring ≥ 70% stops the create — nothing is written and the CLI prints a `confirmation_required` envelope (exit 4) listing each candidate as `LUM-N  STATUS  score%  "title"  url`. Relay it; if the user says it is not a duplicate, run its `confirmCommand` (`… --confirm`), which skips the check; if it is, work on the existing task. The check can add up to ~45s and fails open — an LLM timeout (45s) or error creates the task as usual. Flag errors are reported before the check runs. Before filing, `lumo task list --search <words>` is a cheap first look.
+**Background duplicate check (LUM-1286).** `task create` always creates the task right away. After the response, the server asks an LLM whether the project already holds the same task. It sends the 10 tasks whose titles are closest in meaning across the whole project (any age or language, trash excluded), plus the 3 recent titles closest by spelling. Each likely duplicate (score ≥ 70%) becomes a **SUGGESTED** `DUPLICATES` edge from the new task to the existing one, with evidence `possible_duplicate(NN%)`. The CLI prints a stderr note saying where to look. The check fails open: if the LLM times out (45s) or errors, nothing is suggested.
+
+Read suggestions with `lumo task show <id> --deps`, or on the web dependency panel. Confirm one with `lumo task dep confirm <id> <edge>` (records the duplicate relation; it does not close the task) or drop it with `task dep dismiss`. To close the new task as a duplicate, run `task update <id> --status canceled --duplicate-of <original>`, which is the user's call.
+
+When to suggest: an agent is about to file a task that may already exist. Run `lumo task list --search <words>` first; after creating, check `task show <id> --deps` and relay any suggested duplicate to the user.
 
 Output: `Created LUM-55 "Title"  <url>`, a `Tags:` line when tags were attached, then the `Next:` block.
 

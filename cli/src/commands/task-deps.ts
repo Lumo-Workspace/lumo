@@ -25,7 +25,13 @@ export interface DepEdge {
   source: string
   status: string
   reason: string | null
-  detail: { count?: number; sample?: string[]; surface?: string } | null
+  detail: {
+    count?: number
+    sample?: string[]
+    surface?: string
+    /** LUM-1286: possible_duplicate score, 0–1. */
+    score?: number
+  } | null
   other: { identifier: string; title: string; status: string }
 }
 
@@ -80,6 +86,9 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
       })`
     if (e.reason === 'task_mention')
       return ` · task_mention(${e.detail?.surface ?? ''})`
+    // LUM-1286: the background duplicate check after `task create`.
+    if (e.reason === 'possible_duplicate')
+      return ` · possible_duplicate(${typeof e.detail?.score === 'number' ? `${Math.round(e.detail.score * 100)}%` : '?'})`
     return ''
   }
   const section = (
@@ -98,9 +107,18 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
   section('CONFIRMED', confirmed, e => [
     `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} "${e.other.title}" ${e.other.status} · ${e.source}${evidence(e)}`,
   ])
+  // Edges written in one batch can share a short id (cuid prefix); point the
+  // hint at the other task's identifier then, which the selector also takes.
+  const shortIdCount = new Map<string, number>()
+  for (const e of edges)
+    shortIdCount.set(shortId(e.id), (shortIdCount.get(shortId(e.id)) ?? 0) + 1)
+  const selectorFor = (e: DepEdge) =>
+    (shortIdCount.get(shortId(e.id)) ?? 0) > 1
+      ? e.other.identifier
+      : shortId(e.id)
   section('SUGGESTED (pending confirmation)', suggested, e => [
     `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} "${e.other.title}" ${e.other.status}${evidence(e)}`,
-    `      confirm: lumo task dep confirm ${identifier} ${shortId(e.id)} (add --reverse if direction is flipped; false positive: dismiss)`,
+    `      confirm: lumo task dep confirm ${identifier} ${selectorFor(e)} (add --reverse if direction is flipped; false positive: dismiss)`,
   ])
   section('DISMISSED', dismissed, e => [
     `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} · dismissed`,
@@ -377,7 +395,14 @@ export function formatDepsConfirmed(
   edge: DepEdge,
   reversed: boolean
 ): string {
-  const dir = edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+  const dir =
+    edge.kind === 'DUPLICATES'
+      ? edge.direction === 'BLOCKED_BY'
+        ? 'duplicate of'
+        : 'duplicated by'
+      : edge.direction === 'BLOCKED_BY'
+        ? 'blocked by'
+        : 'blocks'
   return successLine({
     verb: 'Confirmed',
     kind: 'dependency',

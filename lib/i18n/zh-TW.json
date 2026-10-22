@@ -966,6 +966,7 @@
   "task.dependencies.added": "已新增",
   "task.dependencies.loading": "正在載入依賴…",
   "task.dependencies.empty": "尚無依賴",
+  "task.dependencies.evidence.possibleDuplicate": "疑似重複 · {score}%",
   "task.dependencies.actionFailed": "無法更新依賴",
   "task.dependencies.field.label": "依賴",
   "task.dependencies.field.blocks": "阻塞 {count}",

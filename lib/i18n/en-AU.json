@@ -966,6 +966,7 @@
   "task.dependencies.added": "Added",
   "task.dependencies.loading": "Loading dependencies…",
   "task.dependencies.empty": "No dependencies yet",
+  "task.dependencies.evidence.possibleDuplicate": "Possible duplicate · {score}%",
   "task.dependencies.actionFailed": "Couldn't update dependencies",
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "blocks {count}",

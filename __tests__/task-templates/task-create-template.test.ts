@@ -27,7 +27,7 @@ jest.mock('@/lib/repositories/preference.repository', () => ({
 
 // LUM-1286: no LLM duplicate check in these template tests.
 jest.mock('@/lib/services/duplicate-check.service', () => ({
-  findBlockingDuplicates: jest.fn(async () => []),
+  suggestDuplicateEdges: jest.fn(async () => undefined),
 }))
 
 import { taskCliService } from '@/lib/services/task-cli.service'

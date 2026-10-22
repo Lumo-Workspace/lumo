@@ -966,6 +966,7 @@
   "task.dependencies.added": "Hinzugefügt",
   "task.dependencies.loading": "Abhängigkeiten werden geladen…",
   "task.dependencies.empty": "Noch keine Abhängigkeiten",
+  "task.dependencies.evidence.possibleDuplicate": "Mögliches Duplikat · {score} %",
   "task.dependencies.actionFailed": "Abhängigkeiten konnten nicht aktualisiert werden",
   "task.dependencies.field.label": "Abh.",
   "task.dependencies.field.blocks": "blockiert {count}",

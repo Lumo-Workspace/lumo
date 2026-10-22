@@ -966,6 +966,7 @@
   "task.dependencies.added": "जोड़ा गया",
   "task.dependencies.loading": "निर्भरताएँ लोड हो रही हैं…",
   "task.dependencies.empty": "अभी तक कोई निर्भरता नहीं",
+  "task.dependencies.evidence.possibleDuplicate": "संभावित डुप्लिकेट · {score}%",
   "task.dependencies.actionFailed": "निर्भरताएँ अपडेट नहीं हो सकीं",
   "task.dependencies.field.label": "निर्भरताएँ",
   "task.dependencies.field.blocks": "{count} को रोकता है",

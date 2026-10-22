@@ -966,6 +966,7 @@
   "task.dependencies.added": "Agregado",
   "task.dependencies.loading": "Cargando dependencias…",
   "task.dependencies.empty": "Aún no hay dependencias",
+  "task.dependencies.evidence.possibleDuplicate": "Posible duplicado · {score} %",
   "task.dependencies.actionFailed": "No se pudieron actualizar las dependencias",
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "bloquea {count}",

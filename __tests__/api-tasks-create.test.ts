@@ -164,46 +164,19 @@ describe('POST /api/tasks', () => {
     expect(body.error).toBe('Internal Server Error')
   })
 
-  it('returns 409 POSSIBLE_DUPLICATES with the candidates (LUM-1286)', async () => {
-    mockVerify.mockResolvedValue(IDENTITY)
-    const duplicates = [
-      {
-        identifier: 'LUM-12',
-        title: 'Add Google OAuth login',
-        status: 'TODO',
-        score: 0.9,
-        url: 'https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-12',
-      },
-    ]
-    mockCreate.mockRejectedValue(
-      Object.assign(new Error('Possible duplicates'), {
-        status: 409,
-        code: 'POSSIBLE_DUPLICATES',
-        duplicates,
-      })
-    )
-
-    const res = await POST(makeRequest({ title: 'Google OAuth sign-in' }))
-
-    expect(res.status).toBe(409)
-    expect(await res.json()).toEqual({
-      error: 'Possible duplicates',
-      code: 'POSSIBLE_DUPLICATES',
-      duplicates,
-    })
-  })
-
-  it('forwards confirmDuplicates to the service (LUM-1286)', async () => {
+  it('reports that a background duplicate check was scheduled (LUM-1286)', async () => {
     mockVerify.mockResolvedValue(IDENTITY)
     mockCreate.mockResolvedValue({
       id: 't',
       identifier: 'LUM-1',
       title: 'x',
       url: 'u',
+      duplicateCheck: 'scheduled',
     })
 
-    await POST(makeRequest({ title: 'x', confirmDuplicates: true }))
+    const res = await POST(makeRequest({ title: 'x' }))
 
-    expect(mockCreate.mock.calls[0]![0].input.confirmDuplicates).toBe(true)
+    expect(res.status).toBe(201)
+    expect((await res.json()).duplicateCheck).toBe('scheduled')
   })
 })

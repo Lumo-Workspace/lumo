@@ -966,6 +966,7 @@
   "task.dependencies.added": "Ditambahkan",
   "task.dependencies.loading": "Memuat dependensi…",
   "task.dependencies.empty": "Belum ada dependensi",
+  "task.dependencies.evidence.possibleDuplicate": "Kemungkinan duplikat · {score}%",
   "task.dependencies.actionFailed": "Dependensi tidak dapat diperbarui",
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "memblokir {count}",

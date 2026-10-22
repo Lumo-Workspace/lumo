@@ -4,7 +4,8 @@ import { cliCreateTaskSchema } from '@/lib/validation/schemas'
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
-// LUM-1286: the duplicate gate may wait up to 45s on the LLM before creating.
+// LUM-1286: the background duplicate check (up to 45s) runs in waitUntil,
+// which is bounded by this function's maxDuration.
 export const maxDuration = 60
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -43,20 +44,24 @@ export async function POST(request: Request): Promise<Response> {
   const sessionId = request.headers.get('X-Lumo-Session-Id')
 
   try {
-    const { nextSteps, warnings, ...task } = await taskCliService.createFromCli(
-      {
+    const { nextSteps, warnings, duplicateCheck, ...task } =
+      await taskCliService.createFromCli({
         workspaceId: identity.workspace.id,
         workspaceSlug: identity.workspace.slug,
         callerClerkId: identity.user.id,
         memberId,
         sessionId,
         input: parsed.data,
-      }
-    )
+      })
     // nextSteps rides alongside `task`, not inside it — the task payload shape
     // is consumed elsewhere and must not grow a presentation field (LUM-686).
     // LUM-1285: `warnings` rides alongside too (e.g. the project is paused).
-    return NextResponse.json({ task, nextSteps, warnings }, { status: 201 })
+    // LUM-1286: so does `duplicateCheck` — the CLI prints where the background
+    // check's suggestions will show up.
+    return NextResponse.json(
+      { task, nextSteps, warnings, duplicateCheck },
+      { status: 201 }
+    )
   } catch (err) {
     const errStatus = (err as { status?: unknown })?.status
     const status = typeof errStatus === 'number' ? errStatus : 500
@@ -68,15 +73,6 @@ export async function POST(request: Request): Promise<Response> {
           : 'Error'
     if (status === 500) {
       console.error('POST /api/tasks error:', err)
-    }
-    // LUM-1286: the duplicate gate's candidates ride along so the CLI can
-    // render its confirmation envelope.
-    const { code, duplicates } = (err ?? {}) as {
-      code?: unknown
-      duplicates?: unknown
-    }
-    if (code === 'POSSIBLE_DUPLICATES' && Array.isArray(duplicates)) {
-      return NextResponse.json({ error: message, code, duplicates }, { status })
     }
     return NextResponse.json({ error: message }, { status })
   }

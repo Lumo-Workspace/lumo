@@ -966,6 +966,7 @@
   "task.dependencies.added": "已添加",
   "task.dependencies.loading": "正在加载依赖…",
   "task.dependencies.empty": "暂无依赖",
+  "task.dependencies.evidence.possibleDuplicate": "疑似重复 · {score}%",
   "task.dependencies.actionFailed": "无法更新依赖",
   "task.dependencies.field.label": "依赖",
   "task.dependencies.field.blocks": "阻塞 {count}",

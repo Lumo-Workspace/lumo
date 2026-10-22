@@ -2050,6 +2050,7 @@
   "task.dependencies.confirm": "Confirm",
   "task.dependencies.dismiss": "Dismiss",
   "task.dependencies.empty": "No dependencies yet",
+  "task.dependencies.evidence.possibleDuplicate": "Possible duplicate · {score}%",
   "task.dependencies.field.blocked": "Blocked",
   "task.dependencies.field.blocks": "blocks {count}",
   "task.dependencies.field.label": "Deps",

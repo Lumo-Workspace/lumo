@@ -12,10 +12,7 @@ jest.mock('../../cli/src/lib/session-id', () => ({
   AmbiguousSessionError: class extends Error {},
 }))
 
-import {
-  duplicateEnvelopeChanges,
-  taskCreate,
-} from '@/cli/src/commands/task-create'
+import { taskCreate } from '@/cli/src/commands/task-create'
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -117,69 +114,34 @@ describe('task create — rework/new-scope flags', () => {
   })
 })
 
-describe('task create — duplicate gate (LUM-1286)', () => {
-  const dupBody = {
-    error: 'Possible duplicates',
-    code: 'POSSIBLE_DUPLICATES',
-    duplicates: [
-      {
-        identifier: 'LUM-12',
-        title: 'Add Google OAuth login',
-        status: 'IN_PROGRESS',
-        score: 0.9,
-        url: 'https://app/LUM-12',
-      },
-    ],
-  }
+describe('task create — background duplicate check (LUM-1286)', () => {
+  it('says where possible duplicates will show up', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { task: created, duplicateCheck: 'scheduled' })
+    )
 
-  it('emits a confirmation envelope listing candidates and exits 4', async () => {
-    const argv = process.argv
-    process.argv = ['node', 'lumo', 'task', 'create', 'Google OAuth sign-in']
-    try {
-      fetchMock.mockResolvedValueOnce(jsonResponse(409, dupBody))
-      const code = await taskCreate('Google OAuth sign-in', {})
-      expect(code).toBe(4)
-    } finally {
-      process.argv = argv
-    }
-    const envelope = JSON.parse(stdout.join(''))
-    expect(envelope).toMatchObject({
-      status: 'confirmation_required',
-      command: 'task create',
-      confirmCommand: "lumo task create 'Google OAuth sign-in' --confirm",
-    })
-    const changes = envelope.changes.join('\n')
-    expect(changes).toMatch(/LUM-12/)
-    expect(changes).toMatch(/Add Google OAuth login/)
-    expect(changes).toMatch(/https:\/\/app\/LUM-12/)
-    expect(changes).toMatch(/not created/i)
-    expect(stderr).toEqual([])
+    const code = await taskCreate('New task', {})
+
+    expect(code).toBeUndefined()
+    expect(stdout.join('')).toMatch(/Created LUM-9/)
+    // stdout stays the created-line contract; the note goes to stderr.
+    expect(stdout.join('')).not.toMatch(/--deps/)
+    expect(stderr.join('\n')).toMatch(/lumo task show LUM-9 --deps/)
   })
 
-  it('strips terminal control characters from server-supplied candidate fields', () => {
-    const [, line] = duplicateEnvelopeChanges('x', [
-      {
-        identifier: 'LUM-12',
-        title: 'evil\u001b[2Jtitle',
-        status: 'TODO',
-        score: 0.9,
-        url: 'https://app/LUM-12',
-      },
-    ])
-    expect(line).not.toContain('\u001b')
+  it('prints no note when the server did not schedule a check', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+
+    await taskCreate('New task', {})
+
+    expect(stderr.join('\n')).not.toMatch(/--deps/)
   })
 
-  it('sends confirmDuplicates only with --confirm', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, { task: created }))
-
+  it('never sends a confirmation flag', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
     await taskCreate('New task', {})
     expect(
       JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).confirmDuplicates
     ).toBeUndefined()
-
-    await taskCreate('New task', { confirm: true })
-    expect(
-      JSON.parse(fetchMock.mock.calls[1]![1]!.body as string).confirmDuplicates
-    ).toBe(true)
   })
 })

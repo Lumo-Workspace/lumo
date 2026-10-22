@@ -966,6 +966,7 @@
   "task.dependencies.added": "Добавлено",
   "task.dependencies.loading": "Загрузка зависимостей…",
   "task.dependencies.empty": "Зависимостей пока нет",
+  "task.dependencies.evidence.possibleDuplicate": "Возможный дубликат · {score}%",
   "task.dependencies.actionFailed": "Не удалось обновить зависимости",
   "task.dependencies.field.label": "Завис.",
   "task.dependencies.field.blocks": "блокирует {count}",

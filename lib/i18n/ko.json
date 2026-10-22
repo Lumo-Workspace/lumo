@@ -966,6 +966,7 @@
   "task.dependencies.added": "추가됨",
   "task.dependencies.loading": "종속성 로드 중…",
   "task.dependencies.empty": "아직 종속성이 없습니다",
+  "task.dependencies.evidence.possibleDuplicate": "중복 가능성 · {score}%",
   "task.dependencies.actionFailed": "종속성을 업데이트할 수 없습니다",
   "task.dependencies.field.label": "의존성",
   "task.dependencies.field.blocks": "{count}개 차단",

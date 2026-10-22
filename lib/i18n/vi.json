@@ -966,6 +966,7 @@
   "task.dependencies.added": "Đã thêm",
   "task.dependencies.loading": "Đang tải phụ thuộc…",
   "task.dependencies.empty": "Chưa có phụ thuộc nào",
+  "task.dependencies.evidence.possibleDuplicate": "Có thể trùng lặp · {score}%",
   "task.dependencies.actionFailed": "Không thể cập nhật phụ thuộc",
   "task.dependencies.field.label": "Phụ thuộc",
   "task.dependencies.field.blocks": "chặn {count}",

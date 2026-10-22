@@ -21,7 +21,7 @@ import { EMBEDDING_DIM } from '@/lib/ai/embedding'
 import { taskRepository } from '@/lib/repositories'
 import { bigramSimilarity } from '@/lib/similarity'
 import {
-  CLI_DUPLICATE_BLOCK_SCORE,
+  DUPLICATE_SUGGEST_SCORE,
   CLI_DUPLICATE_CANDIDATES,
   CLI_DUPLICATE_TIMEOUT_MS,
   checkDuplicates,
@@ -203,7 +203,7 @@ async function runGate(c: Case) {
   pools.set(c.id, c.pool)
   histories.set(c.id, c.history)
   const t0 = Date.now()
-  // Same bounds as findBlockingDuplicates, but keep every score for analysis.
+  // Same bounds as findLikelyDuplicates, but keep every score for analysis.
   const signal = AbortSignal.timeout(CLI_DUPLICATE_TIMEOUT_MS)
   const timedOut = new Promise<never>((_, reject) =>
     signal.addEventListener('abort', () => reject(signal.reason), { once: true })
@@ -218,7 +218,7 @@ async function runGate(c: Case) {
     ])
     pools.delete(c.id)
     histories.delete(c.id)
-    const blocking = matches.filter(m => m.score >= CLI_DUPLICATE_BLOCK_SCORE)
+    const blocking = matches.filter(m => m.score >= DUPLICATE_SUGGEST_SCORE)
     return {
       ms: Date.now() - t0,
       error: null,

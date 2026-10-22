@@ -966,6 +966,7 @@
   "task.dependencies.added": "Ditambah",
   "task.dependencies.loading": "Memuatkan kebergantungan…",
   "task.dependencies.empty": "Tiada kebergantungan lagi",
+  "task.dependencies.evidence.possibleDuplicate": "Kemungkinan pendua · {score}%",
   "task.dependencies.actionFailed": "Kebergantungan tidak dapat dikemas kini",
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "menyekat {count}",

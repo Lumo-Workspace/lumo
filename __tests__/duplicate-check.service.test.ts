@@ -12,6 +12,9 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: jest.fn() }))
+jest.mock('@/lib/repositories/task-dependency.repository', () => ({
+  taskDependencyRepository: { createManySuggested: jest.fn() },
+}))
 jest.mock('@/lib/auth/user-batch', () => ({ listUsersByIds: jest.fn() }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
@@ -20,11 +23,14 @@ jest.mock('@/lib/logger', () => ({
 import { generateObject } from 'ai'
 import { embedTexts } from '@/lib/ai/embedding'
 import { taskRepository } from '@/lib/repositories'
+import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import {
-  CLI_DUPLICATE_BLOCK_SCORE,
+  CLI_BIGRAM_FALLBACK_CANDIDATES,
+  DUPLICATE_SUGGEST_SCORE,
   CLI_DUPLICATE_CANDIDATES,
   checkDuplicates,
-  findBlockingDuplicates,
+  findLikelyDuplicates,
+  suggestDuplicateEdges,
 } from '@/lib/services/duplicate-check.service'
 
 const mockGenerate = generateObject as jest.Mock
@@ -57,18 +63,18 @@ beforeEach(() => {
   ])
 })
 
-describe('findBlockingDuplicates (LUM-1286)', () => {
+describe('findLikelyDuplicates (LUM-1286)', () => {
   it('keeps only matches at or above the CLI block score', async () => {
     mockGenerate.mockResolvedValue({
       object: {
         matches: [
           { taskId: 't-1', score: 0.92 },
-          { taskId: 't-2', score: CLI_DUPLICATE_BLOCK_SCORE - 0.1 },
+          { taskId: 't-2', score: DUPLICATE_SUGGEST_SCORE - 0.1 },
         ],
       },
     })
 
-    const result = await findBlockingDuplicates('Google OAuth sign-in', 'p-1')
+    const result = await findLikelyDuplicates('Google OAuth sign-in', 'p-1')
 
     expect(result.map(m => m.taskId)).toEqual(['t-1'])
     expect(result[0]).toMatchObject({
@@ -82,14 +88,14 @@ describe('findBlockingDuplicates (LUM-1286)', () => {
     mockGenerate.mockRejectedValue(new Error('gateway down'))
 
     await expect(
-      findBlockingDuplicates('Google OAuth sign-in', 'p-1')
+      findLikelyDuplicates('Google OAuth sign-in', 'p-1')
     ).resolves.toEqual([])
   })
 
   it('bounds the LLM call with an abort signal', async () => {
     mockGenerate.mockResolvedValue({ object: { matches: [] } })
 
-    await findBlockingDuplicates('Google OAuth sign-in', 'p-1')
+    await findLikelyDuplicates('Google OAuth sign-in', 'p-1')
 
     const [args] = mockGenerate.mock.calls[0]!
     expect(args.abortSignal).toBeInstanceOf(AbortSignal)
@@ -99,7 +105,7 @@ describe('findBlockingDuplicates (LUM-1286)', () => {
     mockFind.mockReturnValue(new Promise(() => {}))
 
     await expect(
-      findBlockingDuplicates('Google OAuth sign-in', 'p-1', 50)
+      findLikelyDuplicates('Google OAuth sign-in', 'p-1', { timeoutMs: 50 })
     ).resolves.toEqual([])
     expect(mockGenerate).not.toHaveBeenCalled()
   })
@@ -107,7 +113,7 @@ describe('findBlockingDuplicates (LUM-1286)', () => {
   it('skips the LLM when the project has no tasks', async () => {
     mockFind.mockResolvedValue([])
 
-    await expect(findBlockingDuplicates('anything', 'p-1')).resolves.toEqual([])
+    await expect(findLikelyDuplicates('anything', 'p-1')).resolves.toEqual([])
     expect(mockGenerate).not.toHaveBeenCalled()
   })
 })
@@ -129,7 +135,7 @@ describe('checkDuplicates candidateLimit prefilter (LUM-1286)', () => {
 
     const prompt: string = mockGenerate.mock.calls[0]![0].prompt
     const listed = prompt.match(/^(t|f)-\d+: /gm) ?? []
-    expect(listed).toHaveLength(CLI_DUPLICATE_CANDIDATES)
+    expect(listed).toHaveLength(CLI_BIGRAM_FALLBACK_CANDIDATES)
     expect(prompt).toContain('t-1: Add Google OAuth login')
   })
 
@@ -179,7 +185,7 @@ describe('checkDuplicates embedding recall (LUM-1286 step 2)', () => {
     expect(ids.slice(0, 2)).toEqual(['old-1', 'old-2'])
     expect(ids).toContain('r-99')
     expect(new Set(ids).size).toBe(ids.length)
-    expect(ids.length).toBeLessThanOrEqual(CLI_DUPLICATE_CANDIDATES + 5)
+    expect(ids.length).toBeLessThanOrEqual(CLI_DUPLICATE_CANDIDATES + 3)
   })
 
   it('falls back to the bigram prefilter when the project has no embeddings yet', async () => {
@@ -195,7 +201,7 @@ describe('checkDuplicates embedding recall (LUM-1286 step 2)', () => {
     })
 
     expect(listed(mockGenerate.mock.calls[0]![0].prompt)).toHaveLength(
-      CLI_DUPLICATE_CANDIDATES
+      CLI_BIGRAM_FALLBACK_CANDIDATES
     )
     expect(mockByIds).not.toHaveBeenCalled()
   })
@@ -211,7 +217,7 @@ describe('checkDuplicates embedding recall (LUM-1286 step 2)', () => {
     })
 
     expect(listed(mockGenerate.mock.calls[0]![0].prompt)).toHaveLength(
-      CLI_DUPLICATE_CANDIDATES
+      CLI_BIGRAM_FALLBACK_CANDIDATES
     )
     expect(mockNearest).not.toHaveBeenCalled()
   })
@@ -223,5 +229,83 @@ describe('checkDuplicates embedding recall (LUM-1286 step 2)', () => {
     await checkDuplicates('A', 'p-1')
 
     expect(mockEmbed).not.toHaveBeenCalled()
+  })
+})
+
+describe('findLikelyDuplicates excludes the task being checked (LUM-1286)', () => {
+  it('drops the new task itself from the matches', async () => {
+    mockGenerate.mockResolvedValue({
+      object: {
+        matches: [
+          { taskId: 't-1', score: 0.9 },
+          { taskId: 't-2', score: 1 },
+        ],
+      },
+    })
+
+    const out = await findLikelyDuplicates('Add Google OAuth login', 'p-1', {
+      excludeTaskId: 't-2',
+    })
+
+    expect(out.map(m => m.taskId)).toEqual(['t-1'])
+  })
+})
+
+describe('suggestDuplicateEdges (LUM-1286)', () => {
+  const mockCreate = taskDependencyRepository.createManySuggested as jest.Mock
+
+  it('records each likely duplicate as a suggested DUPLICATES edge from the new task', async () => {
+    mockGenerate.mockResolvedValue({
+      object: { matches: [{ taskId: 't-1', score: 0.92 }] },
+    })
+
+    await suggestDuplicateEdges({
+      taskId: 'new-1',
+      title: 'Sign in with Google',
+      projectId: 'p-1',
+      workspaceId: 'ws-1',
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith([
+      {
+        workspaceId: 'ws-1',
+        blockedTaskId: 'new-1',
+        blockingTaskId: 't-1',
+        kind: 'DUPLICATES',
+        reason: 'possible_duplicate',
+        detail: { score: 0.92 },
+      },
+    ])
+  })
+
+  it('writes nothing when no candidate clears the score', async () => {
+    mockGenerate.mockResolvedValue({
+      object: { matches: [{ taskId: 't-1', score: 0.5 }] },
+    })
+
+    await suggestDuplicateEdges({
+      taskId: 'new-1',
+      title: 'x',
+      projectId: 'p-1',
+      workspaceId: 'ws-1',
+    })
+
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('never throws, even when writing the edges fails', async () => {
+    mockGenerate.mockResolvedValue({
+      object: { matches: [{ taskId: 't-1', score: 0.9 }] },
+    })
+    mockCreate.mockRejectedValueOnce(new Error('db down'))
+
+    await expect(
+      suggestDuplicateEdges({
+        taskId: 'new-1',
+        title: 'x',
+        projectId: 'p-1',
+        workspaceId: 'ws-1',
+      })
+    ).resolves.toBeUndefined()
   })
 })

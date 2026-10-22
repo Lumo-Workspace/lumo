@@ -36,6 +36,7 @@ CONFIRMED and SUGGESTED rows show the other task's identifier, title, current st
 
 - `shared_files` — `shared_files(N shared files: path1, path2, …)` — number of shared write-touched files in the 14-day window, plus up to 5 sample paths.
 - `task_mention` — `task_mention(description)` or `task_mention(comment)` — the surface where the mention appeared.
+- `possible_duplicate` — `possible_duplicate(NN%)` on a SUGGESTED `duplicate of` edge — the background duplicate check after `task create` scored the other task as a likely duplicate (LUM-1286). Confirming records the relation only; closing the task is `task update --status canceled --duplicate-of`.
 
 CONFIRMED rows also show `source`: `MANUAL` (user-declared via `deps add`) or `DETECTED` (auto-found then confirmed via `deps confirm`).
 

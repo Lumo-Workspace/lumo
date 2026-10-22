@@ -260,9 +260,6 @@ export const cliCreateTaskSchema = z.object({
   // LUM-970: pre-fill the description from a task template (system or
   // workspace). Mutually exclusive with `description` — checked in the service.
   templateKey: taskTemplateKeySchema.optional(),
-  // LUM-1286: the user approved creating despite possible duplicates
-  // (`lumo task create … --confirm`); skips the duplicate gate.
-  confirmDuplicates: z.boolean().optional().default(false),
   parentRef: removedParentRef,
   ...tagIdsShape,
 })

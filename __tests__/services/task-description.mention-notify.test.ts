@@ -14,7 +14,7 @@ const mockBackgroundPromises: Promise<unknown>[] = []
 // LUM-1286: a title change schedules an embedding stamp; keep the AI SDK
 // (needs TransformStream, absent in jsdom) out of this test.
 jest.mock('@/lib/services/task-embedding.service', () => ({
-  stampTaskTitleEmbedding: jest.fn().mockResolvedValue(undefined),
+  stampTaskTitleEmbedding: jest.fn(async () => undefined),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {

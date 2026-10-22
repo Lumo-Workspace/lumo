@@ -35,11 +35,17 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 }))
 
 jest.mock('@/lib/services/duplicate-check.service', () => ({
-  findBlockingDuplicates: jest.fn(),
+  suggestDuplicateEdges: jest.fn(),
+}))
+const waitUntilPromises: Array<Promise<unknown>> = []
+jest.mock('@/lib/runtime/wait-until', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    waitUntilPromises.push(p)
+  },
 }))
 
 import { taskCliService } from '@/lib/services/task-cli.service'
-import { findBlockingDuplicates } from '@/lib/services/duplicate-check.service'
+import { suggestDuplicateEdges } from '@/lib/services/duplicate-check.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -54,10 +60,11 @@ const mockFindAllProfiles =
 const mockCreateTask = taskService.createTask as jest.Mock
 const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 const mockActivityCreate = activityRepository.create as jest.Mock
-const mockFindDuplicates = findBlockingDuplicates as jest.Mock
+const mockSuggest = suggestDuplicateEdges as jest.Mock
 beforeEach(() => {
   jest.clearAllMocks()
-  mockFindDuplicates.mockResolvedValue([])
+  mockSuggest.mockResolvedValue(undefined)
+  waitUntilPromises.length = 0
   mockFindBinding.mockResolvedValue(null)
   mockActivityCreate.mockResolvedValue({ id: 'act-1' })
 })
@@ -343,6 +350,7 @@ describe('taskCliService.createFromCli', () => {
       'mem-1'
     )
     expect(result).toEqual({
+      duplicateCheck: 'scheduled',
       id: 'task-1',
       identifier: 'LUM-44',
       title: 'Hello',
@@ -673,7 +681,7 @@ describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
   })
 })
 
-describe('taskCliService.createFromCli — duplicate gate (LUM-1286)', () => {
+describe('taskCliService.createFromCli — background duplicate check (LUM-1286)', () => {
   beforeEach(() => {
     mockFindProjects.mockResolvedValue([
       { id: 'p-1', name: 'Lumo', description: null },
@@ -697,81 +705,32 @@ describe('taskCliService.createFromCli — duplicate gate (LUM-1286)', () => {
     workspaceSlug: 'lumo',
     callerClerkId: 'clerk-1',
   }
-  const match = {
-    taskId: 't-12',
-    title: 'Add Google OAuth login',
-    number: 12,
-    teamIdentifier: 'LUM',
-    status: 'IN_PROGRESS',
-    score: 0.9,
-    assigneeName: 'Ada',
-    priority: 'HIGH',
-  }
 
-  it('refuses with 409 POSSIBLE_DUPLICATES listing candidates and creates nothing', async () => {
-    mockFindDuplicates.mockResolvedValue([match])
-
-    await expect(
-      taskCliService.createFromCli({
-        ...base,
-        input: { title: 'Google OAuth sign-in', priority: 'LOW' },
-      })
-    ).rejects.toMatchObject({
-      status: 409,
-      code: 'POSSIBLE_DUPLICATES',
-      duplicates: [
-        {
-          identifier: 'LUM-12',
-          title: 'Add Google OAuth login',
-          status: 'IN_PROGRESS',
-          score: 0.9,
-          url: expect.stringContaining('/workspace/lumo/my-tasks/LUM-12'),
-        },
-      ],
-    })
-    expect(mockFindDuplicates).toHaveBeenCalledWith(
-      'Google OAuth sign-in',
-      'p-1'
-    )
-    expect(mockCreateTask).not.toHaveBeenCalled()
-  })
-
-  it('creates when no candidate clears the block score', async () => {
+  it('creates the task right away and checks for duplicates after the response', async () => {
     const result = await taskCliService.createFromCli({
       ...base,
       input: { title: 'Google OAuth sign-in', priority: 'LOW' },
     })
+    await Promise.all(waitUntilPromises)
+
     expect(result.identifier).toBe('LUM-50')
+    expect(result.duplicateCheck).toBe('scheduled')
     expect(mockCreateTask).toHaveBeenCalled()
-  })
-
-  it('skips the check and creates when the user confirmed (confirmDuplicates)', async () => {
-    mockFindDuplicates.mockResolvedValue([match])
-
-    const result = await taskCliService.createFromCli({
-      ...base,
-      input: {
-        title: 'Google OAuth sign-in',
-        priority: 'LOW',
-        confirmDuplicates: true,
-      },
+    expect(mockSuggest).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      title: 'Google OAuth sign-in',
+      projectId: 'p-1',
+      workspaceId: 'ws-1',
     })
-    expect(result.identifier).toBe('LUM-50')
-    expect(mockFindDuplicates).not.toHaveBeenCalled()
   })
 
-  it('reports invalid flags before running the duplicate check', async () => {
-    mockFindDuplicates.mockResolvedValue([match])
+  it('does not run the check when the create is refused', async () => {
     await expect(
       taskCliService.createFromCli({
         ...base,
-        input: {
-          title: 'Google OAuth sign-in',
-          priority: 'LOW',
-          projectRef: 'nope',
-        },
+        input: { title: 'x', priority: 'LOW', projectRef: 'nope' },
       })
     ).rejects.toMatchObject({ status: 400 })
-    expect(mockFindDuplicates).not.toHaveBeenCalled()
+    expect(mockSuggest).not.toHaveBeenCalled()
   })
 })

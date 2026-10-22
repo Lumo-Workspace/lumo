@@ -37,6 +37,9 @@ export interface SuggestedEdgeRow {
   workspaceId: string
   blockedTaskId: string
   blockingTaskId: string
+  /** BLOCKS (default) from the mention/file detectors; DUPLICATES from the
+   *  CLI duplicate check (LUM-1286). */
+  kind?: 'BLOCKS' | 'DUPLICATES' | undefined
   reason: string
   detail?: Prisma.InputJsonValue | undefined
 }
@@ -108,7 +111,7 @@ export const taskDependencyRepository = {
     return prisma.taskDependency.create({ data, include: EDGE_INCLUDE })
   },
 
-  /** 检测器写入口:固定 DETECTED/SUGGESTED/BLOCKS,撞 unique 静默跳过。 */
+  /** 检测器写入口:固定 DETECTED/SUGGESTED,kind 默认 BLOCKS,撞 unique 静默跳过。 */
   async createManySuggested(rows: SuggestedEdgeRow[]) {
     if (rows.length === 0) return { count: 0 }
     return prisma.taskDependency.createMany({
@@ -116,7 +119,7 @@ export const taskDependencyRepository = {
         workspaceId: r.workspaceId,
         blockedTaskId: r.blockedTaskId,
         blockingTaskId: r.blockingTaskId,
-        kind: 'BLOCKS' as const,
+        kind: r.kind ?? ('BLOCKS' as const),
         source: 'DETECTED' as const,
         status: 'SUGGESTED' as const,
         reason: r.reason,
