@@ -4,7 +4,7 @@
 
 ## Reading a task — `lumo task show`
 
-`lumo task show [task]` is the one way to read a task; `[task]` defaults to the session-bound task. Alone it prints the detail view (title, status, fields, description). Aspect flags add sections after it, in this order, and combine freely:
+`lumo task show [task]` is the one way to read a task; `[task]` defaults to the session-bound task. Alone it prints the detail view (title, status, fields, description), plus a **⚠ Possible duplicate** block when the background duplicate check flagged a likely original. The block gives the confirm and not-a-duplicate commands; see [tasks.md](tasks.md). Aspect flags add sections after it, in this order, and combine freely:
 
 | Flag                   | Adds                                                            |
 | ---------------------- | --------------------------------------------------------------- |

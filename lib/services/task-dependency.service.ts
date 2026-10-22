@@ -24,6 +24,15 @@ export interface DependencyEdgeView {
   other: { identifier: string; title: string; status: string }
 }
 
+/** LUM-1286: one likely original of a task, for `task show` and session context. */
+export interface PossibleDuplicate {
+  identifier: string
+  title: string
+  status: string
+  /** LLM match score 0–1; null when the edge carries none. */
+  score: number | null
+}
+
 type EdgeWithTasks = Awaited<
   ReturnType<typeof taskDependencyRepository.findEdgesForTask>
 >[number]
@@ -87,7 +96,36 @@ async function assertNoCycle(
   }
 }
 
+/** LUM-1286: possible duplicates for session context, or none on a read failure. */
+async function possibleDuplicatesOrNone(
+  taskId: string
+): Promise<PossibleDuplicate[]> {
+  try {
+    return await taskDependencyService.listPossibleDuplicates(taskId)
+  } catch {
+    return []
+  }
+}
+
 export const taskDependencyService = {
+  /**
+   * LUM-1286: tasks this one likely duplicates, from the background check
+   * after `lumo task create` — the SUGGESTED DUPLICATES edges it points from.
+   */
+  async listPossibleDuplicates(taskId: string): Promise<PossibleDuplicate[]> {
+    const rows =
+      await taskDependencyRepository.findSuggestedDuplicatesForTask(taskId)
+    return rows.map(r => {
+      const score = (r.detail as { score?: unknown } | null)?.score
+      return {
+        identifier: `${r.blockingTask.team.identifier}-${r.blockingTask.number}`,
+        title: r.blockingTask.title,
+        status: r.blockingTask.status,
+        score: typeof score === 'number' ? score : null,
+      }
+    })
+  },
+
   async listForTask(taskId: string): Promise<DependencyEdgeView[]> {
     const edges = await taskDependencyRepository.findEdgesForTask(taskId)
     return edges.map(e => toView(e, taskId))
@@ -257,14 +295,35 @@ export const taskDependencyService = {
     commands: CliCommandNames = LEGACY_CLI_COMMANDS
   ): Promise<string> {
     try {
-      const [blockers, suggestedCount] = await Promise.all([
+      const [blockers, suggestedCount, duplicates] = await Promise.all([
         taskDependencyRepository.findLiveBlockersForTask(taskId),
         taskDependencyRepository.countSuggestedForTask(taskId),
+        // A failed duplicate read must not drop the blocker warning too.
+        possibleDuplicatesOrNone(taskId),
       ])
 
       if (blockers.length === 0 && suggestedCount === 0) return ''
 
       const parts: string[] = []
+
+      // LUM-1286: possible duplicates are named on their own — a human should
+      // rule on them before anyone works on the task.
+      if (duplicates.length > 0) {
+        parts.push('## ⚠ Possible duplicate', '')
+        for (const d of duplicates) {
+          const match =
+            d.score === null ? '' : ` (${Math.round(d.score * 100)}% match)`
+          parts.push(
+            `- This task may duplicate ${d.identifier} "${sanitizeField(d.title)}"${match} — flagged by the duplicate check when it was created.`,
+            `  Confirm: \`${commands.taskDepConfirm(taskIdentifier, d.identifier)}\` · Not a duplicate: \`${commands.taskDepDismiss(taskIdentifier, d.identifier)}\``
+          )
+        }
+        parts.push(
+          '',
+          'Ask the user whether it is a duplicate before starting work; run the command they choose.',
+          ''
+        )
+      }
 
       if (blockers.length > 0) {
         parts.push('## ⚠ Dependency alerts', '')
@@ -288,13 +347,14 @@ export const taskDependencyService = {
         )
       }
 
-      if (suggestedCount > 0) {
+      const otherSuggested = suggestedCount - duplicates.length
+      if (otherSuggested > 0) {
         parts.push(
-          `Detected ${suggestedCount} candidate dependencies awaiting confirmation: run \`${commands.taskDeps(taskIdentifier)}\`.`
+          `Detected ${otherSuggested} candidate dependencies awaiting confirmation: run \`${commands.taskDeps(taskIdentifier)}\`.`
         )
       }
 
-      return parts.join('\n')
+      return parts.join('\n').trimEnd()
     } catch (err) {
       logger.error(
         'buildBlockerWarningSectionForTask failed; omitting blocker warning',

@@ -177,6 +177,31 @@ export const taskDependencyRepository = {
     })
   },
 
+  /** LUM-1286: suggested DUPLICATES edges from this task to its likely
+   *  originals (left by the background check after `lumo task create`). */
+  async findSuggestedDuplicatesForTask(taskId: string) {
+    return prisma.taskDependency.findMany({
+      where: {
+        blockedTaskId: taskId,
+        kind: 'DUPLICATES',
+        status: 'SUGGESTED',
+        ...BOTH_ENDS_LIVE,
+      },
+      select: {
+        detail: true,
+        blockingTask: {
+          select: {
+            number: true,
+            title: true,
+            status: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  },
+
   async countSuggestedForTask(taskId: string) {
     return prisma.taskDependency.count({
       where: { blockedTaskId: taskId, status: 'SUGGESTED' },

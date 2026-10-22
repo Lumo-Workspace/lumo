@@ -80,6 +80,10 @@ export interface CliCommandNames {
   taskComments(identifier: string): string
   /** Read the dependency edges. */
   taskDeps(identifier: string): string
+  /** LUM-1286: confirm one suggested dependency edge (`edge` = id prefix or the other task). */
+  taskDepConfirm(identifier: string, edge: string): string
+  /** LUM-1286: dismiss one suggested dependency edge. */
+  taskDepDismiss(identifier: string, edge: string): string
   /** Run a milestone test case (`slug` null = a `<milestone>` placeholder). */
   milestoneTestCaseRun(slug: string | null): string
   /** How to browse project and task memories (inline Markdown). */
@@ -128,6 +132,14 @@ function commandNames(
         : `lumo task comments list ${id}`,
     taskDeps: id =>
       readEntry ? `lumo task show ${id} --deps` : `lumo task deps list ${id}`,
+    taskDepConfirm: (id, edge) =>
+      renames
+        ? `lumo task dep confirm ${id} ${edge}`
+        : `lumo task deps confirm ${id} ${edge}`,
+    taskDepDismiss: (id, edge) =>
+      renames
+        ? `lumo task dep dismiss ${id} ${edge}`
+        : `lumo task deps dismiss ${id} ${edge}`,
     milestoneTestCaseRun: slug =>
       testCaseHandle
         ? `lumo milestone testcase run ${slug ?? '<milestone>'}/TC<n> --result … --env …`

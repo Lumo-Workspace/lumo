@@ -4,7 +4,10 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
-import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import {
+  taskDependencyService,
+  type PossibleDuplicate,
+} from '@/lib/services/task-dependency.service'
 import { suggestDuplicateEdges } from '@/lib/services/duplicate-check.service'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import { taskTemplateService } from '@/lib/services/task-template.service'
@@ -708,8 +711,24 @@ export interface ShowTaskFromCliResult {
     /** LUM-825: the PR's current head commit; null when never synced. */
     headSha: string | null
   }>
+  /**
+   * LUM-1286: tasks this one likely duplicates (suggested by the background
+   * check after `task create`). Empty when there are none or the read failed.
+   */
+  possibleDuplicates: PossibleDuplicate[]
   /** LUM-821: due instant (local midnight of the due day) or null. */
   dueDate: string | null
+}
+
+/** LUM-1286: best-effort — a failed read must not hide the task itself. */
+async function possibleDuplicatesOrNone(
+  taskId: string
+): Promise<PossibleDuplicate[]> {
+  try {
+    return await taskDependencyService.listPossibleDuplicates(taskId)
+  } catch {
+    return []
+  }
 }
 
 async function showFromCli(args: {
@@ -731,9 +750,10 @@ async function showFromCli(args: {
 
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${resolved.identifier}`
 
-  const [assignee, createdBy] = await Promise.all([
+  const [assignee, createdBy, possibleDuplicates] = await Promise.all([
     describeActorForCli(detail.assignee),
     describeMemberForCli(detail.createdBy),
+    possibleDuplicatesOrNone(detail.id),
   ])
 
   return withMarkdown({
@@ -757,6 +777,7 @@ async function showFromCli(args: {
       headSha: pr.headSha ?? null,
     })),
     dueDate: detail.dueDate ? new Date(detail.dueDate).toISOString() : null,
+    possibleDuplicates,
   })
 }
 
