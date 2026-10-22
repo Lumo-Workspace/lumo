@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { taskRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import { bigramSimilarity } from '@/lib/similarity'
+import { embedTexts } from '@/lib/ai/embedding'
 
 const matchSchema = z.object({
   matches: z.array(
@@ -32,13 +33,80 @@ export interface DuplicateMatch {
  * Check for duplicate/similar tasks using AI semantic matching.
  * Returns up to 5 matches with score >= 0.4.
  */
+type DuplicateCheckRow = Awaited<
+  ReturnType<typeof taskRepository.findForDuplicateCheck>
+>[number]
+
+/** LUM-1286 step 2: bigram hits from the recent tasks added to the embedding
+ *  candidates, so a task whose embedding is not stamped yet still shows up. */
+const BIGRAM_EXTRA_CANDIDATES = 5
+
+function closestByBigram(
+  title: string,
+  tasks: DuplicateCheckRow[],
+  n: number
+): DuplicateCheckRow[] {
+  return tasks
+    .map(t => ({ t, s: bigramSimilarity(title, t.title) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, n)
+    .map(x => x.t)
+}
+
+/**
+ * LUM-1286 step 2: the project's `limit` tasks nearest by title embedding
+ * (any age, not only the recent 200), plus the top bigram hits among the
+ * recent ones. Falls back to the bigram top `limit` when the title cannot be
+ * embedded or the project has no embeddings yet. Measured on 7 public repos
+ * (1,555 duplicate pairs): embedding top-20 recall 79% vs bigram 69%, and
+ * 87% vs 42% on Chinese titles.
+ */
+async function recallCandidates(
+  title: string,
+  projectId: string,
+  recent: DuplicateCheckRow[],
+  limit: number
+): Promise<DuplicateCheckRow[]> {
+  let ids: string[] = []
+  try {
+    const [vector] = await embedTexts([title])
+    if (vector) {
+      ids = await taskRepository.findNearestByTitleEmbedding(
+        projectId,
+        vector,
+        limit
+      )
+    }
+  } catch (err) {
+    logger.warn(
+      '[duplicate-check] embedding recall unavailable, using bigram:',
+      err instanceof Error ? err.message : err
+    )
+  }
+  if (ids.length === 0) return closestByBigram(title, recent, limit)
+
+  const nearest = await taskRepository.findForDuplicateCheckByIds(projectId, ids)
+  const seen = new Set(nearest.map(t => t.id))
+  const extra = closestByBigram(
+    title,
+    recent.filter(t => !seen.has(t.id)),
+    BIGRAM_EXTRA_CANDIDATES
+  )
+  return [...nearest, ...extra]
+}
+
+/**
+ * Check for duplicate/similar tasks using AI semantic matching.
+ * Returns up to 5 matches with score >= 0.4.
+ */
 export async function checkDuplicates(
   title: string,
   projectId: string,
   options: {
     abortSignal?: AbortSignal
-    /** LUM-1286: keep only the N titles closest by bigram similarity before
-     *  the LLM — 200 titles took the model 15–35s locally. */
+    /** LUM-1286: send the LLM only this many recalled candidates (embedding
+     *  recall, bigram fallback) instead of all recent titles — 200 titles
+     *  took the model 15–35s locally. Omitted on the web path. */
     candidateLimit?: number
   } = {}
 ): Promise<DuplicateMatch[]> {
@@ -46,11 +114,7 @@ export async function checkDuplicates(
   const tasks =
     options.candidateLimit === undefined
       ? all
-      : all
-          .map(t => ({ t, s: bigramSimilarity(title, t.title) }))
-          .sort((a, b) => b.s - a.s)
-          .slice(0, options.candidateLimit)
-          .map(x => x.t)
+      : await recallCandidates(title, projectId, all, options.candidateLimit)
   if (tasks.length === 0) return []
 
   const taskList = tasks.map(t => `${t.id}: ${t.title}`).join('\n')
