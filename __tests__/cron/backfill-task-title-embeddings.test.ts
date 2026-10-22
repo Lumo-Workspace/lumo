@@ -21,7 +21,8 @@ beforeAll(() => {
   process.env.CRON_SECRET = 'secret'
 })
 afterAll(() => {
-  process.env.CRON_SECRET = OLD
+  if (OLD === undefined) delete process.env.CRON_SECRET
+  else process.env.CRON_SECRET = OLD
 })
 beforeEach(() => {
   run.mockReset()

@@ -27,9 +27,13 @@ export async function stampTaskTitleEmbedding(
 /**
  * Embed one page of titles. When the batch call fails or comes back short,
  * retry each title alone so one bad title cannot sink its neighbours; a title
- * that still fails maps to null.
+ * that still fails maps to null. The one-by-one retries stop at the deadline,
+ * so the result can be shorter than `titles` (the rest were not tried).
  */
-async function embedTitlesOrNull(titles: string[]): Promise<(number[] | null)[]> {
+async function embedTitlesOrNull(
+  titles: string[],
+  deadline?: Date
+): Promise<(number[] | null)[]> {
   try {
     const vectors = await embedTexts(titles)
     if (vectors.length === titles.length) return vectors
@@ -41,6 +45,7 @@ async function embedTitlesOrNull(titles: string[]): Promise<(number[] | null)[]>
   }
   const out: (number[] | null)[] = []
   for (const title of titles) {
+    if (deadline && Date.now() >= deadline.getTime()) break
     try {
       const [vector] = await embedTexts([title])
       out.push(vector ?? null)
@@ -51,12 +56,21 @@ async function embedTitlesOrNull(titles: string[]): Promise<(number[] | null)[]>
   return out
 }
 
+async function gatewayAnswers(): Promise<boolean> {
+  try {
+    const [vector] = await embedTexts(['task'])
+    return Boolean(vector)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Embed live tasks that have no title embedding yet, newest first, until none
  * are left, `limit` rows have been tried or the deadline passes. Pages by key,
  * so a row that cannot be embedded is skipped (counted in `failed`, logged at
  * error level) instead of blocking every older row behind it. Stops early when
- * a whole page fails — the gateway is down, not one title.
+ * a whole page fails and a probe title fails too — the gateway is down.
  */
 export async function backfillTaskTitleEmbeddings(opts: {
   batchSize: number
@@ -78,9 +92,13 @@ export async function backfillTaskTitleEmbeddings(opts: {
     const last = rows[rows.length - 1]
     if (!last) break
     after = { createdAt: last.createdAt, id: last.id }
-    const vectors = await embedTitlesOrNull(rows.map(r => r.title || ' '))
+    const vectors = await embedTitlesOrNull(
+      rows.map(r => r.title || ' '),
+      opts.deadline
+    )
+    const tried = rows.slice(0, vectors.length)
     const skipped: string[] = []
-    for (const [i, row] of rows.entries()) {
+    for (const [i, row] of tried.entries()) {
       const vector = vectors[i]
       if (!vector) {
         skipped.push(row.id)
@@ -93,7 +111,12 @@ export async function backfillTaskTitleEmbeddings(opts: {
     if (skipped.length > 0) {
       logger.error('[task-embedding] backfill skipped tasks:', skipped)
     }
-    if (skipped.length === rows.length) break
+    if (tried.length < rows.length) {
+      return { embedded, failed, stoppedAtDeadline: true }
+    }
+    // A page where nothing embeds is either a run of bad titles or a down
+    // gateway; a known-good probe tells them apart.
+    if (skipped.length === rows.length && !(await gatewayAnswers())) break
   }
   return { embedded, failed, stoppedAtDeadline: false }
 }

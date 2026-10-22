@@ -144,6 +144,22 @@ describe('backfillTaskTitleEmbeddings — bad rows (LUM-1286)', () => {
     expect(out).toEqual({ embedded: 2, failed: 0, stoppedAtDeadline: false })
   })
 
+  it('moves on past a page of bad titles when the gateway still answers', async () => {
+    mockMissing
+      .mockResolvedValueOnce([row('bad1', 4), row('bad2', 3)])
+      .mockResolvedValueOnce([row('ok', 1)])
+      .mockResolvedValueOnce([])
+    mockEmbed.mockImplementation(async (xs: string[]) => {
+      if (xs.some(x => x.startsWith('bad'))) throw new Error('rejected title')
+      return xs.map(() => [1])
+    })
+
+    const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
+
+    expect(out).toEqual({ embedded: 1, failed: 2, stoppedAtDeadline: false })
+    expect(mockSet).toHaveBeenCalledWith('ok', [1])
+  })
+
   it('stops when every title in a page fails (gateway down)', async () => {
     mockMissing.mockResolvedValue([row('a', 2), row('b', 1)])
     mockEmbed.mockRejectedValue(new Error('gateway down'))
@@ -156,6 +172,32 @@ describe('backfillTaskTitleEmbeddings — bad rows (LUM-1286)', () => {
 })
 
 describe('backfillTaskTitleEmbeddings — deadline (LUM-1286)', () => {
+  it('stops the one-by-one retries at the deadline and leaves the rest untried', async () => {
+    const deadline = new Date(Date.now() + 60_000)
+    mockMissing.mockResolvedValue([
+      { id: 'a', title: 'A', createdAt: new Date(3) },
+      { id: 'b', title: 'B', createdAt: new Date(2) },
+      { id: 'c', title: 'C', createdAt: new Date(1) },
+    ])
+    mockEmbed
+      .mockRejectedValueOnce(new Error('batch timed out'))
+      .mockImplementationOnce(async () => {
+        deadline.setTime(Date.now() - 1) // the budget runs out during "A"
+        return [[1]]
+      })
+
+    const out = await backfillTaskTitleEmbeddings({
+      batchSize: 3,
+      limit: 100,
+      deadline,
+    })
+
+    expect(out).toEqual({ embedded: 1, failed: 0, stoppedAtDeadline: true })
+    expect(mockEmbed).toHaveBeenCalledTimes(2)
+    expect(mockSet).toHaveBeenCalledWith('a', [1])
+    expect(mockLogError).not.toHaveBeenCalled()
+  })
+
   it('stops between batches once the deadline has passed', async () => {
     mockMissing.mockResolvedValue([{ id: 'a', title: 'A' }])
     mockEmbed.mockImplementation(async (xs: string[]) => xs.map(() => [1]))
