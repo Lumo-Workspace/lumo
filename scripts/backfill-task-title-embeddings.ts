@@ -1,7 +1,8 @@
 /**
  * LUM-1286 step 2: one-shot backfill of Task.titleEmbedding for live tasks
  * created before the column existed. Safe to re-run — only rows still NULL are
- * touched, newest first. Stops at the first batch the gateway rejects.
+ * touched, newest first. Titles that cannot be embedded are skipped and
+ * reported; a page where every title fails stops the run.
  *
  * Usage:
  *   npx tsx --env-file=<env file> scripts/backfill-task-title-embeddings.ts --dry-run
@@ -24,8 +25,8 @@ async function main() {
   const limit = flag('limit', 1_000_000)
   const batchSize = flag('batch-size', 96)
   if (args.includes('--dry-run')) {
-    const rows = await taskRepository.findMissingTitleEmbeddings(limit)
-    process.stdout.write(`dry run: ${rows.length} live task(s) without a title embedding\n`)
+    const missing = await taskRepository.countMissingTitleEmbeddings()
+    process.stdout.write(`dry run: ${missing} live task(s) without a title embedding\n`)
     return
   }
   const started = Date.now()

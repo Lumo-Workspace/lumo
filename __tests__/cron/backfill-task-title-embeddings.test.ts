@@ -1,6 +1,9 @@
 /** @jest-environment node */
 // LUM-1286: scheduled backfill of Task.titleEmbedding, run inside Vercel.
 const run = jest.fn()
+jest.mock('@/lib/logger', () => ({
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}))
 jest.mock('@/lib/services/task-embedding.service', () => ({
   runTaskTitleEmbeddingBackfill: (...a: unknown[]) => run(...a),
 }))
@@ -47,7 +50,7 @@ it('writes by default (the scheduled call) within a time budget and returns the 
   const arg = run.mock.calls[0]![0]
   expect(arg.dryRun).toBe(false)
   expect(arg.deadline.getTime()).toBeGreaterThan(before)
-  expect(arg.deadline.getTime()).toBeLessThanOrEqual(before + 260_000)
+  expect(arg.deadline.getTime()).toBeLessThanOrEqual(Date.now() + 240_000)
 })
 
 it('only counts with ?dryRun=1', async () => {
@@ -59,4 +62,11 @@ it('rejects a malformed query', async () => {
   const res = await GET(req('?dryRun=maybe', 'Bearer secret'))
   expect(res.status).toBe(400)
   expect(run).not.toHaveBeenCalled()
+})
+
+it('returns 500 instead of an unhandled error when the run throws', async () => {
+  run.mockRejectedValueOnce(new Error('db down'))
+  const res = await GET(req('', 'Bearer secret'))
+  expect(res.status).toBe(500)
+  expect(await res.json()).toEqual({ error: 'Backfill failed' })
 })

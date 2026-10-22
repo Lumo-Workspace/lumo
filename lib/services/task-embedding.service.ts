@@ -25,9 +25,38 @@ export async function stampTaskTitleEmbedding(
 }
 
 /**
+ * Embed one page of titles. When the batch call fails or comes back short,
+ * retry each title alone so one bad title cannot sink its neighbours; a title
+ * that still fails maps to null.
+ */
+async function embedTitlesOrNull(titles: string[]): Promise<(number[] | null)[]> {
+  try {
+    const vectors = await embedTexts(titles)
+    if (vectors.length === titles.length) return vectors
+  } catch (err) {
+    logger.warn(
+      '[task-embedding] backfill batch failed, retrying one by one:',
+      err instanceof Error ? err.message : err
+    )
+  }
+  const out: (number[] | null)[] = []
+  for (const title of titles) {
+    try {
+      const [vector] = await embedTexts([title])
+      out.push(vector ?? null)
+    } catch {
+      out.push(null)
+    }
+  }
+  return out
+}
+
+/**
  * Embed live tasks that have no title embedding yet, newest first, until none
- * are left or `limit` is reached. Stops at the first batch that cannot be
- * embedded rather than retrying the same rows forever.
+ * are left, `limit` rows have been tried or the deadline passes. Pages by key,
+ * so a row that cannot be embedded is skipped (counted in `failed`, logged at
+ * error level) instead of blocking every older row behind it. Stops early when
+ * a whole page fails — the gateway is down, not one title.
  */
 export async function backfillTaskTitleEmbeddings(opts: {
   batchSize: number
@@ -36,42 +65,37 @@ export async function backfillTaskTitleEmbeddings(opts: {
   deadline?: Date
 }): Promise<{ embedded: number; failed: number; stoppedAtDeadline: boolean }> {
   let embedded = 0
-  while (embedded < opts.limit) {
+  let failed = 0
+  let after: { createdAt: Date; id: string } | undefined
+  while (embedded + failed < opts.limit) {
     if (opts.deadline && Date.now() >= opts.deadline.getTime()) {
-      return { embedded, failed: 0, stoppedAtDeadline: true }
+      return { embedded, failed, stoppedAtDeadline: true }
     }
     const rows = await taskRepository.findMissingTitleEmbeddings(
-      Math.min(opts.batchSize, opts.limit - embedded)
+      Math.min(opts.batchSize, opts.limit - embedded - failed),
+      after
     )
-    if (rows.length === 0) break
-    let vectors: number[][]
-    try {
-      vectors = await embedTexts(rows.map(r => r.title || ' '))
-    } catch (err) {
-      logger.warn(
-        '[task-embedding] backfill batch failed:',
-        err instanceof Error ? err.message : err
-      )
-      return { embedded, failed: rows.length, stoppedAtDeadline: false }
-    }
-    let stored = 0
+    const last = rows[rows.length - 1]
+    if (!last) break
+    after = { createdAt: last.createdAt, id: last.id }
+    const vectors = await embedTitlesOrNull(rows.map(r => r.title || ' '))
+    const skipped: string[] = []
     for (const [i, row] of rows.entries()) {
       const vector = vectors[i]
-      if (!vector) continue
-      await taskRepository.setTitleEmbedding(row.id, vector)
-      stored++
-    }
-    embedded += stored
-    // A short batch leaves rows NULL that the next fetch would return again.
-    if (stored < rows.length) {
-      return {
-        embedded,
-        failed: rows.length - stored,
-        stoppedAtDeadline: false,
+      if (!vector) {
+        skipped.push(row.id)
+        continue
       }
+      await taskRepository.setTitleEmbedding(row.id, vector)
+      embedded++
     }
+    failed += skipped.length
+    if (skipped.length > 0) {
+      logger.error('[task-embedding] backfill skipped tasks:', skipped)
+    }
+    if (skipped.length === rows.length) break
   }
-  return { embedded, failed: 0, stoppedAtDeadline: false }
+  return { embedded, failed, stoppedAtDeadline: false }
 }
 
 export interface TaskTitleEmbeddingBackfillReport {
@@ -114,6 +138,10 @@ export async function runTaskTitleEmbeddingBackfill(opts: {
   })
   const missingAfter = await taskRepository.countMissingTitleEmbeddings()
   const report = { dryRun: false, missingBefore, ...result, missingAfter }
-  logger.info('[task-embedding] backfill run:', JSON.stringify(report))
+  if (report.failed > 0) {
+    logger.error('[task-embedding] backfill run left tasks unembedded:', report)
+  } else {
+    logger.info('[task-embedding] backfill run:', report)
+  }
   return report
 }

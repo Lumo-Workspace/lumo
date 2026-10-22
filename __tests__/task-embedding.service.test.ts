@@ -16,6 +16,7 @@ jest.mock('@/lib/logger', () => ({
 }))
 
 import { embedTexts } from '@/lib/ai/embedding'
+import { logger } from '@/lib/logger'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import {
   backfillTaskTitleEmbeddings,
@@ -27,6 +28,7 @@ const mockEmbed = embedTexts as jest.Mock
 const mockSet = taskRepository.setTitleEmbedding as jest.Mock
 const mockMissing = taskRepository.findMissingTitleEmbeddings as jest.Mock
 const mockCount = taskRepository.countMissingTitleEmbeddings as jest.Mock
+const mockLogError = logger.error as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -70,7 +72,7 @@ describe('backfillTaskTitleEmbeddings', () => {
 
     expect(out).toEqual({ embedded: 3, failed: 0, stoppedAtDeadline: false })
     expect(mockSet).toHaveBeenCalledTimes(3)
-    expect(mockMissing).toHaveBeenNthCalledWith(1, 2)
+    expect(mockMissing).toHaveBeenNthCalledWith(1, 2, undefined)
   })
 
   it('stops at the limit', async () => {
@@ -97,18 +99,58 @@ describe('backfillTaskTitleEmbeddings', () => {
   })
 })
 
-describe('backfillTaskTitleEmbeddings — partial batches (LUM-1286)', () => {
-  it('counts only stored vectors and stops when a batch comes back short', async () => {
-    mockMissing.mockResolvedValue([
-      { id: 'a', title: 'A' },
-      { id: 'b', title: 'B' },
-    ])
-    mockEmbed.mockResolvedValue([[1]]) // one vector for two titles
+describe('backfillTaskTitleEmbeddings — bad rows (LUM-1286)', () => {
+  const row = (id: string, ms: number) => ({
+    id,
+    title: id,
+    createdAt: new Date(ms),
+  })
+
+  it('retries a failed batch one title at a time and skips only the title that still fails', async () => {
+    mockMissing
+      .mockResolvedValueOnce([row('a', 3), row('bad', 2)])
+      .mockResolvedValueOnce([row('c', 1)])
+      .mockResolvedValueOnce([])
+    mockEmbed.mockImplementation(async (xs: string[]) => {
+      if (xs.includes('bad')) throw new Error('rejected title')
+      return xs.map(() => [1])
+    })
 
     const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
 
-    expect(out).toEqual({ embedded: 1, failed: 1, stoppedAtDeadline: false })
-    expect(mockSet).toHaveBeenCalledTimes(1)
+    expect(out).toEqual({ embedded: 2, failed: 1, stoppedAtDeadline: false })
+    expect(mockSet.mock.calls.map(c => c[0])).toEqual(['a', 'c'])
+    // The next page starts after the skipped row instead of re-reading it.
+    expect(mockMissing).toHaveBeenNthCalledWith(2, 2, {
+      createdAt: new Date(2),
+      id: 'bad',
+    })
+    expect(mockLogError).toHaveBeenCalledWith(
+      '[task-embedding] backfill skipped tasks:',
+      ['bad']
+    )
+  })
+
+  it('treats a short batch the same way', async () => {
+    mockMissing
+      .mockResolvedValueOnce([row('a', 2), row('b', 1)])
+      .mockResolvedValueOnce([])
+    mockEmbed
+      .mockResolvedValueOnce([[1]]) // one vector for two titles
+      .mockResolvedValue([[1]])
+
+    const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 10 })
+
+    expect(out).toEqual({ embedded: 2, failed: 0, stoppedAtDeadline: false })
+  })
+
+  it('stops when every title in a page fails (gateway down)', async () => {
+    mockMissing.mockResolvedValue([row('a', 2), row('b', 1)])
+    mockEmbed.mockRejectedValue(new Error('gateway down'))
+
+    const out = await backfillTaskTitleEmbeddings({ batchSize: 2, limit: 100 })
+
+    expect(out).toEqual({ embedded: 0, failed: 2, stoppedAtDeadline: false })
     expect(mockMissing).toHaveBeenCalledTimes(1)
   })
 })

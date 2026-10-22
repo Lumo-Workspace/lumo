@@ -926,17 +926,25 @@ export const taskRepository = {
     return Number(row?.count ?? 0)
   },
 
-  /** Live tasks still missing a title embedding, newest first (backfill). */
+  /**
+   * Live tasks still missing a title embedding, newest first (backfill).
+   * `after` is the last row of the previous page: paging by key, not by
+   * re-reading NULL rows, lets a run step past rows it could not embed.
+   */
   async findMissingTitleEmbeddings(
-    limit: number
-  ): Promise<{ id: string; title: string }[]> {
+    limit: number,
+    after?: { createdAt: Date; id: string }
+  ): Promise<{ id: string; title: string; createdAt: Date }[]> {
+    const page = after
+      ? PrismaSql.sql`AND ("createdAt", "id") < (${after.createdAt}, ${after.id})`
+      : PrismaSql.empty
     return systemJob('backfill task title embeddings').$queryRaw<
-      { id: string; title: string }[]
+      { id: string; title: string; createdAt: Date }[]
     >(
       PrismaSql.sql`
-        SELECT "id", "title" FROM "tasks"
-        WHERE "titleEmbedding" IS NULL AND "deletedAt" IS NULL
-        ORDER BY "createdAt" DESC
+        SELECT "id", "title", "createdAt" FROM "tasks"
+        WHERE "titleEmbedding" IS NULL AND "deletedAt" IS NULL ${page}
+        ORDER BY "createdAt" DESC, "id" DESC
         LIMIT ${limit}
       `
     )

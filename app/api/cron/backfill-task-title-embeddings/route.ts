@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCronAuth } from '@/lib/api/cron-auth'
+import { logger } from '@/lib/logger'
 import { runTaskTitleEmbeddingBackfill } from '@/lib/services/task-embedding.service'
 import { taskTitleEmbeddingBackfillQuerySchema } from '@/lib/validation/task-title-embedding-backfill'
 
@@ -30,9 +31,14 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     )
   }
-  const report = await runTaskTitleEmbeddingBackfill({
-    dryRun: parsed.data.dryRun,
-    deadline: new Date(Date.now() + TIME_BUDGET_MS),
-  })
-  return NextResponse.json(report)
+  try {
+    const report = await runTaskTitleEmbeddingBackfill({
+      dryRun: parsed.data.dryRun,
+      deadline: new Date(Date.now() + TIME_BUDGET_MS),
+    })
+    return NextResponse.json(report)
+  } catch (err) {
+    logger.error('[cron] backfill-task-title-embeddings failed:', err)
+    return NextResponse.json({ error: 'Backfill failed' }, { status: 500 })
+  }
 }

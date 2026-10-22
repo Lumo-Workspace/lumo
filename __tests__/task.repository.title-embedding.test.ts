@@ -100,6 +100,21 @@ describe('taskRepository.findMissingTitleEmbeddings', () => {
   })
 })
 
+describe('taskRepository.findMissingTitleEmbeddings — paging (LUM-1286)', () => {
+  it('starts after the given row so skipped rows are not re-read', async () => {
+    mockQueryRaw.mockResolvedValueOnce([])
+    const createdAt = new Date('2026-10-01T00:00:00Z')
+
+    await taskRepository.findMissingTitleEmbeddings(10, { createdAt, id: 't-1' })
+
+    const sql = sqlOf(mockQueryRaw)
+    const text = sql.strings.join('')
+    expect(text).toContain('("createdAt", "id") <')
+    expect(text).toContain('ORDER BY "createdAt" DESC, "id" DESC')
+    expect(sql.values).toEqual(expect.arrayContaining([createdAt, 't-1', 10]))
+  })
+})
+
 describe('taskRepository.countMissingTitleEmbeddings (LUM-1286)', () => {
   it('counts live tasks without an embedding', async () => {
     mockQueryRaw.mockResolvedValueOnce([{ count: BigInt(42) }])
