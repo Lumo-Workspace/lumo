@@ -28,7 +28,7 @@ export function PossibleDuplicateBanner({
   if (duplicates.length === 0) return null
 
   return (
-    <Alert variant='warning' className='mb-4'>
+    <Alert className='mb-4 [&>svg]:text-muted-foreground'>
       <CopyCheck />
       <AlertTitle>
         {intl.formatMessage({ id: 'task.possibleDuplicate.title' })}
