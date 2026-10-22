@@ -180,6 +180,8 @@ export async function decideRewardHack(args: {
       events: s.events,
     })),
     maxChars: REWARD_HACK_MAX_INPUT_CHARS,
+    // Over the cap, the writes to the PR's own files are the last cut.
+    prFiles: args.prFileList.map(f => f.filename),
   })
   const judgeInput = `${REWARD_HACK_SYSTEM_PROMPT}\n${built.prompt}`
   if (built.overCap || estimateRhTokens(judgeInput) > RH_MAX_INPUT_TOKENS)

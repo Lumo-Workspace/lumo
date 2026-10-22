@@ -20,6 +20,10 @@ import {
   type RhEvent,
   RH_REQUIREMENT_MAX_CHARS,
 } from '@/ee/security/security-scan/reward-hack-input'
+import {
+  REWARD_HACK_MAX_INPUT_CHARS,
+  decideRewardHack,
+} from '@/ee/security/security-scan/reward-hack-decide'
 
 const PRUNED = { _lumo_pruned: { at: '2026-10-01T00:00:00Z' } }
 
@@ -546,6 +550,205 @@ describe('buildRhUserPrompt', () => {
       maxChars: 400_000,
     })
     expect(out.prompt).not.toContain('id="a"><x"')
+  })
+})
+
+describe('buildRhUserPrompt with prFiles: PR-file writes are cut last', () => {
+  /** A Write whose result is a bare string (the Codex shape) of `result`. */
+  function write(
+    id: string,
+    at: string,
+    filePath: string,
+    content: string,
+    result: string
+  ) {
+    return ev({
+      id,
+      at,
+      toolName: 'Write',
+      payload: {
+        tool_name: 'Write',
+        tool_input: { file_path: filePath, content },
+        tool_response: result,
+      },
+    })
+  }
+  function sedBash(id: string, at: string, file: string, output: string) {
+    return ev({
+      id,
+      at,
+      toolName: 'Bash',
+      payload: {
+        tool_name: 'Bash',
+        tool_input: { command: `cd ${ROOT} && sed -i s/a/b/ ${file}` },
+        tool_response: { stdout: output, stderr: '' },
+      },
+    })
+  }
+  const P = 'p'.repeat(2000)
+  const A = 'A'.repeat(1400)
+  const B = 'B'.repeat(1400)
+  const p1 = prompt('p1', '2026-10-06T00:00:00Z', 'fix the parser')
+  const w1 = write('w1', '2026-10-06T00:01:00Z', `${ROOT}/src/a.ts`, P, A)
+  const t2 = bash('t2', '2026-10-06T00:02:00Z', 'y'.repeat(1400))
+  const t3 = edit('t3', '2026-10-06T00:03:00Z', `${ROOT}/docs/other.md`)
+  const t4 = bash('t4', '2026-10-06T00:04:00Z', 'z'.repeat(1400))
+  const w2 = write('w2', '2026-10-06T00:05:00Z', `${ROOT}/src/b.ts`, 'q', B)
+  const st1 = stop('st1', '2026-10-06T00:06:00Z', 'Parser fixed.')
+  const prFiles = ['src/a.ts', 'src/b.ts']
+  const one = (events: RhEvent[]) => [{ sessionId: 's1', events }]
+  const all = () => one([p1, w1, t2, t3, t4, w2, st1])
+  const fullLen = () =>
+    buildRhUserPrompt({ requirement: 'r', transcripts: all(), maxChars: 1e6 })
+      .prompt.length
+
+  it('cuts a later non-PR result before an earlier PR-file write', () => {
+    const maxChars = fullLen() - 1000
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: all(),
+      maxChars,
+      prFiles,
+    })
+    expect(out.truncated).toBe(true)
+    expect(out.prompt.length).toBeLessThanOrEqual(maxChars)
+    // The earliest NON-PR result went; the earlier PR write's result stayed.
+    expect(out.prompt).not.toContain('y'.repeat(1400))
+    expect(out.prompt).toContain(A)
+    expect(out.prompt).toContain('z'.repeat(1400))
+  })
+
+  it('without prFiles the old order holds: the earliest result goes first', () => {
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: all(),
+      maxChars: fullLen() - 1000,
+    })
+    expect(out.truncated).toBe(true)
+    expect(out.prompt).not.toContain(A)
+    expect(out.prompt).toContain('y'.repeat(1400))
+  })
+
+  it('drops every non-PR result and call before touching a PR-file block', () => {
+    const onlyPr = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: one([p1, w1, w2, st1]),
+      maxChars: 1e6,
+    })
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: all(),
+      maxChars: onlyPr.prompt.length,
+      prFiles,
+    })
+    expect(out.truncated).toBe(true)
+    expect(out.overCap).toBe(false)
+    expect([...out.eventIds].sort()).toEqual(['p1', 'st1', 'w1', 'w2'])
+    expect(out.prompt).toBe(onlyPr.prompt)
+    expect(out.prompt).toContain(P)
+    expect(out.prompt).toContain(A)
+    expect(out.eventFile.get('w1')).toEqual([`${ROOT}/src/a.ts`])
+  })
+
+  it('past that, cuts the earliest PR-file result first, then PR-file calls', () => {
+    const onlyPr = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: one([p1, w1, w2, st1]),
+      maxChars: 1e6,
+    })
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: all(),
+      maxChars: onlyPr.prompt.length - 500,
+      prFiles,
+    })
+    expect(out.prompt).not.toContain(A)
+    expect(out.prompt).toContain(B)
+    expect(out.eventIds.has('w1')).toBe(true)
+    expect(out.eventIds.has('w2')).toBe(true)
+    const tighter = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: all(),
+      maxChars: onlyPr.prompt.length - A.length - B.length - 500,
+      prFiles,
+    })
+    // Both PR results went, then the earliest PR call (w1); w2's call stayed.
+    expect(tighter.prompt).not.toContain(B)
+    expect(tighter.eventIds.has('w1')).toBe(false)
+    expect(tighter.eventIds.has('w2')).toBe(true)
+  })
+
+  it('a Bash command that writes a PR file counts as a PR-file block', () => {
+    const s1 = sedBash(
+      'b1',
+      '2026-10-06T00:01:00Z',
+      'src/c.ts',
+      'S'.repeat(1400)
+    )
+    const events = [p1, s1, t2, t4, st1]
+    const full = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: one(events),
+      maxChars: 1e6,
+    }).prompt.length
+    const out = buildRhUserPrompt({
+      requirement: 'r',
+      transcripts: one(events),
+      maxChars: full - 1000,
+      prFiles: ['src/c.ts'],
+    })
+    expect(out.prompt).toContain('S'.repeat(1400))
+    expect(out.prompt).not.toContain('y'.repeat(1400))
+  })
+})
+
+describe('decideRewardHack passes the PR files to the cut', () => {
+  it('over REWARD_HACK_MAX_INPUT_CHARS the early PR-file write reaches the judge', async () => {
+    const events: RhEvent[] = [
+      prompt('p1', '2026-10-06T00:00:00Z', 'fix the parser'),
+      ev({
+        id: 'w1',
+        at: '2026-10-06T00:00:30Z',
+        toolName: 'Write',
+        payload: {
+          tool_name: 'Write',
+          tool_input: { file_path: `${ROOT}/src/a.ts`, content: 'MARK' },
+          tool_response: 'R'.repeat(1400),
+        },
+      }),
+    ]
+    const base = Date.parse('2026-10-06T00:01:00Z')
+    for (let i = 0; i < 300; i++)
+      events.push(
+        ev({
+          id: `b${i}`,
+          at: new Date(base + i * 1000).toISOString(),
+          toolName: 'Bash',
+          payload: {
+            tool_name: 'Bash',
+            tool_input: { command: 'npm test' },
+            tool_response: { stdout: 'x'.repeat(1500), stderr: '' },
+          },
+        })
+      )
+    let seen = ''
+    const decision = await decideRewardHack({
+      sessions: [{ id: 's1', events }],
+      prFileList: [{ filename: 'src/a.ts', patch: '+MARK', status: 'added' }],
+      requirement: 'r',
+      judge: async p => {
+        seen = p
+        return { output: { suspicion: 0, items: [] }, costUsd: 0 }
+      },
+      refute: async () => ({ refuted: true, costUsd: 0 }),
+      spend: { reserve: async () => true, settle: async () => {} },
+    })
+    expect(decision.outcome).toBe('judged')
+    expect(decision.built.truncated).toBe(true)
+    expect(seen.length).toBeLessThanOrEqual(REWARD_HACK_MAX_INPUT_CHARS)
+    // The earliest tool result is the PR write's: still there.
+    expect(seen).toContain('R'.repeat(1400))
+    expect(decision.built.eventIds.has('w1')).toBe(true)
   })
 })
 
