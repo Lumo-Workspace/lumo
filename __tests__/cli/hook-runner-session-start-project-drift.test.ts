@@ -3,9 +3,9 @@
  *
  * LUM-1108 — end to end through `runHookWithBody('session-start')` in a real
  * temp git repo: a committed Lumo install behind the CLI appends one
- * reminder with the fix command to the status line, once per session; it
- * replaces the plain skill hint when it names the session's own copy; a
- * failing probe leaves the line as it was.
+ * reminder with the fix command (`lumo init`) to the status line, once per
+ * session; a committed skill copy is never named; a failing probe leaves the
+ * line as it was.
  */
 import { spawnSync } from 'child_process'
 import * as fs from 'fs'
@@ -46,10 +46,9 @@ jest.mock('@/cli/src/lib/project-install-drift', () => {
 })
 
 import { CODEX_RULES_MARKER } from '@/cli/src/lib/codex-rules'
+import { LUMO_SKILL_STUB } from '@/cli/src/lib/skill-stub'
 import { readCredentials } from '@/cli/src/lib/config'
 import { runHookWithBody } from '@/cli/src/lib/hook-runner'
-import { writeMarker } from '@/cli/src/lib/install-registry'
-import { hashSkillDir } from '@/cli/src/lib/skill-hash'
 
 const UNBOUND =
   'No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".'
@@ -83,22 +82,20 @@ afterEach(() => {
   fs.rmSync(tmp, { recursive: true, force: true })
 })
 
+/** A skill copy as older CLIs installed it (no longer an install). */
 function skill(root: string, agentDir: string, version: string): void {
   const dir = path.join(root, agentDir, 'skills', 'lumo')
   fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(path.join(dir, 'SKILL.md'), `# lumo ${version}\n`)
-  writeMarker(dir, {
-    version,
-    hash: hashSkillDir(dir),
-    agent: agentDir === '.agents' ? 'codex' : 'claude-code',
-    installedAt: '2026-10-13T00:00:00.000Z',
-  })
 }
 
 function staleRules(): void {
   const file = path.join(repo, '.codex', 'rules', 'lumo.rules')
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${CODEX_RULES_MARKER}\n# old rules\n`)
+  const stub = path.join(repo, '.agents', 'skills', 'lumo', 'SKILL.md')
+  fs.mkdirSync(path.dirname(stub), { recursive: true })
+  fs.writeFileSync(stub, LUMO_SKILL_STUB)
 }
 
 const commit = () =>
@@ -117,26 +114,32 @@ async function statusLine(agent: string, sid: string): Promise<string> {
     agent
   )
   const out = stdoutSpy.mock.calls.map(c => String(c[0])).join('')
-  if (agent === 'codex')
-    return (
-      JSON.parse(out) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext
-  return out.trimEnd()
+  // LUM-1292: the skill pointer follows the status line (Claude Code) or leads
+  // the folded context (Codex); the status line is the one that starts [Lumo].
+  const text =
+    agent === 'codex'
+      ? (
+          JSON.parse(out) as {
+            hookSpecificOutput: { additionalContext: string }
+          }
+        ).hookSpecificOutput.additionalContext
+      : out
+  return text.split('\n').find(l => l.startsWith('[Lumo] session_id=')) ?? ''
 }
 
 const RULES_NOTE =
-  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --scope project --agent codex` (preview with `--dry-run`), then commit the changes in a PR'
+  'committed Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --agent codex` (preview with `--dry-run`), then commit the changes in a PR (an outdated rules file may let newer lumo commands run outside the sandbox)'
 
 describe('committed Lumo install behind the CLI', () => {
   it('Claude Code: one reminder with the fix command, once per session', async () => {
     skill(home, '.claude', '1.70.0')
     staleRules()
     commit()
-    const reminded = `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND} | ${RULES_NOTE}`
+    const reminded = `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${RULES_NOTE}`
     expect(await statusLine('claude-code', 's1')).toBe(reminded)
     // resume / clear / compact of the same session: not again
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
     // a new session is reminded again
     expect(await statusLine('claude-code', 's2')).toBe(
@@ -144,22 +147,29 @@ describe('committed Lumo install behind the CLI', () => {
     )
   })
 
-  it("Codex: the session's own committed copy — one combined hint, not two", async () => {
+  it('Codex: stale rules are reminded once per session; a committed skill copy never is', async () => {
     skill(repo, '.agents', '1.69.0')
     commit()
-    expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | committed Lumo install behind lumo 1.70.0: .agents/skills/lumo 1.69.0 — run \`lumo skill update --scope project\`, then commit the changes in a PR, then restart the session`
+    expect(await statusLine('codex', 's0')).toBe(
+      `[Lumo] session_id=s0 | ${ID} | ${UNBOUND}`
     )
-    // later SessionStarts of the session fall back to the plain skill hint
+    staleRules()
+    commit()
     expect(await statusLine('codex', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.69.0 | ${UNBOUND} | skill 1.69.0 is older than lumo 1.70.0 — run \`lumo skill update\`, then restart the session`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${RULES_NOTE}`
+    )
+    // later SessionStarts of the session: not again
+    expect(await statusLine('codex', 's1')).toBe(
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
   })
 
-  it('an uncommitted (untracked) stale install: no reminder', async () => {
+  it('an uncommitted (untracked) stale rules file is still reminded (fail-open), without the PR step', async () => {
     staleRules()
+    const note =
+      'local Lumo install behind lumo 1.70.0: .codex/rules/lumo.rules — run `lumo init --agent codex` (preview with `--dry-run`) (an outdated rules file may let newer lumo commands run outside the sandbox)'
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )
   })
 
@@ -183,8 +193,11 @@ describe('committed Lumo install behind the CLI', () => {
         },
       })
     )
+    const stub = path.join(repo, '.claude', 'skills', 'lumo', 'SKILL.md')
+    fs.mkdirSync(path.dirname(stub), { recursive: true })
+    fs.writeFileSync(stub, LUMO_SKILL_STUB)
     const note =
-      'uncommitted .claude/settings.json still has retired Lumo hooks (WorktreeCreate) that break Claude Code worktrees — run `lumo init --scope project --agent claude-code` (preview with `--dry-run`) to remove them'
+      'local Lumo install behind lumo 1.70.0: .claude/settings.json — run `lumo init --agent claude-code` (preview with `--dry-run`)'
     expect(await statusLine('claude-code', 's1')).toBe(
       `[Lumo] session_id=s1 | ${ID} | ${UNBOUND} | ${note}`
     )
@@ -199,7 +212,7 @@ describe('committed Lumo install behind the CLI', () => {
     commit()
     mockThrow = true
     expect(await statusLine('claude-code', 's1')).toBe(
-      `[Lumo] session_id=s1 | ${ID} · skill 1.70.0 | ${UNBOUND}`
+      `[Lumo] session_id=s1 | ${ID} | ${UNBOUND}`
     )
   })
 })

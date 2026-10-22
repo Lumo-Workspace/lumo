@@ -76,6 +76,8 @@ export const queryKeys = {
       ['sprints', 'teamPerformance', sprintId] as const,
     attention: (sprintId: string, scope: 'team' | 'mine' = 'team') =>
       ['sprints', 'attention', sprintId, scope] as const,
+    spillover: (sprintId: string) =>
+      ['sprints', 'spillover', sprintId] as const,
   },
 
   milestones: {

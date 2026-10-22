@@ -15,7 +15,6 @@ import {
   collectDocExamples,
   extractExampleLines,
   normalizePlaceholders,
-  readSkillDescription,
   runnableGrammarPaths,
   stripInlineComment,
 } from '../doc-examples'
@@ -26,7 +25,7 @@ import {
 } from '../../../cli/src/lib/help-text'
 
 const grammar = grammarJson as CliGrammar
-const SKILL_ROOT = join(process.cwd(), '.claude/skills/lumo')
+const SKILL_ROOT = join(process.cwd(), 'cli/skill')
 
 const examples = collectDocExamples(SKILL_ROOT)
 
@@ -120,12 +119,6 @@ describe('skill doc examples', () => {
     }
     const missing = runnableGrammarPaths(grammar).filter(p => !covered.has(p))
     expect(missing.join('\n')).toBe('')
-  })
-
-  it('SKILL.md frontmatter description cap — stays within the 1000-character hard limit', () => {
-    const description = readSkillDescription(SKILL_ROOT)
-    expect(description.length).toBeGreaterThan(0)
-    expect(description.length).toBeLessThanOrEqual(1000)
   })
 })
 

@@ -36,7 +36,6 @@ import {
 } from '@/cli/src/lib/scan-hook-template'
 import { git, isolateGitEnv } from '@/cli/test-support/real-git'
 
-jest.mock('@/cli/src/lib/skill-version-hashes.json', () => ({}))
 jest.mock('@/cli/src/lib/cli-version', () => ({
   readCliVersion: jest.fn(() => '2.0.0'),
   findCliPackageRoot: jest.fn(() => null),
@@ -86,16 +85,11 @@ afterEach(() => {
   for (const d of roots) rmSync(d, { recursive: true, force: true })
 })
 
+/** init's deps for a repo (CLI 2.0.0: no bundled skill, no scope). */
 function initDeps(project: string) {
-  const bundled = join(tmp(), 'skill')
-  mkdirSync(join(bundled, 'references'), { recursive: true })
-  writeFileSync(join(bundled, 'SKILL.md'), 'body')
-  writeFileSync(join(bundled, 'references', 'a.md'), 'ref')
   return {
     cliVersion: '2.0.0',
-    homeDir: tmp(),
     cwd: project,
-    bundledSkillDir: bundled,
     isGlobalInstall: () => false,
   }
 }
@@ -348,12 +342,7 @@ describe('lumo init --scan-log', () => {
   it('with --scan-hooks: installs post-commit and turns lumo.scanLog on', async () => {
     const repo = repoWithCommit()
     const code = await init(
-      {
-        scope: 'project',
-        agent: 'claude-code',
-        scanHooks: true,
-        scanLog: true,
-      },
+      { agent: 'claude-code', scanHooks: true, scanLog: true },
       initDeps(repo)
     )
     expect(code ?? 0).toBe(0)
@@ -368,7 +357,7 @@ describe('lumo init --scan-log', () => {
   it('without --scan-hooks is a usage error (exit 2) and writes nothing', async () => {
     const repo = repoWithCommit()
     const code = await init(
-      { scope: 'project', agent: 'claude-code', scanLog: true },
+      { agent: 'claude-code', scanLog: true },
       initDeps(repo)
     )
     expect(code).toBe(2)
@@ -379,13 +368,8 @@ describe('lumo init --scan-log', () => {
   it('--dry-run lists the post-commit hook and the apply command carries --scan-log', () => {
     const repo = repoWithCommit()
     const items = planInit({
-      scope: 'project',
       tokens: ['claude-code'],
       root: repo,
-      homeDir: tmp(),
-      bundled: tmp(),
-      cliVersion: '2.0.0',
-      force: false,
       scanHooks: true,
       scanLog: true,
     })
@@ -394,25 +378,17 @@ describe('lumo init --scan-log', () => {
       'pre-push scan hook',
       'post-commit scan hook',
     ])
-    expect(
-      initApplyCommand('project', { scanHooks: true, scanLog: true })
-    ).toBe('lumo init --scope project --scan-hooks --scan-log')
+    expect(initApplyCommand({ scanHooks: true, scanLog: true })).toBe(
+      'lumo init --scan-hooks --scan-log'
+    )
   })
 
   it('doctor lists it; uninstall strips it and turns lumo.scanLog off', async () => {
     const repo = repoWithCommit()
     const deps = initDeps(repo)
-    await init(
-      {
-        scope: 'project',
-        agent: 'claude-code',
-        scanHooks: true,
-        scanLog: true,
-      },
-      deps
-    )
+    await init({ agent: 'claude-code', scanHooks: true, scanLog: true }, deps)
     const doctorDeps = {
-      homeDir: deps.homeDir,
+      homeDir: tmp(),
       cwd: repo,
       cliVersion: '2.0.0',
       env: { PATH: '' },
@@ -430,20 +406,15 @@ describe('lumo init --scan-log', () => {
     writeFileSync(hook, readFileSync(hook, 'utf8').replace('--log', '--logx'))
     expect(
       collectDoctor(doctorDeps).rows.find(r => r.path === hook)?.suggestion
-    ).toBe('lumo init --scope project --scan-hooks --scan-log')
+    ).toBe('lumo init --scan-hooks --scan-log')
 
-    const plan = planUninstall({ scope: 'project', agent: 'git' }, doctorDeps)
+    const plan = planUninstall({ agent: 'git' }, doctorDeps)
     expect(
       plan.actions
         .filter(a => a.action === 'strip-scan-hook')
         .map(a => a.row.path)
     ).toContain(hook)
-    expect(
-      await uninstall(
-        { scope: 'project', agent: 'git', confirm: true },
-        doctorDeps
-      )
-    ).toBe(0)
+    expect(await uninstall({ agent: 'git', confirm: true }, doctorDeps)).toBe(0)
     expect(existsSync(hook)).toBe(false)
     expect(
       spawnSync('git', ['config', '--bool', 'lumo.scanLog'], {

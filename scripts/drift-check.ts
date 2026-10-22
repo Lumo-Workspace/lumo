@@ -2,7 +2,7 @@
  * Context drift detector (LUM-405, v1).
  *
  * Mechanizes the CLAUDE.md human rule "修改 cli/src/commands/ 下的命令必须同步
- * 更新 .claude/skills/lumo/SKILL.md(及 references/)": when a changeset touches
+ * 更新 cli/skill/SKILL.md(及 references/)": when a changeset touches
  * a `trigger` path but none of its declared `companion` docs, the agent docs are
  * likely stale relative to the code, so we warn.
  *
@@ -57,12 +57,10 @@ export const DRIFT_RULES: ReadonlyArray<DriftRule> = [
   {
     id: 'cli-skill-sync',
     triggerLabel: 'cli/src/commands/**',
-    companionLabel:
-      '.claude/skills/lumo/SKILL.md (or .claude/skills/lumo/references/**)',
+    companionLabel: 'cli/skill/SKILL.md (or cli/skill/references/**)',
     matchTrigger: p => p.startsWith('cli/src/commands/'),
     matchCompanion: p =>
-      p === '.claude/skills/lumo/SKILL.md' ||
-      p.startsWith('.claude/skills/lumo/references/'),
+      p === 'cli/skill/SKILL.md' || p.startsWith('cli/skill/references/'),
   },
 ]
 

@@ -49,7 +49,7 @@ const GRAMMAR_JSON = 'scripts/cli-grammar/grammar.json'
 export const VERSION_FILES = [PACKAGE_JSON, PACKAGE_LOCK, GRAMMAR_JSON]
 export const RELEASE_BRANCH_PREFIX = 'lumo/release-cli-v'
 const HOOKS_TEMPLATE = 'cli/src/lib/hooks-template.ts'
-const SKILL_DIR = '.claude/skills/lumo'
+const SKILL_DIR = 'cli/skill'
 /** Paths whose commits/changes belong in the CLI changelog. */
 const RELEASE_PATHS = ['cli', SKILL_DIR, GRAMMAR_JSON]
 

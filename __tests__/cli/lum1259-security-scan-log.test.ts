@@ -587,6 +587,22 @@ describe('lumo security scan --log', () => {
       expect(fetch).toHaveBeenCalledTimes(2)
     })
 
+    it('--offline while another run holds the queue says nothing was queued (not that it was)', async () => {
+      write('a.ts', 'export const a = 1\n')
+      const sha = commit('a')
+      const file = queueFile(sb.main)!
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(`${file}.lock`, '')
+      const { out } = await run(
+        { commit: sha, log: true, offline: true, json: true },
+        fakeApi().fetch
+      )
+      const log = JSON.parse(out).log
+      expect(log.queued).toBe(0)
+      expect(log.note).toContain('was not queued')
+      fs.rmSync(`${file}.lock`)
+    })
+
     it('a retryable failure keeps every run not yet sent', async () => {
       const outcome = await uploadRuns(
         sb.main,

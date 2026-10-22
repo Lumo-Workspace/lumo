@@ -5,8 +5,8 @@ import { fetchLatestCliVersion } from '@/lib/cli/latest-version'
 
 /**
  * LUM-1136 — the members page's "Connection" column: per member, which coding
- * agents they ran Lumo sessions from recently, with the Lumo CLI and skill
- * versions those sessions reported (SessionStart hook headers).
+ * agents they ran Lumo sessions from recently, with the Lumo CLI version
+ * those sessions reported (hook headers).
  */
 
 /** How far back a session still counts as a connection. */
@@ -25,8 +25,6 @@ export interface MemberConnectionView {
   agent: TaskArtifactAgent
   /** Null when no session in the window reported it (CLI predates LUM-1136). */
   cliVersion: string | null
-  /** `1.2.3`, `1.2.3 modified`, `modified`, `source`, `none`, or null (unknown). */
-  skillVersion: string | null
   lastSeenAt: string
   /** Last seen over STALE_CONNECTION_DAYS ago — versions are as of then. */
   stale: boolean
@@ -36,8 +34,6 @@ export interface MemberConnectionView {
    * Always false for a stale connection.
    */
   cliBehind: boolean
-  /** Managed skill copy older than the CLI it runs with (`lumo skill update`); false when stale. */
-  skillBehind: boolean
 }
 
 export interface ConnectionActivityRow {
@@ -50,7 +46,6 @@ export interface ConnectionVersionRow {
   workspaceMemberId: string
   agent: TaskArtifactAgent
   cliVersion: string | null
-  skillVersion: string | null
 }
 
 function isOlder(a: string, b: string): boolean {
@@ -61,12 +56,6 @@ function isOlder(a: string, b: string): boolean {
     if (x[i]! !== y[i]!) return x[i]! < y[i]!
   }
   return false
-}
-
-/** Only a plain managed version (`1.2.3`) can be behind; modified / source / none never are. */
-function skillIsBehind(skill: string | null, cli: string | null): boolean {
-  if (!skill || !cli || !parseCliVersion(skill)) return false
-  return isOlder(skill, cli)
 }
 
 /**
@@ -96,18 +85,15 @@ export function buildMemberConnections(
     if (!a.lastActivityAt) continue
     const v = versionByKey.get(key(a.workspaceMemberId, a.agent))
     const cliVersion = v?.cliVersion ?? null
-    const skillVersion = v?.skillVersion ?? null
     const stale = a.lastActivityAt.getTime() < staleBefore
     const list = (out[a.workspaceMemberId] ??= [])
     list.push({
       agent: a.agent,
       cliVersion,
-      skillVersion,
       lastSeenAt: a.lastActivityAt.toISOString(),
       stale,
       cliBehind:
         !stale && !!cliVersion && !!newestCli && isOlder(cliVersion, newestCli),
-      skillBehind: !stale && skillIsBehind(skillVersion, cliVersion),
     })
   }
   for (const list of Object.values(out)) {
@@ -119,7 +105,7 @@ export function buildMemberConnections(
 export interface MemberConnectionsView {
   /** Keyed by WorkspaceMember id; members with no connection are absent. */
   connections: Record<string, MemberConnectionView[]>
-  /** Latest published Lumo CLI (= skill) version; null when npm was unreachable. */
+  /** Latest published Lumo CLI version; null when npm was unreachable. */
   latestCliVersion: string | null
 }
 

@@ -120,26 +120,6 @@
         ]
       }
     ],
-    "FileChanged": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook file-changed --agent claude-code"
-          }
-        ]
-      }
-    ],
-    "ConfigChange": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook config-change --agent claude-code"
-          }
-        ]
-      }
-    ],
     "TaskCreated": [
       {
         "hooks": [
@@ -150,32 +130,12 @@
         ]
       }
     ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook task-completed --agent claude-code"
-          }
-        ]
-      }
-    ],
     "PostToolBatch": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "lumo hook post-tool-batch --agent claude-code"
-          }
-        ]
-      }
-    ],
-    "UserPromptExpansion": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook user-prompt-expansion --agent claude-code"
           }
         ]
       }
@@ -206,26 +166,6 @@
           {
             "type": "command",
             "command": "lumo hook elicitation-result --agent claude-code"
-          }
-        ]
-      }
-    ],
-    "CwdChanged": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook cwd-changed --agent claude-code"
-          }
-        ]
-      }
-    ],
-    "InstructionsLoaded": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook instructions-loaded --agent claude-code"
           }
         ]
       }

@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.127.0",
+  "cliVersion": "2.0.0",
   "globalFlags": {
     "--no-hints": {
       "long": "--no-hints",
@@ -873,11 +873,11 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read-only report of every Lumo install on this machine and repo (skills, hooks, Codex rule, git hook): version, state and the command that fixes it, plus warnings. Always exits 0.",
+      "description": "Read-only report of this repo's Lumo install (Claude Code / Codex hooks, Codex rule, git hooks) with the command that fixes each, plus login and whether the Lumo API answers. Always exits 0.",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",
-        "detail": "local-only diagnosis, no Lumo API call (runs fine sandboxed)"
+        "detail": "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)"
       }
     },
     "feedback": {
@@ -1575,7 +1575,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Default: claude-code and codex."
+          "description": "Set up only this agent (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf) — for a team that uses one agent. Default: claude-code and codex."
         },
         "--dry-run": {
           "long": "--dry-run",
@@ -1584,14 +1584,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Print what init would change (per file: path, action, unified diff) and which Codex hooks need Trust, without writing anything"
-        },
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Overwrite existing skill files (SKILL.md + references/) even when they were modified locally, and a .codex/rules/lumo.rules Lumo did not write"
         },
         "--scan-hooks": {
           "long": "--scan-hooks",
@@ -1608,23 +1600,15 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "With --scan-hooks: also record each commit’s local scan result on the Lumo server (post-commit + pre-push, in the background; the workspace must opt in; off: git config lumo.scanLog false)"
-        },
-        "--scope": {
-          "long": "--scope",
-          "short": null,
-          "value": "required",
-          "enum": ["user", "project"],
-          "enumCaseInsensitive": true,
-          "description": "user | project (case-insensitive) — user: ~/.claude, ~/.agents + ~/.codex, for every project of this user; project: ./.claude, ./.agents + ./.codex, this repo only"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Set up Lumo for Claude Code and Codex: the skill, hook handlers and a Codex sandbox rule. Re-run to refresh an install; --dry-run previews, --agent <token> sets up one agent.",
+      "description": "Set up Lumo in this git repo: agent hooks, Codex rule, /lumo skill stub, git hook. Re-run to refresh. Outside a git repo it asks [y/N] before installing into the folder. --dry-run previews.",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
-        "detail": "writes skill, hook and rules files"
+        "detail": "writes hook and rules files in this repo"
       }
     },
     "member": {
@@ -3189,73 +3173,15 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Report or refresh only the Lumo skill copies (SKILL.md + references/) — never hooks, settings, Codex hooks/rules or the git hook"
+      "description": "Read the Lumo skill guide shipped with this CLI"
     },
-    "skill status": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Machine-readable output: { schemaVersion, cliVersion, skills: [{ path, scope, agent, version, state, gitTracked }] }"
-        }
-      },
+    "skill read": {
+      "arguments": [{ "name": "path", "required": false, "variadic": false }],
+      "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Read-only: every Lumo skill copy (user, this repo, recorded installs) with scope, agent, version, state vs this CLI and whether git tracks it.",
-      "codex": {
-        "serverOnly": false,
-        "localFiles": "none",
-        "detail": "local-only (reads skill dirs and git, no Lumo API call; runs fine sandboxed)"
-      }
-    },
-    "skill update": {
-      "arguments": [],
-      "flags": {
-        "--agent": {
-          "long": "--agent",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Only copies of this agent (claude-code = .claude/skills/lumo, codex = .agents/skills/lumo)"
-        },
-        "--dry-run": {
-          "long": "--dry-run",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "List, per copy, the files that would be added / modified / deleted (with line counts) and write nothing"
-        },
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Also overwrite locally modified copies (discards those edits); still never downgrades"
-        },
-        "--scope": {
-          "long": "--scope",
-          "short": null,
-          "value": "required",
-          "enum": ["user", "project"],
-          "enumCaseInsensitive": true,
-          "description": "user | project (case-insensitive) — user: only ~/.claude, ~/.agents copies; project: only the current repo's copies (git toplevel of the cwd; in a worktree, the worktree)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Refresh the Lumo skill copies that are behind this CLI (user and current-repo copies) from the bundled skill. Never downgrades; skips modified copies unless --force; never commits.",
-      "codex": {
-        "serverOnly": false,
-        "localFiles": "writes",
-        "detail": "writes skill files"
-      }
+      "description": "Print the Lumo skill guide (SKILL.md, or a file under it such as references/tasks.md) from this CLI package. Local read; needs no login.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "sprint": {
       "arguments": [],
@@ -5264,7 +5190,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Only installs of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git"
+          "description": "Only entries of this agent (claude-code, codex, git, ...); the git hooks (prepare-commit-msg, scan hooks) are labelled git, so they are included only by --agent git"
         },
         "--confirm": {
           "long": "--confirm",
@@ -5274,38 +5200,22 @@
           "enumCaseInsensitive": false,
           "description": "Apply the removal after the user has approved the envelope"
         },
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Also delete skill copies that were edited locally (discards those edits)"
-        },
         "--purge": {
           "long": "--purge",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Also delete everything in ~/.lumo (credentials, caches, install registry)"
-        },
-        "--scope": {
-          "long": "--scope",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "user (this machine), project (the current repo) or all (also recorded installs in other repos). Default: all"
+          "description": "Also delete everything in ~/.lumo (credentials, caches)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove what `lumo init` installed: skills, hook entries, the Codex rule, the git hook block and registry records. Without --confirm exits 4 listing every path; never commits.",
+      "description": "Remove what `lumo init` wrote into this repo: hook entries, the Codex rule and the git hook blocks. Without --confirm exits 4 listing every path; never commits.",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
-        "detail": "deletes skill, hook and rules files"
+        "detail": "deletes hook and rules entries in this repo"
       }
     },
     "update": {

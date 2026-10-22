@@ -47,7 +47,7 @@ beforeEach(() => {
 })
 
 describe('handleHookRequest — client version headers', () => {
-  it('forwards well-formed versions', async () => {
+  it('forwards the well-formed CLI version and drops a skill header', async () => {
     await handleHookRequest(
       post({
         'X-Lumo-Cli-Version': '1.121.0',
@@ -57,13 +57,12 @@ describe('handleHookRequest — client version headers', () => {
     )
     expect(mockRecord.mock.calls[0][0].clientVersions).toEqual({
       cliVersion: '1.121.0',
-      skillVersion: '1.120.0 modified',
     })
   })
 
   it('drops malformed / absent headers', async () => {
     await handleHookRequest(
-      post({ 'X-Lumo-Skill-Version': '<img src=x>' }),
+      post({ 'X-Lumo-Cli-Version': '<img src=x>' }),
       'SESSION_START'
     )
     expect(mockRecord.mock.calls[0][0]).not.toHaveProperty('clientVersions')

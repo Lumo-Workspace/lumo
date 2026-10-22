@@ -2,17 +2,15 @@
  * @jest-environment node
  *
  * LUM-1233 batch 3g (GF-1, GF-2, Q6) — `--project <ref>` is one global flag;
- * the scope booleans of `init` / `skill update` became `--scope user|project`;
- * the hidden `setup` alias and `task list -p` went.
+ * the scope booleans of `init` went (LUM-1292: `--scope` too — init sets up
+ * the current repo only); the hidden `setup` alias and `task list -p` went.
  */
 import fs from 'fs'
 import path from 'path'
 import type { CliGrammar } from '@/scripts/cli-grammar/grammar'
 import { validateSegment } from '@/scripts/cli-grammar/validate'
 import { findRemovedCommand } from '@/cli/src/lib/removed-commands'
-import { parseInstallScope } from '@/cli/src/lib/install-scope'
 import { initApplyCommand } from '@/cli/src/lib/init-dry-run'
-import { skillUpdate } from '@/cli/src/commands/skill'
 
 const grammar = JSON.parse(
   fs.readFileSync(
@@ -35,12 +33,14 @@ describe('grammar', () => {
     expect(grammar.commands).not.toHaveProperty(['setup'])
   })
 
-  it('init and skill update take --scope user | project', () => {
-    for (const p of ['init', 'skill update'])
-      expect(grammar.commands[p]!.flags['--scope']!.enum).toEqual([
-        'user',
-        'project',
-      ])
+  it('init and uninstall take no --scope / --force; skill status / update are gone', () => {
+    for (const p of ['init', 'uninstall']) {
+      expect(grammar.commands[p]!.flags).not.toHaveProperty(['--scope'])
+      expect(grammar.commands[p]!.flags).not.toHaveProperty(['--force'])
+    }
+    expect(grammar.commands).not.toHaveProperty(['skill status'])
+    expect(grammar.commands).not.toHaveProperty(['skill update'])
+    expect(grammar.commands).toHaveProperty(['skill read'])
   })
 
   it('the validator accepts --project on any command and refuses the old booleans', () => {
@@ -49,9 +49,12 @@ describe('grammar', () => {
       'lumo milestone list --project app',
       'lumo doc list --project app',
       'lumo whoami --project app',
-      'lumo init --scope project --dry-run',
+      'lumo init --agent codex --dry-run',
     ])
       expect(validateSegment(ok, grammar).kind).toBe('valid')
+    expect(validateSegment('lumo init --scope project', grammar)).toMatchObject(
+      { kind: 'unknown-flag', offending: '--scope' }
+    )
     expect(validateSegment('lumo init --user', grammar)).toMatchObject({
       kind: 'unknown-flag',
       offending: '--user',
@@ -69,27 +72,17 @@ describe('tombstones', () => {
     ['--project', '--agent', '--status', '-p', '--limit', '-n'].includes(f)
   it.each([
     [['setup'], 'lumo init'],
-    [['setup', '--project', '--force'], 'lumo init --scope project --force'],
-    [['init', '--project'], 'lumo init --scope project'],
-    [['init', '--project', '--force'], 'lumo init --scope project --force'],
+    [['setup', '--project', '--force'], 'lumo init'],
+    [['setup', '--scope', 'user', '--dry-run'], 'lumo init --dry-run'],
+    [['init', '--project'], 'lumo init'],
+    [['init', '--project', '--force'], 'lumo init'],
     // The old boolean never swallows the next flag or its value.
     [
       ['init', '--project', '--agent', 'claude-code', '--dry-run'],
-      'lumo init --scope project --agent claude-code --dry-run',
+      'lumo init --agent claude-code --dry-run',
     ],
-    [
-      ['setup', '--project', '--agent', 'codex'],
-      'lumo init --scope project --agent codex',
-    ],
-    [
-      ['init', '--user', '--agent', 'codex'],
-      'lumo init --scope user --agent codex',
-    ],
-    [
-      ['skill', 'update', '--project', '--dry-run'],
-      'lumo skill update --scope project --dry-run',
-    ],
-    [['skill', 'update', '--user'], 'lumo skill update --scope user'],
+    [['setup', '--project', '--agent', 'codex'], 'lumo init --agent codex'],
+    [['init', '--user', '--agent', 'codex'], 'lumo init --agent codex'],
     [
       ['task', 'list', '-p', 'Apollo', '--status', 'todo'],
       'lumo task list --project Apollo --status todo',
@@ -102,9 +95,8 @@ describe('tombstones', () => {
 
   it('the new forms are live', () => {
     for (const argv of [
-      ['init', '--scope', 'project'],
       ['init'],
-      ['skill', 'update', '--scope', 'user'],
+      ['init', '--agent', 'codex'],
       ['task', 'list', '--project', 'app'],
       ['--project', 'app', 'task', 'list'],
     ])
@@ -112,25 +104,11 @@ describe('tombstones', () => {
   })
 })
 
-describe('--scope', () => {
-  it('parses user | project case-insensitively, anything else is null', () => {
-    expect(parseInstallScope('user')).toBe('user')
-    expect(parseInstallScope(' Project ')).toBe('project')
-    expect(parseInstallScope('all')).toBeNull()
-    expect(parseInstallScope(undefined)).toBeNull()
-  })
-
-  it('the dry-run apply command names --scope', () => {
-    expect(initApplyCommand('project', { agent: 'codex', force: true })).toBe(
-      'lumo init --scope project --agent codex --force'
+describe('init apply command', () => {
+  it('names only the flags init still has', () => {
+    expect(initApplyCommand({ agent: 'codex', scanHooks: true })).toBe(
+      'lumo init --agent codex --scan-hooks'
     )
-  })
-
-  it('skill update with an invalid --scope exits 2 before touching anything', async () => {
-    const err: string[] = []
-    expect(
-      await skillUpdate({ scope: 'all' }, { err: s => void err.push(s) })
-    ).toBe(2)
-    expect(err.join('')).toMatch(/invalid --scope "all"/)
+    expect(initApplyCommand({})).toBe('lumo init')
   })
 })

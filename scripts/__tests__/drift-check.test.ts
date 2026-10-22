@@ -12,8 +12,8 @@ import { join } from 'path'
 import { detectDrift, run, SKIP_MARKER } from '../drift-check'
 
 const CLI_CHANGE = 'cli/src/commands/task.ts'
-const SKILL = '.claude/skills/lumo/SKILL.md'
-const REFERENCE = '.claude/skills/lumo/references/tasks.md'
+const SKILL = 'cli/skill/SKILL.md'
+const REFERENCE = 'cli/skill/references/tasks.md'
 
 describe('drift-check', () => {
   it('drift-detector flags cli command change with no companion doc', () => {

@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import { CodeBlock } from '../cli/CodeBlock'
-import { AgentGlyph, skillVersionLabel } from './MemberConnectionsCell'
+import { AgentGlyph } from './MemberConnectionsCell'
 import { useAgentLabel } from '../AgentBadge'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import {
@@ -42,7 +42,6 @@ function ConnectionCard({
 }) {
   const intl = useIntl()
   const label = useAgentLabel(c.agent)
-  const skill = skillVersionLabel(intl, c.skillVersion)
   const fix = connectionFixCommand(c)
   const behind = intl.formatMessage({ id: 'members.connection.behind' })
   return (
@@ -81,14 +80,6 @@ function ConnectionCard({
             </Tag>
           )}
         </div>
-        {skill && (
-          <div className='flex flex-wrap items-center gap-2'>
-            <span className='font-mono text-caption text-foreground'>
-              {skill}
-            </span>
-            {c.skillBehind && <Tag tone='warn'>{behind}</Tag>}
-          </div>
-        )}
       </div>
       {fix && (
         <div className='flex flex-col gap-1.5'>
@@ -104,7 +95,7 @@ function ConnectionCard({
 
 /**
  * LUM-1136: the expanded row under a member — one card per agent connection
- * with CLI / skill versions and the command that brings it up to date; a
+ * with the CLI version and the command that brings it up to date; a
  * setup hint when the member has none.
  */
 export function MemberConnectionDetails({

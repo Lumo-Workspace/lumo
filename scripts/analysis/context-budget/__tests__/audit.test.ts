@@ -30,7 +30,7 @@ describe('context-budget audit', () => {
   it('context-budget audit covers all resident/loaded context files', () => {
     // Independently re-derive the target set (SKILL.md + every references/*.md +
     // CLAUDE.md) and assert the audit covers it with NO omission.
-    const skillRoot = join(REPO_ROOT, '.claude', 'skills', 'lumo')
+    const skillRoot = join(REPO_ROOT, 'cli', 'skill')
     const refDir = join(skillRoot, 'references')
     const expected = [
       join(skillRoot, 'SKILL.md'),
@@ -62,14 +62,11 @@ describe('context-budget audit', () => {
       expect(sum).toBe(a.tokens)
     }
 
-    // SKILL.md specifically splits out the frontmatter routing description (the
-    // LUM-415 caliber) — that sub-metric must be present for it and absent for
-    // the body-only files.
+    // Every file carries its UTF-8 size (LUM-1292: the skill's per-file byte
+    // budget is asserted in __tests__/cli/skill-budget.test.ts).
     const skill = audits.find(a => a.path.endsWith('SKILL.md'))!
-    expect(skill.descriptionChars).toBeGreaterThan(0)
-    expect(
-      audits.find(a => a.path.endsWith('CLAUDE.md'))!.descriptionChars
-    ).toBeUndefined()
+    expect(skill.bytes).toBeGreaterThan(0)
+    for (const a of audits) expect(a.bytes).toBeGreaterThan(0)
   })
 
   it('context-budget audit flags only files over the prose/token budget', () => {

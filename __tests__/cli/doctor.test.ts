@@ -1,7 +1,11 @@
 /**
  * @jest-environment node
  */
+// `lumo doctor` (LUM-1292): the current repo's hooks, Codex rule and git
+// hooks, plus login and API reachability.
 import { execFileSync } from 'child_process'
+import { createServer, type Server } from 'http'
+import type { Socket } from 'net'
 import {
   chmodSync,
   mkdirSync,
@@ -19,7 +23,9 @@ import {
   collectDoctor,
   codexTrustedEvents,
   doctor,
+  API_TIMEOUT_MS,
   lumoOnPath,
+  probeAuth,
   type DoctorReport,
 } from '@/cli/src/commands/doctor'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
@@ -27,12 +33,7 @@ import {
   CODEX_HOOK_EVENTS,
   LUMO_HOOK_EVENTS,
 } from '@/cli/src/lib/hooks-template'
-import { shouldAutoSync } from '@/cli/src/lib/auto-sync'
 import { resolveGitHooksDir } from '@/cli/src/lib/git-hooks-dir'
-import { upsertInstall, writeMarker } from '@/cli/src/lib/install-registry'
-import { hashSkillDir } from '@/cli/src/lib/skill-hash'
-
-jest.mock('@/cli/src/lib/skill-version-hashes.json', () => ({}))
 
 let roots: string[]
 let prevConfigDir: string | undefined
@@ -52,18 +53,6 @@ function gitInit(dir: string): void {
   git(dir, 'config', 'user.email', 't@t')
   git(dir, 'config', 'user.name', 't')
   git(dir, 'config', 'commit.gpgsign', 'false')
-}
-function writeSkill(dir: string, version: string | null, body = 'body'): void {
-  mkdirSync(join(dir, 'references'), { recursive: true })
-  writeFileSync(join(dir, 'SKILL.md'), body)
-  writeFileSync(join(dir, 'references', 'a.md'), 'ref')
-  if (version)
-    writeMarker(dir, {
-      version,
-      hash: hashSkillDir(dir),
-      agent: 'claude-code',
-      installedAt: '2026-01-01T00:00:00.000Z',
-    })
 }
 function writeSettings(file: string, events: string[]): void {
   mkdirSync(join(file, '..'), { recursive: true })
@@ -100,6 +89,9 @@ function fixture() {
       cliVersion: '2.0.0',
       env: { PATH: bin },
       isGlobalInstall: () => true,
+      checkApi: async () => {
+        throw new Error('no API call in these tests')
+      },
     },
   }
 }
@@ -124,148 +116,50 @@ afterEach(() => {
   for (const d of roots) rmSync(d, { recursive: true, force: true })
 })
 
-describe('skill rows and grouping', () => {
-  it('user-scope skills land in "machine" with state and suggestion', () => {
+describe('scope: only the current repo', () => {
+  it('ignores ~/.claude/settings.json and ~/.codex/hooks.json', () => {
     const f = fixture()
-    const up = join(f.home, '.claude', 'skills', 'lumo')
-    const old = join(f.home, '.agents', 'skills', 'lumo')
-    writeSkill(up, '2.0.0')
-    writeSkill(old, '1.0.0')
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, up)).toMatchObject({
-      group: 'machine',
-      kind: 'skill',
-      version: '2.0.0',
-      state: 'up to date',
-    })
-    expect(rowFor(r, old)).toMatchObject({
-      group: 'machine',
-      state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --scope user --agent codex',
-    })
-  })
-
-  it('modified and newer-than-CLI copies get their own state and command', () => {
-    const f = fixture()
-    const mod = join(f.home, '.claude', 'skills', 'lumo')
-    const newer = join(f.home, '.agents', 'skills', 'lumo')
-    writeSkill(mod, '2.0.0')
-    writeFileSync(join(mod, 'SKILL.md'), 'edited')
-    writeSkill(newer, '3.0.0')
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, mod)).toMatchObject({
-      state: 'modified',
-      suggestion: 'lumo init --force',
-    })
-    expect(rowFor(r, newer)).toMatchObject({
-      state: 'newer than CLI',
-      suggestion: 'lumo update',
-    })
-  })
-
-  it('project skills split into committed vs uncommitted', () => {
-    const f = fixture()
-    const tracked = join(f.repo, '.claude', 'skills', 'lumo')
-    const loose = join(f.repo, '.agents', 'skills', 'lumo')
-    writeSkill(tracked, '1.0.0')
-    writeSkill(loose, '2.0.0')
-    git(f.repo, 'add', '.claude')
-    git(f.repo, 'commit', '-qm', 'x')
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, tracked)).toMatchObject({
-      group: 'repo-committed',
-      scope: 'project',
-    })
-    expect(rowFor(r, loose)).toMatchObject({ group: 'repo-uncommitted' })
-  })
-
-  it('warns when user and project skills of one agent differ in version', () => {
-    const f = fixture()
-    writeSkill(join(f.home, '.claude', 'skills', 'lumo'), '2.0.0')
-    writeSkill(join(f.repo, '.claude', 'skills', 'lumo'), '1.0.0')
-    expect(warn(collectDoctor(f.deps), 'scope-version-mismatch')).toHaveLength(
-      1
-    )
-  })
-
-  it('does not warn when the versions agree', () => {
-    const f = fixture()
-    writeSkill(join(f.home, '.claude', 'skills', 'lumo'), '2.0.0')
-    writeSkill(join(f.repo, '.claude', 'skills', 'lumo'), '2.0.0')
-    expect(warn(collectDoctor(f.deps), 'scope-version-mismatch')).toHaveLength(
-      0
-    )
-  })
-
-  it('includes registry-recorded skills outside the current repo', () => {
-    const f = fixture()
-    const other = join(tmp(), 'lumo')
-    writeSkill(other, '1.0.0')
+    writeSettings(join(f.home, '.claude', 'settings.json'), ALL)
+    mkdirSync(join(f.home, '.codex'), { recursive: true })
     writeFileSync(
-      join(process.env.LUMO_CONFIG_DIR as string, 'installs.json'),
+      join(f.home, '.codex', 'hooks.json'),
       JSON.stringify({
-        lastSyncedVersion: null,
-        installs: [
-          {
-            kind: 'skill',
-            path: other,
-            scope: 'project',
-            agent: 'claude-code',
-            version: '1.0.0',
-            installedAt: 'x',
-          },
-        ],
-      })
-    )
-    expect(rowFor(collectDoctor(f.deps), other)).toMatchObject({
-      state: 'behind CLI 2.0.0',
-    })
-  })
-
-  it('warns about a registry entry whose path is gone', () => {
-    const f = fixture()
-    writeFileSync(
-      join(process.env.LUMO_CONFIG_DIR as string, 'installs.json'),
-      JSON.stringify({
-        lastSyncedVersion: null,
-        installs: [
-          {
-            kind: 'skill',
-            path: '/nope/lumo',
-            scope: 'user',
-            agent: 'claude-code',
-            version: '1.0.0',
-            installedAt: 'x',
-          },
-        ],
+        hooks: {
+          Stop: [
+            {
+              hooks: [
+                { type: 'command', command: 'lumo hook stop --agent codex' },
+              ],
+            },
+          ],
+        },
       })
     )
     const r = collectDoctor(f.deps)
-    expect(warn(r, 'registry-stale')).toHaveLength(1)
-    expect(rowFor(r, '/nope/lumo')).toBeUndefined()
+    expect(r.repo).toBe(f.repo)
+    expect(r.rows).toEqual([])
   })
-})
 
-describe('registry', () => {
-  it('reports a corrupt registry as a warning and never rewrites it', () => {
+  it('in $HOME: no rows, no root and a not-a-repo warning', () => {
     const f = fixture()
-    const file = join(process.env.LUMO_CONFIG_DIR as string, 'installs.json')
-    writeFileSync(file, '{not json')
-    const r = collectDoctor(f.deps)
-    expect(warn(r, 'registry-corrupt')).toHaveLength(1)
-    expect(readFileSync(file, 'utf8')).toBe('{not json')
+    const dir = tmp()
+    const r = collectDoctor({ ...f.deps, cwd: dir, homeDir: dir })
+    expect(r.repo).toBeNull()
+    expect(r.rows).toEqual([])
+    expect(warn(r, 'not-a-repo')).toHaveLength(1)
   })
 })
 
 describe('claude settings hooks', () => {
-  it('complete user settings are up to date', () => {
+  it('complete repo settings are up to date', () => {
     const f = fixture()
-    const p = join(f.home, '.claude', 'settings.json')
+    const p = join(f.repo, '.claude', 'settings.json')
     writeSettings(p, ALL)
     const r = collectDoctor(f.deps)
     expect(rowFor(r, p)).toMatchObject({
-      group: 'machine',
+      tracked: false,
       kind: 'claude-settings',
+      agent: 'claude-code',
       state: 'up to date',
     })
     expect(warn(r, 'missing-hook-events')).toHaveLength(0)
@@ -280,8 +174,8 @@ describe('claude settings hooks', () => {
     )
     const r = collectDoctor(f.deps)
     expect(rowFor(r, p)).toMatchObject({
-      group: 'repo-uncommitted',
       state: 'incomplete',
+      suggestion: 'lumo init --agent claude-code',
     })
     const w = warn(r, 'missing-hook-events')
     expect(w).toHaveLength(1)
@@ -308,7 +202,7 @@ describe('claude settings hooks', () => {
     const r = collectDoctor(f.deps)
     expect(rowFor(r, p)).toMatchObject({
       state: 'incomplete',
-      suggestion: 'lumo init --scope project',
+      suggestion: 'lumo init --agent claude-code',
     })
     const w = warn(r, 'retired-hook-events')
     expect(w).toHaveLength(1)
@@ -316,40 +210,52 @@ describe('claude settings hooks', () => {
     expect(warn(r, 'missing-hook-events')).toHaveLength(0)
   })
 
-  it('ignores settings without any Lumo hook and survives invalid JSON', () => {
+  it('names the agent baked into the entries in the refresh command', () => {
     const f = fixture()
-    mkdirSync(join(f.home, '.claude'), { recursive: true })
+    const p = join(f.repo, '.claude', 'settings.json')
+    writeSettings(p, ['Stop'])
     writeFileSync(
-      join(f.home, '.claude', 'settings.json'),
-      JSON.stringify({ permissions: {} })
+      p,
+      readFileSync(p, 'utf8').replace('--agent claude-code', '--agent cursor')
     )
-    mkdirSync(join(f.repo, '.claude'), { recursive: true })
-    writeFileSync(join(f.repo, '.claude', 'settings.json'), '{oops')
-    const r = collectDoctor(f.deps)
-    expect(r.rows.filter(x => x.kind === 'claude-settings')).toHaveLength(0)
+    expect(rowFor(collectDoctor(f.deps), p)).toMatchObject({
+      agent: 'cursor',
+      suggestion: 'lumo init --agent cursor',
+    })
   })
 
-  it('committed project settings go to repo-committed', () => {
+  it('ignores settings without any Lumo hook and survives invalid JSON', () => {
+    const f = fixture()
+    mkdirSync(join(f.repo, '.claude'), { recursive: true })
+    writeFileSync(join(f.repo, '.claude', 'settings.json'), '{oops')
+    expect(collectDoctor(f.deps).rows).toHaveLength(0)
+    writeFileSync(
+      join(f.repo, '.claude', 'settings.json'),
+      JSON.stringify({ permissions: {} })
+    )
+    expect(collectDoctor(f.deps).rows).toHaveLength(0)
+  })
+
+  it('committed repo settings are tracked', () => {
     const f = fixture()
     const p = join(f.repo, '.claude', 'settings.json')
     writeSettings(p, ALL)
     git(f.repo, 'add', '.claude')
     git(f.repo, 'commit', '-qm', 'x')
-    expect(rowFor(collectDoctor(f.deps), p)).toMatchObject({
-      group: 'repo-committed',
-    })
+    expect(rowFor(collectDoctor(f.deps), p)).toMatchObject({ tracked: true })
   })
 })
 
 describe('git hook', () => {
-  it('default .git/hooks block is on "machine"; stale block is behind', () => {
+  it('default .git/hooks block is untracked; stale block is behind', () => {
     const f = fixture()
     const hook = join(f.repo, '.git', 'hooks', 'prepare-commit-msg')
     mkdirSync(join(hook, '..'), { recursive: true })
     writeFileSync(hook, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
-      group: 'machine',
+      tracked: false,
       kind: 'git-hook',
+      agent: 'git',
       state: 'up to date',
     })
     writeFileSync(
@@ -358,7 +264,7 @@ describe('git hook', () => {
     )
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
       state: 'behind CLI 2.0.0',
-      suggestion: 'lumo init --scope project',
+      suggestion: 'lumo init',
     })
   })
 
@@ -370,7 +276,7 @@ describe('git hook', () => {
     expect(rowFor(collectDoctor(f.deps), hook)).toBeUndefined()
   })
 
-  it('respects core.hooksPath: tracked dir is committed', () => {
+  it('respects core.hooksPath: a tracked dir is committed', () => {
     const f = fixture()
     git(f.repo, 'config', 'core.hooksPath', '.husky')
     const hook = join(f.repo, '.husky', 'prepare-commit-msg')
@@ -379,7 +285,7 @@ describe('git hook', () => {
     git(f.repo, 'add', '.husky')
     git(f.repo, 'commit', '-qm', 'x')
     expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
-      group: 'repo-committed',
+      tracked: true,
       state: 'up to date',
     })
   })
@@ -391,20 +297,58 @@ describe('git hook', () => {
     expect(r.coreHooksPath).toBe('.husky')
     expect(r.dir).toBe(join(f.repo, '.husky'))
   })
+
+  it('resolves a relative core.hooksPath via git rev-parse', () => {
+    const f = fixture()
+    git(f.repo, 'config', 'core.hooksPath', 'hooks/custom')
+    const r = resolveGitHooksDir(f.repo)
+    expect(r.coreHooksPath).toBe('hooks/custom')
+    expect(r.dir).toBe(join(f.repo, 'hooks', 'custom'))
+  })
+
+  it('stale core.hooksPath hook has no command, only a manual hint', () => {
+    const f = fixture()
+    git(f.repo, 'config', 'core.hooksPath', '.husky')
+    const hook = join(f.repo, '.husky', 'prepare-commit-msg')
+    mkdirSync(join(hook, '..'), { recursive: true })
+    writeFileSync(
+      hook,
+      '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
+    )
+    const row = rowFor(collectDoctor(f.deps), hook)!
+    expect(row.state).toBe('behind CLI 2.0.0')
+    expect(row.suggestion).toBeUndefined()
+    expect(row.detail).toContain('by hand')
+  })
 })
 
 describe('codex trust', () => {
-  const codexHooks = (home: string, events: string[]): string => {
-    const p = join(home, '.codex', 'hooks.json')
-    mkdirSync(join(p, '..'), { recursive: true })
+  const writeCodex = (
+    file: string,
+    events: ReadonlyArray<readonly [string, string]> = CODEX_HOOK_EVENTS
+  ) => {
+    mkdirSync(join(file, '..'), { recursive: true })
     const hooks: Record<string, unknown> = {}
-    for (const e of events)
-      hooks[e] = [
-        { hooks: [{ type: 'command', command: 'lumo hook x --agent codex' }] },
+    for (const [ev, slug] of events)
+      hooks[ev] = [
+        {
+          hooks: [
+            { type: 'command', command: `lumo hook ${slug} --agent codex` },
+          ],
+        },
       ]
     hooks['Other'] = [{ hooks: [{ type: 'command', command: 'echo hi' }] }]
-    writeFileSync(p, JSON.stringify({ hooks }))
-    return p
+    writeFileSync(file, JSON.stringify({ hooks }))
+  }
+  const trustAll = (home: string, key: string) => {
+    mkdirSync(join(home, '.codex'), { recursive: true })
+    writeFileSync(
+      join(home, '.codex', 'config.toml'),
+      CODEX_HOOK_EVENTS.map(
+        ([ev]) =>
+          `[hooks.state."${key}:${codexEventKey(ev)}:0:0"]\ntrusted_hash = "sha256:x"\n`
+      ).join('\n')
+    )
   }
 
   it('codexEventKey snake-cases CamelCase events', () => {
@@ -427,43 +371,77 @@ describe('codex trust', () => {
     expect([...t]).toEqual(['pre_tool_use'])
   })
 
-  it('trusted events -> trusted (hash not verified); others warn', () => {
+  it('codexTrustedEvents tolerates whitespace and a trailing comment on the header', () => {
+    const toml = [
+      '  [ hooks.state."/h/hooks.json:pre_tool_use:0:0" ]   # trusted via /hooks',
+      'trusted_hash = "sha256:abc"',
+    ].join('\n')
+    expect([...codexTrustedEvents(toml, '/h/hooks.json')]).toEqual([
+      'pre_tool_use',
+    ])
+  })
+
+  it('lists the repo .codex/hooks.json with trust read from ~/.codex/config.toml', () => {
     const f = fixture()
-    const p = codexHooks(f.home, ['PreToolUse', 'Stop'])
-    writeFileSync(
-      join(f.home, '.codex', 'config.toml'),
-      `[hooks.state."${p}:pre_tool_use:0:0"]\ntrusted_hash = "sha256:abc"\n`
-    )
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p)
+    trustAll(f.home, p)
+    const r = collectDoctor(f.deps)
+    expect(rowFor(r, p)).toMatchObject({
+      kind: 'codex-hooks',
+      agent: 'codex',
+      tracked: false,
+      state: 'trusted (hash not verified)',
+    })
+    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
+    expect(warn(r, 'missing-hook-events')).toHaveLength(0)
+  })
+
+  it('without a trust match it says unverified and warns', () => {
+    const f = fixture()
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p)
     const r = collectDoctor(f.deps)
     const row = rowFor(r, p)!
-    expect(row).toMatchObject({ group: 'machine', kind: 'codex-hooks' })
-    expect(row.state).toBe('not trusted')
-    expect(row.detail).toContain('open /hooks in Codex and Trust')
-    expect(row.detail).toContain('Stop')
+    expect(row.state).toBe('trust unverified')
+    expect(row.detail).toContain(
+      "open /hooks in Codex and Trust if Lumo hooks don't fire"
+    )
     expect(warn(r, 'codex-untrusted')).toHaveLength(1)
   })
 
-  it('all trusted reports the unverified caveat and no warning', () => {
+  it('flags missing Codex events with the init command for codex', () => {
     const f = fixture()
-    const p = codexHooks(f.home, ['PreToolUse'])
-    writeFileSync(
-      join(f.home, '.codex', 'config.toml'),
-      `[hooks.state."${p}:pre_tool_use:0:0"]\ntrusted_hash = "sha256:abc"\n`
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(
+      p,
+      CODEX_HOOK_EVENTS.filter(([ev]) => ev !== 'SubagentStop')
     )
     const r = collectDoctor(f.deps)
-    expect(rowFor(r, p)!.state).toBe('trusted (hash not verified)')
-    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
+    const row = rowFor(r, p)!
+    expect(row.suggestion).toBe('lumo init --agent codex')
+    expect(row.detail).toContain('missing 1 hook event(s)')
+    expect(
+      warn(r, 'missing-hook-events').some(w =>
+        w.message.includes('SubagentStop')
+      )
+    ).toBe(true)
   })
 
-  it('missing config.toml means not trusted', () => {
+  it('matches trust keyed by the realpath when the repo is reached through a symlink', () => {
     const f = fixture()
-    const p = codexHooks(f.home, ['PreToolUse'])
-    expect(rowFor(collectDoctor(f.deps), p)!.state).toBe('not trusted')
+    const link = join(tmp(), 'link')
+    symlinkSync(f.repo, link)
+    const p = join(f.repo, '.codex', 'hooks.json')
+    writeCodex(p)
+    trustAll(f.home, p)
+    const r = collectDoctor({ ...f.deps, cwd: link })
+    expect(rowFor(r, p)!.state).toBe('trusted (hash not verified)')
   })
 
   it('a hooks.json with no lumo entries is not an install', () => {
     const f = fixture()
-    const p = join(f.home, '.codex', 'hooks.json')
+    const p = join(f.repo, '.codex', 'hooks.json')
     mkdirSync(join(p, '..'), { recursive: true })
     writeFileSync(
       p,
@@ -492,45 +470,192 @@ describe('PATH check', () => {
   })
 })
 
+describe('login and API', () => {
+  const creds = {
+    token: 'tok',
+    apiUrl: 'https://lumo.example',
+    userId: 'u',
+    email: 'a@b.c',
+    workspaceId: 'w',
+    workspaceSlug: 'acme',
+    workspaceName: 'Acme',
+    apiKeyId: 'k',
+    apiKeyName: 'k',
+    apiKeyPrefix: 'lum_x',
+  }
+
+  it('not logged in: no API call', async () => {
+    const checkApi = jest.fn(async () => {})
+    expect(await probeAuth({ credentials: () => null, checkApi })).toEqual({
+      loggedIn: false,
+      api: 'not-checked',
+    })
+    expect(checkApi).not.toHaveBeenCalled()
+  })
+
+  it('checks the saved key against the saved API URL', async () => {
+    const prev = process.env.LUMO_API_URL
+    delete process.env.LUMO_API_URL
+    try {
+      const checkApi = jest.fn(async () => {})
+      expect(await probeAuth({ credentials: () => creds, checkApi })).toEqual({
+        loggedIn: true,
+        email: 'a@b.c',
+        workspace: 'acme',
+        apiUrl: 'https://lumo.example',
+        api: 'ok',
+      })
+      expect(checkApi).toHaveBeenCalledWith('https://lumo.example', 'tok')
+    } finally {
+      if (prev !== undefined) process.env.LUMO_API_URL = prev
+    }
+  })
+
+  it('maps failures to unreachable / invalid-key / error', async () => {
+    const fail = (msg: string) => async () => {
+      throw new Error(msg)
+    }
+    const run = (msg: string) =>
+      probeAuth({ credentials: () => creds, checkApi: fail(msg) })
+    expect((await run('Could not reach Lumo API at x (y)')).api).toBe(
+      'unreachable'
+    )
+    expect((await run('Invalid or revoked API key')).api).toBe('invalid-key')
+    expect((await run('Verify failed: HTTP 500')).api).toBe('error')
+  })
+
+  it('the text report shows login and the fix command', async () => {
+    const f = fixture()
+    await doctor({}, { ...f.deps, credentials: () => null })
+    expect(stdout).toContain('Login\n  not logged in\n  lumo auth login')
+    stdout = ''
+    await doctor(
+      {},
+      {
+        ...f.deps,
+        credentials: () => creds,
+        checkApi: async () => {
+          throw new Error('Invalid or revoked API key')
+        },
+      }
+    )
+    expect(stdout).toContain('API https://lumo.example: invalid-key')
+  })
+})
+
+describe('API check timeout (a server that accepts and never answers)', () => {
+  let server: Server
+  let url: string
+  let closed: Promise<void>
+  let prevApiUrl: string | undefined
+
+  beforeEach(async () => {
+    prevApiUrl = process.env.LUMO_API_URL
+    delete process.env.LUMO_API_URL
+    let onClose!: () => void
+    closed = new Promise(r => (onClose = r))
+    // Never writes a response: the request hangs until the client gives up.
+    server = createServer(() => {})
+    server.on('connection', (sock: Socket) => sock.on('close', onClose))
+    await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
+    const addr = server.address() as { port: number }
+    url = `http://127.0.0.1:${addr.port}`
+  })
+  afterEach(async () => {
+    if (prevApiUrl !== undefined) process.env.LUMO_API_URL = prevApiUrl
+    server.closeAllConnections()
+    await new Promise(r => server.close(r))
+  })
+
+  const creds = () => ({
+    token: 'tok',
+    apiUrl: url,
+    userId: 'u',
+    email: 'a@b.c',
+    workspaceId: 'w',
+    workspaceSlug: 'acme',
+    workspaceName: 'Acme',
+    apiKeyId: 'k',
+    apiKeyName: 'k',
+    apiKeyPrefix: 'lum_x',
+  })
+
+  it('the default timeout is 5 s', () => {
+    expect(API_TIMEOUT_MS).toBe(5_000)
+  })
+
+  it('doctor reports unreachable within the timeout and aborts the request (socket closed)', async () => {
+    const f = fixture()
+    const { checkApi: _noStub, ...deps } = f.deps
+    const timeout = 300
+    const t0 = Date.now()
+    expect(
+      await doctor(
+        { json: true },
+        { ...deps, credentials: creds, apiTimeoutMs: timeout }
+      )
+    ).toBe(0)
+    const elapsed = Date.now() - t0
+    expect(elapsed).toBeGreaterThanOrEqual(timeout - 50)
+    expect(elapsed).toBeLessThan(timeout + 2_000)
+    const auth = (JSON.parse(stdout) as { auth: { api: string } }).auth
+    expect(auth.api).toBe('unreachable')
+    // The client closed its socket: nothing keeps the process alive.
+    await Promise.race([
+      closed,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('socket still open')), 1_000)
+      ),
+    ])
+  })
+})
+
 describe('doctor command', () => {
   it('prints grouped text, exits 0 even with warnings, and is read-only', async () => {
     const f = fixture()
-    const up = join(f.home, '.claude', 'skills', 'lumo')
-    writeSkill(up, '1.0.0')
-    const before = hashSkillDir(up)
+    const p = join(f.repo, '.claude', 'settings.json')
+    writeSettings(p, ['Stop'])
+    const before = readFileSync(p, 'utf8')
     const code = await doctor({}, { ...f.deps, env: { PATH: tmp() } })
     expect(code).toBe(0)
-    expect(stdout).toContain('This machine')
-    expect(stdout).toContain(up)
-    expect(stdout).toContain('behind CLI 2.0.0')
-    expect(stdout).toContain('    lumo init --scope user --agent claude-code')
-    expect(stdout).not.toContain('-> lumo init')
-    expect(stdout).not.toContain('--upgrade')
+    expect(stdout).toContain(`Repo ${f.repo}`)
+    expect(stdout).toContain('Not committed (this checkout only)')
+    expect(stdout).toContain(p)
+    expect(stdout).toContain('    lumo init --agent claude-code')
+    expect(stdout).not.toMatch(/--scope|--upgrade|-> lumo init/)
     expect(stdout).toContain('lumo-not-on-path')
     // LUM-1232 S-1: warnings use the one warning marker, never `!`.
     expect(stdout).toMatch(/^  ⚠ lumo-not-on-path: /m)
     expect(stdout).not.toMatch(/^  ! /m)
-    expect(hashSkillDir(up)).toBe(before)
+    expect(readFileSync(p, 'utf8')).toBe(before)
   })
 
-  it('--json emits the report', async () => {
+  it('--json emits schema version 2 with the repo, rows and auth', async () => {
     const f = fixture()
-    writeSkill(join(f.repo, '.claude', 'skills', 'lumo'), '2.0.0')
+    writeSettings(join(f.repo, '.claude', 'settings.json'), ALL)
     const code = await doctor({ json: true }, f.deps)
     expect(code).toBe(0)
-    const parsed = JSON.parse(stdout) as DoctorReport
+    const parsed = JSON.parse(stdout) as DoctorReport & {
+      version: number
+      auth: { loggedIn: boolean }
+    }
+    expect(parsed.version).toBe(2)
     expect(parsed.cliVersion).toBe('2.0.0')
+    expect(parsed.repo).toBe(f.repo)
     expect(parsed.rows[0]).toMatchObject({
-      group: 'repo-uncommitted',
-      kind: 'skill',
+      kind: 'claude-settings',
+      tracked: false,
     })
+    expect(parsed.rows[0]).not.toHaveProperty('scope')
+    expect(parsed.rows[0]).not.toHaveProperty('group')
+    expect(parsed.auth.loggedIn).toBe(false)
     expect(Array.isArray(parsed.warnings)).toBe(true)
   })
 
-  it('says so when nothing is installed', async () => {
+  it('says so when the repo has no Lumo hooks', async () => {
     const f = fixture()
     await doctor({}, f.deps)
-    expect(stdout).toContain('No Lumo installs found')
+    expect(stdout).toContain('No Lumo hooks in this repo.')
   })
 })
 
@@ -547,259 +672,6 @@ describe('registration', () => {
     else process.env.LUMO_CLI_INTROSPECT = prev
     const cmd = program.commands.find(c => c.name() === 'doctor')
     expect(cmd?.options.map(o => o.long)).toContain('--json')
-  })
-})
-
-describe('fix round 1', () => {
-  const writeRegistry = (installs: unknown[]): void =>
-    writeFileSync(
-      join(process.env.LUMO_CONFIG_DIR as string, 'installs.json'),
-      JSON.stringify({ lastSyncedVersion: null, installs })
-    )
-
-  it('shouldAutoSync skips doctor, uninstall and skill only', () => {
-    const argv = (c?: string) => ['node', 'lumo', ...(c ? [c] : [])]
-    expect(shouldAutoSync(argv('doctor'))).toBe(false)
-    expect(shouldAutoSync(argv('uninstall'))).toBe(false)
-    expect(shouldAutoSync(argv('skill'))).toBe(false)
-    expect(shouldAutoSync(argv('hook'))).toBe(true)
-    expect(shouldAutoSync(argv('task'))).toBe(true)
-    expect(shouldAutoSync(argv())).toBe(true)
-  })
-
-  it('lists recorded settings and git-hook installs in other repos', async () => {
-    const f = fixture()
-    const other = tmp()
-    const settings = join(other, '.claude', 'settings.json')
-    writeSettings(settings, ALL)
-    const hook = join(other, '.git', 'hooks', 'prepare-commit-msg')
-    mkdirSync(join(hook, '..'), { recursive: true })
-    writeFileSync(hook, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
-    const rec = (kind: string, path: string) => ({
-      kind,
-      path,
-      scope: 'project',
-      agent: 'claude-code',
-      version: '1.0.0',
-      installedAt: 'x',
-    })
-    writeRegistry([rec('claude-settings', settings), rec('git-hook', hook)])
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, settings)).toMatchObject({
-      group: 'other-repos',
-      kind: 'claude-settings',
-    })
-    expect(rowFor(r, hook)).toMatchObject({
-      group: 'other-repos',
-      kind: 'git-hook',
-    })
-    await doctor({}, f.deps)
-    expect(stdout).toContain('Other repos')
-  })
-
-  it('a behind install in another repo is refreshed from inside that repo', () => {
-    const f = fixture()
-    const other = tmp()
-    const hook = join(other, '.git', 'hooks', 'prepare-commit-msg')
-    mkdirSync(join(hook, '..'), { recursive: true })
-    writeFileSync(
-      hook,
-      '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
-    )
-    writeRegistry([
-      {
-        kind: 'git-hook',
-        path: hook,
-        scope: 'project',
-        agent: 'git',
-        version: '1.0.0',
-        installedAt: 'x',
-      },
-    ])
-    expect(rowFor(collectDoctor(f.deps), hook)).toMatchObject({
-      group: 'other-repos',
-      suggestion: 'lumo init --scope project',
-      detail: 'run the command in that repo',
-    })
-  })
-
-  it('warns about stale registry paths of every kind', () => {
-    const f = fixture()
-    const rec = (kind: string, path: string) => ({
-      kind,
-      path,
-      scope: 'project',
-      agent: 'claude-code',
-      version: '1.0.0',
-      installedAt: 'x',
-    })
-    writeRegistry([
-      rec('skill', '/nope/a'),
-      rec('claude-settings', '/nope/b'),
-      rec('git-hook', '/nope/c'),
-    ])
-    expect(warn(collectDoctor(f.deps), 'registry-stale')).toHaveLength(3)
-  })
-
-  it('resolves a relative core.hooksPath via git rev-parse', () => {
-    const f = fixture()
-    git(f.repo, 'config', 'core.hooksPath', 'hooks/custom')
-    const r = resolveGitHooksDir(f.repo)
-    expect(r.coreHooksPath).toBe('hooks/custom')
-    expect(r.dir).toBe(join(f.repo, 'hooks', 'custom'))
-  })
-
-  it('stale core.hooksPath hook has no command, only a manual hint', () => {
-    const f = fixture()
-    git(f.repo, 'config', 'core.hooksPath', '.husky')
-    const hook = join(f.repo, '.husky', 'prepare-commit-msg')
-    mkdirSync(join(hook, '..'), { recursive: true })
-    writeFileSync(
-      hook,
-      '#!/bin/sh\n# >>> lumo prepare-commit-msg >>>\nold\n# <<< lumo <<<\n'
-    )
-    const row = rowFor(collectDoctor(f.deps), hook)!
-    expect(row.state).toBe('behind CLI 2.0.0')
-    expect(row.suggestion).toBeUndefined()
-    expect(row.detail).toContain('by hand')
-  })
-
-  it('codexTrustedEvents tolerates whitespace and a trailing comment on the header', () => {
-    const toml = [
-      '  [ hooks.state."/h/hooks.json:pre_tool_use:0:0" ]   # trusted via /hooks',
-      'trusted_hash = "sha256:abc"',
-    ].join('\n')
-    expect([...codexTrustedEvents(toml, '/h/hooks.json')]).toEqual([
-      'pre_tool_use',
-    ])
-  })
-})
-
-describe('Codex hooks files beyond ~/.codex (LUM-1052 x LUM-1051)', () => {
-  const writeCodex = (
-    file: string,
-    events: ReadonlyArray<readonly [string, string]>
-  ) => {
-    mkdirSync(join(file, '..'), { recursive: true })
-    const hooks: Record<string, unknown> = {}
-    for (const [ev, slug] of events)
-      hooks[ev] = [
-        {
-          hooks: [
-            { type: 'command', command: `lumo hook ${slug} --agent codex` },
-          ],
-        },
-      ]
-    writeFileSync(file, JSON.stringify({ hooks }))
-  }
-
-  it('lists the repo .codex/hooks.json with trust read from ~/.codex/config.toml', () => {
-    const f = fixture()
-    const p = join(f.repo, '.codex', 'hooks.json')
-    writeCodex(p, CODEX_HOOK_EVENTS)
-    mkdirSync(join(f.home, '.codex'), { recursive: true })
-    writeFileSync(
-      join(f.home, '.codex', 'config.toml'),
-      CODEX_HOOK_EVENTS.map(
-        ([ev]) =>
-          `[hooks.state."${p}:${codexEventKey(ev)}:0:0"]\ntrusted_hash = "sha256:x"\n`
-      ).join('\n')
-    )
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, p)).toMatchObject({
-      kind: 'codex-hooks',
-      scope: 'project',
-      agent: 'codex',
-      group: 'repo-uncommitted',
-      state: 'trusted (hash not verified)',
-    })
-    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
-    expect(warn(r, 'missing-hook-events')).toHaveLength(0)
-  })
-
-  it('flags missing Codex events with the init command for its scope', () => {
-    const f = fixture()
-    const p = join(f.home, '.codex', 'hooks.json')
-    writeCodex(
-      p,
-      CODEX_HOOK_EVENTS.filter(([ev]) => ev !== 'Interrupt')
-    )
-    const r = collectDoctor(f.deps)
-    const row = rowFor(r, p)!
-    expect(row.suggestion).toBe('lumo init --scope user --agent codex')
-    expect(row.detail).toContain('missing 1 hook event(s)')
-    expect(
-      warn(r, 'missing-hook-events').some(w => w.message.includes('Interrupt'))
-    ).toBe(true)
-  })
-
-  it('includes recorded codex-hooks files from other repos and reports stale records', () => {
-    const f = fixture()
-    const other = tmp()
-    const p = join(other, '.codex', 'hooks.json')
-    writeCodex(p, CODEX_HOOK_EVENTS)
-    const gone = join(tmp(), '.codex', 'hooks.json')
-    for (const path of [p, gone])
-      upsertInstall({
-        kind: 'codex-hooks',
-        path,
-        scope: 'project',
-        agent: 'codex',
-        version: '2.0.0',
-        installedAt: '2026-01-01T00:00:00.000Z',
-      })
-    const r = collectDoctor(f.deps)
-    expect(rowFor(r, p)).toMatchObject({
-      group: 'other-repos',
-      kind: 'codex-hooks',
-    })
-    expect(warn(r, 'registry-stale').some(w => w.message.includes(gone))).toBe(
-      true
-    )
-  })
-
-  const trustAll = (home: string, key: string) => {
-    mkdirSync(join(home, '.codex'), { recursive: true })
-    writeFileSync(
-      join(home, '.codex', 'config.toml'),
-      CODEX_HOOK_EVENTS.map(
-        ([ev]) =>
-          `[hooks.state."${key}:${codexEventKey(ev)}:0:0"]\ntrusted_hash = "sha256:x"\n`
-      ).join('\n')
-    )
-  }
-
-  it('matches trust keyed by the realpath when the hooks file is reached through a symlinked dir', () => {
-    const f = fixture()
-    const link = join(tmp(), 'link')
-    symlinkSync(realpathSync(f.home), link)
-    const viaLink = join(link, '.codex', 'hooks.json')
-    writeCodex(viaLink, CODEX_HOOK_EVENTS)
-    trustAll(f.home, join(realpathSync(f.home), '.codex', 'hooks.json'))
-    const r = collectDoctor({ ...f.deps, homeDir: link })
-    const row = rowFor(r, viaLink)!
-    expect(row.state).toBe('trusted (hash not verified)')
-    expect(warn(r, 'codex-untrusted')).toHaveLength(0)
-  })
-
-  it('still matches trust keyed by the path as given', () => {
-    const f = fixture()
-    const p = join(f.repo, '.codex', 'hooks.json')
-    writeCodex(p, CODEX_HOOK_EVENTS)
-    trustAll(f.home, p)
-    const row = rowFor(collectDoctor(f.deps), p)!
-    expect(row.state).toBe('trusted (hash not verified)')
-  })
-
-  it('a project hooks.json with no trust match says unverified, not "not trusted"', () => {
-    const f = fixture()
-    const p = join(f.repo, '.codex', 'hooks.json')
-    writeCodex(p, CODEX_HOOK_EVENTS)
-    const row = rowFor(collectDoctor(f.deps), p)!
-    expect(row.state).toBe('trust unverified')
-    expect(row.detail).toContain(
-      "open /hooks in Codex and Trust if Lumo hooks don't fire"
-    )
   })
 })
 

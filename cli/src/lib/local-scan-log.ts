@@ -399,6 +399,20 @@ export async function postBatch(
 
 const LOCK_STALE_MS = 60_000
 
+/** How long a run waits for another run's queue lock. */
+export const LOCK_WAIT_MS = 2_000
+
+/** Take the queue lock, retrying for up to {@link LOCK_WAIT_MS}. */
+function acquireQueueLock(lock: string): boolean {
+  const deadline = Date.now() + LOCK_WAIT_MS
+  for (;;) {
+    if (acquireFileLock(lock, LOCK_STALE_MS)) return true
+    if (Date.now() >= deadline) return false
+    // A synchronous pause: the hook runs this in the background anyway.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50)
+  }
+}
+
 /**
  * Send `runs` with whatever the queue holds (queue first, oldest first, in
  * batches of {@link UPLOAD_BATCH}). With `offline`, nothing is sent: the runs
@@ -420,15 +434,22 @@ export async function uploadRuns(
     note: null,
   }
   const lock = file ? `${file}.lock` : null
-  // Another `--log` run holds the queue: send this run's own results only,
-  // and queue nothing (that run flushes the queue).
-  const locked = lock !== null && acquireFileLock(lock, LOCK_STALE_MS)
+  // Another `--log` run holds the queue (post-commit runs can overlap): wait
+  // briefly for it. Still held: send this run's own results only, and say
+  // that nothing could be queued — never claim a queued run that is not.
+  const locked = lock !== null && acquireQueueLock(lock)
   try {
     const queued = file && locked ? readQueue(file) : []
     if (opts.offline) {
+      if (!file || !locked) {
+        outcome.note = file
+          ? '--offline — another lumo run holds the queue, so this result was not queued (rerun --log to record it)'
+          : '--offline — no git dir to queue under; nothing recorded'
+        return outcome
+      }
       const all = dedupeRuns([...queued, ...runs])
-      if (file && locked) writeQueue(file, all)
-      outcome.queued = file && locked ? Math.min(all.length, QUEUE_MAX) : 0
+      writeQueue(file, all)
+      outcome.queued = Math.min(all.length, QUEUE_MAX)
       outcome.note = '--offline — queued, sent by the next --log run online'
       return outcome
     }
