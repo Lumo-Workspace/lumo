@@ -41,3 +41,4 @@
 - 探针：修复后连续两轮都是 6/6 符合预期。
 - 修复后 dogfood 的报告数：**0/114**（唯一那条已被反驳）。精确率在统计上仍然无从计算；按用户的决定，下一步只对 Lumo 自己的 workspace 打开（`LUMO_REWARD_HACK_WORKSPACES`），用真实 PR 积累报告，再按 80% 的门槛复核。
 - 复跑花费 ≈ $2.65。整个校准合计 ≈ **$27.7**，比用户批准的 $25 多出约 $2.7，是修复后复跑时追加的。
+- 2026-10-22：截断改为最后才剪碰过 PR 文件的事件（`fix: reward-hack truncation keeps the events that touched PR files`），判定缓存版本随之 `rh-v2` → `rh-v3`。

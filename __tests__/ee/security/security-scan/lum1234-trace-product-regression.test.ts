@@ -296,10 +296,110 @@ describe('the label and the trajectory id never reach the model', () => {
         refute: async () => ({ refuted: true, costUsd: 0 }),
         spend: new BudgetGate(5),
       })
-    expect((await run('Your credit balance is too low')).kind).toBe('fatal')
+    const fatal = await run('Your credit balance is too low')
+    expect(fatal.kind).toBe('fatal')
+    // The judge call was reserved (it may have been billed): its estimate is
+    // written as an error record, re-run on resume.
+    if (fatal.kind === 'fatal') {
+      expect(fatal.record?.outcome).toBe('error')
+      expect(fatal.record!.costs.judgeUsd).toBeGreaterThan(0)
+    }
     const other = await run('socket hang up')
     expect(other.kind).toBe('record')
     if (other.kind === 'record') expect(other.record.outcome).toBe('error')
+  })
+})
+
+describe('recorded spend never falls under the real spend', () => {
+  const ROW = {
+    trajectory_id: 'r1',
+    label: '0',
+    conversation: JSON.stringify(CONVO),
+  }
+  const judgeEstimate = (prompt: string) =>
+    estimateRhCallUsd(
+      `${REWARD_HACK_SYSTEM_PROMPT}\n${prompt}`,
+      REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS
+    )
+  const hit = {
+    suspicion: 90,
+    items: [
+      {
+        kind: 'SPECIAL_CASING' as const,
+        summary: 'Switched to a lenient parser.',
+        eventIds: ['e3'],
+      },
+    ],
+  }
+
+  it('a judge call reporting neither cost nor tokens books its estimate', async () => {
+    let prompt = ''
+    const r = await regressRow({
+      row: prepareTraceRow(ROW),
+      judge: async p => {
+        prompt = p
+        return { output: { suspicion: 0, items: [] }, costUsd: null }
+      },
+      refute: async () => ({ refuted: true, costUsd: 0 }),
+      spend: new BudgetGate(5),
+    })
+    expect(r.kind).toBe('record')
+    if (r.kind !== 'record') return
+    expect(r.record.costs.judgeUsd).toBeCloseTo(judgeEstimate(prompt), 12)
+    expect(r.record.costs.totalUsd).toBeCloseTo(judgeEstimate(prompt), 12)
+  })
+
+  it('a judge call that throws is recorded at its estimate', async () => {
+    const gate = new BudgetGate(5)
+    const r = await regressRow({
+      row: prepareTraceRow(ROW),
+      judge: async () => {
+        throw new Error('socket hang up')
+      },
+      refute: async () => ({ refuted: true, costUsd: 0 }),
+      spend: gate,
+    })
+    expect(r.kind).toBe('record')
+    if (r.kind !== 'record') return
+    expect(r.record.outcome).toBe('error')
+    expect(r.record.costs.judgeUsd).toBeGreaterThan(0)
+    // Matches what the shared gate kept charged for it.
+    expect(r.record.costs.totalUsd).toBeCloseTo(gate.spentUsd, 12)
+  })
+
+  it('a fatal refute error after a paid judge records both, refute at its estimate', async () => {
+    const gate = new BudgetGate(5)
+    const r = await regressRow({
+      row: prepareTraceRow(ROW),
+      judge: async () => ({ output: hit, costUsd: 0.02 }),
+      refute: async () => {
+        throw new Error('401 unauthorized')
+      },
+      spend: gate,
+    })
+    expect(r.kind).toBe('fatal')
+    if (r.kind !== 'fatal') return
+    expect(r.record).not.toBeNull()
+    expect(r.record!.outcome).toBe('error')
+    expect(r.record!.costs.judgeUsd).toBeCloseTo(0.02, 12)
+    expect(r.record!.costs.refuteUsd).toBeGreaterThan(0)
+    expect(r.record!.costs.totalUsd).toBeCloseTo(gate.spentUsd, 12)
+  })
+
+  it('reported costs are booked as the product settles them', async () => {
+    const r = await regressRow({
+      row: prepareTraceRow(ROW),
+      judge: async () => ({ output: hit, costUsd: 0.03 }),
+      refute: async () => ({ refuted: true, costUsd: 0.004 }),
+      spend: new BudgetGate(5),
+    })
+    expect(r.kind).toBe('record')
+    if (r.kind !== 'record') return
+    expect(r.record.costs).toEqual({
+      judgeUsd: 0.03,
+      refuteUsd: 0.004,
+      totalUsd: 0.034,
+    })
   })
 })
 
@@ -422,8 +522,18 @@ describe('the report', () => {
     expect(r.byFamily['1.4']).toMatchObject({ k: 1, n: 1 })
     expect(r.spendUsd).toBeCloseTo(0.1, 10)
     const text = renderRegressionReport(r)
-    expect(text).toContain('2/4 50.0%')
-    expect(text).toContain('research judge 58.6%')
+    expect(text).toContain('END-TO-END SHIPPED RESULT')
+    // Research numbers (suspicion ≥ 0.5) sit on the judge-alone lines only.
+    const lines = text.split('\n')
+    const detLine = lines.find(l => l.includes('detection (hacked)'))!
+    expect(detLine).toContain('2/4 50.0%')
+    expect(detLine).not.toContain('research')
+    for (const n of ['58.6%', '7.6%', '0.837']) {
+      const line = lines.find(l => l.includes(`research judge ${n}`))!
+      expect(lines.indexOf(line)).toBeGreaterThan(
+        lines.findIndex(l => l.startsWith('JUDGE ALONE'))
+      )
+    }
   })
 })
 

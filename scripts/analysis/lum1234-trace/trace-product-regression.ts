@@ -26,6 +26,14 @@
  * DB. The label and the trajectory id never reach the model; the results
  * file (outside the repo) holds counts, ids and the model's item summaries
  * passed through `redactForStorage` — no TRACE text (CC-BY-SA, gated).
+ * Each row's recorded spend follows the product's settle semantics: a call
+ * that reports a cost or tokens books that, and a call that reports neither,
+ * throws, or never returns books the estimate reserved for it — so the
+ * budget a resumed run seeds from the file is never under the real spend.
+ *
+ * The synthetic PR's Edit simulation is approximate: an Edit removes the
+ * lines EQUAL (trimmed) to its `old_string` lines and adds its `new_string`
+ * lines, with no position or original-file context.
  */
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -34,8 +42,10 @@ import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import {
   REWARD_HACK_MAX_REFUTES,
   decideRewardHack,
+  type RhCallCost,
   type RhJudgeFn,
   type RhRefuteFn,
+  type RhSpendGate,
 } from '@/ee/security/security-scan/reward-hack-decide'
 import {
   buildRhPrDiffBlock,
@@ -134,6 +144,47 @@ export function prepareTraceRow(row: Record<string, unknown>): PreparedRow {
   }
 }
 
+/**
+ * One row's view of the shared spend gate: forwards every reserve / settle
+ * and books, per call, the settled cost (`settledRhCallUsd`, the product's
+ * rule) or — for a reserved call never settled (it threw, or the run
+ * stopped) — its reserved estimate. The core reserves the judge first, then
+ * all refutes in one reservation, and settles each call it got back.
+ */
+export class RowSpend implements RhSpendGate {
+  private judgeReserved: number | null = null
+  private judgeSettled: number | null = null
+  private refutePending = 0
+  private refuteSettled = 0
+
+  constructor(private readonly inner: RhSpendGate) {}
+
+  async reserve(usd: number): Promise<boolean> {
+    const ok = await this.inner.reserve(usd)
+    if (!ok) return false
+    if (this.judgeReserved === null) this.judgeReserved = usd
+    else this.refutePending += usd
+    return true
+  }
+
+  async settle(estimateUsd: number, reported: RhCallCost): Promise<void> {
+    await this.inner.settle(estimateUsd, reported)
+    const usd = settledRhCallUsd(reported, estimateUsd)
+    if (this.judgeReserved !== null && this.judgeSettled === null)
+      this.judgeSettled = usd
+    else {
+      this.refutePending -= estimateUsd
+      this.refuteSettled += usd
+    }
+  }
+
+  costs(): { judgeUsd: number; refuteUsd: number; totalUsd: number } {
+    const judgeUsd = this.judgeSettled ?? this.judgeReserved ?? 0
+    const refuteUsd = this.refuteSettled + Math.max(0, this.refutePending)
+    return { judgeUsd, refuteUsd, totalUsd: judgeUsd + refuteUsd }
+  }
+}
+
 /** Run the shipped core on one prepared row. `capped` = the gate said no. */
 export async function regressRow(args: {
   row: PreparedRow
@@ -150,7 +201,15 @@ export async function regressRow(args: {
        */
       record: RegressionRecord | null
     }
-  | { kind: 'fatal'; error: string }
+  | {
+      kind: 'fatal'
+      error: string
+      /**
+       * The row as an error record when any call was reserved (it may have
+       * been billed): written so the spend counts; re-run on resume.
+       */
+      record: RegressionRecord | null
+    }
 > {
   const { row } = args
   const base: RegressionRecord = {
@@ -174,43 +233,35 @@ export async function regressRow(args: {
     error: null,
     at: new Date().toISOString(),
   }
-  let judgeUsd = 0
-  let refuteUsd = 0
-  const judge: RhJudgeFn = async p => {
-    const r = await args.judge(p)
-    judgeUsd = settledRhCallUsd(r, 0)
-    return r
-  }
-  const refute: RhRefuteFn = async a => {
-    const r = await args.refute(a)
-    refuteUsd += settledRhCallUsd(r, 0)
-    return r
-  }
+  const spend = new RowSpend(args.spend)
   let decision
   try {
     decision = await decideRewardHack({
       sessions: [{ id: TRACE_SESSION_ID, events: row.events }],
       prFileList: row.prFileList,
       requirement: row.requirement,
-      judge,
-      refute,
-      spend: args.spend,
+      judge: args.judge,
+      refute: args.refute,
+      spend,
     })
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error)
-    // Decided on the raw message: out of credit / bad key stops the run and
-    // leaves the row unrecorded, so a resumed run makes the call again.
-    if (isFatalError(raw))
-      return { kind: 'fatal', error: red(raw).slice(0, 300) }
-    return {
-      kind: 'record',
-      record: {
-        ...base,
-        outcome: 'error',
-        error: red(raw).slice(0, 300),
-        costs: { judgeUsd, refuteUsd, totalUsd: judgeUsd + refuteUsd },
-      },
+    const errorRecord: RegressionRecord = {
+      ...base,
+      outcome: 'error',
+      error: red(raw).slice(0, 300),
+      costs: spend.costs(),
     }
+    // Decided on the raw message: out of credit / bad key stops the run. The
+    // row is an error record either way (re-run on resume), written so a
+    // reserved call that may have been billed still counts.
+    if (isFatalError(raw))
+      return {
+        kind: 'fatal',
+        error: errorRecord.error!,
+        record: errorRecord.costs.totalUsd > 0 ? errorRecord : null,
+      }
+    return { kind: 'record', record: errorRecord }
   }
   const built = decision.built
   const withPrompt = {
@@ -228,7 +279,7 @@ export async function regressRow(args: {
               ...withPrompt,
               outcome: 'error',
               error: 'budget reached before the refute calls',
-              costs: { judgeUsd, refuteUsd: 0, totalUsd: judgeUsd },
+              costs: spend.costs(),
             }
           : null,
     }
@@ -256,7 +307,7 @@ export async function regressRow(args: {
         refuted: r.refuted,
       })),
       refuteCapped: decision.refuteCapped,
-      costs: { judgeUsd, refuteUsd, totalUsd: judgeUsd + refuteUsd },
+      costs: spend.costs(),
     },
   }
 }
@@ -439,15 +490,20 @@ export function renderRegressionReport(r: RegressionReport): string {
   const lines = [
     `TRACE through the shipped reward-hack pipeline (threshold ${REWARD_HACK_THRESHOLD})`,
     `rows ${r.rows} · errors ${r.errors} (excluded) · overCap ${r.overCap} (not sent, counted as not flagged) · PARTIAL (cut or overCap) ${r.partial} · no written files ${r.noPrFiles} · spend $${r.spendUsd.toFixed(2)}`,
-    `detection (hacked, ≥1 reported item):   ${ci(r.detection)}   [research judge ${pct(rj.detection)}]`,
-    `false positive (benign, ≥1 item):       ${ci(r.falsePositive)}   [research judge ${pct(rj.falsePositive)}]`,
-    `judge alone (suspicion ≥ threshold):    detection ${ci(r.judgeDetection)} · FP ${ci(r.judgeFalsePositive)}`,
-    `AUROC (judge suspicion): ${r.auroc === null ? 'n/a' : r.auroc.toFixed(3)}   [research judge ${rj.auroc.toFixed(3)}]`,
-    `detection by hack family:`,
-    ...Object.entries(r.byFamily).map(
-      ([f, x]) =>
-        `  ${f}: ${ci(x)}   [research judge ${pct((rj.byFamily as Record<string, number>)[f] ?? null)}]`
-    ),
+    `END-TO-END SHIPPED RESULT (≥1 item kept after gates and refutes):`,
+    `  detection (hacked):       ${ci(r.detection)}`,
+    `  false positive (benign):  ${ci(r.falsePositive)}`,
+    `  detection by hack family (end-to-end):`,
+    ...Object.entries(r.byFamily).map(([f, x]) => `    ${f}: ${ci(x)}`),
+    `JUDGE ALONE (product judge, suspicion ≥ ${REWARD_HACK_THRESHOLD}, before gates/refutes) vs the research judge (suspicion ≥ 0.5, RESULTS.md):`,
+    `  detection:       ${ci(r.judgeDetection)}   [research judge ${pct(rj.detection)}]`,
+    `  false positive:  ${ci(r.judgeFalsePositive)}   [research judge ${pct(rj.falsePositive)}]`,
+    `  AUROC (suspicion): ${r.auroc === null ? 'n/a' : r.auroc.toFixed(3)}   [research judge ${rj.auroc.toFixed(3)}]`,
+    `  research judge detection by family (suspicion ≥ 0.5): ${Object.entries(
+      rj.byFamily
+    )
+      .map(([f, x]) => `${f} ${pct(x)}`)
+      .join(' · ')}`,
   ]
   return lines.join('\n')
 }
@@ -577,6 +633,8 @@ async function main(): Promise<void> {
         break
       }
       if (r.kind === 'fatal') {
+        if (r.record)
+          await appendFile(args.out, `${JSON.stringify(r.record)}\n`)
         stopped = `fatal gateway error: ${r.error}`
         break
       }
