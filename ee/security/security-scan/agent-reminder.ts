@@ -213,7 +213,7 @@ export function renderPreToolUseSecurityReminder(input: {
     const split = s.findings.some(f => isCodeReviewFinding(f.ruleId))
       ? ` (${findingCountPhrase(s.findings.map(f => f.ruleId))})`
       : ''
-    const header = `⚠ Lumo security scan found ${n} undispositioned finding${n === 1 ? '' : 's'}${split} on PR #${s.prNumber} (head ${head})${blockNote}:`
+    const header = `⚠ Lumo review found ${n} undispositioned finding${n === 1 ? '' : 's'}${split} on PR #${s.prNumber} (head ${head})${blockNote}:`
     const findingLines = cappedLines(s.findings, input.identifier)
       .map(l => `  ${l}`)
       .join('\n')

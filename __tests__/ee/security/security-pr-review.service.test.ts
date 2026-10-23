@@ -249,7 +249,7 @@ describe('pure builders', () => {
       })
     ).toBe(
       [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**4 open findings** (1 blocking DONE)',
         '',
@@ -325,7 +325,7 @@ describe('pure builders', () => {
       })
     ).toBe(
       [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**No open findings on lines this PR added.**',
         '',
@@ -417,7 +417,7 @@ describe('securityPrReviewService.sync', () => {
       prNumber: 945,
       token: 'tok',
       body: [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**1 open finding** (1 blocking DONE)',
         '',
