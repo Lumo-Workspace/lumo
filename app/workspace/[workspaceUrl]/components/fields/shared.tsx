@@ -103,6 +103,8 @@ export function SeparatorDot() {
  * bulk pickers, the activity timeline and the Signal tab — so the size and the
  * `--priority-*` colour can never drift between them.
  * `bg-current` paints the disc from the same token class the label text uses.
+ * `size-3` (12px) matches the drawn diameter of the default 14px StatusIcon
+ * (ring r≈5.5 + 1.5 stroke, DONE disc r≈6), so the two sit level side by side.
  * Extra props are spread onto the span so a `TooltipTrigger asChild` can hand
  * it a ref and its aria wiring.
  */
@@ -117,7 +119,7 @@ export function PriorityDot({
     <span
       data-testid={`priority-dot-${priority.toLowerCase()}`}
       className={cn(
-        'inline-block size-2.5 shrink-0 rounded-full',
+        'inline-block size-3 shrink-0 rounded-full',
         unassessed ? 'border border-dashed border-current' : 'bg-current',
         config.iconColor,
         className
