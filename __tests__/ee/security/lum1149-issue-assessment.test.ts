@@ -16,6 +16,8 @@ import {
   assessmentVerdict,
   buildUnmetRequirementsReview,
   extractTaskRequirements,
+  extractTaskDecisions,
+  REQUIREMENT_TEXT_MAX,
   formatRequirementsBlock,
   hasUnmetMarker,
   issueRequirement,
@@ -553,5 +555,100 @@ describe('on GitHub — summary and review comment', () => {
     )!
     expect(text).toMatch(/\| Issue assessment \| ⚠️ Warning \|/)
     expect(text).toMatch(/\*\*Linked requirements:\*\*/)
+  })
+})
+
+describe('LUM-1297 recorded Decisions and follow-up scope', () => {
+  it('caps context so oversized decisions and PR titles leave room for requirements', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown: '## Goal\nUse size-2.5.',
+      quotable: false,
+    })
+    const material = requirementsMaterial(requirements, {
+      decisions: Array.from({ length: 30 }, () => 'x'.repeat(900)),
+      mergedPrCount: 30,
+      mergedPrs: Array.from({ length: 30 }, (_, number) => ({
+        repo: 'acme/app',
+        number,
+        title: 'y'.repeat(900),
+      })),
+    })
+    expect(material.length).toBeLessThan(4000)
+    expect(material).toContain('[task:goal] (LUM-702 · Goal) Use size-2.5.')
+    expect(material).toContain('30 other merged PRs')
+  })
+
+  it('extracts decisions as bounded context, without creating requirement ids', () => {
+    const markdown =
+      '## Goal\nUse size-2.5.\n## Decisions\n- Use size-3 instead.\n  User approved.\n- ' +
+      'x'.repeat(900) +
+      '\n## Notes\nNot a decision.'
+    expect(extractTaskDecisions(markdown)).toEqual([
+      'Use size-3 instead. User approved.',
+      'x'.repeat(REQUIREMENT_TEXT_MAX - 1) + '…',
+    ])
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown,
+        quotable: false,
+      }).map(r => r.id)
+    ).toEqual(['task:goal'])
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: 'Description.\n## Decisions\n- Use size-3.',
+        quotable: false,
+      })[0]!.text
+    ).toBe('Dot: Description.')
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: '## Decisions\n- Use size-3.',
+        quotable: false,
+      })
+    ).toEqual([])
+    expect(extractTaskDecisions(null)).toEqual([])
+    expect(extractTaskDecisions('## Decisions\nUse size-3.')).toEqual([
+      'Use size-3.',
+    ])
+    expect(
+      extractTaskDecisions(
+        '## Decisions\n' +
+          Array.from({ length: 30 }, () => '- decision').join('\n')
+      )
+    ).toHaveLength(TASK_REQUIREMENTS_MAX)
+    expect(extractTaskDecisions('<!-- ## Decisions\n- hidden -->')).toEqual([])
+  })
+
+  it('includes decisions and merged PR provenance without adding answer ids', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown: '## Goal\nUse size-2.5.',
+      quotable: false,
+    })
+    const material = requirementsMaterial(requirements, {
+      decisions: ['Use size-3 instead.'],
+      mergedPrCount: 2,
+      mergedPrs: [
+        { repo: 'acme/app', number: 864, title: 'Priority menu' },
+        { repo: 'acme/app', number: 865, title: 'Priority dots' },
+      ],
+    })
+    expect(material).toContain(
+      'Answer each of these 1 requirement ids exactly once: task:goal.'
+    )
+    expect(material).toContain('overriding context')
+    expect(material).toContain('Use size-3 instead.')
+    expect(material).toContain('2 other merged PRs')
+    expect(material).toContain('acme/app#864: Priority menu')
+    expect(material).toContain('acme/app#865: Priority dots')
+    expect(material).toContain('unclear, not not_addressed')
   })
 })

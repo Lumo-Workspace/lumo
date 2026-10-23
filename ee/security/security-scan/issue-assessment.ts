@@ -56,6 +56,18 @@ export interface LinkedRequirement {
   quotable: boolean
 }
 
+/** Context is model-only; it never creates assessment ids or public text. */
+export interface TaskAssessmentContext {
+  decisions: string[]
+  mergedPrCount: number
+  mergedPrs: Array<{ repo: string; number: number; title: string }>
+}
+
+export interface GatheredRequirements {
+  requirements: LinkedRequirement[]
+  context?: TaskAssessmentContext
+}
+
 export const REQUIREMENT_OUTCOMES = [
   'addressed',
   'not_addressed',
@@ -94,11 +106,12 @@ const ITEM_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*)$/
  */
 const HINT_RE = /^\s*\\?_[^_].*\\?_\s*$/
 
-function sectionKey(heading: string): 'goal' | 'done' | null {
+function sectionKey(heading: string): 'goal' | 'done' | 'decisions' | null {
   const h = heading
     .replace(/[*_`:]/g, '')
     .trim()
     .toLowerCase()
+  if (h === 'decisions') return 'decisions'
   if (h === 'goal' || h === 'goals') return 'goal'
   if (h === 'done when' || h === 'acceptance criteria') return 'done'
   return null
@@ -108,22 +121,35 @@ function sectionKey(heading: string): 'goal' | 'done' | null {
 function sections(markdown: string): {
   goal: string[] | null
   done: string[] | null
+  decisions: string[] | null
+  description: string[]
 } {
-  const out: { goal: string[] | null; done: string[] | null } = {
+  const out: {
+    goal: string[] | null
+    done: string[] | null
+    decisions: string[] | null
+    description: string[]
+  } = {
     goal: null,
     done: null,
+    decisions: null,
+    description: [],
   }
-  let current: 'goal' | 'done' | null = null
+  let current: 'goal' | 'done' | 'decisions' | null = null
+  let inDecisions = false
   let inFence = false
   for (const line of markdown.split('\n')) {
     if (/^\s*(```|~~~)/.test(line)) inFence = !inFence
     const h = inFence ? null : HEADING_RE.exec(line)
     if (h) {
       const key = sectionKey(h[2] ?? '')
+      inDecisions = key === 'decisions'
+      if (!inDecisions) out.description.push(line)
       current = key && out[key] === null ? key : null
       if (current) out[current] = []
       continue
     }
+    if (!inDecisions) out.description.push(line)
     if (current) out[current]!.push(line)
   }
   return out
@@ -163,7 +189,7 @@ export function extractTaskRequirements(input: {
   quotable: boolean
 }): LinkedRequirement[] {
   const md = (input.markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
-  const { goal, done } = sections(md)
+  const { goal, done, description } = sections(md)
   const out: LinkedRequirement[] = []
   const add = (id: string, label: string, text: string) => {
     if (text.length === 0 || out.length >= TASK_REQUIREMENTS_MAX) return
@@ -185,7 +211,7 @@ export function extractTaskRequirements(input: {
     else add('task:done:1', 'Requirement 1 of 1', prose(done))
   }
   if (out.length === 0 && goal === null && done === null) {
-    const body = collapse(md)
+    const body = collapse(description.join(' '))
     if (body.length > 0)
       add(
         'task:description',
@@ -194,6 +220,19 @@ export function extractTaskRequirements(input: {
       )
   }
   return out
+}
+
+/** PURE — bounded recorded decisions, separate from requirement ids. */
+export function extractTaskDecisions(markdown: string | null): string[] {
+  const { decisions } = sections(
+    (markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
+  )
+  if (!decisions) return []
+  const items = listItems(decisions)
+  return (items.length ? items : [prose(decisions)])
+    .filter(Boolean)
+    .slice(0, TASK_REQUIREMENTS_MAX)
+    .map(text => capText(text, REQUIREMENT_TEXT_MAX))
 }
 
 const CLOSING_RE =
@@ -259,11 +298,39 @@ export function issueRequirement(issue: {
  * Goal — which then read as "no answer" on the PR.
  */
 export function requirementsMaterial(
-  requirements: readonly LinkedRequirement[]
+  requirements: readonly LinkedRequirement[],
+  context?: TaskAssessmentContext
 ): string {
   const ids = requirements.map(r => r.id).join(', ')
   return [
     `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.`,
+    ...(context?.decisions.length
+      ? [
+          'Recorded task Decisions (overriding context for conflicting task requirements, not additional requirements; never quote or restate this context in explanations):',
+          capText(
+            context.decisions
+              .slice(0, TASK_REQUIREMENTS_MAX)
+              .map(d => `- ${capText(collapse(d), REQUIREMENT_TEXT_MAX)}`)
+              .join('\n'),
+            1200
+          ),
+        ]
+      : []),
+    ...(context && context.mergedPrCount > 0
+      ? [
+          `This task has ${context.mergedPrCount} other merged PRs. Judge this PR by its own scope. A task requirement covered outside this PR is unclear, not not_addressed. Titles alone are not proof of delivery; do not mark addressed without evidence in this diff. Never quote or restate this context in explanations.`,
+          capText(
+            context.mergedPrs
+              .slice(0, TASK_REQUIREMENTS_MAX)
+              .map(
+                p =>
+                  `- ${collapse(p.repo)}#${p.number}: ${capText(collapse(p.title), REQUIREMENT_TEXT_MAX)}`
+              )
+              .join('\n'),
+            1200
+          ),
+        ]
+      : []),
     ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
   ].join('\n')
 }

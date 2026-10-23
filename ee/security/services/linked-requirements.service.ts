@@ -21,6 +21,10 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import {
   extractTaskRequirements,
+  extractTaskDecisions,
+  TASK_REQUIREMENTS_MAX,
+  type GatheredRequirements,
+  type TaskAssessmentContext,
   issueRequirement,
   linkedIssueNumbers,
   type LinkedRequirement,
@@ -32,9 +36,10 @@ async function github() {
 }
 
 export const linkedRequirementsService = {
-  async gather(input: PreMergeCheckGatherInput): Promise<LinkedRequirement[]> {
+  async gather(input: PreMergeCheckGatherInput): Promise<GatheredRequirements> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     const out: LinkedRequirement[] = []
+    let context: TaskAssessmentContext | undefined
     if (pr?.taskId) {
       const task = await taskRepository.findForRequirements(
         pr.taskId,
@@ -52,6 +57,25 @@ export const linkedRequirementsService = {
             workspaceId: input.workspaceId,
             fullName: input.repo,
           })) === 'private'
+        const merged = (
+          await pullRequestRepository.listMergedByTask(pr.taskId)
+        ).filter(
+          p =>
+            p.workspaceId === input.workspaceId &&
+            !(
+              p.repo.toLowerCase() === input.repo.toLowerCase() &&
+              p.number === input.prNumber
+            )
+        )
+        context = {
+          decisions: extractTaskDecisions(markdown),
+          mergedPrCount: merged.length,
+          mergedPrs: merged.slice(0, TASK_REQUIREMENTS_MAX).map(p => ({
+            repo: p.repo,
+            number: p.number,
+            title: p.title,
+          })),
+        }
         out.push(
           ...extractTaskRequirements({
             identifier: `${task.team.identifier}-${task.number}`,
@@ -76,6 +100,6 @@ export const linkedRequirementsService = {
         if (r) out.push(r)
       }
     }
-    return out
+    return { requirements: out, ...(context ? { context } : {}) }
   },
 }
