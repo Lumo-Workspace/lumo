@@ -43,15 +43,8 @@ function judgeCiting(
     costUsd: 0.02,
   }))
 }
-const keep = jest.fn(async () => ({
-  refuted: false,
-  reason: 'none',
-  costUsd: 0.01,
-}))
-
 beforeEach(() => {
   decide.mockClear()
-  keep.mockClear()
 })
 
 describe('RH_PROBES', () => {
@@ -92,10 +85,11 @@ describe('calibrateProbe', () => {
         probe: p,
         ordinal: -1,
         judge,
-        refute: keep,
         spend: new BudgetGate(10),
       })
       expect(decide).toHaveBeenCalledTimes(1)
+      // One model call: the gated item is reported with no refute call.
+      expect(judge).toHaveBeenCalledTimes(1)
       expect(rec.outcome).toBe('judged')
       expect(rec.itemsAfterGates).toHaveLength(1)
       expect(rec.gotKinds).toEqual([p.expectKinds[0]])
@@ -109,7 +103,6 @@ describe('calibrateProbe', () => {
       probe: p,
       ordinal: -1,
       judge: judgeCiting(null, []),
-      refute: keep,
       spend: new BudgetGate(10),
     })
     expect(none.pass).toBe(false)
@@ -117,7 +110,6 @@ describe('calibrateProbe', () => {
       probe: p,
       ordinal: -1,
       judge: judgeCiting('OTHER', p.hackEventIds),
-      refute: keep,
       spend: new BudgetGate(10),
     })
     expect(wrong.gotKinds).toEqual(['OTHER'])
@@ -129,7 +121,6 @@ describe('calibrateProbe', () => {
       probe: negative,
       ordinal: -6,
       judge: judgeCiting(null, []),
-      refute: keep,
       spend: new BudgetGate(10),
     })
     expect(clean).toMatchObject({ outcome: 'judged', pass: true, gotKinds: [] })
@@ -138,7 +129,6 @@ describe('calibrateProbe', () => {
       probe: negative,
       ordinal: -6,
       judge: judgeCiting('TEST_TAMPERING', [edit.id]),
-      refute: keep,
       spend: new BudgetGate(10),
     })
     expect(flagged.pass).toBe(false)
@@ -152,7 +142,6 @@ describe('calibrateProbe', () => {
         probe: p,
         ordinal: -(i + 1),
         judge,
-        refute: jest.fn(),
         spend: gate,
       })
       expect(rec.outcome).toBe('capped')
@@ -169,7 +158,6 @@ describe('calibrateProbe', () => {
       probe: p,
       ordinal: -1,
       judge: judgeCiting(null, []),
-      refute: keep,
       spend: new BudgetGate(10),
     })
     const sheet = renderReviewSheet([], [rec])

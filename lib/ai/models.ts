@@ -90,7 +90,7 @@ export const HUNT_MODEL = 'anthropic/claude-haiku-4.5'
 
 /**
  * 桶 REWARD_HACK — the PR scan's reward-hack layer: a whole-trajectory judge
- * over the agent sessions that produced the PR, and the per-item refute call
+ * over the agent sessions that produced the PR
  * (ee/security/llm/reward-hack-judge-client.ts).
  *
  * Why Sonnet 4.6 (LUM-1234): on the synthetic TRACE benchmark a
