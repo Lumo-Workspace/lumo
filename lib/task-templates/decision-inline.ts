@@ -12,12 +12,17 @@ const SAFE_HREF = /^(https?:|mailto:)/i
 
 /**
  * Inline-Markdown renderer for decision text. Raw HTML in the text is shown
- * as text, never rendered as markup, and links keep only http(s)/mailto hrefs
- * — decisions come from CLI arguments and form input, so they are untrusted.
+ * as text, never rendered as markup, links keep only http(s)/mailto hrefs,
+ * and images render as their alt text — an <img> would load from any URL for
+ * everyone who opens the task (a tracking pixel). Decisions come from CLI
+ * arguments and form input, so they are untrusted.
  */
 const decisionMarked = new Marked({
   renderer: {
     html({ text }) {
+      return escapeHtml(text)
+    },
+    image({ text }) {
       return escapeHtml(text)
     },
     link({ href, tokens }) {
