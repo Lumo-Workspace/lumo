@@ -219,3 +219,18 @@ describe('isEncryptionKeyConfigured', () => {
     expect(isEncryptionKeyConfigured()).toBe(false)
   })
 })
+
+describe('runHookEventOperation with encryption off', () => {
+  it('clears the key id a sealed row still names when its payload is rewritten', async () => {
+    const { calls, query } = echoQuery()
+    await runHookEventOperation(
+      {
+        operation: 'updateMany',
+        args: { where: { id: 'e1' }, data: { payload: { a: 1 } } },
+        query,
+      },
+      deps(false)
+    )
+    expect(calls[0]!.data).toEqual({ payload: { a: 1 }, payloadKeyId: null })
+  })
+})

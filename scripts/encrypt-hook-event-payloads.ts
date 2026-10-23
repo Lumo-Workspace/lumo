@@ -43,6 +43,10 @@ async function main() {
     process.exit(2)
   }
   const limit = flag('--limit') ? Number(flag('--limit')) : undefined
+  if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+    console.error('--limit must be a positive integer.')
+    process.exit(2)
+  }
   const afterId = flag('--after') ?? null
 
   // Dynamic import AFTER dotenv so the Prisma client sees DATABASE_URL.

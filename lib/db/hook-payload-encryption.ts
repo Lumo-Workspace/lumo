@@ -241,9 +241,25 @@ export async function runHookEventOperation(
         next.create = await sealCreateData(next.create, deps.ring)
         break
     }
-  }
+  } else clearStaleKeyId(operation, next)
 
   return openResult(await query(next), deps.ring)
+}
+
+/**
+ * With encryption off, a payload write stores plaintext: drop any key id a
+ * row sealed earlier still names, or the row would claim to be encrypted.
+ */
+function clearStaleKeyId(operation: string, args: Record<string, unknown>) {
+  const clear = (data: unknown) =>
+    writesPayload(data) ? { ...data, payloadKeyId: null } : data
+  if (
+    operation === 'update' ||
+    operation === 'updateMany' ||
+    operation === 'updateManyAndReturn'
+  )
+    args.data = clear(args.data)
+  else if (operation === 'upsert') args.update = clear(args.update)
 }
 
 /** Wrap a client so HookEvent payloads are encrypted at rest. */
