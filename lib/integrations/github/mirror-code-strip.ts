@@ -3,14 +3,16 @@
  * the workspace (uninstall, removal from the installation, deletion,
  * transfer): the discussion stays, the code goes.
  *
- * A comment mirrored from GitHub is stored as the review comment's markdown,
- * escaped and paragraph-ized (`githubMarkdownToLumoHtml`): a fenced block —
- * a ```` ```suggestion ```` block included — survives as literal fence lines
- * between `<br>` / paragraph breaks. A comment written in Lumo carries its
- * code as `<pre>` blocks. Both are replaced by a marker that keeps the fence's
- * info string (`suggestion`, `ts`, …), so a reader still sees that code was
- * there and what kind; everything else — the text, the mirror header, inline
- * `code` — is kept as is. PURE and idempotent.
+ * A comment mirrored from GitHub is rendered from its markdown
+ * (`githubMarkdownToLumoHtml`, LUM-1305): a fenced block — a
+ * ```` ```suggestion ```` block included — is a `<pre><code
+ * class="language-…">` block, as is the code of a comment written in Lumo.
+ * Comments mirrored before LUM-1305 were stored escaped and paragraph-ized,
+ * so their fences survive as literal fence lines between `<br>` / paragraph
+ * breaks. All are replaced by a marker that keeps the fence's info string
+ * (`suggestion`, `ts`, …), so a reader still sees that code was there and
+ * what kind; everything else — the text, the mirror header, inline `code` —
+ * is kept as is. PURE and idempotent.
  */
 
 /** What a removed block leaves behind. Language-neutral: it is stored data. */
@@ -28,6 +30,7 @@ const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})([^`<]*)$/
 const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})\s*$/
 
 const PRE_BLOCK = /<pre(?:\s[^>]*)?>[\s\S]*?<\/pre>/gi
+const CODE_LANGUAGE = /<code\b[^>]*\bclass="[^"]*\blanguage-([\w+#.-]+)/i
 
 function splitLine(line: string) {
   const lead = LEADING.exec(line)?.[0] ?? ''
@@ -98,6 +101,9 @@ function stripFences(html: string): string {
  * no code block.
  */
 export function stripCodeBlocksFromCommentHtml(html: string): string {
-  const withoutPre = html.replace(PRE_BLOCK, `<p>${CODE_REMOVED_MARK}</p>`)
+  const withoutPre = html.replace(
+    PRE_BLOCK,
+    block => `<p>${mark(CODE_LANGUAGE.exec(block)?.[1] ?? '')}</p>`
+  )
   return stripFences(withoutPre)
 }
