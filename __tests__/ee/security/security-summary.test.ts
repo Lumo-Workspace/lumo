@@ -130,7 +130,7 @@ describe('summarizeSecurityScans', () => {
 
   it('returns zeros for an empty PR list', () => {
     expect(summarizeSecurityScans([])).toEqual({
-      preMergeWarnings: 0,
+      preMergeNotPassed: 0,
       prs: 0,
       findings: 0,
       allLow: false,
@@ -640,7 +640,7 @@ describe('pre-merge checks', () => {
   it('counts failed and inconclusive checks across latest scans', () => {
     expect(
       summarizeSecurityScans([{ latest: warned }, { latest: null }])
-        .preMergeWarnings
+        .preMergeNotPassed
     ).toBe(2)
   })
 

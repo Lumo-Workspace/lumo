@@ -1017,9 +1017,34 @@ test('LUM-1298: PR and task scan output disclose unmet checks on a clean scan', 
     ],
   })
   const output = formatPrScan(data)
-  expect(output).toContain('1 pre-merge warning')
+  expect(output).toContain('1 pre-merge check not passed')
   expect(output).toContain('Issue assessment · failed (warning)')
   expect(output).toContain('Resolution: Implement the goal')
   expect(output).toContain('LUM-702 · Goal · not addressed')
   expect(output).not.toContain('Hidden')
+})
+
+test('LUM-1298: an error-mode failure is not called a warning, and server enums are sanitized', () => {
+  const data = payload({
+    scans: [
+      scan({
+        status: 'CLEAN',
+        findings: [],
+        preMergeChecks: [
+          {
+            id: 'title',
+            name: 'Title',
+            mode: 'error\u001b[31m' as 'error',
+            verdict: 'failed',
+            explanation: 'Too vague',
+            resolution: null,
+          },
+        ],
+      }),
+    ],
+  })
+  const output = formatPrScan(data)
+  expect(output).toContain('1 pre-merge check not passed')
+  expect(output).not.toContain('warning')
+  expect(output).not.toContain('\u001b[31m')
 })

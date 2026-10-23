@@ -690,7 +690,7 @@ function ScanResult({ scan }: { scan: SecurityScanView | null }) {
       <FindingsResult scan={scan} />
       <Badge data-testid='scan-result-pre-merge' variant='warning' size='sm'>
         {intl.formatMessage(
-          { id: 'record.security.preMergeWarnings' },
+          { id: 'record.security.preMergeNotPassed' },
           { count: checks.length }
         )}
       </Badge>

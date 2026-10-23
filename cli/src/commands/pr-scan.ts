@@ -479,7 +479,7 @@ function formatScan(
 ): string[] {
   const checks = nonPassingChecks(s.preMergeChecks)
   const lines = sectionHeading(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}${checks.length > 0 ? ` · ${checks.length} pre-merge warning${checks.length === 1 ? '' : 's'}` : ''}`,
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}${checks.length > 0 ? ` · ${checks.length} pre-merge check${checks.length === 1 ? '' : 's'} not passed` : ''}`,
     opts
   )
   const meta: Field[] = [
@@ -543,7 +543,7 @@ function formatScan(
   for (const check of checks) {
     lines.push(
       ...wrapLines(
-        `Pre-merge: ${sanitizeField(check.name)} · ${check.verdict} (${check.mode})`,
+        `Pre-merge: ${sanitizeField(check.name)} · ${sanitizeField(check.verdict)} (${sanitizeField(check.mode)})`,
         2,
         opts
       )
@@ -564,7 +564,7 @@ function formatScan(
         : ''
       lines.push(
         ...wrapLines(
-          `${sanitizeField(r.label)} · ${r.outcome.replace(/_/g, ' ')}${prose ? `: ${prose}` : ''}`,
+          `${sanitizeField(r.label)} · ${sanitizeField(r.outcome).replace(/_/g, ' ')}${prose ? `: ${prose}` : ''}`,
           4,
           opts
         )

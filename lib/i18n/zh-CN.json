@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "按轮估算：使用工具的轮次中有 {pct}% 按步计量，其余在该轮的工具间平均分摊。",
   "lineage.operations.cacheReadDominant": "其中 {pct}% 是缓存读取，属于长上下文的结构性成本，而不是某个工具的开销。",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "{count} 项合并前检查警告",
+  "record.security.preMergeNotPassed": "{count} 项合并前检查未通过",
   "securityScan.preMerge.failed": "未通过",
   "securityScan.preMerge.inconclusive": "无法判断",
   "securityScan.preMerge.not_addressed": "未解决",

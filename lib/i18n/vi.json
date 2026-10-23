@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "Ước tính theo lượt: {pct}% lượt có dùng công cụ được đo theo bước; phần còn lại chia đều cho các công cụ trong lượt.",
   "lineage.operations.cacheReadDominant": "{pct}% số token này là đọc bộ nhớ đệm, chi phí cấu trúc của ngữ cảnh dài chứ không phải của một công cụ nào.",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "{count} cảnh báo trước khi hợp nhất",
+  "record.security.preMergeNotPassed": "{count} kiểm tra trước khi hợp nhất chưa đạt",
   "securityScan.preMerge.failed": "Không đạt",
   "securityScan.preMerge.inconclusive": "Chưa thể kết luận",
   "securityScan.preMerge.not_addressed": "Chưa giải quyết",

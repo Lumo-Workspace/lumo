@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "Estimado por turno: el {pct} % de los turnos con herramientas se midió por paso; el resto se reparte a partes iguales entre las herramientas del turno.",
   "lineage.operations.cacheReadDominant": "El {pct} % de estos tokens son lecturas de caché: el coste estructural de un contexto largo, no de una herramienta concreta.",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "{count, plural, one {# advertencia previa a la fusión} other {# advertencias previas a la fusión}}",
+  "record.security.preMergeNotPassed": "{count, plural, one {# comprobación previa a la fusión no superada} other {# comprobaciones previas a la fusión no superadas}}",
   "securityScan.preMerge.failed": "Fallida",
   "securityScan.preMerge.inconclusive": "Sin conclusión",
   "securityScan.preMerge.not_addressed": "Sin resolver",

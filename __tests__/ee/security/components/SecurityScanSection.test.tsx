@@ -49,7 +49,7 @@ const messages: Record<string, string> = {
   'securityScan.finding.persisting': 'already on the default branch',
   'securityScan.finding.dependency': 'Vulnerable dependency',
   'securityScan.result.verifierDismissed': '{count} dismissed by verifier',
-  'record.security.preMergeWarnings': '{count} pre-merge warning',
+  'record.security.preMergeNotPassed': '{count} pre-merge check not passed',
   'securityScan.result.noOpen': 'No open findings',
   'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
@@ -1123,7 +1123,7 @@ test('LUM-1298: a clean scan with an unmet goal shows a warning and expandable c
   })
   render(<SecurityScanSection taskId='t1' />)
   expect(screen.getByTestId('scan-result-pre-merge')).toHaveTextContent(
-    '1 pre-merge warning'
+    '1 pre-merge check not passed'
   )
   expect(screen.getByTestId('security-scan-badge')).toBeInTheDocument()
   expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(

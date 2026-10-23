@@ -163,5 +163,7 @@ test('a non-passing pre-merge check qualifies the verdict in the warning tone', 
     ])
   )
   expect(v.text).toBe('No open findings')
-  expect(v.caveats).toEqual([{ text: '1 pre-merge warning', tone: 'warning' }])
+  expect(v.caveats).toEqual([
+    { text: '1 pre-merge check not passed', tone: 'warning' },
+  ])
 })

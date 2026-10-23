@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "Estimated per turn: {pct}% of tool-using turns were measured per step; the rest is split evenly across the tools in the turn.",
   "lineage.operations.cacheReadDominant": "{pct}% of these tokens are cache reads, the structural cost of a long context rather than of any one tool.",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "{count, plural, one {# pre-merge warning} other {# pre-merge warnings}}",
+  "record.security.preMergeNotPassed": "{count, plural, one {# pre-merge check not passed} other {# pre-merge checks not passed}}",
   "securityScan.preMerge.failed": "Failed",
   "securityScan.preMerge.inconclusive": "Inconclusive",
   "securityScan.preMerge.not_addressed": "Not addressed",

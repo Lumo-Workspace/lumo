@@ -19,7 +19,7 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 
 export interface SecurityScanSummary {
-  preMergeWarnings: number
+  preMergeNotPassed: number
   prs: number
   /** Findings someone must still decide on, across every PR's latest scan
    *  (not ruled on, not on main, in the queue, not verifier-rejected). */
@@ -107,7 +107,7 @@ export function summarizeSecurityScans(
     latest ? latest.findings.filter(f => !isQuietFinding(f)) : []
   )
   return {
-    preMergeWarnings: prs.reduce(
+    preMergeNotPassed: prs.reduce(
       (count, { latest }) =>
         count + nonPassingChecks(latest?.preMergeChecks).length,
       0

@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "ターン単位の推定：ツールを使ったターンのうち {pct}% をステップ単位で計測し、残りはそのターンのツールに均等配分しています。",
   "lineage.operations.cacheReadDominant": "このうち {pct}% はキャッシュ読み取りで、特定のツールではなく長いコンテキストによる構造的なコストです。",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "マージ前の警告 {count} 件",
+  "record.security.preMergeNotPassed": "マージ前チェック {count} 件が未通過",
   "securityScan.preMerge.failed": "失敗",
   "securityScan.preMerge.inconclusive": "判定不能",
   "securityScan.preMerge.not_addressed": "未対応",

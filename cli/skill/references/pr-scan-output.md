@@ -257,7 +257,7 @@ by construction — the server never loads the column for this read.
 ### Pre-merge checks
 
 `pr show` and `task show --scans` include non-passing pre-merge checks
-(`failed` or `inconclusive`) and append a pre-merge warning count to the scan
+(`failed` or `inconclusive`) and append a count of pre-merge checks not passed to the scan
 heading, including when the finding scan is CLEAN. Each check shows its name,
 verdict, configured mode, explanation and resolution, followed by unmet or
 unclear linked requirements. Requirement labels and outcomes are always shown;

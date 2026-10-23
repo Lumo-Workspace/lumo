@@ -3050,7 +3050,7 @@
   "lineage.operations.precisionPerTurn": "Pro Runde geschätzt: {pct} % der Runden mit Tools wurden pro Schritt gemessen; der Rest wird gleichmäßig auf die Tools der Runde verteilt.",
   "lineage.operations.cacheReadDominant": "{pct} % dieser Tokens sind Cache-Lesezugriffe – strukturelle Kosten eines langen Kontexts, nicht eines einzelnen Tools.",
   "lineage.header.outcomeCount": "{outcome} · {count}",
-  "record.security.preMergeWarnings": "{count, plural, one {# Warnung vor dem Zusammenführen} other {# Warnungen vor dem Zusammenführen}}",
+  "record.security.preMergeNotPassed": "{count, plural, one {# Prüfung vor dem Zusammenführen nicht bestanden} other {# Prüfungen vor dem Zusammenführen nicht bestanden}}",
   "securityScan.preMerge.failed": "Fehlgeschlagen",
   "securityScan.preMerge.inconclusive": "Nicht eindeutig",
   "securityScan.preMerge.not_addressed": "Nicht umgesetzt",
