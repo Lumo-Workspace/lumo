@@ -1,4 +1,5 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -78,6 +79,7 @@ export async function judgeMemoryCuration(
   try {
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: curationJudgeSchema,
       system,
       prompt: user,

@@ -4,8 +4,11 @@
  * a bare array of results, or the two enum keys swapped (`outcome` on a
  * check, `verdict` on a requirement), and the optional-looking fields left
  * out. Wired into `generateObject` as `experimental_repairText`, so the
- * repaired text is still validated by `PreMergeChecksAnswerSchema`; this
- * module never decides a verdict, it only moves keys the model did write.
+ * repaired text is still validated by `PreMergeChecksAnswerSchema`. It never
+ * decides a verdict or an outcome: it moves the enum keys the model did
+ * write, and fills only empty prose (`explanation`, `resolution`) and an
+ * empty `requirements` list — a requirements check left with none is asked
+ * again by the service (`unansweredRequirementsByCheck`), not passed.
  *
  * Not repairable (returns null, the call fails as before): no JSON object
  * or array in the text, or JSON without a `results` list. An empty response
@@ -21,21 +24,43 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v)
 }
 
-/** The JSON value in `text`: inside a fence when there is one. */
-function parseJsonIn(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text)
-  const inner = (fenced ? fenced[1] : text) ?? ''
-  const objectAt = inner.indexOf('{')
-  const arrayAt = inner.indexOf('[')
-  const arrayFirst = arrayAt !== -1 && (objectAt === -1 || arrayAt < objectAt)
-  const start = arrayFirst ? arrayAt : objectAt
-  const end = inner.lastIndexOf(arrayFirst ? ']' : '}')
+function parseSpan(inner: string, open: string, close: string): unknown {
+  const start = inner.indexOf(open)
+  const end = inner.lastIndexOf(close)
   if (start === -1 || end <= start) return undefined
   try {
     return JSON.parse(inner.slice(start, end + 1))
   } catch {
     return undefined
   }
+}
+
+/**
+ * The JSON value in `text` (inside a fence when there is one): the span that
+ * opens first, and when that does not parse, the other one — so a bare array
+ * stays an array, and a `[` in prose before the object
+ * (`[note] {"results": …}`) does not hide it.
+ */
+function parseJsonIn(text: string): unknown {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text)
+  const inner = (fenced ? fenced[1] : text) ?? ''
+  const objectAt = inner.indexOf('{')
+  const arrayAt = inner.indexOf('[')
+  const spans: Array<[string, string]> =
+    arrayAt !== -1 && (objectAt === -1 || arrayAt < objectAt)
+      ? [
+          ['[', ']'],
+          ['{', '}'],
+        ]
+      : [
+          ['{', '}'],
+          ['[', ']'],
+        ]
+  for (const [open, close] of spans) {
+    const value = parseSpan(inner, open, close)
+    if (value !== undefined) return value
+  }
+  return undefined
 }
 
 function repairRequirement(r: unknown): unknown {

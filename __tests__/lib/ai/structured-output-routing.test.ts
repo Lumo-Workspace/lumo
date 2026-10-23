@@ -1,4 +1,7 @@
-import { structuredOutputProviderOptions } from '@/lib/ai/structured-output-routing'
+import {
+  structuredOutputCallOptions,
+  structuredOutputProviderOptions,
+} from '@/lib/ai/structured-output-routing'
 import {
   FAST_MODEL,
   MEMORY_JUDGE_MODEL,
@@ -24,5 +27,14 @@ describe('LUM-1304 structured-output routing', () => {
     const announced = new Set(AI_HOST_SUBPROCESSORS.map(s => s.gatewaySlug))
     for (const hosts of Object.values(STRUCTURED_OUTPUT_HOSTS))
       for (const h of hosts) expect(announced).toContain(h)
+  })
+})
+
+describe('LUM-1304 structuredOutputCallOptions', () => {
+  it('spreads providerOptions for a routed model, nothing otherwise', () => {
+    expect(structuredOutputCallOptions(MEMORY_JUDGE_MODEL)).toEqual({
+      providerOptions: structuredOutputProviderOptions(MEMORY_JUDGE_MODEL),
+    })
+    expect(structuredOutputCallOptions(FAST_MODEL)).toEqual({})
   })
 })

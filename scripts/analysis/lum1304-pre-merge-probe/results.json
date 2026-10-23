@@ -94,5 +94,22 @@
       "over60s": 0,
       "errors": []
     }
+  },
+  "otherCallers": {
+    "note": "shipped code with structuredOutputCallOptions, sequential, 2026-10-23",
+    "summarizeWholePr #1685": {
+      "caller": "summary",
+      "n": 5,
+      "ok": 5,
+      "p50ms": 4273,
+      "maxms": 5577
+    },
+    "computeProjectFoldProposals 40 real team cards (cluster+synthesis+coverage)": {
+      "caller": "fold",
+      "n": 3,
+      "ok": 3,
+      "p50ms": 15266,
+      "maxms": 26219
+    }
   }
 }

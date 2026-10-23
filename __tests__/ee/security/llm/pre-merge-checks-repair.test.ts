@@ -25,6 +25,13 @@ describe('LUM-1304 pre-merge checks envelope repair', () => {
     expect(JSON.parse(out!).results[0]).toEqual(CHECK)
   })
 
+  it('a [ in prose before the object does not hide it', () => {
+    const out = repairPreMergeChecksText(
+      '[note] the answer: ' + JSON.stringify({ results: [CHECK] })
+    )
+    expect(valid(out)).toBe(true)
+  })
+
   it('wraps a bare array of results', () => {
     const out = repairPreMergeChecksText(JSON.stringify([CHECK]))
     expect(valid(out)).toBe(true)

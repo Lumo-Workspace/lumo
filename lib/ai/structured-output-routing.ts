@@ -19,3 +19,15 @@ export function structuredOutputProviderOptions(
   if (!hosts || hosts.length === 0) return undefined
   return { gateway: { order: [...hosts], only: [...hosts] } }
 }
+
+/**
+ * The same routing as call options to spread into a `generateObject` call
+ * (`...structuredOutputCallOptions(MODEL)` next to `model:`): `{}` for a
+ * model without an entry, so the call is unchanged.
+ */
+export function structuredOutputCallOptions(modelId: string): {
+  providerOptions?: { gateway: { order: string[]; only: string[] } }
+} {
+  const providerOptions = structuredOutputProviderOptions(modelId)
+  return providerOptions ? { providerOptions } : {}
+}

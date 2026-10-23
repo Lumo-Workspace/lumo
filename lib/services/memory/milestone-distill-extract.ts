@@ -1,4 +1,5 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -105,6 +106,7 @@ Return { "candidates": [...] } — durable, forward-looking learnings grounded i
   try {
     const { object } = await generateObject({
       model: gateway(MEMORY_JUDGE_MODEL),
+      ...structuredOutputCallOptions(MEMORY_JUDGE_MODEL),
       schema: milestoneDistillCandidatesOutputSchema,
       system: SYSTEM_PROMPT,
       prompt: user,
