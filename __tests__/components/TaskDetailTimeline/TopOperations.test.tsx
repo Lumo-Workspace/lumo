@@ -100,6 +100,22 @@ describe('TopOperations', () => {
     expect(screen.queryByText(/cache reads/)).toBeNull()
   })
 
+  it('never shows a per-turn estimate as 100% when coverage is just short of complete', () => {
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={{
+          perStepPct: 249 / 250,
+          cacheReadPct: 0.5,
+          hasToolRows: true,
+        }}
+        taskIdentifier='LUM-531'
+      />
+    )
+    expect(screen.getByText(/Estimated per turn: 99%/)).toBeInTheDocument()
+    expect(screen.queryByText('Measured per step.')).toBeNull()
+  })
+
   it.each([
     [0.9, false],
     [0.91, true],
