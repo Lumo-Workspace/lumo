@@ -22,11 +22,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
       authResult.userId
     )
     if (access instanceof NextResponse) return access
+    const workspaceId = access.task.project.workspaceId
 
-    const decisions = await taskDecisionService.listForTask(
-      id,
-      access.task.project.workspaceId
-    )
+    const decisions = await taskDecisionService.listForTask(id, workspaceId)
     return NextResponse.json({ decisions })
   } catch (error) {
     return serviceErrorResponse(error, '[GET /api/tasks/[id]/decisions]')
@@ -44,6 +42,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       authResult.userId
     )
     if (access instanceof NextResponse) return access
+    const workspaceId = access.task.project.workspaceId
 
     const parsed = createTaskDecisionSchema.safeParse(
       await request.json().catch(() => null)
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const decision = await taskDecisionService.create({
       taskId: id,
-      workspaceId: access.task.project.workspaceId,
+      workspaceId,
       text: parsed.data.text,
       rationale: parsed.data.rationale,
       createdById: access.member.id,

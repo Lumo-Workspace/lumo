@@ -22,6 +22,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       authResult.userId
     )
     if (access instanceof NextResponse) return access
+    const workspaceId = access.task.project.workspaceId
 
     const parsed = updateTaskDecisionSchema.safeParse(
       await request.json().catch(() => null)
@@ -31,7 +32,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const decision = await taskDecisionService.update({
       decisionId,
       taskId: id,
-      workspaceId: access.task.project.workspaceId,
+      workspaceId,
       actorMemberId: access.member.id,
       ...parsed.data,
     })
@@ -55,11 +56,12 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       authResult.userId
     )
     if (access instanceof NextResponse) return access
+    const workspaceId = access.task.project.workspaceId
 
     await taskDecisionService.remove({
       decisionId,
       taskId: id,
-      workspaceId: access.task.project.workspaceId,
+      workspaceId,
       actorMemberId: access.member.id,
     })
     return new Response(null, { status: 204 })
