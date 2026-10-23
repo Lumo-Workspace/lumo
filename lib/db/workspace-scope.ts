@@ -85,6 +85,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Team',
   'UsageResyncAudit',
   'View',
+  'WorkspaceDataKey',
   'WorkspaceDeletionReceipt',
   'WorkspaceExport',
   'WorkspaceInvite',

@@ -247,6 +247,7 @@ export const sessionRawRecordService = {
       )
       result.keptForCrossings += kept.size
       result.deleted += await sessionRawRecordRepository.clearRawRecord(
+        workspaceId,
         ids.filter(id => !kept.has(id)),
         marker,
         now

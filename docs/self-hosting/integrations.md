@@ -60,6 +60,14 @@ ENCRYPTION_KEY=<64 hex characters>
   `GITHUB_APP_PRIVATE_KEY` on demand and never stored.
 - Back it up with the database backup — a restored database without its key
   has the same effect as a rotation.
+- It also protects session records (LUM-1302): each workspace gets its own
+  random key that encrypts the raw hook payloads (prompts, commands, command
+  output, code), stored wrapped by `ENCRYPTION_KEY` in `workspace_data_keys`.
+  Unlike integration tokens these cannot be reconnected — **changing or
+  losing `ENCRYPTION_KEY` makes every encrypted session record unreadable**
+  (it reads as an unreadable marker). Without `ENCRYPTION_KEY` session records are stored
+  as plaintext; `scripts/encrypt-hook-event-payloads.ts` encrypts the ones
+  stored before the key was set.
 
 ### A public URL (webhooks and OAuth)
 

@@ -564,10 +564,12 @@ describe('task-notification payloads on a real Postgres', () => {
       startedAt: t(0).toISOString(),
       lastActivityAt: t(9).toISOString(),
     })
+    // LUM-1302: the recorder flags notification prompts in their own column.
     const prompt = (id: string, text: string, at: number) =>
       seedEvent(id, R, t(at), {
         type: 'USER_PROMPT_SUBMIT',
         payload: JSON.stringify({ prompt: text }),
+        promptTaskNotification: text.includes('<task-notification>'),
         attributionSignals: JSON.stringify([]),
       })
     await prompt(
@@ -582,6 +584,7 @@ describe('task-notification payloads on a real Postgres', () => {
       payload: JSON.stringify({
         prompt: '<task-notification>\n<task-id>a1</task-id>',
       }),
+      promptTaskNotification: true,
       attributionSignals: JSON.stringify([
         { kind: 'NOTIFICATION', agentId: 'a1' },
       ]),
