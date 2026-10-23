@@ -127,6 +127,11 @@ export const taskDecisionRepository = {
         // Loose on purpose (a heading may wrap the word in <strong> etc.):
         // the caller's parser decides whether a real section is there.
         description: { contains: 'decisions', mode: 'insensitive' },
+        // Keyset, not `cursor` + `skip: 1`: a task the run just moved no
+        // longer contains "decisions", so as a cursor it is not in the result
+        // and `skip: 1` would drop the next task instead (LUM-1144 in the
+        // production run).
+        ...(afterId ? { id: { gt: afterId } } : {}),
       },
       select: {
         id: true,
@@ -136,8 +141,50 @@ export const taskDecisionRepository = {
       },
       orderBy: { id: 'asc' },
       take,
-      ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
     })
+  },
+
+  /**
+   * Author backfill: a page of live decisions with no author and no agent
+   * session — the ones moved over from a description — with their task's
+   * assignee.
+   * Keyset by id, so rows updated by the run cannot shift the next page.
+   */
+  async listUnattributed(afterId: string | null, take: number) {
+    return unscoped('LUM-1303 decision author backfill').taskDecision.findMany({
+      where: {
+        createdById: null,
+        sourceSessionId: null,
+        // Deleted decisions stay as they were.
+        deletedAt: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        task: { select: { assignee: { select: { memberId: true } } } },
+      },
+      orderBy: { id: 'asc' },
+      take,
+    })
+  },
+
+  /**
+   * Author backfill: set the author of a decision that still has none (a
+   * concurrent edit that set one wins). Returns whether it was set.
+   */
+  async setAuthorIfUnset(
+    id: string,
+    workspaceId: string,
+    memberId: string
+  ): Promise<boolean> {
+    const r = await unscoped(
+      'LUM-1303 decision author backfill'
+    ).taskDecision.updateMany({
+      where: { id, workspaceId, createdById: null, deletedAt: null },
+      data: { createdById: memberId },
+    })
+    return r.count === 1
   },
 
   /**

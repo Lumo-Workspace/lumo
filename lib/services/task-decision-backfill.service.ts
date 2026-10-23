@@ -22,7 +22,10 @@ export interface DecisionBackfillResult {
  */
 export async function backfillTaskDecisions(opts: {
   dryRun: boolean
+  /** Tasks read per page (tests use a tiny page to cross page boundaries). */
+  pageSize?: number
 }): Promise<DecisionBackfillResult> {
+  const pageSize = opts.pageSize ?? PAGE
   const result: DecisionBackfillResult = {
     tasks: 0,
     decisions: 0,
@@ -32,7 +35,7 @@ export async function backfillTaskDecisions(opts: {
   for (;;) {
     const page = await taskDecisionRepository.listTasksWithDecisionsHeading(
       afterId,
-      PAGE
+      pageSize
     )
     if (page.length === 0) break
     afterId = page[page.length - 1]!.id
@@ -54,7 +57,7 @@ export async function backfillTaskDecisions(opts: {
       })
       if (!moved) result.skippedConcurrentEdit++
     }
-    if (page.length < PAGE) break
+    if (page.length < pageSize) break
   }
   return result
 }
