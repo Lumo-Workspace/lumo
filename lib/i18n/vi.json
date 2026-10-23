@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Không thể lưu quyết định",
   "task.decisions.deleteTitle": "Xóa {decision}?",
   "task.decisions.deleteBody": "Quyết định sẽ bị xóa khỏi tác vụ với mọi người và số của nó không được dùng lại. Hoạt động của tác vụ vẫn giữ bản ghi.",
+  "task.decisions.deleteFailed": "Không thể xóa quyết định",
   "task.decisions.empty": "Ghi lại các phán quyết về phạm vi hoặc cách làm ở đây để chúng không bị chìm trong bình luận.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Bàn giao",

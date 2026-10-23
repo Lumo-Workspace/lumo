@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Impossible d’enregistrer la décision",
   "task.decisions.deleteTitle": "Supprimer {decision} ?",
   "task.decisions.deleteBody": "Elle est retirée de la tâche pour tout le monde et son numéro n’est pas réutilisé. L’activité de la tâche en garde une trace.",
+  "task.decisions.deleteFailed": "Impossible de supprimer la décision",
   "task.decisions.empty": "Consignez ici les arbitrages sur le périmètre ou l’approche pour qu’ils ne se perdent pas dans les commentaires.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Livraison",

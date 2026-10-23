@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "無法儲存此決策",
   "task.decisions.deleteTitle": "刪除{decision}？",
   "task.decisions.deleteBody": "刪除後所有人都看不到它，編號也不會再被使用。任務動態會保留記錄。",
+  "task.decisions.deleteFailed": "無法刪除此決策",
   "task.decisions.empty": "把關於範圍或做法的裁定記在這裡，免得淹沒在留言裡。",
   "task.agentRun": "Agent Run",
   "task.delivery": "交付",

@@ -117,9 +117,21 @@ describe('taskDecisionService.recordFromCli', () => {
       ...cli,
       text: '2026-10-04 keep v1',
       rationale: '   ',
+      stripLegacyDatePrefix: true,
     })
     expect(repo.createNumbered).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'keep v1', rationale: null }),
+      'tx'
+    )
+  })
+
+  it('keeps a decision that really starts with a date when the caller did not prefix one', async () => {
+    await taskDecisionService.recordFromCli({
+      ...cli,
+      text: '2026-11-01 is the launch date',
+    })
+    expect(repo.createNumbered).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '2026-11-01 is the launch date' }),
       'tx'
     )
   })

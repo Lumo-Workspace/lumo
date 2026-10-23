@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "No se pudo guardar la decisión",
   "task.decisions.deleteTitle": "¿Eliminar {decision}?",
   "task.decisions.deleteBody": "Se quita de la tarea para todos y su número no se reutiliza. La actividad de la tarea conserva un registro.",
+  "task.decisions.deleteFailed": "No se pudo eliminar la decisión",
   "task.decisions.empty": "Registra aquí lo resuelto sobre el alcance o el enfoque para que no se pierda entre los comentarios.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Entrega",

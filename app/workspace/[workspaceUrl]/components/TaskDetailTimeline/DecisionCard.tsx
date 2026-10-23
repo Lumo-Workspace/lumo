@@ -60,6 +60,29 @@ export function DecisionCard({
   const intl = useIntl()
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // The dialog stays open until the delete succeeds; a failure is shown in it.
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await onDelete()
+      setConfirming(false)
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'task.decisions.deleteFailed',
+              defaultMessage: 'Could not delete the decision',
+            })
+      )
+    } finally {
+      setDeleting(false)
+    }
+  }
   const label = intl.formatMessage(
     { id: 'task.decisions.number', defaultMessage: 'Decision {number}' },
     { number }
@@ -179,7 +202,13 @@ export function DecisionCard({
             <span>{meta}</span>
           </div>
         </CardContent>
-        <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialog
+          open={confirming}
+          onOpenChange={open => {
+            setConfirming(open)
+            if (!open) setDeleteError(null)
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
@@ -199,6 +228,11 @@ export function DecisionCard({
                 })}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {deleteError ? (
+              <p role='alert' className='text-caption text-danger-text'>
+                {deleteError}
+              </p>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel>
                 {intl.formatMessage({
@@ -207,8 +241,11 @@ export function DecisionCard({
                 })}
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => {
-                  void onDelete()
+                disabled={deleting}
+                onClick={e => {
+                  // Radix closes the dialog on click; keep it until we know.
+                  e.preventDefault()
+                  void confirmDelete()
                 }}
               >
                 {intl.formatMessage({

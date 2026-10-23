@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Не удалось сохранить решение",
   "task.decisions.deleteTitle": "Удалить {decision}?",
   "task.decisions.deleteBody": "Оно будет удалено из задачи для всех, а его номер не будет использован повторно. В истории задачи останется запись.",
+  "task.decisions.deleteFailed": "Не удалось удалить решение",
   "task.decisions.empty": "Записывайте сюда решения о рамках и подходе, чтобы они не терялись в комментариях.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Поставка",

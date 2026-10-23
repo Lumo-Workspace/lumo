@@ -184,4 +184,22 @@ describe('DecisionsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(remove).toHaveBeenCalledWith('d1'))
   })
+
+  it('a failed delete keeps the dialog open and shows why', async () => {
+    remove.mockRejectedValueOnce(new Error('Decision not found'))
+    decisions = [row({ number: 2 })]
+    renderTab()
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Actions for Decision 2' }),
+      { button: 0, ctrlKey: false }
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Decision not found'
+    )
+    expect(
+      screen.getByRole('alertdialog', { name: 'Delete Decision 2?' })
+    ).toBeInTheDocument()
+  })
 })

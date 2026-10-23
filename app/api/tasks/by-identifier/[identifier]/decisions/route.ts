@@ -3,6 +3,20 @@ import { verifyBearer } from '@/lib/auth/bearer'
 import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { createTaskDecisionSchema } from '@/lib/validation/task-decision'
 import { taskDecisionService } from '@/lib/services/task-decision.service'
+import { CLI_VERSION_HEADER, parseCliVersion } from '@/lib/api/cli-version'
+
+/** The last CLI release that prefixed decisions with the local date. */
+const LAST_DATE_PREFIXING_CLI: [number, number, number] = [2, 0, 0]
+
+function prefixesDate(version: [number, number, number] | null): boolean {
+  if (!version) return false
+  for (let i = 0; i < 3; i++) {
+    const a = version[i] as number
+    const b = LAST_DATE_PREFIXING_CLI[i] as number
+    if (a !== b) return a < b
+  }
+  return true
+}
 
 /**
  * POST /api/tasks/by-identifier/[identifier]/decisions
@@ -36,6 +50,9 @@ export async function POST(
       text: parsed.data.text,
       rationale: parsed.data.rationale,
       sourceSessionId: request.headers.get('x-lumo-session-id'),
+      stripLegacyDatePrefix: prefixesDate(
+        parseCliVersion(request.headers.get(CLI_VERSION_HEADER))
+      ),
     })
     return NextResponse.json({ task, decision }, { status: 201 })
   } catch (error) {

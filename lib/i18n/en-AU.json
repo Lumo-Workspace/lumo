@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Could not save the decision",
   "task.decisions.deleteTitle": "Delete {decision}?",
   "task.decisions.deleteBody": "It is removed from the task for everyone and its number is not reused. The task Activity keeps a record.",
+  "task.decisions.deleteFailed": "Could not delete the decision",
   "task.decisions.empty": "Record rulings on scope or approach here so they are not lost in comments.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Delivery",

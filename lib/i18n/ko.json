@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "결정을 저장하지 못했습니다",
   "task.decisions.deleteTitle": "{decision}을(를) 삭제할까요?",
   "task.decisions.deleteBody": "모든 사람에게서 작업에서 제거되며 번호는 다시 사용되지 않습니다. 작업 활동에는 기록이 남습니다.",
+  "task.decisions.deleteFailed": "결정을 삭제하지 못했습니다",
   "task.decisions.empty": "범위나 방식에 대한 판단을 여기에 기록해 댓글 속에 묻히지 않게 하세요.",
   "task.agentRun": "Agent Run",
   "task.delivery": "딜리버리",

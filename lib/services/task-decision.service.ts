@@ -191,6 +191,12 @@ async function recordFromCli(args: {
   text: string
   rationale?: string | null | undefined
   sourceSessionId?: string | null
+  /**
+   * The caller is a CLI that prefixed today's date to the text (≤ 2.0.0); the
+   * row's createdAt carries the date, so the prefix is dropped. Anyone else's
+   * text is kept as written, even when it starts with a date.
+   */
+  stripLegacyDatePrefix?: boolean
 }) {
   const resolved = await taskService.resolveIdentifier(
     args.workspaceId,
@@ -205,8 +211,9 @@ async function recordFromCli(args: {
   const decision = await create({
     taskId: resolved.id,
     workspaceId: args.workspaceId,
-    // CLIs before LUM-1303 prefix the local date; the row's createdAt has it.
-    text: args.text.trim().replace(/^\d{4}-\d{2}-\d{2}\s+(?=\S)/, ''),
+    text: args.stripLegacyDatePrefix
+      ? args.text.trim().replace(/^\d{4}-\d{2}-\d{2}\s+(?=\S)/, '')
+      : args.text,
     rationale: args.rationale,
     createdById: member.id,
     sourceSessionId: args.sourceSessionId,

@@ -192,14 +192,19 @@ async function pageRows(
         ...page,
       })
     case 'task-decisions':
+      // Deleted decisions are still stored (tombstones that keep their
+      // number), so they are exported too, with their `deletedAt` — same
+      // posture as trashed tasks (LUM-923).
       return prisma.taskDecision.findMany({
         where: { workspaceId },
         select: {
           id: true,
           taskId: true,
+          number: true,
           text: true,
           rationale: true,
           createdById: true,
+          deletedAt: true,
           ...ts,
         },
         ...page,

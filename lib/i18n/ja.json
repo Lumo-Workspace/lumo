@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "決定を保存できませんでした",
   "task.decisions.deleteTitle": "{decision} を削除しますか？",
   "task.decisions.deleteBody": "全員のタスクから削除され、番号は再利用されません。タスクのアクティビティには記録が残ります。",
+  "task.decisions.deleteFailed": "決定を削除できませんでした",
   "task.decisions.empty": "範囲や進め方の判断はここに記録し、コメントに埋もれないようにしましょう。",
   "task.agentRun": "Agent Run",
   "task.delivery": "デリバリー",

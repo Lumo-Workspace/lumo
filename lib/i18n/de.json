@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Die Entscheidung konnte nicht gespeichert werden",
   "task.decisions.deleteTitle": "{decision} löschen?",
   "task.decisions.deleteBody": "Sie wird für alle aus der Aufgabe entfernt und ihre Nummer wird nicht erneut vergeben. Die Aktivität der Aufgabe behält einen Eintrag.",
+  "task.decisions.deleteFailed": "Die Entscheidung konnte nicht gelöscht werden",
   "task.decisions.empty": "Halte Festlegungen zu Umfang oder Vorgehen hier fest, damit sie nicht in Kommentaren untergehen.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Lieferung",

@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Keputusan tidak dapat disimpan",
   "task.decisions.deleteTitle": "Padam {decision}?",
   "task.decisions.deleteBody": "Ia dibuang daripada tugasan untuk semua orang dan nombornya tidak digunakan semula. Aktiviti tugasan menyimpan rekodnya.",
+  "task.decisions.deleteFailed": "Keputusan tidak dapat dipadam",
   "task.decisions.empty": "Rekodkan ketetapan tentang skop atau pendekatan di sini supaya tidak hilang dalam komen.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Penghantaran",

@@ -883,6 +883,7 @@
   "task.decisions.saveFailed": "Keputusan tidak dapat disimpan",
   "task.decisions.deleteTitle": "Hapus {decision}?",
   "task.decisions.deleteBody": "Keputusan dihapus dari tugas untuk semua orang dan nomornya tidak dipakai lagi. Aktivitas tugas tetap menyimpan catatannya.",
+  "task.decisions.deleteFailed": "Keputusan tidak dapat dihapus",
   "task.decisions.empty": "Catat ketetapan soal cakupan atau pendekatan di sini agar tidak tenggelam di komentar.",
   "task.agentRun": "Agent Run",
   "task.delivery": "Pengiriman",
