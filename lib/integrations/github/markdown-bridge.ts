@@ -197,9 +197,11 @@ function getGithubMarked(): Marked {
   return githubMarked
 }
 
-// Text between tags, outside `<pre>`/`<code>`: where a mention may resolve.
+// Text between tags, outside `<pre>`/`<code>`/`<a>`: where a mention may
+// resolve. A chip inside a link would nest a node in the link, and an
+// autolinked URL (`https://x.dev/@foo`) is not a mention.
 const CODE_OR_TAG_RE =
-  /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>|<[^>]*>)/i
+  /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>|<a[\s>][\s\S]*?<\/a>|<[^>]*>)/i
 
 function resolveMentions(
   html: string,

@@ -125,6 +125,16 @@ describe('githubMarkdownToLumoHtml — mentions', () => {
     )
   })
 
+  it('does not resolve @login inside link text or an autolinked URL', () => {
+    const out = githubMarkdownToLumoHtml(
+      '[ping @foo](https://x.dev) and https://x.dev/@foo',
+      resolver
+    )
+    expect(out).not.toContain('data-type="mention"')
+    expect(out).toContain('<a href="https://x.dev">ping @foo</a>')
+    expect(out).toContain('<a href="https://x.dev/@foo">https://x.dev/@foo</a>')
+  })
+
   it('does not resolve @login inside inline code or a code block', () => {
     const out = githubMarkdownToLumoHtml(
       '`@foo review`\n\n```\n@foo\n```',
