@@ -71,12 +71,43 @@ export function lumoHtmlToGithubMarkdown(
 
 const GH_MENTION_RE = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9-]+)/g
 
+// A CommonMark link reference definition on its own line: `[label]: dest`
+// with an optional quoted or parenthesized title. `[^…]:` is a footnote,
+// which GitHub does render, so it is left alone.
+const LINK_REF_DEF_RE =
+  /^ {0,3}\[(?!\^)[^\]\n]+\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
+const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
+
+/**
+ * Drop the link reference definitions GitHub never renders — e.g. Vercel's
+ * `[vc]: #<base64>` marker opening every deployment comment, which otherwise
+ * mirrors in as a wall of base64. Lines inside fenced code blocks are kept.
+ */
+export function stripLinkReferenceDefinitions(markdown: string): string {
+  let fence: string | null = null
+  const kept: string[] = []
+  for (const line of markdown.split('\n')) {
+    const open = FENCE_RE.exec(line)?.[1]
+    if (fence) {
+      if (open && open[0] === fence[0] && open.length >= fence.length) {
+        fence = null
+      }
+    } else if (open) {
+      fence = open
+    } else if (LINK_REF_DEF_RE.test(line.replace(/\r$/, ''))) {
+      continue
+    }
+    kept.push(line)
+  }
+  return kept.join('\n').replace(/^\s*\n/, '')
+}
+
 export function githubMarkdownToLumoHtml(
   markdown: string,
   resolver: GithubMentionResolver
 ): string {
   // Strip any header marker that may have leaked back (defense in depth)
-  let work = markdown.replace(HEADER_RE, '')
+  let work = stripLinkReferenceDefinitions(markdown.replace(HEADER_RE, ''))
   // LUM-921: the body is untrusted GitHub text — escape it BEFORE inserting
   // our own markup, so raw HTML (<img onerror>, <svg onload>) lands as text.
   // Logins are [a-zA-Z0-9-] and `@` survives escaping, so mentions still match.

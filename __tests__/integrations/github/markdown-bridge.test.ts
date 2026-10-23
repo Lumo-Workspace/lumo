@@ -5,6 +5,7 @@ import {
   HEADER_MARKER_OPEN,
   HEADER_MARKER_CLOSE,
   computeBodyHash,
+  stripLinkReferenceDefinitions,
 } from '@/lib/integrations/github/markdown-bridge'
 
 describe('markdown-bridge', () => {
@@ -91,6 +92,41 @@ describe('markdown-bridge', () => {
       expect(computeBodyHash('hello\nworld')).toBe(
         computeBodyHash('hello\r\nworld')
       )
+    })
+  })
+
+  describe('stripLinkReferenceDefinitions', () => {
+    const VERCEL =
+      '[vc]: #MFSpIgWW1sYkXEkHPHzTyO7XPgL8GGHn4rzaDAFPdMU=:eyJpc01vbm9yZXBvIjp0cnVlfQ==\n' +
+      'The latest updates on your projects. Learn more about [Vercel for GitHub](https://vercel.link/github-learn-more).'
+
+    it("drops Vercel's [vc]: marker and keeps the text and inline links", () => {
+      expect(stripLinkReferenceDefinitions(VERCEL)).toBe(
+        'The latest updates on your projects. Learn more about [Vercel for GitHub](https://vercel.link/github-learn-more).'
+      )
+    })
+
+    it('drops definitions with a title anywhere in the body', () => {
+      const md = 'See [docs][d].\n\n[d]: https://example.com "Docs"'
+      expect(stripLinkReferenceDefinitions(md)).toBe('See [docs][d].\n')
+    })
+
+    it('keeps footnotes, prose with a colon, and fenced code', () => {
+      const md = [
+        '[^1]: a footnote',
+        'Note [this]: it stays because prose follows',
+        '```',
+        '[x]: https://kept.example',
+        '```',
+      ].join('\n')
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('githubMarkdownToLumoHtml no longer mirrors the marker', () => {
+      const html = githubMarkdownToLumoHtml(VERCEL, () => null)
+      expect(html).not.toContain('[vc]')
+      expect(html).not.toContain('eyJ')
+      expect(html).toContain('The latest updates on your projects.')
     })
   })
 })
