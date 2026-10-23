@@ -16,25 +16,102 @@ import {
   stripPrMirrorHeader,
 } from '@/lib/integrations/github/markdown-bridge'
 import { sanitizeCommentHtml } from '@/lib/html/sanitize-comment-html'
+import {
+  RICH_ATTRIBUTES,
+  RICH_TAGS,
+  isAllowedClass,
+} from '@/lib/html/rich-html-policy'
 
 const noMentions = () => null
 const render = (md: string) => githubMarkdownToLumoHtml(md, noMentions)
 
-/** Every way stored HTML could execute on render. */
+const URL_ATTRS = new Set([
+  'href',
+  'src',
+  'srcset',
+  'action',
+  'formaction',
+  'xlink:href',
+  'poster',
+  'background',
+  'data',
+  'ping',
+  'cite',
+])
+const SAFE_URL = /^(https?:|mailto:)/i
+// What a style value needs to fetch or run something.
+const UNSAFE_STYLE =
+  /url\s*\(|expression\s*\(|javascript:|@import|-moz-binding/i
+
+/**
+ * Every way stored HTML could execute, fetch or spoof UI on render, judged
+ * independently of the sanitizer config: event handlers, non-http(s) URLs in
+ * any URL-bearing attribute (control characters stripped, as browsers do),
+ * unsafe style values, form controls other than a disabled checkbox — and,
+ * against the shared allowlist, any tag, attribute or class outside it.
+ */
 function executableBits(html: string): string[] {
   const found: string[] = []
   for (const el of parse(html).querySelectorAll('*')) {
     const tag = el.tagName.toLowerCase()
-    if (['script', 'svg', 'iframe', 'object', 'embed', 'style'].includes(tag))
-      found.push(`<${tag}>`)
-    for (const [name, value] of Object.entries(el.attributes)) {
-      if (/^on/i.test(name)) found.push(`${tag}[${name}]`)
-      if (/^(href|src)$/i.test(name) && !/^(https?:|mailto:)/i.test(value))
+    if (!(RICH_TAGS as readonly string[]).includes(tag)) found.push(`<${tag}>`)
+    const attrs = Object.entries(el.attributes)
+    for (const [rawName, value] of attrs) {
+      const name = rawName.toLowerCase()
+      const v = value.replace(/[\u0000-\u0020\u007f]/g, '')
+      if (name.startsWith('on')) found.push(`${tag}[${name}]`)
+      if (URL_ATTRS.has(name) && !SAFE_URL.test(v))
         found.push(`${tag}[${name}=${value}]`)
+      if (name === 'style' && UNSAFE_STYLE.test(value))
+        found.push(`${tag}[style=${value}]`)
+      if (name === 'class') {
+        for (const cls of value.split(/\s+/).filter(Boolean))
+          if (!isAllowedClass(tag, cls)) found.push(`${tag}.${cls}`)
+      }
+      const allowed =
+        name.startsWith('data-') ||
+        name === 'style' ||
+        (RICH_ATTRIBUTES[tag] ?? []).includes(name)
+      if (!allowed) found.push(`${tag}[${name}] not allowlisted`)
+    }
+    if (tag === 'input') {
+      const type = el.getAttribute('type')?.toLowerCase()
+      if (type !== 'checkbox' || !el.hasAttribute('disabled'))
+        found.push(`<input type=${type}>`)
     }
   }
   return found
 }
+
+describe('executableBits (test oracle)', () => {
+  it.each([
+    '<img src="x" onerror="alert(1)">',
+    '<a href=" java\tscript:alert(1)">x</a>',
+    '<img srcset="javascript:alert(1) 1x">',
+    '<form action="javascript:alert(1)"><button formaction="javascript:x">b</button></form>',
+    '<svg><a xlink:href="javascript:alert(1)">x</a></svg>',
+    '<p style="background:url(https://evil.example/x.png)">x</p>',
+    '<div style="width:expression(alert(1))">x</div>',
+    '<span class="fixed inset-0">spoof</span>',
+    '<p id="clobber">x</p>',
+    '<input type="text">',
+    '<math><mi>x</mi></math>',
+    '<a href="//evil.example">x</a>',
+  ])('flags %s', html => {
+    expect(executableBits(html)).not.toEqual([])
+  })
+
+  it('accepts what the renderer legitimately emits', () => {
+    expect(
+      executableBits(
+        '<h3>t</h3><p><a href="https://x.dev">x</a> <code class="language-ts">c</code></p>' +
+          '<ul><li><input type="checkbox" disabled checked></li></ul>' +
+          '<details open><summary>s</summary><table><tr><td>1</td></tr></table></details>' +
+          '<span data-type="mention" data-id="c1">Foo</span><img src="https://x.dev/a.png" alt="a">'
+      )
+    ).toEqual([])
+  })
+})
 
 describe('githubMarkdownToLumoHtml — GFM rendering', () => {
   it('renders headings', () => {
@@ -267,6 +344,10 @@ describe('LUM-702 Lumo review comment fixture', () => {
     expect(doc.querySelectorAll('code').map(c => c.text)).toContain(
       '@uselumo review'
     )
+  })
+
+  it('passes the executable-markup oracle', () => {
+    expect(executableBits(out)).toEqual([])
   })
 
   it('is stable under the write-time comment sanitizer', () => {
