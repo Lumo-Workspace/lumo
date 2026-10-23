@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "PR ini mengubah {files, number} file yang dapat ditinjau; tinjauan AI berjalan pada maksimal {cap, number}, dan lebih dari seperempatnya akan terlewat, sehingga tidak dijalankan. Untuk mendapatkannya, persempit cakupan tinjauan atau pecah PR.",
   "securityScan.judgePartial": "PR ini melebihi batas ukuran tinjauan AI ({capFiles, number} file, {capChars, number} karakter), sehingga tinjauan AI mencakup {reviewed, number} dari {total, number} file yang dapat ditinjau. File yang tidak ditinjau ada di bawah: agar ditinjau, pecah PR, atau persempit lalu minta tinjauan penuh.",
   "securityScan.judgePartialMore": "dan {count, number} lainnya",
-  "securityScan.section.title": "Pemindaian keamanan",
+  "securityScan.section.title": "Ulasan Lumo",
   "securityScan.section.empty": "Belum ada pemindaian keamanan — pemindaian berjalan pada setiap push ke pull request yang ditautkan.",
   "securityScan.section.scanningOff": "Pemindaian keamanan dimatikan di pengaturan workspace ini, jadi pull request tugas ini tidak dipindai.",
   "securityScan.section.loadError": "Tidak dapat memuat pemindaian keamanan.",

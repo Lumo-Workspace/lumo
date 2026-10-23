@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "This PR changes {files, number} reviewable files; AI review runs on up to {cap, number}, and more than a quarter of them would be left out, so it did not run. To get it, narrow the review scope or split the PR.",
   "securityScan.judgePartial": "This PR is over the AI review's size limit ({capFiles, number} files, {capChars, number} characters), so AI review covered {reviewed, number} of {total, number} reviewable files. Not reviewed (below): to get them reviewed, split the PR, or narrow it and request a full review.",
   "securityScan.judgePartialMore": "and {count, number} more",
-  "securityScan.section.title": "Security scan",
+  "securityScan.section.title": "Lumo review",
   "securityScan.section.empty": "No security scans yet — a scan runs on every push to a linked pull request.",
   "securityScan.section.scanningOff": "Security scanning is turned off in this workspace's settings, so this task's pull requests aren't scanned.",
   "securityScan.section.loadError": "Could not load security scans.",

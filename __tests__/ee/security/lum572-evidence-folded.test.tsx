@@ -139,7 +139,7 @@ beforeEach(() => {
 })
 
 describe('the security scan is a flat Records row', () => {
-  it('a task with a scanned PR gets a collapsed Security scan row in Records, summarised', () => {
+  it('a task with a scanned PR gets a collapsed Lumo review row in Records, summarised', () => {
     mockSecurity.mockReturnValue({
       data: {
         prs: [
@@ -164,7 +164,7 @@ describe('the security scan is a flat Records row', () => {
     })
     render(<TaskDossier {...baseProps} />)
 
-    const row = screen.getByRole('button', { name: /Security scan/ })
+    const row = screen.getByRole('button', { name: /Lumo review/ })
     expect(screen.getByTestId('record-records')).toContainElement(row)
     expect(row).toHaveAttribute('aria-expanded', 'false')
     // LUM-1012: the row's verdict (formatSecurityVerdict).

@@ -2179,7 +2179,7 @@
   "securityScan.judgeOverCapFiles": "此 PR 改动了 {files, number} 个可审查文件；AI 审查最多支持 {cap, number} 个，超过四分之一的文件将被略过，因此未运行。如需 AI 审查，请缩小审查范围或拆分 PR。",
   "securityScan.judgePartial": "此 PR 超出了 AI 审查的规模上限（{capFiles, number} 个文件、{capChars, number} 个字符），因此 AI 审查只覆盖了 {total, number} 个可审查文件中的 {reviewed, number} 个。未审查的文件见下方：如需审查，请拆分 PR，或缩小范围后请求完整审查。",
   "securityScan.judgePartialMore": "另有 {count, number} 个",
-  "securityScan.section.title": "安全扫描",
+  "securityScan.section.title": "Lumo 评审",
   "securityScan.section.empty": "还没有安全扫描——每次向关联的 PR 推送代码都会自动扫描。",
   "securityScan.section.scanningOff": "本工作区已在设置中关闭安全扫描，因此不会扫描此任务的拉取请求。",
   "securityScan.section.loadError": "无法加载安全扫描。",

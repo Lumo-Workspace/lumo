@@ -7,7 +7,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 const messages: Record<string, string> = {
-  'securityScan.section.title': 'Security scan',
+  'securityScan.section.title': 'Lumo review',
   'securityScan.banner.blocking': 'blocking {count}',
   'securityScan.severity.HIGH': 'High',
   'securityScan.severity.LOW': 'Low',

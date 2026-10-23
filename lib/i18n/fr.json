@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "Cette PR modifie {files, number} fichiers révisables ; la revue IA en traite au plus {cap, number}, et plus d'un quart serait laissé de côté, elle n'a donc pas été lancée. Pour l'obtenir, réduisez le périmètre de la revue ou scindez la PR.",
   "securityScan.judgePartial": "Cette PR dépasse la limite de taille de la revue IA ({capFiles, number} fichiers, {capChars, number} caractères) : la revue IA a donc couvert {reviewed, number} des {total, number} fichiers révisables. Fichiers non révisés ci-dessous : pour les faire réviser, scindez la PR, ou réduisez-la et demandez une revue complète.",
   "securityScan.judgePartialMore": "et {count, number} de plus",
-  "securityScan.section.title": "Analyse de sécurité",
+  "securityScan.section.title": "Revue Lumo",
   "securityScan.section.empty": "Aucune analyse de sécurité pour l'instant : une analyse s'exécute à chaque push sur une pull request liée.",
   "securityScan.section.scanningOff": "L'analyse de sécurité est désactivée dans les paramètres de cet espace de travail, les pull requests de cette tâche ne sont donc pas analysées.",
   "securityScan.section.loadError": "Impossible de charger les analyses de sécurité.",
