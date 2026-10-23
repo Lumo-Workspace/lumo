@@ -867,7 +867,7 @@
   "task.context.section.slack": "Slack",
   "context.group.reference": "Referensi",
   "task.context.tab": "Konteks",
-  "task.decisions.importedAuthor": "Dipindahkan dari deskripsi",
+  "task.decisions.unknownAuthor": "Penulis tidak diketahui",
   "task.decisions.actions": "Tindakan untuk {decision}",
   "task.decisions.emptyTitle": "Belum ada keputusan",
   "task.decisions.compose": "Catat keputusan",

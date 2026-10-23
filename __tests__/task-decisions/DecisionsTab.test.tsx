@@ -110,11 +110,9 @@ describe('DecisionsTab', () => {
     // A CLI write shows as the member — no agent marker.
     expect(cards[0]).toHaveTextContent('Ada · 2026-10-05')
     expect(cards[0]).not.toHaveTextContent(/agent/i)
-    // A decision moved over from a description has no author.
+    // No known author (moved from a description, or the member is gone).
     expect(cards[1]).toHaveTextContent('Decision 1')
-    expect(cards[1]).toHaveTextContent(
-      'Moved from the description · 2026-10-04'
-    )
+    expect(cards[1]).toHaveTextContent('Author unknown · 2026-10-04')
   })
 
   it('records from the collapsible composer; the rationale is optional', async () => {

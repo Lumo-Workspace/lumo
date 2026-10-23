@@ -867,7 +867,7 @@
   "task.context.section.slack": "Slack",
   "context.group.reference": "참조",
   "task.context.tab": "컨텍스트",
-  "task.decisions.importedAuthor": "설명에서 이동됨",
+  "task.decisions.unknownAuthor": "기록자 알 수 없음",
   "task.decisions.actions": "{decision} 작업",
   "task.decisions.emptyTitle": "아직 결정 사항이 없습니다",
   "task.decisions.compose": "결정 기록하기",

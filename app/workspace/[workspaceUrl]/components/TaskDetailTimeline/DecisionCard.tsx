@@ -37,7 +37,7 @@ interface DecisionCardProps {
   createdAt: string
   /**
    * Who recorded it — a CLI write is the member whose API key ran it; null
-   * when unknown (decisions moved over from a description).
+   * when unknown (moved over from a description, or the member is gone).
    */
   author: { name: string; imageUrl: string | null } | null
   onEdit: (input: DecisionInput) => Promise<unknown>
@@ -115,8 +115,8 @@ export function DecisionCard({
   const meta = [
     author?.name ??
       intl.formatMessage({
-        id: 'task.decisions.importedAuthor',
-        defaultMessage: 'Moved from the description',
+        id: 'task.decisions.unknownAuthor',
+        defaultMessage: 'Author unknown',
       }),
     intl.formatDate(createdAt, { dateStyle: 'medium' }),
   ].join(' · ')

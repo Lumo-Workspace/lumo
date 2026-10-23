@@ -867,7 +867,7 @@
   "task.context.section.slack": "Slack",
   "context.group.reference": "संदर्भ",
   "task.context.tab": "संदर्भ",
-  "task.decisions.importedAuthor": "विवरण से लाया गया",
+  "task.decisions.unknownAuthor": "लेखक अज्ञात",
   "task.decisions.actions": "{decision} के लिए कार्रवाइयाँ",
   "task.decisions.emptyTitle": "अभी कोई निर्णय नहीं",
   "task.decisions.compose": "निर्णय दर्ज करें",

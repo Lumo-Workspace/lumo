@@ -1,9 +1,11 @@
 import { taskService } from '@/lib/services/task.service'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
+  isDecisionGone,
   isDecisionNumberCollision,
   taskDecisionRepository,
 } from '@/lib/repositories/task-decision.repository'
+import { stripCliDatePrefix } from '@/lib/task-templates/decisions'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { runInTransaction } from '@/lib/db/transaction'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
@@ -87,6 +89,16 @@ async function create(args: {
   }
 }
 
+/** Map "deleted by someone else since we looked" to the same 404 as missing. */
+async function notFoundIfGone<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write()
+  } catch (e) {
+    if (isDecisionGone(e)) throw httpError(404, 'Decision not found')
+    throw e
+  }
+}
+
 /** The decision, or 404 unless it is one of `taskId` in `workspaceId`. */
 async function findOnTask(
   decisionId: string,
@@ -114,37 +126,39 @@ async function update(args: {
     args.workspaceId
   )
   const actorId = await actorIdOf(args.actorMemberId)
-  return runInTransaction(async tx => {
-    const after = await taskDecisionRepository.update(
-      args.decisionId,
-      args.workspaceId,
-      {
-        ...(args.text !== undefined ? { text: args.text.trim() } : {}),
-        ...(args.rationale !== undefined
-          ? { rationale: normalizeRationale(args.rationale) }
-          : {}),
-      },
-      tx
-    )
-    // A save that changed nothing leaves no trail.
-    if (after.text !== before.text || after.rationale !== before.rationale) {
-      await activityRepository.create(
+  return notFoundIfGone(async () =>
+    runInTransaction(async tx => {
+      const after = await taskDecisionRepository.update(
+        args.decisionId,
+        args.workspaceId,
         {
-          taskId: args.taskId,
-          actorId,
-          type: 'DECISION_UPDATED',
-          payload: {
-            decisionId: args.decisionId,
-            number: before.number,
-            before: { text: before.text, rationale: before.rationale },
-            after: { text: after.text, rationale: after.rationale },
-          },
+          ...(args.text !== undefined ? { text: args.text.trim() } : {}),
+          ...(args.rationale !== undefined
+            ? { rationale: normalizeRationale(args.rationale) }
+            : {}),
         },
         tx
       )
-    }
-    return after
-  })
+      // A save that changed nothing leaves no trail.
+      if (after.text !== before.text || after.rationale !== before.rationale) {
+        await activityRepository.create(
+          {
+            taskId: args.taskId,
+            actorId,
+            type: 'DECISION_UPDATED',
+            payload: {
+              decisionId: args.decisionId,
+              number: before.number,
+              before: { text: before.text, rationale: before.rationale },
+              after: { text: after.text, rationale: after.rationale },
+            },
+          },
+          tx
+        )
+      }
+      return after
+    })
+  )
 }
 
 async function remove(args: {
@@ -159,27 +173,29 @@ async function remove(args: {
     args.workspaceId
   )
   const actorId = await actorIdOf(args.actorMemberId)
-  await runInTransaction(async tx => {
-    await taskDecisionRepository.softDelete(
-      args.decisionId,
-      args.workspaceId,
-      tx
-    )
-    await activityRepository.create(
-      {
-        taskId: args.taskId,
-        actorId,
-        type: 'DECISION_REMOVED',
-        payload: {
-          decisionId: args.decisionId,
-          number: existing.number,
-          text: existing.text,
-          rationale: existing.rationale,
+  await notFoundIfGone(async () =>
+    runInTransaction(async tx => {
+      await taskDecisionRepository.softDelete(
+        args.decisionId,
+        args.workspaceId,
+        tx
+      )
+      await activityRepository.create(
+        {
+          taskId: args.taskId,
+          actorId,
+          type: 'DECISION_REMOVED',
+          payload: {
+            decisionId: args.decisionId,
+            number: existing.number,
+            text: existing.text,
+            rationale: existing.rationale,
+          },
         },
-      },
-      tx
-    )
-  })
+        tx
+      )
+    })
+  )
 }
 
 /** `lumo task decide <id> "<text>" [--why "<reason>"]` (bearer-authed). */
@@ -193,8 +209,8 @@ async function recordFromCli(args: {
   sourceSessionId?: string | null
   /**
    * The caller is a CLI that prefixed today's date to the text (≤ 2.0.0); the
-   * row's createdAt carries the date, so the prefix is dropped. Anyone else's
-   * text is kept as written, even when it starts with a date.
+   * row's createdAt carries the date, so that prefix is dropped (see
+   * {@link stripCliDatePrefix}). Anyone else's text is kept as written.
    */
   stripLegacyDatePrefix?: boolean
 }) {
@@ -212,7 +228,7 @@ async function recordFromCli(args: {
     taskId: resolved.id,
     workspaceId: args.workspaceId,
     text: args.stripLegacyDatePrefix
-      ? args.text.trim().replace(/^\d{4}-\d{2}-\d{2}\s+(?=\S)/, '')
+      ? stripCliDatePrefix(args.text, new Date())
       : args.text,
     rationale: args.rationale,
     createdById: member.id,

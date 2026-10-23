@@ -867,7 +867,7 @@
   "task.context.section.slack": "Slack",
   "context.group.reference": "Referenzen",
   "task.context.tab": "Kontext",
-  "task.decisions.importedAuthor": "Aus der Beschreibung übernommen",
+  "task.decisions.unknownAuthor": "Autor unbekannt",
   "task.decisions.actions": "Aktionen für {decision}",
   "task.decisions.emptyTitle": "Noch keine Entscheidungen",
   "task.decisions.compose": "Entscheidung festhalten",

@@ -867,7 +867,7 @@
   "task.context.section.slack": "Slack",
   "context.group.reference": "参照",
   "task.context.tab": "コンテキスト",
-  "task.decisions.importedAuthor": "説明から移行",
+  "task.decisions.unknownAuthor": "記録者不明",
   "task.decisions.actions": "{decision} の操作",
   "task.decisions.emptyTitle": "まだ決定事項はありません",
   "task.decisions.compose": "決定を記録",

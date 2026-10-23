@@ -29,6 +29,8 @@ jest.mock('@/lib/repositories/task-decision.repository', () => ({
   },
   isDecisionNumberCollision: (e: unknown) =>
     (e as { code?: string } | null)?.code === 'P2002',
+  isDecisionGone: (e: unknown) =>
+    (e as { code?: string } | null)?.code === 'P2025',
 }))
 jest.mock('@/lib/utils/public-url', () => ({
   resolvePublicUrl: () => 'https://app.test',
@@ -113,12 +115,14 @@ describe('taskDecisionService.recordFromCli', () => {
   })
 
   it('drops the date an older CLI prefixed (createdAt carries it) and an empty rationale', async () => {
+    jest.useFakeTimers({ now: new Date('2026-10-04T10:00:00Z') })
     await taskDecisionService.recordFromCli({
       ...cli,
       text: '2026-10-04 keep v1',
       rationale: '   ',
       stripLegacyDatePrefix: true,
     })
+    jest.useRealTimers()
     expect(repo.createNumbered).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'keep v1', rationale: null }),
       'tx'
@@ -326,5 +330,36 @@ describe('taskDecisionService web CRUD', () => {
       })
     ).rejects.toBe(collision)
     expect(repo.createNumbered).toHaveBeenCalledTimes(5)
+  })
+
+  it('a decision deleted after it was looked up is a 404 for edit and delete, not a revival', async () => {
+    ;(repo.findById as jest.Mock).mockResolvedValue({
+      id: 'd1',
+      taskId: 'task_1',
+      number: 3,
+      text: 'keep v1',
+      rationale: null,
+    })
+    const gone = Object.assign(new Error('not found'), { code: 'P2025' })
+    ;(repo.update as jest.Mock).mockRejectedValueOnce(gone)
+    await expect(
+      taskDecisionService.update({
+        decisionId: 'd1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        actorMemberId: 'mem_1',
+        text: 'edited',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    ;(repo.softDelete as jest.Mock).mockRejectedValueOnce(gone)
+    await expect(
+      taskDecisionService.remove({
+        decisionId: 'd1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        actorMemberId: 'mem_1',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(activityRepository.create).not.toHaveBeenCalled()
   })
 })

@@ -95,8 +95,10 @@ export const taskDecisionRepository = {
     input: UpdateTaskDecisionInput,
     tx?: Prisma.TransactionClient
   ) {
+    // `deletedAt: null`: a decision deleted after the caller looked it up is
+    // not edited back to life — Prisma throws P2025 instead.
     return (tx ?? prisma).taskDecision.update({
-      where: { id, workspaceId },
+      where: { id, workspaceId, deletedAt: null },
       data: redactStoredFields(input, STORAGE_REDACTED_FIELDS.taskDecision),
       select: DECISION_SELECT,
     })
@@ -109,7 +111,7 @@ export const taskDecisionRepository = {
     tx?: Prisma.TransactionClient
   ) {
     await (tx ?? prisma).taskDecision.update({
-      where: { id, workspaceId },
+      where: { id, workspaceId, deletedAt: null },
       data: { deletedAt: new Date() },
     })
   },
@@ -192,6 +194,11 @@ export const taskDecisionRepository = {
 export type TaskDecisionRow = Awaited<
   ReturnType<typeof taskDecisionRepository.createNumbered>
 >
+
+/** True when an update / delete found no live row (deleted in the meantime). */
+export function isDecisionGone(e: unknown): boolean {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025'
+}
 
 /** True for the (taskId, number) unique-key race of {@link taskDecisionRepository.createNumbered}. */
 export function isDecisionNumberCollision(e: unknown): boolean {

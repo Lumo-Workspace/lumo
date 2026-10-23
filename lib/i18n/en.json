@@ -2019,7 +2019,7 @@
   "task.context.section.documents": "Documents",
   "task.context.section.slack": "Slack",
   "task.context.tab": "Context",
-  "task.decisions.importedAuthor": "Moved from the description",
+  "task.decisions.unknownAuthor": "Author unknown",
   "task.decisions.actions": "Actions for {decision}",
   "task.decisions.emptyTitle": "No decisions yet",
   "task.decisions.compose": "Record a decision",

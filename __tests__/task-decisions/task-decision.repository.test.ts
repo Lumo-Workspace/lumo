@@ -77,13 +77,15 @@ describe('taskDecisionRepository (LUM-1303)', () => {
   it('update and delete address the row by id and workspace; delete is a tombstone', async () => {
     td.update!.mockResolvedValue({})
     await taskDecisionRepository.update('d1', 'ws_1', { rationale: null })
+    // Only a live row: a decision deleted in the meantime is not edited.
     expect(td.update!.mock.calls[0][0].where).toEqual({
       id: 'd1',
       workspaceId: 'ws_1',
+      deletedAt: null,
     })
     await taskDecisionRepository.softDelete('d1', 'ws_1')
     expect(td.update!.mock.calls[1][0]).toEqual({
-      where: { id: 'd1', workspaceId: 'ws_1' },
+      where: { id: 'd1', workspaceId: 'ws_1', deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     })
     expect(td.delete).not.toHaveBeenCalled()

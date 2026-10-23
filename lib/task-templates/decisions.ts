@@ -105,3 +105,26 @@ export function splitDecisionsSection(
 
   return { description: root.toString().trim(), decisions }
 }
+
+const CLI_PREFIX = /^(\d{4})-(\d{2})-(\d{2})\s+(?=\S)/
+const DAY_MS = 86_400_000
+
+/**
+ * LUM-1303: undo the date prefix `lumo task decide` ≤ 2.0.0 added. That CLI
+ * prefixed the caller's local date — today, give or take a timezone — and
+ * left text that already started with a date alone. So only a leading date
+ * within a day of `now` is the CLI's; any other date ("2026-12-01 is the
+ * cutoff") is the user's and is kept.
+ */
+export function stripCliDatePrefix(text: string, now: Date): string {
+  const trimmed = text.trim()
+  const m = CLI_PREFIX.exec(trimmed)
+  if (!m) return trimmed
+  const day = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  )
+  return Math.abs(day - today) <= DAY_MS ? trimmed.slice(m[0].length) : trimmed
+}

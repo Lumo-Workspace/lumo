@@ -4,7 +4,10 @@
  * LUM-1303: the backfill takes the LUM-970 `## Decisions` section out of a
  * description and turns each line into a decision.
  */
-import { splitDecisionsSection } from '@/lib/task-templates/decisions'
+import {
+  splitDecisionsSection,
+  stripCliDatePrefix,
+} from '@/lib/task-templates/decisions'
 
 describe('splitDecisionsSection', () => {
   it('returns null when there is no Decisions section (or no description)', () => {
@@ -50,5 +53,29 @@ describe('splitDecisionsSection', () => {
       '<p>x</p><h2>Decisions</h2><p><em>Dated rulings, appended as work goes with <code>lumo task decide &lt;id&gt; "…"</code>.</em></p>'
     )
     expect(out).toEqual({ description: '<p>x</p>', decisions: [] })
+  })
+})
+
+describe('stripCliDatePrefix (CLI <= 2.0.0 prefixed the local date)', () => {
+  const now = new Date('2026-10-23T09:00:00Z')
+
+  it("strips today's date, or a neighbouring day (the caller's timezone)", () => {
+    expect(stripCliDatePrefix('2026-10-23 keep v1', now)).toBe('keep v1')
+    expect(stripCliDatePrefix('2026-10-22 keep v1', now)).toBe('keep v1')
+    expect(stripCliDatePrefix(' 2026-10-24 keep v1 ', now)).toBe('keep v1')
+  })
+
+  it('keeps a date the user wrote (the old CLI left those alone)', () => {
+    expect(stripCliDatePrefix('2026-12-01 is the cutoff', now)).toBe(
+      '2026-12-01 is the cutoff'
+    )
+    expect(stripCliDatePrefix('2026-10-21 was the old cutoff', now)).toBe(
+      '2026-10-21 was the old cutoff'
+    )
+  })
+
+  it('leaves text without a leading date, or only a date, as it is', () => {
+    expect(stripCliDatePrefix('keep v1', now)).toBe('keep v1')
+    expect(stripCliDatePrefix('2026-10-23', now)).toBe('2026-10-23')
   })
 })
