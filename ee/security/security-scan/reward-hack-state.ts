@@ -43,8 +43,9 @@ export function parseRewardHackState(value: unknown): RewardHackState | null {
   // A state written before versions existed is never reused.
   if (typeof v.version !== 'string') return null
   // A `refuteCapped` key on a state written while the layer still had a
-  // refute step (removed 2026-10-22) is ignored: such states carry an older
-  // version and are never reused anyway.
+  // refute step (removed 2026-10-22) is ignored. Production only has such
+  // states under older versions (never reused); an rh-v3 state written by a
+  // preview of this change could still carry it and is reused as is.
   return {
     version: v.version,
     watermark: v.watermark,
