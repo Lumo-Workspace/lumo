@@ -18,7 +18,7 @@
  */
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
-import { generateObject, NoObjectGeneratedError } from 'ai'
+import { APICallError, generateObject, NoObjectGeneratedError } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
@@ -147,14 +147,61 @@ export function buildPreMergeChecksPrompt(
  * every check inconclusive. A timeout or transport error is not retried — the
  * deadline is spent, and the gateway already falls over between hosts.
  */
-export const PRE_MERGE_CHECKS_MAX_ATTEMPTS = 2
+export const PRE_MERGE_CHECKS_MAX_ATTEMPTS = 3
+
+/**
+ * LUM-1304 — one line per failed attempt, for the service's `model
+ * unavailable` warning: the error's name, HTTP status, the gateway's own
+ * error type/message when its body is JSON (never the raw body, which could
+ * echo request text), and how long the attempt took. Production showed only
+ * "Delay was aborted" — the SDK's own retries had swallowed the cause.
+ */
+export function describeAttemptFailure(error: unknown, ms: number): string {
+  const e = error as {
+    name?: string
+    message?: string
+    statusCode?: number
+    responseBody?: string
+  }
+  let gatewayError = ''
+  if (typeof e.responseBody === 'string') {
+    try {
+      const body = JSON.parse(e.responseBody) as {
+        error?: { type?: unknown; message?: unknown }
+      }
+      const type = typeof body.error?.type === 'string' ? body.error.type : ''
+      const msg =
+        typeof body.error?.message === 'string' ? body.error.message : ''
+      if (type || msg)
+        gatewayError = ` [${type}${type && msg ? ': ' : ''}${msg}]`
+    } catch {
+      gatewayError = ''
+    }
+  }
+  const status = e.statusCode ? ` ${e.statusCode}` : ''
+  const message = (e.message ?? String(error)).replace(/\s+/g, ' ')
+  return `${e.name ?? 'Error'}${status} after ${ms}ms: ${message}${gatewayError}`.slice(
+    0,
+    300
+  )
+}
+
+/** Worth another attempt inside the deadline: no object, or a retryable call. */
+function retryable(error: unknown): boolean {
+  return (
+    NoObjectGeneratedError.isInstance(error) ||
+    (APICallError.isInstance(error) && error.isRetryable)
+  )
+}
 
 export async function runPreMergeChecksModel(
   input: PreMergeChecksPromptInput & { timeoutMs?: number }
 ): Promise<PreMergeChecksAnswer> {
   const abortSignal = AbortSignal.timeout(input.timeoutMs ?? 60_000)
   const prompt = buildPreMergeChecksPrompt(input)
+  const failures: string[] = []
   for (let attempt = 1; ; attempt++) {
+    const started = Date.now()
     try {
       const { object } = await generateObject({
         model: gateway(MEMORY_JUDGE_MODEL),
@@ -162,18 +209,28 @@ export async function runPreMergeChecksModel(
         system: PRE_MERGE_CHECKS_SYSTEM_PROMPT,
         prompt,
         abortSignal,
+        // Our loop retries, so each attempt's failure is seen and logged.
+        maxRetries: 0,
         ...structuredOutputCallOptions(MEMORY_JUDGE_MODEL),
         experimental_repairText: async ({ text }) =>
           repairPreMergeChecksText(text),
       })
       return object
     } catch (error) {
+      failures.push(
+        `attempt ${attempt}: ${describeAttemptFailure(error, Date.now() - started)}`
+      )
       if (
         attempt >= PRE_MERGE_CHECKS_MAX_ATTEMPTS ||
         abortSignal.aborted ||
-        !NoObjectGeneratedError.isInstance(error)
+        !retryable(error)
       )
-        throw error
+        throw Object.assign(
+          new Error(
+            `pre-merge checks model failed${abortSignal.aborted ? ' (deadline reached)' : ''} — ${failures.join('; ')}`
+          ),
+          { cause: error }
+        )
     }
   }
 }

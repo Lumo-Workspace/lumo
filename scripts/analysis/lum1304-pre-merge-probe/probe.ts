@@ -50,6 +50,8 @@ interface CallRecord {
   reasoningTokens?: number
   textChars?: number
   provider?: string
+  /** Name, HTTP status and message of the error and its causes / retries. */
+  chain?: string[]
   /** `<check>=<verdict>` and `<requirement>=<outcome>`, no prose. */
   verdicts?: string
 }
@@ -63,6 +65,31 @@ function verdictsOf(answer: PreMergeChecksAnswer): string {
       ].join(' ')
     )
     .join(' ')
+}
+
+function errorChain(error: unknown): string[] {
+  const out: string[] = []
+  const seen = new Set<unknown>()
+  const walk = (e: unknown) => {
+    if (!e || typeof e !== 'object' || seen.has(e) || out.length > 8) return
+    seen.add(e)
+    const x = e as {
+      name?: string
+      message?: string
+      statusCode?: number
+      cause?: unknown
+      errors?: unknown[]
+      lastError?: unknown
+    }
+    out.push(
+      `${x.name ?? 'Error'}${x.statusCode ? ` ${x.statusCode}` : ''}: ${(x.message ?? '').slice(0, 140)}`
+    )
+    for (const r of x.errors ?? []) walk(r)
+    walk(x.lastError)
+    walk(x.cause)
+  }
+  walk(error)
+  return out
 }
 
 function servingProvider(meta: unknown): string | undefined {
@@ -151,6 +178,7 @@ async function main() {
         ms: 0,
         ok: false,
         error: error instanceof Error ? error.message.slice(0, 160) : 'error',
+        chain: errorChain(error),
       }
       if (NoObjectGeneratedError.isInstance(error)) {
         rec.finishReason = error.finishReason
