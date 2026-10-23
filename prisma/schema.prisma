@@ -382,6 +382,7 @@ model Workspace {
   tags                    Tag[]
   mcpConnections          McpConnection[]          @relation("WorkspaceMcpConnections")
   hookEvents              HookEvent[]
+  dataKeys                WorkspaceDataKey[]
   sessions                Session[]
   worktrees               Worktree[]
   memories                Memory[]
@@ -2893,50 +2894,64 @@ enum HookEventType {
 }
 
 model HookEvent {
-  id                 String        @id @default(cuid())
-  workspaceId        String
-  workspaceMemberId  String
-  sessionId          String? // Claude Code session UUID, FK to Session.id
-  taskId             String? // associated Lumo task
-  type               HookEventType
-  toolName           String? // extracted from payload.tool_name when present
+  id                     String        @id @default(cuid())
+  workspaceId            String
+  workspaceMemberId      String
+  sessionId              String? // Claude Code session UUID, FK to Session.id
+  taskId                 String? // associated Lumo task
+  type                   HookEventType
+  toolName               String? // extracted from payload.tool_name when present
   /// LUM-840: finer bucket under `toolName` for operation-cost attribution —
   /// for Bash, the command's purpose slug (read / test / lumo / … see
   /// lib/agent-run/bash-category.ts), set at record time and backfilled for
   /// history. Null for every other tool and for unreadable commands.
-  toolDetail         String?
+  toolDetail             String?
   /// LUM-840: the command that decided `toolDetail` for Bash — the winning
   /// segment's verb (+ subcommand for git/gh/lumo/npm-style tools), e.g.
   /// `jest`, `git show`. Safe charset, <= 40 chars. Drives the per-command
   /// cost drill-down. Null for every other tool.
-  toolVerb           String?
+  toolVerb               String?
   // File this event touched, lifted out of the raw payload at record time
   // (tool_input.file_path / tool_response.filePath / top-level path|file_path).
   // Null for events that carry no file path (Bash, Stop, prompts). Indexed for
   // cross-session "who else is touching this file" lookups and LUM-146's
   // "last file changed" — both impossible while the path lived only in JSON.
-  filePath           String?
-  payload            Json // raw hook body from Claude Code
+  filePath               String?
+  payload                Json // raw hook body from Claude Code
   // LLM-generated one-line summary of what Claude did in the turn that
   // just ended. Populated only on STOP / STOP_FAILURE rows, written
   // async by the turn-summary service. Null on every other event type
   // and on pre-feature historical rows; UI falls back to a first-
   // sentence excerpt of payload.last_assistant_message in that case.
-  turnSummary        String?
+  turnSummary            String?
   /// Per-turn per-model token delta (LUM-298) = this STOP's cumulative minus the
   /// previous STOP's. JSON map keyed by raw model string ->
   /// { input, output, cacheRead, cacheCreation }. Written only on STOP /
   /// STOP_FAILURE rows; null everywhere else and on historical rows.
-  usageByModel       Json?
+  usageByModel           Json?
   /// LUM-932 P2: task-identification signals lifted out of the payload at
   /// record time (see lib/attribution/signals.ts). A derived column, so it
   /// survives payload pruning. `[]` = computed, nothing found; NULL = never
   /// computed (rows recorded before P2).
-  attributionSignals Json?
+  attributionSignals     Json?
   /// LUM-859: when the retention sweep replaced `payload` with the pruned
   /// marker. Null = payload still holds the (redacted) original.
-  payloadPrunedAt    DateTime?
-  createdAt          DateTime      @default(now())
+  payloadPrunedAt        DateTime?
+  /// LUM-1302: the pruned marker's `reason` (RETENTION_POLICY / USED_UP /
+  /// USER_DELETED), lifted out so it stays queryable once `payload` is
+  /// encrypted. Null while the payload is whole.
+  payloadPrunedReason    String?
+  /// LUM-1302: the WorkspaceDataKey that encrypted `payload`
+  /// (lib/db/hook-payload-encryption.ts). Null = stored as plaintext: a row
+  /// written before encryption, or by a deployment without ENCRYPTION_KEY.
+  payloadKeyId           String?
+  /// LUM-1302: `payload.tool_use_id`, lifted out at record time for the
+  /// Pre→Post tool-use task match. Null when the event carries none.
+  toolUseId              String?
+  /// LUM-1302: a USER_PROMPT_SUBMIT whose prompt carries a background task's
+  /// `<task-notification>`, lifted out at record time for attribution.
+  promptTaskNotification Boolean       @default(false)
+  createdAt              DateTime      @default(now())
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
@@ -2950,6 +2965,26 @@ model HookEvent {
   // before the time-range scan.
   @@index([workspaceId, filePath, createdAt])
   @@map("hook_events")
+}
+
+/// LUM-1302: a workspace's data-encryption key (envelope encryption). The
+/// 32-byte key is stored wrapped by ENCRYPTION_KEY (lib/crypto.ts); each
+/// HookEvent payload is encrypted with its workspace's latest key and names
+/// the key it used (`HookEvent.payloadKeyId`). Rotating ENCRYPTION_KEY only
+/// re-wraps these rows; deleting a workspace deletes its keys.
+model WorkspaceDataKey {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// 1, 2, … per workspace; the highest is the one new writes use.
+  version     Int
+  /// `lib/crypto.ts` encrypt() of the key's hex — never the raw key.
+  wrappedKey  String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, version])
+  @@map("workspace_data_keys")
 }
 
 // LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound

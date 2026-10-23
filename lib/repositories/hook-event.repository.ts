@@ -37,6 +37,10 @@ interface CreateHookEventData {
   usageByModel?: Prisma.InputJsonValue | null
   /** LUM-932 P2: task-identification signals extracted at record time; `[]` when none found (SQL NULL is reserved for rows never computed). */
   attributionSignals?: AttributionSignal[] | null
+  /** LUM-1302: `payload.tool_use_id`, as a column (the payload is encrypted). */
+  toolUseId?: string | null
+  /** LUM-1302: a root prompt carrying a `<task-notification>`. */
+  promptTaskNotification?: boolean
 }
 
 interface FindRecentOtherSessionWritesParams {
@@ -162,6 +166,8 @@ export const hookEventRepository = {
         toolDetail: data.toolDetail ?? null,
         toolVerb: data.toolVerb ?? null,
         filePath: data.filePath ?? null,
+        toolUseId: data.toolUseId ?? null,
+        promptTaskNotification: data.promptTaskNotification ?? false,
         payload: data.payload,
         usageByModel:
           data.usageByModel != null
@@ -432,12 +438,13 @@ export const hookEventRepository = {
    * because the caller is fire-and-forget.
    */
   async setContextInjectionMetrics(
+    workspaceId: string,
     eventId: string,
     payloadWithMetrics: Prisma.InputJsonValue
   ) {
     try {
       await prisma.hookEvent.update({
-        where: { id: eventId },
+        where: { id: eventId, workspaceId },
         data: { payload: payloadWithMetrics },
         select: { id: true },
       })

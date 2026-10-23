@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { withSoftDelete } from './soft-delete'
+import { extendPrismaClient } from './extend-client'
 import { resolveDatabaseUrl } from './database-url'
 
 declare global {
@@ -21,8 +21,7 @@ function createPrismaClient() {
     connectionString: sanitizeDbUrl(resolveDatabaseUrl('pooled') ?? ''),
     ssl: { rejectUnauthorized: true },
   })
-  // LUM-918: tasks / documents in the trash are invisible to default reads.
-  return withSoftDelete(
+  return extendPrismaClient(
     new PrismaClient({
       adapter,
       log:

@@ -121,9 +121,14 @@ function bindTask() {
 /** Stamped payload of the (single) setContextInjectionMetrics call. */
 function stampedPayload(): Record<string, unknown> {
   expect(mockStamp).toHaveBeenCalledTimes(1)
-  const call = mockStamp.mock.calls[0] as [string, Record<string, unknown>]
-  expect(call[0]).toBe('he_1')
-  return call[1]
+  const call = mockStamp.mock.calls[0] as [
+    string,
+    string,
+    Record<string, unknown>,
+  ]
+  expect(call[0]).toBe(identity.workspace.id)
+  expect(call[1]).toBe('he_1')
+  return call[2]
 }
 
 describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => {

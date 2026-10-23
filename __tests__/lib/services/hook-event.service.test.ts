@@ -113,6 +113,8 @@ describe('hookEventService.recordHookEvent', () => {
       usageByModel: null,
       // LUM-932 P2: computed on every event; [] = nothing found.
       attributionSignals: [],
+      toolUseId: null,
+      promptTaskNotification: false,
     })
   })
 

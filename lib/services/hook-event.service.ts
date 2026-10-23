@@ -15,6 +15,7 @@ import {
 } from '@/lib/session/subagent-usage'
 import {
   extractAttributionSignals,
+  promptCarriesTaskNotification,
   type AttributionSignal,
 } from '@/lib/attribution/signals'
 import { logger } from '@/lib/logger'
@@ -214,6 +215,7 @@ export const hookEventService = {
     const filePath = extractFilePath(payload)
     const signals =
       attributionSignals ?? extractAttributionSignals(type, payload)
+    const toolUseId = extractStringField(payload, 'tool_use_id')
     // LUM-932 P3: an event of an unattached session is tagged with its
     // provisional (inferred) task at record time so detectors act on it right
     // away. Best-effort: a failed inference never blocks the event.
@@ -225,7 +227,7 @@ export const hookEventService = {
           parentSessionId: agentId ? sessionId : null,
           signals,
           type,
-          toolUseId: extractStringField(payload, 'tool_use_id'),
+          toolUseId,
         })
       } catch (error) {
         logger.error(
@@ -252,6 +254,8 @@ export const hookEventService = {
           : null,
       // [] = computed, nothing found (vs NULL = historical, never computed).
       attributionSignals: signals,
+      toolUseId,
+      promptTaskNotification: promptCarriesTaskNotification(type, payload),
     })
 
     // LUM-932: settle each subagent's usage onto its child session AFTER the

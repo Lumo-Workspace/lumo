@@ -101,6 +101,7 @@ async function pruneWorkspace(
     const prunable = ids.filter(id => !referenced.has(id))
     result.keptForCrossings += referenced.size
     result.pruned += await hookEventRetentionRepository.prunePayloads(
+      workspaceId,
       prunable,
       prunedPayload,
       now
@@ -175,6 +176,7 @@ async function pruneUsedUpWorkspace(
       return false
     })
     result.pruned += await hookEventRetentionRepository.prunePayloads(
+      workspaceId,
       prunable,
       prunedPayload,
       now
