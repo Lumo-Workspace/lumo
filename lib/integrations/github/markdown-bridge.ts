@@ -80,6 +80,14 @@ const LINK_REF_DEF_RE =
 const FENCE_OPEN_RE = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$/
 // A closing fence carries no info string.
 const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
+// Single-line blocks (ATX heading, thematic break) that end without starting
+// a paragraph, so a definition may follow them directly.
+const LEAF_BLOCK_RE =
+  /^ {0,3}(?:#{1,6}(?:[ \t]|$)|(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$)/
+
+// CommonMark label matching: case-insensitive, internal whitespace collapsed.
+const normalizeLabel = (label: string) =>
+  label.trim().replace(/\s+/g, ' ').toLowerCase()
 
 /**
  * Drop the link reference definitions GitHub never renders — e.g. Vercel's
@@ -88,10 +96,6 @@ const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
  * uses (`[text][label]`, `[label]`) is kept, so its URL isn't lost; lines
  * inside fenced code blocks are kept too.
  */
-// CommonMark label matching: case-insensitive, internal whitespace collapsed.
-const normalizeLabel = (label: string) =>
-  label.trim().replace(/\s+/g, ' ').toLowerCase()
-
 export function stripLinkReferenceDefinitions(markdown: string): string {
   const lines = markdown.split('\n')
   let fence: string | null = null
@@ -120,7 +124,7 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
       defs.set(i, normalizeLabel(label))
       return
     }
-    inParagraph = line.trim() !== ''
+    inParagraph = line.trim() !== '' && !LEAF_BLOCK_RE.test(line)
   })
   if (defs.size === 0) return markdown
 

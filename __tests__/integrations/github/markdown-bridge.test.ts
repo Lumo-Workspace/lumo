@@ -121,6 +121,15 @@ describe('markdown-bridge', () => {
       expect(stripLinkReferenceDefinitions(md)).toBe('```code```\n\n\nText.')
     })
 
+    it('drops a definition right after a heading or a thematic break', () => {
+      expect(
+        stripLinkReferenceDefinitions('## Deploys\n[vc]: #abc\nText.')
+      ).toBe('## Deploys\nText.')
+      expect(stripLinkReferenceDefinitions('---\n[vc]: #abc\nText.')).toBe(
+        '---\nText.'
+      )
+    })
+
     it('keeps a definition-shaped line that continues a paragraph', () => {
       const md = 'Some prose\n[x]: https://example.com'
       expect(stripLinkReferenceDefinitions(md)).toBe(md)
