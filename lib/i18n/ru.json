@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "Измерено по шагам.",
   "lineage.operations.precisionPerTurn": "Оценка по ходам: {pct}% ходов с инструментами измерены по шагам; остальное поровну делится между инструментами хода.",
   "lineage.operations.cacheReadDominant": "{pct}% этих токенов — чтение кеша: структурная стоимость длинного контекста, а не отдельного инструмента.",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeWarnings": "Предупреждения перед слиянием: {count}",
+  "securityScan.preMerge.failed": "Не пройдено",
+  "securityScan.preMerge.inconclusive": "Нет однозначного вывода",
+  "securityScan.preMerge.not_addressed": "Не выполнено",
+  "securityScan.preMerge.unclear": "Неясно"
 }

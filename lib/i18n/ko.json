@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "단계별로 측정됨.",
   "lineage.operations.precisionPerTurn": "턴 단위 추정: 도구를 사용한 턴 중 {pct}%는 단계별로 측정했고, 나머지는 해당 턴의 도구에 균등 분배했습니다.",
   "lineage.operations.cacheReadDominant": "이 토큰의 {pct}%는 캐시 읽기로, 특정 도구가 아닌 긴 컨텍스트의 구조적 비용입니다.",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeWarnings": "병합 전 경고 {count}개",
+  "securityScan.preMerge.failed": "실패",
+  "securityScan.preMerge.inconclusive": "판단 불가",
+  "securityScan.preMerge.not_addressed": "미해결",
+  "securityScan.preMerge.unclear": "불명확"
 }

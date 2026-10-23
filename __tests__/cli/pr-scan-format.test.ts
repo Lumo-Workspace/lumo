@@ -986,3 +986,40 @@ describe('Findings count row adds up', () => {
     expect(sum(parts)).toBe(findings.length)
   })
 })
+
+test('LUM-1298: PR and task scan output disclose unmet checks on a clean scan', () => {
+  const data = payload({
+    scans: [
+      scan({
+        status: 'CLEAN',
+        findings: [],
+        preMergeChecks: [
+          {
+            id: 'issue-assessment',
+            name: 'Issue assessment',
+            mode: 'warning',
+            verdict: 'failed',
+            explanation: 'One goal is unmet',
+            resolution: 'Implement the goal',
+            requirements: [
+              {
+                id: 'goal',
+                label: 'LUM-702 · Goal',
+                outcome: 'not_addressed',
+                quotable: false,
+                text: 'Hidden goal',
+                explanation: 'Hidden explanation',
+              },
+            ],
+          },
+        ],
+      }),
+    ],
+  })
+  const output = formatPrScan(data)
+  expect(output).toContain('1 pre-merge warning')
+  expect(output).toContain('Issue assessment · failed (warning)')
+  expect(output).toContain('Resolution: Implement the goal')
+  expect(output).toContain('LUM-702 · Goal · not addressed')
+  expect(output).not.toContain('Hidden')
+})

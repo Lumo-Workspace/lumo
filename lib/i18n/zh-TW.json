@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "依步驟精確計量。",
   "lineage.operations.precisionPerTurn": "依輪估算：使用工具的輪次中有 {pct}% 依步驟計量，其餘在該輪的工具間平均分攤。",
   "lineage.operations.cacheReadDominant": "其中 {pct}% 是快取讀取，屬於長上下文的結構性成本，而非某個工具的開銷。",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeWarnings": "{count} 項合併前檢查警告",
+  "securityScan.preMerge.failed": "未通過",
+  "securityScan.preMerge.inconclusive": "無法判定",
+  "securityScan.preMerge.not_addressed": "未解決",
+  "securityScan.preMerge.unclear": "不明確"
 }

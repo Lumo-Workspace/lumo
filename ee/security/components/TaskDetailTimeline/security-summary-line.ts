@@ -26,6 +26,14 @@ export function formatSecurityVerdict(
 ): SecurityVerdict {
   const summary = summarizeSecurityScans(data.prs)
   const caveats: SecurityCaveat[] = []
+  if (summary.preMergeWarnings > 0)
+    caveats.push({
+      text: intl.formatMessage(
+        { id: 'record.security.preMergeWarnings' },
+        { count: summary.preMergeWarnings }
+      ),
+      tone: 'warning',
+    })
   if (summary.incomplete > 0)
     caveats.push({
       text: intl.formatMessage(

@@ -1,3 +1,7 @@
+import {
+  nonPassingChecks,
+  type PreMergeCheckView,
+} from '../../../shared/src/pre-merge-checks'
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { NONE, fmtCount, fmtEnum, fmtTimestamp } from '../lib/format'
 import { readCredentials } from '../lib/config'
@@ -145,6 +149,7 @@ export interface PrScanHunt {
 }
 
 export interface PrScanEntry {
+  preMergeChecks?: PreMergeCheckView[]
   id: string
   headSha: string
   status: string
@@ -472,8 +477,9 @@ function formatScan(
   scanningOff: boolean,
   opts: LayoutOptions
 ): string[] {
+  const checks = nonPassingChecks(s.preMergeChecks)
   const lines = sectionHeading(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}`,
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${enumColor(formatScanStatus(s.status, s.stages, scanningOff, s.prTooLarge != null), opts.color === true)}${checks.length > 0 ? ` · ${checks.length} pre-merge warning${checks.length === 1 ? '' : 's'}` : ''}`,
     opts
   )
   const meta: Field[] = [
@@ -534,6 +540,37 @@ function formatScan(
   ])
     lines.push(...wrapLines(l, 2, opts))
   lines.push(...fieldLines(findingsRow, 2, opts, w))
+  for (const check of checks) {
+    lines.push(
+      ...wrapLines(
+        `Pre-merge: ${sanitizeField(check.name)} · ${check.verdict} (${check.mode})`,
+        2,
+        opts
+      )
+    )
+    if (check.explanation)
+      lines.push(...wrapLines(sanitizeField(check.explanation), 4, opts))
+    if (check.resolution)
+      lines.push(
+        ...wrapLines(`Resolution: ${sanitizeField(check.resolution)}`, 4, opts)
+      )
+    for (const r of check.requirements ?? []) {
+      if (r.outcome === 'addressed') continue
+      const prose = r.quotable
+        ? [r.text, r.explanation]
+            .filter(Boolean)
+            .map(t => sanitizeField(t!))
+            .join(' — ')
+        : ''
+      lines.push(
+        ...wrapLines(
+          `${sanitizeField(r.label)} · ${r.outcome.replace(/_/g, ' ')}${prose ? `: ${prose}` : ''}`,
+          4,
+          opts
+        )
+      )
+    }
+  }
   if (c.findings > 0)
     for (const f of s.findings) lines.push(...findingLines(f, opts))
   if (full && s.hunt) {
