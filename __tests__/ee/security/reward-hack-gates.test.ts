@@ -202,7 +202,7 @@ describe('citedEditsInPr — a whole-file Write (LUM-1234 R21)', () => {
     ),
   })
 
-  it('a Write that deleted two it(...) blocks from an existing foo.test.ts is kept and reaches refute', () => {
+  it('a Write that deleted two it(...) blocks from an existing foo.test.ts is kept (reported)', () => {
     // The PR only removes lines: its added-line set for the file is empty.
     const v = view('modified', [])
     expect(citedEditsInPr(['w'], v)).toBe(true)

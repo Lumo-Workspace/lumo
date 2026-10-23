@@ -1108,37 +1108,6 @@ export function buildRhUserPrompt(args: {
   }
 }
 
-// ─── the PR diff for the refute call ───────────────────────────────────────
-
-/** Our caps on the diff the refute call sees (per file, and in total). */
-export const RH_PR_DIFF_FILE_MAX_CHARS = 8_000
-export const RH_PR_DIFF_MAX_CHARS = 24_000
-
-/**
- * The current PR hunks of the files `paths` name, each fenced as untrusted
- * text — what will merge, so the refute call can tell an edit that is still
- * there from one later corrected. '' when no such file has hunks.
- */
-export function buildRhPrDiffBlock(
-  prFiles: RhPrFile[],
-  paths: string[]
-): string {
-  const parts: string[] = []
-  let left = RH_PR_DIFF_MAX_CHARS
-  for (const f of prFiles) {
-    if (left <= 0) break
-    if (f.patch === null) continue
-    if (!paths.some(p => pathMatchesPrFile(p, f.filename))) continue
-    const body = cut(
-      defang(sanitizeField(f.patch)),
-      Math.min(RH_PR_DIFF_FILE_MAX_CHARS, left)
-    )
-    left -= body.length
-    parts.push(fence('pr-diff', `file="${attrValue(f.filename)}"`, body))
-  }
-  return parts.join('\n\n')
-}
-
 // ─── watermark ──────────────────────────────────────────────────────────────
 
 export function rhWatermark(sessions: RhSession[]): Record<string, string> {

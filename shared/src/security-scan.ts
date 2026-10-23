@@ -328,9 +328,11 @@ export const PARTIAL_CAUSES = [
    */
   'REWARD_HACK_PRUNED',
   /**
-   * LUM-1234 — the judge flagged more items than the reward-hack layer's
-   * refute cap (`REWARD_HACK_MAX_REFUTES`, a budget WE set): the items past
-   * it were neither checked nor reported.
+   * LUM-1234 — DEPRECATED, never produced: the judge flagged more items than
+   * the reward-hack layer's former refute cap, so the items past it were
+   * neither checked nor reported. The refute step was removed (user ruling
+   * 2026-10-22); the value stays so rows written before then still read and
+   * class as COVERAGE_OWED.
    */
   'REWARD_HACK_REFUTE_CAP',
 ] as const

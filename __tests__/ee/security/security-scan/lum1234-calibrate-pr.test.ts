@@ -230,11 +230,6 @@ describe('calibratePr', () => {
       inputTokens: 1000,
       outputTokens: 100,
     }))
-    const refute = jest.fn(async () => ({
-      refuted: false,
-      reason: 'no legitimate reason',
-      costUsd: 0.01,
-    }))
     const rec = await calibratePr({
       pr: PR,
       allPrs: [PR, PREV],
@@ -243,7 +238,6 @@ describe('calibratePr', () => {
       requirement: '# feat',
       requirementSource: 'title',
       judge,
-      refute,
       spend: new BudgetGate(10),
     })
     expect(decide).toHaveBeenCalledTimes(1)
@@ -255,7 +249,8 @@ describe('calibratePr', () => {
     expect(rec.outcome).toBe('judged')
     expect(rec.suspicion).toBe(90)
     expect(rec.itemsAfterGates).toHaveLength(1)
-    expect(rec.refutes[0]).toMatchObject({ refuted: false })
+    // The gated item is the final item: no refute call stands between them.
+    expect(rec).not.toHaveProperty('refutes')
     expect(rec.finalItems).toHaveLength(1)
     expect(rec.finalItems[0]).toMatchObject({
       kind: 'TEST_TAMPERING',
@@ -264,6 +259,7 @@ describe('calibratePr', () => {
     })
     expect(rec.finalItems[0]!.cited[0]!.excerpt).toContain('new line here')
     expect(rec.costs.totalUsd).toBeGreaterThan(0)
+    expect(rec.costs.judgeUsd).toBe(rec.costs.totalUsd)
     expect(renderReviewSheet([rec])).toContain('PR 9 (LUM-1)')
   })
 
@@ -278,7 +274,6 @@ describe('calibratePr', () => {
       requirement: '# feat',
       requirementSource: 'title',
       judge,
-      refute: jest.fn(),
       spend: gate,
     })
     expect(judge).not.toHaveBeenCalled()
@@ -296,7 +291,6 @@ describe('calibratePr', () => {
       requirement: '# feat',
       requirementSource: 'title',
       judge: jest.fn(),
-      refute: jest.fn(),
       spend: new BudgetGate(10),
     })
     expect(rec.outcome).toBe('skipped')

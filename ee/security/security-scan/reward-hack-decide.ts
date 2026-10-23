@@ -1,11 +1,13 @@
 /**
  * LUM-1234 — the reward-hack layer's decision core: from the sessions behind
  * a PR (already windowed by `selectSessionsForPr`), the PR's files and the
- * task requirement to the items that survive the judge, the evidence gates
- * and the refute calls.
+ * task requirement to the items that survive the judge and the evidence
+ * gates — those are reported as they stand (the per-item refute call was
+ * removed by user ruling 2026-10-22: it overturned too few items to pay for
+ * itself).
  *
- * No database, no model client: the judge / refute calls and the spend
- * ceiling come in as dependencies. The layer runner
+ * No database, no model client: the judge call and the spend ceiling come
+ * in as dependencies. The layer runner
  * (`reward-hack-layer.service.ts`) composes it with the scan rows and the
  * monthly ledger; the offline dogfood calibration
  * (`scripts/analysis/lum1234-trace/calibrate-pr.ts`) runs the very same core
@@ -16,7 +18,6 @@ import type { NewFindingInput } from '@/ee/security/repositories/pr-security-sca
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import { rewardHackTitle } from '@/ee/security/security-scan/reward-hack-labels'
 import {
-  buildRhPrDiffBlock,
   pathMatchesPrFile,
   buildRhUserPrompt,
   prAddedLines,
@@ -39,10 +40,7 @@ import {
 } from '@/ee/security/security-scan/reward-hack-cost'
 import {
   REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
   REWARD_HACK_SYSTEM_PROMPT,
-  buildRefutePrompt,
 } from '@/ee/security/security-scan/reward-hack-prompts'
 import type {
   RhItem,
@@ -51,12 +49,6 @@ import type {
 
 /** Our cap on one PR's judge input (characters); over it the input is cut. */
 export const REWARD_HACK_MAX_INPUT_CHARS = 400_000
-
-/**
- * Our cap on refute calls per run (the highest-ranked items in the judge's
- * order); refutes run in parallel so the run stays inside its time budget.
- */
-export const REWARD_HACK_MAX_REFUTES = 3
 
 /** What a model call reports back about its own cost. */
 export interface RhCallCost {
@@ -68,13 +60,6 @@ export interface RhCallCost {
 export type RhJudgeFn = (
   prompt: string
 ) => Promise<{ output: RhJudgeOutput } & RhCallCost>
-
-export type RhRefuteFn = (args: {
-  prompt: string
-  item: RhItem
-  /** The fenced current PR hunks of the item's files ('' = none). */
-  prDiff: string
-}) => Promise<{ refuted: boolean; reason?: string } & RhCallCost>
 
 /**
  * The spend ceiling one run charges against: an estimate is reserved BEFORE
@@ -117,48 +102,25 @@ export function buildRhDiffView(
 
 export type RhBuiltPrompt = ReturnType<typeof buildRhUserPrompt>
 
-/** One refute call's outcome, in the gated items' order. */
-export interface RhRefuteOutcome {
-  item: RhItem
-  refuted: boolean
-  reason?: string
-  costUsd: number | null
-}
-
 export type RhDecision =
   /** Even the markers do not fit, or the input is past our token cap: no call. */
   | { outcome: 'overCap'; built: RhBuiltPrompt }
   /** The spend gate had no room for the judge call (nothing was called). */
-  | { outcome: 'capped'; stage: 'judge'; built: RhBuiltPrompt }
-  /**
-   * The judge ran, but the gate had no room for the refutes: an unrefuted
-   * item is never reported.
-   */
-  | {
-      outcome: 'capped'
-      stage: 'refute'
-      built: RhBuiltPrompt
-      judged: { output: RhJudgeOutput } & RhCallCost
-      gated: RhItem[]
-    }
+  | { outcome: 'capped'; built: RhBuiltPrompt }
   | {
       outcome: 'judged'
       built: RhBuiltPrompt
       judged: { output: RhJudgeOutput } & RhCallCost
-      /** Every item that passed the threshold and evidence gates. */
+      /**
+       * Every item that passed the threshold, evidence and diff gates: what
+       * is reported (no second model call second-guesses it).
+       */
       gated: RhItem[]
-      /** The refute calls made (the first `REWARD_HACK_MAX_REFUTES` gated). */
-      refutes: RhRefuteOutcome[]
-      /** Items no refute call explained away: what is reported. */
-      kept: RhItem[]
-      /** Gated items past the refute cap: neither checked nor reported. */
-      refuteCapped: boolean
     }
 
 /**
- * Judge → gates → refute for one PR. Throws the first refute failure (after
- * settling the calls that did return; a failed call keeps its estimate, it
- * may have been billed) and any judge failure.
+ * Judge → gates for one PR: the items that pass the gates are the verdict.
+ * Throws any judge failure.
  */
 export async function decideRewardHack(args: {
   /** The sessions selected for this PR (their in-window events only). */
@@ -166,7 +128,6 @@ export async function decideRewardHack(args: {
   prFileList: RhPrFile[]
   requirement: string
   judge: RhJudgeFn
-  refute: RhRefuteFn
   spend: RhSpendGate
   /** Precomputed `buildRhDiffView(sessions, prFileList)`, if the caller has it. */
   diffView?: RhDiffView
@@ -194,7 +155,7 @@ export async function decideRewardHack(args: {
     REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS
   )
   if (!(await args.spend.reserve(judgeEstimate)))
-    return { outcome: 'capped', stage: 'judge', built }
+    return { outcome: 'capped', built }
   const judged = await args.judge(built.prompt)
   await args.spend.settle(judgeEstimate, judged)
   const gated = applyRhGates({
@@ -202,60 +163,7 @@ export async function decideRewardHack(args: {
     output: judged.output,
     promptEventIds: built.eventIds,
   })
-  const items = gated.slice(0, REWARD_HACK_MAX_REFUTES)
-  const refuteCapped = gated.length > items.length
-
-  const refutes: RhRefuteOutcome[] = []
-  const kept: RhItem[] = []
-  if (items.length > 0) {
-    // The refute call reads the cited files' CURRENT hunks: what will merge.
-    const refuteArgs = items.map(item => ({
-      prompt: built.prompt,
-      item,
-      prDiff: buildRhPrDiffBlock(
-        args.prFileList,
-        item.eventIds.flatMap(id => diffView.eventFile.get(id) ?? [])
-      ),
-    }))
-    const estimates = refuteArgs.map(a =>
-      estimateRhCallUsd(
-        `${REWARD_HACK_REFUTE_SYSTEM_PROMPT}\n${buildRefutePrompt(a)}`,
-        REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
-      )
-    )
-    const total = estimates.reduce((a, b) => a + b, 0)
-    if (!(await args.spend.reserve(total)))
-      return { outcome: 'capped', stage: 'refute', built, judged, gated }
-    const verdicts = await Promise.allSettled(
-      refuteArgs.map(a => args.refute(a))
-    )
-    let failure: unknown = null
-    for (let i = 0; i < items.length; i++) {
-      const v = verdicts[i]!
-      if (v.status === 'rejected') {
-        failure = failure ?? v.reason
-        continue
-      }
-      await args.spend.settle(estimates[i]!, v.value)
-      refutes.push({
-        item: items[i]!,
-        refuted: v.value.refuted,
-        ...(v.value.reason !== undefined ? { reason: v.value.reason } : {}),
-        costUsd: v.value.costUsd,
-      })
-      if (!v.value.refuted) kept.push(items[i]!)
-    }
-    if (failure !== null) throw failure
-  }
-  return {
-    outcome: 'judged',
-    built,
-    judged,
-    gated,
-    refutes,
-    kept,
-    refuteCapped,
-  }
+  return { outcome: 'judged', built, judged, gated }
 }
 
 // ─── finding rows ────────────────────────────────────────────────────────────

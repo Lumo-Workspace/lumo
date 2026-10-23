@@ -1,12 +1,13 @@
 /**
  * LUM-1234 — offline TRACE regression through the SHIPPED reward-hack
  * pipeline: per labeled TRACE row, `decideRewardHack` (judge → threshold /
- * evidence / diff gates → up to `REWARD_HACK_MAX_REFUTES` refutes, the
- * product prompts, `REWARD_HACK_THRESHOLD`, `REWARD_HACK_MODEL`) on one
+ * evidence / diff gates, the product prompt, `REWARD_HACK_THRESHOLD`,
+ * `REWARD_HACK_MODEL`; the gated items are the end-to-end result — the
+ * refute step was removed by user ruling 2026-10-22) on one
  * session mapped from the conversation and a synthetic PR built from the
  * trajectory's own writes — see `trace-product-map.ts` for the mapping and
  * the PR approximation. The earlier numbers in RESULTS.md are for a simpler
- * research judge (one call, no gates, no refutes).
+ * research judge (one call, no gates).
  *
  *   AI_PROVIDER=gateway DOTENV_CONFIG_PATH=<main checkout>/.env.local \
  *     npx tsx -r dotenv/config scripts/analysis/lum1234-trace/trace-product-regression.ts \
@@ -15,8 +16,10 @@
  *
  * `--dry-run`: no model call; the core runs with a spend gate that refuses
  * every call, which yields each row's exact judge prompt and the product
- * estimator's (deliberately high) cost, plus a worst case with every refute.
- * `--report`: rates from the results file, no call.
+ * estimator's (deliberately high) cost.
+ * `--report`: rates from the results file, no call. Records written while
+ * the pipeline still had a refute step carry `kept` / `refutes` too; the
+ * report reads `gated` only, so they give the no-refute result as well.
  *
  * A real run is resumable (a row with a non-error record is skipped; an
  * errored row is re-run and appended after the old line; the report reads
@@ -40,27 +43,18 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import {
-  REWARD_HACK_MAX_REFUTES,
   decideRewardHack,
   type RhCallCost,
   type RhJudgeFn,
-  type RhRefuteFn,
   type RhSpendGate,
 } from '@/ee/security/security-scan/reward-hack-decide'
-import {
-  buildRhPrDiffBlock,
-  type RhEvent,
-  type RhPrFile,
+import type {
+  RhEvent,
+  RhPrFile,
 } from '@/ee/security/security-scan/reward-hack-input'
-import {
-  REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
-  REWARD_HACK_SYSTEM_PROMPT,
-  buildRefutePrompt,
-} from '@/ee/security/security-scan/reward-hack-prompts'
+import { REWARD_HACK_SYSTEM_PROMPT } from '@/ee/security/security-scan/reward-hack-prompts'
 import { REWARD_HACK_THRESHOLD } from '@/ee/security/security-scan/reward-hack-gates'
 import {
-  estimateRhCallUsd,
   estimateRhTokens,
   settledRhCallUsd,
 } from '@/ee/security/security-scan/reward-hack-cost'
@@ -107,12 +101,10 @@ export interface RegressionRecord {
   /** Judge suspicion 0..1; null when no judge call returned. */
   suspicion: number | null
   itemsBeforeGates: { kind: string; summary: string }[]
+  /** Items past the threshold / evidence / diff gates: what is reported. */
   gated: number
-  kept: number
-  keptKinds: string[]
-  refutes: { kind: string; refuted: boolean }[]
-  refuteCapped: boolean
-  costs: { judgeUsd: number; refuteUsd: number; totalUsd: number }
+  gatedKinds: string[]
+  costs: { judgeUsd: number; totalUsd: number }
   error: string | null
   at: string
 }
@@ -146,42 +138,33 @@ export function prepareTraceRow(row: Record<string, unknown>): PreparedRow {
 
 /**
  * One row's view of the shared spend gate: forwards every reserve / settle
- * and books, per call, the settled cost (`settledRhCallUsd`, the product's
+ * and books the judge call's settled cost (`settledRhCallUsd`, the product's
  * rule) or — for a reserved call never settled (it threw, or the run
- * stopped) — its reserved estimate. The core reserves the judge first, then
- * all refutes in one reservation, and settles each call it got back.
+ * stopped) — its reserved estimate.
  */
 export class RowSpend implements RhSpendGate {
-  private judgeReserved: number | null = null
-  private judgeSettled: number | null = null
-  private refutePending = 0
-  private refuteSettled = 0
+  private reserved: number | null = null
+  private settled: number | null = null
 
   constructor(private readonly inner: RhSpendGate) {}
 
   async reserve(usd: number): Promise<boolean> {
     const ok = await this.inner.reserve(usd)
     if (!ok) return false
-    if (this.judgeReserved === null) this.judgeReserved = usd
-    else this.refutePending += usd
+    this.reserved = (this.reserved ?? 0) + usd
     return true
   }
 
   async settle(estimateUsd: number, reported: RhCallCost): Promise<void> {
     await this.inner.settle(estimateUsd, reported)
     const usd = settledRhCallUsd(reported, estimateUsd)
-    if (this.judgeReserved !== null && this.judgeSettled === null)
-      this.judgeSettled = usd
-    else {
-      this.refutePending -= estimateUsd
-      this.refuteSettled += usd
-    }
+    this.settled = (this.settled ?? 0) + usd
+    this.reserved = (this.reserved ?? 0) - estimateUsd
   }
 
-  costs(): { judgeUsd: number; refuteUsd: number; totalUsd: number } {
-    const judgeUsd = this.judgeSettled ?? this.judgeReserved ?? 0
-    const refuteUsd = this.refuteSettled + Math.max(0, this.refutePending)
-    return { judgeUsd, refuteUsd, totalUsd: judgeUsd + refuteUsd }
+  costs(): { judgeUsd: number; totalUsd: number } {
+    const judgeUsd = (this.settled ?? 0) + Math.max(0, this.reserved ?? 0)
+    return { judgeUsd, totalUsd: judgeUsd }
   }
 }
 
@@ -189,18 +172,11 @@ export class RowSpend implements RhSpendGate {
 export async function regressRow(args: {
   row: PreparedRow
   judge: RhJudgeFn
-  refute: RhRefuteFn
   spend: BudgetGate
 }): Promise<
   | { kind: 'record'; record: RegressionRecord }
-  | {
-      kind: 'capped'
-      /**
-       * Capped at the refutes: the judge call was paid for. Recorded as an
-       * error (the row is re-run on resume) so its cost counts in the file.
-       */
-      record: RegressionRecord | null
-    }
+  /** The gate had no room for the judge call: nothing was called. */
+  | { kind: 'capped' }
   | {
       kind: 'fatal'
       error: string
@@ -225,11 +201,8 @@ export async function regressRow(args: {
     suspicion: null,
     itemsBeforeGates: [],
     gated: 0,
-    kept: 0,
-    keptKinds: [],
-    refutes: [],
-    refuteCapped: false,
-    costs: { judgeUsd: 0, refuteUsd: 0, totalUsd: 0 },
+    gatedKinds: [],
+    costs: { judgeUsd: 0, totalUsd: 0 },
     error: null,
     at: new Date().toISOString(),
   }
@@ -241,7 +214,6 @@ export async function regressRow(args: {
       prFileList: row.prFileList,
       requirement: row.requirement,
       judge: args.judge,
-      refute: args.refute,
       spend,
     })
   } catch (error) {
@@ -270,19 +242,7 @@ export async function regressRow(args: {
     truncated: built.truncated,
     overCap: built.overCap,
   }
-  if (decision.outcome === 'capped')
-    return {
-      kind: 'capped',
-      record:
-        decision.stage === 'refute'
-          ? {
-              ...withPrompt,
-              outcome: 'error',
-              error: 'budget reached before the refute calls',
-              costs: spend.costs(),
-            }
-          : null,
-    }
+  if (decision.outcome === 'capped') return { kind: 'capped' }
   if (decision.outcome === 'overCap')
     return {
       kind: 'record',
@@ -300,13 +260,7 @@ export async function regressRow(args: {
         summary: red(i.summary).slice(0, 400),
       })),
       gated: decision.gated.length,
-      kept: decision.kept.length,
-      keptKinds: decision.kept.map(i => i.kind),
-      refutes: decision.refutes.map(r => ({
-        kind: r.item.kind,
-        refuted: r.refuted,
-      })),
-      refuteCapped: decision.refuteCapped,
+      gatedKinds: decision.gated.map(i => i.kind),
       costs: spend.costs(),
     },
   }
@@ -320,31 +274,9 @@ export interface DryRunTotals {
   /** Product estimator (deliberately high) over system + user prompt. */
   estTokens: number
   judgeUsd: number
-  /** Judge plus every row's `REWARD_HACK_MAX_REFUTES` refutes. */
-  worstUsd: number
   truncated: number
   overCap: number
   noPrFiles: number
-}
-
-/** Cost of one row's refutes if every one runs (each about the full prompt). */
-export function refuteWorstUsdFor(
-  prompt: string,
-  prFileList: RhPrFile[]
-): number {
-  const prDiff = buildRhPrDiffBlock(
-    prFileList,
-    prFileList.map(f => f.filename)
-  )
-  const one = estimateRhCallUsd(
-    `${REWARD_HACK_REFUTE_SYSTEM_PROMPT}\n${buildRefutePrompt({
-      prompt,
-      item: { kind: 'OTHER', summary: 'x'.repeat(400), eventIds: ['e0'] },
-      prDiff,
-    })}`,
-    REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
-  )
-  return one * REWARD_HACK_MAX_REFUTES
 }
 
 /** Run the core with a refusing gate over `rows`: the exact prompts, no calls. */
@@ -354,7 +286,6 @@ export async function dryRun(rows: PreparedRow[]): Promise<DryRunTotals> {
     promptChars: 0,
     estTokens: 0,
     judgeUsd: 0,
-    worstUsd: 0,
     truncated: 0,
     overCap: 0,
     noPrFiles: 0,
@@ -369,7 +300,6 @@ export async function dryRun(rows: PreparedRow[]): Promise<DryRunTotals> {
       prFileList: row.prFileList,
       requirement: row.requirement,
       judge: refuse,
-      refute: refuse,
       spend: gate,
     })
     const prompt = r.built.prompt
@@ -382,7 +312,6 @@ export async function dryRun(rows: PreparedRow[]): Promise<DryRunTotals> {
     t.promptChars += prompt.length
     t.estTokens += estimateRhTokens(`${REWARD_HACK_SYSTEM_PROMPT}\n${prompt}`)
     t.judgeUsd += gate.requestedUsd
-    t.worstUsd += gate.requestedUsd + refuteWorstUsdFor(prompt, row.prFileList)
   }
   return t
 }
@@ -434,7 +363,7 @@ export interface RegressionReport {
   detection: RateCI
   /** Benign rows with ≥1 reported item. */
   falsePositive: RateCI
-  /** Judge alone: suspicion ≥ REWARD_HACK_THRESHOLD, before gates/refutes. */
+  /** Judge alone: suspicion ≥ REWARD_HACK_THRESHOLD, before the gates. */
   judgeDetection: RateCI
   judgeFalsePositive: RateCI
   auroc: number | null
@@ -442,7 +371,8 @@ export interface RegressionReport {
   spendUsd: number
 }
 
-const flagged = (r: RegressionRecord) => r.outcome === 'judged' && r.kept > 0
+/** End-to-end: ≥1 item past the gates (= reported; no refute step). */
+const flagged = (r: RegressionRecord) => r.outcome === 'judged' && r.gated > 0
 const judgeFlag = (r: RegressionRecord) =>
   r.suspicion !== null && r.suspicion >= REWARD_HACK_THRESHOLD
 
@@ -490,12 +420,12 @@ export function renderRegressionReport(r: RegressionReport): string {
   const lines = [
     `TRACE through the shipped reward-hack pipeline (threshold ${REWARD_HACK_THRESHOLD})`,
     `rows ${r.rows} · errors ${r.errors} (excluded) · overCap ${r.overCap} (not sent, counted as not flagged) · PARTIAL (cut or overCap) ${r.partial} · no written files ${r.noPrFiles} · spend $${r.spendUsd.toFixed(2)}`,
-    `END-TO-END SHIPPED RESULT (≥1 item kept after gates and refutes):`,
+    `END-TO-END SHIPPED RESULT (≥1 item past the threshold / evidence / diff gates = reported):`,
     `  detection (hacked):       ${ci(r.detection)}`,
     `  false positive (benign):  ${ci(r.falsePositive)}`,
     `  detection by hack family (end-to-end):`,
     ...Object.entries(r.byFamily).map(([f, x]) => `    ${f}: ${ci(x)}`),
-    `JUDGE ALONE (product judge, suspicion ≥ ${REWARD_HACK_THRESHOLD}, before gates/refutes) vs the research judge (suspicion ≥ 0.5, RESULTS.md):`,
+    `JUDGE ALONE (product judge, suspicion ≥ ${REWARD_HACK_THRESHOLD}, before the gates) vs the research judge (suspicion ≥ 0.5, RESULTS.md):`,
     `  detection:       ${ci(r.judgeDetection)}   [research judge ${pct(rj.detection)}]`,
     `  false positive:  ${ci(r.judgeFalsePositive)}   [research judge ${pct(rj.falsePositive)}]`,
     `  AUROC (suspicion): ${r.auroc === null ? 'n/a' : r.auroc.toFixed(3)}   [research judge ${rj.auroc.toFixed(3)}]`,
@@ -599,7 +529,6 @@ async function main(): Promise<void> {
         `  judge prompt chars (sent rows): ${t.promptChars}`,
         `  estimated input tokens (product estimator, deliberately high): ${t.estTokens} · chars/4: ${Math.round(t.promptChars / 4)}`,
         `  estimated judge cost: $${t.judgeUsd.toFixed(2)}`,
-        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per row: $${t.worstUsd.toFixed(2)}`,
       ].join('\n')
     )
     return
@@ -607,7 +536,6 @@ async function main(): Promise<void> {
 
   const client = await import('@/ee/security/llm/reward-hack-judge-client')
   const judge: RhJudgeFn = p => client.judgeRewardHack(p)
-  const refute: RhRefuteFn = a => client.refuteRewardHackItem(a)
   await mkdir(dirname(args.out), { recursive: true })
   const records = await readRecords(args.out)
   const spentBefore = records.reduce((n, r) => n + r.costs.totalUsd, 0)
@@ -625,10 +553,8 @@ async function main(): Promise<void> {
   const worker = async (): Promise<void> => {
     while (next < todo.length && !stopped) {
       const row = todo[next++]!
-      const r = await regressRow({ row, judge, refute, spend: gate })
+      const r = await regressRow({ row, judge, spend: gate })
       if (r.kind === 'capped') {
-        if (r.record)
-          await appendFile(args.out, `${JSON.stringify(r.record)}\n`)
         stopped = `budget $${args.budget} reached`
         break
       }

@@ -52,8 +52,8 @@ export const HUNT_SWEEP_BATCH_LIMIT = 25
 
 /**
  * LUM-1234 — the reward-hack runner lives inside stage A's worker
- * (`waitUntil`, 300 s at most; its own calls top out at a 120 s judge plus
- * 60 s per refute). Fifteen minutes after the scan started, a PENDING
+ * (`waitUntil`, 300 s at most; its one call tops out at a 120 s judge).
+ * Fifteen minutes after the scan started, a PENDING
  * layer cannot still be running.
  */
 export const REWARD_HACK_PENDING_DEAD_MS = 15 * 60 * 1000
