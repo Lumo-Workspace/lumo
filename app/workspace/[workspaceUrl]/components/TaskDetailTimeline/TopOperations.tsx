@@ -232,7 +232,7 @@ export function TopOperations({
           {
             id: 'lineage.operations.footnote',
             defaultMessage:
-              '归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）',
+              "Tools that run in parallel within one step share that step's tokens evenly; cache read is structural cost. Full breakdown: lumo usage show --task {id} (CLI 1.125 and older: lumo cost --task {id})",
           },
           { id: taskIdentifier }
         )}

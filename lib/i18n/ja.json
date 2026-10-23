@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "キャッシュ作成",
   "lineage.operations.col.cacheRead": "キャッシュ読み取り",
   "lineage.operations.col.total": "合計",
-  "lineage.operations.footnote": "帰属はヒューリスティックです（並列ツールは 1 ステップを均等に分割）。キャッシュ読み取りは構造的コストです。完全な内訳: lumo usage show --task {id}（CLI 1.125 以前: lumo cost --task {id}）",
+  "lineage.operations.footnote": "同じステップ内で並列に動いたツールは、そのステップのトークンを均等に分け合います。キャッシュ読み取りは構造的コストです。完全な内訳: lumo usage show --task {id}（CLI 1.125 以前: lumo cost --task {id}）",
   "lineage.fragment.disclosure.full": "全文",
   "lineage.fragment.disclosure.indexPulled": "インデックス・展開済み",
   "lineage.fragment.disclosure.indexNotPulled": "インデックスのみ",

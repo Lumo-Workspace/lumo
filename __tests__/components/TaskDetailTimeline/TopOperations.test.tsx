@@ -100,15 +100,51 @@ describe('TopOperations', () => {
     expect(screen.queryByText(/cache reads/)).toBeNull()
   })
 
-  it('states no per-turn coverage when there were no tool-using turns', () => {
+  it.each([
+    [0.9, false],
+    [0.91, true],
+  ])(
+    'shows the cache-read note only above 90%% (share %p → %p)',
+    (share, shown) => {
+      render(
+        <TopOperations
+          operations={OPS}
+          precision={{ perStepPct: 1, cacheReadPct: share, hasToolRows: true }}
+          taskIdentifier='LUM-531'
+        />
+      )
+      expect(
+        screen.queryByText(/of these tokens are cache reads/) !== null
+      ).toBe(shown)
+    }
+  )
+
+  it('states no per-turn coverage when there were no tool-using turns, but keeps the cache note', () => {
     render(
       <TopOperations
         operations={OPS}
-        precision={{ perStepPct: null, cacheReadPct: 0.5, hasToolRows: true }}
+        precision={{ perStepPct: null, cacheReadPct: 0.95, hasToolRows: true }}
         taskIdentifier='LUM-531'
       />
     )
     expect(screen.queryByText(/Estimated per turn/)).toBeNull()
     expect(screen.queryByText('Measured per step.')).toBeNull()
+    expect(
+      screen.getByText(/95% of these tokens are cache reads/)
+    ).toBeInTheDocument()
+  })
+
+  it('footnote describes the parallel split without calling per-step data heuristic', () => {
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={{ perStepPct: 1, cacheReadPct: 0.5, hasToolRows: true }}
+        taskIdentifier='LUM-531'
+      />
+    )
+    expect(
+      screen.getByText(/run in parallel within one step/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/heuristic/)).toBeNull()
   })
 })

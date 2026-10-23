@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "快取建立",
   "lineage.operations.col.cacheRead": "快取讀取",
   "lineage.operations.col.total": "合計",
-  "lineage.operations.footnote": "歸因為啟發式（並行工具按步均分）；快取讀取為結構性成本。完整明細見 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）",
+  "lineage.operations.footnote": "同一步內並行執行的工具平分該步的 token；快取讀取為結構性成本。完整明細見 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）",
   "lineage.fragment.disclosure.full": "全文",
   "lineage.fragment.disclosure.indexPulled": "索引·已展開",
   "lineage.fragment.disclosure.indexNotPulled": "僅索引",

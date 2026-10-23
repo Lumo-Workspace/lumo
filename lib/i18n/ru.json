@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "Создание кэша",
   "lineage.operations.col.cacheRead": "Чтение из кэша",
   "lineage.operations.col.total": "Итого",
-  "lineage.operations.footnote": "Атрибуция эвристическая (параллельные инструменты делят шаг поровну); чтение из кэша — структурная стоимость. Полная разбивка: lumo usage show --task {id} (CLI 1.125 и более ранние: lumo cost --task {id})",
+  "lineage.operations.footnote": "Инструменты, запущенные параллельно в одном шаге, делят его токены поровну; чтение из кэша — структурная стоимость. Полная разбивка: lumo usage show --task {id} (CLI 1.125 и более ранние: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Полный текст",
   "lineage.fragment.disclosure.indexPulled": "Индекс · раскрыт",
   "lineage.fragment.disclosure.indexNotPulled": "Только индекс",

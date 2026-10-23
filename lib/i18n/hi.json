@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "कैश निर्माण",
   "lineage.operations.col.cacheRead": "कैश रीड",
   "lineage.operations.col.total": "कुल",
-  "lineage.operations.footnote": "विशेषण ह्यूरिस्टिक है (समानांतर टूल एक चरण को बराबर बाँटते हैं); कैश रीड एक संरचनात्मक लागत है। पूरा विवरण: lumo usage show --task {id} (CLI 1.125 और पुराने: lumo cost --task {id})",
+  "lineage.operations.footnote": "एक ही चरण में समानांतर चलने वाले टूल उस चरण के टोकन बराबर बाँटते हैं; कैश रीड एक संरचनात्मक लागत है। पूरा विवरण: lumo usage show --task {id} (CLI 1.125 और पुराने: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "पूरा पाठ",
   "lineage.fragment.disclosure.indexPulled": "इंडेक्स · खोला गया",
   "lineage.fragment.disclosure.indexNotPulled": "केवल इंडेक्स",

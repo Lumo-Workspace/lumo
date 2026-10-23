@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "Cache create",
   "lineage.operations.col.cacheRead": "Cache read",
   "lineage.operations.col.total": "Total",
-  "lineage.operations.footnote": "Attribution is heuristic (parallel tools split a step evenly); cache read is structural cost. Full breakdown: lumo usage show --task {id} (CLI 1.125 and older: lumo cost --task {id})",
+  "lineage.operations.footnote": "Tools that run in parallel within one step share that step's tokens evenly; cache read is structural cost. Full breakdown: lumo usage show --task {id} (CLI 1.125 and older: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Full text",
   "lineage.fragment.disclosure.indexPulled": "Index · expanded",
   "lineage.fragment.disclosure.indexNotPulled": "Index only",

@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "Tạo bộ nhớ đệm",
   "lineage.operations.col.cacheRead": "Đọc bộ nhớ đệm",
   "lineage.operations.col.total": "Tổng",
-  "lineage.operations.footnote": "Quy gán mang tính suy nghiệm (các công cụ song song chia đều một bước); đọc bộ nhớ đệm là chi phí cấu trúc. Chi tiết đầy đủ: lumo usage show --task {id} (CLI 1.125 trở về trước: lumo cost --task {id})",
+  "lineage.operations.footnote": "Các công cụ chạy song song trong cùng một bước chia đều token của bước đó; đọc bộ nhớ đệm là chi phí cấu trúc. Chi tiết đầy đủ: lumo usage show --task {id} (CLI 1.125 trở về trước: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Toàn văn",
   "lineage.fragment.disclosure.indexPulled": "Chỉ mục · đã mở",
   "lineage.fragment.disclosure.indexNotPulled": "Chỉ mục",

@@ -837,7 +837,7 @@
   "lineage.operations.col.cacheCreate": "Cache-Erstellung",
   "lineage.operations.col.cacheRead": "Cache-Lesevorgang",
   "lineage.operations.col.total": "Gesamt",
-  "lineage.operations.footnote": "Die Zuordnung ist heuristisch (parallele Werkzeuge teilen sich einen Schritt gleichmäßig); Cache-Lesevorgänge sind strukturelle Kosten. Vollständige Aufschlüsselung: lumo usage show --task {id} (CLI 1.125 und älter: lumo cost --task {id})",
+  "lineage.operations.footnote": "Werkzeuge, die innerhalb eines Schritts parallel laufen, teilen sich dessen Tokens gleichmäßig; Cache-Lesevorgänge sind strukturelle Kosten. Vollständige Aufschlüsselung: lumo usage show --task {id} (CLI 1.125 und älter: lumo cost --task {id})",
   "lineage.fragment.disclosure.full": "Volltext",
   "lineage.fragment.disclosure.indexPulled": "Index · aufgeklappt",
   "lineage.fragment.disclosure.indexNotPulled": "Nur Index",
