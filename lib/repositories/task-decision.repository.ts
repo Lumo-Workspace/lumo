@@ -145,8 +145,9 @@ export const taskDecisionRepository = {
   },
 
   /**
-   * Author backfill: a page of decisions with no author and no agent session
-   * — the ones moved over from a description — with their task's assignee.
+   * Author backfill: a page of live decisions with no author and no agent
+   * session — the ones moved over from a description — with their task's
+   * assignee.
    * Keyset by id, so rows updated by the run cannot shift the next page.
    */
   async listUnattributed(afterId: string | null, take: number) {
@@ -154,6 +155,8 @@ export const taskDecisionRepository = {
       where: {
         createdById: null,
         sourceSessionId: null,
+        // Deleted decisions stay as they were.
+        deletedAt: null,
         ...(afterId ? { id: { gt: afterId } } : {}),
       },
       select: {
@@ -178,7 +181,7 @@ export const taskDecisionRepository = {
     const r = await unscoped(
       'LUM-1303 decision author backfill'
     ).taskDecision.updateMany({
-      where: { id, workspaceId, createdById: null },
+      where: { id, workspaceId, createdById: null, deletedAt: null },
       data: { createdById: memberId },
     })
     return r.count === 1

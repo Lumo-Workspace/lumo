@@ -129,13 +129,18 @@ describe('taskDecisionRepository (LUM-1303)', () => {
     expect(arg.orderBy).toEqual({ id: 'asc' })
   })
 
-  it('author backfill reads only authorless, session-less decisions and never overwrites an author', async () => {
+  it('author backfill reads only live, authorless, session-less decisions and never overwrites an author', async () => {
     const { __rawDecision } = jest.requireMock('@/lib/db/workspace-scope') as {
       __rawDecision: { findMany: jest.Mock; updateMany: jest.Mock }
     }
     await taskDecisionRepository.listUnattributed('d9', 50)
     expect(__rawDecision.findMany.mock.calls[0][0]).toMatchObject({
-      where: { createdById: null, sourceSessionId: null, id: { gt: 'd9' } },
+      where: {
+        createdById: null,
+        sourceSessionId: null,
+        deletedAt: null,
+        id: { gt: 'd9' },
+      },
       orderBy: { id: 'asc' },
       take: 50,
     })
@@ -143,7 +148,12 @@ describe('taskDecisionRepository (LUM-1303)', () => {
       await taskDecisionRepository.setAuthorIfUnset('d1', 'ws_1', 'mem_1')
     ).toBe(true)
     expect(__rawDecision.updateMany).toHaveBeenCalledWith({
-      where: { id: 'd1', workspaceId: 'ws_1', createdById: null },
+      where: {
+        id: 'd1',
+        workspaceId: 'ws_1',
+        createdById: null,
+        deletedAt: null,
+      },
       data: { createdById: 'mem_1' },
     })
   })
