@@ -251,7 +251,10 @@ export function githubMarkdownToLumoHtml(
   const html = getGithubMarked().parse(work, { async: false }) as string
   // marked ends every block with a newline; between tags it is noise.
   const compact = html.replace(/>\n+</g, '><').trim()
-  return sanitizeRichHtml(resolveMentions(compact, resolver))
+  // Sanitize first: it also balances tags, so an unclosed raw `<code>` can't
+  // make the mention pass skip to some later `</code>`. The chips it adds are
+  // built from escaped values only.
+  return resolveMentions(sanitizeRichHtml(compact), resolver)
 }
 
 /** Build a header marker block. */

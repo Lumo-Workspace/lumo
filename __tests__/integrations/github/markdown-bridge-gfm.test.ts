@@ -151,6 +151,17 @@ describe('githubMarkdownToLumoHtml — mentions', () => {
     expect(out).toContain('<a href="https://x.dev/@foo">https://x.dev/@foo</a>')
   })
 
+  it('an unclosed raw <code> does not stop later mentions from resolving', () => {
+    const out = githubMarkdownToLumoHtml(
+      'see <code>unclosed @foo\n\nthen @foo\n\n`x`',
+      resolver
+    )
+    expect(out.match(/data-type="mention"/g)).toHaveLength(1)
+    expect(out).toContain(
+      '<p>then <span data-type="mention" data-id="clerk1">Foo</span></p>'
+    )
+  })
+
   it('does not resolve @login inside inline code or a code block', () => {
     const out = githubMarkdownToLumoHtml(
       '`@foo review`\n\n```\n@foo\n```',
