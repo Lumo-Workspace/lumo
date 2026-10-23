@@ -1,5 +1,5 @@
 {
-  "cliVersion": "2.0.0",
+  "cliVersion": "2.1.0",
   "globalFlags": {
     "--no-hints": {
       "long": "--no-hints",
