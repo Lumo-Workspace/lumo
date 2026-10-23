@@ -86,6 +86,9 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
     ),
   },
 }))
+jest.mock('@/lib/repositories/task-decision.repository', () => ({
+  taskDecisionRepository: { listByTask: jest.fn(async () => []) },
+}))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn(async () => []) },
 }))

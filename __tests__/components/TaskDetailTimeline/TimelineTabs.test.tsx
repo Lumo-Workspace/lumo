@@ -56,6 +56,13 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMemories', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskLineage', () => ({
   useTaskLineage: jest.fn(),
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskDecisions', () => ({
+  useTaskDecisions: () => ({ decisions: [{ id: 'd1' }, { id: 'd2' }] }),
+}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/DecisionsTab',
+  () => ({ DecisionsTab: () => <div data-testid='panel-decisions' /> })
+)
 
 // useTimeline is only exercised by the Activity panel; stub it out.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTimeline', () => ({
@@ -145,7 +152,7 @@ beforeEach(() => {
 })
 
 describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
-  it('offers exactly the four fixed tabs, dossier replacing delivery/memory/lineage', () => {
+  it('offers exactly the five fixed tabs, dossier replacing delivery/memory/lineage', () => {
     setPresence()
     render(<TimelineTabs {...baseProps} />)
 
@@ -153,6 +160,9 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Context' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Record' })).toBeInTheDocument()
+    // LUM-1303: Decisions, with its count.
+    expect(screen.getByRole('tab', { name: 'Decisions 2' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(5)
 
     // The merged trio no longer exist as top-level tabs.
     expect(screen.queryByRole('tab', { name: 'Delivery' })).toBeNull()
@@ -168,6 +178,17 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
     expect(screen.getByTestId('panel-dossier')).toBeInTheDocument()
     expect(mockNav.push).toHaveBeenCalledWith(
       '/workspace/acme/my-tasks/LUM-1/record',
+      { scroll: false }
+    )
+  })
+
+  it('LUM-1303: opens the Decisions panel at /decisions', () => {
+    setPresence()
+    render(<TimelineTabs {...baseProps} />)
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Decisions 2' }))
+    expect(screen.getByTestId('panel-decisions')).toBeInTheDocument()
+    expect(mockNav.push).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1/decisions',
       { scroll: false }
     )
   })

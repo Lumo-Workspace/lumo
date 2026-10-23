@@ -209,6 +209,11 @@ enum TaskActivityType {
   // rulings additionally carry the handshake's shown / read-acknowledged times in
   // metadata (same shape as SECURITY_FINDING_DISPOSITIONED, LUM-750).
   TEST_CASE_DEFECT_DISPOSITIONED
+  // LUM-1303: a task decision was recorded / edited / deleted (Decisions tab or
+  // `lumo task decide`). Payload carries the text so the trail survives a delete.
+  DECISION_ADDED
+  DECISION_UPDATED
+  DECISION_REMOVED
 }
 
 enum BoundaryCrossingCategory {
@@ -382,6 +387,7 @@ model Workspace {
   memories                Memory[]
   taskSlackContexts       TaskSlackContext[]
   taskWebLinks            TaskWebLink[]
+  taskDecisions           TaskDecision[]
   prCommentSyncJobs       PrCommentSyncJob[]
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
@@ -784,6 +790,7 @@ model WorkspaceMember {
   documentEdits           DocumentEditor[]
   createdSlackContexts    TaskSlackContext[]       @relation("TaskSlackContextCreator")
   createdWebLinks         TaskWebLink[]            @relation("TaskWebLinkCreator")
+  createdTaskDecisions    TaskDecision[]           @relation("TaskDecisionCreator")
   createdMemories         Memory[]                 @relation("MemoryCreator")
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
@@ -1120,6 +1127,7 @@ model Task {
   memories                Memory[]
   slackContexts           TaskSlackContext[]
   webLinks                TaskWebLink[]
+  decisions               TaskDecision[]
   figmaLinks              TaskFigmaLink[]
   artifacts               TaskArtifact[]
   complexity              TaskComplexity?
@@ -3403,6 +3411,41 @@ model TaskWebLink {
   @@index([taskId, createdAt])
   @@index([workspaceId])
   @@map("task_web_links")
+}
+
+/// LUM-1303: a ruling made on a task ("do X, not Y"), recorded in its own
+/// table and shown on the task's Decisions tab. Replaces the LUM-970
+/// `## Decisions` section of the description. `text` is inline Markdown
+/// (`code`, **bold**, links); `rationale` is the optional "why".
+model TaskDecision {
+  id              String   @id @default(cuid())
+  taskId          String
+  workspaceId     String
+  /// 1-based within the task ("Decision 3"), assigned max+1 and never reused:
+  /// a delete leaves a tombstone (`deletedAt`), so the max still counts it.
+  number          Int
+  text            String
+  rationale       String?
+  /// Who recorded it (a CLI write is the member whose API key ran it). Null
+  /// for rows backfilled from a description, whose author is unknown.
+  createdById     String?
+  /// The agent session that recorded it via `lumo task decide`, if any. No
+  /// FK: sessions are pruned independently.
+  sourceSessionId String?
+  /// Tombstone: a deleted decision keeps its row so its number stays taken.
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  task      Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy WorkspaceMember? @relation("TaskDecisionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, number])
+  @@index([taskId, createdAt])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@map("task_decisions")
 }
 
 enum TaskArtifactAgent {

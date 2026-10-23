@@ -84,7 +84,8 @@ describe('createFromCli — templateKey', () => {
     await create({ templateKey: 'agent-brief' })
     const description = createTask.mock.calls[0][1].description as string
     expect(description).toMatch(/^## Context\n/)
-    expect(description).toContain('## Decisions')
+    // LUM-1303: decisions have their own tab, not a brief section.
+    expect(description).not.toContain('## Decisions')
   })
 
   it('a workspace template key resolves in the caller workspace', async () => {

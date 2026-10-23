@@ -1346,10 +1346,17 @@ task
   .command('decide <identifier> <text>')
   .codex(SERVER_ONLY)
   .description(
-    "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
+    "Record a ruling on the task's Decisions tab (dated by the server). Use for decisions instead of comments."
   )
+  .option('--why <reason>', 'Optional rationale: why this was decided')
   .action(
-    wrap((identifier, text) => taskDecide(identifier as string, text as string))
+    wrap((identifier, text, options) =>
+      taskDecide(
+        identifier as string,
+        text as string,
+        options as { why?: string }
+      )
+    )
   )
 
 const taskFigma = task

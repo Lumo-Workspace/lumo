@@ -76,6 +76,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Task',
   'TaskArtifact',
   'TaskAttributionSegment',
+  'TaskDecision',
   'TaskDependency',
   'TaskFigmaLink',
   'TaskSlackContext',

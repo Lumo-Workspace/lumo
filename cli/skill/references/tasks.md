@@ -35,7 +35,7 @@ Output: `Created LUM-55 "Title"  <url>`, a `Tags:` line when tags were attached,
 
 **Next-step hints.** `task create`, `task update`, `session attach`, `task show --full` and `status --next` end with a server-computed `Next:` block (≤3 suggestions from task status × session binding × open crossings) after the result line — the result line stays first. `--no-hints` / `LUMO_NO_HINTS=1` silence it.
 
-**When to suggest:** the user asks to file/track something; a discussion ends in "let's track that separately" (add `--priority` only if they stated one); a follow-up discovered mid-work shouldn't bloat the current change — propose it rather than silently expanding scope; a task handed to an agent → `--template agent-brief` (Context / Goal / Non-goals / Watch out / Done when / Decisions). Search first to avoid a duplicate: `lumo task list --assignee any --search "<words>"`.
+**When to suggest:** the user asks to file/track something; a discussion ends in "let's track that separately" (add `--priority` only if they stated one); a follow-up discovered mid-work shouldn't bloat the current change — propose it rather than silently expanding scope; a task handed to an agent → `--template agent-brief` (Context / Goal / Non-goals / Watch out / Done when; decisions go on the Decisions tab via `task decide`). Search first to avoid a duplicate: `lumo task list --assignee any --search "<words>"`.
 
 ## Task templates
 
@@ -49,15 +49,18 @@ lumo task template update team-brief --file brief.md --name "Team agent brief"
 lumo task template delete team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
 ```
 
-## `lumo task decide <id> "<text>"` — record a decision in the brief
+## `lumo task decide <id> "<text>" [--why "<reason>"]` — record a decision
 
-Appends one dated list item to the description's `## Decisions` section (created at the end if missing); the rest of the description is untouched.
+Records one ruling on the task's **Decisions** tab (`…/<id>/decisions` on the web), dated by the server and numbered within the task — prints `Recorded Decision 5 on LUM-42 "…"  <url>`. Numbers are stable: a deleted decision's number is never reused, so "Decision 3" always means the same ruling. The description is not touched. `--why` adds an optional rationale, shown under the decision. `<text>` is inline Markdown (`code`, **bold**, links). People can also add, edit and delete decisions on that tab; each change is recorded in the task's Activity under the member's name (a CLI write counts as the member whose API key ran it).
 
 ```bash
-lumo task decide LUM-42 "Keep the v1 API; v2 is a separate task (user)"
+lumo task decide LUM-42 "Keep the v1 API; v2 is a separate task" --why "user: v2 needs its own review"
+lumo task decide LUM-42 "Use Postgres advisory locks, not Redis"
 ```
 
-**When to suggest:** the user rules on scope or approach mid-task ("do X, not Y") — record it here rather than in a comment, so the brief stays the single place the agreed scope lives.
+`task show <id> --full` prints the decisions right after the description, one per line as `Decision N · YYYY-MM-DD · <text>` with the rationale on a `Why:` line. Cite them by that label. Older descriptions may still carry a `## Decisions` section from before the tab existed; it is moved to the tab by a one-time backfill.
+
+**When to suggest:** the user rules on scope or approach mid-task ("do X, not Y") — record it here rather than in a comment, so the Decisions tab stays the single place the agreed rulings live.
 
 ## `lumo task update <id> [flags]`
 

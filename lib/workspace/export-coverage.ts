@@ -24,6 +24,8 @@ export const EXPORTED_MODELS = [
   'Tag',
   'Memory',
   'TaskArtifact',
+  // LUM-1303: task decisions (formerly a section of the description).
+  'TaskDecision',
   'TaskDependency',
   // LUM-907: the workspace audit log.
   'AuditEvent',

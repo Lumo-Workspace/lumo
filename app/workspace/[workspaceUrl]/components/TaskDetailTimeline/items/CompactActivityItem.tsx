@@ -26,6 +26,10 @@ import type { ApiPriority } from '../../../types'
 import { buildActorMention } from '../ActorMention'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import {
+  DECISION_INLINE_CLASS,
+  renderDecisionInline,
+} from '@/lib/task-templates/decision-inline'
 
 interface CompactActivityItemProps {
   entry: TimelineActivityEntry
@@ -540,6 +544,71 @@ function formatActivityText(
             })}
           </span>
         </span>
+      )
+    }
+    // LUM-1303: decisions. The payload carries the text (a delete keeps it).
+    case 'DECISION_ADDED':
+    case 'DECISION_UPDATED':
+    case 'DECISION_REMOVED': {
+      const text =
+        type === 'DECISION_UPDATED'
+          ? (p.after as { text?: unknown } | undefined)?.text
+          : p.text
+      // "Decision 3"; entries written before numbering fall back to "a decision".
+      const decision =
+        typeof p.number === 'number'
+          ? intl.formatMessage(
+              {
+                id: 'task.decisions.number',
+                defaultMessage: 'Decision {number}',
+              },
+              { number: p.number }
+            )
+          : intl.formatMessage({
+              id: 'activity.decisionFallback',
+              defaultMessage: 'a decision',
+            })
+      const verb =
+        type === 'DECISION_ADDED'
+          ? intl.formatMessage(
+              {
+                id: 'activity.decisionAdded',
+                defaultMessage: 'recorded {decision}',
+              },
+              { decision }
+            )
+          : type === 'DECISION_UPDATED'
+            ? intl.formatMessage(
+                {
+                  id: 'activity.decisionUpdated',
+                  defaultMessage: 'edited {decision}',
+                },
+                { decision }
+              )
+            : intl.formatMessage(
+                {
+                  id: 'activity.decisionRemoved',
+                  defaultMessage: 'deleted {decision}',
+                },
+                { decision }
+              )
+      return (
+        <>
+          {verb}
+          {typeof text === 'string' && text ? (
+            <>
+              {' '}
+              <span
+                className={cn(
+                  'text-foreground',
+                  DECISION_INLINE_CLASS,
+                  type === 'DECISION_REMOVED' && 'line-through'
+                )}
+                dangerouslySetInnerHTML={{ __html: renderDecisionInline(text) }}
+              />
+            </>
+          ) : null}
+        </>
       )
     }
     default:

@@ -16,6 +16,8 @@ export const STORAGE_REDACTED_FIELDS = {
   comment: ['body'],
   memory: ['content'],
   taskArtifact: ['title', 'content', 'summary'],
+  // LUM-1303: decisions moved out of Task.description, which is redacted.
+  taskDecision: ['text', 'rationale'],
   boundaryCrossingExplanation: ['note'],
   taskActivity: ['payload'],
   // Column-scoped: the other stock-scanned columns of these two tables are

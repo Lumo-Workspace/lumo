@@ -37,6 +37,11 @@ describe('taskTabs slug mapping', () => {
     expect(tabFromSlug('comments')).toBeNull()
   })
 
+  it('LUM-1303: the Decisions tab lives at /decisions', () => {
+    expect(TAB_SLUGS.decisions).toBe('decisions')
+    expect(resolveTab('decisions')).toEqual({ tab: 'decisions', section: null })
+  })
+
   it('uses the "record" slug for the dossier tab', () => {
     expect(TAB_SLUGS.dossier).toBe('record')
     expect(tabFromSlug('record')).toBe('dossier')
@@ -68,12 +73,14 @@ describe('taskTabs single dossier tab replaces the merged trio', () => {
     // …replaced by a single dossier tab whose URL segment is `record`.
     expect(TAB_SLUGS.dossier).toBe('record')
     expect(tabFromSlug('record')).toBe('dossier')
-    // The surviving top-level tabs are exactly comments/activity/context/dossier.
+    // The surviving top-level tabs: comments/activity/context/dossier, plus
+    // the LUM-1303 decisions tab.
     // LUM-801 曾多出一个独立的 `tests` tab，LUM-1011 又把它并回 dossier。
     expect(Object.keys(TAB_SLUGS).sort()).toEqual([
       'activity',
       'comments',
       'context',
+      'decisions',
       'dossier',
     ])
   })

@@ -19,6 +19,7 @@
  */
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { taskDecisionRepository } from '@/lib/repositories/task-decision.repository'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import { logger } from '@/lib/logger'
 import {
@@ -77,8 +78,16 @@ export const linkedRequirementsService = {
               p.number === input.prNumber
             )
         )
+        const recorded = await taskDecisionRepository
+          .listByTask(pr.taskId, input.workspaceId)
+          .catch((error: unknown) => {
+            logger.warn(
+              `[linked-requirements] decisions unreadable task=${pr.taskId}; judging without them: ${error instanceof Error ? error.message : String(error)}`
+            )
+            return []
+          })
         context = {
-          decisions: extractTaskDecisions(markdown),
+          decisions: extractTaskDecisions(markdown, recorded),
           mergedPrCount: merged.length,
           mergedPrs: merged.slice(0, TASK_REQUIREMENTS_MAX).map(p => ({
             repo: p.repo,
