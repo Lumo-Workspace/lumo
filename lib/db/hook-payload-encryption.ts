@@ -172,12 +172,19 @@ export function assertNoPayloadFilter(where: unknown): void {
 // ── data: seal payload writes ───────────────────────────────────────────────
 
 function writesPayload(data: unknown): data is Data & { payload: unknown } {
-  const writes =
+  return (
     typeof data === 'object' &&
     data !== null &&
     (data as Data).payload !== undefined
-  if (writes) assertNotUnreadable((data as Data).payload)
-  return writes
+  )
+}
+
+/** Every payload an operation writes, whatever its shape (data / create / update). */
+function writtenPayloads(args: Record<string, unknown>): unknown[] {
+  const rows = [args.data, args.create, args.update].flatMap(d =>
+    Array.isArray(d) ? d : [d]
+  )
+  return rows.filter(writesPayload).map(d => d.payload)
 }
 
 function workspaceIdOfCreate(data: Data): string {
@@ -231,6 +238,8 @@ export async function runHookEventOperation(
 ): Promise<unknown> {
   const next: Record<string, unknown> = { ...(args ?? {}) }
   if (WHERE_OPERATIONS.has(operation)) assertNoPayloadFilter(next.where)
+  // On every write path, with encryption on or off.
+  for (const payload of writtenPayloads(next)) assertNotUnreadable(payload)
 
   if (deps.enabled()) {
     switch (operation) {

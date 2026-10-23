@@ -13,6 +13,8 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 export const SEALED_PAYLOAD_KEY = '_enc'
 const FORMAT = 'v1'
 const ALG = 'aes-256-gcm'
+/** Fixed GCM tag length: a shorter (truncated) tag is refused on open. */
+const TAG_BYTES = 16
 
 export interface DataKey {
   id: string
@@ -48,7 +50,9 @@ export function sealedKeyId(sealed: SealedPayload): string {
 /** Encrypt a JSON value with a workspace data key. */
 export function sealPayload(value: unknown, dataKey: DataKey): SealedPayload {
   const iv = randomBytes(12)
-  const cipher = createCipheriv(ALG, dataKey.key, iv)
+  const cipher = createCipheriv(ALG, dataKey.key, iv, {
+    authTagLength: TAG_BYTES,
+  })
   cipher.setAAD(aad(dataKey.id))
   const ciphertext = Buffer.concat([
     cipher.update(JSON.stringify(value), 'utf8'),
@@ -83,7 +87,8 @@ export function openPayload(sealed: SealedPayload, dataKey: DataKey): unknown {
   const decipher = createDecipheriv(
     ALG,
     dataKey.key,
-    Buffer.from(iv, 'base64url')
+    Buffer.from(iv, 'base64url'),
+    { authTagLength: TAG_BYTES }
   )
   decipher.setAAD(aad(keyId))
   decipher.setAuthTag(Buffer.from(tag, 'base64url'))

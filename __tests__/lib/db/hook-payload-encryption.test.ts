@@ -224,6 +224,34 @@ describe('isEncryptionKeyConfigured', () => {
   })
 })
 
+describe('unreadable payloads are never written', () => {
+  const unreadable = { _lumo_unreadable: true }
+  it.each([
+    ['create', { data: { workspaceId: 'ws1', payload: unreadable } }],
+    ['createMany', { data: [{ workspaceId: 'ws1', payload: unreadable }] }],
+    [
+      'updateMany',
+      { where: { workspaceId: 'ws1' }, data: { payload: unreadable } },
+    ],
+    [
+      'upsert',
+      {
+        where: { id: 'e1', workspaceId: 'ws1' },
+        create: { workspaceId: 'ws1', payload: unreadable },
+        update: {},
+      },
+    ],
+  ])('%s refuses it with encryption on and off', async (operation, args) => {
+    for (const enabled of [true, false]) {
+      const { calls, query } = echoQuery()
+      await expect(
+        runHookEventOperation({ operation, args, query }, deps(enabled))
+      ).rejects.toThrow(/unreadable/)
+      expect(calls).toHaveLength(0)
+    }
+  })
+})
+
 describe('runHookEventOperation with encryption off', () => {
   it('clears the key id a sealed row still names when its payload is rewritten', async () => {
     const { calls, query } = echoQuery()

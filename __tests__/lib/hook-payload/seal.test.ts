@@ -54,6 +54,20 @@ describe('sealPayload / openPayload', () => {
   })
 })
 
+describe('GCM tag length', () => {
+  it('refuses a truncated authentication tag', () => {
+    const k = key('dk_1')
+    const sealed = sealPayload({ a: 1 }, k)
+    const parts = sealed[SEALED_PAYLOAD_KEY].split(':')
+    parts[3] = Buffer.from(parts[3]!, 'base64url')
+      .subarray(0, 4)
+      .toString('base64url')
+    expect(() =>
+      openPayload({ [SEALED_PAYLOAD_KEY]: parts.join(':') }, k)
+    ).toThrow()
+  })
+})
+
 describe('isSealedPayload', () => {
   it('is false for plaintext payloads, including ones with an _enc field', () => {
     expect(isSealedPayload({ tool_name: 'Bash' })).toBe(false)
