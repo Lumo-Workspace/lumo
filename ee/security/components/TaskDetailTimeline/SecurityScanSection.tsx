@@ -417,12 +417,12 @@ function ReviewControls({
         </Button>
       )}
       {error && (
-        <span role='alert'>
+        <span role='alert' className='text-caption text-danger-text'>
           {intl.formatMessage({ id: 'securityScan.review.error' })}
         </span>
       )}
       {queued && (
-        <span role='status'>
+        <span role='status' className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'securityScan.review.queued' })}
         </span>
       )}
