@@ -158,6 +158,20 @@ const ALLOWED_RAW_TAG_RE =
   /<\/?(?:summary|b|strong|i|em|code|sub|sup)\s*>|<details(?:\s+open)?\s*>|<\/details\s*>|<br\s*\/?>/gi
 const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
 
+// A character reference already in the raw HTML (`&amp;`, `&#39;`, `&#x2014;`):
+// GitHub shows it decoded, so it is kept rather than escaped again. It holds
+// only `&`, `#`, alphanumerics and `;`, so it can't open a tag.
+const ENTITY_SPLIT_RE =
+  /(&(?:[a-z][a-z0-9]{1,31}|#[0-9]{1,7}|#x[0-9a-f]{1,6});)/i
+
+/** Escape raw-HTML text, keeping the character references it already has. */
+function escapeRawText(s: string): string {
+  return s
+    .split(ENTITY_SPLIT_RE)
+    .map((part, i) => (i % 2 === 1 ? part : escapeHtml(part)))
+    .join('')
+}
+
 /**
  * Raw HTML in the markdown, block or inline: GitHub hides comments, so they
  * go; allowlisted tags are kept (lower-cased); everything else is escaped so
@@ -169,12 +183,12 @@ function renderRawHtml(html: string, block: boolean): string {
   let last = 0
   let keptTag = false
   for (const m of text.matchAll(ALLOWED_RAW_TAG_RE)) {
-    out += escapeHtml(text.slice(last, m.index))
+    out += escapeRawText(text.slice(last, m.index))
     out += m[0].toLowerCase().replace(/\s+/g, ' ').replace(/ >$/, '>')
     last = m.index + m[0].length
     keptTag = true
   }
-  out += escapeHtml(text.slice(last))
+  out += escapeRawText(text.slice(last))
   if (!block) return out
   // A block of only escaped text (a stray `<img …>` line) still reads as a
   // paragraph; next to a kept tag the surrounding whitespace is layout only.

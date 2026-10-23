@@ -102,6 +102,22 @@ describe('githubMarkdownToLumoHtml — GFM rendering', () => {
     expect(out.querySelector('details')?.hasAttribute('open')).toBe(true)
   })
 
+  it('shows a character reference inside raw HTML decoded, not double-escaped', () => {
+    const out = render(
+      '<details>\n<summary>Tom &amp; Jerry &#8212; &#x2014;</summary>\n\nx\n\n</details>'
+    )
+    expect(parse(out).querySelector('summary')?.text).toBe('Tom & Jerry — —')
+    expect(out).not.toContain('&amp;amp;')
+  })
+
+  it('keeps an encoded tag in raw HTML as text', () => {
+    const out = render('<summary>&lt;img src=x onerror=alert(1)&gt;</summary>')
+    expect(executableBits(out)).toEqual([])
+    expect(parse(out).querySelector('summary')?.text).toBe(
+      '<img src=x onerror=alert(1)>'
+    )
+  })
+
   it('hides HTML comments, as GitHub does', () => {
     expect(render('text\n\n<!-- lumo-security:summary -->')).toBe('<p>text</p>')
     expect(render('a <!-- hidden --> b')).toBe('<p>a  b</p>')
