@@ -18,9 +18,11 @@
  */
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
-import { generateObject } from 'ai'
+import { generateObject, NoObjectGeneratedError } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
+import { structuredOutputProviderOptions } from '@/lib/ai/structured-output-routing'
+import { repairPreMergeChecksText } from '@/ee/security/llm/pre-merge-checks-repair'
 
 export const PreMergeChecksAnswerSchema = z.object({
   results: z
@@ -138,15 +140,41 @@ export function buildPreMergeChecksPrompt(
   ].join('\n')
 }
 
+/**
+ * LUM-1304 — attempts per call, inside ONE deadline (`timeoutMs`). The second
+ * is only for an answer the SDK could not turn into an object (an empty
+ * response, or text the repair cannot fix): one such failure no longer makes
+ * every check inconclusive. A timeout or transport error is not retried — the
+ * deadline is spent, and the gateway already falls over between hosts.
+ */
+export const PRE_MERGE_CHECKS_MAX_ATTEMPTS = 2
+
 export async function runPreMergeChecksModel(
   input: PreMergeChecksPromptInput & { timeoutMs?: number }
 ): Promise<PreMergeChecksAnswer> {
-  const { object } = await generateObject({
-    model: gateway(MEMORY_JUDGE_MODEL),
-    schema: PreMergeChecksAnswerSchema,
-    system: PRE_MERGE_CHECKS_SYSTEM_PROMPT,
-    prompt: buildPreMergeChecksPrompt(input),
-    abortSignal: AbortSignal.timeout(input.timeoutMs ?? 60_000),
-  })
-  return object
+  const abortSignal = AbortSignal.timeout(input.timeoutMs ?? 60_000)
+  const providerOptions = structuredOutputProviderOptions(MEMORY_JUDGE_MODEL)
+  const prompt = buildPreMergeChecksPrompt(input)
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const { object } = await generateObject({
+        model: gateway(MEMORY_JUDGE_MODEL),
+        schema: PreMergeChecksAnswerSchema,
+        system: PRE_MERGE_CHECKS_SYSTEM_PROMPT,
+        prompt,
+        abortSignal,
+        ...(providerOptions ? { providerOptions } : {}),
+        experimental_repairText: async ({ text }) =>
+          repairPreMergeChecksText(text),
+      })
+      return object
+    } catch (error) {
+      if (
+        attempt >= PRE_MERGE_CHECKS_MAX_ATTEMPTS ||
+        abortSignal.aborted ||
+        !NoObjectGeneratedError.isInstance(error)
+      )
+        throw error
+    }
+  }
 }

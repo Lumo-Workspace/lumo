@@ -1,0 +1,98 @@
+{
+  "measuredAt": "2026-10-23",
+  "model": "deepseek/deepseek-v4-pro",
+  "concurrency": 1,
+  "prompts": {
+    "1681": {
+      "checks": ["title", "description", "issue_assessment"],
+      "diffChars": 1218,
+      "diffTruncated": false,
+      "inputSha256": "90390585609aba864de64b0cb3a317ddd9e3ab6a8d560054594ba9f9a74230dd"
+    },
+    "1685": {
+      "checks": ["title", "description", "issue_assessment"],
+      "diffChars": 40000,
+      "diffTruncated": true,
+      "inputSha256": "1b355d199b9a952e0818abd6d434d350d4c91b339972e71697442fe76b10d8b6"
+    }
+  },
+  "before": {
+    "shipped#1681 (gateway default routing, 60s)": {
+      "n": 10,
+      "ok": 9,
+      "p50ms": 6102,
+      "maxms": 60005,
+      "over60s": 1,
+      "errors": ["Delay was aborted"]
+    },
+    "object#1681 untimed, default routing (all alibaba)": {
+      "n": 6,
+      "ok": 6,
+      "p50ms": 68628,
+      "maxms": 77091,
+      "over60s": 3,
+      "errors": []
+    },
+    "object#1681 only=baseten": {
+      "n": 3,
+      "ok": 0,
+      "p50ms": 4516,
+      "maxms": 5086,
+      "note": "content empty; output = reasoning only (309/310, 437/438, 444/445 tokens)",
+      "errors": ["No object generated: the model did not return a response."]
+    },
+    "object#1681 only=alibaba (untimed)": {
+      "n": 3,
+      "ok": 3,
+      "p50ms": 66848,
+      "maxms": 81910,
+      "over60s": 2,
+      "errors": []
+    },
+    "object#1681 only=azure": {
+      "n": 7,
+      "ok": 7,
+      "p50ms": 3668,
+      "maxms": 11207,
+      "note": "reasoningTokens=0; 1 of 7 answered only the title check"
+    },
+    "object#1681 only=deepinfra": {
+      "n": 4,
+      "ok": 4,
+      "p50ms": 6409,
+      "maxms": 6724,
+      "note": "reasoningTokens=0"
+    },
+    "object#1685 only=azure": {
+      "n": 4,
+      "ok": 4,
+      "p50ms": 6855,
+      "maxms": 8604
+    },
+    "text#1681 only=baseten": {
+      "n": 5,
+      "ok": 0,
+      "p50ms": 22772,
+      "maxms": 41810,
+      "note": "answers in prose/other JSON shape; reasoning 1.2-3.8k tokens"
+    }
+  },
+  "after": {
+    "shipped#1681": {
+      "n": 10,
+      "ok": 10,
+      "p50ms": 3521,
+      "maxms": 4480,
+      "over60s": 0,
+      "errors": []
+    },
+    "shipped#1685": {
+      "n": 10,
+      "ok": 10,
+      "p50ms": 6135,
+      "maxms": 11596,
+      "over60s": 0,
+      "errors": []
+    }
+  }
+}

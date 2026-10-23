@@ -1,10 +1,20 @@
 /** @jest-environment node */
-jest.mock('ai', () => ({ generateObject: jest.fn() }))
+jest.mock('ai', () => {
+  // What the SDK throws when it cannot turn a response into an object.
+  class NoObjectGeneratedError extends Error {
+    readonly noObject = true
+    static isInstance(e: unknown): boolean {
+      return (e as { noObject?: boolean } | null)?.noObject === true
+    }
+  }
+  return { generateObject: jest.fn(), NoObjectGeneratedError }
+})
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
-import { generateObject } from 'ai'
-import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { generateObject, NoObjectGeneratedError } from 'ai'
+import { MEMORY_JUDGE_MODEL, STRUCTURED_OUTPUT_HOSTS } from '@/lib/ai/models'
 import {
+  PRE_MERGE_CHECKS_MAX_ATTEMPTS,
   PRE_MERGE_CHECKS_SYSTEM_PROMPT,
   buildPreMergeChecksPrompt,
   runPreMergeChecksModel,
@@ -57,5 +67,90 @@ describe('LUM-1148 pre-merge checks client', () => {
       results: [],
     })
     expect(gen.mock.calls[0][0].model).toEqual({ id: MEMORY_JUDGE_MODEL })
+  })
+
+  describe('LUM-1304 routing, repair and the one retry', () => {
+    const noObject = (message: string) =>
+      new (NoObjectGeneratedError as unknown as new (m: string) => Error)(
+        message
+      )
+    const ANSWER = { results: [] }
+
+    it('routes only to hosts that honour structured outputs, in order', async () => {
+      gen.mockResolvedValue({ object: ANSWER })
+      await runPreMergeChecksModel(INPUT)
+      const hosts = [...STRUCTURED_OUTPUT_HOSTS[MEMORY_JUDGE_MODEL]!]
+      expect(hosts).not.toContain('baseten')
+      expect(gen.mock.calls[0][0].providerOptions).toEqual({
+        gateway: { order: hosts, only: hosts },
+      })
+    })
+
+    it('hands the SDK the envelope repair', async () => {
+      gen.mockResolvedValue({ object: ANSWER })
+      await runPreMergeChecksModel(INPUT)
+      const repair = gen.mock.calls[0][0].experimental_repairText
+      await expect(
+        repair({ text: '```json\n[{"id":"title","outcome":"passed"}]\n```' })
+      ).resolves.toBe(
+        JSON.stringify({
+          results: [
+            {
+              id: 'title',
+              verdict: 'passed',
+              explanation: '',
+              resolution: '',
+              requirements: [],
+            },
+          ],
+        })
+      )
+    })
+
+    it('an empty response is asked once more, and the second answer stands', async () => {
+      gen
+        .mockRejectedValueOnce(
+          noObject('No object generated: the model did not return a response.')
+        )
+        .mockResolvedValueOnce({ object: ANSWER })
+      await expect(runPreMergeChecksModel(INPUT)).resolves.toBe(ANSWER)
+      expect(gen).toHaveBeenCalledTimes(2)
+      // Both attempts share one deadline.
+      expect(gen.mock.calls[1][0].abortSignal).toBe(
+        gen.mock.calls[0][0].abortSignal
+      )
+    })
+
+    it('empty twice throws, so the service reports the checks inconclusive', async () => {
+      gen.mockRejectedValue(
+        noObject('No object generated: the model did not return a response.')
+      )
+      await expect(runPreMergeChecksModel(INPUT)).rejects.toThrow(
+        /did not return a response/
+      )
+      expect(gen).toHaveBeenCalledTimes(PRE_MERGE_CHECKS_MAX_ATTEMPTS)
+    })
+
+    it('a timeout or transport error is not retried', async () => {
+      gen.mockRejectedValue(new Error('Delay was aborted'))
+      await expect(runPreMergeChecksModel(INPUT)).rejects.toThrow(
+        'Delay was aborted'
+      )
+      expect(gen).toHaveBeenCalledTimes(1)
+    })
+
+    it('no retry once the deadline has passed', async () => {
+      // The first attempt outlives the 5 ms deadline, then comes back empty.
+      gen.mockImplementation(
+        () =>
+          new Promise((_, reject) =>
+            setTimeout(() => reject(noObject('No object generated')), 30)
+          )
+      )
+      await expect(
+        runPreMergeChecksModel({ ...INPUT, timeoutMs: 5 })
+      ).rejects.toThrow('No object generated')
+      expect(gen).toHaveBeenCalledTimes(1)
+    })
   })
 })
