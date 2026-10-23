@@ -250,10 +250,11 @@ describe('reads see plain JSON for sealed and legacy plaintext rows', () => {
     expect(rows.map(r => r.payload)).toEqual([payload, payload])
   })
 
-  it('a sealed row whose key is gone reads as an empty payload, not ciphertext', async () => {
+  it('a sealed row naming a key that does not exist reads as the unreadable marker, never ciphertext, and is not written back', async () => {
     const id = await recordSealed({ secret: SECRET_CODE })
     const { payloadKeyId } = await rawRow(id)
-    // A fresh client (empty key cache) whose key row has been dropped.
+    // Relabel the ciphertext with a key id that has no workspace_data_keys
+    // row: the ring finds no such key.
     await harness.query(
       `update hook_events set "payloadKeyId" = $2, payload = jsonb_set(payload, '{_enc}', to_jsonb(replace(payload->>'_enc', $3, 'dk_missing'))) where id = $1`,
       [id, 'dk_missing', payloadKeyId]

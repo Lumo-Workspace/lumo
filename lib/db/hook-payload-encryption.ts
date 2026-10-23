@@ -151,7 +151,8 @@ export async function openResult(
 
 function hasPayloadFilter(where: unknown): boolean {
   if (typeof where !== 'object' || where === null) return false
-  if ('payload' in where) return true
+  // `payload: undefined` is no filter (Prisma drops undefined keys).
+  if ((where as Where).payload !== undefined) return true
   return ['AND', 'OR', 'NOT'].some(combinator => {
     const branch = (where as Where)[combinator]
     const parts = Array.isArray(branch) ? branch : branch ? [branch] : []

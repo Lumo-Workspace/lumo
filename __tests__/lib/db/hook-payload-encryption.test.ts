@@ -204,6 +204,7 @@ describe('assertNoPayloadFilter', () => {
       })
     ).not.toThrow()
     expect(() => assertNoPayloadFilter(undefined)).not.toThrow()
+    expect(() => assertNoPayloadFilter({ payload: undefined })).not.toThrow()
   })
 })
 
