@@ -7,6 +7,7 @@ import {
   blockingFindings,
   summarizeSecurityScans,
   shouldExpandRow,
+  hasScanDetails,
   isOverSizeLimitOnly,
   isQuietFinding,
   findingGroupKey,
@@ -148,6 +149,69 @@ describe('summarizeSecurityScans', () => {
     ])
     expect(summary.incomplete).toBe(2)
     expect(summary.findings).toBe(0)
+  })
+})
+
+// LUM-1296: a PR row draws its expand chevron only when ScanDetails has
+// something to show — an empty clean scan used to open onto nothing.
+describe('hasScanDetails', () => {
+  it('is false for a clean scan with nothing to say', () => {
+    expect(hasScanDetails(scan({ status: 'CLEAN' }))).toBe(false)
+  })
+
+  type Over = Partial<SecurityScanView>
+  const notices: [string, Over][] = [
+    ['a finding', { findings: [finding()] }],
+    ['scrubbed code', { codeScrubbed: true }],
+    ['fixed findings', { fixed: 2 }],
+    ['a late external scanner', { externalLate: true }],
+    [
+      'an unconfigured external scanner',
+      { stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' } },
+    ],
+    ['an unfinished scan', { ownedUnfinished: true }],
+    [
+      'a layer turned off',
+      { stages: { secrets: 'RAN', external: 'RAN', judge: 'DISABLED' } },
+    ],
+    [
+      'a PR too large',
+      { prTooLarge: {} as NonNullable<SecurityScanView['prTooLarge']> },
+    ],
+    [
+      'exploit paths over cap',
+      { huntOverCap: {} as NonNullable<SecurityScanView['huntOverCap']> },
+    ],
+    [
+      'AI review over cap',
+      { judgeOverCap: {} as NonNullable<SecurityScanView['judgeOverCap']> },
+    ],
+    [
+      'a partial AI review',
+      { judgePartial: {} as NonNullable<SecurityScanView['judgePartial']> },
+    ],
+    [
+      'an external failure reason',
+      {
+        stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+        error: 'external: timeout',
+      },
+    ],
+    ['a failed scan with an error', { status: 'FAILED', error: 'boom' }],
+  ]
+  it.each(notices)('is true with %s', (_name, over) => {
+    expect(hasScanDetails(scan(over))).toBe(true)
+  })
+
+  it('is false for an unprefixed external error on a scan that did not fail', () => {
+    expect(
+      hasScanDetails(
+        scan({
+          stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+          error: 'raw stage error',
+        })
+      )
+    ).toBe(false)
   })
 })
 

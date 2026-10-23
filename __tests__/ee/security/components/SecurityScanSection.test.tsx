@@ -734,13 +734,13 @@ test('a clean PR row is collapsed by default', () => {
       prs: [
         {
           pr,
-          // judgeStatus UNAVAILABLE gives ScanDetails something to show, so
-          // this asserts the row is actually collapsed — not just that a
-          // clean scan happens to have nothing to render either way.
+          // A fixed-findings line gives ScanDetails something to show, so
+          // this asserts the row is actually collapsed — an empty clean scan
+          // has no toggle at all (LUM-1296).
           latest: scan({
             findings: [],
             status: 'CLEAN',
-            judgeStatus: 'UNAVAILABLE',
+            fixed: 1,
           }),
         },
       ],
@@ -755,6 +755,43 @@ test('a clean PR row is collapsed by default', () => {
     'false'
   )
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+  expect(screen.queryByTestId('scan-fixed')).toBeNull()
+})
+
+// LUM-1296: a chevron that opens onto nothing read as broken (LUM-702 in
+// prod) — a PR with no scan, or a clean scan with nothing under the fold,
+// gets no toggle; its title stays aligned with the rows that have one.
+test('a PR with no scan or an empty clean scan has no toggle; one with details keeps it', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        { pr, latest: null },
+        {
+          pr: { ...pr, id: 'pr2', number: 10 },
+          latest: scan({ id: 's2', findings: [], status: 'CLEAN' }),
+        },
+        {
+          pr: { ...pr, id: 'pr3', number: 11 },
+          latest: scan({ id: 's3', findings: [], status: 'CLEAN', fixed: 2 }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+
+  expect(screen.getByTestId('security-pr-9')).toBeInTheDocument()
+  expect(screen.queryByTestId('security-pr-9-toggle')).toBeNull()
+  expect(screen.getByTestId('security-pr-10')).toBeInTheDocument()
+  expect(screen.queryByTestId('security-pr-10-toggle')).toBeNull()
+
+  const toggle = screen.getByTestId('security-pr-11-toggle')
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByTestId('scan-fixed')).toBeInTheDocument()
 })
 
 test('an external-failed row with an error is expanded by default', () => {
@@ -792,7 +829,7 @@ test('a manual toggle sticks: collapsing an expanded row hides its details, expa
         { pr, latest: scan({}) },
         {
           pr: { ...pr, id: 'pr2', number: 10 },
-          latest: scan({ id: 's2', findings: [], status: 'CLEAN' }),
+          latest: scan({ id: 's2', findings: [], status: 'CLEAN', fixed: 1 }),
         },
       ],
       blocking: { count: 1 },
