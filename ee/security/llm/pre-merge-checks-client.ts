@@ -141,13 +141,33 @@ export function buildPreMergeChecksPrompt(
 }
 
 /**
- * LUM-1304 — attempts per call, inside ONE deadline (`timeoutMs`). The second
- * is only for an answer the SDK could not turn into an object (an empty
- * response, or text the repair cannot fix): one such failure no longer makes
- * every check inconclusive. A timeout or transport error is not retried — the
- * deadline is spent, and the gateway already falls over between hosts.
+ * LUM-1304 — attempts per call, all inside ONE deadline (`timeoutMs`). The
+ * SDK's own retries are off (`maxRetries: 0`) so every failure is seen and
+ * reported; this loop retries instead, for an answer the SDK could not turn
+ * into an object (an empty response, or text the repair cannot fix) or a call
+ * error the SDK marks retryable (429, 5xx, network), after a short back-off
+ * (`PRE_MERGE_CHECKS_BACKOFF_MS`). A non-retryable error, or the deadline
+ * passing, ends the call at once.
  */
 export const PRE_MERGE_CHECKS_MAX_ATTEMPTS = 3
+/** Wait before attempt 2 and 3 — cut short (and the call ended) by the deadline. */
+export const PRE_MERGE_CHECKS_BACKOFF_MS = [1_000, 3_000] as const
+
+/** Resolve after `ms`, or reject at once when the deadline fires. */
+function backOff(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason)
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 /**
  * LUM-1304 — one line per failed attempt, for the service's `model
@@ -220,17 +240,27 @@ export async function runPreMergeChecksModel(
       failures.push(
         `attempt ${attempt}: ${describeAttemptFailure(error, Date.now() - started)}`
       )
-      if (
-        attempt >= PRE_MERGE_CHECKS_MAX_ATTEMPTS ||
-        abortSignal.aborted ||
-        !retryable(error)
-      )
-        throw Object.assign(
+      const fail = () =>
+        Object.assign(
           new Error(
             `pre-merge checks model failed${abortSignal.aborted ? ' (deadline reached)' : ''} — ${failures.join('; ')}`
           ),
           { cause: error }
         )
+      if (
+        attempt >= PRE_MERGE_CHECKS_MAX_ATTEMPTS ||
+        abortSignal.aborted ||
+        !retryable(error)
+      )
+        throw fail()
+      try {
+        await backOff(
+          PRE_MERGE_CHECKS_BACKOFF_MS[attempt - 1] ?? 0,
+          abortSignal
+        )
+      } catch {
+        throw fail()
+      }
     }
   }
 }

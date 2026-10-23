@@ -30,6 +30,7 @@ jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 import { APICallError, generateObject, NoObjectGeneratedError } from 'ai'
 import { MEMORY_JUDGE_MODEL, STRUCTURED_OUTPUT_HOSTS } from '@/lib/ai/models'
 import {
+  PRE_MERGE_CHECKS_BACKOFF_MS,
   PRE_MERGE_CHECKS_MAX_ATTEMPTS,
   describeAttemptFailure,
   PRE_MERGE_CHECKS_SYSTEM_PROMPT,
@@ -86,7 +87,7 @@ describe('LUM-1148 pre-merge checks client', () => {
     expect(gen.mock.calls[0][0].model).toEqual({ id: MEMORY_JUDGE_MODEL })
   })
 
-  describe('LUM-1304 routing, repair and the one retry', () => {
+  describe('LUM-1304 routing, repair and the retry on an empty answer', () => {
     const noObject = (message: string) =>
       new (NoObjectGeneratedError as unknown as new (m: string) => Error)(
         message
@@ -214,11 +215,14 @@ describe('LUM-1148 pre-merge checks client', () => {
           })
         )
       )
-      const failure = runPreMergeChecksModel(INPUT)
-      await expect(failure).rejects.toThrow(
+      const message = await runPreMergeChecksModel(INPUT).then(
+        () => '',
+        (e: Error) => e.message
+      )
+      expect(message).toMatch(
         /attempt 1: AI_APICallError 400 after \d+ms: Gateway error 400 \[invalid_request: no providers available\]/
       )
-      await expect(failure).rejects.not.toThrow(/SECRET PROMPT TEXT/)
+      expect(message).not.toContain('SECRET PROMPT TEXT')
       expect(gen).toHaveBeenCalledTimes(1)
     })
 
@@ -231,6 +235,16 @@ describe('LUM-1148 pre-merge checks client', () => {
         /attempt 1: .*429.*; attempt 2: .*503.*; attempt 3: .*No object generated/
       )
       expect(gen).toHaveBeenCalledTimes(PRE_MERGE_CHECKS_MAX_ATTEMPTS)
+    })
+
+    it('the deadline cuts a back-off short and ends the call', async () => {
+      gen.mockRejectedValue(apiError(429, true))
+      const t0 = Date.now()
+      await expect(
+        runPreMergeChecksModel({ ...INPUT, timeoutMs: 150 })
+      ).rejects.toThrow(/\(deadline reached\) — attempt 1: .*429/)
+      expect(Date.now() - t0).toBeLessThan(PRE_MERGE_CHECKS_BACKOFF_MS[0])
+      expect(gen).toHaveBeenCalledTimes(1)
     })
 
     it('describeAttemptFailure ignores a body that is not JSON', () => {
