@@ -162,6 +162,23 @@ describe('githubMarkdownToLumoHtml — mentions', () => {
     )
   })
 
+  it('treats inline tags as transparent for the character before @', () => {
+    const out = githubMarkdownToLumoHtml('**a**@foo and `x`@foo', resolver)
+    expect(out).not.toContain('data-type="mention"')
+  })
+
+  it('resolves @login at the start of a block or after a line break', () => {
+    const out = githubMarkdownToLumoHtml('x\n@foo\n\n@foo\n\n- @foo', resolver)
+    expect(out.match(/data-type="mention"/g)).toHaveLength(3)
+  })
+
+  it('resolves @login right after an inline tag closed by a space', () => {
+    const out = githubMarkdownToLumoHtml('**hi** @foo', resolver)
+    expect(out).toContain(
+      '<strong>hi</strong> <span data-type="mention" data-id="clerk1">Foo</span>'
+    )
+  })
+
   it('does not resolve @login inside inline code or a code block', () => {
     const out = githubMarkdownToLumoHtml(
       '`@foo review`\n\n```\n@foo\n```',

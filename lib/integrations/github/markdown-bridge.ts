@@ -217,21 +217,42 @@ function getGithubMarked(): Marked {
 const CODE_OR_TAG_RE =
   /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>|<a[\s>][\s\S]*?<\/a>|<[^>]*>)/i
 
+// A tag that starts or ends a block: text on either side of it is not
+// adjacent, so it resets the character before a mention.
+const BLOCK_TAG_RE =
+  /^<\/?(?:p|br|hr|h[1-6]|li|ul|ol|blockquote|pre|table|thead|tbody|tr|th|td|details|summary|div)[\s/>]/i
+const WORD_CHAR_RE = /[a-zA-Z0-9_]/
+
 function resolveMentions(
   html: string,
   resolver: GithubMentionResolver
 ): string {
+  // The last text character seen so far within the current block. Inline
+  // tags are transparent, so `**a**@foo` is `a@foo` — not a mention.
+  let prev = ''
   return html
     .split(CODE_OR_TAG_RE)
-    .map((part, i) =>
-      i % 2 === 1
-        ? part
-        : part.replace(GH_MENTION_RE, (_m, lead: string, login: string) => {
-            const hit = resolver(login)
-            if (!hit) return `${lead}@${login}`
-            return `${lead}<span data-type="mention" data-id="${escapeHtml(hit.clerkId)}">${escapeHtml(hit.displayName)}</span>`
-          })
-    )
+    .map((part, i) => {
+      if (i % 2 === 1) {
+        if (BLOCK_TAG_RE.test(part)) prev = ''
+        else {
+          const text = part.replace(/<[^>]*>/g, '')
+          if (text) prev = text.slice(-1)
+        }
+        return part
+      }
+      const out = part.replace(
+        GH_MENTION_RE,
+        (m, lead: string, login: string, offset: number) => {
+          if (offset === 0 && lead === '' && WORD_CHAR_RE.test(prev)) return m
+          const hit = resolver(login)
+          if (!hit) return `${lead}@${login}`
+          return `${lead}<span data-type="mention" data-id="${escapeHtml(hit.clerkId)}">${escapeHtml(hit.displayName)}</span>`
+        }
+      )
+      if (part) prev = part.slice(-1)
+      return out
+    })
     .join('')
 }
 
