@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * LUM-572 → LUM-1009 — the dossier's evidence (Agent runs / Lineage causality /
+ * LUM-572 → LUM-1009 — the dossier's evidence (Agent runs / Context fed to agents /
  * Injected team memory) are flat rows in the Record tab's Records section: one
  * fold level, collapsed by default, no "Run report" group or "Evidence &
  * causality" heading around them. A legacy deep link still expands its
@@ -141,7 +141,7 @@ describe('evidence and security are flat Records rows', () => {
     const records = screen.getByTestId('record-records')
     for (const name of [
       /Agent runs/,
-      /Lineage causality/,
+      /Context fed to agents/,
       /Injected team memory/,
     ]) {
       const toggle = screen.getByRole('button', { name })
@@ -163,7 +163,7 @@ describe('evidence and security are flat Records rows', () => {
   it('a legacy deep link expands its target row', () => {
     render(<TaskDossier {...baseProps} targetSection='lineage' />)
     expect(
-      screen.getByRole('button', { name: /Lineage causality/ })
+      screen.getByRole('button', { name: /Context fed to agents/ })
     ).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('lineage-body')).toBeInTheDocument()
     expect(document.getElementById('dossier-lineage')).not.toBeNull()

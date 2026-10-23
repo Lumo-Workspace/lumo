@@ -34,6 +34,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
       }),
       value: funnel.impressions,
       pctText: null as string | null,
+      notReported: false,
     },
     {
       label: intl.formatMessage({
@@ -50,6 +51,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
         { id: 'lineage.funnel.pct', defaultMessage: '{pct}%' },
         { pct: pct(funnel.index, funnel.impressions) }
       ),
+      notReported: false,
     },
     {
       label: intl.formatMessage({
@@ -66,6 +68,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
         { id: 'lineage.funnel.ofIndex', defaultMessage: '占索引 {pct}%' },
         { pct: pct(funnel.pulled, funnel.index) }
       ),
+      notReported: false,
     },
     {
       label: intl.formatMessage({
@@ -81,6 +84,8 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
         { id: 'lineage.funnel.pct', defaultMessage: '{pct}%' },
         { pct: pct(funnel.used, funnel.impressions) }
       ),
+      // LUM-1294: no vote at all means usefulness is unknown, not zero.
+      notReported: funnel.voted === 0,
     },
   ]
 
@@ -106,15 +111,29 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
               {r.label}
               <InfoTooltip label={r.tip} />
             </span>
-            <span
-              className='h-3 rounded-sm bg-primary/70'
-              style={{ width: barWidth(r.value, funnel.impressions) }}
-            />
-            <span className='tabular-nums text-foreground'>{r.value}</span>
-            {r.pctText && (
-              <span className='text-caption text-muted-foreground'>
-                {r.pctText}
-              </span>
+            {r.notReported ? (
+              <>
+                <span className='h-3 w-12 rounded-sm border border-dashed border-border' />
+                <span className='text-caption text-muted-foreground'>
+                  {intl.formatMessage({
+                    id: 'lineage.funnel.notReported',
+                    defaultMessage: '— not reported',
+                  })}
+                </span>
+              </>
+            ) : (
+              <>
+                <span
+                  className='h-3 rounded-sm bg-primary/70'
+                  style={{ width: barWidth(r.value, funnel.impressions) }}
+                />
+                <span className='tabular-nums text-foreground'>{r.value}</span>
+                {r.pctText && (
+                  <span className='text-caption text-muted-foreground'>
+                    {r.pctText}
+                  </span>
+                )}
+              </>
             )}
           </div>
         ))}

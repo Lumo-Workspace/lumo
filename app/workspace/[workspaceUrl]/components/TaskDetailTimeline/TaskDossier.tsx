@@ -208,7 +208,7 @@ export function TaskDossier({
           id='dossier-lineage'
           title={intl.formatMessage({
             id: 'dossier.section.lineage',
-            defaultMessage: 'Lineage causality',
+            defaultMessage: 'Context fed to agents',
           })}
           expanded={expanded.has('lineage')}
           onToggle={() => toggle('lineage')}
