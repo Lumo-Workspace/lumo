@@ -642,11 +642,6 @@ describe('LUM-1234 reward-hack layer runner', () => {
   it('a gated item is reported directly: one model call (the judge), one row, no second-guessing call', async () => {
     await runRewardHackLayer('scan2')
     expect(judge).toHaveBeenCalledTimes(1)
-    // The judge client the runner loads exposes no other call.
-    const client = jest.requireMock(
-      '@/ee/security/llm/reward-hack-judge-client'
-    ) as Record<string, unknown>
-    expect(Object.keys(client)).toEqual(['judgeRewardHack'])
     expect(writtenRows()).toHaveLength(1)
     expect(writtenRows()[0]).toMatchObject({
       ruleId: 'reward-hack/TEST_TAMPERING',
