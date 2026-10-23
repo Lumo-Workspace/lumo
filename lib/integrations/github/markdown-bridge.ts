@@ -90,6 +90,9 @@ const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
 export function stripLinkReferenceDefinitions(markdown: string): string {
   const lines = markdown.split('\n')
   let fence: string | null = null
+  // A definition can't interrupt a paragraph: right after a prose line it is
+  // plain text on GitHub, so only a line that opens a new block counts.
+  let inParagraph = false
   const defs = new Map<number, string>()
   lines.forEach((raw, i) => {
     const line = raw.replace(/\r$/, '')
@@ -103,10 +106,15 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
     const open = FENCE_OPEN_RE.exec(line)?.[1]
     if (open) {
       fence = open
+      inParagraph = false
       return
     }
-    const label = LINK_REF_DEF_RE.exec(line)?.[1]
-    if (label) defs.set(i, label.trim().toLowerCase())
+    const label = inParagraph ? undefined : LINK_REF_DEF_RE.exec(line)?.[1]
+    if (label) {
+      defs.set(i, label.trim().toLowerCase())
+      return
+    }
+    inParagraph = line.trim() !== ''
   })
   if (defs.size === 0) return markdown
 

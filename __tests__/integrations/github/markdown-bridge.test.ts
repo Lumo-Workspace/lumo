@@ -111,6 +111,16 @@ describe('markdown-bridge', () => {
       expect(stripLinkReferenceDefinitions(md)).toBe('See the docs.\n')
     })
 
+    it('keeps a definition-shaped line that continues a paragraph', () => {
+      const md = 'Some prose\n[x]: https://example.com'
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('drops consecutive definitions after a blank line', () => {
+      const md = 'Text.\n\n[a]: https://a.example\n[b]: https://b.example'
+      expect(stripLinkReferenceDefinitions(md)).toBe('Text.\n')
+    })
+
     it('keeps a definition the body still references, so its URL survives', () => {
       const full = 'See [docs][D].\n\n[d]: https://example.com'
       const shortcut = 'See [docs].\n\n[docs]: https://example.com'
