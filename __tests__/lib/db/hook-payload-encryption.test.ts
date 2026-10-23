@@ -5,6 +5,7 @@
  * without a database (the real-Postgres suite covers it end to end).
  */
 import { randomBytes } from 'crypto'
+import { restoreEnv } from '../../helpers/restore-env'
 import {
   assertNoPayloadFilter,
   runHookEventOperation,
@@ -154,7 +155,9 @@ describe('runHookEventOperation', () => {
       }
     )
     // Wrong key on read: unreadable, never ciphertext.
-    expect((sealed as { payload: unknown }).payload).toEqual({})
+    expect((sealed as { payload: unknown }).payload).toEqual({
+      _lumo_unreadable: true,
+    })
 
     const stored: unknown[] = []
     await runHookEventOperation(
@@ -207,7 +210,7 @@ describe('assertNoPayloadFilter', () => {
 describe('isEncryptionKeyConfigured', () => {
   const original = process.env.ENCRYPTION_KEY
   afterEach(() => {
-    process.env.ENCRYPTION_KEY = original
+    restoreEnv('ENCRYPTION_KEY', original)
   })
 
   it('needs a 64-character hex key', () => {

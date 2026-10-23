@@ -52,8 +52,28 @@ export interface HookPayloadEncryptionDeps {
   enabled: () => boolean
 }
 
-/** What a sealed payload reads as when its key cannot be loaded. */
-export const UNREADABLE_PAYLOAD = Object.freeze({}) as Record<string, never>
+/**
+ * What a sealed payload reads as when it cannot be opened (key missing or
+ * wrong). A fresh object per row, and never written back: the ciphertext is
+ * still there and may open again once the key is restored.
+ */
+export const UNREADABLE_PAYLOAD_KEY = '_lumo_unreadable'
+
+function unreadablePayload(): Record<string, true> {
+  return { [UNREADABLE_PAYLOAD_KEY]: true }
+}
+
+function assertNotUnreadable(payload: unknown): void {
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    UNREADABLE_PAYLOAD_KEY in payload
+  )
+    throw new Error(
+      'Refusing to write back an unreadable HookEvent payload (LUM-1302): ' +
+        'it would replace ciphertext that may still open with the right key.'
+    )
+}
 
 const WHERE_OPERATIONS = new Set([
   'findMany',
@@ -105,14 +125,14 @@ async function openRows(rows: unknown[], ring: DataKeyRing): Promise<void> {
     const sealed = row.payload as Parameters<typeof openPayload>[0]
     const key = keys.get(sealedKeyId(sealed))
     if (!key) {
-      row.payload = UNREADABLE_PAYLOAD
+      row.payload = unreadablePayload()
       continue
     }
     try {
       row.payload = openPayload(sealed, key)
     } catch (error) {
       logger.error('[hook-payload] payload failed to decrypt:', error)
-      row.payload = UNREADABLE_PAYLOAD
+      row.payload = unreadablePayload()
     }
   }
 }
@@ -151,11 +171,12 @@ export function assertNoPayloadFilter(where: unknown): void {
 // ── data: seal payload writes ───────────────────────────────────────────────
 
 function writesPayload(data: unknown): data is Data & { payload: unknown } {
-  return (
+  const writes =
     typeof data === 'object' &&
     data !== null &&
     (data as Data).payload !== undefined
-  )
+  if (writes) assertNotUnreadable((data as Data).payload)
+  return writes
 }
 
 function workspaceIdOfCreate(data: Data): string {

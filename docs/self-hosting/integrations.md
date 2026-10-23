@@ -65,7 +65,7 @@ ENCRYPTION_KEY=<64 hex characters>
   output, code), stored wrapped by `ENCRYPTION_KEY` in `workspace_data_keys`.
   Unlike integration tokens these cannot be reconnected — **changing or
   losing `ENCRYPTION_KEY` makes every encrypted session record unreadable**
-  (it shows as empty). Without `ENCRYPTION_KEY` session records are stored
+  (it reads as an unreadable marker). Without `ENCRYPTION_KEY` session records are stored
   as plaintext; `scripts/encrypt-hook-event-payloads.ts` encrypts the ones
   stored before the key was set.
 

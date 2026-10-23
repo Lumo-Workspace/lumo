@@ -4,6 +4,7 @@
  * LUM-1302 — per-workspace data keys, wrapped by ENCRYPTION_KEY.
  */
 import { randomBytes } from 'crypto'
+import { restoreEnv } from '../../helpers/restore-env'
 import {
   createDataKeyRing,
   type DataKeyStore,
@@ -16,7 +17,7 @@ beforeAll(() => {
   process.env.ENCRYPTION_KEY = randomBytes(32).toString('hex')
 })
 afterAll(() => {
-  process.env.ENCRYPTION_KEY = ORIGINAL_KEY
+  restoreEnv('ENCRYPTION_KEY', ORIGINAL_KEY)
 })
 
 function memoryStore() {

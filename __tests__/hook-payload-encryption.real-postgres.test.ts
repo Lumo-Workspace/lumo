@@ -8,8 +8,12 @@
  * sealed rows and plaintext rows written before encryption shipped.
  */
 import { randomBytes } from 'crypto'
+import { restoreEnv } from './helpers/restore-env'
 import { createPgliteHarness } from '../scripts/test-support/pglite-harness'
 import { extendPrismaClient } from '@/lib/db/extend-client'
+import { createDataKeyRing } from '@/lib/hook-payload/data-key-ring'
+import { createWorkspaceDataKeyStore } from '@/lib/repositories/workspace-data-key.repository'
+import { openPayload } from '@/lib/hook-payload/seal'
 
 // jest.setup.js mocks PrismaClient globally; this suite needs the real one.
 const { PrismaClient } =
@@ -147,7 +151,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  process.env.ENCRYPTION_KEY = ORIGINAL_KEY
+  restoreEnv('ENCRYPTION_KEY', ORIGINAL_KEY)
   await harness.stop()
 })
 
@@ -198,7 +202,7 @@ describe('writes', () => {
       expect(row.payload).toEqual({ plain: SECRET_CODE })
       expect(row.payloadKeyId).toBeNull()
     } finally {
-      process.env.ENCRYPTION_KEY = key
+      restoreEnv('ENCRYPTION_KEY', key)
     }
   })
 })
@@ -255,7 +259,52 @@ describe('reads see plain JSON for sealed and legacy plaintext rows', () => {
       [id, 'dk_missing', payloadKeyId]
     )
     const [row] = await hookEventRepository.findManyByIdsForEditChange([id])
-    expect(row!.payload).toEqual({})
+    expect(row!.payload).toEqual({ _lumo_unreadable: true })
+    // Writing it back would destroy ciphertext that may still open: refused.
+    await expect(
+      hookEventRepository.setContextInjectionMetrics(
+        WS_A,
+        id,
+        row!.payload as never
+      )
+    ).rejects.toThrow(/unreadable/)
+  })
+})
+
+describe('each workspace has its own key', () => {
+  it('distinct key rows, distinct key bytes, and one workspace key cannot open the other workspace ciphertext', async () => {
+    const a = await rawRow(await recordSealed({ secret: SECRET_CODE }))
+    const b = await rawRow(
+      await recordSealed(
+        { secret: SECRET_CODE },
+        { workspaceId: WS_B, memberId: MEMBER_B, sessionId: SESSION_B }
+      )
+    )
+    const keys = await harness.query<{
+      id: string
+      workspaceId: string
+      wrappedKey: string
+    }>(
+      `select id, "workspaceId", "wrappedKey" from workspace_data_keys order by "workspaceId"`
+    )
+    // One key per workspace, each owned by its own workspace.
+    expect(keys.map(k => k.workspaceId)).toEqual([WS_A, WS_B])
+    expect(keys.find(k => k.workspaceId === WS_A)!.id).toBe(a.payloadKeyId)
+    expect(keys.find(k => k.workspaceId === WS_B)!.id).toBe(b.payloadKeyId)
+
+    const ring = createDataKeyRing(createWorkspaceDataKeyStore(harness.prisma!))
+    const keyA = await ring.keyById(a.payloadKeyId!)
+    const keyB = await ring.keyById(b.payloadKeyId!)
+    expect(keyA.key.equals(keyB.key)).toBe(false)
+
+    // Same plaintext, different ciphertext; A's key bytes cannot open B's row.
+    expect(a.payload).not.toEqual(b.payload)
+    expect(openPayload(a.payload as never, keyA)).toEqual({
+      secret: SECRET_CODE,
+    })
+    expect(() =>
+      openPayload(b.payload as never, { id: b.payloadKeyId!, key: keyA.key })
+    ).toThrow()
   })
 })
 
