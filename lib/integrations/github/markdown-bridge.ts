@@ -76,7 +76,8 @@ const GH_MENTION_RE = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9-]+)/g
 // which GitHub does render, so it is left alone.
 const LINK_REF_DEF_RE =
   /^ {0,3}\[((?!\^)[^\]\n]+)\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
-const FENCE_OPEN_RE = /^ {0,3}(`{3,}|~{3,})/
+// A backtick fence's info string can't itself contain a backtick.
+const FENCE_OPEN_RE = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$/
 // A closing fence carries no info string.
 const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
 
@@ -87,6 +88,10 @@ const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
  * uses (`[text][label]`, `[label]`) is kept, so its URL isn't lost; lines
  * inside fenced code blocks are kept too.
  */
+// CommonMark label matching: case-insensitive, internal whitespace collapsed.
+const normalizeLabel = (label: string) =>
+  label.trim().replace(/\s+/g, ' ').toLowerCase()
+
 export function stripLinkReferenceDefinitions(markdown: string): string {
   const lines = markdown.split('\n')
   let fence: string | null = null
@@ -103,7 +108,8 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
       }
       return
     }
-    const open = FENCE_OPEN_RE.exec(line)?.[1]
+    const openMatch = FENCE_OPEN_RE.exec(line)
+    const open = openMatch?.[1] ?? openMatch?.[2]
     if (open) {
       fence = open
       inParagraph = false
@@ -111,18 +117,18 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
     }
     const label = inParagraph ? undefined : LINK_REF_DEF_RE.exec(line)?.[1]
     if (label) {
-      defs.set(i, label.trim().toLowerCase())
+      defs.set(i, normalizeLabel(label))
       return
     }
     inParagraph = line.trim() !== ''
   })
   if (defs.size === 0) return markdown
 
-  const rest = lines
-    .filter((_, i) => !defs.has(i))
-    .join('\n')
-    .toLowerCase()
-  const isUsed = (label: string) => rest.includes(`[${label}]`)
+  const rest = lines.filter((_, i) => !defs.has(i)).join('\n')
+  const used = new Set(
+    Array.from(rest.matchAll(/\[([^\]]+)\]/g), m => normalizeLabel(m[1] ?? ''))
+  )
+  const isUsed = (label: string) => used.has(label)
   const kept = lines.filter((_, i) => {
     const label = defs.get(i)
     return label === undefined || isUsed(label)

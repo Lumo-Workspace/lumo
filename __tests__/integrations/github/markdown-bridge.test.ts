@@ -111,6 +111,16 @@ describe('markdown-bridge', () => {
       expect(stripLinkReferenceDefinitions(md)).toBe('See the docs.\n')
     })
 
+    it('matches a used label case-insensitively with collapsed whitespace', () => {
+      const md = 'See [docs][My Link].\n\n[my  link]: https://example.com'
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('does not open a fence on a one-line inline code span', () => {
+      const md = '```code```\n\n[x]: https://drop.example\n\nText.'
+      expect(stripLinkReferenceDefinitions(md)).toBe('```code```\n\n\nText.')
+    })
+
     it('keeps a definition-shaped line that continues a paragraph', () => {
       const md = 'Some prose\n[x]: https://example.com'
       expect(stripLinkReferenceDefinitions(md)).toBe(md)
