@@ -9,8 +9,8 @@ Enlarges the shared PriorityDot from 10px to 12px so it lines up with the defaul
 
 **Pre-merge checks:** 1 warning · 2 passed
 
-| Check            | Status     | Explanation                            | Resolution                                                                                                    |
-| ---------------- | ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Check | Status | Explanation | Resolution |
+| --- | --- | --- | --- |
 | Issue assessment | ⚠️ Warning | 1 linked requirement: 1 not addressed. | Implement the requirements marked Not addressed, or update the linked task or issue if they are out of scope. |
 
 **Linked requirements:**
@@ -20,10 +20,10 @@ Enlarges the shared PriorityDot from 10px to 12px so it lines up with the defaul
 <details>
 <summary>Passed checks (2)</summary>
 
-| Check       | Status    | Explanation                                                                                                           | Resolution |
-| ----------- | --------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
-| Title       | ✅ Passed | The title is concise (56 chars), specific about fixing priority dot size to match status icon, and not a placeholder. | —          |
-| Description | ✅ Passed | The description explains the change, its motivation, and verification; it is consistent with the diff and not empty.  | —          |
+| Check | Status | Explanation | Resolution |
+| --- | --- | --- | --- |
+| Title | ✅ Passed | The title is concise (56 chars), specific about fixing priority dot size to match status icon, and not a placeholder. | — |
+| Description | ✅ Passed | The description explains the change, its motivation, and verification; it is consistent with the diff and not empty. | — |
 
 </details>
 
@@ -32,8 +32,8 @@ Enlarges the shared PriorityDot from 10px to 12px so it lines up with the defaul
 
 **Changed files**
 
-| File                                                        | Change   | Lines   |
-| ----------------------------------------------------------- | -------- | ------- |
+| File | Change | Lines |
+| --- | --- | --- |
 | `app/workspace/[workspaceUrl]/components/fields/shared.tsx` | modified | +3 / −1 |
 
 1 file changed, +3 / −1 lines.
