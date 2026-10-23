@@ -9,10 +9,15 @@ jest.mock('@/lib/db/workspace-scope', () => {
     delete: jest.fn(),
   }
   const task = { findMany: jest.fn(async () => []) }
+  const rawDecision = {
+    findMany: jest.fn(async () => []),
+    updateMany: jest.fn(async () => ({ count: 1 })),
+  }
   return {
     scopedPrisma: { taskDecision },
-    unscoped: jest.fn(() => ({ task })),
+    unscoped: jest.fn(() => ({ task, taskDecision: rawDecision })),
     __task: task,
+    __rawDecision: rawDecision,
   }
 })
 
@@ -122,5 +127,24 @@ describe('taskDecisionRepository (LUM-1303)', () => {
     expect(arg).not.toHaveProperty('cursor')
     expect(arg).not.toHaveProperty('skip')
     expect(arg.orderBy).toEqual({ id: 'asc' })
+  })
+
+  it('author backfill reads only authorless, session-less decisions and never overwrites an author', async () => {
+    const { __rawDecision } = jest.requireMock('@/lib/db/workspace-scope') as {
+      __rawDecision: { findMany: jest.Mock; updateMany: jest.Mock }
+    }
+    await taskDecisionRepository.listUnattributed('d9', 50)
+    expect(__rawDecision.findMany.mock.calls[0][0]).toMatchObject({
+      where: { createdById: null, sourceSessionId: null, id: { gt: 'd9' } },
+      orderBy: { id: 'asc' },
+      take: 50,
+    })
+    expect(
+      await taskDecisionRepository.setAuthorIfUnset('d1', 'ws_1', 'mem_1')
+    ).toBe(true)
+    expect(__rawDecision.updateMany).toHaveBeenCalledWith({
+      where: { id: 'd1', workspaceId: 'ws_1', createdById: null },
+      data: { createdById: 'mem_1' },
+    })
   })
 })

@@ -145,6 +145,46 @@ export const taskDecisionRepository = {
   },
 
   /**
+   * Author backfill: a page of decisions with no author and no agent session
+   * — the ones moved over from a description — with their task's assignee.
+   * Keyset by id, so rows updated by the run cannot shift the next page.
+   */
+  async listUnattributed(afterId: string | null, take: number) {
+    return unscoped('LUM-1303 decision author backfill').taskDecision.findMany({
+      where: {
+        createdById: null,
+        sourceSessionId: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        task: { select: { assignee: { select: { memberId: true } } } },
+      },
+      orderBy: { id: 'asc' },
+      take,
+    })
+  },
+
+  /**
+   * Author backfill: set the author of a decision that still has none (a
+   * concurrent edit that set one wins). Returns whether it was set.
+   */
+  async setAuthorIfUnset(
+    id: string,
+    workspaceId: string,
+    memberId: string
+  ): Promise<boolean> {
+    const r = await unscoped(
+      'LUM-1303 decision author backfill'
+    ).taskDecision.updateMany({
+      where: { id, workspaceId, createdById: null },
+      data: { createdById: memberId },
+    })
+    return r.count === 1
+  },
+
+  /**
    * Backfill: write the parsed decisions and the description without its
    * section in one transaction. Skips the task when its description changed
    * since it was read (a concurrent edit wins; a re-run picks it up).
