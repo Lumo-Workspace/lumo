@@ -38,6 +38,9 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForRequirements: jest.fn() },
 }))
+jest.mock('@/lib/repositories/task-decision.repository', () => ({
+  taskDecisionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
 jest.mock('@/lib/integrations/github/pr-comment-client', () => ({
   prCommentClient: { listReviews: jest.fn(), createReview: jest.fn() },
 }))
@@ -257,6 +260,26 @@ describe('gathering', () => {
     expect(gathered.context).toEqual(
       expect.objectContaining({ mergedPrCount: 0, mergedPrs: [] })
     )
+  })
+
+  it('LUM-1303: decisions come from the Decisions tab (with rationale); an unreadable list drops only them', async () => {
+    const { taskDecisionRepository } = jest.requireMock(
+      '@/lib/repositories/task-decision.repository'
+    ) as { taskDecisionRepository: { listByTask: jest.Mock } }
+    taskDecisionRepository.listByTask.mockResolvedValueOnce([
+      { text: 'keep v1', rationale: 'v2 is separate' },
+    ])
+    const gathered = await linkedRequirementsService.gather(input())
+    expect(taskDecisionRepository.listByTask).toHaveBeenCalledWith('t1', 'w1')
+    expect(gathered.context?.decisions).toEqual([
+      'keep v1 — why: v2 is separate',
+    ])
+    taskDecisionRepository.listByTask.mockRejectedValueOnce(
+      new Error('db down')
+    )
+    const degraded = await linkedRequirementsService.gather(input())
+    expect(degraded.requirements).toHaveLength(2)
+    expect(degraded.context?.decisions).toEqual([])
   })
 
   it('no task (or a trashed one) and no issue ⇒ nothing', async () => {

@@ -37,14 +37,5 @@ export const updateTaskTemplateSchema = z
   })
   .refine(v => Object.keys(v).length > 0, 'Provide at least one field')
 
-/** `lumo task decide <id> "<text>"` body. */
-export const taskDecisionSchema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(1, 'Decision text is required')
-    .max(2_000, 'Decision must be at most 2,000 characters'),
-})
-
 export type CreateTaskTemplateInput = z.infer<typeof createTaskTemplateSchema>
 export type UpdateTaskTemplateInput = z.infer<typeof updateTaskTemplateSchema>

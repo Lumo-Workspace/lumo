@@ -35,6 +35,7 @@ export const HELP_EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   'task comment update': ['lumo task comment update a1b2c3 "Fixed in #124"'],
   'task decide': [
     'lumo task decide LUM-42 "Keep the v1 API; add v2 beside it"',
+    'lumo task decide LUM-42 "Use advisory locks" --why "Redis is not deployed"',
   ],
   'task dep add': ['lumo task dep add LUM-42 --blocked-by LUM-9'],
   'task pr show': ['lumo task pr show LUM-42 123'],

@@ -11,6 +11,8 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { TaskDossier } from './TaskDossier'
+import { DecisionsTab } from './DecisionsTab'
+import { useTaskDecisions } from '../../hooks/useTaskDecisions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { TaskDetail } from '../../types'
 
@@ -109,6 +111,9 @@ export function TimelineTabs({
     enabled: true,
   })
   const lineage = useTaskLineage({ identifier: taskIdentifier, enabled: true })
+  // LUM-1303: always on (one small list) so the tab shows its count; shares
+  // the cache key with the tab itself.
+  const decisionCount = useTaskDecisions(taskId).decisions.length
 
   // Until a probe resolves, fall back to the SSR-seeded presence so the dossier
   // paints correctly on first render (no pop-in); once a probe lands it becomes
@@ -125,7 +130,7 @@ export function TimelineTabs({
   // Reconcile the rendered tab with the URL: handles reload, back/forward, and
   // the case where the URL targets an unknown slug — fall back to Comments and
   // strip the dead segment from the URL (replace, so the bad URL doesn't pollute
-  // history). All four tabs are always visible now (no presence-gated tab), so
+  // history). All tabs are always visible now (no presence-gated tab), so
   // no probe gate is needed — only the legacy slugs resolve into the dossier.
   useEffect(() => {
     if (!urlSlug) return
@@ -152,6 +157,17 @@ export function TimelineTabs({
     () => new Map(commentsProps.members.map(m => [m.id, m.name])),
     [commentsProps.members]
   )
+  // LUM-1303: WorkspaceMember.id → name + avatar for the Decisions cards.
+  const decisionAuthors = useMemo(
+    () =>
+      new Map(
+        commentsProps.members.map(m => [
+          m.id,
+          { name: m.name, imageUrl: m.imageUrl },
+        ])
+      ),
+    [commentsProps.members]
+  )
 
   const tabs: { value: TabValue; label: string; count?: number | undefined }[] =
     [
@@ -176,6 +192,14 @@ export function TimelineTabs({
           id: 'task.context.tab',
           defaultMessage: 'Context',
         }),
+      },
+      {
+        value: 'decisions',
+        label: intl.formatMessage({
+          id: 'task.decisions.tab',
+          defaultMessage: 'Decisions',
+        }),
+        count: decisionCount,
       },
       {
         value: 'dossier',
@@ -233,6 +257,13 @@ export function TimelineTabs({
           onLinkPr={onLinkPr}
           onUnlinkPr={onUnlinkPr}
           enabled={activeTab === 'context'}
+        />
+      </TabsContent>
+      <TabsContent value='decisions' className='mt-6'>
+        <DecisionsTab
+          taskId={taskId}
+          authors={decisionAuthors}
+          enabled={activeTab === 'decisions'}
         />
       </TabsContent>
       <TabsContent value='dossier' className='mt-6'>

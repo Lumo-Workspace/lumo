@@ -222,14 +222,30 @@ export function extractTaskRequirements(input: {
   return out
 }
 
-/** PURE — bounded recorded decisions (the newest ones), separate from requirement ids. */
-export function extractTaskDecisions(markdown: string | null): string[] {
+/**
+ * PURE — bounded recorded decisions (the newest ones), separate from
+ * requirement ids. LUM-1303: decisions live in the TaskDecision table
+ * (`recorded`, oldest first; a rationale rides along as "— why: …"); a
+ * description that still has its LUM-970 `## Decisions` section (not yet
+ * backfilled) contributes those lines first, as the older ones.
+ */
+export function extractTaskDecisions(
+  markdown: string | null,
+  recorded: ReadonlyArray<{ text: string; rationale: string | null }> = []
+): string[] {
   const { decisions } = sections(
     (markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
   )
-  if (!decisions) return []
-  const items = listItems(decisions)
-  return (items.length ? items : [prose(decisions)])
+  const legacy = decisions
+    ? (() => {
+        const items = listItems(decisions)
+        return items.length ? items : [prose(decisions)]
+      })()
+    : []
+  const rows = recorded.map(d =>
+    collapse(d.rationale ? `${d.text} — why: ${d.rationale}` : d.text)
+  )
+  return [...legacy, ...rows]
     .filter(Boolean)
     .slice(-TASK_REQUIREMENTS_MAX) // decisions are appended: keep the newest
     .map(text => capText(text, REQUIREMENT_TEXT_MAX))

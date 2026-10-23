@@ -4,7 +4,13 @@
  * 是否拦 DONE）正是 Record 要回答的「这个任务能不能 Done」的一部分，于是用例成了
  * Record 的一个区段。旧的 `/tests` 地址经 LEGACY_SECTION_SLUG 落到那个区段。
  */
-export type TabValue = 'comments' | 'activity' | 'context' | 'dossier'
+export type TabValue =
+  | 'comments'
+  | 'activity'
+  | 'context'
+  // LUM-1303: rulings made on the task, formerly a section of the description.
+  | 'decisions'
+  | 'dossier'
 
 /**
  * The four named, deep-linkable regions live *inside* the dossier (LUM-567).
@@ -29,6 +35,7 @@ export const TAB_SLUGS: Record<TabValue, string> = {
   comments: '',
   activity: 'activity',
   context: 'context',
+  decisions: 'decisions',
   dossier: 'record',
 }
 

@@ -20,6 +20,8 @@ import {
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
+import { taskDecisionRepository } from '@/lib/repositories/task-decision.repository'
+import { renderDecisionsMarkdown } from '@/lib/context/render/decisions'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
@@ -1255,6 +1257,12 @@ export const taskContextService = {
     )
 
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
+    // LUM-1303: decisions moved out of the description into their own table;
+    // they print right after it, inside the same untrusted fence.
+    const decisions = await taskDecisionRepository.listByTask(
+      resolved.id,
+      workspaceId
+    )
 
     const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
     const figmaSection = renderFigmaSection(
@@ -1437,7 +1445,9 @@ export const taskContextService = {
           : null,
       },
       descriptionSection: wrapUntrustedTaskDescription(
-        descriptionMarkdown ?? ''
+        [descriptionMarkdown ?? '', renderDecisionsMarkdown(decisions)]
+          .filter(Boolean)
+          .join('\n\n')
       ),
       memorySection,
       memoryIndexSection,

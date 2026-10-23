@@ -26,6 +26,9 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
   taskSlackContextRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
+jest.mock('@/lib/repositories/task-decision.repository', () => ({
+  taskDecisionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
@@ -117,5 +120,42 @@ describe('task-context descriptionMarkdown', () => {
       'LUM-1'
     )
     expect(result!.task.descriptionMarkdown).toBeNull()
+  })
+})
+
+describe('task-context decisions (LUM-1303)', () => {
+  it('prints the decisions after the description, inside the same untrusted fence', async () => {
+    const { taskDecisionRepository } = jest.requireMock(
+      '@/lib/repositories/task-decision.repository'
+    ) as { taskDecisionRepository: { listByTask: jest.Mock } }
+    taskDecisionRepository.listByTask.mockResolvedValueOnce([
+      {
+        number: 2,
+        text: 'keep v1',
+        rationale: 'v2 is separate',
+        createdAt: new Date('2026-10-04T09:00:00Z'),
+      },
+    ])
+    ;(taskRepository.findById as jest.Mock).mockResolvedValue({
+      id: 't1',
+      title: 'T',
+      status: 'TODO',
+      description: '<p>body</p>',
+      milestoneId: null,
+      projectId: 'p1',
+    })
+    const result = await taskContextService.getContextForIdentifier(
+      'w1',
+      'm1',
+      'LUM-1'
+    )
+    expect(taskDecisionRepository.listByTask).toHaveBeenCalledWith('t1', 'w1')
+    const section = result!.descriptionSection
+    expect(section).toContain(
+      'body\n\n## Decisions\n\n- Decision 2 · 2026-10-04 · keep v1\n  Why: v2 is separate'
+    )
+    // Still one fence; the plain description field stays the description.
+    expect(section.match(/<untrusted-task-description/g)).toHaveLength(1)
+    expect(result!.task.descriptionMarkdown).toBe('body')
   })
 })

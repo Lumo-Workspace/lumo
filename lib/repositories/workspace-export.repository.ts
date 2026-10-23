@@ -22,6 +22,7 @@ export const EXPORT_KINDS = [
   'tasks',
   'comments',
   'task-artifacts',
+  'task-decisions',
   'task-dependencies',
   'priorities',
   'documents',
@@ -186,6 +187,19 @@ async function pageRows(
           authorActorId: true,
           type: true,
           body: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'task-decisions':
+      return prisma.taskDecision.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          taskId: true,
+          text: true,
+          rationale: true,
+          createdById: true,
           ...ts,
         },
         ...page,
