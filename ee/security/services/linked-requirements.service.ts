@@ -11,7 +11,8 @@
  *
  * Reads only — never changes the task. Throws when a read fails (the check
  * is then inconclusive, never not applicable); an empty list means nothing
- * is linked.
+ * is linked. The merged-PR context (LUM-1297) is optional: its lookup failing
+ * only drops that context.
  *
  * Layering: service — the database through repositories, GitHub through
  * `@/lib/integrations/github/contents` (loaded lazily).
@@ -19,8 +20,13 @@
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import { logger } from '@/lib/logger'
 import {
   extractTaskRequirements,
+  extractTaskDecisions,
+  TASK_REQUIREMENTS_MAX,
+  type GatheredRequirements,
+  type TaskAssessmentContext,
   issueRequirement,
   linkedIssueNumbers,
   type LinkedRequirement,
@@ -32,9 +38,10 @@ async function github() {
 }
 
 export const linkedRequirementsService = {
-  async gather(input: PreMergeCheckGatherInput): Promise<LinkedRequirement[]> {
+  async gather(input: PreMergeCheckGatherInput): Promise<GatheredRequirements> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     const out: LinkedRequirement[] = []
+    let context: TaskAssessmentContext | undefined
     if (pr?.taskId) {
       const task = await taskRepository.findForRequirements(
         pr.taskId,
@@ -52,6 +59,33 @@ export const linkedRequirementsService = {
             workspaceId: input.workspaceId,
             fullName: input.repo,
           })) === 'private'
+        // Optional context: a failed lookup drops it, never the whole check.
+        const merged = (
+          await pullRequestRepository
+            .listMergedByTask(pr.taskId)
+            .catch((error: unknown) => {
+              logger.warn(
+                `[linked-requirements] merged PRs unreadable task=${pr.taskId}; judging without them: ${error instanceof Error ? error.message : String(error)}`
+              )
+              return []
+            })
+        ).filter(
+          p =>
+            p.workspaceId === input.workspaceId &&
+            !(
+              p.repo.toLowerCase() === input.repo.toLowerCase() &&
+              p.number === input.prNumber
+            )
+        )
+        context = {
+          decisions: extractTaskDecisions(markdown),
+          mergedPrCount: merged.length,
+          mergedPrs: merged.slice(0, TASK_REQUIREMENTS_MAX).map(p => ({
+            repo: p.repo,
+            number: p.number,
+            title: p.title,
+          })),
+        }
         out.push(
           ...extractTaskRequirements({
             identifier: `${task.team.identifier}-${task.number}`,
@@ -76,6 +110,6 @@ export const linkedRequirementsService = {
         if (r) out.push(r)
       }
     }
-    return out
+    return { requirements: out, ...(context ? { context } : {}) }
   },
 }

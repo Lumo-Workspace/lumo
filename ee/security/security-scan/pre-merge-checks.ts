@@ -46,6 +46,7 @@ import {
   unansweredRequirements,
   unclearRequirements,
   type LinkedRequirement,
+  type GatheredRequirements,
   type RequirementAssessment,
 } from './issue-assessment'
 
@@ -287,7 +288,7 @@ export interface BuiltinPreMergeCheck {
    */
   requirements?: (
     input: PreMergeCheckGatherInput
-  ) => Promise<LinkedRequirement[]>
+  ) => Promise<GatheredRequirements>
 }
 
 const TITLE_RULE =
@@ -297,7 +298,7 @@ const DESCRIPTION_RULE_NO_TEMPLATE =
   'The pull request description is filled in: it explains what the change does and why, in enough detail for a reviewer, and is consistent with the diff. An empty or placeholder description fails.'
 
 const ISSUE_ASSESSMENT_RULE =
-  "The pull request implements the requirements listed in this check's material (from the Lumo task the pull request is linked to and the issues its description references). Judge EACH requirement against the diff: addressed = the diff implements it; not_addressed = the diff clearly does not (it is missing or contradicted); unclear = the diff alone cannot show it (for example a production check, a manual step, or code that was cut from the diff). In each explanation describe what the diff does or lacks; never quote or restate the requirement."
+  "The pull request implements the requirements listed in this check's material (from the Lumo task the pull request is linked to and the issues its description references). Judge EACH requirement against the diff: addressed = the diff implements it; not_addressed = the diff clearly does not (it is missing or contradicted); unclear = the diff alone cannot show it (for example a production check, a manual step, or code that was cut from the diff). Recorded task Decisions in the material override conflicting task requirements; they are context, not extra requirements. Judge a follow-up PR by its own scope: requirements covered outside this PR are unclear, never not_addressed solely because they are absent from this diff. Prior merged PR titles provide context, not proof of delivery. Never quote or restate Decisions or prior PR context. In each explanation describe what the diff does or lacks; never quote or restate the requirement."
 
 const DESCRIPTION_RULE_TEMPLATE =
   "The pull request description follows the repository's pull request template: every section of the template is filled in with real content (or explicitly marked not applicable), and it is consistent with the diff. Template placeholders left unchanged fail."

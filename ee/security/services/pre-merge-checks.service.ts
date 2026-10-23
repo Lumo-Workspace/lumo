@@ -65,6 +65,7 @@ import {
 } from '@/ee/security/security-scan/pre-merge-checks'
 import {
   requirementsMaterial,
+  type TaskAssessmentContext,
   type LinkedRequirement,
 } from '@/ee/security/security-scan/issue-assessment'
 
@@ -227,12 +228,17 @@ export const preMergeChecksService = {
       // LUM-1149: what each requirements check judges. Nothing linked ⇒ not
       // applicable (left out of the call); a failed read ⇒ inconclusive.
       const linked = new Map<string, LinkedRequirement[]>()
+      const contexts = new Map<string, TaskAssessmentContext>()
       const notApplicable = new Map<string, PreMergeCheckResult>()
       const unreadable = new Set<string>()
       for (const p of planned) {
         if (!p.assessesRequirements) continue
         try {
-          const reqs = p.requirements ? await p.requirements(gatherInput) : []
+          const gathered = p.requirements
+            ? await p.requirements(gatherInput)
+            : { requirements: [] }
+          const reqs = gathered.requirements
+          if (gathered.context) contexts.set(p.id, gathered.context)
           if (reqs.length > 0) linked.set(p.id, reqs)
           else notApplicable.set(p.id, notApplicableResult(p))
         } catch (error) {
@@ -279,7 +285,7 @@ export const preMergeChecksService = {
           reqs: readonly LinkedRequirement[] | undefined
         ): Promise<string | null> => {
           const text = reqs
-            ? requirementsMaterial(reqs)
+            ? requirementsMaterial(reqs, contexts.get(p.id))
             : p.gather
               ? await p.gather(gatherInput).catch(() => null)
               : null
