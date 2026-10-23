@@ -1,4 +1,6 @@
 import { createHash } from 'crypto'
+import { Marked } from 'marked'
+import { sanitizeRichHtml } from '@/lib/html/sanitize-rich-html'
 
 export const HEADER_MARKER_OPEN = '<!-- pr-mirror-header -->'
 
@@ -148,25 +150,92 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
   return kept.join('\n').replace(/^\s*\n/, '')
 }
 
+// LUM-1305: the few raw-HTML tags GitHub comments lean on that pass through
+// as markup — `<details>`/`<summary>` (bot reports fold sections with them)
+// and attribute-less inline formatting. Only these exact shapes match; any
+// other tag, or one carrying an attribute (`<b onclick>`), stays text.
+const ALLOWED_RAW_TAG_RE =
+  /<\/?(?:summary|b|strong|i|em|code|sub|sup)\s*>|<details(?:\s+open)?\s*>|<\/details\s*>|<br\s*\/?>/gi
+const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
+
+/**
+ * Raw HTML in the markdown, block or inline: GitHub hides comments, so they
+ * go; allowlisted tags are kept (lower-cased); everything else is escaped so
+ * `<img onerror>` / `<svg onload>` land as visible text (LUM-921).
+ */
+function renderRawHtml(html: string, block: boolean): string {
+  const text = html.replace(HTML_COMMENT_RE, '')
+  let out = ''
+  let last = 0
+  let keptTag = false
+  for (const m of text.matchAll(ALLOWED_RAW_TAG_RE)) {
+    out += escapeHtml(text.slice(last, m.index))
+    out += m[0].toLowerCase().replace(/\s+/g, ' ').replace(/ >$/, '>')
+    last = m.index + m[0].length
+    keptTag = true
+  }
+  out += escapeHtml(text.slice(last))
+  if (!block) return out
+  // A block of only escaped text (a stray `<img …>` line) still reads as a
+  // paragraph; next to a kept tag the surrounding whitespace is layout only.
+  if (keptTag) return out.trim()
+  return out.trim() ? `<p>${out.trim()}</p>` : ''
+}
+
+// Built on first use: most importers (task context, review todos) only read
+// the header helpers and never render a mirrored comment.
+let githubMarked: Marked | undefined
+function getGithubMarked(): Marked {
+  githubMarked ??= new Marked({
+    gfm: true,
+    // GitHub comments render a single newline as a line break.
+    breaks: true,
+    renderer: {
+      html: ({ text, block }) => renderRawHtml(text, block ?? false),
+    },
+  })
+  return githubMarked
+}
+
+// Text between tags, outside `<pre>`/`<code>`: where a mention may resolve.
+const CODE_OR_TAG_RE =
+  /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>|<[^>]*>)/i
+
+function resolveMentions(
+  html: string,
+  resolver: GithubMentionResolver
+): string {
+  return html
+    .split(CODE_OR_TAG_RE)
+    .map((part, i) =>
+      i % 2 === 1
+        ? part
+        : part.replace(GH_MENTION_RE, (_m, lead: string, login: string) => {
+            const hit = resolver(login)
+            if (!hit) return `${lead}@${login}`
+            return `${lead}<span data-type="mention" data-id="${escapeHtml(hit.clerkId)}">${escapeHtml(hit.displayName)}</span>`
+          })
+    )
+    .join('')
+}
+
+/**
+ * GitHub-flavoured markdown (an inbound PR comment) → the rich-text HTML a
+ * Lumo comment stores: headings, emphasis, lists, tables, code, links and
+ * `<details>` render as markup. The body is untrusted (LUM-921): raw HTML is
+ * escaped except the allowlist above, and the result goes through the shared
+ * rich-text sanitizer, so no handler or `javascript:` URL survives.
+ */
 export function githubMarkdownToLumoHtml(
   markdown: string,
   resolver: GithubMentionResolver
 ): string {
   // Strip any header marker that may have leaked back (defense in depth)
-  let work = stripLinkReferenceDefinitions(markdown.replace(HEADER_RE, ''))
-  // LUM-921: the body is untrusted GitHub text — escape it BEFORE inserting
-  // our own markup, so raw HTML (<img onerror>, <svg onload>) lands as text.
-  // Logins are [a-zA-Z0-9-] and `@` survives escaping, so mentions still match.
-  work = escapeHtml(work)
-  // Replace @login with chip or plain text
-  work = work.replace(GH_MENTION_RE, (_m, lead: string, login: string) => {
-    const hit = resolver(login)
-    if (!hit) return `${lead}@${login}`
-    return `${lead}<span data-type="mention" data-id="${escapeHtml(hit.clerkId)}">${escapeHtml(hit.displayName)}</span>`
-  })
-  // Block-ize: each paragraph (blank-line-separated) becomes <p>...</p>
-  const paragraphs = work.split(/\n{2,}/).map(p => p.replace(/\n/g, '<br>'))
-  return paragraphs.map(p => `<p>${p}</p>`).join('')
+  const work = stripLinkReferenceDefinitions(markdown.replace(HEADER_RE, ''))
+  const html = getGithubMarked().parse(work, { async: false }) as string
+  // marked ends every block with a newline; between tags it is noise.
+  const compact = html.replace(/>\n+</g, '><').trim()
+  return sanitizeRichHtml(resolveMentions(compact, resolver))
 }
 
 /** Build a header marker block. */

@@ -83,14 +83,21 @@ describe('LUM-879 stripCodeBlocksFromCommentHtml', () => {
     expect(out).toContain('Look:')
   })
 
-  it('strips <pre> blocks of a comment written in Lumo', () => {
+  it('strips <pre> blocks of a comment written in Lumo, keeping the language', () => {
     const out = stripCodeBlocksFromCommentHtml(
       `<p>Here is the fix</p><pre><code class="language-ts">${SNIPPET}</code></pre><p>thanks</p>`
     )
     expect(out).not.toContain('req.query.id')
     expect(out).toBe(
-      `<p>Here is the fix</p><p>${CODE_REMOVED_MARK}</p><p>thanks</p>`
+      `<p>Here is the fix</p><p>${CODE_REMOVED_MARK} ts</p><p>thanks</p>`
     )
+  })
+
+  it('strips a <pre> block with no language to the bare mark', () => {
+    const out = stripCodeBlocksFromCommentHtml(
+      `<p>a</p><pre><code>${SNIPPET}</code></pre>`
+    )
+    expect(out).toBe(`<p>a</p><p>${CODE_REMOVED_MARK}</p>`)
   })
 
   it('leaves a comment without code blocks (inline code included) unchanged', () => {
