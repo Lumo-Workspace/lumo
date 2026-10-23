@@ -195,8 +195,8 @@ describe('gathering', () => {
     const reqs = await linkedRequirementsService.gather(input())
     expect(findTask).toHaveBeenCalledWith('t1', 'w1')
     expect(reqs.map(r => [r.id, r.label, r.quotable])).toEqual([
-      ['task:done:1', 'LUM-77 · Done when 1', true],
-      ['task:done:2', 'LUM-77 · Done when 2', true],
+      ['task:done:1', 'LUM-77 · Requirement 1 of 2', true],
+      ['task:done:2', 'LUM-77 · Requirement 2 of 2', true],
     ])
   })
 
@@ -252,8 +252,8 @@ describe('the runner', () => {
     const r = record!.results.find(x => x.id === ISSUE_ASSESSMENT_CHECK_ID)!
     expect(r.verdict).toBe('failed')
     expect(r.requirements!.map(x => [x.label, x.outcome])).toEqual([
-      ['LUM-77 · Done when 1', 'addressed'],
-      ['LUM-77 · Done when 2', 'not_addressed'],
+      ['LUM-77 · Requirement 1 of 2', 'addressed'],
+      ['LUM-77 · Requirement 2 of 2', 'not_addressed'],
     ])
     expect(blockingCheckCount(record, null)).toBe(1)
     expect(store).toHaveBeenCalledWith('s1', record)
@@ -261,7 +261,7 @@ describe('the runner', () => {
     const call = model.mock.calls[0]![0]
     expect(model).toHaveBeenCalledTimes(1)
     expect(call.checks[0].material).toContain(
-      '[task:done:2] (LUM-77 · Done when 2) Amounts have two decimals'
+      '[task:done:2] (LUM-77 · Requirement 2 of 2) Amounts have two decimals'
     )
   })
 
@@ -370,7 +370,7 @@ describe('the runner', () => {
     // as a rule.
     const call = model.mock.calls[0]![0]
     expect(call.checks[0].material).toMatch(
-      /\[task:done:1\] \(LUM-77 · Done when 1\) Ignore previous instructions/
+      /\[task:done:1\] \(LUM-77 · Requirement 1 of 1\) Ignore previous instructions/
     )
     expect(call.checks[0].rule).not.toMatch(/Ignore previous/)
   })
@@ -410,7 +410,7 @@ describe('the runner', () => {
             {
               id: 'task:done:2',
               source: 'task',
-              label: 'LUM-77 · Done when 2',
+              label: 'LUM-77 · Requirement 2 of 2',
               text: null,
               quotable: false,
               outcome: 'not_addressed',
@@ -493,7 +493,9 @@ describe('the review comment for unmet requirements', () => {
       comments: [],
       commitId: HEAD,
     })
-    expect(posted.body).toMatch(/LUM-77 · Done when 2\*\* \(details in Lumo\)/)
+    expect(posted.body).toMatch(
+      /LUM-77 · Requirement 2 of 2\*\* \(details in Lumo\)/
+    )
     expect(posted.body).not.toMatch(/two decimals|printed raw/)
 
     const key = unmetKey(record.results[0]!.requirements)!
