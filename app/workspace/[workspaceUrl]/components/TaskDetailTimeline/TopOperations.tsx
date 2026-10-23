@@ -195,21 +195,24 @@ export function TopOperations({
       </Table>
       {precision ? (
         <div className='mt-2 flex flex-col gap-0.5 text-caption text-foreground'>
-          <p>
-            {precision.perStepPct === 1
-              ? intl.formatMessage({
-                  id: 'lineage.operations.precisionPerStep',
-                  defaultMessage: 'Measured per step.',
-                })
-              : intl.formatMessage(
-                  {
-                    id: 'lineage.operations.precisionPerTurn',
-                    defaultMessage:
-                      'Estimated per turn: {pct}% of tool-using turns were measured per step; the rest is split evenly across the tools in the turn.',
-                  },
-                  { pct: asPct(precision.perStepPct ?? 0) }
-                )}
-          </p>
+          {/* null = no tool-using turns, so there is no coverage to state. */}
+          {precision.perStepPct !== null ? (
+            <p>
+              {precision.perStepPct === 1
+                ? intl.formatMessage({
+                    id: 'lineage.operations.precisionPerStep',
+                    defaultMessage: 'Measured per step.',
+                  })
+                : intl.formatMessage(
+                    {
+                      id: 'lineage.operations.precisionPerTurn',
+                      defaultMessage:
+                        'Estimated per turn: {pct}% of tool-using turns were measured per step; the rest is split evenly across the tools in the turn.',
+                    },
+                    { pct: asPct(precision.perStepPct) }
+                  )}
+            </p>
+          ) : null}
           {precision.cacheReadPct > CACHE_READ_DOMINANT ? (
             <p>
               {intl.formatMessage(

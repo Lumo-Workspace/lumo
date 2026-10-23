@@ -99,4 +99,16 @@ describe('TopOperations', () => {
     expect(screen.getByText('Measured per step.')).toBeInTheDocument()
     expect(screen.queryByText(/cache reads/)).toBeNull()
   })
+
+  it('states no per-turn coverage when there were no tool-using turns', () => {
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={{ perStepPct: null, cacheReadPct: 0.5, hasToolRows: true }}
+        taskIdentifier='LUM-531'
+      />
+    )
+    expect(screen.queryByText(/Estimated per turn/)).toBeNull()
+    expect(screen.queryByText('Measured per step.')).toBeNull()
+  })
 })
