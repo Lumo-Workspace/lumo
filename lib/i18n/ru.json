@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "Этот PR изменяет {files, number} проверяемых файлов; ИИ-ревью работает максимум с {cap, number}, и более четверти файлов остались бы без проверки, поэтому оно не запускалось. Чтобы получить его, сузьте область ревью или разделите PR.",
   "securityScan.judgePartial": "Этот PR превышает лимит размера ИИ-ревью ({capFiles, number} файлов, {capChars, number} символов), поэтому ИИ-ревью охватило {reviewed, number} из {total, number} проверяемых файлов. Непроверенные файлы перечислены ниже: чтобы их проверили, разделите PR или сузьте его и запросите полное ревью.",
   "securityScan.judgePartialMore": "и ещё {count, number}",
-  "securityScan.section.title": "Проверка безопасности",
+  "securityScan.section.title": "Ревью Lumo",
   "securityScan.section.empty": "Проверок пока нет — проверка запускается при каждом push в привязанный pull request.",
   "securityScan.section.scanningOff": "Сканирование безопасности отключено в настройках этого рабочего пространства, поэтому pull request’ы этой задачи не сканируются.",
   "securityScan.section.loadError": "Не удалось загрузить проверки безопасности.",

@@ -1525,7 +1525,7 @@
   "securityScan.section.empty": "No security scans yet — a scan runs on every push to a linked pull request.",
   "securityScan.section.scanningOff": "Security scanning is turned off in this workspace's settings, so this task's pull requests aren't scanned.",
   "securityScan.section.loadError": "Could not load security scans.",
-  "securityScan.section.title": "Security scan",
+  "securityScan.section.title": "Lumo review",
   "securityScan.severity.HIGH": "High",
   "securityScan.severity.LOW": "Low",
   "securityScan.severity.MEDIUM": "Medium",

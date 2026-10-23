@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "この PR はレビュー対象ファイルを {files, number} 件変更しています。AI レビューの対象は最大 {cap, number} 件で、4 分の 1 を超えるファイルが対象外になるため、実行していません。AI レビューを受けるには、レビュー範囲を絞るか PR を分割してください。",
   "securityScan.judgePartial": "この PR は AI レビューのサイズ上限（{capFiles, number} ファイル、{capChars, number} 文字）を超えているため、AI レビューはレビュー対象 {total, number} ファイルのうち {reviewed, number} ファイルのみを対象にしました。レビューされていないファイルは下記のとおりです。レビューを受けるには、PR を分割するか、範囲を絞ってからフルレビューを依頼してください。",
   "securityScan.judgePartialMore": "ほか {count, number} 件",
-  "securityScan.section.title": "セキュリティスキャン",
+  "securityScan.section.title": "Lumo レビュー",
   "securityScan.section.empty": "まだスキャンはありません。リンクされたPRへのプッシュごとに自動でスキャンされます。",
   "securityScan.section.scanningOff": "このワークスペースの設定でセキュリティスキャンがオフになっているため、このタスクのプルリクエストはスキャンされません。",
   "securityScan.section.loadError": "セキュリティスキャンを読み込めませんでした。",

@@ -6,7 +6,9 @@
  * No intl, no React — unit-testable on their own.
  */
 import {
+  EXTERNAL_ERROR_PREFIX,
   isJudgeOverCapByFiles,
+  turnedOffLayers,
   type ScanStageKeyName,
 } from '@/shared/src/security-scan'
 import type {
@@ -141,6 +143,32 @@ export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   // the summary line and the badge already say it.
   if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true
   return latest.stages.external === 'FAILED' && latest.error != null
+}
+
+/**
+ * LUM-1296 — whether `ScanDetails` renders anything for this scan, i.e.
+ * whether the PR row has a body worth a chevron. A clean scan with no notice
+ * opened onto nothing (the stage checklist sits outside the fold), so the
+ * chevron read as broken. Mirrors every block in `ScanDetails`; a new block
+ * there needs its condition here too.
+ */
+export function hasScanDetails(scan: SecurityScanView): boolean {
+  return (
+    scan.findings.length > 0 ||
+    scan.codeScrubbed ||
+    scan.fixed > 0 ||
+    scan.externalLate ||
+    scan.stages.external === 'NOT_CONFIGURED' ||
+    scan.ownedUnfinished ||
+    turnedOffLayers(scan.stages).length > 0 ||
+    scan.prTooLarge != null ||
+    scan.huntOverCap != null ||
+    scan.judgeOverCap != null ||
+    scan.judgePartial != null ||
+    (scan.stages.external === 'FAILED' &&
+      (scan.error?.startsWith(EXTERNAL_ERROR_PREFIX) ?? false)) ||
+    (!!scan.error && scan.status === 'FAILED')
+  )
 }
 
 /**

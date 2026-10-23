@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "此 PR 變更了 {files, number} 個可審查檔案；AI 審查最多支援 {cap, number} 個，超過四分之一的檔案會被略過，因此未執行。如需 AI 審查，請縮小審查範圍或拆分 PR。",
   "securityScan.judgePartial": "此 PR 超出 AI 審查的規模上限（{capFiles, number} 個檔案、{capChars, number} 個字元），因此 AI 審查只涵蓋 {total, number} 個可審查檔案中的 {reviewed, number} 個。未審查的檔案列於下方：如需審查，請拆分 PR，或縮小範圍後要求完整審查。",
   "securityScan.judgePartialMore": "另有 {count, number} 個",
-  "securityScan.section.title": "安全掃描",
+  "securityScan.section.title": "Lumo 審查",
   "securityScan.section.empty": "尚無安全掃描——每次向已連結的 PR 推送程式碼都會自動掃描。",
   "securityScan.section.scanningOff": "此工作區已在設定中關閉安全掃描，因此不會掃描此任務的拉取請求。",
   "securityScan.section.loadError": "無法載入安全掃描。",

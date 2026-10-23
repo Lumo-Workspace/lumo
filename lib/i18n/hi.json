@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "यह PR {files, number} समीक्षा-योग्य फ़ाइलें बदलता है; AI समीक्षा अधिकतम {cap, number} पर चलती है और एक-चौथाई से अधिक फ़ाइलें छूट जातीं, इसलिए यह नहीं चली। इसे पाने के लिए समीक्षा का दायरा सीमित करें या PR को बाँटें।",
   "securityScan.judgePartial": "यह PR AI समीक्षा की आकार सीमा ({capFiles, number} फ़ाइलें, {capChars, number} वर्ण) से बड़ा है, इसलिए AI समीक्षा ने {total, number} समीक्षा-योग्य फ़ाइलों में से {reviewed, number} को कवर किया। जिन फ़ाइलों की समीक्षा नहीं हुई वे नीचे हैं: उनकी समीक्षा के लिए PR को बाँटें, या उसे सीमित करके पूरी समीक्षा का अनुरोध करें।",
   "securityScan.judgePartialMore": "और {count, number} अन्य",
-  "securityScan.section.title": "सुरक्षा स्कैन",
+  "securityScan.section.title": "Lumo रिव्यू",
   "securityScan.section.empty": "अभी कोई सुरक्षा स्कैन नहीं — लिंक किए गए पुल रिक्वेस्ट पर हर पुश के साथ स्कैन चलता है।",
   "securityScan.section.scanningOff": "इस वर्कस्पेस की सेटिंग्स में सुरक्षा स्कैनिंग बंद है, इसलिए इस टास्क के पुल रिक्वेस्ट स्कैन नहीं होते।",
   "securityScan.section.loadError": "सुरक्षा स्कैन लोड नहीं हो सके।",

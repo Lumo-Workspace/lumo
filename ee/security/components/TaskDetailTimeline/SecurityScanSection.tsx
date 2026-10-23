@@ -53,6 +53,7 @@ import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import {
   blockingFindings,
   groupFindings,
+  hasScanDetails,
   isQuietFinding,
   shouldExpandRow,
   stageReason,
@@ -210,12 +211,15 @@ function SecurityScanPanel({
         // names ride on each row so no header sits apart from the cells.
         <ul className='-my-1 divide-y divide-border/60'>
           {data.prs.map(({ pr, latest, reviewControl }) => {
+            // LUM-1296: no scan, or a scan with nothing under the fold — no
+            // chevron (it opened onto nothing and read as broken).
+            const expandable = latest != null && hasScanDetails(latest)
             const expanded = isExpanded(pr.id, latest)
             return (
               <Collapsible
                 asChild
                 key={pr.id}
-                open={expanded && latest != null}
+                open={expanded && expandable}
                 onOpenChange={() => toggleRow(pr.id, latest)}
               >
                 <li data-testid={`security-pr-${pr.number}`} className='py-2.5'>
@@ -224,16 +228,21 @@ function SecurityScanPanel({
                   <div className='flex items-center gap-2'>
                     {/* Review F2 (a11y): the chevron is the only content,
                       so name it after the row it opens. */}
-                    <CollapsibleTrigger
-                      aria-label={`#${pr.number} ${pr.title}`}
-                      data-testid={`security-pr-${pr.number}-toggle`}
-                      className='shrink-0 text-muted-foreground hover:text-foreground'
-                    >
-                      <ChevronRight
-                        className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90'
-                        aria-hidden
-                      />
-                    </CollapsibleTrigger>
+                    {expandable ? (
+                      <CollapsibleTrigger
+                        aria-label={`#${pr.number} ${pr.title}`}
+                        data-testid={`security-pr-${pr.number}-toggle`}
+                        className='shrink-0 text-muted-foreground hover:text-foreground'
+                      >
+                        <ChevronRight
+                          className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90'
+                          aria-hidden
+                        />
+                      </CollapsibleTrigger>
+                    ) : (
+                      // Keeps the PR titles aligned with the expandable rows.
+                      <span className='size-3.5 shrink-0' aria-hidden />
+                    )}
                     <a
                       href={pr.url}
                       target='_blank'
@@ -760,6 +769,8 @@ function ScanDetails({
       ? scan.error.slice(EXTERNAL_ERROR_PREFIX.length)
       : null
   const turnedOff = turnedOffLayers(scan.stages)
+  // LUM-1296: `hasScanDetails` mirrors every block below — a new block here
+  // needs its condition there, or its row gets no chevron.
   return (
     <div className='mt-1.5 space-y-1.5'>
       {scan.codeScrubbed && (

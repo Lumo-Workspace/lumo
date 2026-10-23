@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "Dieser PR ändert {files, number} prüfbare Dateien; das KI-Review läuft auf höchstens {cap, number}, und mehr als ein Viertel davon bliebe außen vor, daher wurde es nicht ausgeführt. Um es zu erhalten, grenzen Sie den Prüfumfang ein oder teilen Sie den PR auf.",
   "securityScan.judgePartial": "Dieser PR überschreitet die Größengrenze des KI-Reviews ({capFiles, number} Dateien, {capChars, number} Zeichen), daher hat das KI-Review {reviewed, number} von {total, number} prüfbaren Dateien abgedeckt. Nicht geprüfte Dateien stehen unten: Um sie prüfen zu lassen, teilen Sie den PR auf oder grenzen Sie ihn ein und fordern Sie ein vollständiges Review an.",
   "securityScan.judgePartialMore": "und {count, number} weitere",
-  "securityScan.section.title": "Sicherheitsscan",
+  "securityScan.section.title": "Lumo-Review",
   "securityScan.section.empty": "Noch keine Sicherheitsscans – bei jedem Push auf einen verknüpften Pull Request wird gescannt.",
   "securityScan.section.scanningOff": "Das Sicherheitsscanning ist in den Einstellungen dieses Workspaces deaktiviert, daher werden die Pull Requests dieser Aufgabe nicht gescannt.",
   "securityScan.section.loadError": "Sicherheitsscans konnten nicht geladen werden.",

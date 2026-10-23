@@ -2177,7 +2177,7 @@
   "securityScan.judgeOverCapFiles": "PR này thay đổi {files, number} tệp có thể đánh giá; đánh giá AI chạy trên tối đa {cap, number} tệp và hơn một phần tư số tệp sẽ bị bỏ qua, nên không chạy. Để được đánh giá, hãy thu hẹp phạm vi đánh giá hoặc tách PR.",
   "securityScan.judgePartial": "PR này vượt giới hạn kích thước của đánh giá AI ({capFiles, number} tệp, {capChars, number} ký tự), nên đánh giá AI chỉ bao quát {reviewed, number} trên {total, number} tệp có thể đánh giá. Các tệp chưa được đánh giá ở bên dưới: để được đánh giá, hãy tách PR, hoặc thu hẹp PR rồi yêu cầu đánh giá đầy đủ.",
   "securityScan.judgePartialMore": "và {count, number} tệp khác",
-  "securityScan.section.title": "Quét bảo mật",
+  "securityScan.section.title": "Review của Lumo",
   "securityScan.section.empty": "Chưa có lượt quét bảo mật nào — mỗi lần push lên pull request đã liên kết sẽ tự động quét.",
   "securityScan.section.scanningOff": "Quét bảo mật đã bị tắt trong cài đặt của không gian làm việc này, nên các pull request của tác vụ này không được quét.",
   "securityScan.section.loadError": "Không thể tải các lượt quét bảo mật.",
