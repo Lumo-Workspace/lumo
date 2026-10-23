@@ -117,6 +117,29 @@ describe('TopOperations', () => {
   })
 
   it.each([
+    [29 / 100, '29%'],
+    [57 / 100, '57%'],
+  ])(
+    'rounds the per-turn share without float under-reporting (%p → %s)',
+    (share, label) => {
+      render(
+        <TopOperations
+          operations={OPS}
+          precision={{
+            perStepPct: share,
+            cacheReadPct: 0.5,
+            hasToolRows: true,
+          }}
+          taskIdentifier='LUM-531'
+        />
+      )
+      expect(
+        screen.getByText(new RegExp(`Estimated per turn: ${label}`))
+      ).toBeInTheDocument()
+    }
+  )
+
+  it.each([
     [0.9, false],
     [0.91, true],
   ])(

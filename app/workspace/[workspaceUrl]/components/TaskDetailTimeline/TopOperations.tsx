@@ -209,9 +209,10 @@ export function TopOperations({
                       defaultMessage:
                         'Estimated per turn: {pct}% of tool-using turns were measured per step; the rest is split evenly across the tools in the turn.',
                     },
-                    // Floor, so a near-complete share (0.996) never reads
-                    // "Estimated per turn: 100%" — only an exact 1 is per step.
-                    { pct: Math.floor(precision.perStepPct * 100) }
+                    // Round, then cap at 99: a near-complete share (0.996)
+                    // must not read "Estimated per turn: 100%" — only an exact
+                    // 1 is per step — and flooring would turn 0.29 into 28%.
+                    { pct: Math.min(99, asPct(precision.perStepPct)) }
                   )}
             </p>
           ) : null}
