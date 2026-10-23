@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/collapsible'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
+import { LineageSkeleton } from './RecordSkeletons'
 import type {
   LineageDisclosure,
   LineageFragment,
@@ -113,12 +114,12 @@ export function LineageTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-caption text-muted-foreground'>
-        {intl.formatMessage({
+      <LineageSkeleton
+        label={intl.formatMessage({
           id: 'lineage.loading',
           defaultMessage: '加载中…',
         })}
-      </div>
+      />
     )
   }
 
