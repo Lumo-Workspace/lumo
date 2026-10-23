@@ -127,6 +127,11 @@ export const taskDecisionRepository = {
         // Loose on purpose (a heading may wrap the word in <strong> etc.):
         // the caller's parser decides whether a real section is there.
         description: { contains: 'decisions', mode: 'insensitive' },
+        // Keyset, not `cursor` + `skip: 1`: a task the run just moved no
+        // longer contains "decisions", so as a cursor it is not in the result
+        // and `skip: 1` would drop the next task instead (LUM-1144 in the
+        // production run).
+        ...(afterId ? { id: { gt: afterId } } : {}),
       },
       select: {
         id: true,
@@ -136,7 +141,6 @@ export const taskDecisionRepository = {
       },
       orderBy: { id: 'asc' },
       take,
-      ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
     })
   },
 

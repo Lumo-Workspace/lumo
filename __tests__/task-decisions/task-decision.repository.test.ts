@@ -106,4 +106,21 @@ describe('taskDecisionRepository (LUM-1303)', () => {
       description: { contains: 'decisions', mode: 'insensitive' },
     })
   })
+
+  it('backfill pages by id > last id, not cursor + skip (a moved task drops out of the filter)', async () => {
+    const { __task } = jest.requireMock('@/lib/db/workspace-scope') as {
+      __task: { findMany: jest.Mock }
+    }
+    __task.findMany.mockClear()
+    await taskDecisionRepository.listTasksWithDecisionsHeading('t200', 200)
+    const arg = __task.findMany.mock.calls[0][0]
+    expect(arg.where).toEqual({
+      deletedAt: {},
+      description: { contains: 'decisions', mode: 'insensitive' },
+      id: { gt: 't200' },
+    })
+    expect(arg).not.toHaveProperty('cursor')
+    expect(arg).not.toHaveProperty('skip')
+    expect(arg.orderBy).toEqual({ id: 'asc' })
+  })
 })
