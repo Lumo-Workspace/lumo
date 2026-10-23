@@ -14,6 +14,7 @@ import {
   groupFindings,
   stageReason,
 } from '@/ee/security/components/TaskDetailTimeline/security-summary'
+import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 import type {
   SecurityScanView,
   TaskSecurityScans,
@@ -129,6 +130,7 @@ describe('summarizeSecurityScans', () => {
 
   it('returns zeros for an empty PR list', () => {
     expect(summarizeSecurityScans([])).toEqual({
+      preMergeNotPassed: 0,
       prs: 0,
       findings: 0,
       allLow: false,
@@ -617,5 +619,42 @@ describe('LUM-1012 follow-up — stageReason', () => {
         } as Partial<SecurityScanView>)
       )
     ).toBeNull()
+  })
+})
+
+// LUM-1298: the checks block in ScanDetails keeps its chevron and its count.
+describe('pre-merge checks', () => {
+  const check = (verdict: PreMergeCheckView['verdict']): PreMergeCheckView => ({
+    id: `c-${verdict}`,
+    name: 'Issue assessment',
+    mode: 'warning',
+    verdict,
+    explanation: '1 linked requirement: 1 not addressed.',
+    resolution: null,
+  })
+  const warned = scan({
+    status: 'CLEAN',
+    preMergeChecks: [check('failed'), check('inconclusive'), check('passed')],
+  })
+
+  it('counts failed and inconclusive checks across latest scans', () => {
+    expect(
+      summarizeSecurityScans([{ latest: warned }, { latest: null }])
+        .preMergeNotPassed
+    ).toBe(2)
+  })
+
+  it('gives a clean scan with a non-passing check details and an open row', () => {
+    expect(hasScanDetails(warned)).toBe(true)
+    expect(shouldExpandRow(warned)).toBe(true)
+  })
+
+  it('passing or not-applicable checks add nothing', () => {
+    const quiet = scan({
+      status: 'CLEAN',
+      preMergeChecks: [check('passed'), check('not_applicable')],
+    })
+    expect(hasScanDetails(quiet)).toBe(false)
+    expect(shouldExpandRow(quiet)).toBe(false)
   })
 })

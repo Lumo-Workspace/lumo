@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "Mesuré par étape.",
   "lineage.operations.precisionPerTurn": "Estimation par tour : {pct} % des tours avec outils ont été mesurés par étape ; le reste est réparti à parts égales entre les outils du tour.",
   "lineage.operations.cacheReadDominant": "{pct} % de ces tokens sont des lectures de cache, coût structurel d’un long contexte plutôt que d’un outil particulier.",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeNotPassed": "{count, plural, one {# vérification avant fusion non réussie} other {# vérifications avant fusion non réussies}}",
+  "securityScan.preMerge.failed": "Échec",
+  "securityScan.preMerge.inconclusive": "Non concluant",
+  "securityScan.preMerge.not_addressed": "Non traité",
+  "securityScan.preMerge.unclear": "Incertain"
 }

@@ -188,6 +188,8 @@ import {
   type PrTooLargeInput,
   type ScanCoverageState,
 } from '@/shared/src/security-scan'
+import { preMergeChecksView } from '@/ee/security/security-scan/pre-merge-checks-view'
+import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 
 export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1;hunt@1;graph@1'
 
@@ -335,6 +337,7 @@ export interface SecurityScanView {
    */
   fixed: number
   findings: SecurityFindingView[]
+  preMergeChecks?: PreMergeCheckView[]
 }
 
 /**
@@ -581,6 +584,7 @@ function toScanView(
   const stages = stagesOf(s)
   const sizeCaps = sizeCapsOf(s)
   return {
+    preMergeChecks: preMergeChecksView(s.preMergeChecks, s.headSha),
     id: s.id,
     status: s.status,
     headSha: s.headSha,
@@ -2359,6 +2363,7 @@ export const prSecurityScanService = {
           )
         : null
       if (view && pr.headSha && scan?.headSha !== pr.headSha) {
+        view.preMergeChecks = []
         view.complete = false
         view.coverage = 'UNFINISHED'
         view.ownedUnfinished = false

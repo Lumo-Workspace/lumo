@@ -49,6 +49,7 @@ const messages: Record<string, string> = {
   'securityScan.finding.persisting': 'already on the default branch',
   'securityScan.finding.dependency': 'Vulnerable dependency',
   'securityScan.result.verifierDismissed': '{count} dismissed by verifier',
+  'record.security.preMergeNotPassed': '{count} pre-merge check not passed',
   'securityScan.result.noOpen': 'No open findings',
   'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
@@ -1081,4 +1082,58 @@ test('LUM-1234: a REWARD_HACK row shows the server-read evidence, never the raw 
   expect(screen.getByTestId('security-finding-rh1')).not.toHaveTextContent(
     'ev1'
   )
+})
+
+test('LUM-1298: a clean scan with an unmet goal shows a warning and expandable checks', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            preMergeChecks: [
+              {
+                id: 'issue-assessment',
+                name: 'Issue assessment',
+                mode: 'warning',
+                verdict: 'failed',
+                explanation: 'One goal is unmet',
+                resolution: 'Implement the goal',
+                requirements: [
+                  {
+                    id: 'goal',
+                    label: 'LUM-702 · Goal',
+                    outcome: 'not_addressed',
+                    quotable: false,
+                    text: 'Hidden goal',
+                    explanation: 'Hidden explanation',
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('scan-result-pre-merge')).toHaveTextContent(
+    '1 pre-merge check not passed'
+  )
+  expect(screen.getByTestId('security-scan-badge')).toBeInTheDocument()
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'One goal is unmet'
+  )
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'Implement the goal'
+  )
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'LUM-702 · Goal'
+  )
+  expect(screen.queryByText(/Hidden/)).toBeNull()
 })

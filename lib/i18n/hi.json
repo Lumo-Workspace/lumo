@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "हर चरण पर मापा गया।",
   "lineage.operations.precisionPerTurn": "टर्न के आधार पर अनुमान: टूल वाले टर्न में से {pct}% चरण-दर-चरण मापे गए; बाकी टर्न के टूल में बराबर बाँटा गया।",
   "lineage.operations.cacheReadDominant": "इन टोकन में से {pct}% कैश रीड हैं, यानी लंबे संदर्भ की संरचनात्मक लागत, किसी एक टूल की नहीं।",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeNotPassed": "मर्ज से पहले की {count} जाँचें पास नहीं हुईं",
+  "securityScan.preMerge.failed": "विफल",
+  "securityScan.preMerge.inconclusive": "अनिर्णायक",
+  "securityScan.preMerge.not_addressed": "समाधान नहीं हुआ",
+  "securityScan.preMerge.unclear": "अस्पष्ट"
 }

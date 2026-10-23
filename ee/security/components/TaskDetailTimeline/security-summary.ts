@@ -5,6 +5,7 @@
  * rows default open.
  * No intl, no React — unit-testable on their own.
  */
+import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
 import {
   EXTERNAL_ERROR_PREFIX,
   isJudgeOverCapByFiles,
@@ -18,6 +19,7 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 
 export interface SecurityScanSummary {
+  preMergeNotPassed: number
   prs: number
   /** Findings someone must still decide on, across every PR's latest scan
    *  (not ruled on, not on main, in the queue, not verifier-rejected). */
@@ -105,6 +107,11 @@ export function summarizeSecurityScans(
     latest ? latest.findings.filter(f => !isQuietFinding(f)) : []
   )
   return {
+    preMergeNotPassed: prs.reduce(
+      (count, { latest }) =>
+        count + nonPassingChecks(latest?.preMergeChecks).length,
+      0
+    ),
     prs: prs.length,
     findings: undispositioned.length,
     allLow:
@@ -138,6 +145,7 @@ export function summarizeSecurityScans(
  */
 export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   if (!latest) return false
+  if (nonPassingChecks(latest.preMergeChecks).length > 0) return true
   if (latest.findings.some(f => !isQuietFinding(f))) return true
   // LUM-892: a layer the customer turned off is no reason to open the row —
   // the summary line and the badge already say it.
@@ -154,6 +162,7 @@ export function shouldExpandRow(latest: SecurityScanView | null): boolean {
  */
 export function hasScanDetails(scan: SecurityScanView): boolean {
   return (
+    nonPassingChecks(scan.preMergeChecks).length > 0 ||
     scan.findings.length > 0 ||
     scan.codeScrubbed ||
     scan.fixed > 0 ||

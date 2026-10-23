@@ -74,6 +74,7 @@ import { Input } from '@/components/ui/input'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
 
 /** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
@@ -680,6 +681,25 @@ function StageInfo({
  */
 function ScanResult({ scan }: { scan: SecurityScanView | null }) {
   const intl = useIntl()
+  const checks = nonPassingChecks(scan?.preMergeChecks)
+  // LUM-1298: the finding scan's own result stays (it may be Clean), but a
+  // warned or failed pre-merge check rides next to it — never a bare Clean.
+  if (checks.length === 0) return <FindingsResult scan={scan} />
+  return (
+    <div className='flex flex-wrap items-center gap-1'>
+      <FindingsResult scan={scan} />
+      <Badge data-testid='scan-result-pre-merge' variant='warning' size='sm'>
+        {intl.formatMessage(
+          { id: 'record.security.preMergeNotPassed' },
+          { count: checks.length }
+        )}
+      </Badge>
+    </div>
+  )
+}
+
+function FindingsResult({ scan }: { scan: SecurityScanView | null }) {
+  const intl = useIntl()
   if (scan && scan.findings.length > 0 && scan.findings.every(isQuietFinding)) {
     const dismissed = scan.findings.filter(
       f => f.verifierVerdict === 'REJECTED' && f.disposition === null
@@ -773,6 +793,34 @@ function ScanDetails({
   // needs its condition there, or its row gets no chevron.
   return (
     <div className='mt-1.5 space-y-1.5'>
+      {nonPassingChecks(scan.preMergeChecks).map(check => (
+        <div
+          key={check.id}
+          data-testid='pre-merge-check'
+          className='text-caption text-warning-text'
+        >
+          <p>
+            {check.name} ·{' '}
+            {intl.formatMessage({
+              id: `securityScan.preMerge.${check.verdict}`,
+            })}
+          </p>
+          {check.explanation ? <p>{check.explanation}</p> : null}
+          {check.resolution ? <p>{check.resolution}</p> : null}
+          {check.requirements
+            ?.filter(r => r.outcome !== 'addressed')
+            .map(r => (
+              <p key={r.id}>
+                {r.label} ·{' '}
+                {intl.formatMessage({
+                  id: `securityScan.preMerge.${r.outcome}`,
+                })}
+                {r.quotable && r.text ? `: ${r.text}` : ''}
+                {r.quotable && r.explanation ? ` — ${r.explanation}` : ''}
+              </p>
+            ))}
+        </div>
+      ))}
       {scan.codeScrubbed && (
         <p
           data-testid='scan-code-scrubbed'

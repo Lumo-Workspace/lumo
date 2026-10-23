@@ -143,3 +143,27 @@ test('open findings are counted even while a scan is incomplete', () => {
   expect(v.text).toBe('2 open findings')
   expect(v.caveats).toHaveLength(1)
 })
+
+// LUM-1298: a warned or failed pre-merge check (LUM-702: Issue assessment,
+// one goal not addressed) never lets the row read a bare "Clean".
+test('a non-passing pre-merge check qualifies the verdict in the warning tone', () => {
+  const check = (verdict: string) => ({
+    id: `c-${verdict}`,
+    name: 'Issue assessment',
+    mode: 'warning',
+    verdict,
+    explanation: '1 linked requirement: 1 not addressed.',
+    resolution: null,
+  })
+  const v = formatSecurityVerdict(
+    intl,
+    data([
+      scan({ preMergeChecks: [check('failed'), check('passed')] }),
+      scan({ preMergeChecks: [check('not_applicable')] }),
+    ])
+  )
+  expect(v.text).toBe('No open findings')
+  expect(v.caveats).toEqual([
+    { text: '1 pre-merge check not passed', tone: 'warning' },
+  ])
+})

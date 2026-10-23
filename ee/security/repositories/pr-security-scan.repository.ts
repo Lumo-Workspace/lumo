@@ -333,6 +333,8 @@ export interface ScanReadoutRow {
   huntJob: unknown
   /** LUM-1215 — raw Json (`parseReviewPathSkips`); absent on older fixtures. */
   reviewPathSkips?: unknown
+  /** LUM-1298 — the pre-merge checks' results Json, raw (absent on an old mock). */
+  preMergeChecks?: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -2121,6 +2123,7 @@ export const prSecurityScanRepository = {
         partialCauses: true,
         huntJob: true,
         reviewPathSkips: true,
+        preMergeChecks: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

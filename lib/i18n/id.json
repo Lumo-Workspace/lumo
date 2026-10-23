@@ -3049,5 +3049,10 @@
   "lineage.operations.precisionPerStep": "Diukur per langkah.",
   "lineage.operations.precisionPerTurn": "Perkiraan per giliran: {pct}% giliran yang memakai alat diukur per langkah; sisanya dibagi rata ke alat dalam giliran itu.",
   "lineage.operations.cacheReadDominant": "{pct}% dari token ini adalah pembacaan cache, biaya struktural dari konteks panjang, bukan dari satu alat tertentu.",
-  "lineage.header.outcomeCount": "{outcome} · {count}"
+  "lineage.header.outcomeCount": "{outcome} · {count}",
+  "record.security.preMergeNotPassed": "{count} pemeriksaan sebelum penggabungan tidak lolos",
+  "securityScan.preMerge.failed": "Gagal",
+  "securityScan.preMerge.inconclusive": "Belum dapat disimpulkan",
+  "securityScan.preMerge.not_addressed": "Belum ditangani",
+  "securityScan.preMerge.unclear": "Tidak jelas"
 }
