@@ -245,6 +245,20 @@ describe('gathering', () => {
     expect(visibility).not.toHaveBeenCalled()
   })
 
+  it('LUM-1297: a failed merged-PR lookup drops only that context', async () => {
+    ;(pullRequestRepository.listMergedByTask as jest.Mock).mockRejectedValue(
+      new Error('db down')
+    )
+    const gathered = await linkedRequirementsService.gather(input())
+    expect(gathered.requirements.map(r => r.id)).toEqual([
+      'task:done:1',
+      'task:done:2',
+    ])
+    expect(gathered.context).toEqual(
+      expect.objectContaining({ mergedPrCount: 0, mergedPrs: [] })
+    )
+  })
+
   it('no task (or a trashed one) and no issue ⇒ nothing', async () => {
     findTask.mockResolvedValue(null)
     expect(

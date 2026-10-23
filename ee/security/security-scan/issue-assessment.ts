@@ -222,7 +222,7 @@ export function extractTaskRequirements(input: {
   return out
 }
 
-/** PURE — bounded recorded decisions, separate from requirement ids. */
+/** PURE — bounded recorded decisions (the newest ones), separate from requirement ids. */
 export function extractTaskDecisions(markdown: string | null): string[] {
   const { decisions } = sections(
     (markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
@@ -231,7 +231,7 @@ export function extractTaskDecisions(markdown: string | null): string[] {
   const items = listItems(decisions)
   return (items.length ? items : [prose(decisions)])
     .filter(Boolean)
-    .slice(0, TASK_REQUIREMENTS_MAX)
+    .slice(-TASK_REQUIREMENTS_MAX) // decisions are appended: keep the newest
     .map(text => capText(text, REQUIREMENT_TEXT_MAX))
 }
 
@@ -295,7 +295,9 @@ export function issueRequirement(issue: {
  * PURE — the requirements as the model reads them (one per line, by id),
  * under a line naming every id it must answer. Without that line the model
  * often left out a broad requirement it could not tie to code — a task's
- * Goal — which then read as "no answer" on the PR.
+ * Goal — which then read as "no answer" on the PR. Task context follows the
+ * requirements, newest decision first, so the runner's material cap trims
+ * context (oldest first) before it can cut a requirement the model must answer.
  */
 export function requirementsMaterial(
   requirements: readonly LinkedRequirement[],
@@ -304,12 +306,14 @@ export function requirementsMaterial(
   const ids = requirements.map(r => r.id).join(', ')
   return [
     `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.`,
+    ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
     ...(context?.decisions.length
       ? [
-          'Recorded task Decisions (overriding context for conflicting task requirements, not additional requirements; never quote or restate this context in explanations):',
+          'Recorded task Decisions, newest first (overriding context for conflicting task requirements, not additional requirements; never quote or restate this context in explanations):',
           capText(
             context.decisions
-              .slice(0, TASK_REQUIREMENTS_MAX)
+              .slice(-TASK_REQUIREMENTS_MAX)
+              .reverse()
               .map(d => `- ${capText(collapse(d), REQUIREMENT_TEXT_MAX)}`)
               .join('\n'),
             1200
@@ -331,7 +335,6 @@ export function requirementsMaterial(
           ),
         ]
       : []),
-    ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
   ].join('\n')
 }
 

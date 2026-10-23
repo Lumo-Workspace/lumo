@@ -580,6 +580,56 @@ describe('LUM-1297 recorded Decisions and follow-up scope', () => {
     expect(material).toContain('30 other merged PRs')
   })
 
+  it('keeps every requirement inside the runner cap when context is maxed out', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown:
+        '## Done when\n' +
+        Array.from(
+          { length: 12 },
+          (_, i) => `- req${i} ${'r'.repeat(560)}`
+        ).join('\n'),
+      quotable: false,
+    })
+    expect(requirements).toHaveLength(TASK_REQUIREMENTS_MAX)
+    const material = requirementsMaterial(requirements, {
+      decisions: Array.from({ length: 30 }, () => 'x'.repeat(900)),
+      mergedPrCount: 30,
+      mergedPrs: Array.from({ length: 30 }, (_, number) => ({
+        repo: 'acme/app',
+        number,
+        title: 'y'.repeat(900),
+      })),
+    }).slice(0, 8000)
+    for (const r of requirements) expect(material).toContain(`[${r.id}]`)
+    expect(material).toContain('req11 ')
+  })
+
+  it('newest decisions survive the caps', () => {
+    const markdown =
+      '## Decisions\n' +
+      Array.from({ length: 20 }, (_, i) => `- d${i} ${'z'.repeat(300)}`).join(
+        '\n'
+      )
+    const decisions = extractTaskDecisions(markdown)
+    expect(decisions).toHaveLength(TASK_REQUIREMENTS_MAX)
+    expect(decisions[0]).toMatch(/^d8 /)
+    expect(decisions[decisions.length - 1]).toMatch(/^d19 /)
+    const material = requirementsMaterial(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: '## Goal\nGoal.',
+        quotable: false,
+      }),
+      { decisions, mergedPrCount: 0, mergedPrs: [] }
+    )
+    expect(material).toContain('- d19 ')
+    expect(material.indexOf('- d19 ')).toBeLessThan(material.indexOf('- d18 '))
+    expect(material).not.toContain('- d8 ')
+  })
+
   it('extracts decisions as bounded context, without creating requirement ids', () => {
     const markdown =
       '## Goal\nUse size-2.5.\n## Decisions\n- Use size-3 instead.\n  User approved.\n- ' +

@@ -11,7 +11,8 @@
  *
  * Reads only — never changes the task. Throws when a read fails (the check
  * is then inconclusive, never not applicable); an empty list means nothing
- * is linked.
+ * is linked. The merged-PR context (LUM-1297) is optional: its lookup failing
+ * only drops that context.
  *
  * Layering: service — the database through repositories, GitHub through
  * `@/lib/integrations/github/contents` (loaded lazily).
@@ -19,6 +20,7 @@
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import { logger } from '@/lib/logger'
 import {
   extractTaskRequirements,
   extractTaskDecisions,
@@ -57,8 +59,16 @@ export const linkedRequirementsService = {
             workspaceId: input.workspaceId,
             fullName: input.repo,
           })) === 'private'
+        // Optional context: a failed lookup drops it, never the whole check.
         const merged = (
-          await pullRequestRepository.listMergedByTask(pr.taskId)
+          await pullRequestRepository
+            .listMergedByTask(pr.taskId)
+            .catch((error: unknown) => {
+              logger.warn(
+                `[linked-requirements] merged PRs unreadable task=${pr.taskId}; judging without them: ${error instanceof Error ? error.message : String(error)}`
+              )
+              return []
+            })
         ).filter(
           p =>
             p.workspaceId === input.workspaceId &&
