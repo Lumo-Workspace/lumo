@@ -156,14 +156,15 @@ describe('markdown-bridge', () => {
       expect(stripLinkReferenceDefinitions('\n\nhello')).toBe('\n\nhello')
     })
 
-    it('keeps footnotes, prose with a colon, and fenced code', () => {
-      const md = [
-        '[^1]: a footnote',
-        'Note [this]: it stays because prose follows',
-        '```',
-        '[x]: https://kept.example',
-        '```',
-      ].join('\n')
+    it.each([
+      ['a footnote with a URL', '[^1]: https://example.com'],
+      [
+        'prose that starts like a definition',
+        '[this]: it stays because prose follows',
+      ],
+      ['a whitespace-only label', '[ ]: https://example.com'],
+      ['fenced code', '```\n[x]: https://kept.example\n```'],
+    ])('keeps %s', (_name, md) => {
       expect(stripLinkReferenceDefinitions(md)).toBe(md)
     })
 

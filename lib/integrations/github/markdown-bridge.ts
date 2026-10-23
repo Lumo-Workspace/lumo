@@ -72,10 +72,11 @@ export function lumoHtmlToGithubMarkdown(
 const GH_MENTION_RE = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9-]+)/g
 
 // A CommonMark link reference definition on its own line: `[label]: dest`
-// with an optional quoted or parenthesized title. `[^…]:` is a footnote,
-// which GitHub does render, so it is left alone.
+// with an optional quoted or parenthesized title. The label needs a
+// non-blank character; `[^…]:` is a footnote, which GitHub does render, so
+// it is left alone.
 const LINK_REF_DEF_RE =
-  /^ {0,3}\[((?!\^)[^\]\n]+)\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
+  /^ {0,3}\[((?!\^)(?=[^\]\n]*[^\]\s])[^\]\n]+)\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
 // A backtick fence's info string can't itself contain a backtick.
 const FENCE_OPEN_RE = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$/
 // A closing fence carries no info string.
