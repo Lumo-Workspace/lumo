@@ -227,12 +227,16 @@ export function attributeOperationCost(
         continue
       }
       if (e.type === 'POST_TOOL_BATCH') {
+        // LUM-1294: a usage-less batch (every child-session step — subagent
+        // usage settles on SUBAGENT_STOP) measured nothing, so its tools stay
+        // pending and share the next measured delta instead of falling to
+        // the thinking bucket.
         if (e.usageByModel) {
           attributeDelta(e.usageByModel, pendingTools, sessionId, memberId, acc)
           addInto(turnBatchSum, e.usageByModel)
           turnHadBatch = true
+          pendingTools = []
         }
-        pendingTools = []
         continue
       }
       if (closesTurn(e.type, sessionId)) {
@@ -250,4 +254,28 @@ export function attributeOperationCost(
   }
 
   return { rows: [...acc.values()], coverage: { toolTurns, perStepTurns } }
+}
+
+/** LUM-1294: how far the per-operation read-out can be trusted, for the UI note. */
+export interface OperationPrecision {
+  /** Share (0–1) of tool-using turns attributed per step; null = no tool turns. */
+  perStepPct: number | null
+  /** Share (0–1) of all attributed tokens that are cache reads. */
+  cacheReadPct: number
+  /** False when every token fell to the thinking bucket (no tool breakdown). */
+  hasToolRows: boolean
+}
+
+export function summarizeOperationPrecision(input: {
+  grandTotal: { cacheRead: number; total: number }
+  perStepPct: number | null
+  toolLabels: string[]
+}): OperationPrecision {
+  const { grandTotal, perStepPct, toolLabels } = input
+  return {
+    perStepPct,
+    cacheReadPct:
+      grandTotal.total > 0 ? grandTotal.cacheRead / grandTotal.total : 0,
+    hasToolRows: toolLabels.some(label => label !== THINKING_BUCKET),
+  }
 }

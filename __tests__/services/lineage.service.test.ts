@@ -511,6 +511,8 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
         { label: 'Write', output: 150, input: 10, cacheCreation: 2, cacheRead: 50, total: 212 }, // prettier-ignore
         { label: 'Glob', output: 40, input: 5, cacheCreation: 1, cacheRead: 10, total: 56 }, // prettier-ignore
       ],
+      grandTotal: { input: 415, output: 6090, cacheRead: 1560, cacheCreation: 118, total: 8183 }, // prettier-ignore
+      coverage: { toolTurns: 4, perStepTurns: 1, perStepPct: 0.25 },
     })
 
     const dto = await lineageService.getLineageForIdentifier(
@@ -531,6 +533,12 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
       { tool: 'Grep', output: 300, input: 20, cacheCreation: 5, cacheRead: 100, total: 425 }, // prettier-ignore
       { tool: 'Write', output: 150, input: 10, cacheCreation: 2, cacheRead: 50, total: 212 }, // prettier-ignore
     ])
+    // LUM-1294: precision of the read-out rides along for the UI note.
+    expect(dto?.totals.operationsPrecision).toEqual({
+      perStepPct: 0.25,
+      cacheReadPct: 1560 / 8183,
+      hasToolRows: true,
+    })
   })
 
   it('defaults totals.topOperations to [] when operation cost is null (LUM-523)', async () => {
@@ -544,6 +552,7 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
     )
 
     expect(dto?.totals.topOperations).toEqual([])
+    expect(dto?.totals.operationsPrecision).toBeNull()
   })
 })
 
@@ -638,6 +647,7 @@ describe('getLineageForIdentifier disclosure funnel', () => {
       index: 2,
       pulled: 1,
       used: 1,
+      voted: 1,
       tokensSaved: null, // no token data in these fixtures → null
     })
     const frags = dto!.groups[0]!.fragments

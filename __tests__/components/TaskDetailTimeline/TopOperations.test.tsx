@@ -24,7 +24,13 @@ const OPS = [
 
 describe('TopOperations', () => {
   it('renders each tool row with output / input / cache-create / cache-read / total', () => {
-    render(<TopOperations operations={OPS} taskIdentifier='LUM-531' />)
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={null}
+        taskIdentifier='LUM-531'
+      />
+    )
     expect(screen.getByText('Bash')).toBeInTheDocument()
     expect(screen.getByText('184,200')).toBeInTheDocument()
     expect(screen.getByText('12,300')).toBeInTheDocument()
@@ -34,14 +40,63 @@ describe('TopOperations', () => {
   })
 
   it('points the footnote at lumo cost --task <id>', () => {
-    render(<TopOperations operations={OPS} taskIdentifier='LUM-531' />)
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={null}
+        taskIdentifier='LUM-531'
+      />
+    )
     expect(screen.getByText(/lumo cost --task LUM-531/)).toBeInTheDocument()
   })
 
   it('renders nothing when there are no operations', () => {
     const { container } = render(
-      <TopOperations operations={[]} taskIdentifier='LUM-531' />
+      <TopOperations
+        operations={[]}
+        precision={null}
+        taskIdentifier='LUM-531'
+      />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('collapses to a total line when every token fell to thinking (LUM-1294)', () => {
+    const thinking = [{ tool: '(thinking / no tool)', output: 30184, input: 82, cacheCreation: 168959, cacheRead: 5405022, total: 5604247 }] // prettier-ignore
+    render(
+      <TopOperations
+        operations={thinking}
+        precision={{ perStepPct: 0, cacheReadPct: 0.96, hasToolRows: false }}
+        taskIdentifier='LUM-1277'
+      />
+    )
+    expect(screen.getByText(/5,604,247 tokens in total/)).toBeInTheDocument()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('notes a per-turn estimate and a cache-read-dominated total (LUM-1294)', () => {
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={{ perStepPct: 0.25, cacheReadPct: 0.94, hasToolRows: true }}
+        taskIdentifier='LUM-531'
+      />
+    )
+    expect(screen.getByText(/Estimated per turn: 25%/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/94% of these tokens are cache reads/)
+    ).toBeInTheDocument()
+  })
+
+  it('says measured per step and skips the cache note below the threshold', () => {
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={{ perStepPct: 1, cacheReadPct: 0.5, hasToolRows: true }}
+        taskIdentifier='LUM-531'
+      />
+    )
+    expect(screen.getByText('Measured per step.')).toBeInTheDocument()
+    expect(screen.queryByText(/cache reads/)).toBeNull()
   })
 })

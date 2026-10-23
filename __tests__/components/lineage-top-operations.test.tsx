@@ -35,7 +35,13 @@ const OPS = [
 
 describe('TopOperations command drill-down', () => {
   it('expands a Bash row to its commands', () => {
-    render(<TopOperations operations={OPS} taskIdentifier='LUM-837' />)
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={null}
+        taskIdentifier='LUM-837'
+      />
+    )
     const toggle = screen.getByRole('button', { name: /Bash · read\/search/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText(/git show/)).not.toBeInTheDocument()
@@ -51,7 +57,13 @@ describe('TopOperations command drill-down', () => {
   })
 
   it('renders a row without commands as plain text, not a toggle', () => {
-    render(<TopOperations operations={OPS} taskIdentifier='LUM-837' />)
+    render(
+      <TopOperations
+        operations={OPS}
+        precision={null}
+        taskIdentifier='LUM-837'
+      />
+    )
     expect(screen.queryByRole('button', { name: 'Read' })).toBeNull()
     expect(screen.getByText('Read')).toBeInTheDocument()
   })

@@ -72,9 +72,11 @@ function makeData(overrides: Partial<LineageResponse> = {}): LineageResponse {
         index: 0,
         pulled: 0,
         used: 0,
+        voted: 0,
         tokensSaved: null,
       },
       topOperations: [],
+      operationsPrecision: null,
     },
     groups: [
       {
@@ -142,12 +144,13 @@ describe('LineageTab', () => {
     expect(screen.queryByText('7')).toBeNull()
   })
 
-  it('renders fragment rows with outcome badges (after expand)', () => {
+  it('shows the task outcome once in the header, not on every row (LUM-1294)', () => {
     mockHook.mockReturnValue({ data: makeData(), loading: false, error: null })
     render(<LineageTab {...baseProps} />)
     fireEvent.click(screen.getByText(/Show all/))
     expect(screen.getByText(/Source label 0/)).toBeInTheDocument()
-    expect(screen.getAllByText('MERGED').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Task outcome: merged')).toHaveLength(1)
+    expect(screen.queryByText('MERGED')).toBeNull()
   })
 
   it('starts collapsed and reveals all fragments on toggle', () => {
@@ -182,9 +185,11 @@ describe('LineageTab', () => {
             index: 0,
             pulled: 0,
             used: 0,
+            voted: 0,
             tokensSaved: null,
           },
           topOperations: [],
+          operationsPrecision: null,
         },
       }),
       loading: false,
@@ -227,7 +232,7 @@ describe('LineageTab', () => {
     mockHook.mockReturnValue({ data, loading: false, error: null })
     render(<LineageTab taskIdentifier='LUM-1' enabled />)
     fireEvent.click(screen.getByText(/Show all/))
-    expect(screen.getByText(/仅索引·未展开/)).toBeInTheDocument()
+    expect(screen.getByText('Index only')).toBeInTheDocument()
     expect(screen.getByText(/✗ 未采用/)).toBeInTheDocument()
   })
 })
