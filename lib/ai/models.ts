@@ -186,6 +186,25 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
+ * LUM-1304 — the gateway hosts, in order, that a structured (`generateObject`)
+ * call on the model is routed to. Under ZDR the gateway spreads DeepSeek V4-Pro
+ * over hosts that behave very differently with a JSON schema: baseten does not
+ * honour structured outputs (catalog: no `structured_outputs`) and answers
+ * reasoning only, which the SDK reports as "No object generated: the model did
+ * not return a response"; alibaba honours it but reasons 2–3k tokens at about
+ * 40 tokens/s, past a 60 s budget on most calls; azure and deepinfra answer a
+ * schema-valid object in 3–9 s (measured on real pre-merge prompts,
+ * `scripts/analysis/lum1304-pre-merge-probe/`). Every host listed is already
+ * on the published subprocessor list. Used per call site, through
+ * `structuredOutputProviderOptions` (`lib/ai/structured-output-routing.ts`).
+ */
+export const STRUCTURED_OUTPUT_HOSTS: Readonly<
+  Record<string, readonly string[]>
+> = {
+  [MEMORY_JUDGE_MODEL]: ['azure', 'deepinfra', 'alibaba'],
+}
+
+/**
  * 桶5 POLICY_COMPILER tier — compiling a project's CLAUDE.md/AGENTS.md into
  * classified PolicyRule records (LUM-590). This single run-at-rest, hash-cached
  * call drives the whole per-project detector — the quality of its action/code +

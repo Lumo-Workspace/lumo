@@ -1,4 +1,5 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
 import { parseMemoryContent } from '@/lib/memory/schemas'
@@ -124,6 +125,7 @@ export async function resolveManualDedup(
     const { gateway } = await import('@/lib/ai/gateway')
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: LOOSE_RECONCILE_OUTPUT,
       system,
       prompt: user,

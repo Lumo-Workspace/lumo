@@ -1,5 +1,6 @@
 import { listUsersByIds } from '@/lib/auth/user-batch'
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
@@ -161,6 +162,7 @@ A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means rel
 
   const { object } = await generateObject({
     model: gateway(GENERATION_MODEL),
+    ...structuredOutputCallOptions(GENERATION_MODEL),
     schema: matchSchema,
     prompt,
     ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),

@@ -14,6 +14,7 @@
  * (`cleanLearningText`, `normalizePathGlob`). Nothing it says is ever acted on.
  */
 import { FAST_MODEL, MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -82,8 +83,10 @@ export function buildThreadReplyPrompt(input: ThreadReplyInput): string {
 export async function classifyThreadReply(
   input: ThreadReplyInput
 ): Promise<ThreadReplyVerdict> {
+  const modelId = THREAD_REPLY_MODELS[input.tier ?? 'primary']
   const { object } = await generateObject({
-    model: gateway(THREAD_REPLY_MODELS[input.tier ?? 'primary']),
+    model: gateway(modelId),
+    ...structuredOutputCallOptions(modelId),
     schema: ThreadReplySchema,
     system: THREAD_REPLY_SYSTEM_PROMPT,
     prompt: buildThreadReplyPrompt(input),

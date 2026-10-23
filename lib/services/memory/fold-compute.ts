@@ -1,4 +1,5 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
@@ -178,6 +179,7 @@ async function clusterMemories(
   const res = await generateWithRetry(`clustering category=${category}`, () =>
     generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: foldClusterGroupsSchema,
       system,
       prompt: user,
@@ -206,6 +208,7 @@ async function synthesizeCoarse(
   const res = await generateWithRetry(`synthesis category=${category}`, () =>
     generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: coarseCardSchemaFor(category),
       system,
       prompt: user,
@@ -233,6 +236,7 @@ async function coverageVerdicts(
   const res = await generateWithRetry('coverage judge', () =>
     generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: coverageOutputSchema,
       system,
       prompt: user,

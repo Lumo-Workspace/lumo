@@ -1,4 +1,5 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
@@ -171,6 +172,7 @@ export async function generateProjectReport(
 
   const { object } = await generateObject({
     model: gateway(GENERATION_MODEL),
+    ...structuredOutputCallOptions(GENERATION_MODEL),
     schema: SummaryReportSchema,
     system: systemPrompt,
     prompt,
