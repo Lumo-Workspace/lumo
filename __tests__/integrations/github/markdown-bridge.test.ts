@@ -106,9 +106,25 @@ describe('markdown-bridge', () => {
       )
     })
 
-    it('drops definitions with a title anywhere in the body', () => {
-      const md = 'See [docs][d].\n\n[d]: https://example.com "Docs"'
-      expect(stripLinkReferenceDefinitions(md)).toBe('See [docs][d].\n')
+    it('drops an unused definition with a title anywhere in the body', () => {
+      const md = 'See the docs.\n\n[d]: https://example.com "Docs"'
+      expect(stripLinkReferenceDefinitions(md)).toBe('See the docs.\n')
+    })
+
+    it('keeps a definition the body still references, so its URL survives', () => {
+      const full = 'See [docs][D].\n\n[d]: https://example.com'
+      const shortcut = 'See [docs].\n\n[docs]: https://example.com'
+      expect(stripLinkReferenceDefinitions(full)).toBe(full)
+      expect(stripLinkReferenceDefinitions(shortcut)).toBe(shortcut)
+    })
+
+    it('keeps a fenced block open past a fence line with an info string', () => {
+      const md = ['```', '```js', '[x]: https://kept.example', '```'].join('\n')
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('leaves the body untouched, leading blank lines included, when nothing is stripped', () => {
+      expect(stripLinkReferenceDefinitions('\n\nhello')).toBe('\n\nhello')
     })
 
     it('keeps footnotes, prose with a colon, and fenced code', () => {

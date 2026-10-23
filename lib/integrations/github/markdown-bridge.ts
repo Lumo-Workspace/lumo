@@ -75,30 +75,51 @@ const GH_MENTION_RE = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9-]+)/g
 // with an optional quoted or parenthesized title. `[^…]:` is a footnote,
 // which GitHub does render, so it is left alone.
 const LINK_REF_DEF_RE =
-  /^ {0,3}\[(?!\^)[^\]\n]+\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
+  /^ {0,3}\[((?!\^)[^\]\n]+)\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
+const FENCE_OPEN_RE = /^ {0,3}(`{3,}|~{3,})/
+// A closing fence carries no info string.
+const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
 
 /**
  * Drop the link reference definitions GitHub never renders — e.g. Vercel's
  * `[vc]: #<base64>` marker opening every deployment comment, which otherwise
- * mirrors in as a wall of base64. Lines inside fenced code blocks are kept.
+ * mirrors in as a wall of base64. A definition whose label the body still
+ * uses (`[text][label]`, `[label]`) is kept, so its URL isn't lost; lines
+ * inside fenced code blocks are kept too.
  */
 export function stripLinkReferenceDefinitions(markdown: string): string {
+  const lines = markdown.split('\n')
   let fence: string | null = null
-  const kept: string[] = []
-  for (const line of markdown.split('\n')) {
-    const open = FENCE_RE.exec(line)?.[1]
+  const defs = new Map<number, string>()
+  lines.forEach((raw, i) => {
+    const line = raw.replace(/\r$/, '')
     if (fence) {
-      if (open && open[0] === fence[0] && open.length >= fence.length) {
+      const close = FENCE_CLOSE_RE.exec(line)?.[1]
+      if (close && close[0] === fence[0] && close.length >= fence.length) {
         fence = null
       }
-    } else if (open) {
-      fence = open
-    } else if (LINK_REF_DEF_RE.test(line.replace(/\r$/, ''))) {
-      continue
+      return
     }
-    kept.push(line)
-  }
+    const open = FENCE_OPEN_RE.exec(line)?.[1]
+    if (open) {
+      fence = open
+      return
+    }
+    const label = LINK_REF_DEF_RE.exec(line)?.[1]
+    if (label) defs.set(i, label.trim().toLowerCase())
+  })
+  if (defs.size === 0) return markdown
+
+  const rest = lines
+    .filter((_, i) => !defs.has(i))
+    .join('\n')
+    .toLowerCase()
+  const isUsed = (label: string) => rest.includes(`[${label}]`)
+  const kept = lines.filter((_, i) => {
+    const label = defs.get(i)
+    return label === undefined || isUsed(label)
+  })
+  if (kept.length === lines.length) return markdown
   return kept.join('\n').replace(/^\s*\n/, '')
 }
 
