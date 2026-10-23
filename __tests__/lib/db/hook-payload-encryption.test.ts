@@ -252,6 +252,47 @@ describe('unreadable payloads are never written', () => {
   })
 })
 
+describe('malformed and look-alike payloads', () => {
+  it('a malformed sealed value reads as unreadable without failing the rest of the result', async () => {
+    const d = deps()
+    const rows = await runHookEventOperation(
+      {
+        operation: 'findMany',
+        args: {},
+        query: async () => [
+          { payload: { _enc: 'v1:' } },
+          { payload: { _enc: 'v1::x:y:z' } },
+          { payload: { legacy: true } },
+        ],
+      },
+      d
+    )
+    expect(rows).toEqual([
+      { payload: { _lumo_unreadable: true } },
+      { payload: { _lumo_unreadable: true } },
+      { payload: { legacy: true } },
+    ])
+  })
+
+  it('a payload that merely carries the _lumo_unreadable key is written normally', async () => {
+    const { calls, query } = echoQuery()
+    await runHookEventOperation(
+      {
+        operation: 'create',
+        args: {
+          data: {
+            workspaceId: 'ws1',
+            payload: { _lumo_unreadable: true, tool_name: 'Bash' },
+          },
+        },
+        query,
+      },
+      deps(false)
+    )
+    expect(calls).toHaveLength(1)
+  })
+})
+
 describe('runHookEventOperation with encryption off', () => {
   it('clears the key id a sealed row still names when its payload is rewritten', async () => {
     const { calls, query } = echoQuery()

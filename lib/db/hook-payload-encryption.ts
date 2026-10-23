@@ -63,12 +63,20 @@ function unreadablePayload(): Record<string, true> {
   return { [UNREADABLE_PAYLOAD_KEY]: true }
 }
 
-function assertNotUnreadable(payload: unknown): void {
-  if (
-    typeof payload === 'object' &&
-    payload !== null &&
-    UNREADABLE_PAYLOAD_KEY in payload
+/** Exactly the marker `unreadablePayload()` returns — not any payload that has the key. */
+function isUnreadableMarker(payload: unknown): boolean {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload))
+    return false
+  const keys = Object.keys(payload)
+  return (
+    keys.length === 1 &&
+    keys[0] === UNREADABLE_PAYLOAD_KEY &&
+    (payload as Record<string, unknown>)[UNREADABLE_PAYLOAD_KEY] === true
   )
+}
+
+function assertNotUnreadable(payload: unknown): void {
+  if (isUnreadableMarker(payload))
     throw new Error(
       'Refusing to write back an unreadable HookEvent payload (LUM-1302): ' +
         'it would replace ciphertext that may still open with the right key.'
@@ -103,11 +111,20 @@ async function openRows(rows: unknown[], ring: DataKeyRing): Promise<void> {
       isSealedPayload((r as { payload: unknown }).payload)
   )
   if (sealedRows.length === 0) return
+  // A malformed value names no key: that row reads as unreadable, the rest
+  // of the result is unaffected.
+  const keyIdOf = (payload: unknown): string | null => {
+    try {
+      return sealedKeyId(payload as Parameters<typeof sealedKeyId>[0])
+    } catch {
+      return null
+    }
+  }
   const ids = [
     ...new Set(
-      sealedRows.map(r =>
-        sealedKeyId(r.payload as Parameters<typeof sealedKeyId>[0])
-      )
+      sealedRows
+        .map(r => keyIdOf(r.payload))
+        .filter((id): id is string => id !== null)
     ),
   ]
   const keys = new Map<string, DataKey | null>()
@@ -123,7 +140,8 @@ async function openRows(rows: unknown[], ring: DataKeyRing): Promise<void> {
   )
   for (const row of sealedRows) {
     const sealed = row.payload as Parameters<typeof openPayload>[0]
-    const key = keys.get(sealedKeyId(sealed))
+    const keyId = keyIdOf(sealed)
+    const key = keyId === null ? null : keys.get(keyId)
     if (!key) {
       row.payload = unreadablePayload()
       continue
