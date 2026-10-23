@@ -48,6 +48,17 @@ describe('splitDecisionsSection', () => {
     ])
   })
 
+  it('finds a heading whose text is wrapped in inline markup', () => {
+    expect(
+      splitDecisionsSection(
+        '<p>x</p><h2><strong>Decisions</strong></h2><ul><li><p>a</p></li></ul>'
+      )
+    ).toEqual({
+      description: '<p>x</p>',
+      decisions: [{ text: 'a', date: null }],
+    })
+  })
+
   it('drops the empty template hint, so an untouched template section yields no decisions', () => {
     const out = splitDecisionsSection(
       '<p>x</p><h2>Decisions</h2><p><em>Dated rulings, appended as work goes with <code>lumo task decide &lt;id&gt; "…"</code>.</em></p>'

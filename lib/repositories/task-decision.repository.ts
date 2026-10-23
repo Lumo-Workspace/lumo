@@ -124,7 +124,9 @@ export const taskDecisionRepository = {
     return unscoped('LUM-1303 decisions backfill').task.findMany({
       where: {
         deletedAt: {},
-        description: { contains: 'decisions</h', mode: 'insensitive' },
+        // Loose on purpose (a heading may wrap the word in <strong> etc.):
+        // the caller's parser decides whether a real section is there.
+        description: { contains: 'decisions', mode: 'insensitive' },
       },
       select: {
         id: true,

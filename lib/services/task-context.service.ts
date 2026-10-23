@@ -1258,11 +1258,16 @@ export const taskContextService = {
 
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
     // LUM-1303: decisions moved out of the description into their own table;
-    // they print right after it, inside the same untrusted fence.
-    const decisions = await taskDecisionRepository.listByTask(
-      resolved.id,
-      workspaceId
-    )
+    // they print right after it, inside the same untrusted fence. A failed
+    // read drops only that block, never the whole context.
+    const decisions = await taskDecisionRepository
+      .listByTask(resolved.id, workspaceId)
+      .catch((error: unknown) => {
+        logger.warn(
+          `[task-context] decisions unreadable task=${resolved.id}; omitting them: ${error instanceof Error ? error.message : String(error)}`
+        )
+        return []
+      })
 
     const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
     const figmaSection = renderFigmaSection(

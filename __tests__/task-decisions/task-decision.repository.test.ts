@@ -8,7 +8,12 @@ jest.mock('@/lib/db/workspace-scope', () => {
     update: jest.fn(),
     delete: jest.fn(),
   }
-  return { scopedPrisma: { taskDecision }, unscoped: jest.fn() }
+  const task = { findMany: jest.fn(async () => []) }
+  return {
+    scopedPrisma: { taskDecision },
+    unscoped: jest.fn(() => ({ task })),
+    __task: task,
+  }
 })
 
 import { scopedPrisma } from '@/lib/db/workspace-scope'
@@ -89,5 +94,16 @@ describe('taskDecisionRepository (LUM-1303)', () => {
       data: { deletedAt: expect.any(Date) },
     })
     expect(td.delete).not.toHaveBeenCalled()
+  })
+
+  it('backfill prefilter is loose (the heading may wrap the word in markup); trash included', async () => {
+    const { __task } = jest.requireMock('@/lib/db/workspace-scope') as {
+      __task: { findMany: jest.Mock }
+    }
+    await taskDecisionRepository.listTasksWithDecisionsHeading(null, 50)
+    expect(__task.findMany.mock.calls[0][0].where).toEqual({
+      deletedAt: {},
+      description: { contains: 'decisions', mode: 'insensitive' },
+    })
   })
 })

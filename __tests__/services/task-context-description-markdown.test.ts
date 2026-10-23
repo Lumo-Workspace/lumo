@@ -158,4 +158,29 @@ describe('task-context decisions (LUM-1303)', () => {
     expect(section.match(/<untrusted-task-description/g)).toHaveLength(1)
     expect(result!.task.descriptionMarkdown).toBe('body')
   })
+
+  it('a failed decisions read drops only the Decisions block', async () => {
+    const { taskDecisionRepository } = jest.requireMock(
+      '@/lib/repositories/task-decision.repository'
+    ) as { taskDecisionRepository: { listByTask: jest.Mock } }
+    taskDecisionRepository.listByTask.mockRejectedValueOnce(
+      new Error('db down')
+    )
+    ;(taskRepository.findById as jest.Mock).mockResolvedValue({
+      id: 't1',
+      title: 'T',
+      status: 'TODO',
+      description: '<p>body</p>',
+      milestoneId: null,
+      projectId: 'p1',
+    })
+    const result = await taskContextService.getContextForIdentifier(
+      'w1',
+      'm1',
+      'LUM-1'
+    )
+    expect(result).not.toBeNull()
+    expect(result!.descriptionSection).toContain('body')
+    expect(result!.descriptionSection).not.toContain('## Decisions')
+  })
 })
