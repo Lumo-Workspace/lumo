@@ -177,16 +177,17 @@ test('LUM-1056 paused head exposes manual review controls and reports request fa
   await waitFor(() =>
     expect(request).toHaveBeenCalledWith(9, 'o/r', 'incremental')
   )
-  expect(await screen.findByRole('status')).toHaveTextContent(
-    'Review requested'
-  )
+  const status = await screen.findByRole('status')
+  expect(status).toHaveTextContent('Review requested')
+  // Same caption size as the buttons and the rounds note beside it.
+  expect(status).toHaveClass('text-caption', 'text-muted-foreground')
   request.mockRejectedValueOnce(new Error('network'))
   fireEvent.click(
     screen.getByRole('button', { name: 'Resume automatic reviews' })
   )
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Could not update review settings'
-  )
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Could not update review settings')
+  expect(alert).toHaveClass('text-caption', 'text-danger-text')
 })
 
 describe('LUM-892 turned-off layer in the task panel', () => {
