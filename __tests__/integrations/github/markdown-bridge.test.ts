@@ -128,6 +128,9 @@ describe('markdown-bridge', () => {
       expect(stripLinkReferenceDefinitions('---\n[vc]: #abc\nText.')).toBe(
         '---\nText.'
       )
+      expect(
+        stripLinkReferenceDefinitions('Title\n===\n[vc]: #abc\nText.')
+      ).toBe('Title\n===\nText.')
     })
 
     it('keeps a definition-shaped line that continues a paragraph', () => {

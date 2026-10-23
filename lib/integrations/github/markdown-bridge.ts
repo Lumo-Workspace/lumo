@@ -86,6 +86,8 @@ const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
 const LEAF_BLOCK_RE =
   /^ {0,3}(?:#{1,6}(?:[ \t]|$)|(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$)/
 
+const SETEXT_EQ_RE = /^ {0,3}=+[ \t]*$/
+
 // CommonMark label matching: case-insensitive, internal whitespace collapsed.
 const normalizeLabel = (label: string) =>
   label.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -125,7 +127,11 @@ export function stripLinkReferenceDefinitions(markdown: string): string {
       defs.set(i, normalizeLabel(label))
       return
     }
-    inParagraph = line.trim() !== '' && !LEAF_BLOCK_RE.test(line)
+    // `===` under a paragraph line turns it into a setext heading, which
+    // closes the paragraph just as a `---` underline does.
+    const setextUnderline = inParagraph && SETEXT_EQ_RE.test(line)
+    inParagraph =
+      line.trim() !== '' && !setextUnderline && !LEAF_BLOCK_RE.test(line)
   })
   if (defs.size === 0) return markdown
 
