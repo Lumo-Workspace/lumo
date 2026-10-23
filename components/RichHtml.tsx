@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from 'react'
 import { sanitizeRichHtmlInBrowser } from '@/lib/html/sanitize-rich-html.client'
+import { cn } from '@/lib/utils'
 
 /**
  * LUM-916 — the only way a client component renders stored rich-text HTML
@@ -37,7 +38,14 @@ export function RichHtml({
   return (
     <div
       data-testid={testId}
-      className={className}
+      // Stored bodies can carry unbreakable runs (a mirrored bot comment's
+      // base64 marker, long URLs) that otherwise push the page wider than its
+      // column. Tables keep break-word: `anywhere` lowers their min-content
+      // and splits short header words mid-word.
+      className={cn(
+        '[overflow-wrap:anywhere] [&_table]:[overflow-wrap:break-word]',
+        className
+      )}
       // Sanitized above against the shared rich-text allowlist.
       dangerouslySetInnerHTML={{ __html: safe }}
     />
