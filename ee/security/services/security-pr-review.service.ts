@@ -1064,7 +1064,7 @@ export function buildSummary(input: SummaryInput): string {
     ),
   })
   const blocks: string[] = [
-    '### 🛡️ Lumo security scan',
+    '### 🔍 Lumo review',
     verdictLine(input, coverage, owned),
     ...rewardHackSection(
       input.rewardHack ?? [],
@@ -1211,7 +1211,7 @@ export function buildSummary(input: SummaryInput): string {
  */
 export function buildScanningOffSummary(): string {
   return [
-    '### 🛡️ Lumo security scan',
+    '### 🔍 Lumo review',
     `**${SCANNING_OFF_NOTE}**`,
     'Results an earlier scan showed here were for an older commit and are no longer kept up to date. Findings from those scans that still need a decision stay open in Lumo.',
     SUMMARY_MARKER,
@@ -2224,7 +2224,7 @@ export const securityPrReviewService = {
             prNumber: pr.number,
             token,
             commitId: scan.headSha,
-            body: `🛡️ Lumo security scan — ${scan.headSha.slice(0, 7)}`,
+            body: `🔍 Lumo review — ${scan.headSha.slice(0, 7)}`,
             // LUM-1130: actionable inline comments request changes when the
             // workspace turned the workflow on; otherwise only annotate.
             event: requestChanges ? 'REQUEST_CHANGES' : 'COMMENT',

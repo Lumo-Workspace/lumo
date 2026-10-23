@@ -50,7 +50,7 @@ lumo workspace security-scan update --repo acme/app --issue-assessment off --con
 lumo workspace security-scan update --repo acme/app --task-details-on-public-repos on --confirm
 ```
 
-- Privacy: on a **public** repository (or one whose visibility Lumo cannot read) the PR shows only which task item (e.g. `LUM-12 · Done when 2`) and its outcome — never the task's text or Lumo's explanation of it. `--task-details-on-public-repos on` (OWNER; exits 4 until `--confirm`) quotes them there too; it is a Lumo setting only, never read from `.lumo.yaml`. Issue text is always shown (same repository). Private repositories always show the details.
+- Privacy: on a **public** repository (or one whose visibility Lumo cannot read) the PR shows only which task item (e.g. `LUM-12 · Requirement 2 of 3`) and its outcome — never the task's text or Lumo's explanation of it. `--task-details-on-public-repos on` (OWNER; exits 4 until `--confirm`) quotes them there too; it is a Lumo setting only, never read from `.lumo.yaml`. Issue text is always shown (same repository). Private repositories always show the details.
 - Turning the check off exits 4 until `--confirm`. `.lumo.yaml`: `reviews.pre_merge_checks.issue_assessment.mode`. The override (`@uselumo ignore pre-merge checks`) covers it like every pre-merge check and never clears a finding that blocks DONE.
 
 ## Review style: path instructions, profile, tone

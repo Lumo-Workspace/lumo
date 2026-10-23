@@ -84,9 +84,9 @@ describe('extractTaskRequirements', () => {
     const reqs = task(BRIEF)
     expect(reqs.map(r => [r.id, r.label])).toEqual([
       ['task:goal', 'LUM-12 · Goal'],
-      ['task:done:1', 'LUM-12 · Done when 1'],
-      ['task:done:2', 'LUM-12 · Done when 2'],
-      ['task:done:3', 'LUM-12 · Done when 3'],
+      ['task:done:1', 'LUM-12 · Requirement 1 of 3'],
+      ['task:done:2', 'LUM-12 · Requirement 2 of 3'],
+      ['task:done:3', 'LUM-12 · Requirement 3 of 3'],
     ])
     expect(reqs[0]!.text).toBe('Export invoices as CSV from the billing page.')
     expect(reqs[2]!.text).toBe(
@@ -129,6 +129,16 @@ describe('extractTaskRequirements', () => {
     const reqs = task(many, false)
     expect(reqs).toHaveLength(TASK_REQUIREMENTS_MAX)
     expect(reqs.every(r => !r.quotable)).toBe(true)
+    expect(reqs[0]!.label).toBe('LUM-12 · Requirement 1 of 30')
+  })
+
+  it('a Done-when section without list items is requirement 1 of 1', () => {
+    expect(
+      task('## Done when\n\nThe export opens in Excel.').map(r => [
+        r.id,
+        r.label,
+      ])
+    ).toEqual([['task:done:1', 'LUM-12 · Requirement 1 of 1']])
   })
 })
 
@@ -178,14 +188,14 @@ const REQS: LinkedRequirement[] = [
   {
     id: 'task:done:1',
     source: 'task',
-    label: 'LUM-12 · Done when 1',
+    label: 'LUM-12 · Requirement 1 of 2',
     text: 'A CSV download button',
     quotable: true,
   },
   {
     id: 'task:done:2',
     source: 'task',
-    label: 'LUM-12 · Done when 2',
+    label: 'LUM-12 · Requirement 2 of 2',
     text: 'Amounts have two decimals',
     quotable: true,
   },
@@ -253,7 +263,7 @@ describe('each outcome', () => {
 
   it('the material lists each requirement by id for the model', () => {
     expect(requirementsMaterial(REQS)).toBe(
-      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Done when 1) A CSV download button\n- [task:done:2] (LUM-12 · Done when 2) Amounts have two decimals"
+      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Requirement 1 of 2) A CSV download button\n- [task:done:2] (LUM-12 · Requirement 2 of 2) Amounts have two decimals"
     )
   })
 })
@@ -433,9 +443,11 @@ describe('on GitHub — summary and review comment', () => {
     const block = formatRequirementsBlock(assessed(true))!
     expect(block).toMatch(/Linked requirements/)
     expect(block).toMatch(
-      /✅ Addressed — \*\*LUM-12 · Done when 1\*\*: A CSV download button — _Adds the button._/
+      /✅ Addressed — \*\*LUM-12 · Requirement 1 of 2\*\*: A CSV download button — _Adds the button._/
     )
-    expect(block).toMatch(/❌ Not addressed — \*\*LUM-12 · Done when 2\*\*/)
+    expect(block).toMatch(
+      /❌ Not addressed — \*\*LUM-12 · Requirement 2 of 2\*\*/
+    )
     expect(block).not.toContain(WITHHELD_NOTE)
     // All addressed ⇒ folded.
     const all = assessed(true).map(a => ({
@@ -454,7 +466,7 @@ describe('on GitHub — summary and review comment', () => {
     const block = formatRequirementsBlock(a)!
     expect(block).not.toMatch(/CSV download|two decimals|Adds the button|raw/)
     expect(block).toMatch(
-      /❌ Not addressed — \*\*LUM-12 · Done when 2\*\* \(details in Lumo\)/
+      /❌ Not addressed — \*\*LUM-12 · Requirement 2 of 2\*\* \(details in Lumo\)/
     )
     expect(block).toContain(WITHHELD_NOTE)
     const review = buildUnmetRequirementsReview({
@@ -475,9 +487,9 @@ describe('on GitHub — summary and review comment', () => {
     })!
     expect(review).toMatch(/1 linked requirement not addressed\*\* · `abcdef1`/)
     expect(review).toMatch(
-      /LUM-12 · Done when 2\*\*: Amounts have two decimals/
+      /LUM-12 · Requirement 2 of 2\*\*: Amounts have two decimals/
     )
-    expect(review).not.toMatch(/Done when 1/)
+    expect(review).not.toMatch(/Requirement 1 of 2/)
     expect(review).toMatch(/`error`/)
     const key = unmetKey(a)!
     expect(review).toContain(unmetMarker(key))

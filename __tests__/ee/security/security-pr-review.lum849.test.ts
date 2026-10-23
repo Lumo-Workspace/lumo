@@ -70,7 +70,7 @@ describe('LUM-849 PR summary layout', () => {
       })
     )
     const blocks = blocksOf(body)
-    expect(blocks[0]).toBe('### 🛡️ Lumo security scan')
+    expect(blocks[0]).toBe('### 🔍 Lumo review')
     expect(blocks[1]).toBe('**2 open findings** (1 blocking DONE)')
 
     // The layer lines are still there, only folded, and below the verdict.
@@ -264,7 +264,7 @@ describe('LUM-849 PR summary layout', () => {
       `Reviewed commit: [abcdef1](${url}) · [Open in Lumo](https://www.uselumo.ai/workspace/acme/my-tasks/LUM-849)`
     )
     // The sha moved from the heading to the footer.
-    expect(blocks[0]).toBe('### 🛡️ Lumo security scan')
+    expect(blocks[0]).toBe('### 🔍 Lumo review')
 
     // Without a trustworthy URL the sha is still stated, just not linked.
     expect(commitUrlOf('acme/app) [x](y', SHA)).toBeNull()

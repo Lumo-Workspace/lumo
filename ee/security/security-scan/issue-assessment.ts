@@ -19,7 +19,7 @@
  * Privacy: a Lumo task is private to its workspace. Its text is quoted on a
  * pull request only when the repository is private (or the workspace owner
  * turned `taskDetailsOnPublicRepos` on); otherwise GitHub shows only which
- * item (e.g. "LUM-12 · Done when 2") and its outcome — never the text nor
+ * item (e.g. "LUM-12 · Requirement 2 of 3") and its outcome — never the text nor
  * the model's explanation of it. Issue text comes from the same repository,
  * so it is shown wherever the issue itself is visible.
  *
@@ -48,7 +48,7 @@ export interface LinkedRequirement {
   /** Stable key: `task:goal`, `task:done:2`, `task:description`, `issue:45`. */
   id: string
   source: RequirementSource
-  /** Which item, e.g. "LUM-12 · Done when 2" or "#45" — always safe to show. */
+  /** Which item, e.g. "LUM-12 · Requirement 2 of 3" or "#45" — always safe to show. */
   label: string
   /** The requirement itself (untrusted; fenced for the model). */
   text: string
@@ -180,9 +180,9 @@ export function extractTaskRequirements(input: {
     const items = listItems(done)
     if (items.length > 0)
       items.forEach((t, i) =>
-        add(`task:done:${i + 1}`, `Done when ${i + 1}`, t)
+        add(`task:done:${i + 1}`, `Requirement ${i + 1} of ${items.length}`, t)
       )
-    else add('task:done:1', 'Done when', prose(done))
+    else add('task:done:1', 'Requirement 1 of 1', prose(done))
   }
   if (out.length === 0 && goal === null && done === null) {
     const body = collapse(md)
