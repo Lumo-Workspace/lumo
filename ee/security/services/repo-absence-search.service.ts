@@ -64,6 +64,10 @@ export const repoAbsenceSearchService = {
           onChunk: chunk => reader.push(chunk),
         })
     )
-    return matcher.result(read.stop)
+    // A stream that ended without the archive's end block (or past a corrupt
+    // header) did not read the whole repository.
+    return matcher.result(
+      read.stop === 'end' && !reader.done ? 'truncated' : read.stop
+    )
   },
 }

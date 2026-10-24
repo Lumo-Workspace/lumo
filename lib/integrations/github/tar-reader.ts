@@ -32,7 +32,10 @@ function cstr(buf: Buffer, start: number, len: number): string {
   return slice.subarray(0, end < 0 ? slice.length : end).toString('utf8')
 }
 
-/** Octal, or GNU base-256 when the first byte's high bit is set. */
+/**
+ * Octal, or GNU base-256 when the first byte's high bit is set. NaN for a
+ * field that is neither (a corrupt header).
+ */
 function size(buf: Buffer): number {
   const field = buf.subarray(124, 136)
   if ((field[0]! & 0x80) !== 0) {
@@ -41,7 +44,8 @@ function size(buf: Buffer): number {
     return n
   }
   const text = cstr(buf, 124, 12).trim()
-  return text ? parseInt(text, 8) : 0
+  if (!text) return 0
+  return /^[0-7]+$/.test(text) ? parseInt(text, 8) : NaN
 }
 
 /** The `path` record of a pax extended header, if any. */
@@ -85,12 +89,18 @@ export class TarReader {
   /** A path set by a preceding pax / long-name header. */
   private nextPath: string | null = null
   private ended = false
+  private broken = false
 
   constructor(private readonly opts: TarReaderOptions) {}
 
-  /** True once the end-of-archive block was read. */
+  /** True once the end-of-archive block was read (and nothing was corrupt). */
   get done(): boolean {
-    return this.ended
+    return this.ended && !this.broken
+  }
+
+  /** A corrupt header stopped the reading: the rest of the archive is unread. */
+  get corrupt(): boolean {
+    return this.broken
   }
 
   push(chunk: Buffer): void {
@@ -126,6 +136,12 @@ export class TarReader {
       return
     }
     const length = size(header)
+    if (!Number.isSafeInteger(length) || length < 0) {
+      // Nothing after a corrupt header can be located: stop, unfinished.
+      this.broken = true
+      this.ended = true
+      return
+    }
     const type = String.fromCharCode(header[156]!)
     const name = cstr(header, 0, 100)
     const prefix =

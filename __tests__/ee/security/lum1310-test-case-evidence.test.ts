@@ -6,7 +6,9 @@
  * first, whole case lines under the cap).
  */
 import {
+  capScreenshotAnswers,
   EVIDENCE_MATERIAL_MAX,
+  NO_SCREENSHOT_EXPLANATION,
   testCaseEvidenceAtHead,
   testCaseEvidenceMaterial,
   type StoredEvidenceCase,
@@ -191,9 +193,7 @@ describe('the material', () => {
     expect(lines[2]).toBe(
       '- TC1 "Case 1" — PASS in LOCAL. Expected: Skeletons, not text.. Steps: PASS open: My Tasks in list view | PASS assert: a table skeleton renders. Evidence files: mytasks-list.jpg (+1 links).'
     )
-    expect(lines[0]).toContain(
-      'Claims in the pull request description are not evidence.'
-    )
+    expect(lines[0]).toContain('claims in the description are never evidence')
   })
 
   it('untrusted text is inert: no tag brackets, one line, capped; run notes never appear', () => {
@@ -284,5 +284,87 @@ describe('the material', () => {
       /^Test-case runs of the linked task recorded on this pull request's head commit/
     )
     expect(lines[3]).toMatch(/^- TC2 "Case 2" — PASS in LOCAL/)
+  })
+})
+
+describe('the screenshot rule Lumo enforces after the model', () => {
+  const reqs = [
+    {
+      id: 'task:done:1',
+      text: 'Record tab renders the three states; screenshot at ~640px from a real browser on the PR.',
+    },
+    {
+      id: 'task:done:2',
+      text: 'Checks with open findings are expanded by default.',
+    },
+  ]
+  const answers = [
+    {
+      id: '[task:done:1]',
+      outcome: 'addressed',
+      explanation: 'The description says it was checked.',
+    },
+    { id: 'task:done:2', outcome: 'addressed', explanation: 'TC2 passed.' },
+  ]
+
+  it('LUM-1308 shape: the browser run is on an older commit ⇒ the screenshot item becomes Unclear, the rest untouched', () => {
+    const evidence = testCaseEvidenceAtHead(
+      [
+        tc(1, [run({ evidence: [{ type: 'file', filename: 'jest.json' }] })]),
+        tc(7, [
+          run({
+            commitSha: OLDER,
+            evidence: [{ type: 'file', filename: 'light-one-pr.jpg' }],
+          }),
+        ]),
+      ],
+      HEAD
+    )
+    expect(capScreenshotAnswers(reqs, answers, evidence)).toEqual([
+      {
+        id: '[task:done:1]',
+        outcome: 'unclear',
+        explanation: NO_SCREENSHOT_EXPLANATION,
+      },
+      answers[1],
+    ])
+    // No test cases at all: the same.
+    expect(capScreenshotAnswers(reqs, answers, undefined)[0]!.outcome).toBe(
+      'unclear'
+    )
+  })
+
+  it('a PASS run on the head with an image attached lets the model decide', () => {
+    const evidence = testCaseEvidenceAtHead(
+      [
+        tc(7, [
+          run({ evidence: [{ type: 'file', filename: 'Light-One-PR.PNG' }] }),
+        ]),
+      ],
+      HEAD
+    )
+    expect(capScreenshotAnswers(reqs, answers, evidence)).toEqual(answers)
+  })
+
+  it('an image on a run that is not a PASS after the ceiling does not count', () => {
+    const evidence = testCaseEvidenceAtHead(
+      [
+        tc(7, [run({ evidence: [{ type: 'file', filename: 'shot.png' }] })], {
+          requiredEnvironment: 'PREVIEW',
+        }),
+      ],
+      HEAD
+    )
+    expect(capScreenshotAnswers(reqs, answers, evidence)[0]!.outcome).toBe(
+      'unclear'
+    )
+  })
+
+  it('never upgrades: unclear and not_addressed answers stay as they are', () => {
+    const others = [
+      { id: 'task:done:1', outcome: 'not_addressed', explanation: 'x' },
+      { id: 'task:done:2', outcome: 'unclear', explanation: 'y' },
+    ]
+    expect(capScreenshotAnswers(reqs, others, undefined)).toEqual(others)
   })
 })

@@ -315,6 +315,24 @@ describe('the search service on its own', () => {
     expect(withToken).not.toHaveBeenCalled()
   })
 
+  it('an archive that ends without its end block is reported as truncated, not complete', async () => {
+    stream.mockImplementation(
+      async (opts: { onChunk: (b: Buffer) => void }) => {
+        const { gunzipSync } = await import('node:zlib')
+        const raw = gunzipSync(tarball({ 'app/a.ts': 'x\n' }))
+        opts.onChunk(raw.subarray(0, raw.length - 1024)) // end blocks cut off
+        return { complete: true, bytes: raw.length - 1024, stop: 'end' }
+      }
+    )
+    const r = await repoAbsenceSearchService.search({
+      workspaceId: 'w1',
+      repo: 'acme/app',
+      headSha: HEAD,
+      queries: [{ requirementId: 'x', needles: ['abc'], scopes: [] }],
+    })
+    expect(r).toMatchObject({ complete: false, stop: 'truncated' })
+  })
+
   it('a cut read is reported as cut', async () => {
     stream.mockResolvedValue({ complete: false, bytes: 1, stop: 'time' })
     const r = await repoAbsenceSearchService.search({
@@ -378,6 +396,45 @@ describe('through the runner', () => {
     }))
   })
 
+  it('a screenshot requirement the model calls addressed without a head screenshot is reported Unclear', async () => {
+    ;(taskRepository.findForRequirements as jest.Mock).mockResolvedValue({
+      ...TASK,
+      description:
+        '<h2>Done when</h2><ul><li><p>No block-level visible loading text left under <code>app/</code> (grep <code>common.loading</code> only hits sr-only labels).</p></li><li><p>Screenshot of My Tasks from a real browser.</p></li></ul>',
+    })
+    listCases.mockResolvedValue([
+      {
+        number: 2,
+        title: 'Unit tests',
+        expected: 'pass',
+        requiredEnvironment: null,
+        runs: [
+          {
+            ...PASS_AT_HEAD,
+            evidence: [{ type: 'file', filename: 'jest.json' }],
+          },
+        ],
+      },
+    ])
+    const record = await preMergeChecksService.run(
+      {
+        scanId: 's1',
+        pullRequestId: 'pr1',
+        workspaceId: 'w1',
+        repo: 'acme/app',
+        prNumber: 1695,
+        headSha: HEAD,
+      },
+      'diff --git a/app/x.tsx b/app/x.tsx\n'
+    )
+    const r = record!.results.find(x => x.id === ISSUE_ASSESSMENT_CHECK_ID)!
+    expect(r.requirements!.map(x => [x.id, x.outcome])).toEqual([
+      ['task:done:1', 'addressed'],
+      ['task:done:2', 'unclear'],
+    ])
+    expect(r.verdict).toBe('inconclusive')
+  })
+
   it('the runs and the hits reach the model as material, and the check can pass', async () => {
     const diff =
       'diff --git a/app/x.tsx b/app/x.tsx\n--- a/app/x.tsx\n+++ b/app/x.tsx\n@@ -0,0 +1 @@\n+x\n'
@@ -401,10 +458,10 @@ describe('through the runner', () => {
       '[task:done:1] searched `common.loading` in app/: 1 hit in 1 file.'
     )
     expect(material).toContain(
-      "app/AsyncContent.tsx:1: <span className='sr-only'>{t('common.loading')}< /span>"
+      "app/AsyncContent.tsx:1: ‹span className='sr-only'›{t('common.loading')}‹/span›"
     )
     expect(model.mock.calls[0]![0].checks[0].rule).toContain(
-      'Claims in the pull request description are never evidence.'
+      'Claims in the pull request description are never evidence:'
     )
     const r = record!.results.find(x => x.id === ISSUE_ASSESSMENT_CHECK_ID)!
     expect(r.verdict).toBe('passed')

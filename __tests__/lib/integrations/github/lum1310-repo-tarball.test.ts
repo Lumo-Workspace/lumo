@@ -139,6 +139,26 @@ describe('TarReader', () => {
     expect(skipped).toEqual([['app/big.json', 3000]])
   })
 
+  it('a corrupt size field stops reading as corrupt instead of looping', () => {
+    const bad = header(`${TOP}/app/x.ts`, 0, '0')
+    bad.write('zz\0', 124) // not octal
+    const r = new TarReader({
+      maxFileBytes: 1 << 20,
+      wantPath: () => true,
+      onFile: () => undefined,
+    })
+    r.push(
+      Buffer.concat([
+        entry(`${TOP}/app/a.tsx`, 'a\n'),
+        bad,
+        Buffer.alloc(4096, 0x61),
+        END,
+      ])
+    )
+    expect(r.corrupt).toBe(true)
+    expect(r.done).toBe(false)
+  })
+
   it('reads a real `git archive` of this repository (pax global header, prefix)', () => {
     const tar = execFileSync(
       'git',

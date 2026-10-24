@@ -35,6 +35,7 @@ import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-rev
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { linkedRequirementsService } from '@/ee/security/services/linked-requirements.service'
+import { capScreenshotAnswers } from '@/ee/security/security-scan/test-case-evidence'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
 import { authoredDescription } from '@/ee/security/security-scan/pr-description-summary'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -355,6 +356,20 @@ export const preMergeChecksService = {
             )
           }
         }
+        // LUM-1310: a screenshot is never taken on the model's word.
+        answers = answers.map(a => {
+          const reqs = linked.get(a.id)
+          return reqs && a.requirements
+            ? {
+                ...a,
+                requirements: capScreenshotAnswers(
+                  reqs,
+                  a.requirements,
+                  contexts.get(a.id)?.testCases
+                ),
+              }
+            : a
+        })
         return resultsFromAnswers(judged, answers, linked)
       }
       let results: PreMergeCheckResult[]
