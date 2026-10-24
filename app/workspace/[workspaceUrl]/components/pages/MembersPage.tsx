@@ -70,6 +70,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MemberAvatar } from '@/components/MemberAvatar'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -346,16 +348,23 @@ export function MembersPage() {
                 <span />
               </div>
 
-              {members.length === 0 ? (
-                <div className='px-4 py-6 text-body text-muted-foreground text-center'>
-                  {intl.formatMessage({ id: 'common.loading' })}
-                </div>
-              ) : visibleMembers.length === 0 ? (
-                <div className='px-4 py-10 text-body text-muted-foreground text-center'>
-                  {intl.formatMessage({ id: 'members.filter.empty' })}
-                </div>
-              ) : (
-                visibleMembers.map(m => {
+              <AsyncContent
+                loading={members.length === 0}
+                empty={visibleMembers.length === 0}
+                loadingState={
+                  <RowListSkeleton
+                    rows={4}
+                    leading='avatar'
+                    rowClassName='px-4 py-3'
+                  />
+                }
+                emptyState={
+                  <p className='text-body text-muted-foreground'>
+                    {intl.formatMessage({ id: 'members.filter.empty' })}
+                  </p>
+                }
+              >
+                {visibleMembers.map(m => {
                   const isSelf = m.id === currentMember?.id
                   const expanded = expandedId === m.id
                   const memberConnections = connections[m.id]
@@ -534,8 +543,8 @@ export function MembersPage() {
                       </CollapsibleContent>
                     </Collapsible>
                   )
-                })
-              )}
+                })}
+              </AsyncContent>
             </div>
           </div>
         </section>
@@ -570,12 +579,17 @@ export function MembersPage() {
                 <span />
               </div>
 
-              {loadingInvites && invites.length === 0 ? (
-                <div className='px-4 py-6 text-body text-muted-foreground text-center'>
-                  {intl.formatMessage({ id: 'common.loading' })}
-                </div>
-              ) : (
-                invites.map(inv => (
+              <AsyncContent
+                loading={loadingInvites && invites.length === 0}
+                loadingState={
+                  <RowListSkeleton
+                    rows={2}
+                    leading='avatar'
+                    rowClassName='px-4 py-3'
+                  />
+                }
+              >
+                {invites.map(inv => (
                   <div
                     key={inv.id}
                     className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
@@ -644,8 +658,8 @@ export function MembersPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                ))
-              )}
+                ))}
+              </AsyncContent>
             </div>
           </section>
         )}

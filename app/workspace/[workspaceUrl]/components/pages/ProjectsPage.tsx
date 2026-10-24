@@ -12,6 +12,7 @@ import { Plus, Layers, Link as LinkIcon, Trash2 } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -354,6 +355,14 @@ export function ProjectsPage({
           error={error}
           empty={projects.length === 0}
           onRetry={onRetry}
+          loadingState={
+            <RowListSkeleton
+              rows={6}
+              leading='icon'
+              divided
+              rowClassName='px-4 py-3'
+            />
+          }
           emptyState={
             <Empty>
               <EmptyHeader>

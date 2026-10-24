@@ -32,6 +32,8 @@ import { auditClient } from '@/lib/api-client/audit'
 import { useAuditEvents } from '../../hooks/useAuditEvents'
 import { useMembers } from '../../hooks/useMembers'
 import { CalendarDayPicker } from '../fields/CalendarDayPicker'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 /** Radix Select items cannot have an empty value. */
 const ALL = 'all'
@@ -260,35 +262,40 @@ function AuditEventsBody({
   isError: boolean
 }) {
   const intl = useIntl()
-  if (isLoading) {
-    return (
-      <p className='text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'common.loading' })}
-      </p>
-    )
-  }
-  if (isError) {
-    return (
-      <p className='text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'settings.auditLog.loadFailed' })}
-      </p>
-    )
-  }
-  if (events.length === 0) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <ScrollText />
-          </EmptyMedia>
-          <EmptyTitle>
-            {intl.formatMessage({ id: 'settings.auditLog.empty' })}
-          </EmptyTitle>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-  return <AuditEventsTable events={events} />
+  return (
+    <AsyncContent
+      loading={isLoading}
+      error={
+        isError
+          ? intl.formatMessage({ id: 'settings.auditLog.loadFailed' })
+          : null
+      }
+      empty={events.length === 0}
+      loadingState={
+        <RowListSkeleton
+          rows={6}
+          leading='avatar'
+          divided
+          rowClassName='px-4 py-3'
+          className='rounded-lg border border-border'
+        />
+      }
+      emptyState={
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <ScrollText />
+            </EmptyMedia>
+            <EmptyTitle>
+              {intl.formatMessage({ id: 'settings.auditLog.empty' })}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      }
+    >
+      <AuditEventsTable events={events} />
+    </AsyncContent>
+  )
 }
 
 function AuditEventsTable({ events }: { events: AuditEventView[] }) {

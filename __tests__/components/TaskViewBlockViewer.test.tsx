@@ -63,7 +63,7 @@ const STORED =
 beforeEach(() => jest.clearAllMocks())
 
 describe('RichTextViewer — task view block', () => {
-  it('renders the loading state', async () => {
+  it('renders the loading state as a skeleton with an sr-only label', async () => {
     mockUseWorkspaceTasks.mockReturnValue({
       tasks: [],
       truncated: false,
@@ -72,8 +72,10 @@ describe('RichTextViewer — task view block', () => {
     })
     render(<RichTextViewer value={STORED} />)
     await waitFor(() =>
-      expect(screen.getByText('Loading tasks…')).toBeInTheDocument()
+      expect(screen.getByText('editor.taskView.loading')).toHaveClass('sr-only')
     )
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByTestId('row-list-skeleton')).toBeInTheDocument()
   })
 
   it('renders the empty state', async () => {

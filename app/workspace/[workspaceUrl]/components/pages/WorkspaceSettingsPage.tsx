@@ -13,6 +13,9 @@ import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
+import { LoadingState } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
+import { SkeletonLine } from '../skeletons/SkeletonLine'
 import { PluginSlot } from '@/lib/plugins/client'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -192,11 +195,23 @@ export function WorkspaceSettingsPage() {
 
   if (loading) {
     return (
-      <div className='h-full flex items-center justify-center'>
-        <span className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'common.loading' })}
-        </span>
-      </div>
+      <LoadingState className='h-full overflow-y-auto'>
+        <div aria-hidden className='max-w-2xl mx-auto px-6 py-8'>
+          <SkeletonLine
+            boxHeight='32px'
+            barHeight='h-6'
+            width='40%'
+            className='mb-8'
+          />
+          <RowListSkeleton
+            rows={4}
+            subtitle
+            divided
+            rowClassName='px-5 py-4'
+            className='rounded-lg border border-border'
+          />
+        </div>
+      </LoadingState>
     )
   }
 

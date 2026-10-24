@@ -8,6 +8,8 @@ import {
   type RevisionListItem,
 } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentRevisions'
 import { RevisionDiffView } from './RevisionDiffView'
+import { LoadingState } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 interface DocumentHistoryModalProps {
@@ -78,12 +80,16 @@ export function DocumentHistoryModal({
             })}
           </DialogTitle>
           {loading && (
-            <p className='px-2 text-caption text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'documentHistory.loading',
-                defaultMessage: 'Loading…',
-              })}
-            </p>
+            <LoadingState
+              label={intl.formatMessage({ id: 'documentHistory.loading' })}
+            >
+              <RowListSkeleton
+                rows={5}
+                subtitle
+                trailing={false}
+                rowClassName='px-2 py-1.5'
+              />
+            </LoadingState>
           )}
           <ul>
             {revisions.map((r: RevisionListItem) => (

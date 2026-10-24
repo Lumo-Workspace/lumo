@@ -31,6 +31,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { AsyncContent } from '../AsyncContent'
+import {
+  DocumentGridSkeleton,
+  DocumentListSkeleton,
+} from '../skeletons/DocumentSkeletons'
 import { ApiDocument, DocVisibility } from '../../types'
 import { TagList } from '../document/TagBadge'
 import { TagListNew } from '../document/TagPicker'
@@ -349,6 +353,13 @@ export function DocumentsPage({
           loading={loading}
           error={error}
           onRetry={onRetry}
+          loadingState={
+            viewMode === 'list' ? (
+              <DocumentListSkeleton />
+            ) : (
+              <DocumentGridSkeleton />
+            )
+          }
           empty={sorted.length === 0}
           emptyState={
             <Empty>

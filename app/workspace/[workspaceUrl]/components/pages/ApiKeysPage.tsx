@@ -19,6 +19,8 @@ import { useApiKeys } from '../../hooks/useApiKeys'
 import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
 import { Spinner } from '@/components/ui/spinner'
 import { Badge } from '@/components/ui/badge'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 export function ApiKeysPage() {
   const intl = useIntl()
@@ -96,19 +98,27 @@ export function ApiKeysPage() {
         </div>
 
         {/* Key list */}
-        {loading ? (
-          <div className='flex items-center gap-2 text-body text-muted-foreground'>
-            <Spinner className='size-3.5' />
-            {intl.formatMessage({ id: 'common.loading' })}
-          </div>
-        ) : keys.length === 0 ? (
-          <div className='flex flex-col items-center gap-2 py-12 text-muted-foreground'>
-            <Key size={28} />
-            <p className='text-body'>
-              {intl.formatMessage({ id: 'apiKeys.empty' })}
-            </p>
-          </div>
-        ) : (
+        <AsyncContent
+          loading={loading}
+          empty={keys.length === 0}
+          loadingState={
+            <RowListSkeleton
+              rows={3}
+              subtitle
+              trailing={false}
+              rowClassName='rounded-xl border border-border px-4 py-3'
+              className='space-y-2'
+            />
+          }
+          emptyState={
+            <div className='flex flex-col items-center gap-2 py-12 text-muted-foreground'>
+              <Key size={28} />
+              <p className='text-body'>
+                {intl.formatMessage({ id: 'apiKeys.empty' })}
+              </p>
+            </div>
+          }
+        >
           <ul className='space-y-2'>
             {keys.map(k => (
               <Card
@@ -159,7 +169,7 @@ export function ApiKeysPage() {
               </Card>
             ))}
           </ul>
-        )}
+        </AsyncContent>
 
         <NewApiKeyDialog
           open={!!newKey}

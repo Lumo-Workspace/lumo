@@ -9,6 +9,8 @@ import { useWorkspaceTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/use
 import { useProjects } from '@/app/workspace/[workspaceUrl]/hooks/useProjects'
 import { useWorkspaceMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones'
 import { statusLabel } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
+import { LoadingState } from '@/app/workspace/[workspaceUrl]/components/AsyncContent'
+import { RowListSkeleton } from '@/app/workspace/[workspaceUrl]/components/skeletons/RowListSkeleton'
 import { parseTaskViewConfig, type TaskViewConfig } from './task-view-config'
 import { TaskViewConfigPanel } from './task-view-config-panel'
 import { TaskViewKanban } from './task-view-kanban'
@@ -86,12 +88,11 @@ export function TaskViewBlock({
         </div>
       </div>
       {loading ? (
-        <p className='text-muted-foreground'>
-          {intl.formatMessage({
-            id: 'editor.taskView.loading',
-            defaultMessage: 'Loading tasks…',
-          })}
-        </p>
+        <LoadingState
+          label={intl.formatMessage({ id: 'editor.taskView.loading' })}
+        >
+          <RowListSkeleton rows={3} leading='icon' rowClassName='py-1' />
+        </LoadingState>
       ) : error ? (
         <p className='text-danger-text'>
           {intl.formatMessage({

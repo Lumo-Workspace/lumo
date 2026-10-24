@@ -51,7 +51,7 @@ function data(
 }
 
 describe('TokenUsageSection', () => {
-  it('shows the loading line while loading with no data', () => {
+  it('shows a skeleton with an sr-only label while loading with no data', () => {
     render(
       <TokenUsageSection
         data={undefined}
@@ -60,7 +60,9 @@ describe('TokenUsageSection', () => {
         taskIdentifier='LUM-1'
       />
     )
-    expect(screen.getByText('加载中…')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByText('agentRun.loading')).toHaveClass('sr-only')
+    expect(screen.getByTestId('row-list-skeleton')).toBeInTheDocument()
   })
 
   it('shows the error line on error', () => {
