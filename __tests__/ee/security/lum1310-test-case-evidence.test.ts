@@ -229,6 +229,16 @@ describe('the material', () => {
     expect(text).toContain(`${'e'.repeat(119)}…`)
   })
 
+  it('cases past the case limit are named as not read, never dropped silently', () => {
+    const cases = Array.from({ length: 14 }, (_, i) => tc(i + 1, [run()]))
+    const e = testCaseEvidenceAtHead(cases, HEAD)
+    expect(e.atHead).toHaveLength(12)
+    expect(e.notRead).toEqual([13, 14])
+    expect(testCaseEvidenceMaterial(e)!.split('\n').pop()).toBe(
+      'Not shown (length or case limit), so not evidence here: TC13, TC14.'
+    )
+  })
+
   it('the cap keeps whole case lines and names the cases it left out', () => {
     const long = Array.from({ length: 8 }, (_, i) => ({
       phase: 'STEPS',
@@ -243,7 +253,7 @@ describe('the material', () => {
     expect(text.length).toBeLessThanOrEqual(EVIDENCE_MATERIAL_MAX + 200)
     const last = text.split('\n').pop()!
     expect(last).toMatch(
-      /^Not shown \(length limit\), so not evidence here: TC\d+(, TC\d+)*\.$/
+      /^Not shown \(length or case limit\), so not evidence here: TC\d+(, TC\d+)*\.$/
     )
     // Every listed case line is whole.
     for (const line of text.split('\n').filter(l => l.startsWith('- TC')))

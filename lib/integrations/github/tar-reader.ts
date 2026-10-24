@@ -22,6 +22,8 @@ export interface TarReaderOptions {
   wantPath: (path: string) => boolean
   maxFileBytes: number
   onFile: (path: string, content: Buffer) => void
+  /** A wanted regular file skipped unread for being over `maxFileBytes`. */
+  onSkip?: (path: string, size: number) => void
 }
 
 function cstr(buf: Buffer, start: number, len: number): string {
@@ -142,12 +144,11 @@ export class TarReader {
       this.nextPath = null
       if (type === '0' || type === '\0') {
         const path = repoPath(fullName)
-        if (
-          path !== null &&
-          length <= this.opts.maxFileBytes &&
-          this.opts.wantPath(path)
-        )
-          body = { kind: 'file', path, parts: [] }
+        if (path !== null && this.opts.wantPath(path)) {
+          if (length <= this.opts.maxFileBytes)
+            body = { kind: 'file', path, parts: [] }
+          else this.opts.onSkip?.(path, length)
+        }
       }
     }
     this.body = body

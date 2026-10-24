@@ -127,6 +127,18 @@ describe('TarReader', () => {
     )
   })
 
+  it('reports each wanted file skipped for size (so a search can say absence is unproven there)', () => {
+    const skipped: Array<[string, number]> = []
+    const r = new TarReader({
+      maxFileBytes: 2048,
+      wantPath: p => !p.startsWith('docs/'),
+      onFile: () => undefined,
+      onSkip: (p, size) => skipped.push([p, size]),
+    })
+    r.push(archive())
+    expect(skipped).toEqual([['app/big.json', 3000]])
+  })
+
   it('reads a real `git archive` of this repository (pax global header, prefix)', () => {
     const tar = execFileSync(
       'git',

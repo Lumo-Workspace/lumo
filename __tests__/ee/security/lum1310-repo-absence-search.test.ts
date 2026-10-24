@@ -93,6 +93,18 @@ describe('which requirements are searched, and for what', () => {
     expect(qs.flatMap(q => q.needles)).toHaveLength(ABSENCE_NEEDLES_MAX)
     expect(qs.map(q => q.requirementId)).toEqual(['r0', 'r1'])
   })
+
+  it('a requirement whose literals do not all fit is left out whole, never searched in part', () => {
+    const qs = absenceQueries([
+      req('two', 'No `aaa1` or `aaa2` anywhere.'),
+      req('three', 'No `bbb1`, `bbb2` or `bbb3` anywhere.'),
+      req('again', 'No `ccc1` or `ccc2` anywhere.'),
+    ])
+    expect(qs.map(q => [q.requirementId, q.needles])).toEqual([
+      ['two', ['aaa1', 'aaa2']],
+      ['again', ['ccc1', 'ccc2']],
+    ])
+  })
 })
 
 describe('matching one archive pass', () => {
@@ -160,11 +172,25 @@ describe('what the model reads', () => {
     const m = new AbsenceMatcher(queries)
     m.addFile('app/a.ts', Buffer.from('nothing here'))
     const text = absenceSearchMaterial(m.result('end'))!
-    expect(text).toContain('The search read the whole repository archive.')
+    expect(text).toContain(
+      'The search read the whole repository archive and every in-scope text file in it.'
+    )
     expect(text).toContain(
       '[task:done:1] searched `common.loading` in app/, lib/editor/: 0 hits in 0 files.'
     )
     expect(text).not.toContain('CUT SHORT')
+  })
+
+  it('skipped in-scope files (over the size cap, or binary) are counted and said to prove nothing', () => {
+    const m = new AbsenceMatcher(queries)
+    m.skipFile('app/huge.json')
+    m.skipFile('docs/huge.json') // out of scope: not counted
+    m.addFile('app/logo.png', Buffer.from([0x89, 0x00, 0x01]))
+    const r = m.result('end')
+    expect(r.filesSkipped).toBe(2)
+    expect(absenceSearchMaterial(r)).toContain(
+      'but 2 in-scope files were not read (over the size limit, or binary): zero hits does not prove absence in them.'
+    )
   })
 
   it('a cut search says zero hits proves nothing', () => {

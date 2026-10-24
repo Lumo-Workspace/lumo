@@ -79,6 +79,8 @@ export interface TestCaseEvidence {
   atHead: HeadRunEvidence[]
   /** Case numbers with no run on the head (older commits do not count). */
   withoutHeadRun: number[]
+  /** Case numbers past `EVIDENCE_CASES_MAX`, not read — named, never evidence. */
+  notRead: number[]
 }
 
 /** One inert line: whitespace collapsed, no tag brackets, capped. */
@@ -126,9 +128,9 @@ export function testCaseEvidenceAtHead(
 ): TestCaseEvidence {
   const atHead: HeadRunEvidence[] = []
   const withoutHeadRun: number[] = []
-  const ordered = [...cases]
-    .sort((a, b) => a.number - b.number)
-    .slice(0, EVIDENCE_CASES_MAX)
+  const sorted = [...cases].sort((a, b) => a.number - b.number)
+  const ordered = sorted.slice(0, EVIDENCE_CASES_MAX)
+  const notRead = sorted.slice(EVIDENCE_CASES_MAX).map(c => c.number)
   for (const c of ordered) {
     // The newest clean run on the head decides; a dirty one tested other code.
     const run = c.runs.find(
@@ -158,7 +160,7 @@ export function testCaseEvidenceAtHead(
       links,
     })
   }
-  return { atHead, withoutHeadRun }
+  return { atHead, withoutHeadRun, notRead }
 }
 
 function caseLine(e: HeadRunEvidence): string {
@@ -200,17 +202,21 @@ export function testCaseEvidenceMaterial(
       : []),
   ]
   let used = lines.join('\n').length
-  const left: number[] = []
+  const left: number[] = [...(evidence.notRead ?? [])]
+  const fromCap = left.length
   for (const e of evidence.atHead) {
     const line = caseLine(e)
-    if (left.length === 0 && used + 1 + line.length <= EVIDENCE_MATERIAL_MAX) {
+    if (
+      left.length === fromCap &&
+      used + 1 + line.length <= EVIDENCE_MATERIAL_MAX
+    ) {
       lines.push(line)
       used += 1 + line.length
     } else left.push(e.number)
   }
   if (left.length)
     lines.push(
-      `Not shown (length limit), so not evidence here: ${left.map(n => `TC${n}`).join(', ')}.`
+      `Not shown (length or case limit), so not evidence here: ${left.map(n => `TC${n}`).join(', ')}.`
     )
   return lines.join('\n')
 }

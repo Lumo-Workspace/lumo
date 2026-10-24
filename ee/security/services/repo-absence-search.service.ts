@@ -7,7 +7,8 @@
  * the head commit, with a contents:read installation token minted for it and
  * revoked after; nothing is checked out, built or run. Bounded in bytes
  * (`ABSENCE_SEARCH_MAX_BYTES` of uncompressed archive, files over
- * `ABSENCE_SEARCH_FILE_MAX_BYTES` skipped unread) and in time
+ * `ABSENCE_SEARCH_FILE_MAX_BYTES` skipped unread, and counted so the model
+ * is told absence is unproven in them) and in time
  * (`ABSENCE_SEARCH_TIMEOUT_MS`). A cut search is reported as such — it never
  * proves absence.
  *
@@ -49,6 +50,7 @@ export const repoAbsenceSearchService = {
       maxFileBytes: ABSENCE_SEARCH_FILE_MAX_BYTES,
       wantPath: path => wantedByQueries(path, input.queries),
       onFile: (path, content) => matcher.addFile(path, content),
+      onSkip: path => matcher.skipFile(path),
     })
     const read = await gh.withRepoReadToken(
       { workspaceId: input.workspaceId, fullName: input.repo },

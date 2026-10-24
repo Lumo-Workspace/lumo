@@ -203,6 +203,7 @@ describe('gathering the evidence', () => {
         }),
       ],
       withoutHeadRun: [7],
+      notRead: [],
     })
     expect(withToken).toHaveBeenCalledTimes(1)
     expect(withToken).toHaveBeenCalledWith(
