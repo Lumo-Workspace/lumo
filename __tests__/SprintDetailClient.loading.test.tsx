@@ -64,7 +64,7 @@ test('loading renders skeletons with a screen-reader-only label', () => {
   expect(labels[0]).toHaveClass('sr-only')
   // The breadcrumb's current-page slot is a skeleton, not text.
   const current = container.querySelector('[aria-current="page"]')
-  expect(current).toHaveTextContent('')
+  expect(current?.textContent).toBe('')
   expect(current?.querySelector('[data-slot="skeleton"]')).not.toBeNull()
   expect(
     container.querySelectorAll('[data-slot="skeleton"]').length
