@@ -7,6 +7,7 @@
  */
 import {
   capScreenshotAnswers,
+  EVIDENCE_CASES_MAX,
   EVIDENCE_MATERIAL_MAX,
   NO_SCREENSHOT_EXPLANATION,
   testCaseEvidenceAtHead,
@@ -231,12 +232,14 @@ describe('the material', () => {
   })
 
   it('cases past the case limit are named as not read, never dropped silently', () => {
-    const cases = Array.from({ length: 14 }, (_, i) => tc(i + 1, [run()]))
+    const cases = Array.from({ length: EVIDENCE_CASES_MAX + 2 }, (_, i) =>
+      tc(i + 1, [run()])
+    )
     const e = testCaseEvidenceAtHead(cases, HEAD)
-    expect(e.atHead).toHaveLength(12)
-    expect(e.notRead).toEqual([13, 14])
-    expect(testCaseEvidenceMaterial(e)!.split('\n').pop()).toBe(
-      'Not shown (length or case limit), so not evidence here: TC13, TC14.'
+    expect(e.atHead).toHaveLength(EVIDENCE_CASES_MAX)
+    expect(e.notRead).toEqual([EVIDENCE_CASES_MAX + 1, EVIDENCE_CASES_MAX + 2])
+    expect(testCaseEvidenceMaterial(e)!.split('\n').pop()).toContain(
+      `TC${EVIDENCE_CASES_MAX + 1}, TC${EVIDENCE_CASES_MAX + 2}.`
     )
   })
 

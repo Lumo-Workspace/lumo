@@ -389,7 +389,10 @@ export function requirementsMaterial(
         ]
       : []),
     ...[
-      testCaseEvidenceMaterial(context?.testCases),
+      testCaseEvidenceMaterial(
+        context?.testCases,
+        requirements.map(r => r.text)
+      ),
       absenceSearchMaterial(context?.repoSearch),
     ].filter((t): t is string => t !== null),
   ].join('\n')
