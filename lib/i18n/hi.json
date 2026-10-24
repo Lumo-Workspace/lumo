@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# जाँच पूरी नहीं चली} other {# जाँचें पूरी नहीं चलीं}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {# और जाँच · कुछ नहीं मिला} other {# और जाँचें · कुछ नहीं मिला}}",
   "lumoReview.reviewAgain": "फिर से समीक्षा करें",
+  "lumoReview.copyFailed": "कॉपी नहीं हो सका",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# आवश्यकता पूरी नहीं} other {# आवश्यकताएँ पूरी नहीं}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# आवश्यकता अस्पष्ट} other {# आवश्यकताएँ अस्पष्ट}}",
   "lumoReview.stageInfo.assessment": "इश्यू मूल्यांकन भी दिखाता है: क्या पुल रिक्वेस्ट वही करता है जो जुड़ा हुआ काम या इश्यू माँगता है।",

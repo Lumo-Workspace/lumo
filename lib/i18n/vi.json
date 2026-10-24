@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# kiểm tra chưa chạy đầy đủ}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {Thêm # kiểm tra · không phát hiện gì}}",
   "lumoReview.reviewAgain": "Xem xét lại",
+  "lumoReview.copyFailed": "Không sao chép được",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {# yêu cầu chưa đáp ứng}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {# yêu cầu chưa rõ}}",
   "lumoReview.stageInfo.assessment": "Cũng hiển thị đánh giá issue: pull request có làm đúng những gì nhiệm vụ hoặc issue liên kết yêu cầu không.",

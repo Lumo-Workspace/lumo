@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# pemeriksaan tidak berjalan penuh}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {# pemeriksaan lain · tidak ada temuan}}",
   "lumoReview.reviewAgain": "Tinjau ulang",
+  "lumoReview.copyFailed": "Gagal menyalin",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {# persyaratan tidak terpenuhi}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {# persyaratan tidak jelas}}",
   "lumoReview.stageInfo.assessment": "Juga menampilkan penilaian issue: apakah pull request melakukan apa yang diminta tugas atau issue yang ditautkan.",

@@ -1570,6 +1570,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# check didn't fully run} other {# checks didn't fully run}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {# more check · nothing found} other {# more checks · nothing found}}",
   "lumoReview.reviewAgain": "Review again",
+  "lumoReview.copyFailed": "Couldn't copy",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# requirement not met} other {# requirements not met}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# requirement unclear} other {# requirements unclear}}",
   "lumoReview.stageInfo.assessment": "Also shows the issue assessment: whether the pull request does what its linked task or issue asks.",

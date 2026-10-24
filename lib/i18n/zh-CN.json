@@ -2243,6 +2243,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# 项检查没有完整运行}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {另外 # 项检查 · 未发现问题}}",
   "lumoReview.reviewAgain": "重新检查",
+  "lumoReview.copyFailed": "复制失败",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {# 项需求未满足}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {# 项需求不明确}}",
   "lumoReview.stageInfo.assessment": "同时显示需求评估：这个拉取请求是否完成了关联任务或 issue 的要求。",

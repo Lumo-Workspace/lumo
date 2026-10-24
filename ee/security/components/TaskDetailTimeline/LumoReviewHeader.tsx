@@ -69,6 +69,7 @@ export function LumoReviewSummary({ data }: { data: TaskSecurityScans }) {
 export function CopyReviewForAgent({ data }: { data: TaskSecurityScans }) {
   const intl = useIntl()
   const [copied, setCopied] = useState(false)
+  const [failed, setFailed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
     () => () => {
@@ -82,26 +83,36 @@ export function CopyReviewForAgent({ data }: { data: TaskSecurityScans }) {
     try {
       await navigator.clipboard.writeText(context)
     } catch {
+      // Said out loud: the button would otherwise look like it worked.
+      setFailed(true)
       return
     }
+    setFailed(false)
     setCopied(true)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied(false), 1200)
   }
   return (
-    <Button
-      type='button'
-      variant='outline'
-      size='sm'
-      data-testid='lumo-review-copy'
-      onClick={() => void copy()}
-    >
-      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      {intl.formatMessage({
-        id: copied
-          ? 'securityScan.action.copied'
-          : 'securityScan.action.copyForAgent',
-      })}
-    </Button>
+    <span className='inline-flex items-center gap-2'>
+      {failed && (
+        <span role='alert' className='text-caption text-danger-text'>
+          {intl.formatMessage({ id: 'lumoReview.copyFailed' })}
+        </span>
+      )}
+      <Button
+        type='button'
+        variant='outline'
+        size='sm'
+        data-testid='lumo-review-copy'
+        onClick={() => void copy()}
+      >
+        {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+        {intl.formatMessage({
+          id: copied
+            ? 'securityScan.action.copied'
+            : 'securityScan.action.copyForAgent',
+        })}
+      </Button>
+    </span>
   )
 }

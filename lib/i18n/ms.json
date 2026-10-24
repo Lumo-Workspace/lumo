@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# semakan tidak berjalan sepenuhnya}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {# semakan lagi · tiada penemuan}}",
   "lumoReview.reviewAgain": "Semak semula",
+  "lumoReview.copyFailed": "Gagal menyalin",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {# keperluan tidak dipenuhi}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {# keperluan tidak jelas}}",
   "lumoReview.stageInfo.assessment": "Turut menunjukkan penilaian isu: sama ada permintaan tarik melakukan apa yang diminta oleh tugas atau isu yang dipautkan.",

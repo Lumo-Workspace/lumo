@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# Prüfung lief nicht vollständig} other {# Prüfungen liefen nicht vollständig}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {# weitere Prüfung · nichts gefunden} other {# weitere Prüfungen · nichts gefunden}}",
   "lumoReview.reviewAgain": "Erneut prüfen",
+  "lumoReview.copyFailed": "Kopieren fehlgeschlagen",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# Anforderung nicht erfüllt} other {# Anforderungen nicht erfüllt}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# Anforderung unklar} other {# Anforderungen unklar}}",
   "lumoReview.stageInfo.assessment": "Zeigt auch die Issue-Bewertung: ob der Pull-Request tut, was die verknüpfte Aufgabe oder das Issue verlangt.",

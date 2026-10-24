@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# проверка прошла не полностью} few {# проверки прошли не полностью} many {# проверок прошли не полностью} other {# проверки прошли не полностью}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {Ещё # проверка · ничего не найдено} few {Ещё # проверки · ничего не найдено} many {Ещё # проверок · ничего не найдено} other {Ещё # проверки · ничего не найдено}}",
   "lumoReview.reviewAgain": "Проверить снова",
+  "lumoReview.copyFailed": "Не удалось скопировать",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# требование не выполнено} few {# требования не выполнены} many {# требований не выполнено} other {# требования не выполнены}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# требование неясно} few {# требования неясны} many {# требований неясны} other {# требования неясны}}",
   "lumoReview.stageInfo.assessment": "Также показывает оценку задачи: делает ли пул-реквест то, что требует связанная задача или issue.",

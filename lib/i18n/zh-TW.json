@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# 項檢查沒有完整執行}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {另外 # 項檢查 · 未發現問題}}",
   "lumoReview.reviewAgain": "重新檢查",
+  "lumoReview.copyFailed": "複製失敗",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {# 項需求未滿足}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {# 項需求不明確}}",
   "lumoReview.stageInfo.assessment": "同時顯示需求評估：這個拉取請求是否完成了關聯任務或 issue 的要求。",

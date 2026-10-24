@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# vérification n'a pas entièrement tourné} other {# vérifications n'ont pas entièrement tourné}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {# autre vérification · rien trouvé} other {# autres vérifications · rien trouvé}}",
   "lumoReview.reviewAgain": "Relancer la revue",
+  "lumoReview.copyFailed": "Copie impossible",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# exigence non satisfaite} other {# exigences non satisfaites}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# exigence incertaine} other {# exigences incertaines}}",
   "lumoReview.stageInfo.assessment": "Affiche aussi l'évaluation de l'issue : la pull request fait-elle ce que demande la tâche ou l'issue liée.",

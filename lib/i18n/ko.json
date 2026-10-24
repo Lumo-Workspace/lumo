@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {검사 #개가 완전히 실행되지 않았습니다}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {검사 #개 더 · 발견 없음}}",
   "lumoReview.reviewAgain": "다시 검토",
+  "lumoReview.copyFailed": "복사하지 못했습니다",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {요구사항 #개 미충족}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {요구사항 #개 불명확}}",
   "lumoReview.stageInfo.assessment": "이슈 평가도 함께 표시합니다: 풀 리퀘스트가 연결된 작업이나 이슈의 요구를 충족하는지.",

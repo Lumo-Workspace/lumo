@@ -109,3 +109,16 @@ test('Copy for agent is not drawn when nothing needs a decision', () => {
   )
   expect(container).toBeEmptyDOMElement()
 })
+
+test('Copy for agent says so when the clipboard write fails', async () => {
+  const writeText = jest.fn().mockRejectedValue(new Error('denied'))
+  Object.assign(navigator, { clipboard: { writeText } })
+  render(
+    <CopyReviewForAgent data={data([{ pr: pr(7), latest: scan([finding]) }])} />
+  )
+  fireEvent.click(screen.getByTestId('lumo-review-copy'))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'lumoReview.copyFailed'
+  )
+  expect(screen.queryByText('securityScan.action.copied')).toBeNull()
+})

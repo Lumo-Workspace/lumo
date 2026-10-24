@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, other {# 件のチェックが完全には実行されませんでした}}",
   "lumoReview.check.moreEmpty": "{count, plural, other {ほか # 件のチェック · 検出なし}}",
   "lumoReview.reviewAgain": "再レビュー",
+  "lumoReview.copyFailed": "コピーできませんでした",
   "lumoReview.result.requirementsNotMet": "{count, plural, other {要件 # 件が未達}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, other {要件 # 件が不明確}}",
   "lumoReview.stageInfo.assessment": "課題評価も表示します：プルリクエストが関連するタスクや issue の要求を満たしているか。",

@@ -2241,6 +2241,7 @@
   "lumoReview.uncovered.title": "{count, plural, one {# comprobación no se completó} other {# comprobaciones no se completaron}}",
   "lumoReview.check.moreEmpty": "{count, plural, one {# comprobación más · nada encontrado} other {# comprobaciones más · nada encontrado}}",
   "lumoReview.reviewAgain": "Revisar de nuevo",
+  "lumoReview.copyFailed": "No se pudo copiar",
   "lumoReview.result.requirementsNotMet": "{count, plural, one {# requisito sin cumplir} other {# requisitos sin cumplir}}",
   "lumoReview.result.requirementsUnclear": "{count, plural, one {# requisito poco claro} other {# requisitos poco claros}}",
   "lumoReview.stageInfo.assessment": "También muestra la evaluación del issue: si la pull request hace lo que pide la tarea o el issue vinculado.",
