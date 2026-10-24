@@ -156,6 +156,24 @@ function renderPanel(data: object) {
 
 beforeEach(() => jest.clearAllMocks())
 
+// jsdom has no PointerEvent, so fireEvent.pointerDown would drop `button`
+// and the Radix DropdownMenu trigger (which opens on pointerdown) ignores it.
+if (typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent
+}
+
+/** LUM-1308: the review actions sit behind the PR header's ⋯ menu. */
+async function chooseReviewAction(name: string) {
+  fireEvent.pointerDown(
+    screen.getByRole('button', { name: 'Review actions' }),
+    {
+      button: 0,
+      ctrlKey: false,
+    }
+  )
+  fireEvent.click(await screen.findByRole('menuitem', { name }))
+}
+
 test('LUM-1056 paused head exposes manual review controls and reports request failures', async () => {
   const request = tasksClient.reviewPullRequest as jest.Mock
   request.mockResolvedValueOnce({ queued: true })
@@ -173,18 +191,16 @@ test('LUM-1056 paused head exposes manual review controls and reports request fa
     suggested: { count: 0 },
     scanningOff: false,
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Review changes' }))
+  await chooseReviewAction('Review changes')
   await waitFor(() =>
     expect(request).toHaveBeenCalledWith(9, 'o/r', 'incremental')
   )
   const status = await screen.findByRole('status')
   expect(status).toHaveTextContent('Review requested')
-  // Same caption size as the buttons and the rounds note beside it.
+  // A quiet caption next to the menu.
   expect(status).toHaveClass('text-caption', 'text-muted-foreground')
   request.mockRejectedValueOnce(new Error('network'))
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Resume automatic reviews' })
-  )
+  await chooseReviewAction('Resume automatic reviews')
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent('Could not update review settings')
   expect(alert).toHaveClass('text-caption', 'text-danger-text')
@@ -209,19 +225,19 @@ describe('LUM-892 turned-off layer in the task panel', () => {
 
   it('LUM-892 turned-off layer: the row says the layers were turned off in settings, not unfinished on our side', () => {
     renderPanel(data(scan({ stages: TURNED_OFF_STAGES })))
-    // Not expanded by default for the customer's own choice; open it.
-    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
     for (const [key, label] of [
-      ['judge', 'AI review: off in workspace settings'],
-      ['hunt', 'Exploit paths: off in workspace settings'],
+      ['judge', 'AI code review: Off in settings'],
+      ['hunt', 'Attack paths: Off in settings'],
     ]) {
       const cell = screen.getByTestId(`stage-${key}`)
-      expect(cell).toHaveAttribute('aria-label', label)
-      // The customer's choice, not ours unfinished: no warning tone.
+      expect(within(cell).getByLabelText(label!)).toBeInTheDocument()
+      // The customer's choice, not ours unfinished: no warning tone, and
+      // the check does not open by itself.
+      expect(cell).toHaveAttribute('data-tone', 'off')
       expect(cell.querySelector('.text-warning-text')).toBeNull()
     }
     expect(screen.getByTestId('scan-turned-off')).toHaveTextContent(
-      "Turned off in this workspace's settings: AI review, Exploit paths. Those checks did not look at this PR."
+      "Turned off in this workspace's settings: AI code review, Attack paths. Those checks did not look at this PR."
     )
     expect(screen.queryByTestId('scan-unfinished')).toBeNull()
   })
@@ -280,16 +296,20 @@ describe('LUM-892 scanning turned off in the task panel', () => {
     expect(screen.getByTestId('security-scanning-off')).toHaveTextContent(
       'their blocking findings still block Done'
     )
-    const cleanRow = screen.getByTestId('security-pr-9')
-    const badge = within(cleanRow).getByTestId('security-scan-badge')
-    expect(badge).toHaveAttribute('data-state', 'scanning-off')
-    expect(badge).not.toHaveTextContent('Clean')
-    // The blocking finding from before scanning was turned off still gates.
+    // The blocking finding from before scanning was turned off still gates —
+    // and its PR's tab is the one selected first (LUM-1308).
     expect(screen.getByTestId('security-blocking-banner')).toBeInTheDocument()
     const findingsRow = screen.getByTestId('security-pr-10')
     expect(
       within(findingsRow).getByTestId('security-scan-badge')
     ).toHaveAttribute('data-state', 'findings')
+    fireEvent.mouseDown(screen.getByTestId('security-pr-9-toggle'), {
+      button: 0,
+    })
+    const cleanRow = screen.getByTestId('security-pr-9')
+    const badge = within(cleanRow).getByTestId('security-scan-badge')
+    expect(badge).toHaveAttribute('data-state', 'scanning-off')
+    expect(badge).not.toHaveTextContent('Clean')
   })
 })
 

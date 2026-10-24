@@ -1,7 +1,13 @@
 // LUM-740: the panel shows what the pipeline knows — stage row, kind /
 // provenance / reachability, call chain, suggested-FP badge + reason,
 // confirm-all, copy-for-agent, fixed-since-previous-scan.
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/workspace/acme/tasks/LUM-1',
@@ -52,6 +58,14 @@ const messages: Record<string, string> = {
   'record.security.noneOnComplete': 'no findings on completed scans',
   'record.security.incomplete': '{count} scan(s) incomplete',
   'record.security.failed': '{count} external scan(s) failed',
+  'lumoReview.check.secrets': 'Leaked secrets',
+  'lumoReview.check.external': 'Risky code patterns',
+  'lumoReview.check.supplyChain': 'Vulnerable packages',
+  'lumoReview.check.judge': 'AI code review',
+  'lumoReview.check.hunt': 'Attack paths',
+  'lumoReview.result.nothingFound': 'Nothing found',
+  'lumoReview.result.notNeeded': 'Not needed',
+  'lumoReview.result.scanning': 'Scanning',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -157,6 +171,14 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   } as unknown as typeof ResizeObserver
 }
 
+/** LUM-1308: open a check's fold, then (optionally) a quiet group in it. */
+function openCheck(key: string) {
+  fireEvent.click(screen.getByTestId(`check-${key}-toggle`))
+}
+function openGroup(testId: string) {
+  fireEvent.click(within(screen.getByTestId(testId)).getAllByRole('button')[0]!)
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   Object.assign(navigator, { clipboard: { writeText: jest.fn() } })
@@ -176,21 +198,28 @@ describe('LUM-740 panel', () => {
         complete: false,
       })
     )
-    // LUM-1012: one cell per layer, in pipeline order.
+    // LUM-1308: one row per check, in display order, its state on the row.
     expect(
-      screen.getAllByTestId(/^stage-/).map(el => el.getAttribute('aria-label'))
+      screen
+        .getAllByTestId(/^stage-/)
+        .map(el => [
+          el.getAttribute('data-testid'),
+          el.getAttribute('data-check-state'),
+        ])
     ).toEqual([
-      'Secret patterns: ran',
-      'External scanner: ran',
-      'Dependencies: ran',
-      'LLM review: ran',
-      'Vulnerability hunt: scanning',
+      ['stage-secrets', 'RAN'],
+      ['stage-external', 'RAN'],
+      ['stage-supplyChain', 'RAN'],
+      ['stage-judge', 'RAN'],
+      ['stage-hunt', 'PENDING'],
     ])
+    expect(screen.getByLabelText('Attack paths: Scanning')).toBeInTheDocument()
   })
 
-  test('a layer that did not run says why on hover; a checked one has no hover', async () => {
+  test('a layer that did not run says why in its fold; a checked one has nothing to fold', () => {
     renderWith(
       scan({
+        findings: [],
         stages: {
           secrets: 'RAN',
           external: 'RAN',
@@ -200,36 +229,20 @@ describe('LUM-740 panel', () => {
         },
       })
     )
-    // A checked layer is a labelled image, not a control.
-    expect(screen.getByTestId('stage-secrets').tagName).toBe('SPAN')
-    expect(screen.getByTestId('stage-secrets')).toHaveAttribute('role', 'img')
-    // A checked layer keeps its plain state hover.
-    expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
-      'title',
-      'Secret patterns: ran'
-    )
-    expect(screen.getByTestId('stage-hunt')).not.toHaveAttribute('title')
-    const hunt = screen.getByTestId('stage-hunt')
-    // A layer with a reason is a real button: focusable without tabIndex,
-    // and no role=img describing itself twice.
-    expect(hunt.tagName).toBe('BUTTON')
-    expect(hunt).toHaveAttribute('type', 'button')
-    expect(hunt).not.toHaveAttribute('role')
-    expect(hunt).not.toHaveAttribute('tabindex')
-    // Never hover-only: the reason is the cell's accessible description.
-    const describedBy = hunt.getAttribute('aria-describedby')
-    expect(describedBy).toBeTruthy()
-    expect(document.getElementById(describedBy as string)).toHaveTextContent(
-      'securityScan.stageReason.huntSkipped'
-    )
-    expect(screen.getByTestId('stage-secrets')).not.toHaveAttribute(
-      'aria-describedby'
-    )
-    // Hover / focus opens the tooltip with the same reason.
-    fireEvent.focus(hunt)
-    expect(await screen.findByTestId('stage-reason')).toHaveTextContent(
-      'securityScan.stageReason.huntSkipped'
-    )
+    // A checked layer with nothing found is one plain line.
+    expect(screen.queryByTestId('check-secrets-toggle')).toBeNull()
+    expect(
+      screen.getByLabelText('Leaked secrets: Nothing found')
+    ).toBeInTheDocument()
+    // A skipped one starts folded (not a warning) and says why when opened —
+    // in the page, never hover-only.
+    const hunt = screen.getByTestId('check-hunt-toggle')
+    expect(hunt).toHaveAttribute('aria-expanded', 'false')
+    expect(hunt).toHaveAccessibleName('Attack paths: Not needed')
+    openCheck('hunt')
+    expect(
+      within(screen.getByTestId('stage-hunt')).getByTestId('check-reason')
+    ).toHaveTextContent('securityScan.stageReason.huntSkipped')
   })
 
   test('each layer shows its name and an info button that says what it checks', async () => {
@@ -246,8 +259,8 @@ describe('LUM-740 panel', () => {
     )
     // The names ride on the row — no separate header to line up with.
     const row = screen.getByTestId('security-pr-9')
-    expect(row).toHaveTextContent('External scanner')
-    expect(row).toHaveTextContent('Vulnerability hunt')
+    expect(row).toHaveTextContent('Risky code patterns')
+    expect(row).toHaveTextContent('Attack paths')
     // Code scan: what it checks plus the scanners behind it.
     fireEvent.click(screen.getByTestId('layer-info-external'))
     const external = await screen.findByTestId('layer-info-external-content')
@@ -285,7 +298,8 @@ describe('LUM-740 panel', () => {
       })
     )
     const row = screen.getByTestId('security-finding-h1')
-    expect(row).toHaveTextContent('Vulnerability')
+    // LUM-1308: under Attack paths the check already names the kind.
+    expect(row.querySelector('[data-testid="finding-kind"]')).toBeNull()
     expect(row).toHaveTextContent('LLM review')
     expect(row).toHaveTextContent('Reachable from an entry point')
     expect(row).toHaveTextContent('CWE-639')
@@ -327,6 +341,8 @@ describe('LUM-740 panel', () => {
     expect(open).toHaveTextContent(
       'LLM reasoning: the value is the documented AKIA…EXAMPLE placeholder'
     )
+    // The decided one sits folded in its check's "Decided" group.
+    openGroup('finding-group-ruled')
     expect(screen.getByTestId('security-finding-s2')).toHaveTextContent(
       'suggestion confirmed'
     )
@@ -404,17 +420,18 @@ describe('LUM-988 verifier-rejected finding in the panel', () => {
         ],
       })
     )
-    // The rejection is said once, as its group's heading — not as a chip on
-    // the row; the unverified row sits in the open group above it.
+    // LUM-1308: the unverified secret is open under Leaked secrets; the
+    // rejected bug is folded under AI code review, which has nothing to
+    // decide and starts closed.
+    expect(screen.getByTestId('security-finding-plain')).toBeInTheDocument()
+    expect(screen.queryByTestId('security-finding-rej')).toBeNull()
+    openCheck('judge')
+    // The rejection is said once, as its group's heading — not as a chip.
     expect(
       screen.getByTestId('finding-group-verifierRejected')
     ).toHaveTextContent('securityScan.group.verifierRejected · 1')
+    openGroup('finding-group-verifierRejected')
     expect(screen.queryByTestId('finding-verifier-rejected')).toBeNull()
-    expect(
-      screen
-        .getAllByTestId(/^finding-group-/)
-        .map(el => el.getAttribute('data-testid'))
-    ).toEqual(['finding-group-open', 'finding-group-verifierRejected'])
     // LUM-1012: nothing to decide, so it is folded to one line; the reason
     // is one click away.
     expect(screen.queryByTestId('finding-verifier-reason')).toBeNull()
@@ -435,8 +452,8 @@ describe('LUM-1012 finding groups', () => {
         ],
       })
     )
-    // Nothing to decide, so the row starts folded — open it.
-    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+    // Nothing to decide, so the check starts folded — open it.
+    openCheck('secrets')
     const ids = screen
       .getAllByTestId(/^finding-group-/)
       .map(el => el.getAttribute('data-testid'))
