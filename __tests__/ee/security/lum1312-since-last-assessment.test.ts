@@ -174,6 +174,20 @@ describe('previousAssessment', () => {
     })
   })
 
+  it("a run that failed (every requirement carries the check's own explanation) is skipped", () => {
+    const failed = record(OLD, [
+      ['task:goal', 'unclear'],
+      ['task:done:1', 'unclear'],
+    ])
+    const why = 'Lumo could not run this check this time.'
+    failed.results[0]!.explanation = why
+    for (const r of failed.results[0]!.requirements!) r.explanation = why
+    const older = record('3333333', [['task:goal', 'not_addressed']])
+    expect(previousAssessment([failed, older], CHECK, NEW)?.headSha).toBe(
+      '3333333'
+    )
+  })
+
   it('none ⇒ null (a first assessment, or only this head assessed)', () => {
     expect(previousAssessment([], CHECK, NEW)).toBeNull()
     expect(

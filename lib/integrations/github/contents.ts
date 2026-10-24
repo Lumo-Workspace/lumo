@@ -425,7 +425,7 @@ const COMPARE_FILES_MAX = 300
  * not an ancestor of `head` (a force-push or rebase): the diff is then not
  * returned, since it would not be "what changed since". `complete` is false
  * when GitHub cut the file list (a file without a patch — binary, or too
- * large — is listed by its header only). Throws on
+ * large — is listed by its header and a line saying so). Throws on
  * an API error like its siblings.
  */
 export async function fetchCompareDiff(opts: {
@@ -481,7 +481,7 @@ export async function fetchCompareDiff(opts: {
         `diff --git a/${from} b/${f.filename}`,
         `--- ${f.status === 'added' ? '/dev/null' : `a/${from}`}`,
         `+++ ${f.status === 'removed' ? '/dev/null' : `b/${f.filename}`}`,
-        ...(f.patch ? [f.patch] : []),
+        f.patch ?? '(no patch shown: binary or too large)',
       ].join('\n')
     })
     .join('\n')

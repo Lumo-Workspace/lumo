@@ -58,7 +58,9 @@ export type SinceLastAssessment =
  * PURE — the newest stored assessment of `checkId` on a head other than
  * `headSha` (records newest first, parsed; null entries skipped). A record of this same head is
  * skipped (an edit re-check, or a re-scan); one whose check has no
- * per-requirement outcomes (not applicable, nothing linked) is skipped too.
+ * per-requirement outcomes (not applicable, nothing linked) is skipped too,
+ * and so is a run that failed (`inconclusiveResults`: every requirement
+ * carries the check's own "could not run" explanation) — it judged nothing.
  */
 export function previousAssessment(
   records: ReadonlyArray<PreMergeChecksRecord | null>,
@@ -69,6 +71,12 @@ export function previousAssessment(
     if (!record || !record.headSha || record.headSha === headSha) continue
     const result = record.results.find(r => r.id === checkId)
     if (!result?.requirements?.length) continue
+    if (
+      result.verdict === 'inconclusive' &&
+      result.explanation !== '' &&
+      result.requirements.every(r => r.explanation === result.explanation)
+    )
+      continue
     return {
       headSha: record.headSha,
       ranAt: record.ranAt,

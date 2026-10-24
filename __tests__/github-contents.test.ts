@@ -411,9 +411,11 @@ test('LUM-1312 compare diff: patches as a unified diff; not an ancestor ⇒ no d
         'diff --git a/img.png b/img.png',
         '--- /dev/null',
         '+++ b/img.png',
+        '(no patch shown: binary or too large)',
         'diff --git a/old.ts b/b.ts',
         '--- a/old.ts',
         '+++ b/b.ts',
+        '(no patch shown: binary or too large)',
         '',
       ].join('\n'),
     })
