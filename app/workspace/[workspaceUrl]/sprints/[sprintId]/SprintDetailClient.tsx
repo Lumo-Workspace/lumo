@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
@@ -31,6 +31,10 @@ import { StageCards } from '../components/detail/StageCards'
 import { AwaitingPeopleCard } from '../components/detail/AwaitingPeopleCard'
 import { CostOutputCard } from '../components/detail/CostOutputCard'
 import { SprintTaskTable } from '../components/detail/SprintTaskTable'
+import {
+  SprintBreadcrumbSkeleton,
+  SprintDetailSkeleton,
+} from '../components/detail/SprintDetailSkeleton'
 import {
   buildStageCards,
   summarizeQueueKinds,
@@ -149,7 +153,7 @@ export function SprintDetailClient({
   const sprintsHref = `/workspace/${workspaceUrl}/sprints`
   const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })
 
-  function breadcrumb(currentLabel: string) {
+  function breadcrumb(currentLabel: ReactNode) {
     return (
       <Breadcrumb>
         <BreadcrumbList>
@@ -167,10 +171,16 @@ export function SprintDetailClient({
     )
   }
 
-  if (isLoading || error || !sprint) {
-    const label = intl.formatMessage({
-      id: isLoading ? 'sprints.detail.loading' : 'sprints.detail.notFound',
-    })
+  if (isLoading) {
+    return (
+      <DetailLayout breadcrumb={breadcrumb(<SprintBreadcrumbSkeleton />)}>
+        <SprintDetailSkeleton />
+      </DetailLayout>
+    )
+  }
+
+  if (error || !sprint) {
+    const label = intl.formatMessage({ id: 'sprints.detail.notFound' })
     return (
       <DetailLayout breadcrumb={breadcrumb(label)}>
         <div className='p-6 text-muted-foreground'>{label}</div>
