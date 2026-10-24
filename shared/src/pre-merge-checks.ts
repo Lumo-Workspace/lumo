@@ -1,3 +1,6 @@
+/** LUM-1149 — the built-in linked task / issue assessment's check id. */
+export const ISSUE_ASSESSMENT_CHECK_ID = 'issue_assessment'
+
 /** Privacy-filtered, commit-scoped pre-merge results shared by UI and CLI. */
 export interface PreMergeCheckView {
   id: string

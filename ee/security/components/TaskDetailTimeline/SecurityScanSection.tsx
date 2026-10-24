@@ -61,7 +61,19 @@ import {
   type FindingGroup,
   type FindingGroupKey,
 } from './security-summary'
-import { buildCheckRows, orderPrs, type CheckRow } from './lumo-review-checks'
+import {
+  buildCheckRows,
+  checkProgress,
+  isEmptyCheck,
+  orderPrs,
+  prLevelPreMergeChecks,
+  summarizesUncovered,
+  uncoveredChecks,
+  type CheckRow,
+} from './lumo-review-checks'
+import { Progress } from '@/components/ui/progress'
+import { useNow } from '@/hooks/use-now'
+import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
 import {
@@ -70,13 +82,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { Alert } from '@/components/ui/alert'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { securityScanClient } from '@/ee/security/api-client'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
+import {
+  nonPassingChecks,
+  type PreMergeCheckView,
+} from '@/shared/src/pre-merge-checks'
 
 /** `OPEN` = Reopen: revert a ruling (web only, LUM-1128 follow-up). */
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | 'OPEN'
@@ -169,26 +184,11 @@ function SecurityScanPanel({
   const intl = useIntl()
   const scanned = data.prs.some(p => p.latest !== null)
   return (
-    // LUM-1009/1012: the Record tab's row carries the title and the verdict.
+    // LUM-1009/1012: the Record tab's row carries the title and the verdict
+    // (LUM-1308: as a badge — so no blocking banner here).
     <div data-testid='security-scan-panel' className='space-y-3'>
       {(data.suggested?.count ?? 0) > 0 && (
         <ConfirmAllSuggested taskId={taskId} count={data.suggested.count} />
-      )}
-      {data.blocking.count > 0 && (
-        <Alert
-          variant='danger'
-          size='sm'
-          role='note'
-          data-testid='security-blocking-banner'
-        >
-          <AlertCircle aria-hidden />
-          <p>
-            {intl.formatMessage(
-              { id: 'securityScan.banner.blocking' },
-              { count: data.blocking.count }
-            )}
-          </p>
-        </Alert>
       )}
       {/* LUM-892: scanning turned off in settings — said up front, so the
           results below read as "from before", not as the PR's answer. */}
@@ -215,6 +215,7 @@ function SecurityScanPanel({
           taskId={taskId}
           entry={data.prs[0]!}
           scanningOff={data.scanningOff}
+          showResult={false}
         />
       ) : data.prs.length === 2 ? (
         <PrTabs taskId={taskId} prs={data.prs} scanningOff={data.scanningOff} />
@@ -381,6 +382,8 @@ function PrListRow({
             entry={entry}
             scanningOff={scanningOff}
             showResult={false}
+            showState
+            foldEmptyChecks
           />
         </div>
       </CollapsibleContent>
@@ -397,14 +400,29 @@ function PrReport({
   entry,
   scanningOff,
   showResult = true,
+  showState = false,
+  foldEmptyChecks = false,
 }: {
   taskId: string
   entry: PrEntry
   scanningOff: boolean
+  /** The PR's result badge — off where a header above already says it. */
   showResult?: boolean
+  /** "Open" / "Merged" after the link — in the many-PR list. */
+  showState?: boolean
+  /** Fold checks with nothing in them into one row (many PRs). */
+  foldEmptyChecks?: boolean
 }) {
   const intl = useIntl()
+  const now = useNow()
   const { pr, latest, reviewControl } = entry
+  const rows = latest ? buildCheckRows(latest) : []
+  const summarized = summarizesUncovered(rows)
+  const progress = checkProgress(rows)
+  const scanning = progress.done < progress.total
+  const shown = foldEmptyChecks ? rows.filter(r => !isEmptyCheck(r)) : rows
+  const folded = foldEmptyChecks ? rows.filter(isEmptyCheck) : []
+  const ranAt = latest ? (latest.finishedAt ?? latest.startedAt) : null
   return (
     <div data-testid={`security-pr-${pr.number}`} className='space-y-2'>
       <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
@@ -431,6 +449,25 @@ function PrReport({
             {latest.headSha.slice(0, 7)}
           </span>
         )}
+        {showState && (
+          <span className='text-caption text-muted-foreground'>
+            {intl.formatMessage({
+              id: `lumoReview.pr.state.${
+                pr.state === 'merged' || pr.state === 'closed'
+                  ? pr.state
+                  : 'open'
+              }`,
+            })}
+          </span>
+        )}
+        {ranAt && now != null && (
+          <span
+            data-testid='lumo-review-ran-at'
+            className='text-caption text-muted-foreground'
+          >
+            {formatRelativeAgo(intl, ranAt, now)}
+          </span>
+        )}
         {showResult && (
           <span className='shrink-0'>
             {scanningOff && showsScanningOff(latest) ? (
@@ -447,6 +484,7 @@ function PrReport({
             number={pr.number}
             repo={pr.repo}
             scan={latest}
+            reviewAgain={summarized}
             {...(reviewControl ? { control: reviewControl } : {})}
           />
         )}
@@ -458,17 +496,50 @@ function PrReport({
       )}
       {latest && (
         <>
-          <ScanNotices scan={latest} />
+          <ScanNotices scan={latest} ownedInSummary={summarized} />
+          {summarized && (
+            <UncoveredSummary
+              rows={uncoveredChecks(rows)}
+              scan={latest}
+              owned={latest.ownedUnfinished}
+            />
+          )}
+          {scanning && (
+            <div data-testid='lumo-review-progress' className='space-y-1.5'>
+              <Progress
+                tone='foreground'
+                value={(progress.done / Math.max(1, progress.total)) * 100}
+                aria-label={intl.formatMessage(
+                  { id: 'lumoReview.progress' },
+                  progress
+                )}
+              />
+              <p className='text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: 'lumoReview.progress' }, progress)}
+              </p>
+            </div>
+          )}
           <ul className='divide-y divide-border'>
-            {buildCheckRows(latest).map(row => (
+            {shown.map(row => (
               <CheckRowView
                 key={row.key}
                 taskId={taskId}
                 pr={pr}
                 scan={latest}
                 row={row}
+                // The summary above says why each uncovered check didn't
+                // run; their rows wait to be opened.
+                opensByDefault={row.defaultOpen && !summarized}
               />
             ))}
+            {folded.length > 0 && (
+              <EmptyChecks
+                taskId={taskId}
+                pr={pr}
+                scan={latest}
+                rows={folded}
+              />
+            )}
           </ul>
         </>
       )}
@@ -488,48 +559,28 @@ function useApiKeysHref(): string {
  * cleared code, fixes since the last scan, our own unfinished work, layers
  * turned off, a PR too large to scan, and a failed scan's error.
  */
-function ScanNotices({ scan }: { scan: SecurityScanView }) {
+function ScanNotices({
+  scan,
+  ownedInSummary,
+}: {
+  scan: SecurityScanView
+  /** The owned "didn't finish on our side" line is in the summary instead. */
+  ownedInSummary: boolean
+}) {
   const intl = useIntl()
   const turnedOff = turnedOffLayers(scan.stages)
   return (
     <div className='space-y-1.5 empty:hidden'>
-      {nonPassingChecks(scan.preMergeChecks).map(check => (
-        <Alert
-          key={check.id}
-          variant='warning'
-          size='sm'
-          role='note'
-          data-testid='pre-merge-check'
-          className='gap-y-0.5'
-        >
-          <p className='text-body-strong'>
-            {check.name} ·{' '}
-            {intl.formatMessage({
-              id: `securityScan.preMerge.${check.verdict}`,
-            })}
-          </p>
-          {check.explanation ? <p>{check.explanation}</p> : null}
-          {check.resolution ? <p>{check.resolution}</p> : null}
-          {check.requirements
-            ?.filter(r => r.outcome !== 'addressed')
-            .map(r => (
-              <p key={r.id}>
-                {r.label} ·{' '}
-                {intl.formatMessage({
-                  id: `securityScan.preMerge.${r.outcome}`,
-                })}
-                {r.quotable && r.text ? `: ${r.text}` : ''}
-                {r.quotable && r.explanation ? ` — ${r.explanation}` : ''}
-              </p>
-            ))}
-        </Alert>
+      {/* LUM-1308: the issue assessment sits on the "Matches the task" row. */}
+      {prLevelPreMergeChecks(scan).map(check => (
+        <PreMergeCheckNotice key={check.id} check={check} />
       ))}
       {/* LUM-1079: the whole PR was too large to scan — why, and what to
           do (split it or narrow its scope). */}
       {scan.prTooLarge && <PrTooLargeNotice tooLarge={scan.prTooLarge} />}
       {/* LUM-832: one owned line, whatever the cause; the check rows say
           which layer did not finish. */}
-      {scan.ownedUnfinished && (
+      {scan.ownedUnfinished && !ownedInSummary && (
         <p
           data-testid='scan-unfinished'
           className='text-caption text-warning-text'
@@ -590,6 +641,41 @@ function ScanNotices({ scan }: { scan: SecurityScanView }) {
   )
 }
 
+/** A pre-merge check that did not pass: verdict, why, and each unmet item. */
+function PreMergeCheckNotice({ check }: { check: PreMergeCheckView }) {
+  const intl = useIntl()
+  return (
+    <Alert
+      variant='warning'
+      size='sm'
+      role='note'
+      data-testid='pre-merge-check'
+      className='gap-y-0.5'
+    >
+      <p className='text-body-strong'>
+        {check.name} ·{' '}
+        {intl.formatMessage({
+          id: `securityScan.preMerge.${check.verdict}`,
+        })}
+      </p>
+      {check.explanation ? <p>{check.explanation}</p> : null}
+      {check.resolution ? <p>{check.resolution}</p> : null}
+      {check.requirements
+        ?.filter(r => r.outcome !== 'addressed')
+        .map(r => (
+          <p key={r.id}>
+            {r.label} ·{' '}
+            {intl.formatMessage({
+              id: `securityScan.preMerge.${r.outcome}`,
+            })}
+            {r.quotable && r.text ? `: ${r.text}` : ''}
+            {r.quotable && r.explanation ? ` — ${r.explanation}` : ''}
+          </p>
+        ))}
+    </Alert>
+  )
+}
+
 /** The short result on a check's row: what it found, or why it didn't run. */
 function checkResult(
   intl: ReturnType<typeof useIntl>,
@@ -605,6 +691,25 @@ function checkResult(
         ? 'text-danger-text'
         : 'text-foreground',
     }
+  // LUM-1308: the issue assessment did not pass — what it says about the
+  // task's requirements.
+  if (row.assessment) {
+    const failed = row.assessment.verdict === 'failed'
+    const unmet = (row.assessment.requirements ?? []).filter(
+      r => r.outcome === (failed ? 'not_addressed' : 'unclear')
+    ).length
+    return {
+      text:
+        unmet > 0
+          ? msg(failed ? 'requirementsNotMet' : 'requirementsUnclear', {
+              count: unmet,
+            })
+          : intl.formatMessage({
+              id: `securityScan.preMerge.${row.assessment.verdict}`,
+            }),
+      tone: failed ? 'text-danger-text' : 'text-warning-text',
+    }
+  }
   const hunt = row.key === 'hunt' ? scan.huntProgress : null
   const huntShort = hunt != null && hunt.coveredFiles < hunt.totalFiles
   const warn = 'text-warning-text'
@@ -626,7 +731,7 @@ function checkResult(
         covered: hunt.coveredFiles,
         total: hunt.totalFiles,
       }),
-      tone: muted,
+      tone: row.tone === 'warn' ? warn : muted,
     }
   // LUM-1308: a scanner 30 minutes late is not "scanning" any more.
   if (row.key === 'external' && scan.externalLate)
@@ -788,21 +893,25 @@ function CheckRowView({
   pr,
   scan,
   row,
+  opensByDefault,
 }: {
   taskId: string
   pr: PrEntry['pr']
   scan: SecurityScanView
   row: CheckRow
+  /** Whether the row opens on its own — `row.defaultOpen` unless a
+   *  summary above already says what it would show. */
+  opensByDefault: boolean
 }) {
   const intl = useIntl()
-  const [open, setOpen] = useState(row.defaultOpen)
+  const [open, setOpen] = useState(opensByDefault)
   // A row that gains a reason to open (a new finding, a layer that stopped
   // covering the PR) opens on refresh. Losing the reason never closes it —
   // a human who just ruled on the last finding keeps seeing the result.
-  const [openedFor, setOpenedFor] = useState(row.defaultOpen)
-  if (row.defaultOpen !== openedFor) {
-    setOpenedFor(row.defaultOpen)
-    if (row.defaultOpen) setOpen(true)
+  const [openedFor, setOpenedFor] = useState(opensByDefault)
+  if (opensByDefault !== openedFor) {
+    setOpenedFor(opensByDefault)
+    if (opensByDefault) setOpen(true)
   }
   const name = intl.formatMessage({ id: `lumoReview.check.${row.key}` })
   const result = checkResult(intl, row, scan)
@@ -815,19 +924,28 @@ function CheckRowView({
     ? intl.formatMessage({ id: reason.id }, reason.values)
     : null
   const expandable =
-    row.open.length > 0 || row.quiet.length > 0 || notices || reasonText != null
+    row.open.length > 0 ||
+    row.quiet.length > 0 ||
+    row.assessment != null ||
+    notices ||
+    reasonText != null
+  // An unmet assessment reads as a warning even when the layer itself ran.
+  const tone =
+    row.assessment && (row.tone === 'ok' || row.tone === 'off')
+      ? 'warn'
+      : row.tone
   const Icon =
-    row.tone === 'ok'
+    tone === 'ok'
       ? Check
-      : row.tone === 'off'
+      : tone === 'off'
         ? Minus
-        : row.tone === 'pending'
+        : tone === 'pending'
           ? Loader2
           : AlertCircle
   const iconTone =
-    row.tone === 'ok'
+    tone === 'ok'
       ? 'text-success-text'
-      : row.tone === 'warn'
+      : tone === 'warn'
         ? 'text-warning-text'
         : 'text-muted-foreground'
   const label = `${name}: ${result.text}`
@@ -835,13 +953,13 @@ function CheckRowView({
     <>
       <Icon
         className={`size-4 shrink-0 ${iconTone}${
-          row.tone === 'pending' ? ' animate-spin' : ''
+          tone === 'pending' ? ' animate-spin' : ''
         }`}
         aria-hidden
       />
       <span
         className={`min-w-0 flex-1 truncate text-body-strong ${
-          row.tone === 'off' ? 'text-muted-foreground' : 'text-foreground'
+          tone === 'off' ? 'text-muted-foreground' : 'text-foreground'
         }`}
       >
         {name}
@@ -894,6 +1012,7 @@ function CheckRowView({
                 </p>
               )}
               <CheckNotices checkKey={row.key} scan={scan} />
+              {row.assessment && <PreMergeCheckNotice check={row.assessment} />}
               {row.open.map(f => (
                 <FindingRow
                   key={f.id}
@@ -915,6 +1034,99 @@ function CheckRowView({
             </div>
           </CollapsibleContent>
         )}
+      </li>
+    </Collapsible>
+  )
+}
+
+/**
+ * LUM-1308 — nothing to decide on, but some checks did not cover the PR:
+ * said once, each check with its short reason, plus our own "didn't finish"
+ * line when it is ours.
+ */
+function UncoveredSummary({
+  rows,
+  scan,
+  owned,
+}: {
+  rows: CheckRow[]
+  scan: SecurityScanView
+  owned: boolean
+}) {
+  const intl = useIntl()
+  return (
+    <Alert role='note' data-testid='lumo-review-uncovered'>
+      <AlertCircle className='!text-warning-text' aria-hidden />
+      <AlertTitle>
+        {intl.formatMessage(
+          { id: 'lumoReview.uncovered.title' },
+          { count: rows.length }
+        )}
+      </AlertTitle>
+      <ul className='list-disc space-y-0.5 pl-4 text-muted-foreground'>
+        {rows.map(row => (
+          <li key={row.key}>
+            {`${intl.formatMessage({ id: `lumoReview.check.${row.key}` })} — ${
+              checkResult(intl, row, scan).text
+            }`}
+          </li>
+        ))}
+      </ul>
+      {owned && (
+        <p data-testid='scan-unfinished' className='text-muted-foreground'>
+          {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
+    </Alert>
+  )
+}
+
+/**
+ * LUM-1308 — with many PRs, the checks with nothing in them fold into one
+ * "N more checks · nothing found" row, opened on demand.
+ */
+function EmptyChecks({
+  taskId,
+  pr,
+  scan,
+  rows,
+}: {
+  taskId: string
+  pr: PrEntry['pr']
+  scan: SecurityScanView
+  rows: CheckRow[]
+}) {
+  const intl = useIntl()
+  return (
+    <Collapsible asChild>
+      <li data-testid='lumo-review-empty-checks'>
+        <CollapsibleTrigger className='flex min-h-11 w-full items-center gap-2.5 text-left'>
+          <Check className='size-4 shrink-0 text-success-text' aria-hidden />
+          <span className='min-w-0 flex-1 truncate text-body text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'lumoReview.check.moreEmpty' },
+              { count: rows.length }
+            )}
+          </span>
+          <ChevronDown
+            className='size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-180'
+            aria-hidden
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className='divide-y divide-border border-t border-border'>
+            {rows.map(row => (
+              <CheckRowView
+                key={row.key}
+                taskId={taskId}
+                pr={pr}
+                scan={scan}
+                row={row}
+                opensByDefault={false}
+              />
+            ))}
+          </ul>
+        </CollapsibleContent>
       </li>
     </Collapsible>
   )
@@ -970,12 +1182,16 @@ function ReviewControls({
   repo,
   control,
   scan,
+  reviewAgain = false,
 }: {
   taskId: string
   number: number
   repo: string
   control?: { paused: boolean; rounds: number; limit: number }
   scan: SecurityScanView | null
+  /** LUM-1308: a visible "Review again" (a full review) — when checks did
+   *  not cover the PR and there is nothing else to act on. */
+  reviewAgain?: boolean
 }) {
   const intl = useIntl()
   const client = useQueryClient()
@@ -1029,6 +1245,18 @@ function ReviewControls({
   // the reviewed-commit count is the menu's label.
   return (
     <div className='flex flex-wrap items-center gap-2'>
+      {reviewAgain && (
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={busy}
+          data-testid='lumo-review-again'
+          onClick={() => void act('full')}
+        >
+          {intl.formatMessage({ id: 'lumoReview.reviewAgain' })}
+        </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -1136,6 +1364,11 @@ function StageInfo({
         <p className='text-foreground/80'>
           {intl.formatMessage({ id: `securityScan.stageInfo.${stageKey}` })}
         </p>
+        {stageKey === 'rewardHack' ? (
+          <p className='text-foreground/80'>
+            {intl.formatMessage({ id: 'lumoReview.stageInfo.assessment' })}
+          </p>
+        ) : null}
         {tools ? (
           <p className='text-muted-foreground'>
             {intl.formatMessage(

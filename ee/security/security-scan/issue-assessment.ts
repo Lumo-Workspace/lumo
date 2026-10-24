@@ -37,7 +37,7 @@ import {
   type RepoAbsenceSearch,
 } from './repo-absence-search'
 
-export const ISSUE_ASSESSMENT_CHECK_ID = 'issue_assessment'
+export { ISSUE_ASSESSMENT_CHECK_ID } from '@/shared/src/pre-merge-checks'
 export const ISSUE_ASSESSMENT_CHECK_NAME = 'Issue assessment'
 
 /** Requirements read from one task (Goal + Done when items), at most. */

@@ -73,6 +73,7 @@ jest.mock('@/ee/security/hooks/useSecurityScans', () => ({
 
 import { SecurityScanSection } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 import { scanCoverageState } from '@/shared/src/security-scan'
+import { reviewVerdict } from '@/ee/security/components/TaskDetailTimeline/lumo-review-checks'
 import {
   ScanningOffBadge,
   showsScanningOff,
@@ -215,12 +216,12 @@ describe('LUM-892 turned-off layer in the task panel', () => {
   })
 
   it('LUM-892 turned-off layer: a clean scan with AI review and hunt off is never shown as Clean', () => {
-    renderPanel(data(scan({ stages: TURNED_OFF_STAGES })))
-    const badge = screen.getByTestId('security-scan-badge')
-    expect(badge).toHaveAttribute('data-state', 'turned-off')
-    expect(badge).toHaveTextContent('Some checks off')
-    expect(badge).not.toHaveTextContent('Clean')
-    // (The Records row's verdict for this case: security-verdict.test.)
+    const d = data(scan({ stages: TURNED_OFF_STAGES }))
+    renderPanel(d)
+    // LUM-1308: one PR draws no result badge; the card header's verdict
+    // says it — and it is "turned off", never Clean.
+    expect(screen.queryByTestId('security-scan-badge')).toBeNull()
+    expect(reviewVerdict(d as never).kind).toBe('turnedOff')
   })
 
   it('LUM-892 turned-off layer: the row says the layers were turned off in settings, not unfinished on our side', () => {
@@ -243,17 +244,13 @@ describe('LUM-892 turned-off layer in the task panel', () => {
   })
 
   it('LUM-892 turned-off layer: control, the same scan with every layer run reads Clean', () => {
-    renderPanel(
-      data(
-        scan({
-          stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
-        })
-      )
+    const d = data(
+      scan({
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+      })
     )
-    expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
-      'data-state',
-      'clean'
-    )
+    renderPanel(d)
+    expect(reviewVerdict(d as never).kind).toBe('clean')
   })
 })
 
@@ -298,7 +295,6 @@ describe('LUM-892 scanning turned off in the task panel', () => {
     )
     // The blocking finding from before scanning was turned off still gates —
     // and its PR's tab is the one selected first (LUM-1308).
-    expect(screen.getByTestId('security-blocking-banner')).toBeInTheDocument()
     const findingsRow = screen.getByTestId('security-pr-10')
     expect(
       within(findingsRow).getByTestId('security-scan-badge')
