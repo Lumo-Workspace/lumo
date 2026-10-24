@@ -416,6 +416,84 @@ export async function fetchReviewChangedPaths(opts: {
   ])
 }
 
+/** GitHub's compare file list is cut at this many files. */
+const COMPARE_FILES_MAX = 300
+
+/**
+ * LUM-1312 — what changed from `base` to `head`, as a unified diff built
+ * from the compare's per-file patches. `ancestor` is false when `base` is
+ * not an ancestor of `head` (a force-push or rebase): the diff is then not
+ * returned, since it would not be "what changed since". `complete` is false
+ * when GitHub cut the file list (a file without a patch — binary, or too
+ * large — is listed by its header and a line saying so). Throws on
+ * an API error like its siblings.
+ */
+export async function fetchCompareDiff(opts: {
+  workspaceId: string
+  fullName: string
+  base: string
+  head: string
+}): Promise<
+  | { ancestor: false; status: string }
+  | {
+      ancestor: true
+      aheadBy: number
+      files: number
+      diff: string
+      complete: boolean
+    }
+> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.contentsRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/compare/${encodeURIComponent(opts.base)}...${encodeURIComponent(opts.head)}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok)
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} comparing ${opts.fullName} ${opts.base.slice(0, 7)}...${opts.head.slice(0, 7)}`
+      ),
+      { status: res.status }
+    )
+  const body = (await res.json()) as {
+    status?: unknown
+    ahead_by?: unknown
+    files?: Array<{
+      filename: string
+      previous_filename?: string
+      status?: string
+      patch?: string
+    }>
+  }
+  const status = typeof body.status === 'string' ? body.status : 'unknown'
+  if (status !== 'ahead' && status !== 'identical')
+    return { ancestor: false, status }
+  const files = body.files ?? []
+  const diff = files
+    .map(f => {
+      const from = f.previous_filename ?? f.filename
+      return [
+        `diff --git a/${from} b/${f.filename}`,
+        `--- ${f.status === 'added' ? '/dev/null' : `a/${from}`}`,
+        `+++ ${f.status === 'removed' ? '/dev/null' : `b/${f.filename}`}`,
+        f.patch ?? '(no patch shown: binary or too large)',
+      ].join('\n')
+    })
+    .join('\n')
+  return {
+    ancestor: true,
+    aheadBy: typeof body.ahead_by === 'number' ? body.ahead_by : 0,
+    files: files.length,
+    diff: diff ? `${diff}\n` : '',
+    complete: files.length < COMPARE_FILES_MAX,
+  }
+}
+
 /** One entry of GitHub's `pulls/{n}/files` listing, narrowed to what the
  *  re-judge reads (LUM-780). */
 export interface PrFileEntry {

@@ -24,6 +24,14 @@
  * enabled check has nothing linked makes no call at all). Its requirements
  * ride in the same call as material, answered one by one.
  *
+ * LUM-1312 — on a re-assessment (an earlier scan of this PR assessed a
+ * different head), the assessment's material also says what changed since:
+ * the diff from that head (a GitHub compare, path-filtered, masked, capped),
+ * the runs recorded since and the previous outcomes — context, never
+ * evidence. A previous head that is not an ancestor (force-push, rebase) or
+ * an unreadable compare makes it say "from scratch"; a failed read of the
+ * earlier scans drops the section.
+ *
  * Layering: service — GitHub through `@/lib/integrations/github/*` (loaded
  * lazily), the database through repositories, the model client by dynamic
  * import.
@@ -53,6 +61,7 @@ import {
   inconclusiveResults,
   keepEarlierFailures,
   notApplicableResult,
+  parsePreMergeChecksRecord,
   planPreMergeChecks,
   resultsFromAnswers,
   unansweredRequirementsByCheck,
@@ -70,6 +79,12 @@ import {
   type TaskAssessmentContext,
   type LinkedRequirement,
 } from '@/ee/security/security-scan/issue-assessment'
+import {
+  SINCE_LAST_DIFF_MAX,
+  SINCE_LAST_RECORDS_MAX,
+  previousAssessment,
+  type SinceLastAssessment,
+} from '@/ee/security/security-scan/since-last-assessment'
 
 /**
  * LUM-1149 — the built-ins as the runner uses them: the pure registry with
@@ -105,6 +120,63 @@ function cap(text: string, max: number): { text: string; cut: boolean } {
   return text.length <= max
     ? { text, cut: false }
     : { text: text.slice(0, max), cut: true }
+}
+
+/**
+ * LUM-1312 — what changed since the previous assessment of `checkId` on
+ * another head; undefined when there was none. Throws only when the
+ * earlier scans cannot be read (the caller drops the section).
+ */
+async function sinceLastAssessment(
+  gh: Awaited<ReturnType<typeof github>>,
+  target: ChecksTarget,
+  checkId: string,
+  isReviewable: ReturnType<typeof reviewablePathPredicate>
+): Promise<SinceLastAssessment | undefined> {
+  const records = await prSecurityScanRepository.listRecentPreMergeChecks(
+    target.pullRequestId,
+    target.scanId,
+    SINCE_LAST_RECORDS_MAX
+  )
+  const previous = previousAssessment(
+    records.map(parsePreMergeChecksRecord),
+    checkId,
+    target.headSha
+  )
+  if (!previous) return undefined
+  const where = `scan=${target.scanId} pr=#${target.prNumber} previous=${previous.headSha.slice(0, 7)}`
+  let compared: Awaited<ReturnType<typeof gh.fetchCompareDiff>>
+  try {
+    compared = await gh.fetchCompareDiff({
+      workspaceId: target.workspaceId,
+      fullName: target.repo,
+      base: previous.headSha,
+      head: target.headSha,
+    })
+  } catch (error) {
+    logger.info(
+      `[pre-merge-checks] since-last compare unreadable ${where}; judging from scratch: ${describe(error)}`
+    )
+    return { kind: 'from_scratch', previous, reason: 'unreadable' }
+  }
+  if (!compared.ancestor) {
+    logger.info(
+      `[pre-merge-checks] since-last ${where} not an ancestor (${compared.status}); judging from scratch`
+    )
+    return { kind: 'from_scratch', previous, reason: 'not_ancestor' }
+  }
+  const filtered = filterReviewableDiff(compared.diff, isReviewable)
+  // Mask first, then cut (as for the PR diff).
+  const guarded = guardInjectedText(filtered.diff)
+  const cut = cap(guarded.text, SINCE_LAST_DIFF_MAX)
+  return {
+    kind: 'since',
+    previous,
+    aheadBy: compared.aheadBy,
+    diff: cut.text,
+    diffFiles: filtered.kept.length,
+    diffCut: cut.cut || guarded.truncatedLines > 0 || !compared.complete,
+  }
 }
 
 export interface ChecksTarget {
@@ -282,6 +354,34 @@ export const preMergeChecksService = {
         // prefix too short for its pattern, and that prefix unmasked.
         const guardedDiff = guardInjectedText(reviewable)
         const cutDiff = cap(guardedDiff.text, PRE_MERGE_DIFF_MAX_CHARS)
+        // LUM-1312: on a re-assessment, what changed since the previous one.
+        for (const p of judged) {
+          if (!linked.has(p.id)) continue
+          try {
+            const sinceLast = await sinceLastAssessment(
+              gh,
+              target,
+              p.id,
+              reviewablePathPredicate(pathFilters)
+            )
+            if (!sinceLast) continue
+            contexts.set(p.id, {
+              ...(contexts.get(p.id) ?? {
+                decisions: [],
+                mergedPrCount: 0,
+                mergedPrs: [],
+              }),
+              sinceLast,
+            })
+            logger.info(
+              `[pre-merge-checks] since-last ${where} ${p.id} previous=${sinceLast.previous.headSha.slice(0, 7)} ${sinceLast.kind === 'since' ? `files=${sinceLast.diffFiles} cut=${sinceLast.diffCut}` : `from_scratch=${sinceLast.reason}`}`
+            )
+          } catch (error) {
+            logger.warn(
+              `[pre-merge-checks] earlier assessments unreadable ${where}; judging without them: ${describe(error)}`
+            )
+          }
+        }
         const materialOf = async (
           p: (typeof judged)[number],
           reqs: readonly LinkedRequirement[] | undefined

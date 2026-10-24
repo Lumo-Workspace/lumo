@@ -36,6 +36,11 @@ import {
   absenceSearchMaterial,
   type RepoAbsenceSearch,
 } from './repo-absence-search'
+import {
+  SINCE_LAST_MATERIAL_MAX,
+  sinceLastAssessmentMaterial,
+  type SinceLastAssessment,
+} from './since-last-assessment'
 
 export { ISSUE_ASSESSMENT_CHECK_ID } from '@/shared/src/pre-merge-checks'
 export const ISSUE_ASSESSMENT_CHECK_NAME = 'Issue assessment'
@@ -73,10 +78,16 @@ export interface TaskAssessmentContext {
   testCases?: TestCaseEvidence
   /** LUM-1310: the bounded search of the head for repo-wide absence claims. */
   repoSearch?: RepoAbsenceSearch
+  /** LUM-1312: on a re-assessment, what changed since the previous one. */
+  sinceLast?: SinceLastAssessment
 }
 
-/** LUM-1310: the assessment's whole material (requirements + context), at most. */
-export const REQUIREMENTS_MATERIAL_MAX = 20_000
+/**
+ * LUM-1310: the assessment's whole material (requirements + context), at
+ * most. LUM-1312: plus the "since the last assessment" section's own
+ * budget, so it never takes room from the evidence.
+ */
+export const REQUIREMENTS_MATERIAL_MAX = 20_000 + SINCE_LAST_MATERIAL_MAX
 
 export interface GatheredRequirements {
   requirements: LinkedRequirement[]
@@ -330,7 +341,9 @@ export function issueRequirement(issue: {
  * requirements, newest decision first, so the runner's material cap trims
  * context (oldest first) before it can cut a requirement the model must answer.
  * LUM-1310: the runtime evidence (test-case runs at the head) and the
- * repository search follow, each capped on its own.
+ * repository search follow, each capped on its own. LUM-1312: on a
+ * re-assessment, the "since the last assessment" section comes right after
+ * the requirements — where the judge looks first — capped on its own.
  */
 export function requirementsMaterial(
   requirements: readonly LinkedRequirement[],
@@ -340,6 +353,13 @@ export function requirementsMaterial(
   return [
     `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear.`,
     ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
+    ...[
+      sinceLastAssessmentMaterial(
+        context?.sinceLast,
+        requirements.map(r => r.id),
+        context?.testCases
+      ),
+    ].filter((t): t is string => t !== null),
     ...(context?.decisions.length
       ? [
           'Recorded task Decisions, newest first (overriding context for conflicting task requirements, not additional requirements; never quote or restate this context in explanations):',
