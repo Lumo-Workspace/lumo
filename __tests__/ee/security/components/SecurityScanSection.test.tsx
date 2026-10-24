@@ -983,6 +983,9 @@ test('two PRs: tabs, the PR that needs a look selected first', () => {
   const second = screen.getByTestId('security-pr-10-toggle')
   expect(first).toHaveAttribute('role', 'tab')
   expect(first).toHaveAttribute('aria-selected', 'true')
+  // Tabs follow attention order, so the selected tab is also the first one,
+  // even though #10 came first in the data.
+  expect(screen.getAllByRole('tab')[0]).toBe(first)
   expect(first).toHaveTextContent('#9')
   expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
   fireEvent.mouseDown(second, { button: 0 })

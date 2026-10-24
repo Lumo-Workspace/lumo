@@ -155,7 +155,7 @@ test('panel: the notice says why and what to do; no owned line, no raw error', (
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
   expect(screen.queryByText(/pr-too-large:/)).toBeNull()
   expect(document.body.textContent).not.toMatch(/hasn't finished on our side/i)
-  // Every layer is told as skipped for size, with the reason on hover.
+  // Every check is marked over the size cap (the PR-level notice above says why).
   expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
     'data-check-state',
     'OVER_CAP'

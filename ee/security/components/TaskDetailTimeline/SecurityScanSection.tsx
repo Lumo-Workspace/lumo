@@ -244,7 +244,7 @@ function PrName({ pr }: { pr: PrEntry['pr'] }) {
   )
 }
 
-/** Two PRs: tabs, the one that needs a look first selected. */
+/** Two PRs: tabs in attention order, so the selected one is also first. */
 function PrTabs({
   taskId,
   prs,
@@ -259,7 +259,7 @@ function PrTabs({
   return (
     <Tabs defaultValue={ordered[0]!.pr.id}>
       <TabsList className='grid h-auto w-full grid-cols-2'>
-        {prs.map(({ pr }) => (
+        {ordered.map(({ pr }) => (
           <TabsTrigger
             key={pr.id}
             value={pr.id}
@@ -270,7 +270,7 @@ function PrTabs({
           </TabsTrigger>
         ))}
       </TabsList>
-      {prs.map(entry => (
+      {ordered.map(entry => (
         <TabsContent key={entry.pr.id} value={entry.pr.id} className='mt-3'>
           <PrReport taskId={taskId} entry={entry} scanningOff={scanningOff} />
         </TabsContent>
