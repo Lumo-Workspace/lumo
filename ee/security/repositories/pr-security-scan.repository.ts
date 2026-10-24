@@ -2627,6 +2627,29 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /**
+   * LUM-1312: the PR's stored pre-merge check results, newest scan first
+   * (raw), other than `scanId`'s — read to find the previous assessment of
+   * a different head.
+   */
+  async listRecentPreMergeChecks(
+    pullRequestId: string,
+    scanId: string,
+    take: number
+  ): Promise<unknown[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        pullRequestId,
+        id: { not: scanId },
+        preMergeChecks: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      take,
+      select: { preMergeChecks: true },
+    })
+    return rows.map(r => r.preMergeChecks)
+  },
+
   /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */
   async setRepoConfig(scanId: string, repoConfig: object): Promise<void> {
     await prisma.prSecurityScan.update({

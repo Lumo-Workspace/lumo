@@ -47,6 +47,8 @@ export interface StoredEvidenceRun {
   stepResults: unknown
   evidence: unknown
   unprovenVerification: unknown
+  /** LUM-1312: when the run was recorded (optional for older fixtures). */
+  createdAt?: Date | string | null
 }
 
 /** One case with its runs, newest first. */
@@ -74,6 +76,8 @@ export interface HeadRunEvidence {
   links: number
   /** Any image attached (read from every file, before names are capped). */
   hasImage: boolean
+  /** LUM-1312: when the run was recorded (ISO), if known. */
+  recordedAt?: string
 }
 
 export interface TestCaseEvidence {
@@ -133,6 +137,13 @@ function evidenceFiles(evidence: unknown): {
   return { files, links, hasImage }
 }
 
+function recordedAt(at: StoredEvidenceRun['createdAt']): {
+  recordedAt?: string
+} {
+  const t = at instanceof Date ? at.getTime() : at ? Date.parse(at) : NaN
+  return Number.isNaN(t) ? {} : { recordedAt: new Date(t).toISOString() }
+}
+
 /**
  * PURE — each case's newest run on `headSha` (cases in number order, at
  * most `EVIDENCE_CASES_MAX`), and the cases without one.
@@ -174,6 +185,7 @@ export function testCaseEvidenceAtHead(
       files,
       links,
       hasImage,
+      ...recordedAt(run.createdAt),
     })
   }
   return { atHead, withoutHeadRun, notRead }

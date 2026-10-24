@@ -5,7 +5,10 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 }))
 
 import { addedLinesFromDiff } from '@/lib/integrations/github/contents'
-import { fetchReviewChangedPaths } from '@/lib/integrations/github/contents'
+import {
+  fetchCompareDiff,
+  fetchReviewChangedPaths,
+} from '@/lib/integrations/github/contents'
 
 test('LUM-1056 compare refuses divergent and capped histories, includes previous paths on rename', async () => {
   const original = global.fetch
@@ -356,4 +359,109 @@ describe('LUM-1208 listRepoDirWithToken', () => {
       listRepoDirWithToken({ token: 't', fullName: 'o/r', path: 'a' })
     ).rejects.toMatchObject({ status: 403 })
   })
+})
+
+test('LUM-1312 compare diff: patches as a unified diff; not an ancestor ⇒ no diff', async () => {
+  const original = global.fetch
+  const fetchMock = jest.fn()
+  global.fetch = fetchMock
+  try {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'ahead',
+        ahead_by: 2,
+        files: [
+          {
+            filename: 'src/a.ts',
+            status: 'modified',
+            patch: '@@ -1 +1 @@\n-a\n+b',
+          },
+          {
+            filename: 'src/new.ts',
+            status: 'added',
+            patch: '@@ -0,0 +1 @@\n+n',
+          },
+          { filename: 'img.png', status: 'added' },
+          { filename: 'b.ts', previous_filename: 'old.ts', status: 'renamed' },
+        ],
+      }),
+    })
+    expect(
+      await fetchCompareDiff({
+        workspaceId: 'w',
+        fullName: 'o/r',
+        base: 'a',
+        head: 'b',
+      })
+    ).toEqual({
+      ancestor: true,
+      aheadBy: 2,
+      files: 4,
+      complete: true,
+      diff: [
+        'diff --git a/src/a.ts b/src/a.ts',
+        '--- a/src/a.ts',
+        '+++ b/src/a.ts',
+        '@@ -1 +1 @@\n-a\n+b',
+        'diff --git a/src/new.ts b/src/new.ts',
+        '--- /dev/null',
+        '+++ b/src/new.ts',
+        '@@ -0,0 +1 @@\n+n',
+        'diff --git a/img.png b/img.png',
+        '--- /dev/null',
+        '+++ b/img.png',
+        'diff --git a/old.ts b/b.ts',
+        '--- a/old.ts',
+        '+++ b/b.ts',
+        '',
+      ].join('\n'),
+    })
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      'https://api.github.com/repos/o/r/compare/a...b'
+    )
+    for (const status of ['diverged', 'behind']) {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status, files: [] }),
+      })
+      expect(
+        await fetchCompareDiff({
+          workspaceId: 'w',
+          fullName: 'o/r',
+          base: 'a',
+          head: 'b',
+        })
+      ).toEqual({ ancestor: false, status })
+    }
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'ahead',
+        files: Array.from({ length: 300 }, () => ({
+          filename: 'f',
+          status: 'modified',
+        })),
+      }),
+    })
+    expect(
+      await fetchCompareDiff({
+        workspaceId: 'w',
+        fullName: 'o/r',
+        base: 'a',
+        head: 'b',
+      })
+    ).toMatchObject({ ancestor: true, complete: false, aheadBy: 0 })
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 })
+    await expect(
+      fetchCompareDiff({
+        workspaceId: 'w',
+        fullName: 'o/r',
+        base: 'gone',
+        head: 'b',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+  } finally {
+    global.fetch = original
+  }
 })
