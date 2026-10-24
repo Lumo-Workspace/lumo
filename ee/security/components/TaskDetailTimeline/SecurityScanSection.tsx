@@ -462,10 +462,7 @@ function PrReport({
           <ul className='divide-y divide-border'>
             {buildCheckRows(latest).map(row => (
               <CheckRowView
-                // A row that gains a reason to open (a new finding, a layer
-                // that stopped covering the PR) remounts open; a manual
-                // toggle sticks while that reason holds.
-                key={`${row.key}:${row.defaultOpen}`}
+                key={row.key}
                 taskId={taskId}
                 pr={pr}
                 scan={latest}
@@ -558,10 +555,14 @@ function ScanNotices({ scan }: { scan: SecurityScanView }) {
           )}
         </p>
       )}
+      {/* Unless the scanner's own reason already says it, under its check. */}
       {!scan.prTooLarge &&
         scan.error &&
         scan.status === 'FAILED' &&
-        !scan.error.startsWith(EXTERNAL_ERROR_PREFIX) && (
+        !(
+          scan.stages.external === 'FAILED' &&
+          scan.error.startsWith(EXTERNAL_ERROR_PREFIX)
+        ) && (
           <p className='font-mono text-caption text-muted-foreground'>
             {scan.error}
           </p>
@@ -795,6 +796,14 @@ function CheckRowView({
 }) {
   const intl = useIntl()
   const [open, setOpen] = useState(row.defaultOpen)
+  // A row that gains a reason to open (a new finding, a layer that stopped
+  // covering the PR) opens on refresh. Losing the reason never closes it —
+  // a human who just ruled on the last finding keeps seeing the result.
+  const [openedFor, setOpenedFor] = useState(row.defaultOpen)
+  if (row.defaultOpen !== openedFor) {
+    setOpenedFor(row.defaultOpen)
+    if (row.defaultOpen) setOpen(true)
+  }
   const name = intl.formatMessage({ id: `lumoReview.check.${row.key}` })
   const result = checkResult(intl, row, scan)
   const notices = hasCheckNotices(row.key, scan)
@@ -1896,8 +1905,8 @@ function FindingRow({
 
 /**
  * LUM-1308 — where a finding is: `file:line`, linked to the PR's changed
- * files when the PR is known. A finding with no file (e.g. a dependency
- * placed by its lockfile only) still shows the path as text.
+ * files when the PR is known, else as text. A finding with no file path
+ * shows no location.
  */
 function FindingLocation({
   finding,

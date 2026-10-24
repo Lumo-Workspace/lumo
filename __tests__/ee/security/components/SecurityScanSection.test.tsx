@@ -781,6 +781,73 @@ test('a check that gains an open finding on refresh opens', () => {
   expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
 })
 
+// LUM-1308 review: ruling on the last open finding must not snap the check
+// shut — the human keeps seeing what they just decided.
+test('a check stays open when its last open finding is ruled on', () => {
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+    isError: false,
+  })
+  const { rerender } = render(<SecurityScanSection taskId='t1' />, {
+    wrapper,
+  })
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({ disposition: 'FALSE_POSITIVE', blocking: false }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  rerender(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(screen.getByTestId('finding-group-ruled')).toBeInTheDocument()
+})
+
+// P8 follow-up: a FAILED scan's prefixed error is still said when the
+// external stage did not fail (so no scanner reason shows it).
+test('a FAILED scan shows its prefixed error when the external stage did not fail', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'FAILED',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+            complete: false,
+            error: 'external: ingest key revoked',
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.queryByTestId('external-failed-reason')).toBeNull()
+  expect(screen.getAllByText(/ingest key revoked/)).toHaveLength(1)
+})
+
 test('a check with an undispositioned finding is open by default', () => {
   useSecurityScans.mockReturnValue({
     data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
