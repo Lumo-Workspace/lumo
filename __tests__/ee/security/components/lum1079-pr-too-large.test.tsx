@@ -157,7 +157,7 @@ test('panel: the notice says why and what to do; no owned line, no raw error', (
   expect(document.body.textContent).not.toMatch(/hasn't finished on our side/i)
   // Every layer is told as skipped for size, with the reason on hover.
   expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
-    'data-state',
+    'data-check-state',
     'OVER_CAP'
   )
 })

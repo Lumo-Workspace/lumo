@@ -204,7 +204,7 @@ describe('LUM-740 panel', () => {
         .getAllByTestId(/^stage-/)
         .map(el => [
           el.getAttribute('data-testid'),
-          el.getAttribute('data-state'),
+          el.getAttribute('data-check-state'),
         ])
     ).toEqual([
       ['stage-secrets', 'RAN'],

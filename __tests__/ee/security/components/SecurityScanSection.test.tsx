@@ -552,7 +552,7 @@ test('P8: an external failure whose error lacks the prefix renders no reason at 
   expect(screen.queryByText(/TypeError: boom/)).toBeNull()
   // The layer's cell still says it failed — the fact, not the text.
   expect(screen.getByTestId('stage-external')).toHaveAttribute(
-    'data-state',
+    'data-check-state',
     'FAILED'
   )
 })
@@ -698,6 +698,8 @@ test('an EXTERNAL_TOOL finding links to the GitHub alert and shows no evidence b
   )
   expect(row.querySelector('pre')).toBeNull()
   expect(row).toHaveTextContent('External tool')
+  // LUM-1308: the code scan holds several kinds, so the category shows.
+  expect(row.querySelector('[data-testid="finding-kind"]')).not.toBeNull()
 })
 
 // LUM-496 Task 3 — summary line + collapsible per-PR rows.
@@ -789,6 +791,11 @@ test('a check with an undispositioned finding is open by default', () => {
   expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
     'aria-expanded',
     'true'
+  )
+  // The row's own data-state stays Collapsible's open/closed.
+  expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+    'data-state',
+    'open'
   )
   expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
   // A clean check has nothing to fold.

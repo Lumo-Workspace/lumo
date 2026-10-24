@@ -766,6 +766,17 @@ function hasCheckNotices(
 }
 
 /**
+ * Checks whose findings come in more than one kind — the category badge
+ * tells them apart (AI review: bugs and vulnerabilities; code scan: leaked
+ * credentials, insecure patterns and graph rules). Elsewhere the check's
+ * name already says the kind.
+ */
+const MIXED_KIND_CHECKS: ReadonlySet<CheckRow['key']> = new Set([
+  'judge',
+  'external',
+])
+
+/**
  * LUM-1308 — one check as a row: state icon, plain name, short result, and
  * (when there is anything to show) a fold with why it didn't fully run, the
  * findings to decide on, and the quiet ones folded per reason. Opens by
@@ -833,7 +844,8 @@ function CheckRowView({
     <Collapsible asChild open={expandable && open} onOpenChange={setOpen}>
       <li
         data-testid={`stage-${row.key}`}
-        data-state={row.overCap ? 'OVER_CAP' : (row.state ?? 'NONE')}
+        // Not `data-state`: Collapsible's root sets that to open/closed.
+        data-check-state={row.overCap ? 'OVER_CAP' : (row.state ?? 'NONE')}
         data-tone={row.tone}
       >
         <div className='flex items-center gap-1'>
@@ -880,7 +892,7 @@ function CheckRowView({
                   prNumber={pr.number}
                   prUrl={pr.url}
                   finding={f}
-                  showKind={row.key === 'judge'}
+                  showKind={MIXED_KIND_CHECKS.has(row.key)}
                 />
               ))}
               {groupFindings(row.quiet).map(group => (
