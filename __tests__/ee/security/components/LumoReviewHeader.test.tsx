@@ -61,6 +61,17 @@ const data = (prs: object[]): TaskSecurityScans =>
     scanningOff: false,
   }) as unknown as TaskSecurityScans
 
+// Tests replace navigator.clipboard; put the original back after each.
+const originalClipboard = Object.getOwnPropertyDescriptor(
+  navigator,
+  'clipboard'
+)
+afterEach(() => {
+  if (originalClipboard)
+    Object.defineProperty(navigator, 'clipboard', originalClipboard)
+  else delete (navigator as { clipboard?: unknown }).clipboard
+})
+
 test('one PR: the verdict badge alone', () => {
   render(
     <LumoReviewSummary data={data([{ pr: pr(1), latest: scan([finding]) }])} />
@@ -91,7 +102,10 @@ test('several PRs: the badge and how many PRs', () => {
 
 test('Copy for agent copies every open finding', async () => {
   const writeText = jest.fn().mockResolvedValue(undefined)
-  Object.assign(navigator, { clipboard: { writeText } })
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
+  })
   render(
     <CopyReviewForAgent data={data([{ pr: pr(7), latest: scan([finding]) }])} />
   )
@@ -112,7 +126,10 @@ test('Copy for agent is not drawn when nothing needs a decision', () => {
 
 test('Copy for agent says so when the clipboard write fails', async () => {
   const writeText = jest.fn().mockRejectedValue(new Error('denied'))
-  Object.assign(navigator, { clipboard: { writeText } })
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
+  })
   render(
     <CopyReviewForAgent data={data([{ pr: pr(7), latest: scan([finding]) }])} />
   )
@@ -127,7 +144,10 @@ test('the copy-failed line clears on its own', async () => {
   jest.useFakeTimers()
   try {
     const writeText = jest.fn().mockRejectedValue(new Error('denied'))
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
     render(
       <CopyReviewForAgent
         data={data([{ pr: pr(7), latest: scan([finding]) }])}
