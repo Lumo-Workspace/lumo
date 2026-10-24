@@ -197,4 +197,28 @@ describe('LUM-1311: the runs that can prove a requirement reach the judge', () =
     expect(text).not.toContain('more)')
     expect(text).not.toContain('Not shown')
   })
+
+  it('room for the "Not shown" line is kept only when a case is left out', () => {
+    let usedReservedRoom = false
+    for (let n = 1; n <= 30; n++) {
+      const cases = Array.from({ length: n }, (_, i) =>
+        tc(i + 1, [run({ stepResults: longSteps.slice(0, 2) })])
+      )
+      const text = testCaseEvidenceMaterial(
+        testCaseEvidenceAtHead(cases, HEAD)
+      )!
+      expect(text.length).toBeLessThanOrEqual(EVIDENCE_MATERIAL_MAX)
+      const reserve =
+        1 +
+        `Not shown (length or case limit), so not evidence here: ${cases.map(c => `TC${c.number}`).join(', ')}.`
+          .length
+      if (
+        !text.includes('Not shown') &&
+        text.length > EVIDENCE_MATERIAL_MAX - reserve
+      )
+        usedReservedRoom = true
+    }
+    // Some count of cases fits only because nothing was held back for that line.
+    expect(usedReservedRoom).toBe(true)
+  })
 })

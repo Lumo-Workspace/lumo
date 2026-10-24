@@ -329,29 +329,38 @@ export function testCaseEvidenceMaterial(
         ]
       : []),
   ]
-  // Room for the closing "Not shown" line, so the section stays under the cap.
   const notShownLine = (numbers: readonly number[]) =>
     `Not shown (length or case limit), so not evidence here: ${numbers.map(n => `TC${n}`).join(', ')}.`
-  const allNumbers = [
-    ...evidence.atHead.map(e => e.number),
-    ...(evidence.notRead ?? []),
-  ]
-  const budget = EVIDENCE_MATERIAL_MAX - (1 + notShownLine(allNumbers).length)
-  let used = lines.join('\n').length
+  const head = lines.join('\n').length
+  const ranked = rankEvidenceCases(evidence.atHead, requirements)
   // Pass 1: as many cases as fit, compact, in rank order. Pass 2: the same
   // order gets its full line wherever the room left allows.
-  const shown: Array<{ e: HeadRunEvidence; line: string }> = []
-  for (const e of rankEvidenceCases(evidence.atHead, requirements)) {
-    const line = caseLine(e, true)
-    if (used + 1 + line.length > budget) continue
-    shown.push({ e, line })
-    used += 1 + line.length
+  const fit = (budget: number) => {
+    let used = head
+    const out: Array<{ e: HeadRunEvidence; line: string }> = []
+    for (const e of ranked) {
+      const line = caseLine(e, true)
+      if (used + 1 + line.length > budget) continue
+      out.push({ e, line })
+      used += 1 + line.length
+    }
+    for (const s of out) {
+      const full = caseLine(s.e)
+      if (used - s.line.length + full.length > budget) continue
+      used += full.length - s.line.length
+      s.line = full
+    }
+    return out
   }
-  for (const s of shown) {
-    const full = caseLine(s.e)
-    if (used - s.line.length + full.length > budget) continue
-    used += full.length - s.line.length
-    s.line = full
+  // The whole cap when every case fits; otherwise keep room for the closing
+  // "Not shown" line, so the section stays under the cap.
+  let shown = fit(EVIDENCE_MATERIAL_MAX)
+  if (shown.length < ranked.length || evidence.notRead?.length) {
+    const allNumbers = [
+      ...ranked.map(e => e.number),
+      ...(evidence.notRead ?? []),
+    ]
+    shown = fit(EVIDENCE_MATERIAL_MAX - (1 + notShownLine(allNumbers).length))
   }
   const shownNumbers = new Set(shown.map(s => s.e.number))
   lines.push(...shown.sort((a, b) => a.e.number - b.e.number).map(s => s.line))
