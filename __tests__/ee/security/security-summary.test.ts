@@ -1,13 +1,10 @@
 /**
- * LUM-496 Task 3: `summarizeSecurityScans` / `shouldExpandRow` are the pure
- * rules behind the Record tab's security-scan summary line and per-PR
- * default expansion.
+ * LUM-496 Task 3: `summarizeSecurityScans` and friends are the pure
+ * rules behind the Record tab's security-scan summary line.
  */
 import {
   blockingFindings,
   summarizeSecurityScans,
-  shouldExpandRow,
-  hasScanDetails,
   isOverSizeLimitOnly,
   isQuietFinding,
   findingGroupKey,
@@ -154,129 +151,8 @@ describe('summarizeSecurityScans', () => {
   })
 })
 
-// LUM-1296: a PR row draws its expand chevron only when ScanDetails has
-// something to show — an empty clean scan used to open onto nothing.
-describe('hasScanDetails', () => {
-  it('is false for a clean scan with nothing to say', () => {
-    expect(hasScanDetails(scan({ status: 'CLEAN' }))).toBe(false)
-  })
-
-  type Over = Partial<SecurityScanView>
-  const notices: [string, Over][] = [
-    ['a finding', { findings: [finding()] }],
-    ['scrubbed code', { codeScrubbed: true }],
-    ['fixed findings', { fixed: 2 }],
-    ['a late external scanner', { externalLate: true }],
-    [
-      'an unconfigured external scanner',
-      { stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' } },
-    ],
-    ['an unfinished scan', { ownedUnfinished: true }],
-    [
-      'a layer turned off',
-      { stages: { secrets: 'RAN', external: 'RAN', judge: 'DISABLED' } },
-    ],
-    [
-      'a PR too large',
-      { prTooLarge: {} as NonNullable<SecurityScanView['prTooLarge']> },
-    ],
-    [
-      'exploit paths over cap',
-      { huntOverCap: {} as NonNullable<SecurityScanView['huntOverCap']> },
-    ],
-    [
-      'AI review over cap',
-      { judgeOverCap: {} as NonNullable<SecurityScanView['judgeOverCap']> },
-    ],
-    [
-      'a partial AI review',
-      { judgePartial: {} as NonNullable<SecurityScanView['judgePartial']> },
-    ],
-    [
-      'an external failure reason',
-      {
-        stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
-        error: 'external: timeout',
-      },
-    ],
-    ['a failed scan with an error', { status: 'FAILED', error: 'boom' }],
-  ]
-  it.each(notices)('is true with %s', (_name, over) => {
-    expect(hasScanDetails(scan(over))).toBe(true)
-  })
-
-  it('is false for an unprefixed external error on a scan that did not fail', () => {
-    expect(
-      hasScanDetails(
-        scan({
-          stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
-          error: 'raw stage error',
-        })
-      )
-    ).toBe(false)
-  })
-})
-
-describe('shouldExpandRow', () => {
-  it('is false when there is no latest scan', () => {
-    expect(shouldExpandRow(null)).toBe(false)
-  })
-
-  it('is true when the scan has an undispositioned finding', () => {
-    expect(shouldExpandRow(scan({ findings: [finding()] }))).toBe(true)
-  })
-
-  it('is false when every finding is dispositioned', () => {
-    expect(
-      shouldExpandRow(
-        scan({ findings: [finding({ disposition: 'ACCEPTED_RISK' })] })
-      )
-    ).toBe(false)
-  })
-
-  it('is true when the external stage FAILED with an error', () => {
-    expect(
-      shouldExpandRow(
-        scan({
-          findings: [],
-          stages: { external: 'FAILED' },
-          error: 'external: semgrep exit 90',
-        })
-      )
-    ).toBe(true)
-  })
-
-  it('is false when the external stage FAILED but there is no error message', () => {
-    expect(
-      shouldExpandRow(
-        scan({ findings: [], stages: { external: 'FAILED' }, error: null })
-      )
-    ).toBe(false)
-  })
-
-  it('is false for a clean, complete scan', () => {
-    expect(shouldExpandRow(scan({ findings: [] }))).toBe(false)
-  })
-
-  // Review F1: an incomplete scan's stage notes / not-configured hint /
-  // partial notice are exactly why the summary cannot claim a clean result —
-  // they open with the section instead of hiding behind a chevron.
-  it('is true when the scan did not complete, even with nothing else to flag', () => {
-    expect(
-      shouldExpandRow(
-        scan({
-          findings: [],
-          status: 'CLEAN',
-          complete: false,
-          stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
-        })
-      )
-    ).toBe(true)
-  })
-})
-
 describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () => {
-  it('a persisting (already-on-main) finding is neither counted nor a reason to expand', () => {
+  it('a persisting (already-on-main) finding is not counted', () => {
     const only = scan({
       findings: [finding({ id: 'old', kind: 'DEPENDENCY', persisting: true })],
     })
@@ -284,7 +160,6 @@ describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () =>
       findings: 0,
       allLow: false,
     })
-    expect(shouldExpandRow(only)).toBe(false)
     const mixed = scan({
       findings: [
         finding({ id: 'old', kind: 'DEPENDENCY', persisting: true }),
@@ -300,12 +175,11 @@ describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () =>
       findings: 1,
       allLow: true,
     })
-    expect(shouldExpandRow(mixed)).toBe(true)
   })
 })
 
 describe('LUM-775 queue exit', () => {
-  it('a row that left the queue (merged / closed PR) is neither counted nor expanded for', () => {
+  it('a row that left the queue (merged / closed PR) is not counted', () => {
     const summary = summarizeSecurityScans([
       {
         latest: scan({
@@ -328,11 +202,6 @@ describe('LUM-775 queue exit', () => {
     ])
     expect(summary.findings).toBe(0)
     expect(summary.allLow).toBe(false)
-    expect(
-      shouldExpandRow(
-        scan({ findings: [finding({ queueExit: 'MERGED_UNREVIEWED' })] })
-      )
-    ).toBe(false)
     // A row still in the queue on the same scan keeps the count honest.
     expect(
       summarizeSecurityScans([
@@ -397,10 +266,6 @@ describe('LUM-832 over the size limit', () => {
     expect(summary.overSizeLimit).toBe(1)
     // The owned-unfinished scan and the never-scanned PR — not the capped one.
     expect(summary.incomplete).toBe(2)
-  })
-
-  it('a size-capped scan still opens its row, so the notice is in view', () => {
-    expect(shouldExpandRow(scan({ ...overCap, findings: [] }))).toBe(true)
   })
 })
 
@@ -644,17 +509,13 @@ describe('pre-merge checks', () => {
     ).toBe(2)
   })
 
-  it('gives a clean scan with a non-passing check details and an open row', () => {
-    expect(hasScanDetails(warned)).toBe(true)
-    expect(shouldExpandRow(warned)).toBe(true)
-  })
-
   it('passing or not-applicable checks add nothing', () => {
     const quiet = scan({
       status: 'CLEAN',
       preMergeChecks: [check('passed'), check('not_applicable')],
     })
-    expect(hasScanDetails(quiet)).toBe(false)
-    expect(shouldExpandRow(quiet)).toBe(false)
+    expect(summarizeSecurityScans([{ latest: quiet }]).preMergeNotPassed).toBe(
+      0
+    )
   })
 })

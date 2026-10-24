@@ -1,23 +1,22 @@
 'use client'
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
+  ChevronDown,
   ChevronRight,
   Check,
   Copy,
+  ExternalLink,
+  GitMerge,
+  GitPullRequest,
   Info,
+  Loader2,
   Minus,
+  MoreHorizontal,
 } from 'lucide-react'
 import {
   Popover,
@@ -25,10 +24,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -44,22 +47,21 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 import {
   JUDGE_PARTIAL_MAX_NAMED,
-  SCAN_STAGE_DISPLAY_ORDER,
   isJudgeOverCapByFiles,
   turnedOffLayers,
+  type ScanStageKeyName,
 } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/ee/security/security-scan/stages'
 import {
   blockingFindings,
   groupFindings,
-  hasScanDetails,
   isQuietFinding,
-  shouldExpandRow,
   stageReason,
   type FindingGroup,
   type FindingGroupKey,
 } from './security-summary'
+import { buildCheckRows, orderPrs, type CheckRow } from './lumo-review-checks'
 import { buildAgentContext } from './security-agent-context'
 import { RewardHackEvidence } from './RewardHackEvidence'
 import {
@@ -136,7 +138,12 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
             <div className='text-caption text-muted-foreground'>
               #{prNumber}
             </div>
-            <FindingRow taskId={taskId} prNumber={prNumber} finding={finding} />
+            <FindingRow
+              taskId={taskId}
+              prNumber={prNumber}
+              prUrl={data?.prs.find(p => p.pr.number === prNumber)?.pr.url}
+              finding={finding}
+            />
           </div>
         ))}
       </div>
@@ -144,6 +151,14 @@ export function BlockingSecurityFindings({ taskId }: { taskId: string }) {
   )
 }
 
+type PrEntry = TaskSecurityScans['prs'][number]
+
+/**
+ * LUM-1308 — the Lumo review record. Task-level notes first (bulk confirm,
+ * the blocking line, scanning turned off); then the PRs: one PR is shown as
+ * is, two sit in tabs, three or more are listed by how much they need a look
+ * with the clean ones folded into one row. Each PR reads as its six checks.
+ */
 function SecurityScanPanel({
   taskId,
   data,
@@ -152,164 +167,776 @@ function SecurityScanPanel({
   data: TaskSecurityScans
 }) {
   const intl = useIntl()
-
-  // Per-PR expansion (LUM-496): defaults to `shouldExpandRow` (an open finding,
-  // an incomplete scan, or an external failure with an error) but a manual
-  // toggle sticks — keyed by
-  // PR id so re-renders (e.g. after a disposition) don't reset a human's choice.
-  const [expandedOverrides, setExpandedOverrides] = useState<
-    Record<string, boolean>
-  >({})
-  const isExpanded = (prId: string, latest: SecurityScanView | null) =>
-    expandedOverrides[prId] ?? shouldExpandRow(latest)
-  const toggleRow = (prId: string, latest: SecurityScanView | null) =>
-    setExpandedOverrides(prev => ({
-      ...prev,
-      [prId]: !isExpanded(prId, latest),
-    }))
-
+  const scanned = data.prs.some(p => p.latest !== null)
   return (
     // LUM-1009/1012: the Record tab's row carries the title and the verdict.
-    <div data-testid='security-scan-panel'>
+    <div data-testid='security-scan-panel' className='space-y-3'>
       {(data.suggested?.count ?? 0) > 0 && (
         <ConfirmAllSuggested taskId={taskId} count={data.suggested.count} />
       )}
       {data.blocking.count > 0 && (
-        <p
+        <Alert
+          variant='danger'
+          size='sm'
+          role='note'
           data-testid='security-blocking-banner'
-          className='mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-caption text-danger-text'
         >
-          {intl.formatMessage(
-            { id: 'securityScan.banner.blocking' },
-            { count: data.blocking.count }
-          )}
-        </p>
+          <AlertCircle aria-hidden />
+          <p>
+            {intl.formatMessage(
+              { id: 'securityScan.banner.blocking' },
+              { count: data.blocking.count }
+            )}
+          </p>
+        </Alert>
       )}
       {/* LUM-892: scanning turned off in settings — said up front, so the
           results below read as "from before", not as the PR's answer. */}
       {data.scanningOff && (
         <p
           data-testid='security-scanning-off'
-          className='mt-2 rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-caption text-muted-foreground'
+          className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({
-            id: data.prs.every(p => p.latest === null)
-              ? 'securityScan.section.scanningOff'
-              : 'securityScan.banner.scanningOff',
+            id: scanned
+              ? 'securityScan.banner.scanningOff'
+              : 'securityScan.section.scanningOff',
           })}
         </p>
       )}
-      {data.prs.every(p => p.latest === null) ? (
+      {!scanned ? (
         data.scanningOff ? null : (
-          <p className='mt-2 text-caption text-muted-foreground'>
+          <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'securityScan.section.empty' })}
           </p>
         )
+      ) : data.prs.length === 1 ? (
+        <PrReport
+          taskId={taskId}
+          entry={data.prs[0]!}
+          scanningOff={data.scanningOff}
+        />
+      ) : data.prs.length === 2 ? (
+        <PrTabs taskId={taskId} prs={data.prs} scanningOff={data.scanningOff} />
       ) : (
-        // LUM-1012: one checklist row per PR — the PR and its result on one
-        // line, and under it every layer with its own name (✓ checked, – not
-        // needed / off, ! didn't run) and an ⓘ that says what it checks. The
-        // names ride on each row so no header sits apart from the cells.
-        <ul className='-my-1 divide-y divide-border/60'>
-          {data.prs.map(({ pr, latest, reviewControl }) => {
-            // LUM-1296: no scan, or a scan with nothing under the fold — no
-            // chevron (it opened onto nothing and read as broken).
-            const expandable = latest != null && hasScanDetails(latest)
-            const expanded = isExpanded(pr.id, latest)
-            return (
-              <Collapsible
-                asChild
-                key={pr.id}
-                open={expanded && expandable}
-                onOpenChange={() => toggleRow(pr.id, latest)}
-              >
-                <li data-testid={`security-pr-${pr.number}`} className='py-2.5'>
-                  {/* A link inside a button is invalid HTML — the toggle and
-                    the PR link sit side by side. */}
-                  <div className='flex items-center gap-2'>
-                    {/* Review F2 (a11y): the chevron is the only content,
-                      so name it after the row it opens. */}
-                    {expandable ? (
-                      <CollapsibleTrigger
-                        aria-label={`#${pr.number} ${pr.title}`}
-                        data-testid={`security-pr-${pr.number}-toggle`}
-                        className='shrink-0 text-muted-foreground hover:text-foreground'
-                      >
-                        <ChevronRight
-                          className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90'
-                          aria-hidden
-                        />
-                      </CollapsibleTrigger>
-                    ) : (
-                      // Keeps the PR titles aligned with the expandable rows.
-                      <span className='size-3.5 shrink-0' aria-hidden />
-                    )}
-                    <a
-                      href={pr.url}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      title={
-                        latest
-                          ? intl.formatMessage(
-                              { id: 'securityScan.meta' },
-                              { sha: latest.headSha.slice(0, 7) }
-                            )
-                          : undefined
-                      }
-                      className='min-w-0 flex-1 truncate text-caption text-foreground hover:underline'
-                    >
-                      <span className='font-mono font-normal text-muted-foreground'>
-                        #{pr.number}
-                      </span>{' '}
-                      {pr.title}
-                    </a>
-                    <span className='shrink-0'>
-                      {data.scanningOff && showsScanningOff(latest) ? (
-                        <ScanningOffBadge />
-                      ) : (
-                        <ScanResult scan={latest} />
-                      )}
-                    </span>
-                  </div>
-                  {pr.repo && pr.state === 'open' && (
-                    <ReviewControls
-                      taskId={taskId}
-                      number={pr.number}
-                      repo={pr.repo}
-                      scan={latest}
-                      {...(reviewControl ? { control: reviewControl } : {})}
-                    />
-                  )}
-                  {pr.headSha && latest && pr.headSha !== latest.headSha && (
-                    <p className='text-caption text-muted-foreground'>
-                      {intl.formatMessage({ id: 'securityScan.review.stale' })}
-                    </p>
-                  )}
-                  {latest ? (
-                    <div className='mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[1.375rem]'>
-                      {STAGE_ORDER.map(key => (
-                        <StageItem key={key} stageKey={key} scan={latest} />
-                      ))}
-                    </div>
-                  ) : null}
-                  <CollapsibleContent>
-                    {latest && (
-                      <div className='pl-[1.375rem]'>
-                        <ScanDetails
-                          taskId={taskId}
-                          prNumber={pr.number}
-                          scan={latest}
-                        />
-                      </div>
-                    )}
-                  </CollapsibleContent>
-                </li>
-              </Collapsible>
-            )
-          })}
-        </ul>
+        <PrList taskId={taskId} prs={data.prs} scanningOff={data.scanningOff} />
       )}
     </div>
+  )
+}
+
+/** The PR's icon: merged, or open / closed. */
+function PrIcon({ state }: { state: string }) {
+  const Icon = state === 'merged' ? GitMerge : GitPullRequest
+  return <Icon className='size-4 shrink-0' aria-hidden />
+}
+
+/** `#n title` — a PR's name in a tab or list row. */
+function PrName({ pr }: { pr: PrEntry['pr'] }) {
+  return (
+    <>
+      <PrIcon state={pr.state} />
+      <span className='shrink-0 font-mono text-caption font-normal text-muted-foreground'>
+        #{pr.number}
+      </span>
+      <span className='min-w-0 truncate'>{pr.title}</span>
+    </>
+  )
+}
+
+/** Two PRs: tabs, the one that needs a look first selected. */
+function PrTabs({
+  taskId,
+  prs,
+  scanningOff,
+}: {
+  taskId: string
+  prs: PrEntry[]
+  scanningOff: boolean
+}) {
+  const { listed, clean } = orderPrs(prs)
+  const ordered = [...listed, ...clean]
+  return (
+    <Tabs defaultValue={ordered[0]!.pr.id}>
+      <TabsList className='grid h-auto w-full grid-cols-2'>
+        {prs.map(({ pr }) => (
+          <TabsTrigger
+            key={pr.id}
+            value={pr.id}
+            data-testid={`security-pr-${pr.number}-toggle`}
+            className='min-w-0 gap-1.5'
+          >
+            <PrName pr={pr} />
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {prs.map(entry => (
+        <TabsContent key={entry.pr.id} value={entry.pr.id} className='mt-3'>
+          <PrReport taskId={taskId} entry={entry} scanningOff={scanningOff} />
+        </TabsContent>
+      ))}
+    </Tabs>
+  )
+}
+
+/**
+ * Three or more PRs: one accordion row each, in attention order, the first
+ * open; PRs with nothing to do fold into one row at the end.
+ */
+function PrList({
+  taskId,
+  prs,
+  scanningOff,
+}: {
+  taskId: string
+  prs: PrEntry[]
+  scanningOff: boolean
+}) {
+  const intl = useIntl()
+  const { listed, clean } = orderPrs(prs)
+  return (
+    <div className='divide-y divide-border border-y border-border'>
+      {listed.map((entry, i) => (
+        <PrListRow
+          key={entry.pr.id}
+          taskId={taskId}
+          entry={entry}
+          scanningOff={scanningOff}
+          defaultOpen={i === 0}
+        />
+      ))}
+      {clean.length > 0 && (
+        <Collapsible data-testid='security-pr-clean'>
+          <CollapsibleTrigger className='flex min-h-12 w-full items-center gap-2 text-left text-body text-muted-foreground'>
+            <GitPullRequest className='size-4 shrink-0' aria-hidden />
+            <span className='min-w-0 flex-1 truncate'>
+              {intl.formatMessage(
+                { id: 'lumoReview.pr.moreClean' },
+                { count: clean.length }
+              )}
+            </span>
+            <Badge variant='success' size='sm'>
+              {intl.formatMessage({ id: 'securityScan.status.CLEAN' })}
+            </Badge>
+            <ChevronDown
+              className='size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180'
+              aria-hidden
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className='divide-y divide-border border-t border-border pl-6'>
+              {clean.map(entry => (
+                <PrListRow
+                  key={entry.pr.id}
+                  taskId={taskId}
+                  entry={entry}
+                  scanningOff={scanningOff}
+                  defaultOpen={false}
+                />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </div>
+  )
+}
+
+function PrListRow({
+  taskId,
+  entry,
+  scanningOff,
+  defaultOpen,
+}: {
+  taskId: string
+  entry: PrEntry
+  scanningOff: boolean
+  defaultOpen: boolean
+}) {
+  const { pr, latest } = entry
+  return (
+    <Collapsible defaultOpen={defaultOpen}>
+      <CollapsibleTrigger
+        data-testid={`security-pr-${pr.number}-toggle`}
+        className='flex min-h-12 w-full items-center gap-2 text-left text-body-strong text-foreground'
+      >
+        <PrName pr={pr} />
+        <span className='flex-1' />
+        <span className='shrink-0'>
+          {scanningOff && showsScanningOff(latest) ? (
+            <ScanningOffBadge />
+          ) : (
+            <ScanResult scan={latest} />
+          )}
+        </span>
+        <ChevronDown
+          className='size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-180'
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className='pb-3 pl-6'>
+          <PrReport
+            taskId={taskId}
+            entry={entry}
+            scanningOff={scanningOff}
+            showResult={false}
+          />
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+/**
+ * One PR's report: a header (link, commit, result, review actions), the
+ * notes that concern the whole scan, then one row per check.
+ */
+function PrReport({
+  taskId,
+  entry,
+  scanningOff,
+  showResult = true,
+}: {
+  taskId: string
+  entry: PrEntry
+  scanningOff: boolean
+  showResult?: boolean
+}) {
+  const intl = useIntl()
+  const { pr, latest, reviewControl } = entry
+  return (
+    <div data-testid={`security-pr-${pr.number}`} className='space-y-2'>
+      <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
+        <a
+          href={pr.url}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='inline-flex items-center gap-1 text-body-strong text-foreground underline-offset-2 hover:underline'
+        >
+          {intl.formatMessage(
+            { id: 'lumoReview.pr.view' },
+            { number: pr.number }
+          )}
+          <ExternalLink className='size-3' aria-hidden />
+        </a>
+        {latest && (
+          <span
+            title={intl.formatMessage(
+              { id: 'securityScan.meta' },
+              { sha: latest.headSha.slice(0, 7) }
+            )}
+            className='font-mono text-caption text-muted-foreground'
+          >
+            {latest.headSha.slice(0, 7)}
+          </span>
+        )}
+        {showResult && (
+          <span className='shrink-0'>
+            {scanningOff && showsScanningOff(latest) ? (
+              <ScanningOffBadge />
+            ) : (
+              <ScanResult scan={latest} />
+            )}
+          </span>
+        )}
+        <span className='flex-1' />
+        {pr.repo && pr.state === 'open' && (
+          <ReviewControls
+            taskId={taskId}
+            number={pr.number}
+            repo={pr.repo}
+            scan={latest}
+            {...(reviewControl ? { control: reviewControl } : {})}
+          />
+        )}
+      </div>
+      {pr.headSha && latest && pr.headSha !== latest.headSha && (
+        <p className='text-caption text-muted-foreground'>
+          {intl.formatMessage({ id: 'securityScan.review.stale' })}
+        </p>
+      )}
+      {latest && (
+        <>
+          <ScanNotices scan={latest} />
+          <ul className='divide-y divide-border'>
+            {buildCheckRows(latest).map(row => (
+              <CheckRowView
+                key={row.key}
+                taskId={taskId}
+                pr={pr}
+                scan={latest}
+                row={row}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** The workspace's API-keys page, for the "set up your scanner" link. */
+function useApiKeysHref(): string {
+  const pathname = usePathname()
+  const workspaceSlug = pathname.match(/^\/workspace\/([^/]+)/)?.[1] ?? null
+  return workspaceSlug ? `/workspace/${workspaceSlug}/settings/api-keys` : '#'
+}
+
+/**
+ * What concerns the whole scan rather than one check: pre-merge checks,
+ * cleared code, fixes since the last scan, our own unfinished work, layers
+ * turned off, a PR too large to scan, and a failed scan's error.
+ */
+function ScanNotices({ scan }: { scan: SecurityScanView }) {
+  const intl = useIntl()
+  const turnedOff = turnedOffLayers(scan.stages)
+  return (
+    <div className='space-y-1.5 empty:hidden'>
+      {nonPassingChecks(scan.preMergeChecks).map(check => (
+        <Alert
+          key={check.id}
+          variant='warning'
+          size='sm'
+          role='note'
+          data-testid='pre-merge-check'
+          className='gap-y-0.5'
+        >
+          <p className='text-body-strong'>
+            {check.name} ·{' '}
+            {intl.formatMessage({
+              id: `securityScan.preMerge.${check.verdict}`,
+            })}
+          </p>
+          {check.explanation ? <p>{check.explanation}</p> : null}
+          {check.resolution ? <p>{check.resolution}</p> : null}
+          {check.requirements
+            ?.filter(r => r.outcome !== 'addressed')
+            .map(r => (
+              <p key={r.id}>
+                {r.label} ·{' '}
+                {intl.formatMessage({
+                  id: `securityScan.preMerge.${r.outcome}`,
+                })}
+                {r.quotable && r.text ? `: ${r.text}` : ''}
+                {r.quotable && r.explanation ? ` — ${r.explanation}` : ''}
+              </p>
+            ))}
+        </Alert>
+      ))}
+      {/* LUM-1079: the whole PR was too large to scan — why, and what to
+          do (split it or narrow its scope). */}
+      {scan.prTooLarge && <PrTooLargeNotice tooLarge={scan.prTooLarge} />}
+      {/* LUM-832: one owned line, whatever the cause; the check rows say
+          which layer did not finish. */}
+      {scan.ownedUnfinished && (
+        <p
+          data-testid='scan-unfinished'
+          className='text-caption text-warning-text'
+        >
+          {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
+      {turnedOff.length > 0 && (
+        <p
+          data-testid='scan-turned-off'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.turnedOff' },
+            {
+              layers: turnedOff
+                .map(key =>
+                  intl.formatMessage({ id: `lumoReview.check.${key}` })
+                )
+                .join(', '),
+              count: turnedOff.length,
+            }
+          )}
+        </p>
+      )}
+      {!scan.prTooLarge &&
+        scan.error &&
+        scan.status === 'FAILED' &&
+        !scan.error.startsWith(EXTERNAL_ERROR_PREFIX) && (
+          <p className='font-mono text-caption text-muted-foreground'>
+            {scan.error}
+          </p>
+        )}
+      {scan.codeScrubbed && (
+        <p
+          data-testid='scan-code-scrubbed'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.codeScrubbed' })}
+        </p>
+      )}
+      {scan.fixed > 0 && (
+        <p
+          data-testid='scan-fixed'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.fixed' },
+            { count: scan.fixed }
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** The short result on a check's row: what it found, or why it didn't run. */
+function checkResult(
+  intl: ReturnType<typeof useIntl>,
+  row: CheckRow,
+  scan: SecurityScanView
+): { text: string; tone: string } {
+  const msg = (id: string, values?: Record<string, number>) =>
+    intl.formatMessage({ id: `lumoReview.result.${id}` }, values)
+  if (row.open.length > 0)
+    return {
+      text: msg('found', { count: row.open.length }),
+      tone: row.open.some(f => f.blocking)
+        ? 'text-danger-text'
+        : 'text-foreground',
+    }
+  const hunt = row.key === 'hunt' ? scan.huntProgress : null
+  const huntShort = hunt != null && hunt.coveredFiles < hunt.totalFiles
+  const warn = 'text-warning-text'
+  const muted = 'text-muted-foreground'
+  if (row.overCap) {
+    if (row.key === 'judge' && scan.judgePartial)
+      return {
+        text: msg('files', {
+          covered: scan.judgePartial.reviewedFiles,
+          total: scan.judgePartial.totalFiles,
+        }),
+        tone: warn,
+      }
+    return { text: msg('tooLarge'), tone: warn }
+  }
+  if (huntShort && (row.state === 'RAN' || row.state === 'PENDING'))
+    return {
+      text: msg('files', {
+        covered: hunt.coveredFiles,
+        total: hunt.totalFiles,
+      }),
+      tone: muted,
+    }
+  // LUM-1308: a scanner 30 minutes late is not "scanning" any more.
+  if (row.key === 'external' && scan.externalLate)
+    return { text: msg('late'), tone: warn }
+  switch (row.state) {
+    case 'RAN':
+      return { text: msg('nothingFound'), tone: muted }
+    case 'SKIPPED':
+      return { text: msg('notNeeded'), tone: muted }
+    case 'DISABLED':
+      return { text: msg('offInSettings'), tone: muted }
+    case 'PENDING':
+      return { text: msg('scanning'), tone: muted }
+    case 'NOT_CONFIGURED':
+      return { text: msg('off'), tone: warn }
+    case 'FAILED':
+      return { text: msg('didntFinish'), tone: warn }
+    case 'PARTIAL':
+      return { text: msg('partlyChecked'), tone: warn }
+    case 'SUPERSEDED':
+      return { text: msg('superseded'), tone: warn }
+    case 'PAUSED':
+      return {
+        text: msg(
+          scan.reviewIgnored
+            ? 'ignored'
+            : scan.reviewRateLimited
+              ? 'rateLimited'
+              : 'paused'
+        ),
+        tone: warn,
+      }
+    default:
+      return { text: msg('notRecorded'), tone: muted }
+  }
+}
+
+/** The notices that belong to one check (size limits, the scanner's state). */
+function CheckNotices({
+  checkKey,
+  scan,
+}: {
+  checkKey: CheckRow['key']
+  scan: SecurityScanView
+}) {
+  const intl = useIntl()
+  const apiKeysHref = useApiKeysHref()
+  // P8: `error` has two writers — only the prefixed one (the ingest
+  // workflow's scrubbed reason) may be shown, and only after the prefix.
+  const externalReason =
+    scan.stages.external === 'FAILED' &&
+    scan.error?.startsWith(EXTERNAL_ERROR_PREFIX)
+      ? scan.error.slice(EXTERNAL_ERROR_PREFIX.length)
+      : null
+  if (checkKey === 'judge')
+    return (
+      <>
+        {scan.judgeOverCap && (
+          <JudgeOverCapNotice overCap={scan.judgeOverCap} />
+        )}
+        {scan.judgePartial && (
+          <JudgePartialNotice partial={scan.judgePartial} />
+        )}
+      </>
+    )
+  if (checkKey === 'hunt' && scan.huntOverCap)
+    return (
+      <OverCapNotice
+        testId='scan-over-cap'
+        size={scan.huntOverCap.sourceFiles}
+        cap={scan.huntOverCap.capFiles}
+      >
+        {intl.formatMessage(
+          { id: 'securityScan.huntOverCap' },
+          {
+            files: scan.huntOverCap.sourceFiles,
+            cap: scan.huntOverCap.capFiles,
+          }
+        )}
+      </OverCapNotice>
+    )
+  if (checkKey !== 'external') return null
+  return (
+    <>
+      {scan.externalLate && (
+        <p
+          data-testid='external-late'
+          className='text-caption text-warning-text'
+        >
+          {intl.formatMessage({ id: 'securityScan.external.late' })}
+        </p>
+      )}
+      {scan.stages.external === 'NOT_CONFIGURED' && (
+        <p
+          data-testid='external-not-configured'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
+          <a
+            href={apiKeysHref}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.link',
+            })}
+          </a>
+        </p>
+      )}
+      {externalReason && (
+        <p
+          data-testid='external-failed-reason'
+          className='font-mono text-caption text-muted-foreground'
+        >
+          {`${intl.formatMessage({ id: 'securityScan.external.failedReason' })} ${externalReason}`}
+        </p>
+      )}
+    </>
+  )
+}
+
+/** Whether `CheckNotices` draws anything for this check — mirrors it. */
+function hasCheckNotices(
+  checkKey: CheckRow['key'],
+  scan: SecurityScanView
+): boolean {
+  if (checkKey === 'judge')
+    return scan.judgeOverCap != null || scan.judgePartial != null
+  if (checkKey === 'hunt') return scan.huntOverCap != null
+  if (checkKey !== 'external') return false
+  return (
+    scan.externalLate ||
+    scan.stages.external === 'NOT_CONFIGURED' ||
+    (scan.stages.external === 'FAILED' &&
+      (scan.error?.startsWith(EXTERNAL_ERROR_PREFIX) ?? false))
+  )
+}
+
+/**
+ * LUM-1308 — one check as a row: state icon, plain name, short result, and
+ * (when there is anything to show) a fold with why it didn't fully run, the
+ * findings to decide on, and the quiet ones folded per reason. Opens by
+ * default when a finding needs a decision or the check didn't cover the PR.
+ */
+function CheckRowView({
+  taskId,
+  pr,
+  scan,
+  row,
+}: {
+  taskId: string
+  pr: PrEntry['pr']
+  scan: SecurityScanView
+  row: CheckRow
+}) {
+  const intl = useIntl()
+  const [open, setOpen] = useState(row.defaultOpen)
+  const name = intl.formatMessage({ id: `lumoReview.check.${row.key}` })
+  const result = checkResult(intl, row, scan)
+  const notices = hasCheckNotices(row.key, scan)
+  // Why a check did not (fully) run — said in the fold, unless a notice
+  // above already says it with its numbers.
+  const reason =
+    row.tone === 'ok' || notices ? null : stageReason(row.key, scan)
+  const reasonText = reason
+    ? intl.formatMessage({ id: reason.id }, reason.values)
+    : null
+  const expandable =
+    row.open.length > 0 || row.quiet.length > 0 || notices || reasonText != null
+  const Icon =
+    row.tone === 'ok'
+      ? Check
+      : row.tone === 'off'
+        ? Minus
+        : row.tone === 'pending'
+          ? Loader2
+          : AlertCircle
+  const iconTone =
+    row.tone === 'ok'
+      ? 'text-success-text'
+      : row.tone === 'warn'
+        ? 'text-warning-text'
+        : 'text-muted-foreground'
+  const label = `${name}: ${result.text}`
+  const content = (
+    <>
+      <Icon
+        className={`size-4 shrink-0 ${iconTone}${
+          row.tone === 'pending' ? ' animate-spin' : ''
+        }`}
+        aria-hidden
+      />
+      <span
+        className={`min-w-0 flex-1 truncate text-body-strong ${
+          row.tone === 'off' ? 'text-muted-foreground' : 'text-foreground'
+        }`}
+      >
+        {name}
+      </span>
+      <span className={`shrink-0 text-body ${result.tone}`}>{result.text}</span>
+    </>
+  )
+  return (
+    <Collapsible asChild open={expandable && open} onOpenChange={setOpen}>
+      <li
+        data-testid={`stage-${row.key}`}
+        data-state={row.overCap ? 'OVER_CAP' : (row.state ?? 'NONE')}
+        data-tone={row.tone}
+      >
+        <div className='flex items-center gap-1'>
+          {expandable ? (
+            <CollapsibleTrigger
+              aria-label={label}
+              data-testid={`check-${row.key}-toggle`}
+              className='flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-left'
+            >
+              {content}
+              <ChevronDown
+                className='size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-180'
+                aria-hidden
+              />
+            </CollapsibleTrigger>
+          ) : (
+            <div
+              role='group'
+              aria-label={label}
+              className='flex min-h-11 min-w-0 flex-1 items-center gap-2.5'
+            >
+              {content}
+              <span className='size-4 shrink-0' aria-hidden />
+            </div>
+          )}
+          <StageInfo stageKey={row.key} name={name} />
+        </div>
+        {expandable && (
+          <CollapsibleContent>
+            <div className='space-y-2 pb-3 pl-6.5'>
+              {reasonText && (
+                <p
+                  data-testid='check-reason'
+                  className='text-caption text-muted-foreground'
+                >
+                  {reasonText}
+                </p>
+              )}
+              <CheckNotices checkKey={row.key} scan={scan} />
+              {row.open.map(f => (
+                <FindingRow
+                  key={f.id}
+                  taskId={taskId}
+                  prNumber={pr.number}
+                  prUrl={pr.url}
+                  finding={f}
+                  showKind={row.key === 'judge'}
+                />
+              ))}
+              {groupFindings(row.quiet).map(group => (
+                <QuietGroup
+                  key={`${group.key}:${group.queueExit ?? ''}`}
+                  taskId={taskId}
+                  pr={pr}
+                  group={group}
+                />
+              ))}
+            </div>
+          </CollapsibleContent>
+        )}
+      </li>
+    </Collapsible>
+  )
+}
+
+/** Findings nobody has to decide on now, folded under their reason. */
+function QuietGroup({
+  taskId,
+  pr,
+  group,
+}: {
+  taskId: string
+  pr: PrEntry['pr']
+  group: FindingGroup
+}) {
+  const intl = useIntl()
+  return (
+    <Collapsible
+      data-testid={
+        group.queueExit
+          ? `finding-group-queueExit-${group.queueExit}`
+          : `finding-group-${group.key}`
+      }
+    >
+      <CollapsibleTrigger className='inline-flex h-control-sm items-center gap-1.5 rounded-md px-2 -ml-2 text-body text-muted-foreground hover:bg-accent hover:text-accent-foreground'>
+        <ChevronRight
+          className='size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90'
+          aria-hidden
+        />
+        {`${groupHeading(intl, group)} · ${group.findings.length}`}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className='space-y-2 pt-1'>
+          {group.findings.map(f => (
+            <FindingRow
+              key={f.id}
+              taskId={taskId}
+              prNumber={pr.number}
+              prUrl={pr.url}
+              finding={f}
+              groupKey={group.key}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -374,58 +1001,55 @@ function ReviewControls({
       setBusy(false)
     }
   }
+  // LUM-1308: the review actions sit behind one ⋯ menu on the PR's header;
+  // the reviewed-commit count is the menu's label.
   return (
-    <div className='mt-2 flex flex-wrap items-center gap-2'>
-      {control && (
-        <span className='text-caption text-muted-foreground'>
-          {intl.formatMessage(
-            {
-              // LUM-1137: reviewed commits; limit 0 = never pauses.
-              id:
-                control.limit === 0
-                  ? 'securityScan.review.roundsNoLimit'
-                  : 'securityScan.review.rounds',
-            },
-            { rounds: control.rounds, limit: control.limit }
+    <div className='flex flex-wrap items-center gap-2'>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant='outline'
+            size='icon-sm'
+            disabled={busy}
+            aria-label={intl.formatMessage({ id: 'lumoReview.reviewActions' })}
+          >
+            <MoreHorizontal aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='end'>
+          {control && (
+            <DropdownMenuLabel className='text-caption font-normal text-muted-foreground'>
+              {intl.formatMessage(
+                {
+                  // LUM-1137: reviewed commits; limit 0 = never pauses.
+                  id:
+                    control.limit === 0
+                      ? 'securityScan.review.roundsNoLimit'
+                      : 'securityScan.review.rounds',
+                },
+                { rounds: control.rounds, limit: control.limit }
+              )}
+            </DropdownMenuLabel>
           )}
-        </span>
-      )}
-      <Button
-        variant='outline'
-        size='sm'
-        disabled={busy}
-        onClick={() => void act('incremental')}
-      >
-        {intl.formatMessage({ id: 'securityScan.review.incremental' })}
-      </Button>
-      <Button
-        variant='outline'
-        size='sm'
-        disabled={busy}
-        onClick={() => void act('full')}
-      >
-        {intl.formatMessage({ id: 'securityScan.review.full' })}
-      </Button>
-      {!control?.paused && (
-        <Button
-          variant='ghost'
-          size='sm'
-          disabled={busy}
-          onClick={() => void act('pause')}
-        >
-          {intl.formatMessage({ id: 'securityScan.review.pause' })}
-        </Button>
-      )}
-      {(control?.paused || !control) && (
-        <Button
-          variant='ghost'
-          size='sm'
-          disabled={busy}
-          onClick={() => void act('resume')}
-        >
-          {intl.formatMessage({ id: 'securityScan.review.resume' })}
-        </Button>
-      )}
+          <DropdownMenuItem onSelect={() => void act('incremental')}>
+            {intl.formatMessage({ id: 'securityScan.review.incremental' })}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void act('full')}>
+            {intl.formatMessage({ id: 'securityScan.review.full' })}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {!control?.paused && (
+            <DropdownMenuItem onSelect={() => void act('pause')}>
+              {intl.formatMessage({ id: 'securityScan.review.pause' })}
+            </DropdownMenuItem>
+          )}
+          {(control?.paused || !control) && (
+            <DropdownMenuItem onSelect={() => void act('resume')}>
+              {intl.formatMessage({ id: 'securityScan.review.resume' })}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {error && (
         <span role='alert' className='text-caption text-danger-text'>
           {intl.formatMessage({ id: 'securityScan.review.error' })}
@@ -441,19 +1065,11 @@ function ReviewControls({
 }
 
 /**
- * Every layer the scan carries, in pipeline order (LUM-740: the stage row).
- * Taken from the shared key list rather than re-typed here (LUM-763) — the
- * same list the PR summary and `lumo task status` render from, so a sixth
- * layer can never reach one surface and not another.
- */
-const STAGE_ORDER = SCAN_STAGE_DISPLAY_ORDER
-
-/**
  * The scanners behind each layer, named in its ⓘ card. Product names, not
  * copy — never translated. Code scan's are the managed scan's tools
  * (`MANAGED_SCAN_TOOLS`) minus osv-scanner, which is Dependencies.
  */
-const STAGE_TOOLS: Record<(typeof STAGE_ORDER)[number], string | null> = {
+const STAGE_TOOLS: Record<ScanStageKeyName, string | null> = {
   secrets: null,
   external: 'gitleaks · semgrep · zizmor · trivy',
   supplyChain: 'osv-scanner',
@@ -462,176 +1078,12 @@ const STAGE_TOOLS: Record<(typeof STAGE_ORDER)[number], string | null> = {
   hunt: null,
 }
 
-/**
- * LUM-1012: one layer of one scan as a checklist item — ✓ checked, – not
- * needed or turned off in settings, ! didn't run (failed, queued, not
- * configured, cut short, or skipped for being over its size limit). Only
- * the name is shown, so every row keeps one width; the state's words ride on
- * the label and tooltip, and a size limit also gets its notice below.
- */
-function StageItem({
-  stageKey,
-  scan,
-}: {
-  stageKey: (typeof STAGE_ORDER)[number]
-  scan: SecurityScanView
-}) {
-  const intl = useIntl()
-  const reasonId = useId()
-  const state = scan.stages[stageKey]
-  if (!state) return null
-  // LUM-1079: a PR too large to scan skipped every layer for size.
-  const overCap =
-    scan.prTooLarge != null ||
-    (stageKey === 'hunt' && scan.huntOverCap != null) ||
-    (stageKey === 'judge' && scan.judgeOverCap != null)
-  const kind = overCap
-    ? 'warn'
-    : state === 'RAN'
-      ? 'ok'
-      : state === 'SKIPPED' || state === 'DISABLED'
-        ? 'off'
-        : 'warn'
-  const name = intl.formatMessage({ id: `securityScan.stage.${stageKey}` })
-  const stateWord = intl.formatMessage({
-    id: `securityScan.stageState.${
-      overCap
-        ? 'SKIPPED'
-        : state === 'PAUSED' && scan.reviewIgnored
-          ? 'IGNORED'
-          : state === 'PAUSED' && scan.reviewRateLimited
-            ? 'RATE_LIMITED'
-            : state
-    }`,
-  })
-  const progress =
-    stageKey === 'hunt' && scan.huntProgress
-      ? intl.formatMessage(
-          { id: 'securityScan.huntProgress' },
-          {
-            covered: scan.huntProgress.coveredFiles,
-            total: scan.huntProgress.totalFiles,
-          }
-        )
-      : null
-  // LUM-1012 follow-up: a layer that did not (fully) run says why on hover —
-  // and as its accessible description, so it is never hover-only.
-  const reason = stageReason(stageKey, scan)
-  const reasonText = reason
-    ? intl.formatMessage({ id: reason.id }, reason.values)
-    : null
-  const label = [`${name}: ${stateWord}`, progress].filter(Boolean).join(' · ')
-  const Icon = kind === 'ok' ? Check : kind === 'off' ? Minus : AlertCircle
-  const tone =
-    kind === 'ok'
-      ? 'text-success-text'
-      : kind === 'off'
-        ? 'text-muted-foreground/60'
-        : 'text-warning-text'
-  const textTone =
-    kind === 'warn'
-      ? 'text-warning-text'
-      : kind === 'off'
-        ? 'text-muted-foreground/80'
-        : 'text-muted-foreground'
-  const stageContent = (
-    <>
-      <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
-      <span
-        aria-hidden
-        className={
-          reasonText
-            ? 'underline decoration-dotted underline-offset-2'
-            : undefined
-        }
-      >
-        {name}
-      </span>
-      {/* Only a partial hunt shows its count: a full one is just ✓ (the
-        numbers stay on the label). */}
-      {scan.huntProgress &&
-      stageKey === 'hunt' &&
-      scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles ? (
-        <span aria-hidden className='text-muted-foreground'>
-          {`${scan.huntProgress.coveredFiles}/${scan.huntProgress.totalFiles}`}
-        </span>
-      ) : null}
-    </>
-  )
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 text-caption ${textTone}`}
-    >
-      {/* A layer with a reason to give is a real button (focusable, hover /
-          focus opens the reason, which is also its accessible description);
-          a checked one is a labelled image with its state as a plain hover. */}
-      {reasonText ? (
-        <StageReasonTooltip text={reasonText}>
-          <button
-            type='button'
-            aria-label={label}
-            aria-describedby={reasonId}
-            data-testid={`stage-${stageKey}`}
-            data-state={overCap ? 'OVER_CAP' : state}
-            className='inline-flex cursor-help items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-          >
-            {stageContent}
-          </button>
-        </StageReasonTooltip>
-      ) : (
-        <span
-          role='img'
-          aria-label={label}
-          title={label}
-          data-testid={`stage-${stageKey}`}
-          data-state={overCap ? 'OVER_CAP' : state}
-          className='inline-flex items-center gap-1'
-        >
-          {stageContent}
-        </span>
-      )}
-      {reasonText ? (
-        <span id={reasonId} className='sr-only'>
-          {reasonText}
-        </span>
-      ) : null}
-      <StageInfo stageKey={stageKey} name={name} />
-    </span>
-  )
-}
-
-/**
- * LUM-1012 follow-up: the hover on a layer that did not (fully) run — why.
- * A layer that checked the change has nothing to explain and no tooltip.
- */
-function StageReasonTooltip({
-  text,
-  children,
-}: {
-  text: string | null
-  children: ReactElement
-}) {
-  if (!text) return children
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent
-        side='bottom'
-        className='max-w-64 text-caption'
-        data-testid='stage-reason'
-      >
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
 /** LUM-1012 follow-up: the ⓘ next to a layer — what that layer checks. */
 function StageInfo({
   stageKey,
   name,
 }: {
-  stageKey: (typeof STAGE_ORDER)[number]
+  stageKey: ScanStageKeyName
   name: string
 }) {
   const intl = useIntl()
@@ -760,209 +1212,6 @@ function ConfirmAllSuggested({
         )}
       </Button>
       {error && <span className='text-caption text-danger-text'>{error}</span>}
-    </div>
-  )
-}
-
-function ScanDetails({
-  taskId,
-  prNumber,
-  scan,
-}: {
-  taskId: string
-  prNumber: number
-  scan: SecurityScanView
-}) {
-  const intl = useIntl()
-  const pathname = usePathname()
-  const workspaceSlug = pathname.match(/^\/workspace\/([^/]+)/)?.[1] ?? null
-  const apiKeysHref = workspaceSlug
-    ? `/workspace/${workspaceSlug}/settings/api-keys`
-    : '#'
-  // P8: `error` is one column with two writers — the ingest workflow's
-  // scrubbed reason (prefixed) and stage A's own raw `error.message`. Only the
-  // prefixed one may be shown as the external scanner's reason, and only the
-  // text after the prefix.
-  const externalReason =
-    scan.stages.external === 'FAILED' &&
-    scan.error?.startsWith(EXTERNAL_ERROR_PREFIX)
-      ? scan.error.slice(EXTERNAL_ERROR_PREFIX.length)
-      : null
-  const turnedOff = turnedOffLayers(scan.stages)
-  // LUM-1296: `hasScanDetails` mirrors every block below — a new block here
-  // needs its condition there, or its row gets no chevron.
-  return (
-    <div className='mt-1.5 space-y-1.5'>
-      {nonPassingChecks(scan.preMergeChecks).map(check => (
-        <div
-          key={check.id}
-          data-testid='pre-merge-check'
-          className='text-caption text-warning-text'
-        >
-          <p>
-            {check.name} ·{' '}
-            {intl.formatMessage({
-              id: `securityScan.preMerge.${check.verdict}`,
-            })}
-          </p>
-          {check.explanation ? <p>{check.explanation}</p> : null}
-          {check.resolution ? <p>{check.resolution}</p> : null}
-          {check.requirements
-            ?.filter(r => r.outcome !== 'addressed')
-            .map(r => (
-              <p key={r.id}>
-                {r.label} ·{' '}
-                {intl.formatMessage({
-                  id: `securityScan.preMerge.${r.outcome}`,
-                })}
-                {r.quotable && r.text ? `: ${r.text}` : ''}
-                {r.quotable && r.explanation ? ` — ${r.explanation}` : ''}
-              </p>
-            ))}
-        </div>
-      ))}
-      {scan.codeScrubbed && (
-        <p
-          data-testid='scan-code-scrubbed'
-          className='text-caption text-muted-foreground'
-        >
-          {intl.formatMessage({ id: 'securityScan.codeScrubbed' })}
-        </p>
-      )}
-      {scan.fixed > 0 && (
-        <p
-          data-testid='scan-fixed'
-          className='text-caption text-muted-foreground'
-        >
-          {intl.formatMessage(
-            { id: 'securityScan.fixed' },
-            { count: scan.fixed }
-          )}
-        </p>
-      )}
-      {scan.externalLate && (
-        <p
-          data-testid='external-late'
-          className='text-caption text-warning-text'
-        >
-          {intl.formatMessage({ id: 'securityScan.external.late' })}
-        </p>
-      )}
-      {scan.stages.external === 'NOT_CONFIGURED' && (
-        <p
-          data-testid='external-not-configured'
-          className='text-caption text-muted-foreground'
-        >
-          {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
-          <a
-            href={apiKeysHref}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='underline underline-offset-2 hover:text-foreground'
-          >
-            {intl.formatMessage({
-              id: 'securityScan.external.notConfigured.link',
-            })}
-          </a>
-        </p>
-      )}
-      {/* LUM-832: one owned line, whatever the cause. It used to name a
-          reason — "cut off at the scan budget", "large changes may be
-          under-reviewed" — that was usually wrong and always ours; the stage
-          row above already says which layer did not finish. */}
-      {scan.ownedUnfinished && (
-        <p
-          data-testid='scan-unfinished'
-          className='text-caption text-warning-text'
-        >
-          {intl.formatMessage({ id: 'securityScan.partial' })}
-        </p>
-      )}
-      {/* LUM-832: a layer over its size cap did not run — told plainly
-          as a limit on the change: the change is too large, and how to
-          get the layer (narrow the scope or split the PR). */}
-      {turnedOff.length > 0 && (
-        <p
-          data-testid='scan-turned-off'
-          className='text-caption text-muted-foreground'
-        >
-          {intl.formatMessage(
-            { id: 'securityScan.turnedOff' },
-            {
-              layers: turnedOff
-                .map(key =>
-                  intl.formatMessage({ id: `securityScan.stage.${key}` })
-                )
-                .join(', '),
-              count: turnedOff.length,
-            }
-          )}
-        </p>
-      )}
-      {/* LUM-1079: the whole PR was too large to scan — why, and what to
-          do (split it or narrow its scope). Never the owned line above. */}
-      {scan.prTooLarge && <PrTooLargeNotice tooLarge={scan.prTooLarge} />}
-      {scan.huntOverCap && (
-        <OverCapNotice
-          testId='scan-over-cap'
-          size={scan.huntOverCap.sourceFiles}
-          cap={scan.huntOverCap.capFiles}
-        >
-          {intl.formatMessage(
-            { id: 'securityScan.huntOverCap' },
-            {
-              files: scan.huntOverCap.sourceFiles,
-              cap: scan.huntOverCap.capFiles,
-            }
-          )}
-        </OverCapNotice>
-      )}
-      {scan.judgeOverCap && <JudgeOverCapNotice overCap={scan.judgeOverCap} />}
-      {scan.judgePartial && <JudgePartialNotice partial={scan.judgePartial} />}
-      {externalReason && (
-        <p
-          data-testid='external-failed-reason'
-          className='font-mono text-caption text-muted-foreground'
-        >
-          {`${intl.formatMessage({ id: 'securityScan.external.failedReason' })} ${externalReason}`}
-        </p>
-      )}
-      {!externalReason &&
-        !scan.prTooLarge &&
-        scan.error &&
-        scan.status === 'FAILED' && (
-          <p className='font-mono text-caption text-muted-foreground'>
-            {scan.error}
-          </p>
-        )}
-      {/* Findings someone must decide on first; the quiet ones after, each
-          reason said once as its group's heading. */}
-      {groupFindings(scan.findings).map(group => (
-        <div
-          key={`${group.key}:${group.queueExit ?? ''}`}
-          // Queue exits are split per exit kind, so their id carries the
-          // kind — two groups never share one.
-          data-testid={
-            group.queueExit
-              ? `finding-group-queueExit-${group.queueExit}`
-              : `finding-group-${group.key}`
-          }
-          className='space-y-1.5 pt-1'
-        >
-          <p className='text-caption uppercase text-muted-foreground'>
-            {`${groupHeading(intl, group)} · ${group.findings.length}`}
-          </p>
-          {group.findings.map(f => (
-            <FindingRow
-              key={f.id}
-              taskId={taskId}
-              prNumber={prNumber}
-              finding={f}
-              groupKey={group.key}
-            />
-          ))}
-        </div>
-      ))}
     </div>
   )
 }
@@ -1154,14 +1403,21 @@ function OverCapNotice({
 function FindingRow({
   taskId,
   prNumber,
+  prUrl,
   finding,
   groupKey,
+  showKind = true,
 }: {
   taskId: string
   prNumber: number
+  /** The PR's page — the file:line links to its changed files. */
+  prUrl?: string | undefined
   finding: SecurityFindingView
   /** The group heading this row sits under — its reason chip is not repeated. */
   groupKey?: FindingGroupKey
+  /** LUM-1308: the category badge. Off under a check that only finds one
+   *  kind, where the check's name already says it. */
+  showKind?: boolean
 }) {
   const intl = useIntl()
   const queryClient = useQueryClient()
@@ -1245,12 +1501,57 @@ function FindingRow({
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
       data-queue-exit={finding.queueExit ?? undefined}
-      className={`rounded-md bg-background px-2.5 py-2${
-        muted && !open ? ' opacity-60' : ''
-      }`}
+      className={
+        quiet
+          ? `rounded-md px-2.5 py-2${muted && !open ? ' opacity-60' : ''}`
+          : 'space-y-2 p-3'
+      }
     >
-      <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
-        {quiet ? (
+      {/* LUM-1308: a finding to decide on is a card — its title, then its
+          severity, category and where it is. */}
+      {!quiet && (
+        <div className='space-y-1.5'>
+          <p className='text-body-strong text-foreground'>{finding.title}</p>
+          <div className='flex flex-wrap items-center gap-1.5'>
+            <Badge
+              data-testid='finding-severity'
+              variant={
+                finding.severity === 'HIGH'
+                  ? 'danger'
+                  : finding.severity === 'MEDIUM'
+                    ? 'warning'
+                    : 'muted'
+              }
+              size='sm'
+            >
+              {intl.formatMessage({
+                id: `securityScan.severity.${finding.severity}`,
+              })}
+            </Badge>
+            {showKind && finding.kind !== 'DEPENDENCY' && (
+              <Badge data-testid='finding-kind' variant='outline' size='sm'>
+                {intl.formatMessage({
+                  id: `securityScan.kind.${finding.kind}`,
+                })}
+              </Badge>
+            )}
+            {suggestedOpen && (
+              <Badge
+                data-testid='finding-suggested'
+                variant='outline-muted'
+                size='sm'
+              >
+                {intl.formatMessage({
+                  id: 'securityScan.suggested.falsePositive',
+                })}
+              </Badge>
+            )}
+            <FindingLocation finding={finding} prUrl={prUrl} />
+          </div>
+        </div>
+      )}
+      <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption empty:hidden'>
+        {quiet && (
           <CollapsibleTrigger
             data-testid='finding-toggle'
             className='flex flex-wrap items-center gap-x-2 text-left'
@@ -1261,14 +1562,13 @@ function FindingRow({
             />
             <FindingHeadline finding={finding} tone={severityTone} />
           </CollapsibleTrigger>
-        ) : (
-          <FindingHeadline finding={finding} tone={severityTone} />
         )}
         {/* Folded, a quiet finding keeps only why it is quiet (the chips
-            below); its kind and source come back when opened. */}
+            below); its kind and source come back when opened. An open
+            finding already shows its kind on the card header. */}
         {open ? (
           <>
-            {finding.kind !== 'DEPENDENCY' && (
+            {quiet && finding.kind !== 'DEPENDENCY' && (
               <span
                 data-testid='finding-kind'
                 className='text-muted-foreground'
@@ -1298,7 +1598,7 @@ function FindingRow({
                 {finding.cwe}
               </span>
             )}
-            {suggestedOpen && (
+            {quiet && suggestedOpen && (
               <Badge
                 data-testid='finding-suggested'
                 variant='warning'
@@ -1576,6 +1876,39 @@ function FindingRow({
         </p>
       )}
     </CollapsibleCard>
+  )
+}
+
+/**
+ * LUM-1308 — where a finding is: `file:line`, linked to the PR's changed
+ * files when the PR is known. A finding with no file (e.g. a dependency
+ * placed by its lockfile only) still shows the path as text.
+ */
+function FindingLocation({
+  finding,
+  prUrl,
+}: {
+  finding: Pick<SecurityFindingView, 'filePath' | 'line'>
+  prUrl?: string | undefined
+}) {
+  const text = `${finding.filePath}${finding.line != null ? `:${finding.line}` : ''}`
+  if (!finding.filePath) return null
+  if (!prUrl)
+    return (
+      <span className='min-w-0 truncate font-mono text-caption text-muted-foreground'>
+        {text}
+      </span>
+    )
+  return (
+    <a
+      data-testid='finding-location'
+      href={`${prUrl}/files`}
+      target='_blank'
+      rel='noopener noreferrer'
+      className='min-w-0 truncate font-mono text-caption text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground'
+    >
+      {text}
+    </a>
   )
 }
 

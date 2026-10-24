@@ -1,15 +1,12 @@
 /**
  * LUM-496 Task 3: pure derivations behind the Record tab's security-scan
  * section — the one-line rollup (PR count · undispositioned findings ·
- * all-LOW note · incomplete-scan count · external-failure count) and which PR
- * rows default open.
+ * all-LOW note · incomplete-scan count · external-failure count).
  * No intl, no React — unit-testable on their own.
  */
 import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
 import {
-  EXTERNAL_ERROR_PREFIX,
   isJudgeOverCapByFiles,
-  turnedOffLayers,
   type ScanStageKeyName,
 } from '@/shared/src/security-scan'
 import type {
@@ -133,51 +130,6 @@ export function summarizeSecurityScans(
     turnedOff: prs.filter(({ latest }) => latest?.coverage === 'TURNED_OFF')
       .length,
   }
-}
-
-/**
- * Whether a PR's row should default to expanded: an undispositioned finding
- * still needs a human decision, the scan did not complete (its stage notes,
- * not-configured hint or partial notice are the reason the summary cannot
- * claim a clean result — LUM-496 review F1), or the external scanner failed
- * with a concrete error worth reading. A manual toggle overrides this
- * afterward — this only decides the row's INITIAL state.
- */
-export function shouldExpandRow(latest: SecurityScanView | null): boolean {
-  if (!latest) return false
-  if (nonPassingChecks(latest.preMergeChecks).length > 0) return true
-  if (latest.findings.some(f => !isQuietFinding(f))) return true
-  // LUM-892: a layer the customer turned off is no reason to open the row —
-  // the summary line and the badge already say it.
-  if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true
-  return latest.stages.external === 'FAILED' && latest.error != null
-}
-
-/**
- * LUM-1296 — whether `ScanDetails` renders anything for this scan, i.e.
- * whether the PR row has a body worth a chevron. A clean scan with no notice
- * opened onto nothing (the stage checklist sits outside the fold), so the
- * chevron read as broken. Mirrors every block in `ScanDetails`; a new block
- * there needs its condition here too.
- */
-export function hasScanDetails(scan: SecurityScanView): boolean {
-  return (
-    nonPassingChecks(scan.preMergeChecks).length > 0 ||
-    scan.findings.length > 0 ||
-    scan.codeScrubbed ||
-    scan.fixed > 0 ||
-    scan.externalLate ||
-    scan.stages.external === 'NOT_CONFIGURED' ||
-    scan.ownedUnfinished ||
-    turnedOffLayers(scan.stages).length > 0 ||
-    scan.prTooLarge != null ||
-    scan.huntOverCap != null ||
-    scan.judgeOverCap != null ||
-    scan.judgePartial != null ||
-    (scan.stages.external === 'FAILED' &&
-      (scan.error?.startsWith(EXTERNAL_ERROR_PREFIX) ?? false)) ||
-    (!!scan.error && scan.status === 'FAILED')
-  )
 }
 
 /**
