@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import type { TrashItemView } from '@/lib/services/trash.service'
 import { useTrash } from '../../hooks/useTrash'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 /**
  * LUM-918 — settings → Trash. Deleted tasks (the whole workspace's) and the
@@ -74,26 +76,37 @@ export function TrashSettingsPage() {
         {intl.formatMessage({ id: 'settings.trash.description' })}
       </p>
 
-      {isLoading ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'common.loading' })}
-        </div>
-      ) : isError ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'settings.trash.loadFailed' })}
-        </div>
-      ) : items.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <Trash2 />
-            </EmptyMedia>
-            <EmptyTitle>
-              {intl.formatMessage({ id: 'settings.trash.empty' })}
-            </EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : (
+      <AsyncContent
+        loading={isLoading}
+        error={
+          isError
+            ? intl.formatMessage({ id: 'settings.trash.loadFailed' })
+            : null
+        }
+        empty={items.length === 0}
+        loadingState={
+          <RowListSkeleton
+            rows={4}
+            leading='icon'
+            subtitle
+            divided
+            rowClassName='px-4 py-3'
+            className='rounded-lg border border-border'
+          />
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>
+                <Trash2 />
+              </EmptyMedia>
+              <EmptyTitle>
+                {intl.formatMessage({ id: 'settings.trash.empty' })}
+              </EmptyTitle>
+            </EmptyHeader>
+          </Empty>
+        }
+      >
         <ul className='rounded-lg border border-border divide-y divide-border'>
           {items.map(item => (
             <li
@@ -164,7 +177,7 @@ export function TrashSettingsPage() {
             </li>
           ))}
         </ul>
-      )}
+      </AsyncContent>
 
       <AlertDialog
         open={purging !== null}

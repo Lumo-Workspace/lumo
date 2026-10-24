@@ -19,6 +19,10 @@ import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { AsyncContent } from '../AsyncContent'
+import {
+  TaskBoardSkeleton,
+  TaskTableSkeleton,
+} from '../skeletons/TaskSkeletons'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -303,6 +307,9 @@ export function MyTasksPage({
           error={error}
           empty={filteredTasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
+          loadingState={
+            viewMode === 'board' ? <TaskBoardSkeleton /> : <TaskTableSkeleton />
+          }
           className='flex-1 flex flex-col overflow-hidden'
           emptyState={
             <Empty>

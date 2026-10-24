@@ -17,6 +17,10 @@ import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { AsyncContent } from '../AsyncContent'
+import {
+  TaskBoardSkeleton,
+  TaskTableSkeleton,
+} from '../skeletons/TaskSkeletons'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { useTaskFiltering } from '../../hooks/useTaskFiltering'
@@ -262,6 +266,9 @@ export function TaskWorkspaceView({
           error={error}
           empty={filteredTasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
+          loadingState={
+            viewMode === 'board' ? <TaskBoardSkeleton /> : <TaskTableSkeleton />
+          }
           className='flex-1 flex flex-col overflow-hidden'
           emptyState={emptyState}
         >

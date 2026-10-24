@@ -16,6 +16,8 @@ import {
 import { useTaskDecisions } from '../../hooks/useTaskDecisions'
 import { DecisionCard } from './DecisionCard'
 import { DecisionForm } from './DecisionForm'
+import { LoadingState } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 export interface DecisionAuthor {
   name: string
@@ -50,12 +52,15 @@ export function DecisionsTab({ taskId, authors, enabled }: DecisionsTabProps) {
 
   if (loading) {
     return (
-      <p className='py-4 text-center text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'common.loading',
-          defaultMessage: 'Loading…',
-        })}
-      </p>
+      <LoadingState className='py-2'>
+        <RowListSkeleton
+          rows={3}
+          subtitle
+          trailing={false}
+          rowClassName='rounded-lg border border-border px-4 py-3'
+          className='space-y-3'
+        />
+      </LoadingState>
     )
   }
   if (error) {

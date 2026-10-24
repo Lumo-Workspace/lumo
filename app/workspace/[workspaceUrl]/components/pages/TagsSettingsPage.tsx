@@ -33,6 +33,8 @@ import {
 import { tagsClient } from '@/lib/api-client'
 import type { ApiTagWithCounts } from '../../types'
 import { TagBadgeNew } from '../document/TagPicker'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 import { PRESET_COLORS, CUSTOM_COLOR_PLACEHOLDER } from './tag-color-presets'
 
 interface TagFormState {
@@ -165,25 +167,33 @@ export function TagsSettingsPage() {
       </p>
 
       {/* List */}
-      {loading ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'common.loading' })}
-        </div>
-      ) : tags.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <TagIcon />
-            </EmptyMedia>
-            <EmptyTitle>
-              {intl.formatMessage({ id: 'settings.tags.empty' })}
-            </EmptyTitle>
-            <EmptyDescription>
-              {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
+      <AsyncContent
+        loading={loading}
+        empty={tags.length === 0}
+        loadingState={
+          <RowListSkeleton
+            rows={4}
+            divided
+            rowClassName='px-4 py-3'
+            className='rounded-lg border border-border'
+          />
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>
+                <TagIcon />
+              </EmptyMedia>
+              <EmptyTitle>
+                {intl.formatMessage({ id: 'settings.tags.empty' })}
+              </EmptyTitle>
+              <EmptyDescription>
+                {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
+      >
         <div className='border rounded-lg divide-y divide-border border-border'>
           {tags.map(tag => (
             <div
@@ -218,7 +228,7 @@ export function TagsSettingsPage() {
             </div>
           ))}
         </div>
-      )}
+      </AsyncContent>
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

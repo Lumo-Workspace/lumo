@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import { ApiClientError } from '@/lib/api-client/base'
 import { isClosedTaskStatus } from '@/lib/task/status-semantics'
+import { AsyncContent } from '../../components/AsyncContent'
+import { RowListSkeleton } from '../../components/skeletons/RowListSkeleton'
 
 type Decision = 'moveToNext' | 'backToBacklog'
 
@@ -143,64 +145,65 @@ export function CloseSprintDialog({
         </DialogHeader>
 
         <div className='flex flex-col gap-4 min-w-0 max-w-full'>
-          {loading ? (
-            <p className='text-body text-muted-foreground'>
-              {intl.formatMessage({ id: 'sprints.detail.loading' })}
-            </p>
-          ) : tasks.length === 0 ? (
-            <p className='text-body text-muted-foreground'>
-              {intl.formatMessage({ id: 'sprints.close.allDone' })}
-            </p>
-          ) : (
-            <>
+          <AsyncContent
+            loading={loading}
+            loadingState={<RowListSkeleton rows={4} rowClassName='py-1.5' />}
+          >
+            {tasks.length === 0 ? (
               <p className='text-body text-muted-foreground'>
-                {intl.formatMessage(
-                  { id: 'sprints.close.unfinishedCount' },
-                  { count: tasks.length }
-                )}
+                {intl.formatMessage({ id: 'sprints.close.allDone' })}
               </p>
+            ) : (
+              <>
+                <p className='text-body text-muted-foreground'>
+                  {intl.formatMessage(
+                    { id: 'sprints.close.unfinishedCount' },
+                    { count: tasks.length }
+                  )}
+                </p>
 
-              {/* Bulk actions */}
-              <div className='flex gap-2'>
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  onClick={() => setAll('moveToNext')}
-                >
-                  {intl.formatMessage({ id: 'sprints.close.moveAllNext' })}
-                </Button>
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  onClick={() => setAll('backToBacklog')}
-                >
-                  {intl.formatMessage({ id: 'sprints.close.allToBacklog' })}
-                </Button>
-              </div>
-
-              {/* Per-task decisions */}
-              <div className='flex flex-col gap-2 max-h-64 overflow-y-auto w-full min-w-0'>
-                {tasks.map(task => (
-                  <div
-                    key={task.id}
-                    className='flex w-full items-center justify-between gap-2 rounded-sm border p-2 min-w-0'
+                {/* Bulk actions */}
+                <div className='flex gap-2'>
+                  <Button
+                    type='button'
+                    size='sm'
+                    variant='outline'
+                    onClick={() => setAll('moveToNext')}
                   >
-                    <span className='text-body truncate flex-1 min-w-0'>
-                      {task.title}
-                    </span>
-                    <div className='shrink-0'>
-                      <DecisionToggle
-                        value={decisions[task.id]}
-                        onChange={v => setDecision(task.id, v)}
-                      />
+                    {intl.formatMessage({ id: 'sprints.close.moveAllNext' })}
+                  </Button>
+                  <Button
+                    type='button'
+                    size='sm'
+                    variant='outline'
+                    onClick={() => setAll('backToBacklog')}
+                  >
+                    {intl.formatMessage({ id: 'sprints.close.allToBacklog' })}
+                  </Button>
+                </div>
+
+                {/* Per-task decisions */}
+                <div className='flex flex-col gap-2 max-h-64 overflow-y-auto w-full min-w-0'>
+                  {tasks.map(task => (
+                    <div
+                      key={task.id}
+                      className='flex w-full items-center justify-between gap-2 rounded-sm border p-2 min-w-0'
+                    >
+                      <span className='text-body truncate flex-1 min-w-0'>
+                        {task.title}
+                      </span>
+                      <div className='shrink-0'>
+                        <DecisionToggle
+                          value={decisions[task.id]}
+                          onChange={v => setDecision(task.id, v)}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                  ))}
+                </div>
+              </>
+            )}
+          </AsyncContent>
 
           <p className='text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.close.irreversible' })}

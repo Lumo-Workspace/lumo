@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/command'
 import { PropertyRow } from './PropertyRow'
 import { Spinner } from '@/components/ui/spinner'
+import { LoadingState } from '../../AsyncContent'
+import { RowListSkeleton } from '../../skeletons/RowListSkeleton'
 import {
   Tooltip,
   TooltipContent,
@@ -172,10 +174,17 @@ export function ProjectPropertyRows({
           </PopoverTrigger>
           <PopoverContent className='w-64 p-0' align='start' side='bottom'>
             {reposLoading ? (
-              <div className='flex items-center justify-center gap-2 py-6 text-caption text-muted-foreground'>
-                <Spinner className='size-[13px]' />
-                {intl.formatMessage({ id: 'project.loadingRepos' })}
-              </div>
+              <LoadingState
+                className='px-3 py-2'
+                label={intl.formatMessage({ id: 'project.loadingRepos' })}
+              >
+                <RowListSkeleton
+                  rows={4}
+                  leading='icon'
+                  trailing={false}
+                  rowClassName='py-1'
+                />
+              </LoadingState>
             ) : githubConnected === false ? (
               <div className='space-y-1 px-3 py-4 text-center text-caption text-muted-foreground'>
                 <p>

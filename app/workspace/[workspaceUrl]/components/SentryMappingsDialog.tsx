@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog'
 import { useSentryMappings } from '../hooks/useSentryMappings'
 import { useProjects } from '../hooks/useProjects'
+import { AsyncContent } from './AsyncContent'
+import { RowListSkeleton } from './skeletons/RowListSkeleton'
 import {
   Select,
   SelectContent,
@@ -70,37 +72,44 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
         </p>
 
         <div className='mt-3 space-y-2'>
-          {loading ? (
-            <div className='text-caption text-muted-foreground'>
-              {intl.formatMessage({ id: 'common.loading' })}
-            </div>
-          ) : mappings.length === 0 ? (
-            <div className='text-caption text-muted-foreground'>
-              {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
-            </div>
-          ) : (
-            mappings.map(m => (
-              <div
-                key={m.id}
-                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-caption'
-              >
-                <div>
-                  <span className='font-mono'>{m.sentryProjectSlug}</span>
-                  <span className='mx-2 text-muted-foreground'>→</span>
-                  <span>{projectName(m.projectId)}</span>
-                </div>
-                <button
-                  className='text-danger-text hover:bg-danger-subtle p-1 rounded-sm'
-                  onClick={() => removeMapping(m.id)}
-                  aria-label={intl.formatMessage({
-                    id: 'sentry.mappingsRemoveAriaLabel',
-                  })}
-                >
-                  <Trash2 className='h-4 w-4' />
-                </button>
+          <AsyncContent
+            loading={loading}
+            loadingState={
+              <RowListSkeleton
+                rows={2}
+                rowClassName='rounded-md border border-border px-3 py-1.5'
+                className='space-y-2'
+              />
+            }
+          >
+            {mappings.length === 0 ? (
+              <div className='text-caption text-muted-foreground'>
+                {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
               </div>
-            ))
-          )}
+            ) : (
+              mappings.map(m => (
+                <div
+                  key={m.id}
+                  className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-caption'
+                >
+                  <div>
+                    <span className='font-mono'>{m.sentryProjectSlug}</span>
+                    <span className='mx-2 text-muted-foreground'>→</span>
+                    <span>{projectName(m.projectId)}</span>
+                  </div>
+                  <button
+                    className='text-danger-text hover:bg-danger-subtle p-1 rounded-sm'
+                    onClick={() => removeMapping(m.id)}
+                    aria-label={intl.formatMessage({
+                      id: 'sentry.mappingsRemoveAriaLabel',
+                    })}
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </button>
+                </div>
+              ))
+            )}
+          </AsyncContent>
         </div>
 
         <div className='mt-4 border-t border-border pt-3'>
