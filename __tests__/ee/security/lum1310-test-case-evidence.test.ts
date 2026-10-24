@@ -87,6 +87,7 @@ describe('which runs count', () => {
         ],
         files: ['mytasks-list.jpg'],
         links: 1,
+        hasImage: true,
       },
     ])
   })
@@ -344,6 +345,36 @@ describe('the screenshot rule Lumo enforces after the model', () => {
       HEAD
     )
     expect(capScreenshotAnswers(reqs, answers, evidence)).toEqual(answers)
+  })
+
+  it('an image past the file-name cap, or known only by its content type, still counts', () => {
+    const many = Array.from({ length: 7 }, (_, i) => ({
+      type: 'file',
+      filename: `log${i}.txt`,
+    }))
+    const late = testCaseEvidenceAtHead(
+      [
+        tc(7, [
+          run({ evidence: [...many, { type: 'file', filename: 'shot.png' }] }),
+        ]),
+      ],
+      HEAD
+    )
+    expect(late.atHead[0]!.files).not.toContain('shot.png')
+    expect(capScreenshotAnswers(reqs, answers, late)).toEqual(answers)
+    const typed = testCaseEvidenceAtHead(
+      [
+        tc(7, [
+          run({
+            evidence: [
+              { type: 'file', filename: 'capture', contentType: 'image/jpeg' },
+            ],
+          }),
+        ]),
+      ],
+      HEAD
+    )
+    expect(capScreenshotAnswers(reqs, answers, typed)).toEqual(answers)
   })
 
   it('an image on a run that is not a PASS after the ceiling does not count', () => {

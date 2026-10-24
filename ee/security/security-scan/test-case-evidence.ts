@@ -72,6 +72,8 @@ export interface HeadRunEvidence {
   steps: Array<{ status: 'PASS' | 'FAIL' | 'SKIP'; text: string }>
   files: string[]
   links: number
+  /** Any image attached (read from every file, before names are capped). */
+  hasImage: boolean
 }
 
 export interface TestCaseEvidence {
@@ -103,19 +105,32 @@ function capReason(c: RunCeiling): string | null {
   }
 }
 
-function evidenceFiles(evidence: unknown): { files: string[]; links: number } {
+const IMAGE_RE = /\.(?:png|jpe?g|webp|gif)$/i
+
+function evidenceFiles(evidence: unknown): {
+  files: string[]
+  links: number
+  hasImage: boolean
+} {
   const files: string[] = []
   let links = 0
-  if (!Array.isArray(evidence)) return { files, links }
+  let hasImage = false
+  if (!Array.isArray(evidence)) return { files, links, hasImage }
   for (const e of evidence) {
     if (!e || typeof e !== 'object') continue
     const v = e as Record<string, unknown>
     if (v.type === 'file' && typeof v.filename === 'string') {
+      if (
+        IMAGE_RE.test(v.filename.trim()) ||
+        (typeof v.contentType === 'string' &&
+          v.contentType.toLowerCase().startsWith('image/'))
+      )
+        hasImage = true
       const name = inert(v.filename, 80)
       if (name && files.length < EVIDENCE_FILES_MAX) files.push(name)
     } else if (v.type === 'link') links++
   }
-  return { files, links }
+  return { files, links, hasImage }
 }
 
 /**
@@ -145,7 +160,7 @@ export function testCaseEvidenceAtHead(
       continue
     }
     const ceiling = deriveStoredRunCeiling(run, c.requiredEnvironment)
-    const { files, links } = evidenceFiles(run.evidence)
+    const { files, links, hasImage } = evidenceFiles(run.evidence)
     atHead.push({
       number: c.number,
       title: inert(c.title),
@@ -158,6 +173,7 @@ export function testCaseEvidenceAtHead(
         .map(s => ({ status: s.status, text: inert(s.text) })),
       files,
       links,
+      hasImage,
     })
   }
   return { atHead, withoutHeadRun, notRead }
@@ -223,7 +239,6 @@ export function testCaseEvidenceMaterial(
 
 /** A requirement that asks for a screenshot (e.g. "from a real browser"). */
 const SCREENSHOT_RE = /\bscreen ?shots?\b/i
-const IMAGE_RE = /\.(?:png|jpe?g|webp|gif)$/i
 
 export const NO_SCREENSHOT_EXPLANATION =
   'It asks for a screenshot, and no passing test-case run on this head has one attached, so it cannot be confirmed.'
@@ -234,6 +249,8 @@ export const NO_SCREENSHOT_EXPLANATION =
  * head has an image attached. A diff cannot show a screenshot, and the
  * model was seen crediting one from unit-test runs plus the PR description.
  * Such an answer becomes Unclear; every other answer is left as it is.
+ * A floor, not a proof: with an image on the head, whether that run covers
+ * this requirement is still the model's call.
  */
 export function capScreenshotAnswers<
   A extends { id: string; outcome: string; explanation?: string },
@@ -243,7 +260,7 @@ export function capScreenshotAnswers<
   evidence: TestCaseEvidence | undefined
 ): A[] {
   const hasShot = (evidence?.atHead ?? []).some(
-    e => e.effective === 'PASS' && e.files.some(f => IMAGE_RE.test(f))
+    e => e.effective === 'PASS' && e.hasImage
   )
   if (hasShot) return [...answers]
   const key = (id: string) =>

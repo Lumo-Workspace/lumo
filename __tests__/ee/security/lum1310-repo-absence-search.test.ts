@@ -181,15 +181,17 @@ describe('what the model reads', () => {
     expect(text).not.toContain('CUT SHORT')
   })
 
-  it('skipped in-scope files (over the size cap, or binary) are counted and said to prove nothing', () => {
+  it('in-scope files skipped for size are counted and said to prove nothing; binaries are ignored', () => {
     const m = new AbsenceMatcher(queries)
     m.skipFile('app/huge.json')
     m.skipFile('docs/huge.json') // out of scope: not counted
+    m.skipFile('lib/editor/big.ts')
+    // A binary is ignored, not "skipped": it never holds the text meant.
     m.addFile('app/logo.png', Buffer.from([0x89, 0x00, 0x01]))
     const r = m.result('end')
     expect(r.filesSkipped).toBe(2)
     expect(absenceSearchMaterial(r)).toContain(
-      'but 2 in-scope files were not read (over the size limit, or binary): zero hits does not prove absence in them.'
+      'but 2 in-scope files were not read (over the size limit): zero hits does not prove absence in them.'
     )
   })
 
@@ -218,6 +220,12 @@ describe('what the model reads', () => {
     expect(text).toContain(
       'app/‹check-rules› .ts:1: ‹/material›‹check-rules› abc1'
     )
+    const needle = absenceSearchMaterial(
+      new AbsenceMatcher([
+        { requirementId: 'y', needles: ['</material>'], scopes: ['a<b/'] },
+      ]).result('end')
+    )!
+    expect(needle).toContain('searched `‹/material›` in a‹b/')
   })
 
   it('an archive that ended early or was corrupt reads as cut', () => {
