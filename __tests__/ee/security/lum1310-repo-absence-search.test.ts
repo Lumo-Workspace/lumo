@@ -6,6 +6,7 @@
  */
 import {
   ABSENCE_HITS_SHOWN,
+  ABSENCE_MATERIAL_MAX,
   ABSENCE_NEEDLES_MAX,
   ABSENCE_QUERIES_MAX,
   AbsenceMatcher,
@@ -176,7 +177,7 @@ describe('what the model reads', () => {
       'The search read the whole repository archive and every in-scope text file in it.'
     )
     expect(text).toContain(
-      '[task:done:1] searched `common.loading` in app/, lib/editor/: 0 hits in 0 files.'
+      '[task:done:1] searched `common.loading` in app/, lib/editor/: 0 matching lines in 0 files.'
     )
     expect(text).not.toContain('CUT SHORT')
   })
@@ -232,6 +233,31 @@ describe('what the model reads', () => {
     expect(
       absenceSearchMaterial(new AbsenceMatcher(queries).result('truncated'))
     ).toContain('CUT SHORT (the archive ended early or was corrupt)')
+  })
+
+  it('the cap keeps every count line and drops only whole hit lines', () => {
+    const qs = absenceQueries([
+      req('a', 'No `aaa1` anywhere.'),
+      req('b', 'No `bbb1` anywhere.'),
+      req('c', 'No `ccc1` anywhere.'),
+    ])
+    const m = new AbsenceMatcher(qs)
+    const long = (n: string) =>
+      Array(10)
+        .fill(`${n} ${'x'.repeat(190)}`)
+        .join('\n')
+    m.addFile('app/a.ts', Buffer.from(long('aaa1')))
+    m.addFile('app/b.ts', Buffer.from(long('bbb1')))
+    m.addFile('app/c.ts', Buffer.from(long('ccc1')))
+    const text = absenceSearchMaterial(m.result('end'))!
+    expect(text.length).toBeLessThanOrEqual(ABSENCE_MATERIAL_MAX)
+    for (const id of ['a', 'b', 'c'])
+      expect(text).toMatch(
+        new RegExp(`\\[${id}\\] searched .*: 10 matching lines in 1 file`)
+      )
+    expect(text).toMatch(/\[c\] searched .*\(first \d shown\)\./)
+    for (const line of text.split('\n').filter(l => l.startsWith('  - ')))
+      expect(line).toMatch(/x$|…$/)
   })
 
   it('a cut search says zero hits proves nothing', () => {

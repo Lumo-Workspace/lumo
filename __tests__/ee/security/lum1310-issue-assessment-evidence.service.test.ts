@@ -455,7 +455,7 @@ describe('through the runner', () => {
       'No run on this head (runs on older commits do not count): TC7.'
     )
     expect(material).toContain(
-      '[task:done:1] searched `common.loading` in app/: 1 hit in 1 file.'
+      '[task:done:1] searched `common.loading` in app/: 1 matching line in 1 file.'
     )
     expect(material).toContain(
       "app/AsyncContent.tsx:1: ‹span className='sr-only'›{t('common.loading')}‹/span›"
