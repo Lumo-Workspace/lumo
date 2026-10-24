@@ -251,7 +251,6 @@ export const testCaseRepository = {
             stepResults: true,
             evidence: true,
             unprovenVerification: true,
-            createdAt: true,
           },
         },
       },

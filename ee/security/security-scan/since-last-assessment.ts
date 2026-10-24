@@ -60,7 +60,8 @@ export type SinceLastAssessment =
  * skipped (an edit re-check, or a re-scan); one whose check has no
  * per-requirement outcomes (not applicable, nothing linked) is skipped too,
  * and so is a run that failed (`inconclusiveResults`: every requirement
- * carries the check's own "could not run" explanation) — it judged nothing.
+ * carries the check's own "could not run" explanation, whatever verdict was
+ * stored) — it judged nothing.
  */
 export function previousAssessment(
   records: ReadonlyArray<PreMergeChecksRecord | null>,
@@ -72,7 +73,6 @@ export function previousAssessment(
     const result = record.results.find(r => r.id === checkId)
     if (!result?.requirements?.length) continue
     if (
-      result.verdict === 'inconclusive' &&
       result.explanation !== '' &&
       result.requirements.every(r => r.explanation === result.explanation)
     )
@@ -90,20 +90,19 @@ export function previousAssessment(
 }
 
 /**
- * PURE — the cases whose head run was recorded after the previous
- * assessment ran (number order). A run with no recorded time is left out:
- * it cannot be placed after it.
+ * PURE — the cases with a run on this head (number order): all new since
+ * the previous assessment, which read only runs on its own, different head
+ * — whenever they were recorded.
  */
-export function runsRecordedSince(
-  evidence: TestCaseEvidence | undefined,
-  ranAt: string
-): number[] {
-  const since = Date.parse(ranAt)
-  if (!evidence || Number.isNaN(since)) return []
-  return evidence.atHead
-    .filter(e => e.recordedAt && Date.parse(e.recordedAt) > since)
-    .map(e => e.number)
-    .sort((a, b) => a - b)
+export function runsNewSince(evidence: TestCaseEvidence | undefined): number[] {
+  return (evidence?.atHead ?? []).map(e => e.number).sort((a, b) => a - b)
+}
+
+/** The section cut to its cap (a backstop: the diff is cut first). */
+function fit(text: string): string {
+  return text.length <= SINCE_LAST_MATERIAL_MAX
+    ? text
+    : `${text.slice(0, SINCE_LAST_MATERIAL_MAX - 1)}…`
 }
 
 function short(sha: string): string {
@@ -136,7 +135,7 @@ export function sinceLastAssessmentMaterial(
   const wanted = new Set(requirementIds)
   const outcomes = since.previous.outcomes.filter(o => wanted.has(o.id))
   const open = outcomes.filter(o => o.outcome !== 'addressed').map(o => o.id)
-  const runs = runsRecordedSince(evidence, since.previous.ranAt)
+  const runs = runsNewSince(evidence)
   const lines = [
     `Since the last assessment: Lumo assessed this pull request before on ${prev}${since.aheadBy > 0 ? `; this head is ${since.aheadBy} commit${since.aheadBy === 1 ? '' : 's'} ahead of it` : ''}. ${open.length ? `For the requirements that were unclear or not addressed then (${open.join(', ')}), look first at the changes and the test-case runs below — they are what changed since.` : 'Look first at the changes and the test-case runs below — they are what changed since.'} The previous outcomes are context, never evidence: judge every requirement on this head's whole diff and evidence, and never mark one addressed only because it was addressed before. A requirement that needs a runtime check (a command's exit code, a test suite passing, a screenshot) is still addressed only by a PASS test-case run on this head that performs it — new commits cannot show it, and neither can the pull request description.`,
     ...(outcomes.length
@@ -145,17 +144,17 @@ export function sinceLastAssessmentMaterial(
         ]
       : []),
     runs.length
-      ? `Test-case runs on this head recorded since then (details with the other runs below, unless named there as not shown): ${runs.map(n => `TC${n}`).join(', ')}.`
-      : 'No test-case run on this head was recorded since then.',
+      ? `Test-case runs on this head, all new since then — the previous assessment read only runs on ${prev}: ${runs.map(n => `TC${n}`).join(', ')}. Their details are with the other runs below, unless named there as not shown.`
+      : 'No test-case run on this head yet.',
   ]
   const head = lines.join('\n')
   if (!since.diff.trim())
-    return `${head}\nChanges since ${prev}: none in the reviewed files.`
+    return fit(`${head}\nChanges since ${prev}: none in the reviewed files.`)
   const label = (cut: boolean) =>
     `Changes since ${prev} (${since.diffFiles} file${since.diffFiles === 1 ? '' : 's'}${cut ? "; cut to fit — the pull request's whole diff is still the reference" : ''}):`
   // Room for the longer label, so the section stays under its cap either way.
   const room = SINCE_LAST_MATERIAL_MAX - head.length - label(true).length - 2
-  if (room <= 0) return head
+  if (room <= 0) return fit(head)
   const cut = since.diffCut || since.diff.length > room
   return `${head}\n${label(cut)}\n${since.diff.slice(0, room)}`.trimEnd()
 }
