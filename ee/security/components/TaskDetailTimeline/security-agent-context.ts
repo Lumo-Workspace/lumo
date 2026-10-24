@@ -9,7 +9,11 @@
  * cannot smuggle control characters into the agent's context.
  */
 import { sanitizeField } from '@/lib/utils/sanitize'
-import type { SecurityFindingView } from '@/ee/security/services/pr-security-scan.service'
+import type {
+  SecurityFindingView,
+  TaskSecurityScans,
+} from '@/ee/security/services/pr-security-scan.service'
+import { isQuietFinding } from './security-summary'
 
 export function buildAgentContext(
   f: SecurityFindingView,
@@ -43,4 +47,19 @@ export function buildAgentContext(
     'If you believe it is a false positive, say why; only a human can disposition it in Lumo.'
   )
   return lines.join('\n')
+}
+
+/**
+ * LUM-1308 — the review header's "Copy for agent": every finding still to
+ * decide on, across the task's PRs, one brief each. Empty when there is
+ * nothing to decide.
+ */
+export function agentContextForReview(data: TaskSecurityScans): string {
+  return data.prs
+    .flatMap(({ pr, latest }) =>
+      (latest?.findings ?? [])
+        .filter(f => !isQuietFinding(f))
+        .map(f => buildAgentContext(f, { number: pr.number }))
+    )
+    .join('\n\n---\n\n')
 }

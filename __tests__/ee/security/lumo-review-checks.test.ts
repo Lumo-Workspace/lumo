@@ -5,10 +5,18 @@
  */
 import {
   buildCheckRows,
+  checkProgress,
   findingCheck,
+  isEmptyCheck,
   orderPrs,
   prAttention,
+  prLevelPreMergeChecks,
+  reviewVerdict,
+  summarizesUncovered,
+  uncoveredChecks,
 } from '@/ee/security/components/TaskDetailTimeline/lumo-review-checks'
+import { agentContextForReview } from '@/ee/security/components/TaskDetailTimeline/security-agent-context'
+import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 import type {
   SecurityScanView,
   TaskSecurityScans,
@@ -351,5 +359,216 @@ describe('prAttention / orderPrs', () => {
       findings: [finding({ disposition: 'ACCEPTED_RISK', blocking: false })],
     })
     expect(prAttention(pr(7, ruled))).toBe(3)
+  })
+})
+
+function preMerge(over: Partial<PreMergeCheckView> = {}): PreMergeCheckView {
+  return {
+    id: 'issue_assessment',
+    name: 'Issue assessment',
+    mode: 'warning',
+    verdict: 'inconclusive',
+    explanation: 'Check the requirements marked Unclear',
+    resolution: null,
+    requirements: [],
+    ...over,
+  }
+}
+
+describe('issue assessment on the reward-hack row', () => {
+  it('puts an unmet issue assessment on the reward-hack row and opens it', () => {
+    const s = scan({ preMergeChecks: [preMerge()] })
+    const row = buildCheckRows(s).find(r => r.key === 'rewardHack')!
+    expect(row.assessment?.id).toBe('issue_assessment')
+    expect(row.defaultOpen).toBe(true)
+    // …and only there.
+    expect(
+      buildCheckRows(s)
+        .filter(r => r.assessment != null)
+        .map(r => r.key)
+    ).toEqual(['rewardHack'])
+    expect(prLevelPreMergeChecks(s)).toEqual([])
+  })
+
+  it("a passed assessment is not shown; the repo's own checks stay at PR level", () => {
+    const own = preMerge({ id: 'no-todo', name: 'No TODOs', verdict: 'failed' })
+    const s = scan({
+      preMergeChecks: [preMerge({ verdict: 'passed' }), own],
+    })
+    expect(
+      buildCheckRows(s).find(r => r.key === 'rewardHack')!.assessment
+    ).toBeNull()
+    expect(prLevelPreMergeChecks(s)).toEqual([own])
+  })
+
+  it('draws the row for an assessment even when the layer was never recorded', () => {
+    const s = scan({
+      stages: { secrets: 'RAN', judge: 'RAN' },
+      preMergeChecks: [preMerge()],
+    })
+    expect(buildCheckRows(s).map(r => r.key)).toEqual([
+      'secrets',
+      'judge',
+      'rewardHack',
+    ])
+  })
+})
+
+describe('uncovered summary, progress and empty checks', () => {
+  it('summarizes uncovered checks only when nothing needs a decision', () => {
+    const uncovered = scan({
+      stages: { secrets: 'RAN', external: 'FAILED', judge: 'NOT_CONFIGURED' },
+      complete: false,
+      coverage: 'UNFINISHED',
+    })
+    const rows = buildCheckRows(uncovered)
+    expect(uncoveredChecks(rows).map(r => r.key)).toEqual(['external', 'judge'])
+    expect(summarizesUncovered(rows)).toBe(true)
+    const withFinding = buildCheckRows({
+      ...uncovered,
+      findings: [finding()],
+    })
+    expect(summarizesUncovered(withFinding)).toBe(false)
+    const withAssessment = buildCheckRows({
+      ...uncovered,
+      preMergeChecks: [preMerge()],
+    })
+    expect(summarizesUncovered(withAssessment)).toBe(false)
+    expect(summarizesUncovered(buildCheckRows(scan()))).toBe(false)
+  })
+
+  it('counts running checks as not done', () => {
+    const rows = buildCheckRows(
+      scan({
+        stages: { secrets: 'RAN', external: 'PENDING', judge: 'PENDING' },
+      })
+    )
+    expect(checkProgress(rows)).toEqual({ done: 1, total: 3 })
+  })
+
+  it('an empty check is checked or not needed with nothing in it', () => {
+    const rows = buildCheckRows(
+      scan({
+        stages: { secrets: 'RAN', supplyChain: 'SKIPPED', judge: 'FAILED' },
+        findings: [finding({ disposition: 'FALSE_POSITIVE' })],
+      })
+    )
+    const byKey = Object.fromEntries(rows.map(r => [r.key, isEmptyCheck(r)]))
+    // secrets has a quiet (ruled) finding; judge failed.
+    expect(byKey).toEqual({ secrets: false, supplyChain: true, judge: false })
+  })
+})
+
+describe('reviewVerdict', () => {
+  const data = (
+    prs: TaskSecurityScans['prs'],
+    over: Partial<TaskSecurityScans> = {}
+  ): TaskSecurityScans => ({
+    prs,
+    blocking: { count: 0 },
+    suggested: { count: 0 },
+    scanningOff: false,
+    ...over,
+  })
+  it('most urgent first', () => {
+    const blocking = pr(1, scan({ findings: [finding()] }))
+    const open = pr(2, scan({ findings: [finding({ blocking: false })] }))
+    const running = pr(3, scan({ coverage: 'IN_PROGRESS', complete: false }))
+    const unfinished = pr(4, scan({ coverage: 'UNFINISHED', complete: false }))
+    const premerge = pr(5, scan({ preMergeChecks: [preMerge()] }))
+    const clean = pr(6, scan())
+    expect(reviewVerdict(data([clean, blocking, open]))).toEqual({
+      kind: 'blocking',
+      count: 1,
+    })
+    expect(reviewVerdict(data([clean, open]))).toEqual({
+      kind: 'open',
+      count: 1,
+    })
+    expect(reviewVerdict(data([unfinished, running])).kind).toBe('scanning')
+    expect(reviewVerdict(data([premerge, unfinished])).kind).toBe(
+      'notFullyChecked'
+    )
+    expect(reviewVerdict(data([premerge, clean]))).toEqual({
+      kind: 'preMerge',
+      count: 1,
+    })
+    expect(reviewVerdict(data([clean])).kind).toBe('clean')
+  })
+  it('a late scanner is not "scanning"; an unscanned PR is not clean', () => {
+    const late = pr(
+      1,
+      scan({ coverage: 'IN_PROGRESS', complete: false, externalLate: true })
+    )
+    expect(reviewVerdict(data([late])).kind).toBe('notFullyChecked')
+    expect(reviewVerdict(data([pr(1, null), pr(2, scan())])).kind).toBe(
+      'notFullyChecked'
+    )
+    expect(reviewVerdict(data([pr(1, null)])).kind).toBe('notScanned')
+  })
+  it('checks turned off are the customer\'s choice, not "not fully checked"', () => {
+    const off = pr(1, scan({ coverage: 'TURNED_OFF', complete: false }))
+    expect(reviewVerdict(data([off])).kind).toBe('turnedOff')
+    expect(
+      reviewVerdict(data([pr(1, scan())], { scanningOff: true })).kind
+    ).toBe('turnedOff')
+  })
+})
+
+describe('agentContextForReview', () => {
+  it('joins every open finding across PRs and skips quiet ones', () => {
+    const text = agentContextForReview({
+      prs: [
+        pr(
+          1,
+          scan({
+            findings: [
+              finding({ id: 'a', title: 'Key in fixture' }),
+              finding({
+                id: 'b',
+                title: 'Ruled',
+                disposition: 'FALSE_POSITIVE',
+              }),
+            ],
+          })
+        ),
+        pr(2, scan({ findings: [finding({ id: 'c', title: 'Raw query' })] })),
+      ],
+      blocking: { count: 2 },
+      suggested: { count: 0 },
+      scanningOff: false,
+    })
+    expect(text).toContain('Key in fixture')
+    expect(text).toContain('Raw query')
+    expect(text).not.toContain('Ruled')
+    expect(text.split('\n---\n')).toHaveLength(2)
+  })
+  it('is empty when nothing needs a decision', () => {
+    expect(
+      agentContextForReview({
+        prs: [pr(1, scan())],
+        blocking: { count: 0 },
+        suggested: { count: 0 },
+        scanningOff: false,
+      })
+    ).toBe('')
+  })
+})
+
+describe('a batched hunt that finished short', () => {
+  it('is a warning that opens its row; still running is pending', () => {
+    const short = buildCheckRows(
+      scan({ huntProgress: { coveredFiles: 14, totalFiles: 22 } })
+    ).find(r => r.key === 'hunt')!
+    expect(short.tone).toBe('warn')
+    expect(short.defaultOpen).toBe(true)
+    expect(isEmptyCheck(short)).toBe(false)
+    const running = buildCheckRows(
+      scan({
+        stages: { secrets: 'RAN', hunt: 'PENDING' },
+        huntProgress: { coveredFiles: 14, totalFiles: 22 },
+      })
+    ).find(r => r.key === 'hunt')!
+    expect(running.tone).toBe('pending')
   })
 })

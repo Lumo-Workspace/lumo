@@ -12,7 +12,11 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/ee/security/services/pr-security-scan.service'
-import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
+import {
+  ISSUE_ASSESSMENT_CHECK_ID,
+  nonPassingChecks,
+  type PreMergeCheckView,
+} from '@/shared/src/pre-merge-checks'
 import { isQuietFinding } from './security-summary'
 
 /**
@@ -54,8 +58,36 @@ export interface CheckRow {
   open: SecurityFindingView[]
   /** Ruled on, verifier-rejected, on main or out of the queue. */
   quiet: SecurityFindingView[]
-  /** Opens by default: an open finding, or the layer did not cover the PR. */
+  /**
+   * The issue assessment (pre-merge check) when it did not pass — shown under
+   * Agent shortcuts: both ask whether the change does what the task asked.
+   * null on every other row.
+   */
+  assessment: PreMergeCheckView | null
+  /** Opens by default: an open finding, an unmet assessment, or the layer
+   *  did not cover the PR. */
   defaultOpen: boolean
+}
+
+/** The issue assessment, when it failed or was inconclusive. */
+function unmetAssessment(scan: SecurityScanView): PreMergeCheckView | null {
+  return (
+    nonPassingChecks(scan.preMergeChecks).find(
+      c => c.id === ISSUE_ASSESSMENT_CHECK_ID
+    ) ?? null
+  )
+}
+
+/**
+ * The pre-merge checks that did not pass and concern the whole PR — every
+ * one but the issue assessment, which sits on the Agent shortcuts row.
+ */
+export function prLevelPreMergeChecks(
+  scan: Pick<SecurityScanView, 'preMergeChecks'>
+): PreMergeCheckView[] {
+  return nonPassingChecks(scan.preMergeChecks).filter(
+    c => c.id !== ISSUE_ASSESSMENT_CHECK_ID
+  )
 }
 
 function checkTone(state: CheckRow['state'], overCap: boolean): CheckTone {
@@ -76,10 +108,12 @@ export function buildCheckRows(scan: SecurityScanView): CheckRow[] {
     const key = findingCheck(f)
     byCheck.set(key, [...(byCheck.get(key) ?? []), f])
   }
+  const unmet = unmetAssessment(scan)
   return SCAN_STAGE_DISPLAY_ORDER.flatMap(key => {
     const state = scan.stages[key] ?? null
     const findings = byCheck.get(key) ?? []
-    if (state == null && findings.length === 0) return []
+    const assessment = key === 'rewardHack' ? unmet : null
+    if (state == null && findings.length === 0 && assessment == null) return []
     const overCap =
       scan.prTooLarge != null ||
       (key === 'hunt' && scan.huntOverCap != null) ||
@@ -87,8 +121,15 @@ export function buildCheckRows(scan: SecurityScanView): CheckRow[] {
         (scan.judgeOverCap != null || scan.judgePartial != null))
     // A scanner that hasn't reported in 30 minutes is no longer "running":
     // the PR is not covered, and the row opens to say so.
+    // A batched hunt that finished short of the PR's files did not cover it
+    // either — the row says how much, in the warning tone.
+    const huntShort =
+      key === 'hunt' &&
+      state === 'RAN' &&
+      scan.huntProgress != null &&
+      scan.huntProgress.coveredFiles < scan.huntProgress.totalFiles
     const tone =
-      key === 'external' && scan.externalLate
+      (key === 'external' && scan.externalLate) || huntShort
         ? 'warn'
         : checkTone(state, overCap)
     const open = findings.filter(f => !isQuietFinding(f))
@@ -101,7 +142,8 @@ export function buildCheckRows(scan: SecurityScanView): CheckRow[] {
         overCap,
         open,
         quiet,
-        defaultOpen: open.length > 0 || tone === 'warn',
+        assessment,
+        defaultOpen: open.length > 0 || assessment != null || tone === 'warn',
       },
     ]
   })
@@ -142,4 +184,90 @@ export function orderPrs(prs: TaskSecurityScans['prs']): {
     listed: sorted.filter(s => s.rank < 3).map(s => s.entry),
     clean: sorted.filter(s => s.rank === 3).map(s => s.entry),
   }
+}
+
+/**
+ * Checks that did not (fully) cover the PR and have nothing to decide on —
+ * what the "N checks didn't fully run" summary lists.
+ */
+export function uncoveredChecks(rows: CheckRow[]): CheckRow[] {
+  return rows.filter(r => r.tone === 'warn' && r.open.length === 0)
+}
+
+/**
+ * When the scan found nothing to decide on, the uncovered checks are said in
+ * one summary instead of each row opening on its own.
+ */
+export function summarizesUncovered(rows: CheckRow[]): boolean {
+  return (
+    uncoveredChecks(rows).length > 0 &&
+    rows.every(r => r.open.length === 0 && r.assessment == null)
+  )
+}
+
+/** Checks finished of those the scan runs (a running one is not done). */
+export function checkProgress(rows: CheckRow[]): {
+  done: number
+  total: number
+} {
+  return {
+    done: rows.filter(r => r.tone !== 'pending').length,
+    total: rows.length,
+  }
+}
+
+/**
+ * A check with nothing in it: checked or not needed, no finding of any kind
+ * and no assessment. With many PRs these fold into one "N more checks" row.
+ */
+export function isEmptyCheck(row: CheckRow): boolean {
+  return (
+    (row.tone === 'ok' || row.tone === 'off') &&
+    row.open.length === 0 &&
+    row.quiet.length === 0 &&
+    row.assessment == null
+  )
+}
+
+/**
+ * The review's one-word verdict for the card header, most urgent first:
+ * a finding blocks Done › findings to decide on › still scanning › a check
+ * did not cover a PR › a pre-merge check did not pass › checks turned off ›
+ * clean. `count` is the number the label carries (findings, PRs, checks).
+ */
+export type ReviewVerdict =
+  | { kind: 'blocking'; count: number }
+  | { kind: 'open'; count: number }
+  | { kind: 'scanning' }
+  | { kind: 'notFullyChecked' }
+  | { kind: 'preMerge'; count: number }
+  | { kind: 'turnedOff' }
+  | { kind: 'notScanned' }
+  | { kind: 'clean' }
+
+export function reviewVerdict(data: TaskSecurityScans): ReviewVerdict {
+  const scans = data.prs.flatMap(p => (p.latest ? [p.latest] : []))
+  if (scans.length === 0)
+    return data.scanningOff ? { kind: 'turnedOff' } : { kind: 'notScanned' }
+  const open = scans.flatMap(s => s.findings.filter(f => !isQuietFinding(f)))
+  const blocking = open.filter(f => f.blocking).length
+  if (blocking > 0) return { kind: 'blocking', count: blocking }
+  if (open.length > 0) return { kind: 'open', count: open.length }
+  if (scans.some(s => s.coverage === 'IN_PROGRESS' && !s.externalLate))
+    return { kind: 'scanning' }
+  // A PR with no scan yet, or a scan that did not cover it — a size cap
+  // included (its notice says how to get it checked).
+  if (
+    data.prs.some(p => p.latest == null) ||
+    scans.some(s => !s.complete && s.coverage !== 'TURNED_OFF')
+  )
+    return { kind: 'notFullyChecked' }
+  const preMerge = scans.reduce(
+    (n, s) => n + nonPassingChecks(s.preMergeChecks).length,
+    0
+  )
+  if (preMerge > 0) return { kind: 'preMerge', count: preMerge }
+  if (data.scanningOff || scans.some(s => s.coverage === 'TURNED_OFF'))
+    return { kind: 'turnedOff' }
+  return { kind: 'clean' }
 }

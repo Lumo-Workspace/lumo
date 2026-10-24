@@ -5,7 +5,7 @@
  * never our "didn't finish" line, never Clean; an over-cap by file count
  * says files, not characters.
  */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/workspace/acme/tasks/LUM-1',
@@ -140,6 +140,9 @@ test('panel: a partial review lists skipped files and how to get them, no owned 
   expect(scan.ownedUnfinished).toBe(false)
   expect(scan.coverage).toBe('UNFINISHED')
   renderPanel(scan)
+  // LUM-1308: nothing to decide on — the summary names the check, its
+  // notice is in the row.
+  fireEvent.click(screen.getByTestId('check-judge-toggle'))
   const notice = screen.getByTestId('scan-judge-partial')
   expect(notice).toHaveTextContent('covered 60 of 72 reviewable files')
   expect(notice).toHaveTextContent('request a full review')
@@ -178,6 +181,7 @@ test('over the cap by file count alone: the notice says files, not characters', 
     },
   })
   renderPanel(scan)
+  fireEvent.click(screen.getByTestId('check-judge-toggle'))
   const notice = screen.getByTestId('scan-judge-over-cap')
   expect(notice).toHaveTextContent('This PR changes 240 reviewable files')
   expect(notice).not.toHaveTextContent('characters')

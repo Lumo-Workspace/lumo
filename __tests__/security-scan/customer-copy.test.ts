@@ -42,7 +42,11 @@ function isScanStateKey(key: string): boolean {
     key === 'securityScan.external.late' ||
     key.startsWith('securityScan.stageState.') ||
     key.startsWith('securityScan.status.') ||
-    key.startsWith('record.security.')
+    key.startsWith('record.security.') ||
+    // LUM-1308: the Lumo review card's verdict badge and its summary of
+    // the checks that did not fully run.
+    key.startsWith('lumoReview.verdict.') ||
+    key === 'lumoReview.uncovered.title'
   )
 }
 
@@ -100,7 +104,8 @@ describe('customer scan copy asks nothing of the customer', () => {
       'securityScan.partial',
       'securityScan.external.late',
       'securityScan.status.incomplete',
-      'record.security.incomplete',
+      // LUM-1308: replaced record.security.incomplete on the Record tab.
+      'lumoReview.verdict.notFullyChecked',
     ]
     const names = readdirSync(I18N)
       .filter(f => f.endsWith('.json'))

@@ -33,9 +33,10 @@ jest.mock(
   })
 )
 jest.mock(
-  '@/ee/security/components/TaskDetailTimeline/security-summary-line',
+  '@/ee/security/components/TaskDetailTimeline/LumoReviewHeader',
   () => ({
-    formatSecurityVerdict: () => ({ text: 'verdict', caveats: [] }),
+    LumoReviewSummary: () => <span>verdict</span>,
+    CopyReviewForAgent: () => null,
   })
 )
 jest.mock('@/ee/security/ui/pr-scan-badge', () => ({
