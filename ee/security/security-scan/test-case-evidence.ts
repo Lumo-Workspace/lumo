@@ -27,14 +27,21 @@ import {
 } from '@/lib/test-cases/provability'
 import { parseStepResults } from '@/lib/test-cases/step-report'
 
-/** Cases of one task the model reads, at most. */
-export const EVIDENCE_CASES_MAX = 12
+/**
+ * Cases of one task read, at most. LUM-1311: not the cases shown — the
+ * material picks those by relevance, so a task's last case still counts.
+ */
+export const EVIDENCE_CASES_MAX = 40
 /** Per-step lines of one run, at most. */
 export const EVIDENCE_STEPS_MAX = 8
 /** Evidence file names of one run, at most. */
 export const EVIDENCE_FILES_MAX = 6
 /** One title / expected / step text, at most. */
 export const EVIDENCE_TEXT_MAX = 120
+/** A compact case line (used when the full one does not fit): steps, files, text. */
+export const EVIDENCE_COMPACT_STEPS_MAX = 4
+export const EVIDENCE_COMPACT_FILES_MAX = 3
+export const EVIDENCE_COMPACT_TEXT_MAX = 60
 /** The whole evidence section, at most (whole case lines only). */
 export const EVIDENCE_MATERIAL_MAX = 5_000
 
@@ -179,30 +186,135 @@ export function testCaseEvidenceAtHead(
   return { atHead, withoutHeadRun, notRead }
 }
 
-function caseLine(e: HeadRunEvidence): string {
+/** One case line; `compact` shortens steps, file names and text to fit more cases. */
+function caseLine(e: HeadRunEvidence, compact = false): string {
+  const cut = (t: string) =>
+    compact && t.length > EVIDENCE_COMPACT_TEXT_MAX
+      ? `${t.slice(0, EVIDENCE_COMPACT_TEXT_MAX - 1)}…`
+      : t
+  const shownSteps = compact
+    ? e.steps.slice(0, EVIDENCE_COMPACT_STEPS_MAX)
+    : e.steps
+  const moreSteps = e.steps.length - shownSteps.length
+  const shownFiles = compact
+    ? e.files.slice(0, EVIDENCE_COMPACT_FILES_MAX)
+    : e.files
+  const moreFiles = e.files.length - shownFiles.length
   const result =
     e.effective === 'UNPROVEN'
       ? `UNPROVEN (reported PASS; ${e.cappedBecause})`
       : e.effective
-  const steps = e.steps.length
-    ? ` Steps: ${e.steps.map(s => `${s.status} ${s.text}`).join(' | ')}.`
+  const steps = shownSteps.length
+    ? ` Steps: ${shownSteps.map(s => `${s.status} ${cut(s.text)}`).join(' | ')}${moreSteps ? ` (+${moreSteps} more)` : ''}.`
     : ' Steps: not recorded one by one.'
-  const files = e.files.length
-    ? ` Evidence files: ${e.files.join(', ')}${e.links ? ` (+${e.links} links)` : ''}.`
+  const files = shownFiles.length
+    ? ` Evidence files: ${shownFiles.join(', ')}${moreFiles ? ` (+${moreFiles} more)` : ''}${e.links ? ` (+${e.links} links)` : ''}.`
     : e.links
       ? ` Evidence: ${e.links} links.`
       : ' Evidence: none.'
-  return `- TC${e.number} "${e.title}" — ${result} in ${e.environment}. Expected: ${e.expected}.${steps}${files}`
+  return `- TC${e.number} "${cut(e.title)}" — ${result} in ${e.environment}. Expected: ${cut(e.expected)}.${steps}${files}`
+}
+
+/** Words too common to tell one case from another. */
+const STOP_WORDS = new Set(
+  'the and for with from that this are not all one each its was has have when then than into onto any but its'.split(
+    ' '
+  )
+)
+
+function words(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(w => w.length >= 3 && !STOP_WORDS.has(w))
+  )
+}
+
+/**
+ * How well a PASS run fits one requirement: the words they share, and a
+ * screenshot request is met first by a run with an image. 0 = no fit.
+ */
+function relevance(
+  e: HeadRunEvidence,
+  caseWords: ReadonlySet<string>,
+  requirement: string
+): number {
+  if (e.effective !== 'PASS') return 0
+  let score = 0
+  for (const w of words(requirement)) if (caseWords.has(w)) score++
+  if (e.hasImage && SCREENSHOT_RE.test(requirement)) score += 10
+  return score
+}
+
+/**
+ * PURE — the order cases are offered to the length cap (LUM-1311). Each
+ * requirement's best-fitting PASS run first, in requirement order, so the
+ * run that can prove it is never cut for a case with a lower number; then
+ * the other PASS runs by fit; then every other result (never evidence for
+ * Addressed). Ties go to the lower case number. Without requirements it is
+ * number order with PASS first.
+ */
+export function rankEvidenceCases(
+  atHead: readonly HeadRunEvidence[],
+  requirements: readonly string[] = []
+): HeadRunEvidence[] {
+  const byNumber = [...atHead].sort((a, b) => a.number - b.number)
+  const caseWords = new Map(
+    byNumber.map(e => [
+      e.number,
+      words(
+        [e.title, e.expected, ...e.steps.map(s => s.text), ...e.files].join(' ')
+      ),
+    ])
+  )
+  const fit = (e: HeadRunEvidence, r: string) =>
+    relevance(e, caseWords.get(e.number)!, r)
+  const picked: HeadRunEvidence[] = []
+  const taken = new Set<number>()
+  for (const r of requirements) {
+    let best: HeadRunEvidence | null = null
+    let bestScore = 0
+    for (const e of byNumber) {
+      if (taken.has(e.number)) continue
+      const s = fit(e, r)
+      if (s > bestScore) {
+        best = e
+        bestScore = s
+      }
+    }
+    if (best) {
+      picked.push(best)
+      taken.add(best.number)
+    }
+  }
+  const topFit = (e: HeadRunEvidence) =>
+    requirements.reduce((m, r) => Math.max(m, fit(e, r)), 0)
+  const rest = byNumber
+    .filter(e => !taken.has(e.number))
+    .map(e => ({ e, pass: e.effective === 'PASS', fit: topFit(e) }))
+    .sort(
+      (a, b) =>
+        Number(b.pass) - Number(a.pass) ||
+        b.fit - a.fit ||
+        a.e.number - b.e.number
+    )
+    .map(x => x.e)
+  return [...picked, ...rest]
 }
 
 /**
  * PURE — the evidence section of the assessment's material (null when the
  * task has no test cases). The cases without a head run come first — that
  * is what keeps a requirement Unclear — then whole case lines up to
- * `EVIDENCE_MATERIAL_MAX`; cases left out by the cap are named.
+ * `EVIDENCE_MATERIAL_MAX`, offered in `rankEvidenceCases` order against
+ * `requirements` (their texts) and listed in number order. Every case that
+ * fits gets a compact line first, then a full one where room is left; the
+ * cases left out are named.
  */
 export function testCaseEvidenceMaterial(
-  evidence: TestCaseEvidence | undefined
+  evidence: TestCaseEvidence | undefined,
+  requirements: readonly string[] = []
 ): string | null {
   if (
     !evidence ||
@@ -217,23 +329,37 @@ export function testCaseEvidenceMaterial(
         ]
       : []),
   ]
+  // Room for the closing "Not shown" line, so the section stays under the cap.
+  const notShownLine = (numbers: readonly number[]) =>
+    `Not shown (length or case limit), so not evidence here: ${numbers.map(n => `TC${n}`).join(', ')}.`
+  const allNumbers = [
+    ...evidence.atHead.map(e => e.number),
+    ...(evidence.notRead ?? []),
+  ]
+  const budget = EVIDENCE_MATERIAL_MAX - (1 + notShownLine(allNumbers).length)
   let used = lines.join('\n').length
-  const left: number[] = [...(evidence.notRead ?? [])]
-  const fromCap = left.length
-  for (const e of evidence.atHead) {
-    const line = caseLine(e)
-    if (
-      left.length === fromCap &&
-      used + 1 + line.length <= EVIDENCE_MATERIAL_MAX
-    ) {
-      lines.push(line)
-      used += 1 + line.length
-    } else left.push(e.number)
+  // Pass 1: as many cases as fit, compact, in rank order. Pass 2: the same
+  // order gets its full line wherever the room left allows.
+  const shown: Array<{ e: HeadRunEvidence; line: string }> = []
+  for (const e of rankEvidenceCases(evidence.atHead, requirements)) {
+    const line = caseLine(e, true)
+    if (used + 1 + line.length > budget) continue
+    shown.push({ e, line })
+    used += 1 + line.length
   }
-  if (left.length)
-    lines.push(
-      `Not shown (length or case limit), so not evidence here: ${left.map(n => `TC${n}`).join(', ')}.`
-    )
+  for (const s of shown) {
+    const full = caseLine(s.e)
+    if (used - s.line.length + full.length > budget) continue
+    used += full.length - s.line.length
+    s.line = full
+  }
+  const shownNumbers = new Set(shown.map(s => s.e.number))
+  lines.push(...shown.sort((a, b) => a.e.number - b.e.number).map(s => s.line))
+  const left = [
+    ...evidence.atHead.map(e => e.number).filter(n => !shownNumbers.has(n)),
+    ...(evidence.notRead ?? []),
+  ].sort((a, b) => a - b)
+  if (left.length) lines.push(notShownLine(left))
   return lines.join('\n')
 }
 
