@@ -119,6 +119,8 @@ lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --comm
 
 PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行对应的是合并后的代码。
 
+**PR 的 Issue assessment 也按这个口径读 run(LUM-1310)**：只认 commit 就是 PR head 的 run(不要求绑 PR;脏工作区的不算)，PASS 按封顶后的结论算，note 不读。要让「真浏览器截图」「`tsc`/`jest` exit 0」这类需求被判 Addressed，就在 PR 最新 head 上跑并记一条带证据的 PASS——旧 commit 上的 run 和 PR 描述里的声明都不算([repo-review-settings.md](repo-review-settings.md))。
+
 ## 判决信号进 `task status`
 
 每条用例**最新一条** run 会产出至多一个判决信号，出现在 `lumo task status`

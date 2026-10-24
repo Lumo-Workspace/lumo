@@ -226,6 +226,37 @@ export const testCaseRepository = {
     })
   },
 
+  /**
+   * LUM-1310: a task's live cases with their newest runs (newest first, at
+   * most `runsPerCase` each), only the columns the issue assessment's
+   * runtime evidence reads (`test-case-evidence.ts`).
+   */
+  listForEvidence(taskId: string, runsPerCase: number) {
+    return prisma.testCase.findMany({
+      where: { taskId, deletedAt: null },
+      orderBy: { number: 'asc' },
+      select: {
+        number: true,
+        title: true,
+        expected: true,
+        requiredEnvironment: true,
+        runs: {
+          orderBy: { createdAt: 'desc' },
+          take: runsPerCase,
+          select: {
+            result: true,
+            environment: true,
+            commitSha: true,
+            commitDirty: true,
+            stepResults: true,
+            evidence: true,
+            unprovenVerification: true,
+          },
+        },
+      },
+    })
+  },
+
   findByTaskAndNumber(
     taskId: string,
     number: number

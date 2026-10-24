@@ -64,6 +64,7 @@ import {
   type PreMergeChecksSetting,
 } from '@/ee/security/security-scan/pre-merge-checks'
 import {
+  REQUIREMENTS_MATERIAL_MAX,
   requirementsMaterial,
   type TaskAssessmentContext,
   type LinkedRequirement,
@@ -290,7 +291,11 @@ export const preMergeChecksService = {
               ? await p.gather(gatherInput).catch(() => null)
               : null
           if (!text) return null
-          const g = guardInjectedText(cap(text, PRE_MERGE_TEXT_MAX_CHARS).text)
+          // LUM-1310: the assessment's material carries its evidence too.
+          const max = reqs
+            ? REQUIREMENTS_MATERIAL_MAX
+            : PRE_MERGE_TEXT_MAX_CHARS
+          const g = guardInjectedText(cap(text, max).text)
           return [...g.notices, g.text].join('\n')
         }
         const { runPreMergeChecksModel } =

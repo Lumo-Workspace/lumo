@@ -265,7 +265,7 @@ describe('each outcome', () => {
 
   it('the material lists each requirement by id for the model', () => {
     expect(requirementsMaterial(REQS)).toBe(
-      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Requirement 1 of 2) A CSV download button\n- [task:done:2] (LUM-12 · Requirement 2 of 2) Amounts have two decimals"
+      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Requirement 1 of 2) A CSV download button\n- [task:done:2] (LUM-12 · Requirement 2 of 2) Amounts have two decimals"
     )
   })
 })

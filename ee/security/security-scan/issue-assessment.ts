@@ -28,6 +28,14 @@
 import { sanitizeField } from '@/shared/src/sanitize'
 import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 import { neutralizeSummaryText } from './pr-summary'
+import {
+  testCaseEvidenceMaterial,
+  type TestCaseEvidence,
+} from './test-case-evidence'
+import {
+  absenceSearchMaterial,
+  type RepoAbsenceSearch,
+} from './repo-absence-search'
 
 export const ISSUE_ASSESSMENT_CHECK_ID = 'issue_assessment'
 export const ISSUE_ASSESSMENT_CHECK_NAME = 'Issue assessment'
@@ -61,7 +69,14 @@ export interface TaskAssessmentContext {
   decisions: string[]
   mergedPrCount: number
   mergedPrs: Array<{ repo: string; number: number; title: string }>
+  /** LUM-1310: the linked task's test-case runs on the PR's head commit. */
+  testCases?: TestCaseEvidence
+  /** LUM-1310: the bounded search of the head for repo-wide absence claims. */
+  repoSearch?: RepoAbsenceSearch
 }
+
+/** LUM-1310: the assessment's whole material (requirements + context), at most. */
+export const REQUIREMENTS_MATERIAL_MAX = 20_000
 
 export interface GatheredRequirements {
   requirements: LinkedRequirement[]
@@ -314,6 +329,8 @@ export function issueRequirement(issue: {
  * Goal — which then read as "no answer" on the PR. Task context follows the
  * requirements, newest decision first, so the runner's material cap trims
  * context (oldest first) before it can cut a requirement the model must answer.
+ * LUM-1310: the runtime evidence (test-case runs at the head) and the
+ * repository search follow, each capped on its own.
  */
 export function requirementsMaterial(
   requirements: readonly LinkedRequirement[],
@@ -321,7 +338,7 @@ export function requirementsMaterial(
 ): string {
   const ids = requirements.map(r => r.id).join(', ')
   return [
-    `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.`,
+    `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear.`,
     ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
     ...(context?.decisions.length
       ? [
@@ -351,6 +368,10 @@ export function requirementsMaterial(
           ),
         ]
       : []),
+    ...[
+      testCaseEvidenceMaterial(context?.testCases),
+      absenceSearchMaterial(context?.repoSearch),
+    ].filter((t): t is string => t !== null),
   ].join('\n')
 }
 
@@ -494,7 +515,7 @@ export function assessmentSummary(
     return {
       explanation,
       resolution:
-        'Check the requirements marked Unclear; the diff alone did not show whether they are met.',
+        'Check the requirements marked Unclear: neither the diff nor a test-case run on this head showed whether they are met. A requirement that needs runtime evidence is judged from a passing Lumo test-case run recorded on this head commit.',
     }
   return { explanation, resolution: null }
 }
