@@ -751,6 +751,34 @@ test('a single PR has no tab or toggle, and its header links to the PR', () => {
   )
 })
 
+// LUM-1308 review: a fold opened from first-render data must follow a
+// refresh — a new finding on a check that was clean opens that check.
+test('a check that gains an open finding on refresh opens', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [{ pr, latest: scan({ findings: [], status: 'CLEAN' }) }],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  const { rerender } = render(<SecurityScanSection taskId='t1' />, {
+    wrapper,
+  })
+  expect(screen.queryByTestId('check-secrets-toggle')).toBeNull()
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+    isError: false,
+  })
+  rerender(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
+})
+
 test('a check with an undispositioned finding is open by default', () => {
   useSecurityScans.mockReturnValue({
     data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },

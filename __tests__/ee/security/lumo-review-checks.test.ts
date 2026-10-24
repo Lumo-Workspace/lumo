@@ -334,6 +334,17 @@ describe('prAttention / orderPrs', () => {
     expect(folded.map(p => p.pr.number)).toEqual([10, 13])
   })
 
+  it('layers turned off in settings do not pull a PR up; a size cap does', () => {
+    const turnedOff = scan({ complete: false, coverage: 'TURNED_OFF' })
+    expect(prAttention(pr(8, turnedOff))).toBe(3)
+    const overCap = scan({
+      complete: false,
+      coverage: 'UNFINISHED',
+      judgeOverCap: { diffChars: 300000, capChars: 150000 },
+    })
+    expect(prAttention(pr(9, overCap))).toBe(2)
+  })
+
   it('a ruled-on finding no longer pulls its PR up', () => {
     const ruled = scan({
       status: 'FINDINGS',

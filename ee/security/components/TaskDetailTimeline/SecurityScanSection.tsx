@@ -462,7 +462,10 @@ function PrReport({
           <ul className='divide-y divide-border'>
             {buildCheckRows(latest).map(row => (
               <CheckRowView
-                key={row.key}
+                // A row that gains a reason to open (a new finding, a layer
+                // that stopped covering the PR) remounts open; a manual
+                // toggle sticks while that reason holds.
+                key={`${row.key}:${row.defaultOpen}`}
                 taskId={taskId}
                 pr={pr}
                 scan={latest}

@@ -109,8 +109,9 @@ export function buildCheckRows(scan: SecurityScanView): CheckRow[] {
 
 /**
  * How urgently a PR needs a look — lower first: 0 a finding blocks Done,
- * 1 an open finding, 2 no scan, a scan that did not cover the change or a
- * pre-merge check that did not pass, 3 nothing to do.
+ * 1 an open finding, 2 no scan, a scan that did not cover the change (not
+ * counting layers turned off in settings) or a pre-merge check that did not
+ * pass, 3 nothing to do.
  */
 export function prAttention(entry: TaskSecurityScans['prs'][number]): number {
   const { latest } = entry
@@ -118,8 +119,11 @@ export function prAttention(entry: TaskSecurityScans['prs'][number]): number {
   const open = latest.findings.filter(f => !isQuietFinding(f))
   if (open.some(f => f.blocking)) return 0
   if (open.length > 0) return 1
-  if (!latest.complete || nonPassingChecks(latest.preMergeChecks).length > 0)
-    return 2
+  // LUM-892: layers the customer turned off are their choice, not a reason
+  // to look — the badge already says so. A size cap still is: its notice
+  // says how to get the layer (split the PR).
+  const uncovered = !latest.complete && latest.coverage !== 'TURNED_OFF'
+  if (uncovered || nonPassingChecks(latest.preMergeChecks).length > 0) return 2
   return 3
 }
 
