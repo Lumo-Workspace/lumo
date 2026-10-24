@@ -2,7 +2,7 @@
  * LUM-1308 — the Lumo review card header: the verdict as one badge (with the
  * PR count when there are several) and "Copy for agent".
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -121,4 +121,28 @@ test('Copy for agent says so when the clipboard write fails', async () => {
     'lumoReview.copyFailed'
   )
   expect(screen.queryByText('securityScan.action.copied')).toBeNull()
+})
+
+test('the copy-failed line clears on its own', async () => {
+  jest.useFakeTimers()
+  try {
+    const writeText = jest.fn().mockRejectedValue(new Error('denied'))
+    Object.assign(navigator, { clipboard: { writeText } })
+    render(
+      <CopyReviewForAgent
+        data={data([{ pr: pr(7), latest: scan([finding]) }])}
+      />
+    )
+    fireEvent.click(screen.getByTestId('lumo-review-copy'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    act(() => {
+      jest.advanceTimersByTime(4000)
+    })
+    expect(screen.queryByRole('alert')).toBeNull()
+  } finally {
+    jest.useRealTimers()
+  }
 })

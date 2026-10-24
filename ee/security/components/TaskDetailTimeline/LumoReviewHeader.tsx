@@ -83,8 +83,12 @@ export function CopyReviewForAgent({ data }: { data: TaskSecurityScans }) {
     try {
       await navigator.clipboard.writeText(context)
     } catch {
-      // Said out loud: the button would otherwise look like it worked.
+      // Said out loud: the button would otherwise look like it worked. The
+      // line clears on its own, like "Copied".
+      setCopied(false)
       setFailed(true)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => setFailed(false), 4000)
       return
     }
     setFailed(false)
