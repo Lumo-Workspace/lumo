@@ -14,7 +14,6 @@ jest.mock('next/navigation', () => ({
 
 const messages: Record<string, string> = {
   'securityScan.section.title': 'Lumo review',
-  'securityScan.banner.blocking': 'blocking {count}',
   'securityScan.severity.HIGH': 'High',
   'securityScan.severity.LOW': 'Low',
   'securityScan.provenance.DETERMINISTIC': 'Pattern match',
@@ -65,7 +64,7 @@ const messages: Record<string, string> = {
   'lumoReview.check.external': 'Risky code patterns',
   'lumoReview.check.supplyChain': 'Vulnerable packages',
   'lumoReview.check.judge': 'AI code review',
-  'lumoReview.check.rewardHack': 'Agent shortcuts',
+  'lumoReview.check.rewardHack': 'Matches the task',
   'lumoReview.check.hunt': 'Attack paths',
   'lumoReview.result.found': '{count} found',
   'lumoReview.result.files': '{covered} of {total} files',
@@ -78,6 +77,16 @@ const messages: Record<string, string> = {
   'lumoReview.pr.moreClean': '{count} more pull requests',
   'securityScan.status.CLEAN': 'Clean',
   'securityScan.group.ruled': 'Decided',
+  'lumoReview.uncovered.title': "{count} checks didn't fully run",
+  'lumoReview.reviewAgain': 'Review again',
+  'lumoReview.progress': '{done} of {total} checks done',
+  'lumoReview.check.moreEmpty': '{count} more checks · nothing found',
+  'lumoReview.pr.state.open': 'Open',
+  'lumoReview.pr.state.merged': 'Merged',
+  'lumoReview.result.requirementsUnclear': '{count} requirements unclear',
+  'lumoReview.result.requirementsNotMet': '{count} requirements not met',
+  'lumoReview.result.late': 'No report yet',
+  'lumoReview.result.tooLarge': 'Too large to check',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -247,7 +256,7 @@ test('says so when the scans could not be loaded, instead of rendering nothing',
   expect(screen.queryByTestId('security-scan-panel')).toBeNull()
 })
 
-test('shows the blocking banner, the owned unfinished notice for a judge outage, and finding rows', () => {
+test('shows the owned unfinished notice for a judge outage and finding rows, with no blocking banner (the header badge says it)', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -265,9 +274,8 @@ test('shows the blocking banner, the owned unfinished notice for a judge outage,
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  expect(screen.getByTestId('security-blocking-banner')).toHaveTextContent(
-    'blocking 1'
-  )
+  // LUM-1308: the card header's verdict badge carries the blocking count.
+  expect(screen.queryByTestId('security-blocking-banner')).toBeNull()
   // LUM-832: one owned line, not a judge-specific verdict.
   expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
   expect(screen.getByTestId('security-finding-f1')).toHaveAttribute(
@@ -465,15 +473,21 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // LUM-1308: a check that did not cover the PR opens on its own — its
-  // notes are the reason the summary cannot claim a clean result.
+  // LUM-1308: nothing to decide on, so the checks that did not cover the PR
+  // are said once, above the rows, with their short reason — and their rows
+  // wait to be opened.
+  const summary = screen.getByTestId('lumo-review-uncovered')
+  expect(summary).toHaveTextContent("2 checks didn't fully run")
+  expect(summary).toHaveTextContent('Risky code patterns — Off')
+  expect(summary).toHaveTextContent("AI code review — Didn't finish")
+  expect(within(summary).getByTestId('scan-unfinished')).toBeInTheDocument()
   expect(screen.getByTestId('check-external-toggle')).toHaveAttribute(
     'aria-expanded',
-    'true'
+    'false'
   )
   expect(screen.getByTestId('check-judge-toggle')).toHaveAttribute(
     'aria-expanded',
-    'true'
+    'false'
   )
   // One row per check, its result in words on the label — checked ones too.
   expect(screen.getByLabelText('Risky code patterns: Off')).toBeInTheDocument()
@@ -483,15 +497,14 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   expect(
     screen.getByLabelText('Leaked secrets: Nothing found')
   ).toBeInTheDocument()
+  openCheck('external')
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
   expect(links).toHaveLength(1)
   expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
-  expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
-    'data-state',
-    'incomplete'
-  )
+  // A single PR draws no result badge — the card header's verdict says it.
+  expect(screen.queryByTestId('security-scan-badge')).toBeNull()
 })
 
 test('external stage FAILED renders the prefixed failure reason even when the scan itself is not FAILED', () => {
@@ -517,6 +530,7 @@ test('external stage FAILED renders the prefixed failure reason even when the sc
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
+  openCheck('external')
   const reason = screen.getByTestId('external-failed-reason')
   expect(reason).toHaveTextContent('External scanner failed: semgrep exit 90')
   // Not the FAILED-scan branch too — the reason renders exactly once.
@@ -578,6 +592,7 @@ test('a FAILED scan whose external stage also FAILED renders the reason once, pr
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
+  openCheck('external')
   expect(screen.getAllByText(/semgrep exit 90/)).toHaveLength(1)
   expect(screen.getByTestId('external-failed-reason')).toHaveTextContent(
     'External scanner failed: semgrep exit 90'
@@ -657,7 +672,12 @@ test('externalLate renders a warning that the scanner has not reported in 30 min
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // LUM-1308: a late scanner is a warning, so its check opens by itself.
+  // LUM-1308: a late scanner is a warning — said in the summary, the full
+  // note one click away in its row.
+  expect(screen.getByTestId('lumo-review-uncovered')).toHaveTextContent(
+    'Risky code patterns — No report yet'
+  )
+  openCheck('external')
   expect(screen.getByTestId('external-late')).toHaveTextContent(
     'Push a new commit to start a fresh scan'
   )
@@ -725,11 +745,15 @@ test('an incomplete scan opens the check that did not finish (review F1)', () =>
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('check-external-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'true'
+  // LUM-1308: with nothing to decide on, the summary names it instead.
+  expect(
+    within(screen.getByTestId('lumo-review-uncovered')).getByTestId(
+      'scan-unfinished'
+    )
+  ).toBeInTheDocument()
+  expect(screen.getByTestId('lumo-review-uncovered')).toHaveTextContent(
+    'Risky code patterns'
   )
-  expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
 })
 
 // LUM-1308: one PR is shown as is, with a link to it on the PR's header.
@@ -935,7 +959,36 @@ test('three or more PRs: attention order, the first open, clean ones folded', ()
   expect(screen.getByTestId('security-pr-12-toggle')).toBeInTheDocument()
 })
 
-test('an external-failed check with an error is open by default', () => {
+test('in the many-PR list, a PR says its state and folds its empty checks into one row', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        { pr: { ...pr, id: 'pr2', number: 10 }, latest: null },
+        { pr: { ...pr, id: 'pr4', number: 12 }, latest: null },
+        {
+          pr: { ...pr, id: 'pr3', number: 11, state: 'merged' },
+          latest: scan({ id: 's3' }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const report = screen.getByTestId('security-pr-11')
+  expect(report).toHaveTextContent('Merged')
+  // Leaked secrets has the finding; the two checks that found nothing fold.
+  expect(within(report).getByTestId('stage-secrets')).toBeInTheDocument()
+  const empty = within(report).getByTestId('lumo-review-empty-checks')
+  expect(empty).toHaveTextContent('2 more checks · nothing found')
+  expect(within(report).queryByTestId('stage-external')).toBeNull()
+  fireEvent.click(within(empty).getAllByRole('button')[0]!)
+  expect(within(report).getByTestId('stage-external')).toBeInTheDocument()
+  expect(within(report).getByTestId('stage-judge')).toBeInTheDocument()
+})
+
+test('an external-failed check with an error is summarized, its reason one click away', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -957,8 +1010,9 @@ test('an external-failed check with an error is open by default', () => {
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('check-external-toggle')).toHaveAttribute(
     'aria-expanded',
-    'true'
+    'false'
   )
+  openCheck('external')
   expect(screen.getByTestId('external-failed-reason')).toBeInTheDocument()
 })
 
@@ -1158,6 +1212,11 @@ test('a PR with only verifier-rejected findings reads "dismissed by verifier", f
             ],
           }),
         },
+        // Two PRs: each tab carries its PR's result cell.
+        {
+          pr: { ...pr, id: 'pr2', number: 10 },
+          latest: scan({ status: 'CLEAN', findings: [] }),
+        },
       ],
       blocking: { count: 0 },
     },
@@ -1249,10 +1308,7 @@ test('LUM-1298: a clean scan with an unmet goal shows a warning and expandable c
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  expect(screen.getByTestId('scan-result-pre-merge')).toHaveTextContent(
-    '1 pre-merge check not passed'
-  )
-  expect(screen.getByTestId('security-scan-badge')).toBeInTheDocument()
+  // A pre-merge check of the repo's own stays above the checks.
   expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
     'One goal is unmet'
   )
@@ -1263,4 +1319,126 @@ test('LUM-1298: a clean scan with an unmet goal shows a warning and expandable c
     'LUM-702 · Goal'
   )
   expect(screen.queryByText(/Hidden/)).toBeNull()
+})
+
+// LUM-1308: the built-in issue assessment belongs with the reward-hacking
+// check — both ask whether the change does what the task asked.
+test('the issue assessment sits under "Matches the task", open, and not above the checks', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: {
+              secrets: 'RAN',
+              external: 'RAN',
+              judge: 'RAN',
+              rewardHack: 'RAN',
+            },
+            preMergeChecks: [
+              {
+                id: 'issue_assessment',
+                name: 'Issue assessment',
+                mode: 'warning',
+                verdict: 'inconclusive',
+                explanation: 'Check the requirements marked Unclear',
+                resolution: null,
+                requirements: [
+                  {
+                    id: 'r1',
+                    label: 'LUM-1308 · Requirement 1 of 4',
+                    outcome: 'unclear',
+                    quotable: true,
+                    text: 'Three states',
+                    explanation: 'Needs a screenshot',
+                  },
+                  {
+                    id: 'r2',
+                    label: 'LUM-1308 · Requirement 2 of 4',
+                    outcome: 'addressed',
+                    quotable: true,
+                    text: 'Done',
+                    explanation: '',
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const row = screen.getByTestId('stage-rewardHack')
+  expect(
+    screen.getByLabelText('Matches the task: 1 requirements unclear')
+  ).toBeInTheDocument()
+  expect(screen.getByTestId('check-rewardHack-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(within(row).getByTestId('pre-merge-check')).toHaveTextContent(
+    'Check the requirements marked Unclear'
+  )
+  expect(within(row).getByTestId('pre-merge-check')).toHaveTextContent(
+    'LUM-1308 · Requirement 1 of 4'
+  )
+  // Only inside the row — not also above the checks.
+  expect(screen.getAllByTestId('pre-merge-check')).toHaveLength(1)
+})
+
+test('a single open PR whose checks did not cover it offers "Review again"', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr: { ...pr, repo: 'o/r' },
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'RAN', judge: 'FAILED' },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('lumo-review-again')).toHaveTextContent(
+    'Review again'
+  )
+})
+
+test('a scan still running shows how many checks are done', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'RUNNING',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'PENDING' },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('lumo-review-progress')).toHaveTextContent(
+    '1 of 3 checks done'
+  )
 })
