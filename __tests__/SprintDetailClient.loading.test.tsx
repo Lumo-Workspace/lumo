@@ -18,6 +18,9 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ workspaceUrl: 'test-workspace', sprintId: '14' }),
 }))
 
+jest.mock('@/components/RichHtml', () => ({
+  RichHtml: ({ html }: { html: string }) => <div>{html}</div>,
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/components/PageBreadcrumb', () => ({
   PageBreadcrumb: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
@@ -44,6 +47,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTeams', () => ({
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SprintDetailClient } from '@/app/workspace/[workspaceUrl]/sprints/[sprintId]/SprintDetailClient'
+import { RetroCard } from '@/app/workspace/[workspaceUrl]/sprints/components/detail/RetroCard'
 
 test('loading renders skeletons with a screen-reader-only label', () => {
   const { container } = render(
@@ -61,4 +65,22 @@ test('loading renders skeletons with a screen-reader-only label', () => {
   expect(
     container.querySelectorAll('[data-slot="skeleton"]').length
   ).toBeGreaterThan(4)
+})
+
+test('RetroCard loading shows a skeleton subtitle, not "Loading retro…" text', () => {
+  const { container } = render(
+    <RetroCard
+      loading
+      readFailed={false}
+      retro={null}
+      retrying={false}
+      retryError={null}
+      onRetry={() => {}}
+    />
+  )
+
+  expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+  expect(screen.getByText('sprints.retro.loading')).toHaveClass('sr-only')
+  expect(screen.queryByText('sprints.retro.generating')).not.toBeInTheDocument()
+  expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2)
 })
