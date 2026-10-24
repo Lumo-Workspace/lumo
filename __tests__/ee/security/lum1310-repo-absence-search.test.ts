@@ -51,6 +51,34 @@ describe('which requirements are searched, and for what', () => {
     ).toBeNull()
   })
 
+  it('positive requirements that merely say "left", "remaining" or "removed" are not absence claims', () => {
+    for (const text of [
+      'The left panel under `app/` shows `TaskList` everywhere.',
+      'Remaining items under `app/` render through `AsyncContent`.',
+      'The `Beta` badge is removed from the menu across `app/`.',
+      'Works without `jest.mock` under `__tests__/`.',
+    ])
+      expect(absenceQueryOf(req('p', text))).toBeNull()
+  })
+
+  it('"not … any" and "nothing" state absence', () => {
+    expect(
+      absenceQueryOf(
+        req(
+          'n',
+          'The app does not call `legacyFetch(` in any file under `src/`.'
+        )
+      )
+    ).toEqual({
+      requirementId: 'n',
+      needles: ['legacyFetch('],
+      scopes: ['src/'],
+    })
+    expect(
+      absenceQueryOf(req('m', 'Nothing imports `old-sdk` anywhere.'))
+    ).toEqual({ requirementId: 'm', needles: ['old-sdk'], scopes: [] })
+  })
+
   it('repo-wide wording without a directory searches the whole repository', () => {
     expect(
       absenceQueryOf(
@@ -258,6 +286,33 @@ describe('what the model reads', () => {
     expect(text).toMatch(/\[c\] searched .*\(first \d shown\)\./)
     for (const line of text.split('\n').filter(l => l.startsWith('  - ')))
       expect(line).toMatch(/x$|…$/)
+  })
+
+  it('the cap holds exactly, the "(first N shown)" suffix included', () => {
+    // Found by search: these lengths fill the estimate to 4,998 chars; each
+    // "(first 10 shown)" suffix is one char longer than the estimate's, so
+    // without the final trim the text is 5,001 chars.
+    const qs = ['a', 'b', 'c'].map(id => ({
+      requirementId: id,
+      needles: [`${id}${id}${id}1`],
+      scopes: [] as string[],
+    }))
+    const m = new AbsenceMatcher(qs)
+    qs.forEach((q, i) => {
+      const lines = Array(12).fill(`${q.needles[0]} ${'y'.repeat(115)}`)
+      if (i === 2) lines[9] = `${q.needles[0]} ${'z'.repeat(168)}`
+      m.addFile(`app/${q.requirementId}.ts`, Buffer.from(lines.join('\n\n\n')))
+    })
+    const text = absenceSearchMaterial(m.result('end'))!
+    expect(text.length).toBeLessThanOrEqual(ABSENCE_MATERIAL_MAX)
+    for (const id of ['a', 'b', 'c']) expect(text).toContain(`[${id}] searched`)
+    // The count line matches the hit lines actually shown.
+    const shownC = text
+      .split('\n')
+      .filter(l => l.startsWith('  - app/c.ts')).length
+    expect(text).toContain(
+      `[c] searched \`ccc1\` in the whole repository: 12 matching lines in 1 file (first ${shownC} shown).`
+    )
   })
 
   it('a cut search says zero hits proves nothing', () => {

@@ -12,8 +12,10 @@
  * `repo-absence-search.service.ts`.
  *
  * Extraction — a requirement qualifies only when its text has all three:
- *   · absence wording ("no", "none", "zero", "never", "nowhere", "without",
- *     "removed", "left", "remaining");
+ *   · a negation that states absence ("no", "none", "zero", "never",
+ *     "nowhere", "nothing", "not … any"). Words such as "left", "remaining"
+ *     or "removed" alone do not count: "the left panel", "remaining items"
+ *     and "removed from the menu" are positive requirements;
  *   · repo-wide wording ("grep", "anywhere", "across", "codebase",
  *     "repo-wide", "under", "everywhere") or a backticked directory scope;
  *   · a backticked literal to search for (the span after "grep" when there
@@ -80,7 +82,7 @@ export interface RepoAbsenceSearch {
 }
 
 const ABSENCE_RE =
-  /\b(?:no|none|zero|never|nowhere|without|removed|left|remain(?:s|ing)?)\b/i
+  /\b(?:no|none|zero|never|nowhere|nothing)\b|\bnot\b[^.;]*\bany\b/i
 const REPO_WIDE_RE =
   /\b(?:grep|anywhere|across|codebase|repo(?:sitory)?[- ]wide|under|everywhere)\b/i
 const SPAN_RE = /`([^`\n]+)`/g
@@ -327,12 +329,23 @@ export function absenceSearchMaterial(
         return true
       })
   )
-  return [
-    ...lines,
-    ...search.results.flatMap((r, i) => [
-      head(r, shown[i]!.length),
-      ...noFile(r),
-      ...shown[i]!,
-    ]),
-  ].join('\n')
+  const render = () =>
+    [
+      ...lines,
+      ...search.results.flatMap((r, i) => [
+        head(r, shown[i]!.length),
+        ...noFile(r),
+        ...shown[i]!,
+      ]),
+    ].join('\n')
+  // The estimate above used each count line without its "(first N shown)"
+  // suffix; drop the last shown hit line until the real text fits.
+  let text = render()
+  while (text.length > ABSENCE_MATERIAL_MAX) {
+    const last = shown.map(s => s.length > 0).lastIndexOf(true)
+    if (last < 0) break
+    shown[last]!.pop()
+    text = render()
+  }
+  return text
 }

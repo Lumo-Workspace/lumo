@@ -4,7 +4,7 @@
  * LUM-1310 — reading a repository archive for the issue assessment's
  * bounded head search: the tar reader (ustar prefix, pax and GNU long names,
  * the archive directory stripped, size / wantPath skips, any chunking, a
- * real `git archive`), and the tarball stream (one request, gunzipped,
+ * the `git archive` layout), and the tarball stream (one request, gunzipped,
  * stopped by the byte cap or the deadline, a failed request throws).
  */
 jest.mock('@/lib/integrations/github/auth', () => ({
@@ -20,7 +20,6 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-import { execFileSync } from 'node:child_process'
 import { gzipSync } from 'node:zlib'
 import { TarReader } from '@/lib/integrations/github/tar-reader'
 import { streamRepoTarballWithToken } from '@/lib/integrations/github/contents'
@@ -159,19 +158,22 @@ describe('TarReader', () => {
     expect(r.done).toBe(false)
   })
 
-  it('reads a real `git archive` of this repository (pax global header, prefix)', () => {
-    const tar = execFileSync(
-      'git',
-      [
-        'archive',
-        '--format=tar',
-        `--prefix=${TOP}/`,
-        'HEAD',
-        '--',
-        'lib/test-cases/freshness.ts',
-      ],
-      { cwd: process.cwd() }
-    )
+  it('reads the layout `git archive` writes: a pax global header carrying the commit, then the prefixed tree', () => {
+    // Byte layout of `git archive --format=tar --prefix=<top>/ <sha>` (what
+    // GitHub's tarball endpoint serves), built here so the test needs no git
+    // binary or checkout.
+    const sha = 'ea4d79128595b68a8ec4b4dd806efeb40f15f30a'
+    const tar = Buffer.concat([
+      entry('pax_global_header', pax({ comment: sha }), 'g'),
+      entry(`${TOP}/`, '', '5'),
+      entry(`${TOP}/lib/`, '', '5'),
+      entry(`${TOP}/lib/test-cases/`, '', '5'),
+      entry(
+        `${TOP}/lib/test-cases/freshness.ts`,
+        'export function deriveRunFreshness() {}\n'
+      ),
+      END,
+    ])
     const { files, done } = readAll(tar, 333, 1 << 20)
     expect(Object.keys(files)).toEqual(['lib/test-cases/freshness.ts'])
     expect(files['lib/test-cases/freshness.ts']).toContain(
