@@ -145,7 +145,7 @@ export function sinceLastAssessmentMaterial(
         ]
       : []),
     runs.length
-      ? `Test-case runs on this head recorded since then (shown with the other runs below): ${runs.map(n => `TC${n}`).join(', ')}.`
+      ? `Test-case runs on this head recorded since then (details with the other runs below, unless named there as not shown): ${runs.map(n => `TC${n}`).join(', ')}.`
       : 'No test-case run on this head was recorded since then.',
   ]
   const head = lines.join('\n')

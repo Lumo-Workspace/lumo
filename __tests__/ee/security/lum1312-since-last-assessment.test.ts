@@ -232,7 +232,7 @@ describe('sinceLastAssessmentMaterial', () => {
     )
     expect(text).not.toContain('task:done:9')
     expect(text).toContain(
-      'Test-case runs on this head recorded since then (shown with the other runs below): TC1.'
+      'Test-case runs on this head recorded since then (details with the other runs below, unless named there as not shown): TC1.'
     )
     expect(text).toContain('Changes since 1111111 (1 file):')
     expect(text.endsWith('+export const BACKOFF_MS = 200')).toBe(true)
