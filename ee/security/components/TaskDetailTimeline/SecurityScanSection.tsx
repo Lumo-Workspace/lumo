@@ -571,7 +571,7 @@ function ScanNotices({
   const turnedOff = turnedOffLayers(scan.stages)
   return (
     <div className='space-y-1.5 empty:hidden'>
-      {/* LUM-1308: the issue assessment sits on the Agent shortcuts row. */}
+      {/* LUM-1308: the issue assessment sits on the "Matches the task" row. */}
       {prLevelPreMergeChecks(scan).map(check => (
         <PreMergeCheckNotice key={check.id} check={check} />
       ))}

@@ -60,7 +60,8 @@ export interface CheckRow {
   quiet: SecurityFindingView[]
   /**
    * The issue assessment (pre-merge check) when it did not pass — shown under
-   * Agent shortcuts: both ask whether the change does what the task asked.
+   * the reward-hack row ("Matches the task"): both ask whether the change
+   * does what the task asked.
    * null on every other row.
    */
   assessment: PreMergeCheckView | null
@@ -80,7 +81,8 @@ function unmetAssessment(scan: SecurityScanView): PreMergeCheckView | null {
 
 /**
  * The pre-merge checks that did not pass and concern the whole PR — every
- * one but the issue assessment, which sits on the Agent shortcuts row.
+ * one but the issue assessment, which sits on the reward-hack row
+ * ("Matches the task").
  */
 export function prLevelPreMergeChecks(
   scan: Pick<SecurityScanView, 'preMergeChecks'>
