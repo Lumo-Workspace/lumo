@@ -35,6 +35,7 @@ import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-rev
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { linkedRequirementsService } from '@/ee/security/services/linked-requirements.service'
+import { capScreenshotAnswers } from '@/ee/security/security-scan/test-case-evidence'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
 import { authoredDescription } from '@/ee/security/security-scan/pr-description-summary'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -64,6 +65,7 @@ import {
   type PreMergeChecksSetting,
 } from '@/ee/security/security-scan/pre-merge-checks'
 import {
+  REQUIREMENTS_MATERIAL_MAX,
   requirementsMaterial,
   type TaskAssessmentContext,
   type LinkedRequirement,
@@ -290,7 +292,11 @@ export const preMergeChecksService = {
               ? await p.gather(gatherInput).catch(() => null)
               : null
           if (!text) return null
-          const g = guardInjectedText(cap(text, PRE_MERGE_TEXT_MAX_CHARS).text)
+          // LUM-1310: the assessment's material carries its evidence too.
+          const max = reqs
+            ? REQUIREMENTS_MATERIAL_MAX
+            : PRE_MERGE_TEXT_MAX_CHARS
+          const g = guardInjectedText(cap(text, max).text)
           return [...g.notices, g.text].join('\n')
         }
         const { runPreMergeChecksModel } =
@@ -350,6 +356,20 @@ export const preMergeChecksService = {
             )
           }
         }
+        // LUM-1310: a screenshot is never taken on the model's word.
+        answers = answers.map(a => {
+          const reqs = linked.get(a.id)
+          return reqs && a.requirements
+            ? {
+                ...a,
+                requirements: capScreenshotAnswers(
+                  reqs,
+                  a.requirements,
+                  contexts.get(a.id)?.testCases
+                ),
+              }
+            : a
+        })
         return resultsFromAnswers(judged, answers, linked)
       }
       let results: PreMergeCheckResult[]

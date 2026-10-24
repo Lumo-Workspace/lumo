@@ -7,6 +7,9 @@
  * repository outside the workspace's confirmed list (LUM-883).
  */
 
+import { pipeline, Readable } from 'node:stream'
+import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web'
+import { createGunzip } from 'node:zlib'
 import { logger } from '@/lib/logger'
 import { getRepoToken, revokeInstallationToken } from './auth'
 import { REPO_TOKEN_PERMISSIONS } from './token-permissions'
@@ -175,6 +178,73 @@ export async function listRepoDirWithToken(opts: {
     if (entry.type === 'file' && typeof entry.path === 'string')
       files.push(entry.path)
   return files
+}
+
+/**
+ * LUM-1310 — stream a repository's archive at `ref` (one tarball request,
+ * the PR's own repository, a contents:read token the caller holds) and hand
+ * each gunzipped chunk to `onChunk` (a `TarReader` from `./tar-reader`).
+ * Read-only: nothing is built or run.
+ *
+ * Bounded: reading stops once `maxBytes` of uncompressed archive were read
+ * (`stop: 'size'`) or when `signal` fires (`stop: 'time'`); `complete` is
+ * true only when the whole archive was read. A failed request (404 for an
+ * unknown ref, 403, 5xx) throws with its status.
+ */
+export async function streamRepoTarballWithToken(opts: {
+  token: string
+  fullName: string
+  ref: string
+  maxBytes: number
+  signal: AbortSignal
+  onChunk: (chunk: Buffer) => void
+}): Promise<{
+  complete: boolean
+  bytes: number
+  stop: 'end' | 'size' | 'time'
+}> {
+  const [owner, repo] = splitFullName(opts.fullName)
+  let bytes = 0
+  let source: Readable | null = null
+  const gunzip = createGunzip()
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/tarball/${encodeURIComponent(opts.ref)}`,
+      {
+        headers: { ...GH_HEADERS, Authorization: `Bearer ${opts.token}` },
+        redirect: 'follow',
+        signal: opts.signal,
+      }
+    )
+    if (!res.ok || !res.body) {
+      logger.error(
+        `[github/contents] tarball failed for ${opts.fullName}@${opts.ref.slice(0, 12)}: ${res.status}`
+      )
+      throw Object.assign(
+        new Error(
+          `GitHub API error ${res.status} for ${opts.fullName} tarball`
+        ),
+        { status: res.status }
+      )
+    }
+    source = Readable.fromWeb(res.body as unknown as NodeWebReadableStream)
+    // `pipeline`, not `pipe`: a download error (the deadline aborting the
+    // body) must end the gunzip loop below, not leave it waiting.
+    pipeline(source, gunzip, () => undefined)
+    for await (const chunk of gunzip) {
+      const buf = chunk as Buffer
+      bytes += buf.length
+      if (bytes > opts.maxBytes) return { complete: false, bytes, stop: 'size' }
+      opts.onChunk(buf)
+    }
+    return { complete: true, bytes, stop: 'end' }
+  } catch (error) {
+    if (opts.signal.aborted) return { complete: false, bytes, stop: 'time' }
+    throw error
+  } finally {
+    gunzip.destroy()
+    source?.destroy()
+  }
 }
 
 /**

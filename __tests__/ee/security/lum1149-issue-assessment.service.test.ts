@@ -41,6 +41,9 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 jest.mock('@/lib/repositories/task-decision.repository', () => ({
   taskDecisionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: { listForEvidence: jest.fn().mockResolvedValue([]) },
+}))
 jest.mock('@/lib/integrations/github/pr-comment-client', () => ({
   prCommentClient: { listReviews: jest.fn(), createReview: jest.fn() },
 }))
