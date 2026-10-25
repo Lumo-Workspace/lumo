@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Lampirkan reka bentuk Figma ke tugas. Metadata diambil melalui OAuth Figma.",
   "githubAccount.title": "Akaun GitHub",
-  "githubAccount.description": "Pilihan. Memautkan log masuk GitHub anda supaya komen anda di GitHub dikaitkan dengan anda di sini — tidak diperlukan untuk Lumo mencapai repositori.",
+  "githubAccount.description": "Pilihan. Merekodkan log masuk GitHub yang menjadi milik anda. Lumo tidak memerlukannya untuk mencapai repositori, dan komen pull request tidak disegerakkan ke tugasan.",
   "githubAccount.connected": "Dibenarkan",
   "githubAccount.connectedAs": "Dipautkan sebagai",
   "figma.connected": "Disambungkan",

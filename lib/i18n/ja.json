@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Figma デザインをタスクに添付します。メタデータは Figma OAuth で取得されます。",
   "githubAccount.title": "GitHub アカウント",
-  "githubAccount.description": "任意。GitHub のログイン名を紐付け、GitHub 上のあなたのコメントをここであなたに帰属させます。Lumo がリポジトリにアクセスするために必要なものではありません。",
+  "githubAccount.description": "任意。どの GitHub ログイン名があなたのものかを記録します。Lumo がリポジトリにアクセスするのに必要なものではなく、プルリクエストのコメントはタスクと同期されません。",
   "githubAccount.connected": "認可済み",
   "githubAccount.connectedAs": "連携中のアカウント",
   "figma.connected": "接続済み",

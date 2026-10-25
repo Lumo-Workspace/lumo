@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "將 Figma 設計關聯到任務。透過 Figma OAuth 取得檔案中繼資料。",
   "githubAccount.title": "GitHub 帳號",
-  "githubAccount.description": "選用。關聯你的 GitHub 登入名稱，讓你在 GitHub 上的留言在這裡歸屬於你——Lumo 存取儲存庫不依賴它。",
+  "githubAccount.description": "選用。記錄哪個 GitHub 登入名稱是你的。Lumo 存取儲存庫不依賴它，PR 留言也不會同步到任務。",
   "githubAccount.connected": "已授權",
   "githubAccount.connectedAs": "已關聯為",
   "figma.connected": "已連線",

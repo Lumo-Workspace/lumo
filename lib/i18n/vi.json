@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Đính kèm thiết kế Figma vào công việc. Siêu dữ liệu được lấy qua OAuth Figma.",
   "githubAccount.title": "Tài khoản GitHub",
-  "githubAccount.description": "Tùy chọn. Liên kết tên đăng nhập GitHub của bạn để bình luận của bạn trên GitHub được ghi nhận là của bạn tại đây — Lumo không cần nó để truy cập kho lưu trữ.",
+  "githubAccount.description": "Tùy chọn. Ghi nhận tên đăng nhập GitHub nào là của bạn. Lumo không cần nó để truy cập kho lưu trữ, và bình luận trong pull request không được đồng bộ với công việc.",
   "githubAccount.connected": "Đã ủy quyền",
   "githubAccount.connectedAs": "Đã liên kết với",
   "figma.connected": "Đã kết nối",

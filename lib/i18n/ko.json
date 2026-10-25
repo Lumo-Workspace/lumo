@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Figma 디자인을 작업에 첨부합니다. 메타데이터는 Figma OAuth를 통해 가져옵니다.",
   "githubAccount.title": "GitHub 계정",
-  "githubAccount.description": "선택 사항. GitHub 로그인을 연결해 GitHub에서 남긴 댓글이 여기서 본인에게 귀속되도록 합니다. Lumo가 저장소에 접근하는 데는 필요하지 않습니다.",
+  "githubAccount.description": "선택 사항. 어떤 GitHub 로그인이 본인 것인지 기록합니다. Lumo가 저장소에 접근하는 데는 필요하지 않으며, 풀 리퀘스트 댓글은 작업과 동기화되지 않습니다.",
   "githubAccount.connected": "승인됨",
   "githubAccount.connectedAs": "연결된 계정",
   "figma.connected": "연결됨",

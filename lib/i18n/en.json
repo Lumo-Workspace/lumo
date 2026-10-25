@@ -789,7 +789,7 @@
   "github.uninstallTitle": "Uninstall the GitHub App?",
   "githubAccount.connected": "Authorized",
   "githubAccount.connectedAs": "Linked as",
-  "githubAccount.description": "Optional. Links your GitHub login so comments you make on GitHub are attributed to you here — not needed for Lumo to reach repositories.",
+  "githubAccount.description": "Optional. Records which GitHub login is yours. Lumo doesn't need it to reach repositories, and pull request comments aren't synced to tasks.",
   "githubAccount.title": "GitHub account",
   "googleDrive.connectFailed": "Failed to connect Google Drive. Please try again.",
   "googleDrive.connectSuccess": "Google Drive connected successfully",
