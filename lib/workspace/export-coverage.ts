@@ -55,6 +55,7 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   GitHubAppInstallation: INTEGRATION,
   SlackIntegration: INTEGRATION,
   SentryIntegration: INTEGRATION,
+  CodeupConnection: INTEGRATION,
   FigmaIntegration: INTEGRATION,
   GoogleDriveIntegration: INTEGRATION,
   PullRequest: MIRROR,

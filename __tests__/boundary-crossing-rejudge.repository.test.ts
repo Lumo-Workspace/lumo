@@ -122,7 +122,7 @@ describe('pullRequestRepository.listRepoAndNumberByTask', () => {
   it('reads every PR of the task as (workspace, repo, number, state)', async () => {
     await pullRequestRepository.listRepoAndNumberByTask('t1')
     expect(prFindMany.mock.calls[0]?.[0]).toEqual({
-      where: { taskId: 't1' },
+      where: { taskId: 't1', provider: 'github' },
       select: { workspaceId: true, repo: true, number: true, state: true },
       orderBy: { number: 'asc' },
     })

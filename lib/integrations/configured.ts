@@ -61,6 +61,9 @@ const REQUIRED_ENV: Record<
   // Sentry credentials are per workspace (entered in the card); only the
   // encryption of the stored client secret is a deployment requirement.
   sentry: [ENCRYPTION_KEY],
+  // LUM-1315: the Codeup token is per workspace (entered in the card); only
+  // its encryption at rest is a deployment requirement.
+  codeup: [ENCRYPTION_KEY],
   figma: [
     'FIGMA_OAUTH_CLIENT_ID',
     'FIGMA_OAUTH_CLIENT_SECRET',

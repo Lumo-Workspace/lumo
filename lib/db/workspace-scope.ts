@@ -43,6 +43,7 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Actor',
   'AgentProfile',
   'AuditEvent',
+  'CodeupConnection',
   'Document',
   'DocumentRevision',
   'Draft',

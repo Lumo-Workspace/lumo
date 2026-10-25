@@ -1,4 +1,5 @@
 import type { ProjectStatus } from '@prisma/client'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import { scopedPrisma as prisma, unscoped } from '@/lib/db/workspace-scope'
 import type { TaskStatus } from '@prisma/client'
 
@@ -317,7 +318,8 @@ export const projectRepository = {
     projectId: string
   ): Promise<{ fullName: string } | null> {
     const row = await prisma.projectRepository.findFirst({
-      where: { projectId },
+      // LUM-1315: every caller reads the repository through GitHub.
+      where: { projectId, provider: GITHUB_PROVIDER },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
       select: { fullName: true },
     })
@@ -336,6 +338,7 @@ export const projectRepository = {
     const row = await prisma.projectRepository.findFirst({
       where: {
         project: { workspaceId },
+        provider: GITHUB_PROVIDER,
         fullName: { equals: fullName, mode: 'insensitive' },
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],

@@ -8,6 +8,9 @@
  * repository read and write, from PR links to the security scan, runs as it.
  * `githubAccount` (PERSONAL) is a member's OAuth link: identity only, so
  * comments arriving from GitHub are attributed to the member who wrote them.
+ *
+ * `codeup` (TEAM, LUM-1315) is the workspace's Codeup connection: one
+ * personal access token, entered by an owner, that every Codeup call runs as.
  */
 export type IntegrationKind = 'TEAM' | 'PERSONAL'
 
@@ -16,6 +19,7 @@ export type IntegrationId =
   | 'sentry'
   | 'github'
   | 'githubAccount'
+  | 'codeup'
   | 'figma'
   | 'googleDrive'
 
@@ -29,6 +33,7 @@ export const INTEGRATIONS = {
   sentry: { id: 'sentry', kind: 'TEAM' },
   github: { id: 'github', kind: 'TEAM' },
   githubAccount: { id: 'githubAccount', kind: 'PERSONAL' },
+  codeup: { id: 'codeup', kind: 'TEAM' },
   figma: { id: 'figma', kind: 'PERSONAL' },
   googleDrive: { id: 'googleDrive', kind: 'PERSONAL' },
 } as const satisfies Record<IntegrationId, IntegrationDescriptor>

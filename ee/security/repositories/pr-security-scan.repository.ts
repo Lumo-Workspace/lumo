@@ -3,6 +3,7 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import {
   activityRepository,
   type CreateActivityData,
@@ -2540,7 +2541,12 @@ export const prSecurityScanRepository = {
     })
     if (!pr) return false
     const others = await prisma.pullRequest.count({
-      where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+      where: {
+        provider: GITHUB_PROVIDER,
+        repo: pr.repo,
+        number: pr.number,
+        id: { not: pullRequestId },
+      },
     })
     return others > 0
   },
@@ -2555,7 +2561,8 @@ export const prSecurityScanRepository = {
     limit: number
   ): Promise<Array<{ id: string; repo: string; number: number }>> {
     return prisma.pullRequest.findMany({
-      where: { workspaceId, state: 'open' },
+      // LUM-1315: withdrawn through the GitHub API.
+      where: { workspaceId, provider: GITHUB_PROVIDER, state: 'open' },
       orderBy: { updatedAt: 'desc' },
       take: limit,
       select: { id: true, repo: true, number: true },
@@ -2575,6 +2582,7 @@ export const prSecurityScanRepository = {
   }): Promise<boolean> {
     const others = await prisma.pullRequest.count({
       where: {
+        provider: GITHUB_PROVIDER,
         repo: pr.repo,
         number: pr.number,
         id: { not: pr.id },

@@ -38,6 +38,14 @@ export function isStageEnabled(
 }
 
 /**
+ * A feature's configured stage, widened to `FeatureStage` so a caller can
+ * ask "is it off everywhere?" without knowing today's literal stage.
+ */
+export function featureStage(key: FeatureKey): FeatureStage {
+  return FEATURES[key].stage
+}
+
+/**
  * Whether a feature is on for one workspace, per its stage in `./config`.
  * Server-side only: env is read on every call.
  */

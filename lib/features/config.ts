@@ -16,6 +16,8 @@ export type FeatureStage = 'off' | 'dogfood' | 'beta' | 'public'
 export const FEATURES = {
   /** LUM-1234 — the "Agent behavior" PR scan layer. */
   'reward-hack-scan': { stage: 'dogfood' },
+  /** LUM-1315 — Codeup as a second Git provider (connection, webhook, MR links). */
+  'codeup-integration': { stage: 'dogfood' },
 } as const satisfies Record<string, { stage: FeatureStage }>
 
 export type FeatureKey = keyof typeof FEATURES

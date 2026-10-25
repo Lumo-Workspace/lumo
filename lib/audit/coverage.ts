@@ -107,6 +107,11 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/slack.service.ts#upsertIntegration': ['slack.connected'],
   'lib/services/slack.service.ts#deleteIntegration': ['slack.disconnected'],
   'lib/services/sentry.service.ts#connectIntegration': ['sentry.connected'],
+  'lib/services/codeup.service.ts#connect': ['codeup.connected'],
+  'lib/services/codeup.service.ts#disconnect': ['codeup.disconnected'],
+  'lib/services/codeup.service.ts#updateRepositories': [
+    'codeup.repositories_updated',
+  ],
   'lib/services/sentry.service.ts#disconnectIntegration': [
     'sentry.disconnected',
   ],
