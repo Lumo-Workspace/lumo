@@ -148,6 +148,18 @@ describe('CodeupRepositoriesDialog', () => {
   })
 })
 
+describe('useCodeupIntegration — failure', () => {
+  it('reports a failed disconnect with a toast instead of throwing', async () => {
+    api.getStatus.mockResolvedValue({ connected: false })
+    api.disconnect.mockRejectedValue(new Error('boom'))
+    const { result } = renderHook(() => useCodeupIntegration(), { wrapper })
+    await act(async () => {
+      await expect(result.current.handleDisconnect()).resolves.toBeUndefined()
+    })
+    expect(toast.error).toHaveBeenCalledWith('codeup.disconnectFailed')
+  })
+})
+
 describe('useCodeupIntegration', () => {
   it('loads the status and disconnects', async () => {
     api.getStatus.mockResolvedValue({

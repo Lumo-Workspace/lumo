@@ -367,6 +367,16 @@ describe('codeupService.updateRepositories', () => {
     expect(repo.markUnconfirmed).toHaveBeenCalledWith('r1')
   })
 
+  it('answers 500 without creating a hook when the app URL is not configured', async () => {
+    const client = fakeClient()
+    repo.findConnectionByWorkspace.mockResolvedValue(connection() as never)
+    delete process.env.NEXT_PUBLIC_APP_URL
+    await expect(
+      codeupService.updateRepositories(WS, 'OWNER', [14])
+    ).rejects.toMatchObject({ status: 500 })
+    expect(client.createWebhook).not.toHaveBeenCalled()
+  })
+
   it('rejects a repository id the organization does not list', async () => {
     fakeClient()
     repo.findConnectionByWorkspace.mockResolvedValue(connection() as never)

@@ -69,6 +69,23 @@ describe('createCodeupClient', () => {
     expect(fetchImpl.mock.calls[1]![0]).toContain('page=2')
   })
 
+  it('stops at 10 pages and logs that the list was capped', async () => {
+    const full = Array.from({ length: 100 }, (_, i) => repo(i + 1))
+    const fetchImpl = jest.fn(async () =>
+      jsonResponse(full, { headers: { 'x-next-page': 'more' } })
+    )
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const repos = await createCodeupClient(
+      ORG,
+      TOKEN,
+      fetchImpl
+    ).listRepositories()
+    expect(fetchImpl).toHaveBeenCalledTimes(10)
+    expect(repos).toHaveLength(1000)
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('drops rows missing the fields Lumo needs', async () => {
     const fetchImpl = jest
       .fn()

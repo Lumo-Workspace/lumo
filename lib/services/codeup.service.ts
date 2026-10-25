@@ -299,6 +299,9 @@ export const codeupService = {
       }
     }
 
+    // Resolved before any hook is created: a deployment without an app URL
+    // is a configuration error (500), not Codeup being unreachable.
+    const webhookUrl = codeupWebhookUrl()
     const confirmed = confirmedIdsOf(connection)
     let added = 0
     let removed = 0
@@ -309,7 +312,7 @@ export const codeupService = {
       let hook: { id: number }
       try {
         hook = await client.createWebhook(id, {
-          url: codeupWebhookUrl(),
+          url: webhookUrl,
           token,
         })
       } catch (err) {

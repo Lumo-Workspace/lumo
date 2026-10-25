@@ -10,6 +10,8 @@
  * The token is never logged, never put into an error message.
  */
 
+import { logger } from '@/lib/logger'
+
 export const CODEUP_API_BASE = 'https://openapi-rdc.aliyuncs.com'
 
 /** Codeup's page-size ceiling for list endpoints. */
@@ -132,6 +134,11 @@ export function createCodeupClient(
         }
         const next = res.headers.get('x-next-page')
         if (rows.length < PER_PAGE || !next) break
+        if (page === MAX_PAGES) {
+          logger.warn(
+            `[codeup] organization lists more than ${MAX_PAGES * PER_PAGE} repositories; only the first ${MAX_PAGES * PER_PAGE} are offered`
+          )
+        }
       }
       return out
     },

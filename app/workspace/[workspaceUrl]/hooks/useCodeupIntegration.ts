@@ -58,7 +58,11 @@ export function useCodeupIntegration(): UseCodeupIntegrationReturn {
   }
 
   const handleDisconnect = async () => {
-    await disconnectMutation.mutateAsync()
+    try {
+      await disconnectMutation.mutateAsync()
+    } catch {
+      // Already reported by the mutation's onError toast.
+    }
   }
 
   return {
