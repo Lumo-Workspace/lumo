@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Joignez des designs Figma aux tâches. Les métadonnées sont récupérées via OAuth Figma.",
   "githubAccount.title": "Compte GitHub",
-  "githubAccount.description": "Facultatif. Associe votre identifiant GitHub pour que vos commentaires sur GitHub vous soient attribués ici — Lumo n'en a pas besoin pour accéder aux dépôts.",
+  "githubAccount.description": "Facultatif. Indique quel identifiant GitHub est le vôtre. Lumo n'en a pas besoin pour accéder aux dépôts, et les commentaires des pull requests ne sont pas synchronisés avec les tâches.",
   "githubAccount.connected": "Autorisé",
   "githubAccount.connectedAs": "Associé en tant que",
   "figma.connected": "Connecté",

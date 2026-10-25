@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "将 Figma 设计关联到任务。通过 Figma OAuth 获取文件元数据。",
   "githubAccount.title": "GitHub 账号",
-  "githubAccount.description": "可选。关联你的 GitHub 登录名，让你在 GitHub 上的评论在这里归属到你——Lumo 访问仓库不依赖它。",
+  "githubAccount.description": "可选。记录哪个 GitHub 登录名是你的。Lumo 访问仓库不依赖它，PR 评论也不会同步到任务。",
   "githubAccount.connected": "已授权",
   "githubAccount.connectedAs": "已关联为",
   "figma.connected": "已连接",

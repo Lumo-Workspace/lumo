@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "कार्यों में Figma डिज़ाइन जोड़ें। मेटाडेटा Figma OAuth के ज़रिए प्राप्त होता है।",
   "githubAccount.title": "GitHub खाता",
-  "githubAccount.description": "वैकल्पिक। आपका GitHub लॉगिन जोड़ता है ताकि GitHub पर आपकी टिप्पणियाँ यहाँ आपके नाम दिखें — Lumo को रिपॉजिटरी तक पहुँचने के लिए इसकी ज़रूरत नहीं है।",
+  "githubAccount.description": "वैकल्पिक। यह दर्ज करता है कि कौन-सा GitHub लॉगिन आपका है। Lumo को रिपॉजिटरी तक पहुँचने के लिए इसकी ज़रूरत नहीं है, और पुल रिक्वेस्ट की टिप्पणियाँ टास्क से सिंक नहीं होतीं।",
   "githubAccount.connected": "अधिकृत",
   "githubAccount.connectedAs": "इस रूप में जुड़ा",
   "figma.connected": "जुड़ा हुआ",

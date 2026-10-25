@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Füge Figma-Designs zu Aufgaben hinzu. Metadaten werden per Figma-OAuth abgerufen.",
   "githubAccount.title": "GitHub-Konto",
-  "githubAccount.description": "Optional. Verknüpft deinen GitHub-Login, damit deine Kommentare auf GitHub hier dir zugeordnet werden – für den Repository-Zugriff von Lumo nicht erforderlich.",
+  "githubAccount.description": "Optional. Hält fest, welcher GitHub-Login dir gehört. Lumo braucht ihn nicht für den Repository-Zugriff, und Kommentare in Pull Requests werden nicht mit Aufgaben synchronisiert.",
   "githubAccount.connected": "Autorisiert",
   "githubAccount.connectedAs": "Verknüpft als",
   "figma.connected": "Verbunden",

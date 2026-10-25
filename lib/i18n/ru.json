@@ -437,7 +437,7 @@
   "figma.title": "Figma",
   "figma.description": "Прикрепляйте дизайны Figma к задачам. Метаданные получаются через Figma OAuth.",
   "githubAccount.title": "Аккаунт GitHub",
-  "githubAccount.description": "Необязательно. Связывает ваш логин GitHub, чтобы ваши комментарии на GitHub здесь относились к вам, — для доступа Lumo к репозиториям это не требуется.",
+  "githubAccount.description": "Необязательно. Запоминает, какой логин GitHub принадлежит вам. Для доступа Lumo к репозиториям это не требуется, а комментарии к pull request с задачами не синхронизируются.",
   "githubAccount.connected": "Авторизовано",
   "githubAccount.connectedAs": "Связан как",
   "figma.connected": "Подключено",
