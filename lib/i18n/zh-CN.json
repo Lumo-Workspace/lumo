@@ -1883,7 +1883,6 @@
   "sentry.mappingAddFailed": "添加映射失败",
   "sentry.mappingRemoveFailed": "删除映射失败",
   "linkPr.title": "关联 Pull Request",
-  "linkPr.sharedRepoWarning": "这个 PR 所在仓库也被其它 workspace 使用。此任务上的评论会发到 GitHub 上的这个 PR。",
   "linkPr.searchPlaceholder": "搜索 PR 或粘贴 GitHub URL…",
   "linkPr.linkFromUrl": "从 URL 关联 PR",
   "linkPr.linkedTo": "已关联到 {identifier}",

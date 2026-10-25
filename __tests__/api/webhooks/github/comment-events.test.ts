@@ -49,29 +49,55 @@ describe('GitHub webhook — comment events', () => {
     ])
   })
 
-  it('routes issue_comment to prCommentMirrorService.runInbound when PR is linked to a task', async () => {
-    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
+  const taskLinkedPr = { id: 'pr1', taskId: 't1', workspaceId: 'w1' }
+
+  // LUM-1313: the PR ↔ task comment mirror is turned off — a comment on a
+  // task-linked PR no longer becomes a task comment. The handler still runs
+  // (it looks the PR up to hand the comment to the plugins).
+  it.each([
+    [
+      'issue_comment',
       {
-        id: 'pr1',
-        taskId: 't1',
-        workspaceId: 'w1',
-      }
-    )
-    const body = {
-      action: 'created',
-      issue: { number: 1, pull_request: { url: 'x' } },
-      comment: { id: 999 },
-      repository: { full_name: 'foo/bar' },
-    }
-    const res = await POST(makeRequest('issue_comment', body))
-    expect(res.status).toBe(200)
-    expect(prCommentMirrorService.runInbound).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: 'issue_comment',
         action: 'created',
-        taskId: 't1',
+        issue: { number: 1, pull_request: { url: 'x' } },
+        comment: { id: 999 },
+      },
+    ],
+    [
+      'pull_request_review_comment',
+      { action: 'created', pull_request: { number: 1 }, comment: { id: 1000 } },
+    ],
+  ])('does not mirror %s on a task-linked PR', async (event, fields) => {
+    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
+      taskLinkedPr
+    )
+    const res = await POST(
+      makeRequest(event, { ...fields, repository: { full_name: 'foo/bar' } })
+    )
+    expect(res.status).toBe(200)
+    expect(pullRequestRepository.findByRepoAndNumber).toHaveBeenCalledWith(
+      'w1',
+      'foo/bar',
+      1
+    )
+    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
+  })
+
+  it('ignores pull_request_review entirely — it was only ever mirrored', async () => {
+    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
+      taskLinkedPr
+    )
+    const res = await POST(
+      makeRequest('pull_request_review', {
+        action: 'submitted',
+        pull_request: { number: 1 },
+        review: { id: 700, state: 'approved' },
+        repository: { full_name: 'foo/bar' },
       })
     )
+    expect(res.status).toBe(200)
+    expect(pullRequestRepository.findByRepoAndNumber).not.toHaveBeenCalled()
+    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
   })
 
   it('skips issue_comment when payload.issue.pull_request is null (real issue)', async () => {
@@ -82,64 +108,6 @@ describe('GitHub webhook — comment events', () => {
       repository: { full_name: 'foo/bar' },
     }
     await POST(makeRequest('issue_comment', body))
-    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
-  })
-
-  it('routes pull_request_review_comment to runInbound', async () => {
-    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
-      {
-        id: 'pr1',
-        taskId: 't1',
-        workspaceId: 'w1',
-      }
-    )
-    const body = {
-      action: 'created',
-      pull_request: { number: 1 },
-      comment: { id: 1000 },
-      repository: { full_name: 'foo/bar' },
-    }
-    await POST(makeRequest('pull_request_review_comment', body))
-    expect(prCommentMirrorService.runInbound).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'pull_request_review_comment' })
-    )
-  })
-
-  it('routes pull_request_review to runInbound', async () => {
-    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
-      {
-        id: 'pr1',
-        taskId: 't1',
-        workspaceId: 'w1',
-      }
-    )
-    const body = {
-      action: 'submitted',
-      pull_request: { number: 1 },
-      review: { id: 700, state: 'approved' },
-      repository: { full_name: 'foo/bar' },
-    }
-    await POST(makeRequest('pull_request_review', body))
-    expect(prCommentMirrorService.runInbound).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'pull_request_review' })
-    )
-  })
-
-  it('no-ops when PR has no taskId', async () => {
-    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
-      {
-        id: 'pr1',
-        taskId: null,
-        workspaceId: 'w1',
-      }
-    )
-    const body = {
-      action: 'created',
-      issue: { number: 1, pull_request: { url: 'x' } },
-      comment: { id: 999 },
-      repository: { full_name: 'foo/bar' },
-    }
-    await POST(makeRequest('issue_comment', body))
-    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
+    expect(pullRequestRepository.findByRepoAndNumber).not.toHaveBeenCalled()
   })
 })

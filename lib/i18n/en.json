@@ -886,7 +886,6 @@
   "linkPr.moveToThisTask": "Move to this task",
   "linkPr.searchPlaceholder": "Search PRs or paste GitHub URL...",
   "linkPr.title": "Link pull request",
-  "linkPr.sharedRepoWarning": "Another workspace also uses this pull request's repository. Comments on this task will be posted to the pull request on GitHub.",
   "logoUploader.cropTooLarge": "Cropped image is too large. Try a smaller crop.",
   "logoUploader.dialogTitle": "Crop logo",
   "logoUploader.processError": "Failed to process image",

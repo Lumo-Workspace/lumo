@@ -1881,7 +1881,6 @@
   "sentry.mappingAddFailed": "매핑 추가에 실패했습니다",
   "sentry.mappingRemoveFailed": "매핑 제거에 실패했습니다",
   "linkPr.title": "풀 리퀘스트 연결",
-  "linkPr.sharedRepoWarning": "이 풀 리퀘스트의 저장소는 다른 워크스페이스에서도 사용 중입니다. 이 작업의 댓글은 GitHub의 풀 리퀘스트에 게시됩니다.",
   "linkPr.searchPlaceholder": "PR 검색 또는 GitHub URL 붙여넣기...",
   "linkPr.linkFromUrl": "URL에서 PR 연결",
   "linkPr.linkedTo": "{identifier}에 연결됨",
