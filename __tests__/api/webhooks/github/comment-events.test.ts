@@ -52,7 +52,8 @@ describe('GitHub webhook — comment events', () => {
   const taskLinkedPr = { id: 'pr1', taskId: 't1', workspaceId: 'w1' }
 
   // LUM-1313: the PR ↔ task comment mirror is turned off — a comment on a
-  // task-linked PR no longer becomes a task comment.
+  // task-linked PR no longer becomes a task comment. The handler still runs
+  // (it looks the PR up to hand the comment to the plugins).
   it.each([
     [
       'issue_comment',
@@ -66,14 +67,6 @@ describe('GitHub webhook — comment events', () => {
       'pull_request_review_comment',
       { action: 'created', pull_request: { number: 1 }, comment: { id: 1000 } },
     ],
-    [
-      'pull_request_review',
-      {
-        action: 'submitted',
-        pull_request: { number: 1 },
-        review: { id: 700, state: 'approved' },
-      },
-    ],
   ])('does not mirror %s on a task-linked PR', async (event, fields) => {
     ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
       taskLinkedPr
@@ -82,6 +75,28 @@ describe('GitHub webhook — comment events', () => {
       makeRequest(event, { ...fields, repository: { full_name: 'foo/bar' } })
     )
     expect(res.status).toBe(200)
+    expect(pullRequestRepository.findByRepoAndNumber).toHaveBeenCalledWith(
+      'w1',
+      'foo/bar',
+      1
+    )
+    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
+  })
+
+  it('ignores pull_request_review entirely — it was only ever mirrored', async () => {
+    ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
+      taskLinkedPr
+    )
+    const res = await POST(
+      makeRequest('pull_request_review', {
+        action: 'submitted',
+        pull_request: { number: 1 },
+        review: { id: 700, state: 'approved' },
+        repository: { full_name: 'foo/bar' },
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(pullRequestRepository.findByRepoAndNumber).not.toHaveBeenCalled()
     expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
   })
 
