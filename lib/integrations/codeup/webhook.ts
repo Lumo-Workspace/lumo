@@ -113,6 +113,9 @@ export function parseMergeRequestEvent(
   ) {
     return null
   }
+  // `user` is who triggered the event; the payload names the MR author only
+  // by numeric id. The repository writes authorLogin on create only, and the
+  // first event of an MR is its opening, by its author.
   const user = obj(p.user)
   const lastCommit = obj(attrs.last_commit)
   return {

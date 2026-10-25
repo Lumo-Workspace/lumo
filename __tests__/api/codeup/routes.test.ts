@@ -132,6 +132,7 @@ describe('/api/codeup/repositories', () => {
     const res = await repositories.GET(req(URL_R))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ repositories: [] })
+    expect(svc.listRepositories).toHaveBeenCalledWith('ws1', 'OWNER')
   })
 
   it('PUT replaces the confirmed set', async () => {

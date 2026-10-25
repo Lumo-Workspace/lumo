@@ -30,12 +30,15 @@ async function resolveMember(request: NextRequest) {
   return { userId: authResult.userId, workspaceId: ws.workspaceId, member }
 }
 
-/** GET — the organization's repositories, each marked confirmed or not. */
+/** GET — the organization's repositories, each marked confirmed or not (owner only). */
 export async function GET(request: NextRequest) {
   try {
     const ctx = await resolveMember(request)
     if (ctx instanceof NextResponse) return ctx
-    const repositories = await codeupService.listRepositories(ctx.workspaceId)
+    const repositories = await codeupService.listRepositories(
+      ctx.workspaceId,
+      ctx.member.role
+    )
     return NextResponse.json({ repositories })
   } catch (error) {
     return errorResponse(error, 'GET')

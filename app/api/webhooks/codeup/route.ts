@@ -12,7 +12,8 @@ import { codeupWebhookService } from '@/lib/services/codeup-webhook.service'
  * confirms a Codeup repository. Authenticated by the hook's own token in
  * `X-Codeup-Token` (Codeup signs nothing), which also says which workspace
  * the delivery is for. Behind `codeup-integration`: outside the rollout the
- * route answers 404.
+ * service answers 404 (a body that is not JSON is a 400 first — nothing is
+ * read from it before the service decides).
  */
 export async function POST(request: NextRequest) {
   let payload: unknown

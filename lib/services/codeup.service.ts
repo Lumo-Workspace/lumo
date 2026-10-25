@@ -42,11 +42,22 @@ type StoredConnection = NonNullable<
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Where Codeup delivers this deployment's webhooks. */
+/**
+ * Where Codeup delivers this deployment's webhooks. No configured app URL
+ * is an error, not a localhost fallback: a hook pointing at localhost would
+ * be created on Codeup and silently never deliver.
+ */
 export function codeupWebhookUrl(
   appUrl: string | undefined = process.env.NEXT_PUBLIC_APP_URL
 ): string {
-  return `${(appUrl ?? 'http://localhost:3000').replace(/\/+$/, '')}/api/webhooks/codeup`
+  const base = appUrl?.trim().replace(/\/+$/, '')
+  if (!base) {
+    throw Object.assign(
+      new Error('NEXT_PUBLIC_APP_URL is not configured on this deployment'),
+      { status: 500 }
+    )
+  }
+  return `${base}/api/webhooks/codeup`
 }
 
 /** A fresh per-repository webhook secret (256 bits, hex). */
@@ -183,24 +194,30 @@ export const codeupService = {
       throw codeupFailure(err, 'connect')
     }
 
-    // A different organization makes the old confirmations meaningless: drop
-    // them (and their hooks, while the old token still works).
     const existing =
       await codeupRepository.findConnectionByWorkspace(workspaceId)
-    if (existing && existing.organizationId !== data.organizationId) {
-      const oldClient = clientFor(existing)
-      for (const repo of existing.repositories) {
-        await removeHook(oldClient, repo.repositoryId, repo.webhookId)
-      }
-      await codeupRepository.deleteConnection(existing.id)
-    }
+    const switchingOrg =
+      existing !== null && existing.organizationId !== data.organizationId
+    // Built before the token is replaced: the old hooks belong to the old token.
+    const oldClient = switchingOrg && existing ? clientFor(existing) : null
 
-    await codeupRepository.upsertConnection({
+    // Store the new connection first, so a failure below never leaves the
+    // workspace without one.
+    const stored = await codeupRepository.upsertConnection({
       workspaceId,
       organizationId: data.organizationId,
       accessToken: encrypt(data.accessToken),
       connectedBy: memberId,
     })
+
+    // A different organization makes the old confirmations meaningless: drop
+    // their hooks (best effort, with the old token) and their rows.
+    if (oldClient && existing) {
+      for (const repo of existing.repositories) {
+        await removeHook(oldClient, repo.repositoryId, repo.webhookId)
+      }
+      await codeupRepository.deleteRepositoriesOfConnection(stored.id)
+    }
     await recordAuditEvent({
       workspaceId,
       action: 'codeup.connected',
@@ -216,10 +233,21 @@ export const codeupService = {
     return toOptions(available, kept)
   },
 
-  /** The organization's repositories, each marked confirmed or not. */
+  /**
+   * The organization's repositories, each marked confirmed or not. Owner
+   * only: the list is read with the owner's token, which can see
+   * repositories a member may not.
+   */
   async listRepositories(
-    workspaceId: string
+    workspaceId: string,
+    role: string
   ): Promise<CodeupRepositoryOption[]> {
+    if (role !== 'OWNER') {
+      throw Object.assign(
+        new Error('Only workspace owners can choose Codeup repositories'),
+        { status: 403 }
+      )
+    }
     requireEnabled(workspaceId)
     const connection = await requireConnection(workspaceId)
     let available: CodeupRepositorySummary[]

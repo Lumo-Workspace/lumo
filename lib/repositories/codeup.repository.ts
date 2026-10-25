@@ -98,6 +98,11 @@ export const codeupRepository = {
     return prisma.codeupConnection.delete({ where: { id: connectionId } })
   },
 
+  /** Drop every repository row of a connection (organization switch). */
+  async deleteRepositoriesOfConnection(connectionId: string) {
+    return prisma.codeupRepository.deleteMany({ where: { connectionId } })
+  },
+
   /** Confirm a repository (create, or re-confirm with a new hook + token). */
   async upsertRepository(data: UpsertCodeupRepositoryData) {
     const { connectionId, repositoryId, ...rest } = data

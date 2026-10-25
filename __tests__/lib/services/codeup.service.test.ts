@@ -8,6 +8,7 @@ jest.mock('@/lib/repositories/codeup.repository', () => ({
     findConnectionByWorkspace: jest.fn(),
     upsertConnection: jest.fn(),
     deleteConnection: jest.fn(),
+    deleteRepositoriesOfConnection: jest.fn(),
     upsertRepository: jest.fn(),
     markUnconfirmed: jest.fn(),
   },
@@ -75,6 +76,9 @@ beforeEach(() => {
     LUMO_DOGFOOD_WORKSPACE_IDS: WS,
     NEXT_PUBLIC_APP_URL: 'https://lumo.example',
   }
+})
+beforeEach(() => {
+  repo.upsertConnection.mockResolvedValue({ id: 'conn-1' })
 })
 afterAll(() => {
   process.env = OLD_ENV
@@ -159,7 +163,7 @@ describe('codeupService.connect', () => {
     expect(mockCreateClient).not.toHaveBeenCalled()
   })
 
-  it('drops the old confirmations when the organization changes', async () => {
+  it('stores the new connection before dropping the old organization confirmations', async () => {
     const client = fakeClient()
     repo.findConnectionByWorkspace.mockResolvedValue({
       ...connection([
@@ -180,7 +184,30 @@ describe('codeupService.connect', () => {
       accessToken: 'pt-new',
     })
     expect(client.deleteWebhook).toHaveBeenCalledWith(9, 33)
-    expect(repo.deleteConnection).toHaveBeenCalledWith('conn-1')
+    expect(repo.deleteRepositoriesOfConnection).toHaveBeenCalledWith('conn-1')
+    expect(repo.deleteConnection).not.toHaveBeenCalled()
+    // The old hooks are removed with the OLD token, after the new one is stored.
+    expect(mockCreateClient).toHaveBeenCalledWith('old-org', 'pt-old')
+    expect(repo.upsertConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      repo.deleteRepositoriesOfConnection.mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('keeps the connection when the old cleanup fails', async () => {
+    fakeClient()
+    repo.findConnectionByWorkspace.mockResolvedValue({
+      ...connection(),
+      organizationId: 'old-org',
+    } as never)
+    repo.deleteRepositoriesOfConnection.mockRejectedValue(new Error('db'))
+    await expect(
+      codeupService.connect(WS, 'mem-1', 'OWNER', {
+        organizationId: ORG,
+        accessToken: 'pt-new',
+      })
+    ).rejects.toThrow('db')
+    expect(repo.upsertConnection).toHaveBeenCalled()
+    expect(repo.deleteConnection).not.toHaveBeenCalled()
   })
 })
 
@@ -246,7 +273,7 @@ describe('codeupService.listRepositories', () => {
         },
       ]) as never
     )
-    const options = await codeupService.listRepositories(WS)
+    const options = await codeupService.listRepositories(WS, 'OWNER')
     expect(mockCreateClient).toHaveBeenCalledWith(ORG, 'pt-old')
     expect(options.map(o => [o.repositoryId, o.confirmed])).toEqual([
       [14, false],
@@ -256,9 +283,16 @@ describe('codeupService.listRepositories', () => {
 
   it('404s when not connected', async () => {
     repo.findConnectionByWorkspace.mockResolvedValue(null)
-    await expect(codeupService.listRepositories(WS)).rejects.toMatchObject({
-      status: 404,
-    })
+    await expect(
+      codeupService.listRepositories(WS, 'OWNER')
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('is owner-only: the list is read with the owner token', async () => {
+    await expect(
+      codeupService.listRepositories(WS, 'MEMBER')
+    ).rejects.toMatchObject({ status: 403 })
+    expect(mockCreateClient).not.toHaveBeenCalled()
   })
 })
 
@@ -384,6 +418,13 @@ describe('helpers', () => {
     expect(codeupWebhookUrl('https://lumo.example/')).toBe(
       'https://lumo.example/api/webhooks/codeup'
     )
+  })
+
+  it('codeupWebhookUrl refuses to fall back to localhost when no app URL is set', () => {
+    expect(() => codeupWebhookUrl('')).toThrow(/NEXT_PUBLIC_APP_URL/)
+    expect(() => codeupWebhookUrl('   ')).toThrow(/NEXT_PUBLIC_APP_URL/)
+    delete process.env.NEXT_PUBLIC_APP_URL
+    expect(() => codeupWebhookUrl()).toThrow(/NEXT_PUBLIC_APP_URL/)
   })
 
   it('newWebhookToken is a fresh 256-bit hex token', () => {

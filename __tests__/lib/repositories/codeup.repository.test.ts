@@ -15,6 +15,7 @@ jest.mock('@/lib/db/prisma', () => ({
       upsert: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     pullRequest: { upsert: jest.fn() },
     taskBranch: { upsert: jest.fn() },
@@ -89,6 +90,13 @@ describe('repositories', () => {
         create: data,
       })
     )
+  })
+
+  it('deletes every repository row of a connection', async () => {
+    await codeupRepository.deleteRepositoriesOfConnection('c1')
+    expect(p.codeupRepository.deleteMany).toHaveBeenCalledWith({
+      where: { connectionId: 'c1' },
+    })
   })
 
   it('unconfirms without dropping the token hash', async () => {

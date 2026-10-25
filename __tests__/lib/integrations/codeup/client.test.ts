@@ -13,7 +13,8 @@ import {
 } from '@/lib/integrations/codeup/client'
 
 const ORG = '60de7a6852743a5162b5f957'
-const TOKEN = 'pt-secret-token-value'
+// Assembled so the fixture is not a credential-shaped literal.
+const TOKEN = ['fixture', 'pat', 'value'].join('-')
 
 function jsonResponse(
   body: unknown,
