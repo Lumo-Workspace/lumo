@@ -157,3 +157,17 @@ describe('milestoneMemoryUsageAuditService (LUM-648)', () => {
     expect(mockListConsumerSessionIds).not.toHaveBeenCalled()
   })
 })
+
+describe('milestoneMemoryUsageAuditService — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('never calls the judge while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    mockMilestoneFindById.mockResolvedValue({ id: 'ms', name: 'M' })
+    await milestoneMemoryUsageAuditService.auditForMilestoneClose('ms')
+    expect(mockMilestoneFindById).not.toHaveBeenCalled()
+    expect(mockJudge).not.toHaveBeenCalled()
+  })
+})

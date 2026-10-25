@@ -211,3 +211,21 @@ describe('selectPruneTargets', () => {
     expect(selectPruneTargets(active, judgedUsed, 0, now)).toEqual([])
   })
 })
+
+describe('foldService.triggerForProject — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('skips without computing while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    overHighWater()
+    await expect(foldService.triggerForProject('proj-1')).resolves.toEqual({
+      folded: 0,
+      pruned: 0,
+      skipped: 'memory-pipeline-off',
+    })
+    expect(mCompute).not.toHaveBeenCalled()
+    expect(mClaim).not.toHaveBeenCalled()
+  })
+})

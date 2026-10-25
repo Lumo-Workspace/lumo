@@ -151,3 +151,27 @@ describe('stopTurnService.afterStop', () => {
     )
   })
 })
+
+describe('stopTurnService.afterStop — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('switch on: a task turn gets the summary-only call, no memory extraction', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    findSession.mockResolvedValue({ taskId: 'task_old' })
+    await stopTurnService.afterStop(ctx())
+    expect(layer1).not.toHaveBeenCalled()
+    expect(summary).toHaveBeenCalledWith({
+      stopEventId: 'evt_stop',
+      sessionId: 's1',
+    })
+  })
+
+  it('switch unset: a task turn still runs Layer 1', async () => {
+    findSession.mockResolvedValue({ taskId: 'task_old' })
+    await stopTurnService.afterStop(ctx())
+    expect(layer1).toHaveBeenCalled()
+    expect(summary).not.toHaveBeenCalled()
+  })
+})
