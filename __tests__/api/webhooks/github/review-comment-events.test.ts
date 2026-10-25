@@ -3,7 +3,7 @@
  *
  * LUM-1131 — `pull_request_review_comment` reaches the plugins as
  * `github.reviewComment` for any PR row Lumo holds (task-linked or not);
- * the task-linked mirror keeps running as before.
+ * LUM-1313: it is no longer mirrored into task comments.
  */
 jest.mock('@/lib/services/github.service')
 jest.mock('@/lib/integrations/github', () => ({
@@ -116,7 +116,7 @@ describe('pull_request_review_comment', () => {
     expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
   })
 
-  it('a task-linked PR is emitted and mirrored as before', async () => {
+  it('a task-linked PR is emitted but not mirrored', async () => {
     ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
       {
         id: 'pr1',
@@ -128,7 +128,7 @@ describe('pull_request_review_comment', () => {
     )
     await POST(makeRequest('pull_request_review_comment', payload))
     expect(emit).toHaveBeenCalledTimes(1)
-    expect(prCommentMirrorService.runInbound).toHaveBeenCalledTimes(1)
+    expect(prCommentMirrorService.runInbound).not.toHaveBeenCalled()
   })
 
   it('a top-level comment carries inReplyToId null; a malformed one is not emitted', async () => {

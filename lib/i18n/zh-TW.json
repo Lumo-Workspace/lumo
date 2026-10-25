@@ -1881,7 +1881,6 @@
   "sentry.mappingAddFailed": "新增對應失敗",
   "sentry.mappingRemoveFailed": "移除對應失敗",
   "linkPr.title": "連結 Pull Request",
-  "linkPr.sharedRepoWarning": "這個 PR 所在的儲存庫也被其他 workspace 使用。此任務上的留言會發布到 GitHub 上的這個 PR。",
   "linkPr.searchPlaceholder": "搜尋 PR 或貼上 GitHub URL…",
   "linkPr.linkFromUrl": "從 URL 連結 PR",
   "linkPr.linkedTo": "已連結到 {identifier}",
