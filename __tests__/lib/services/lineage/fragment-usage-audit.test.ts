@@ -191,3 +191,18 @@ describe('auditForTask', () => {
     expect(lineageEdgeRepository.applyUnusedVote).not.toHaveBeenCalled()
   })
 })
+
+describe('auditForTask — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('never calls the judge while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    judgeMock.mockResolvedValue({ used: [], unused: [] })
+    await fragmentUsageAuditService.auditForTask('task1')
+    expect(taskRepository.getTitleAndStatus).not.toHaveBeenCalled()
+    expect(judgeMock).not.toHaveBeenCalled()
+    expect(lineageEdgeRepository.applyUsageVote).not.toHaveBeenCalled()
+  })
+})

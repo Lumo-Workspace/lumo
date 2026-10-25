@@ -140,3 +140,21 @@ it('an inferred (unattached) session curates only memories born on this task', a
   expect(invalidate).toHaveBeenCalledWith('m_mine')
   expect(invalidate).not.toHaveBeenCalledWith('m_other')
 })
+
+describe('global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('curates nothing and never calls the judge while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    findMem.mockResolvedValue([
+      { id: 'm_wrong', category: 'GOTCHA', content: { fact: 'tests pass' } },
+    ])
+    judgeMemoryCuration.mockResolvedValue([{ id: 'm_wrong', reason: 'x' }])
+    await memoryCurationService.curateForTask('task1')
+    expect(listForTask).not.toHaveBeenCalled()
+    expect(judgeMemoryCuration).not.toHaveBeenCalled()
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+})

@@ -193,3 +193,17 @@ describe('milestone memory distillation (LUM-647)', () => {
     expect(mockExtract).not.toHaveBeenCalled()
   })
 })
+
+describe('milestone distillation — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('distills nothing while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    mockGetInput.mockResolvedValue(INPUT)
+    await milestoneDistillService.triggerForMilestoneClose('ms_a')
+    expect(mockGetInput).not.toHaveBeenCalled()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+})
