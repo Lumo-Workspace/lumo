@@ -133,6 +133,8 @@ export const fragmentUsageAuditService = {
   async auditDoneTaskSessions(
     limit: number
   ): Promise<{ processed: number; sessionIds: string[] }> {
+    // LUM-1314: the global memory pipeline switch is on.
+    if (isMemoryPipelineDisabled()) return { processed: 0, sessionIds: [] }
     const sessionIds =
       await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
     for (const id of sessionIds) {
