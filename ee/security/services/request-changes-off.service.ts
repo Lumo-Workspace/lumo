@@ -23,12 +23,15 @@
  * blocked (LUM-1140 production: the token mint for lumo-agent-test#24 failed
  * once with Octokit's empty-message network error and the pass moved on).
  *
- * Layering: service — DB through repositories, GitHub through
- * `pr-review-verdict.service` / `@/lib/integrations/github/*`.
+ * Layering: service — DB through repositories, the PR's Git platform
+ * through `pr-review-verdict.service` / the `GitProvider` port (LUM-1318).
  */
 import { logger } from '@/lib/logger'
-import { getRepoToken } from '@/lib/integrations/github/auth'
-import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import {
@@ -48,7 +51,7 @@ export const RETRY_DELAYS_MS = [500, 2_000] as const
 export type Sleep = (ms: number) => Promise<void>
 const realSleep: Sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-export interface WithdrawPr {
+export interface WithdrawPr extends GitProviderRef {
   id: string
   workspaceId: string
   /** "owner/repo" */
@@ -76,14 +79,15 @@ async function withdraw(pr: WithdrawPr, token: string): Promise<number> {
   if (!repo) return 0
   if (await prSecurityScanRepository.isRequestChangesOnElsewhere(pr)) return 0
   return prReviewVerdictService.withdrawChangeRequests({
+    ...gitProviderRefOf(pr),
     repo,
     prNumber: pr.number,
     token,
   })
 }
 
-const tokenFor = (workspaceId: string, repo: string) =>
-  getRepoToken(workspaceId, repo, REPO_TOKEN_PERMISSIONS.pullRequestWrite)
+const tokenFor = (pr: GitProviderRef & { workspaceId: string; repo: string }) =>
+  gitProviderFor(pr).getRepoToken(pr.workspaceId, pr.repo, 'pullRequestWrite')
 
 /**
  * `attempt`, again after each of `RETRY_DELAYS_MS` while it fails
@@ -122,8 +126,7 @@ export const requestChangesOffService = {
   ): Promise<number> {
     try {
       const n = await withRetry(
-        async () =>
-          withdraw(pr, token ?? (await tokenFor(pr.workspaceId, pr.repo))),
+        async () => withdraw(pr, token ?? (await tokenFor(pr))),
         sleep
       )
       if (n > 0)
@@ -169,10 +172,11 @@ export const requestChangesOffService = {
       // One mint per repository — but a failed mint is not kept, so the
       // retry and the repository's next PR mint afresh.
       const tokens = new Map<string, Promise<string>>()
-      const tokenOf = (repo: string): Promise<string> => {
+      const tokenOf = (pr: WithdrawPr): Promise<string> => {
+        const repo = pr.repo
         let token = tokens.get(repo)
         if (!token) {
-          token = tokenFor(workspaceId, repo)
+          token = tokenFor(pr)
           tokens.set(repo, token)
           token.catch(() => {
             if (tokens.get(repo) === token) tokens.delete(repo)
@@ -189,7 +193,7 @@ export const requestChangesOffService = {
         result.checked++
         try {
           result.dismissed += await withRetry(
-            async () => withdraw(pr, await tokenOf(pr.repo)),
+            async () => withdraw(pr, await tokenOf(pr)),
             sleep,
             ms => now() + ms <= deadline
           )

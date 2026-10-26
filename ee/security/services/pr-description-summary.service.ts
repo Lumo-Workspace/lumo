@@ -13,14 +13,16 @@
  * Never throws: the description is a courtesy next to the summary comment,
  * and a failed edit must not fail the review write-back.
  *
- * Layering: service — GitHub through `@/lib/integrations/github`, the
- * database through the repository.
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through the repository.
  */
 import { logger } from '@/lib/logger'
 import {
-  GithubApiError,
-  prCommentClient,
-} from '@/lib/integrations/github/pr-comment-client'
+  gitProviderFor,
+  gitProviderRefOf,
+  isGitApiError,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   applyDescriptionSummary,
@@ -43,7 +45,7 @@ interface Repo {
   name: string
 }
 
-export interface DescriptionSyncInput {
+export interface DescriptionSyncInput extends GitProviderRef {
   repo: Repo
   prNumber: number
   /** A `pull_requests: write` token for the repository. */
@@ -55,7 +57,7 @@ export interface DescriptionSyncInput {
 }
 
 function describe(error: unknown): string {
-  if (error instanceof GithubApiError) return `${error.status} ${error.message}`
+  if (isGitApiError(error)) return `${error.status} ${error.message}`
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -81,7 +83,7 @@ export const prDescriptionSummaryService = {
     if (!block) return 'no_summary'
     const where = `pr=${input.repo.owner}/${input.repo.name}#${input.prNumber}`
     try {
-      const current = await prCommentClient.getPullRequestBody({
+      const current = await gitProviderFor(input).comments.getPullRequestBody({
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,
@@ -93,7 +95,7 @@ export const prDescriptionSummaryService = {
         prCommandHandle()
       )
       if (next === (current.body ?? '')) return 'unchanged'
-      await prCommentClient.updatePullRequestBody({
+      await gitProviderFor(input).comments.updatePullRequestBody({
         repo: input.repo,
         prNumber: input.prNumber,
         body: next,
@@ -114,13 +116,15 @@ export const prDescriptionSummaryService = {
    * or removed Lumo's section). Uses the latest scan that carries a
    * summary; no new AI review is run.
    */
-  async regenerate(input: {
-    workspaceId: string
-    pullRequestId: string
-    repo: Repo
-    prNumber: number
-    token: string
-  }): Promise<SummaryCommandResult> {
+  async regenerate(
+    input: GitProviderRef & {
+      workspaceId: string
+      pullRequestId: string
+      repo: Repo
+      prNumber: number
+      token: string
+    }
+  ): Promise<SummaryCommandResult> {
     const scan = await prSecurityScanRepository.findLatestSummaryByPullRequest(
       input.pullRequestId
     )
@@ -129,6 +133,7 @@ export const prDescriptionSummaryService = {
     // scan ran), not the one stored on the scan.
     const mode: HighLevelSummaryMode =
       await repoConfigService.highLevelSummaryForPullRequest({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         repo: `${input.repo.owner}/${input.repo.name}`,
         prNumber: input.prNumber,
@@ -136,6 +141,7 @@ export const prDescriptionSummaryService = {
     if (mode === 'off') return { kind: 'off' }
     if (mode === 'comment') return { kind: 'comment' }
     const outcome = await prDescriptionSummaryService.sync({
+      ...gitProviderRefOf(input),
       repo: input.repo,
       prNumber: input.prNumber,
       token: input.token,
