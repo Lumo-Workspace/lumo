@@ -170,16 +170,17 @@ export const requestChangesOffService = {
         )
       const deadline = now() + BULK_TIME_BUDGET_MS
       // One mint per repository — but a failed mint is not kept, so the
-      // retry and the repository's next PR mint afresh.
+      // retry and the repository's next PR mint afresh. LUM-1318: keyed by
+      // platform too — the same `owner/repo` on two platforms is two mints.
       const tokens = new Map<string, Promise<string>>()
       const tokenOf = (pr: WithdrawPr): Promise<string> => {
-        const repo = pr.repo
-        let token = tokens.get(repo)
+        const key = `${gitProviderFor(pr).id}\u0000${pr.repo}`
+        let token = tokens.get(key)
         if (!token) {
           token = tokenFor(pr)
-          tokens.set(repo, token)
+          tokens.set(key, token)
           token.catch(() => {
-            if (tokens.get(repo) === token) tokens.delete(repo)
+            if (tokens.get(key) === token) tokens.delete(key)
           })
         }
         return token
