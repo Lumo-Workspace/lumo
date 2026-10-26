@@ -210,8 +210,9 @@ describe('githubRepository.upsertPullRequest', () => {
     expect(mock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          workspaceId_repo_number: {
+          workspaceId_provider_repo_number: {
             workspaceId: 'ws-1',
+            provider: 'github',
             repo: 'org/repo',
             number: 42,
           },
@@ -238,7 +239,12 @@ describe('githubRepository.updatePullRequestCiStatus', () => {
     )
 
     expect(mock).toHaveBeenCalledWith({
-      where: { workspaceId: 'ws-1', repo: 'org/repo', number: { in: [1, 2] } },
+      where: {
+        workspaceId: 'ws-1',
+        provider: 'github',
+        repo: 'org/repo',
+        number: { in: [1, 2] },
+      },
       data: { ciStatus: 'success' },
     })
   })
@@ -264,8 +270,9 @@ describe('githubRepository.upsertTaskBranch', () => {
 
     expect(mock).toHaveBeenCalledWith({
       where: {
-        taskId_repo_branchName: {
+        taskId_provider_repo_branchName: {
           taskId: 'task-1',
+          provider: 'github',
           repo: 'org/repo',
           branchName: 'lumo/ENG-1-fix',
         },
@@ -292,13 +299,19 @@ describe('githubRepository.upsertTaskBranch', () => {
 
     expect(mock).toHaveBeenCalledWith({
       where: {
-        taskId_repo_branchName: {
+        taskId_provider_repo_branchName: {
           taskId: 'task-1',
+          provider: 'github',
           repo: 'org/repo',
           branchName: 'fix/branch',
         },
       },
-      create: { taskId: 'task-1', repo: 'org/repo', branchName: 'fix/branch' },
+      create: {
+        taskId: 'task-1',
+        provider: 'github',
+        repo: 'org/repo',
+        branchName: 'fix/branch',
+      },
       update: {},
     })
   })

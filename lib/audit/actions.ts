@@ -49,6 +49,10 @@ export const AUDIT_ACTIONS = [
   'slack.disconnected',
   'sentry.connected',
   'sentry.disconnected',
+  // LUM-1315 — Codeup connection and its confirmed repositories
+  'codeup.connected',
+  'codeup.disconnected',
+  'codeup.repositories_updated',
   // LUM-907 PR3 — integrations: Sentry project mappings, the GitHub App
   // removed / suspended on GitHub (webhook or the daily access recheck)
   'sentry.mapping_created',

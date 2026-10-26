@@ -147,6 +147,10 @@ export const queryKeys = {
       ['integrations', 'github-repos', workspaceUrl] as const,
     sentry: (workspaceUrl: string) =>
       ['integrations', 'sentry', workspaceUrl] as const,
+    codeup: (workspaceUrl: string) =>
+      ['integrations', 'codeup', workspaceUrl] as const,
+    codeupRepositories: (workspaceUrl: string) =>
+      ['integrations', 'codeup-repositories', workspaceUrl] as const,
     sentryMappings: (workspaceUrl: string) =>
       ['integrations', 'sentry-mappings', workspaceUrl] as const,
     figma: (workspaceUrl: string) =>

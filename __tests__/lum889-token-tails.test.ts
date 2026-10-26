@@ -290,9 +290,10 @@ describe('LUM-889 removed repository PR', () => {
       team: { identifier: 'LUM', sprintsEnabled: false },
       parent: null,
       pullRequests: [
-        { ...REMOVED, title: 'Payroll', ciStatus: null },
+        { ...REMOVED, provider: 'github', title: 'Payroll', ciStatus: null },
         {
           id: 'pr_web',
+          provider: 'github',
           number: 3,
           url: 'https://github.com/acme/web/pull/3',
           state: 'open',

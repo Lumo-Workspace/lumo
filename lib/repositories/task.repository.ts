@@ -276,6 +276,8 @@ const TASK_DETAIL_INCLUDE = {
   pullRequests: {
     select: {
       id: true,
+      // LUM-1315: 'github' | 'codeup' — only GitHub PRs are re-synced.
+      provider: true,
       number: true,
       title: true,
       url: true,
@@ -294,6 +296,7 @@ const TASK_DETAIL_INCLUDE = {
   branches: {
     select: {
       id: true,
+      provider: true,
       repo: true,
       branchName: true,
       lastCommitSha: true,

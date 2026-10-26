@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -190,8 +191,9 @@ export const githubRepository = {
   async upsertPullRequest(data: UpsertPullRequestData) {
     return prisma.pullRequest.upsert({
       where: {
-        workspaceId_repo_number: {
+        workspaceId_provider_repo_number: {
           workspaceId: data.workspaceId,
+          provider: GITHUB_PROVIDER,
           repo: data.repo,
           number: data.number,
         },
@@ -200,6 +202,7 @@ export const githubRepository = {
         workspaceId: data.workspaceId,
         taskId: data.taskId,
         integrationId: data.integrationId,
+        provider: GITHUB_PROVIDER,
         repo: data.repo,
         number: data.number,
         title: data.title,
@@ -251,7 +254,12 @@ export const githubRepository = {
     ciStatus: string
   ) {
     return prisma.pullRequest.updateMany({
-      where: { workspaceId, repo, number: { in: prNumbers } },
+      where: {
+        workspaceId,
+        provider: GITHUB_PROVIDER,
+        repo,
+        number: { in: prNumbers },
+      },
       data: { ciStatus },
     })
   },
@@ -262,8 +270,15 @@ export const githubRepository = {
   async upsertTaskBranch(data: UpsertTaskBranchData) {
     const { taskId, repo, branchName, ...rest } = data
     return prisma.taskBranch.upsert({
-      where: { taskId_repo_branchName: { taskId, repo, branchName } },
-      create: { taskId, repo, branchName, ...rest },
+      where: {
+        taskId_provider_repo_branchName: {
+          taskId,
+          provider: GITHUB_PROVIDER,
+          repo,
+          branchName,
+        },
+      },
+      create: { taskId, provider: GITHUB_PROVIDER, repo, branchName, ...rest },
       update: rest,
     })
   },

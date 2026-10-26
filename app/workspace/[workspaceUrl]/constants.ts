@@ -161,6 +161,12 @@ export const API = {
     unlink: (taskId: string, prId: string) =>
       `/api/tasks/${taskId}/pull-requests/${prId}/unlink`,
   },
+  codeup: {
+    connection: (workspaceUrl: string) =>
+      `/api/codeup/connection?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    repositories: (workspaceUrl: string) =>
+      `/api/codeup/repositories?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+  },
   sentry: {
     integration: (workspaceUrl: string) =>
       `/api/sentry/integration?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,

@@ -371,6 +371,8 @@ model Workspace {
   slackIntegration        SlackIntegration?
   sentryIntegration       SentryIntegration?
   gitHubAppInstallation   GitHubAppInstallation?
+  /// LUM-1315 — the workspace's Codeup (center edition) connection.
+  codeupConnection        CodeupConnection?
   /// LUM-1133 — per-repository automatic PR review settings.
   repoReviewSettings      RepositoryReviewSetting[]
   actors                  Actor[]
@@ -780,6 +782,7 @@ model WorkspaceMember {
   slackInstalled          SlackIntegration[]       @relation("SlackInstaller")
   sentryInstalled         SentryIntegration[]      @relation("SentryInstaller")
   gitHubAppInstalls       GitHubAppInstallation[]  @relation("GitHubAppInstaller")
+  codeupConnections       CodeupConnection[]       @relation("CodeupConnector")
   actor                   Actor?
   agentProfiles           AgentProfile[]
   apiKeys                 ApiKey[]
@@ -998,6 +1001,9 @@ model CrossingSuppressionRule {
 model ProjectRepository {
   id                String    @id @default(cuid())
   projectId         String
+  // LUM-1315: the Git host this repository lives on — 'github' | 'codeup'.
+  // Every GitHub API reader filters on 'github'.
+  provider          String    @default("github")
   fullName          String // "owner/repo"
   name              String // short repo name
   isDefault         Boolean   @default(false)
@@ -1014,7 +1020,7 @@ model ProjectRepository {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, fullName])
+  @@unique([projectId, provider, fullName])
   @@index([projectId])
   @@map("project_repositories")
 }
@@ -2186,6 +2192,52 @@ model GitHubAppInstallation {
   @@map("github_app_installations")
 }
 
+/// LUM-1315 — a workspace's Codeup (Alibaba Cloud Yunxiao, center edition)
+/// connection. Codeup has no app identity: every API call runs as the owner
+/// of the personal access token, which is stored encrypted and never returned.
+model CodeupConnection {
+  id             String           @id @default(cuid())
+  workspaceId    String           @unique
+  organizationId String
+  accessToken    String // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  connectedBy    String?
+  connector      WorkspaceMember? @relation("CodeupConnector", fields: [connectedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  repositories CodeupRepository[]
+
+  @@index([organizationId])
+  @@map("codeup_connections")
+}
+
+/// LUM-1315 — a Codeup repository a workspace confirmed. Each confirmation
+/// creates the workspace's own repository webhook with its own random token
+/// (stored as a SHA-256 hash), so a delivery authenticates to exactly one
+/// workspace even when several confirmed the same repository (LUM-924).
+model CodeupRepository {
+  id                String    @id @default(cuid())
+  connectionId      String
+  /// Codeup's numeric repository id (`project_id` in webhook payloads).
+  repositoryId      Int
+  /// Full path, nested groups included (`org/group/sub/repo`).
+  pathWithNamespace String
+  webUrl            String
+  webhookId         Int?
+  webhookTokenHash  String
+  /// null = no longer confirmed: deliveries still authenticate but are ignored.
+  confirmedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  connection CodeupConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, repositoryId])
+  @@index([repositoryId])
+  @@map("codeup_repositories")
+}
+
 model SlackIntegration {
   id            String           @id @default(cuid())
   workspaceId   String           @unique
@@ -2243,6 +2295,10 @@ model PullRequest {
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)
+  // LUM-1315: the Git host — 'github' | 'codeup' (a Codeup merge request:
+  // `repo` is its full path, which may hold nested groups, `number` its iid).
+  // Every reader that calls the GitHub API with `repo` filters on 'github'.
+  provider       String    @default("github")
   repo           String // "owner/repo"
   number         Int
   title          String
@@ -2292,7 +2348,7 @@ model PullRequest {
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
   // installation can each confirm the same repository and track its PRs.
-  @@unique([workspaceId, repo, number])
+  @@unique([workspaceId, provider, repo, number])
   @@index([workspaceId])
   @@index([taskId])
   @@index([integrationId])
@@ -2302,6 +2358,8 @@ model PullRequest {
 model TaskBranch {
   id                String    @id @default(cuid())
   taskId            String
+  // LUM-1315: the Git host — 'github' | 'codeup'.
+  provider          String    @default("github")
   repo              String // "owner/repo"
   branchName        String
   lastCommitSha     String?
@@ -2312,7 +2370,7 @@ model TaskBranch {
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  @@unique([taskId, repo, branchName])
+  @@unique([taskId, provider, repo, branchName])
   @@index([taskId])
   @@map("task_branches")
 }

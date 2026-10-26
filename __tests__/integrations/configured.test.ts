@@ -37,6 +37,7 @@ describe('integrationConfigStatus — registry integrations', () => {
     'github',
     'githubAccount',
     'sentry',
+    'codeup',
     'figma',
     'googleDrive',
   ] as const
@@ -77,6 +78,7 @@ describe('integrationConfigStatus — registry integrations', () => {
       github: false,
       githubAccount: false,
       sentry: true,
+      codeup: true,
       figma: false,
       googleDrive: false,
     })

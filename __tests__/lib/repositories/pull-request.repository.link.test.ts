@@ -67,8 +67,9 @@ describe('pullRequestRepository.findByRepoAndNumber', () => {
     )
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: {
-        workspaceId_repo_number: {
+        workspaceId_provider_repo_number: {
           workspaceId: 'ws-1',
+          provider: 'github',
           repo: 'org/repo',
           number: 42,
         },

@@ -87,6 +87,7 @@ it('isLinkedElsewhere looks for another workspace holding the PR on a task', asy
   expect(db.pullRequest.findFirst).toHaveBeenCalledWith({
     where: {
       workspaceId: { not: 'a' },
+      provider: 'github',
       repo: { equals: 'acme/app', mode: 'insensitive' },
       number: 7,
       taskId: { not: null },

@@ -64,6 +64,7 @@ describe('pullRequestRepository.countTaskLinkedWorkspaces', () => {
     expect(n).toBe(2)
     expect(mockFindMany).toHaveBeenCalledWith({
       where: {
+        provider: 'github',
         repo: { equals: 'Acme-Inc/Web', mode: 'insensitive' },
         number: 7,
         taskId: { not: null },
