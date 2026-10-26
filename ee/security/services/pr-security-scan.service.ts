@@ -42,11 +42,17 @@ import {
   type PrSummary,
 } from '@/ee/security/security-scan/pr-summary'
 import {
-  fetchPrChangedFiles,
-  fetchPrDiff,
-  fetchPrHeadSha,
-  fetchReviewChangedPaths,
-} from '@/lib/integrations/github/contents'
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import { supportsAll } from '@/lib/integrations/git-provider'
+import {
+  PLATFORM_UNSUPPORTED_STAGE,
+  REVIEW_VERIFIER_REQUIREMENTS,
+  markUnsupportedLayers,
+  unsupportedScanLayers,
+} from '@/ee/security/security-scan/platform-support'
 import { prReviewControlRepository } from '@/ee/security/repositories/pr-review-control.repository'
 import { isPrReviewIgnored } from './pr-ignore-directive'
 import { startDeferredManualReview } from './security-deferred-review-start'
@@ -918,7 +924,7 @@ function fileOver<K extends 'pathFilters' | keyof ReviewStyle>(
  * settings.
  */
 async function reviewSettingsBestEffort(
-  pr: { workspaceId: string; repo: string; number: number },
+  pr: { workspaceId: string; repo: string; number: number } & GitProviderRef,
   scanId: string,
   headSha: string,
   diff: string
@@ -930,6 +936,7 @@ async function reviewSettingsBestEffort(
   let settings: ScanReviewSettings = { pathFilters, ...style }
   try {
     const { file, notice } = await repoConfigService.forPullRequest({
+      ...gitProviderRefOf(pr),
       workspaceId: pr.workspaceId,
       repo: pr.repo,
       prNumber: pr.number,
@@ -1014,13 +1021,15 @@ export function isPrDiffTooLargeError(error: unknown): boolean {
  * Best-effort: a failed read only skips the early check — the diff request
  * still runs, and GitHub's own 406 is the backstop.
  */
-async function changedFilesBestEffort(pr: {
-  workspaceId: string
-  repo: string
-  number: number
-}): Promise<number | null> {
+async function changedFilesBestEffort(
+  pr: {
+    workspaceId: string
+    repo: string
+    number: number
+  } & GitProviderRef
+): Promise<number | null> {
   try {
-    return await fetchPrChangedFiles({
+    return await gitProviderFor(pr).fetchPrChangedFiles({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,
@@ -1115,7 +1124,11 @@ export const prSecurityScanService = {
       return { skipped: true, reason: 'workspace_scan_disabled' }
     }
 
-    const headSha = await fetchPrHeadSha({
+    // LUM-1318: the PR's Git platform — every read below goes through it,
+    // and a layer it cannot run is recorded as unsupported, never started.
+    const git = gitProviderFor(pr)
+    const unsupported = unsupportedScanLayers(git.capabilities)
+    const headSha = await git.fetchPrHeadSha({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,
@@ -1220,7 +1233,7 @@ export const prSecurityScanService = {
         )
       let diff: string
       try {
-        diff = await fetchPrDiff({
+        diff = await git.fetchPrDiff({
           workspaceId: pr.workspaceId,
           fullName: pr.repo,
           prNumber: pr.number,
@@ -1241,7 +1254,7 @@ export const prSecurityScanService = {
       // The PR diff endpoint follows a moving ref. Refuse a push that raced
       // this read rather than attaching another head's code to this scan.
       if (
-        (await fetchPrHeadSha({
+        (await git.fetchPrHeadSha({
           workspaceId: pr.workspaceId,
           fullName: pr.repo,
           prNumber: pr.number,
@@ -1288,7 +1301,7 @@ export const prSecurityScanService = {
         const baseline = await prReviewControlRepository.baseline(pr.id, scanId)
         if (baseline) {
           try {
-            const paths = await fetchReviewChangedPaths({
+            const paths = await git.fetchReviewChangedPaths({
               workspaceId: pr.workspaceId,
               fullName: pr.repo,
               base: baseline.headSha,
@@ -1367,6 +1380,7 @@ export const prSecurityScanService = {
       const preMergeChecks = reviewAllowed
         ? preMergeChecksService.run(
             {
+              ...gitProviderRefOf(pr),
               scanId,
               pullRequestId: pr.id,
               workspaceId: pr.workspaceId,
@@ -1419,6 +1433,7 @@ export const prSecurityScanService = {
         .map(f => f.path)
         .filter(isGraphSourcePath)
       const graph = await securityGraphRulesService.run({
+        ...gitProviderRefOf(pr),
         scanId,
         workspaceId: pr.workspaceId,
         repo: pr.repo,
@@ -1471,6 +1486,7 @@ export const prSecurityScanService = {
       const huntOverCap = huntSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
         layers.hunt &&
+        !unsupported.has('hunt') &&
         aiAllowed &&
         !huntOverCap &&
         (triggerFirstPass?.hunt ?? false)
@@ -1509,6 +1525,14 @@ export const prSecurityScanService = {
           await prSecurityScanRepository.countExternalFindings(scanId)
         if (externalCount > 0) {
           stages.external = 'RAN'
+        } else if (
+          isManagedScanEnabled() &&
+          (unsupported.has('external') || unsupported.has('supplyChain'))
+        ) {
+          // LUM-1318: the managed scan is on, but the PR's platform cannot
+          // give it a checkout — both of its layers are unsupported here.
+          stages.external = PLATFORM_UNSUPPORTED_STAGE
+          stages.supplyChain = PLATFORM_UNSUPPORTED_STAGE
         } else if (isManagedScanEnabled()) {
           // LUM-745: a newer head makes every older PENDING run on this PR
           // moot — stamp, cancel and stop them first (never throws), then
@@ -1533,6 +1557,7 @@ export const prSecurityScanService = {
             const runId = await startSecurityManagedScan({
               scanId,
               pr: {
+                ...gitProviderRefOf(pr),
                 id: pr.id,
                 workspaceId: pr.workspaceId,
                 repo: pr.repo,
@@ -1550,6 +1575,7 @@ export const prSecurityScanService = {
             managedRunStarted = Boolean(runId)
             if (runId && huntWantedForVm) {
               keptVm = {
+                ...gitProviderRefOf(pr),
                 scanId,
                 workspaceId: pr.workspaceId,
                 repo: pr.repo,
@@ -1577,6 +1603,7 @@ export const prSecurityScanService = {
               // time has none, so request one now (never throws; the PR scan
               // must not fail over the baseline).
               await securityBaselineService.ensure({
+                ...gitProviderRefOf(pr),
                 workspaceId: pr.workspaceId,
                 repo: pr.repo,
               })
@@ -1722,6 +1749,7 @@ export const prSecurityScanService = {
         // reads. Bounded (≤ 4k chars) and paid for out of the context
         // budget, so the prompt ceiling holds. Never throws.
         const learnings = await loadReviewLearnings({
+          ...gitProviderRefOf(pr),
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           pullRequestId: pr.id,
@@ -1748,6 +1776,7 @@ export const prSecurityScanService = {
         const serverConfig =
           serverConfigPlan.triggers.length > 0
             ? await reviewContextService.loadServerConfig({
+                ...gitProviderRefOf(pr),
                 workspaceId: pr.workspaceId,
                 repo: pr.repo,
                 headSha,
@@ -1783,6 +1812,7 @@ export const prSecurityScanService = {
           )
         }
         const context = await reviewContextService.load({
+          ...gitProviderRefOf(pr),
           workspaceId: pr.workspaceId,
           repo: pr.repo,
           headSha,
@@ -2064,6 +2094,7 @@ export const prSecurityScanService = {
       })
       const huntWanted =
         layers.hunt &&
+        !unsupported.has('hunt') &&
         aiAllowed &&
         huntFiles.length > 0 &&
         huntTrigger.hunt &&
@@ -2096,11 +2127,20 @@ export const prSecurityScanService = {
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
         layers.hunt &&
+        !unsupported.has('hunt') &&
         aiAllowed &&
         huntFiles.length > 0 &&
         huntTrigger.hunt &&
         huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
+      // LUM-1318: a layer the PR's platform cannot run was never started
+      // (the gates above); it is recorded as unsupported on this platform.
+      if (unsupported.size > 0) {
+        Object.assign(stages, markUnsupportedLayers(stages, unsupported))
+        logger.info(
+          `[pr-security-scan] unsupported on this platform (${git.id}) scan=${scanId}: ${[...unsupported].join(' ')}`
+        )
+      }
 
       // LUM-1148: the checks' results are on the row before the write-back.
       await preMergeChecks
@@ -2126,7 +2166,7 @@ export const prSecurityScanService = {
       const status: 'CLEAN' | 'FINDINGS' =
         rows.length + externalCount > 0 ? 'FINDINGS' : 'CLEAN'
       if (
-        (await fetchPrHeadSha({
+        (await git.fetchPrHeadSha({
           workspaceId: pr.workspaceId,
           fullName: pr.repo,
           prNumber: pr.number,
@@ -2187,6 +2227,7 @@ export const prSecurityScanService = {
       let huntRunStarted = false
       if (huntWanted) {
         const huntJob: HuntJob = {
+          ...gitProviderRefOf(pr),
           scanId,
           pullRequestId: pr.id,
           taskId: pr.taskId,
@@ -2243,9 +2284,11 @@ export const prSecurityScanService = {
       if (
         reviewAllowed &&
         judgeRows.some(r => verifierAppliesTo(r)) &&
-        isReviewVerifierEnabled()
+        isReviewVerifierEnabled() &&
+        supportsAll(git.capabilities, REVIEW_VERIFIER_REQUIREMENTS)
       ) {
         await startVerifierBestEffort({
+          ...gitProviderRefOf(pr),
           scanId,
           workspaceId: pr.workspaceId,
           repo: pr.repo,
