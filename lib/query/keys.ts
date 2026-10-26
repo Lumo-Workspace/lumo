@@ -119,6 +119,8 @@ export const queryKeys = {
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
 
+  taskDecisions: (taskId: string) => ['task-decisions', taskId] as const,
+
   taskDependencies: (taskId: string) => ['task-dependencies', taskId] as const,
 
   documentComments: (docId: string) => ['document-comments', docId] as const,
@@ -145,6 +147,10 @@ export const queryKeys = {
       ['integrations', 'github-repos', workspaceUrl] as const,
     sentry: (workspaceUrl: string) =>
       ['integrations', 'sentry', workspaceUrl] as const,
+    codeup: (workspaceUrl: string) =>
+      ['integrations', 'codeup', workspaceUrl] as const,
+    codeupRepositories: (workspaceUrl: string) =>
+      ['integrations', 'codeup-repositories', workspaceUrl] as const,
     sentryMappings: (workspaceUrl: string) =>
       ['integrations', 'sentry-mappings', workspaceUrl] as const,
     figma: (workspaceUrl: string) =>

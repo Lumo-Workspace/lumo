@@ -23,6 +23,8 @@ import {
 } from '@/lib/services/memory/fold-compute'
 import { coarseCardSchemaFor } from '@/lib/memory/fold-schemas'
 import { generateObject } from 'ai'
+import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputProviderOptions } from '@/lib/ai/structured-output-routing'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 
 const mGen = generateObject as jest.Mock
@@ -282,6 +284,12 @@ describe('computeProjectFoldProposals respects the cluster size cap (LUM-556)', 
 
     expect(proposals).toHaveLength(1)
     expect(proposals[0]!.sourceIds.sort()).toEqual(cards.map(c => c.id).sort())
+    // LUM-1304: clustering, synthesis and coverage all route off baseten.
+    expect(mGen.mock.calls.length).toBeGreaterThanOrEqual(3)
+    for (const [call] of mGen.mock.calls)
+      expect(call.providerOptions).toEqual(
+        structuredOutputProviderOptions(MEMORY_JUDGE_MODEL)
+      )
   })
 })
 

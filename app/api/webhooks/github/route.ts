@@ -6,7 +6,6 @@ import {
   handleCheckSuite,
   handlePush,
   handleIssueComment,
-  handlePullRequestReview,
   handlePullRequestReviewComment,
   handlePullRequestReviewThread,
 } from './handlers'
@@ -161,9 +160,6 @@ async function dispatchRepoEvent(
         break
       case 'issue_comment':
         await handleIssueComment(payload, workspaceId, integrationId)
-        break
-      case 'pull_request_review':
-        await handlePullRequestReview(payload, workspaceId, integrationId)
         break
       case 'pull_request_review_comment':
         await handlePullRequestReviewComment(

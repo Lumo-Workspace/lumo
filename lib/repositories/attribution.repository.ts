@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { parseTaskIdentifier } from '@/lib/attribution/identifier'
 import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
-import { TASK_NOTIFICATION_MARKER } from '@/lib/attribution/signals'
 import type { TaskSegmentRow } from '@/lib/attribution/run-attribution'
 import { Prisma } from '@prisma/client'
 import type {
@@ -220,10 +219,7 @@ export const attributionRepository = {
                 array_contains: [{ kind: 'NOTIFICATION' }],
               },
             },
-            payload: {
-              path: ['prompt'],
-              string_contains: TASK_NOTIFICATION_MARKER,
-            },
+            promptTaskNotification: true,
           },
         ],
       },
@@ -526,7 +522,7 @@ export const attributionRepository = {
         createdAt: { gte: since },
         workspaceId,
         type: 'PRE_TOOL_USE',
-        payload: { path: ['tool_use_id'], equals: toolUseId },
+        toolUseId,
       },
       select: { taskId: true },
       orderBy: { createdAt: 'desc' },

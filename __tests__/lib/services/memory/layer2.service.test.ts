@@ -517,3 +517,20 @@ describe('layer2Service.triggerForTaskCompletion', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+describe('layer2Service.triggerForTaskCompletion — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('does nothing while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = 'true'
+    getInput.mockResolvedValue(makeInput())
+    await layer2Service.triggerForTaskCompletion({
+      taskId: 'task_1',
+      projectId: 'proj_1',
+    })
+    expect(getInput).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
+  })
+})

@@ -3,6 +3,7 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import {
   activityRepository,
   type CreateActivityData,
@@ -333,6 +334,8 @@ export interface ScanReadoutRow {
   huntJob: unknown
   /** LUM-1215 — raw Json (`parseReviewPathSkips`); absent on older fixtures. */
   reviewPathSkips?: unknown
+  /** LUM-1298 — the pre-merge checks' results Json, raw (absent on an old mock). */
+  preMergeChecks?: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -2121,6 +2124,7 @@ export const prSecurityScanRepository = {
         partialCauses: true,
         huntJob: true,
         reviewPathSkips: true,
+        preMergeChecks: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2537,7 +2541,12 @@ export const prSecurityScanRepository = {
     })
     if (!pr) return false
     const others = await prisma.pullRequest.count({
-      where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+      where: {
+        provider: GITHUB_PROVIDER,
+        repo: pr.repo,
+        number: pr.number,
+        id: { not: pullRequestId },
+      },
     })
     return others > 0
   },
@@ -2552,7 +2561,8 @@ export const prSecurityScanRepository = {
     limit: number
   ): Promise<Array<{ id: string; repo: string; number: number }>> {
     return prisma.pullRequest.findMany({
-      where: { workspaceId, state: 'open' },
+      // LUM-1315: withdrawn through the GitHub API.
+      where: { workspaceId, provider: GITHUB_PROVIDER, state: 'open' },
       orderBy: { updatedAt: 'desc' },
       take: limit,
       select: { id: true, repo: true, number: true },
@@ -2572,6 +2582,7 @@ export const prSecurityScanRepository = {
   }): Promise<boolean> {
     const others = await prisma.pullRequest.count({
       where: {
+        provider: GITHUB_PROVIDER,
         repo: pr.repo,
         number: pr.number,
         id: { not: pr.id },
@@ -2622,6 +2633,29 @@ export const prSecurityScanRepository = {
       orderBy: { startedAt: 'desc' },
       select: { id: true, headSha: true, preMergeChecks: true },
     })
+  },
+
+  /**
+   * LUM-1312: the PR's stored pre-merge check results, newest scan first
+   * (raw), other than `scanId`'s — read to find the previous assessment of
+   * a different head.
+   */
+  async listRecentPreMergeChecks(
+    pullRequestId: string,
+    scanId: string,
+    take: number
+  ): Promise<unknown[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        pullRequestId,
+        id: { not: scanId },
+        preMergeChecks: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      take,
+      select: { preMergeChecks: true },
+    })
+    return rows.map(r => r.preMergeChecks)
   },
 
   /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */

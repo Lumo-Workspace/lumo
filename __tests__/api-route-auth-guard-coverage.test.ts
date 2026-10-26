@@ -78,6 +78,11 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
     reason:
       'Sentry webhook: handleWebhook verifies the sentry-hook-signature HMAC with the stored client secret before acting (401 otherwise)',
   },
+  'app/api/webhooks/codeup/route.ts': {
+    call: 'lib/services/codeup-webhook.service#codeupWebhookService.handleDelivery',
+    reason:
+      'Codeup webhook (LUM-1315): handleDelivery compares X-Codeup-Token, in constant time, with the hash of the per-repository token Lumo created for the hook (401 otherwise); the matched hook names the workspace',
+  },
   'app/api/webhooks/slack/route.ts': {
     call: 'lib/integrations/slack/request#verifySlackSignature',
     reason:

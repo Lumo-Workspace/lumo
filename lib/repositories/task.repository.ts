@@ -276,6 +276,8 @@ const TASK_DETAIL_INCLUDE = {
   pullRequests: {
     select: {
       id: true,
+      // LUM-1315: 'github' | 'codeup' — only GitHub PRs are re-synced.
+      provider: true,
       number: true,
       title: true,
       url: true,
@@ -294,6 +296,7 @@ const TASK_DETAIL_INCLUDE = {
   branches: {
     select: {
       id: true,
+      provider: true,
       repo: true,
       branchName: true,
       lastCommitSha: true,
@@ -606,7 +609,7 @@ export const taskRepository = {
     })
   },
 
-  /** LUM-970: just the stored (HTML) description, for `task decide`. */
+  /** Just the stored (HTML) description of a task in `workspaceId`. */
   async findDescription(id: string, workspaceId: string) {
     return prisma.task.findUnique({
       where: { id, workspaceId },
@@ -860,10 +863,12 @@ export const taskRepository = {
   /** LUM-1286: duplicate-check rows for the given ids, in the given order. */
   async findForDuplicateCheckByIds(projectId: string, ids: string[]) {
     if (ids.length === 0) return []
-    const rows = await followUp('tasks of an authorized project').task.findMany({
-      where: { projectId, id: { in: ids } },
-      select: TASK_DUPLICATE_CHECK_SELECT,
-    })
+    const rows = await followUp('tasks of an authorized project').task.findMany(
+      {
+        where: { projectId, id: { in: ids } },
+        select: TASK_DUPLICATE_CHECK_SELECT,
+      }
+    )
     const byId = new Map(rows.map(r => [r.id, r]))
     return ids.flatMap(id => {
       const row = byId.get(id)

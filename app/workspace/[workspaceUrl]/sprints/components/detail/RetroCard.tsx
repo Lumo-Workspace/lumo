@@ -54,25 +54,27 @@ export function RetroCard({
           <CardTitle>
             {intl.formatMessage({ id: 'sprints.retro.title' })}
           </CardTitle>
-          <CardDescription>
-            {retro
-              ? intl.formatMessage(
-                  { id: 'sprints.detail.retro.summary.subtitle' },
-                  {
-                    date: intl.formatDate(retro.generatedAt, {
-                      month: 'short',
-                      day: 'numeric',
-                    }),
-                  }
-                )
-              : intl.formatMessage({
-                  id: loading
-                    ? 'sprints.retro.loading'
-                    : readFailed
+          {loading && !retro ? (
+            <Skeleton className='h-4 w-40' />
+          ) : (
+            <CardDescription>
+              {retro
+                ? intl.formatMessage(
+                    { id: 'sprints.detail.retro.summary.subtitle' },
+                    {
+                      date: intl.formatDate(retro.generatedAt, {
+                        month: 'short',
+                        day: 'numeric',
+                      }),
+                    }
+                  )
+                : intl.formatMessage({
+                    id: readFailed
                       ? 'sprints.detail.retro.summary.readError'
                       : 'sprints.retro.generating',
-                })}
-          </CardDescription>
+                  })}
+            </CardDescription>
+          )}
         </div>
         {!loading && (
           <Button
@@ -93,7 +95,12 @@ export function RetroCard({
           <p className='text-body text-muted-foreground'>{retryError}</p>
         )}
         {loading ? (
-          <Skeleton className='h-24' />
+          <div role='status' aria-busy='true'>
+            <span className='sr-only'>
+              {intl.formatMessage({ id: 'sprints.retro.loading' })}
+            </span>
+            <Skeleton className='h-24' />
+          </div>
         ) : retro ? (
           <>
             {retro.tldr && <p className='text-body-strong'>{retro.tldr}</p>}

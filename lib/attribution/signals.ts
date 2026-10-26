@@ -53,6 +53,20 @@ export const SWITCH_KINDS: ReadonlySet<SignalKind> = new Set<SignalKind>([
 export const TASK_NOTIFICATION_MARKER = '<task-notification>'
 const TASK_ID_RE = /<task-id>\s*([^<\s]{1,64})\s*<\/task-id>/
 
+/**
+ * LUM-1302: whether a USER_PROMPT_SUBMIT carries a background task's
+ * completion notice — stored as `HookEvent.promptTaskNotification`, since
+ * the encrypted payload can no longer be searched in the database.
+ */
+export function promptCarriesTaskNotification(
+  type: string,
+  payload: unknown
+): boolean {
+  if (type !== 'USER_PROMPT_SUBMIT') return false
+  const prompt = (payload as { prompt?: unknown } | null)?.prompt
+  return typeof prompt === 'string' && prompt.includes(TASK_NOTIFICATION_MARKER)
+}
+
 /** The `<task-id>` of a `<task-notification>` prompt, when it is an agent id. */
 function notificationAgentId(prompt: string): string | null {
   const start = prompt.indexOf(TASK_NOTIFICATION_MARKER)

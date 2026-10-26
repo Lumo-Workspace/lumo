@@ -35,6 +35,7 @@ describe('pr-comment-mirror repository — LUM-1003 backfill', () => {
     expect(prisma.pullRequest.findMany).toHaveBeenCalledWith({
       where: {
         id: { gt: 'pr_5' },
+        provider: 'github',
         mirroredComments: { some: UNKNOWN },
       },
       select: { id: true, workspaceId: true, repo: true, number: true },
@@ -50,7 +51,7 @@ describe('pr-comment-mirror repository — LUM-1003 backfill', () => {
     })
     expect(
       (prisma.pullRequest.findMany as jest.Mock).mock.calls[0][0].where
-    ).toEqual({ mirroredComments: { some: UNKNOWN } })
+    ).toEqual({ provider: 'github', mirroredComments: { some: UNKNOWN } })
   })
 
   it("lists one PR's unknown rows only", async () => {

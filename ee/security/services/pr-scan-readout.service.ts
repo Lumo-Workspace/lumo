@@ -76,6 +76,8 @@ import {
   reviewBudgetView,
   type ReviewBudgetView,
 } from '@/ee/security/security-scan/review-control'
+import { preMergeChecksView } from '@/ee/security/security-scan/pre-merge-checks-view'
+import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 
 export interface PullRequestScanReadoutInput {
   number: number
@@ -179,6 +181,7 @@ export interface HuntReadoutView {
 }
 
 export interface ScanReadoutView {
+  preMergeChecks?: PreMergeCheckView[]
   id: string
   headSha: string
   status: ScanStatus
@@ -712,6 +715,10 @@ async function buildPullRequestReadout(
     }
     const stages = stagesOf(scan)
     return {
+      preMergeChecks: preMergeChecksView(
+        scan.preMergeChecks,
+        pr.headSha ?? scan.headSha
+      ),
       id: scan.id,
       headSha: scan.headSha,
       status: scan.status,

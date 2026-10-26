@@ -1,4 +1,5 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
@@ -282,6 +283,7 @@ export const quickDispatchService = {
 
       const { object } = await generateObject({
         model,
+        ...structuredOutputCallOptions(GENERATION_MODEL),
         schema: QuickDispatchV2ResponseSchema,
         system: QUICK_DISPATCH_V2_SYSTEM_PROMPT,
         prompt,

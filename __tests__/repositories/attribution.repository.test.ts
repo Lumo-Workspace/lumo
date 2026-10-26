@@ -182,7 +182,7 @@ describe('loadFamily', () => {
               array_contains: [{ kind: 'NOTIFICATION' }],
             },
           },
-          payload: { path: ['prompt'], string_contains: '<task-notification>' },
+          promptTaskNotification: true,
         },
       ],
     })

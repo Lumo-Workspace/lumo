@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 
 /**
  * ASCII-only case fold, like the confirmed-list match (LUM-889): a stored
@@ -37,14 +38,14 @@ async function renameRepoRows(
 
   const prs = (
     await tx.pullRequest.findMany({
-      where: { workspaceId, repo: anyCase(from) },
+      where: { workspaceId, provider: GITHUB_PROVIDER, repo: anyCase(from) },
       select: { id: true, repo: true, number: true },
     })
   ).filter(row => moves(row.repo))
   const takenPrs = new Set(
     (
       await tx.pullRequest.findMany({
-        where: { workspaceId, repo: to },
+        where: { workspaceId, provider: GITHUB_PROVIDER, repo: to },
         select: { number: true },
       })
     ).map(row => row.number)
@@ -60,14 +61,22 @@ async function renameRepoRows(
 
   const projectRepos = (
     await tx.projectRepository.findMany({
-      where: { project: { workspaceId }, fullName: anyCase(from) },
+      where: {
+        project: { workspaceId },
+        provider: GITHUB_PROVIDER,
+        fullName: anyCase(from),
+      },
       select: { id: true, projectId: true, fullName: true },
     })
   ).filter(row => moves(row.fullName))
   const takenProjects = new Set(
     (
       await tx.projectRepository.findMany({
-        where: { project: { workspaceId }, fullName: to },
+        where: {
+          project: { workspaceId },
+          provider: GITHUB_PROVIDER,
+          fullName: to,
+        },
         select: { projectId: true },
       })
     ).map(row => row.projectId)
@@ -85,14 +94,22 @@ async function renameRepoRows(
 
   const branches = (
     await tx.taskBranch.findMany({
-      where: { task: { project: { workspaceId } }, repo: anyCase(from) },
+      where: {
+        task: { project: { workspaceId } },
+        provider: GITHUB_PROVIDER,
+        repo: anyCase(from),
+      },
       select: { id: true, taskId: true, repo: true, branchName: true },
     })
   ).filter(row => moves(row.repo))
   const takenBranches = new Set(
     (
       await tx.taskBranch.findMany({
-        where: { task: { project: { workspaceId } }, repo: to },
+        where: {
+          task: { project: { workspaceId } },
+          provider: GITHUB_PROVIDER,
+          repo: to,
+        },
         select: { taskId: true, branchName: true },
       })
     ).map(row => `${row.taskId}\u0000${row.branchName}`)
@@ -182,18 +199,6 @@ export const githubAppInstallationRepository = {
   async findConfirmedLists(workspaceIds: string[]) {
     return prisma.gitHubAppInstallation.findMany({
       where: { workspaceId: { in: workspaceIds } },
-      select: { workspaceId: true, repositories: true },
-    })
-  },
-
-  /**
-   * LUM-929 — every other workspace's confirmed list. One row per workspace
-   * with the App installed (uninstall deletes the row), so this is what
-   * "another team also confirmed this repository" is decided from.
-   */
-  async findConfirmedListsExcept(workspaceId: string) {
-    return prisma.gitHubAppInstallation.findMany({
-      where: { workspaceId: { not: workspaceId } },
       select: { workspaceId: true, repositories: true },
     })
   },

@@ -3,6 +3,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { memoryContentToText } from '@/lib/memory/content-text'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import {
   compactEvents,
   type RawEvent,
@@ -24,6 +25,8 @@ export const memoryCurationService = {
   /** Curate every session of a just-completed task. Idempotent (invalidate is
    *  guarded on status='ACTIVE', so an already-retired row is skipped). */
   async curateForTask(taskId: string): Promise<void> {
+    // LUM-1314: the global memory pipeline switch is on.
+    if (isMemoryPipelineDisabled()) return
     try {
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return

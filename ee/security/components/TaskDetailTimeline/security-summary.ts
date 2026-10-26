@@ -1,10 +1,10 @@
 /**
  * LUM-496 Task 3: pure derivations behind the Record tab's security-scan
  * section — the one-line rollup (PR count · undispositioned findings ·
- * all-LOW note · incomplete-scan count · external-failure count) and which PR
- * rows default open.
+ * all-LOW note · incomplete-scan count · external-failure count).
  * No intl, no React — unit-testable on their own.
  */
+import { nonPassingChecks } from '@/shared/src/pre-merge-checks'
 import {
   isJudgeOverCapByFiles,
   type ScanStageKeyName,
@@ -16,6 +16,7 @@ import type {
 } from '@/ee/security/services/pr-security-scan.service'
 
 export interface SecurityScanSummary {
+  preMergeNotPassed: number
   prs: number
   /** Findings someone must still decide on, across every PR's latest scan
    *  (not ruled on, not on main, in the queue, not verifier-rejected). */
@@ -103,6 +104,11 @@ export function summarizeSecurityScans(
     latest ? latest.findings.filter(f => !isQuietFinding(f)) : []
   )
   return {
+    preMergeNotPassed: prs.reduce(
+      (count, { latest }) =>
+        count + nonPassingChecks(latest?.preMergeChecks).length,
+      0
+    ),
     prs: prs.length,
     findings: undispositioned.length,
     allLow:
@@ -124,23 +130,6 @@ export function summarizeSecurityScans(
     turnedOff: prs.filter(({ latest }) => latest?.coverage === 'TURNED_OFF')
       .length,
   }
-}
-
-/**
- * Whether a PR's row should default to expanded: an undispositioned finding
- * still needs a human decision, the scan did not complete (its stage notes,
- * not-configured hint or partial notice are the reason the summary cannot
- * claim a clean result — LUM-496 review F1), or the external scanner failed
- * with a concrete error worth reading. A manual toggle overrides this
- * afterward — this only decides the row's INITIAL state.
- */
-export function shouldExpandRow(latest: SecurityScanView | null): boolean {
-  if (!latest) return false
-  if (latest.findings.some(f => !isQuietFinding(f))) return true
-  // LUM-892: a layer the customer turned off is no reason to open the row —
-  // the summary line and the badge already say it.
-  if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true
-  return latest.stages.external === 'FAILED' && latest.error != null
 }
 
 /**

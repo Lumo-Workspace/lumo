@@ -7,6 +7,8 @@ import { groupDependencies, computeLiveBlockers } from '../groupDependencies'
 import { DependencyRow } from './DependencyRow'
 import { AddDependencyButton } from './AddDependencyButton'
 import type { DependencyEdge } from '../types'
+import { LoadingState } from '../../components/AsyncContent'
+import { RowListSkeleton } from '../../components/skeletons/RowListSkeleton'
 
 interface DependenciesSectionProps {
   /** LUM-N identifier — the API route's resolveTask accepts it directly. */
@@ -115,9 +117,11 @@ export function DependenciesSection({
       )}
 
       {loading && (
-        <p className='text-caption text-muted-foreground'>
-          {intl.formatMessage({ id: 'task.dependencies.loading' })}
-        </p>
+        <LoadingState
+          label={intl.formatMessage({ id: 'task.dependencies.loading' })}
+        >
+          <RowListSkeleton rows={2} leading='icon' rowClassName='py-1' />
+        </LoadingState>
       )}
 
       {!loading && isEmpty && (

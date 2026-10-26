@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 
 /**
  * LUM-896 — GitHub repository names are case-insensitive, and a list's
@@ -20,6 +21,8 @@ export async function storedRepoSpellings(
     by: ['repo'],
     where: {
       workspaceId,
+      // LUM-1315: GitHub names only — a Codeup path is a different repository.
+      provider: GITHUB_PROVIDER,
       OR: repos.map(repo => ({
         repo: { equals: repo, mode: 'insensitive' as const },
       })),

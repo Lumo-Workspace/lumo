@@ -1,18 +1,17 @@
 /**
- * LUM-496 Task 3: `summarizeSecurityScans` / `shouldExpandRow` are the pure
- * rules behind the Record tab's security-scan summary line and per-PR
- * default expansion.
+ * LUM-496 Task 3: `summarizeSecurityScans` and friends are the pure
+ * rules behind the Record tab's security-scan summary line.
  */
 import {
   blockingFindings,
   summarizeSecurityScans,
-  shouldExpandRow,
   isOverSizeLimitOnly,
   isQuietFinding,
   findingGroupKey,
   groupFindings,
   stageReason,
 } from '@/ee/security/components/TaskDetailTimeline/security-summary'
+import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 import type {
   SecurityScanView,
   TaskSecurityScans,
@@ -128,6 +127,7 @@ describe('summarizeSecurityScans', () => {
 
   it('returns zeros for an empty PR list', () => {
     expect(summarizeSecurityScans([])).toEqual({
+      preMergeNotPassed: 0,
       prs: 0,
       findings: 0,
       allLow: false,
@@ -151,66 +151,8 @@ describe('summarizeSecurityScans', () => {
   })
 })
 
-describe('shouldExpandRow', () => {
-  it('is false when there is no latest scan', () => {
-    expect(shouldExpandRow(null)).toBe(false)
-  })
-
-  it('is true when the scan has an undispositioned finding', () => {
-    expect(shouldExpandRow(scan({ findings: [finding()] }))).toBe(true)
-  })
-
-  it('is false when every finding is dispositioned', () => {
-    expect(
-      shouldExpandRow(
-        scan({ findings: [finding({ disposition: 'ACCEPTED_RISK' })] })
-      )
-    ).toBe(false)
-  })
-
-  it('is true when the external stage FAILED with an error', () => {
-    expect(
-      shouldExpandRow(
-        scan({
-          findings: [],
-          stages: { external: 'FAILED' },
-          error: 'external: semgrep exit 90',
-        })
-      )
-    ).toBe(true)
-  })
-
-  it('is false when the external stage FAILED but there is no error message', () => {
-    expect(
-      shouldExpandRow(
-        scan({ findings: [], stages: { external: 'FAILED' }, error: null })
-      )
-    ).toBe(false)
-  })
-
-  it('is false for a clean, complete scan', () => {
-    expect(shouldExpandRow(scan({ findings: [] }))).toBe(false)
-  })
-
-  // Review F1: an incomplete scan's stage notes / not-configured hint /
-  // partial notice are exactly why the summary cannot claim a clean result —
-  // they open with the section instead of hiding behind a chevron.
-  it('is true when the scan did not complete, even with nothing else to flag', () => {
-    expect(
-      shouldExpandRow(
-        scan({
-          findings: [],
-          status: 'CLEAN',
-          complete: false,
-          stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
-        })
-      )
-    ).toBe(true)
-  })
-})
-
 describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () => {
-  it('a persisting (already-on-main) finding is neither counted nor a reason to expand', () => {
+  it('a persisting (already-on-main) finding is not counted', () => {
     const only = scan({
       findings: [finding({ id: 'old', kind: 'DEPENDENCY', persisting: true })],
     })
@@ -218,7 +160,6 @@ describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () =>
       findings: 0,
       allLow: false,
     })
-    expect(shouldExpandRow(only)).toBe(false)
     const mixed = scan({
       findings: [
         finding({ id: 'old', kind: 'DEPENDENCY', persisting: true }),
@@ -234,12 +175,11 @@ describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () =>
       findings: 1,
       allLow: true,
     })
-    expect(shouldExpandRow(mixed)).toBe(true)
   })
 })
 
 describe('LUM-775 queue exit', () => {
-  it('a row that left the queue (merged / closed PR) is neither counted nor expanded for', () => {
+  it('a row that left the queue (merged / closed PR) is not counted', () => {
     const summary = summarizeSecurityScans([
       {
         latest: scan({
@@ -262,11 +202,6 @@ describe('LUM-775 queue exit', () => {
     ])
     expect(summary.findings).toBe(0)
     expect(summary.allLow).toBe(false)
-    expect(
-      shouldExpandRow(
-        scan({ findings: [finding({ queueExit: 'MERGED_UNREVIEWED' })] })
-      )
-    ).toBe(false)
     // A row still in the queue on the same scan keeps the count honest.
     expect(
       summarizeSecurityScans([
@@ -331,10 +266,6 @@ describe('LUM-832 over the size limit', () => {
     expect(summary.overSizeLimit).toBe(1)
     // The owned-unfinished scan and the never-scanned PR — not the capped one.
     expect(summary.incomplete).toBe(2)
-  })
-
-  it('a size-capped scan still opens its row, so the notice is in view', () => {
-    expect(shouldExpandRow(scan({ ...overCap, findings: [] }))).toBe(true)
   })
 })
 
@@ -553,5 +484,38 @@ describe('LUM-1012 follow-up — stageReason', () => {
         } as Partial<SecurityScanView>)
       )
     ).toBeNull()
+  })
+})
+
+// LUM-1298: the checks block in ScanDetails keeps its chevron and its count.
+describe('pre-merge checks', () => {
+  const check = (verdict: PreMergeCheckView['verdict']): PreMergeCheckView => ({
+    id: `c-${verdict}`,
+    name: 'Issue assessment',
+    mode: 'warning',
+    verdict,
+    explanation: '1 linked requirement: 1 not addressed.',
+    resolution: null,
+  })
+  const warned = scan({
+    status: 'CLEAN',
+    preMergeChecks: [check('failed'), check('inconclusive'), check('passed')],
+  })
+
+  it('counts failed and inconclusive checks across latest scans', () => {
+    expect(
+      summarizeSecurityScans([{ latest: warned }, { latest: null }])
+        .preMergeNotPassed
+    ).toBe(2)
+  })
+
+  it('passing or not-applicable checks add nothing', () => {
+    const quiet = scan({
+      status: 'CLEAN',
+      preMergeChecks: [check('passed'), check('not_applicable')],
+    })
+    expect(summarizeSecurityScans([{ latest: quiet }]).preMergeNotPassed).toBe(
+      0
+    )
   })
 })

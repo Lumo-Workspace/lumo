@@ -437,6 +437,45 @@ describe('LUM-740 read model — fixed and suggested counts', () => {
     prsOf.mockResolvedValue([pr])
   })
 
+  it.each([undefined, null, {}, { headSha: 'wrong', results: [] }])(
+    'omits missing or malformed pre-merge checks: %p',
+    async raw => {
+      latestScans.mockResolvedValue([scanRow({ preMergeChecks: raw })])
+      previousOpen.mockResolvedValue([])
+      const view = await prSecurityScanService.getForTask('t1')
+      expect(view.prs[0]?.latest?.preMergeChecks).toEqual([])
+    }
+  )
+
+  it('maps current checks and drops them when the PR head moves', async () => {
+    const check = {
+      id: 'issue-assessment',
+      name: 'Issue assessment',
+      kind: 'builtin',
+      mode: 'warning',
+      verdict: 'failed',
+      explanation: 'Unmet goal',
+      resolution: 'Implement it',
+    }
+    latestScans.mockResolvedValue([
+      scanRow({
+        preMergeChecks: { headSha: 'b'.repeat(40), results: [check] },
+      }),
+    ])
+    previousOpen.mockResolvedValue([])
+    expect(
+      (await prSecurityScanService.getForTask('t1')).prs[0]?.latest
+        ?.preMergeChecks
+    ).toEqual([
+      expect.objectContaining({ id: check.id, verdict: check.verdict }),
+    ])
+    prsOf.mockResolvedValue([{ ...pr, headSha: 'new-head' }])
+    expect(
+      (await prSecurityScanService.getForTask('t1')).prs[0]?.latest
+        ?.preMergeChecks
+    ).toEqual([])
+  })
+
   it('fixed = open fingerprints of the previous scan that the latest scan no longer carries', async () => {
     latestScans.mockResolvedValue([
       scanRow({

@@ -165,6 +165,11 @@ in; follows the repository's pull request template when it has one), and
   the PR shows only which task item and its outcome — quoting the task there
   is a Lumo setting (`--task-details-on-public-repos`), never a key of this
   file.
+  Besides the diff, the model reads the linked task's test-case runs whose
+  commit is the PR head (PASS after the ceiling, per-step results, evidence
+  file names; older commits and the PR description never count) and, for a
+  requirement that claims something is absent repo-wide, the hits of one
+  bounded, read-only fixed-string search of the head's tarball (LUM-1310).
 - Extension point for a new built-in check: `BUILTIN_PRE_MERGE_CHECKS` in
   `ee/security/security-scan/pre-merge-checks.ts` (its `gather` reads what the
   rule needs beyond the PR).

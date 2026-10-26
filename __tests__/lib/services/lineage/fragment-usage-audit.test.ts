@@ -191,3 +191,37 @@ describe('auditForTask', () => {
     expect(lineageEdgeRepository.applyUnusedVote).not.toHaveBeenCalled()
   })
 })
+
+describe('auditForTask — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('never calls the judge while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    judgeMock.mockResolvedValue({ used: [], unused: [] })
+    await fragmentUsageAuditService.auditForTask('task1')
+    expect(taskRepository.getTitleAndStatus).not.toHaveBeenCalled()
+    expect(judgeMock).not.toHaveBeenCalled()
+    expect(lineageEdgeRepository.applyUsageVote).not.toHaveBeenCalled()
+  })
+})
+
+describe('auditDoneTaskSessions — global memory pipeline switch (LUM-1314)', () => {
+  afterEach(() => {
+    delete process.env.MEMORY_PIPELINE_DISABLED
+  })
+
+  it('cron backstop audits nothing and never calls the judge while the switch is on', async () => {
+    process.env.MEMORY_PIPELINE_DISABLED = '1'
+    ;(lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks as jest.Mock) =
+      jest.fn().mockResolvedValue(['s9'])
+    await expect(
+      fragmentUsageAuditService.auditDoneTaskSessions(5)
+    ).resolves.toEqual({ processed: 0, sessionIds: [] })
+    expect(
+      lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks
+    ).not.toHaveBeenCalled()
+    expect(judgeMock).not.toHaveBeenCalled()
+  })
+})

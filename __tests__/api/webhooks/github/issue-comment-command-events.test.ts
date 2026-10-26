@@ -3,8 +3,9 @@
  *
  * LUM-1129 — a PR conversation comment reaches the plugins as
  * `github.issueComment` for ANY PR row Lumo holds (task-linked or not), so
- * `@<app> review` works on a PR with no task. The task mirror keeps its
- * task-only path; a comment on a PR Lumo does not hold is dropped.
+ * `@<app> review` works on a PR with no task; a comment on a PR Lumo does
+ * not hold is dropped. LUM-1313: no PR, task-linked or not, is mirrored into
+ * task comments.
  */
 jest.mock('@/lib/services/github.service')
 jest.mock('@/lib/integrations/github', () => ({
@@ -97,16 +98,14 @@ describe('issue_comment → github.issueComment', () => {
     expect(mirror).not.toHaveBeenCalled()
   })
 
-  it('emits and still mirrors for a task-linked PR', async () => {
+  it('emits but does not mirror for a task-linked PR', async () => {
     findPr.mockResolvedValue({ id: 'pr1', taskId: 't1' })
     await POST(makeRequest({ ...payload, action: 'edited' }))
     expect(emit).toHaveBeenCalledWith(
       'github.issueComment',
       expect.objectContaining({ action: 'edited' })
     )
-    expect(mirror).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: 't1', pullRequestId: 'pr1' })
-    )
+    expect(mirror).not.toHaveBeenCalled()
   })
 
   it('a PR Lumo does not hold emits nothing', async () => {

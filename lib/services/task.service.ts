@@ -2,6 +2,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { trashService } from '@/lib/services/trash.service'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { createFromAutomation, createTask } from './task-creation.service'
 import {
@@ -72,8 +73,11 @@ async function getTaskDetail(taskId: string) {
   const task = await taskRepository.findById(taskId)
   if (!task) return null
 
-  // Sync PR status from GitHub
-  const openPrs = task.pullRequests.filter(pr => pr.state === 'open')
+  // Sync PR status from GitHub. LUM-1315: a Codeup merge request's state
+  // arrives by webhook only — it is never sent to GitHub.
+  const openPrs = task.pullRequests.filter(
+    pr => pr.state === 'open' && pr.provider === GITHUB_PROVIDER
+  )
   let taskStatus = task.status
   let pullRequests: Array<
     (typeof task.pullRequests)[number] & { statusSyncPaused?: boolean }

@@ -42,8 +42,10 @@ export interface RunCoordinate {
  * 用例上被判成了两种结果。
  *
  * 前缀比较的碰撞风险按 7 位 hex 约 1/2.7 亿，且 git 本身就依赖这个约定。
+ *
+ * LUM-1310: 也被 issue assessment 用来挑「跑在 PR head 上」的 run。
  */
-function sameCommit(a: string, b: string): boolean {
+export function sameCommit(a: string, b: string): boolean {
   const n = Math.min(a.length, b.length)
   return a.slice(0, n).toLowerCase() === b.slice(0, n).toLowerCase()
 }

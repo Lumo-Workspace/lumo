@@ -1,4 +1,5 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
@@ -154,6 +155,7 @@ async function generateWithProject(
 
   const { object } = await generateObject({
     model: gateway(GENERATION_MODEL),
+    ...structuredOutputCallOptions(GENERATION_MODEL),
     schema: descriptionResponseSchema,
     prompt,
   })
@@ -188,6 +190,7 @@ async function generateWithoutProject(
 
   const { object } = await generateObject({
     model: gateway(GENERATION_MODEL),
+    ...structuredOutputCallOptions(GENERATION_MODEL),
     schema: descriptionWithProjectSchema,
     prompt,
   })

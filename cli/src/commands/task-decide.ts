@@ -1,34 +1,21 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import { apiCall, apiContext } from '../lib/test-case-api'
-import { localDayLabel } from '../lib/local-day'
 import { sanitizeField } from '../lib/sanitize'
 import { resolveSessionId } from '../lib/session-id'
 
 /**
- * The decision line as written: prefixed with today's local date unless the
- * text already starts with a YYYY-MM-DD date.
- */
-export function formatDecisionText(
-  text: string,
-  now: Date = new Date()
-): string {
-  const trimmed = text.trim()
-  if (/^\d{4}-\d{2}-\d{2}\b/.test(trimmed)) return trimmed
-  return `${localDayLabel(now.toISOString())} ${trimmed}`
-}
-
-/**
- * `lumo task decide <identifier> "<text>"` (LUM-970) — append a ruling to the
- * task brief's `## Decisions` section (created when missing), instead of
- * recording it as a loose comment.
+ * `lumo task decide <identifier> "<text>" [--why "<reason>"]` (LUM-970,
+ * LUM-1303) — record a ruling on the task's Decisions tab, with an optional
+ * rationale, instead of as a loose comment. The server dates it.
  */
 export async function taskDecide(
   identifier: string | undefined,
-  text: string | undefined
+  text: string | undefined,
+  opts: { why?: string | undefined } = {}
 ): Promise<number | void> {
   if (!identifier || !text || text.trim() === '') {
     process.stderr.write(
-      'Error: usage: lumo task decide <LUM-42> "<decision text>"\n'
+      'Error: usage: lumo task decide <LUM-42> "<decision text>" [--why "<reason>"]\n'
     )
     return EXIT_USAGE
   }
@@ -38,16 +25,25 @@ export async function taskDecide(
   const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
+  const why = opts.why?.trim()
   const r = await apiCall<{
     task: { identifier: string; title: string; url: string }
+    /** LUM-1303; absent from servers before decisions were numbered. */
+    decision?: { number?: number }
   }>(
     ctx,
     `/api/tasks/by-identifier/${encodeURIComponent(identifier)}/decisions`,
-    { method: 'POST', headers, json: { text: formatDecisionText(text) } },
+    {
+      method: 'POST',
+      headers,
+      json: { text: text.trim(), ...(why ? { rationale: why } : {}) },
+    },
     'task decide'
   )
   if (!r.ok || !r.data) return 1
+  const n = r.data.decision?.number
+  const label = typeof n === 'number' ? `Decision ${n}` : 'decision'
   process.stdout.write(
-    `Recorded decision on ${r.data.task.identifier} "${sanitizeField(r.data.task.title)}"  ${r.data.task.url}\n`
+    `Recorded ${label} on ${r.data.task.identifier} "${sanitizeField(r.data.task.title)}"  ${r.data.task.url}\n`
   )
 }

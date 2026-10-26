@@ -9,6 +9,7 @@ import { layer1Service } from '@/lib/services/memory/layer1.service'
 import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import { logger } from '@/lib/logger'
 
 export interface StopTurnContext {
@@ -51,7 +52,8 @@ async function currentStopTask(ctx: StopTurnContext): Promise<string | null> {
  * Layer 1 (memory + summary) for a task turn, else the summary-only call.
  * LUM-917: a workspace that turned AI-derived content off gets the
  * summary-only call too — the turn line of its session record stays, no
- * memory is extracted.
+ * memory is extracted. LUM-1314: so does every turn while the global memory
+ * pipeline switch is on.
  */
 async function extractOrSummarize(
   ctx: StopTurnContext,
@@ -59,6 +61,7 @@ async function extractOrSummarize(
 ): Promise<void> {
   if (
     taskId &&
+    !isMemoryPipelineDisabled() &&
     (await aiDerivedContentService.isEnabled({ workspaceId: ctx.workspaceId }))
   ) {
     await layer1Service.triggerLayer1Extraction({

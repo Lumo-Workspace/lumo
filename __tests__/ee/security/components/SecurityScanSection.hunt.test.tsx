@@ -9,7 +9,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 const messages: Record<string, string> = {
-  'securityScan.section.title': 'Security scan',
+  'securityScan.section.title': 'Lumo review',
   'securityScan.meta': 'Scanned {sha}',
   'securityScan.stage.secrets': 'Secrets',
   'securityScan.stage.external': 'Code scan',
@@ -22,6 +22,12 @@ const messages: Record<string, string> = {
   'securityScan.stageState.PENDING': 'scanning',
   'securityScan.stageState.RAN': 'checked',
   'securityScan.stageState.SKIPPED': 'skipped',
+  'lumoReview.check.secrets': 'Leaked secrets',
+  'lumoReview.check.supplyChain': 'Vulnerable packages',
+  'lumoReview.check.hunt': 'Attack paths',
+  'lumoReview.result.scanning': 'Scanning',
+  'lumoReview.result.didntFinish': "Didn't finish",
+  'lumoReview.result.notNeeded': 'Not needed',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
 }
@@ -87,14 +93,15 @@ function renderWith(stages: Record<string, string>, complete: boolean) {
 }
 
 describe('LUM-739 hunt stage', () => {
-  test('a PENDING hunt shows "Exploit paths: scanning" after the other layers', () => {
+  test('a PENDING hunt shows "Attack paths: Scanning" after the other layers', () => {
     renderWith(
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'PENDING' },
       false
     )
+    expect(screen.getByLabelText('Attack paths: Scanning')).toBeInTheDocument()
     expect(screen.getByTestId('stage-hunt')).toHaveAttribute(
-      'aria-label',
-      'Exploit paths: scanning'
+      'data-tone',
+      'pending'
     )
   })
 
@@ -103,21 +110,25 @@ describe('LUM-739 hunt stage', () => {
       { secrets: 'RAN', external: 'RAN', supplyChain: 'FAILED', judge: 'RAN' },
       false
     )
+    expect(
+      screen.getByLabelText("Vulnerable packages: Didn't finish")
+    ).toBeInTheDocument()
     expect(screen.getByTestId('stage-supplyChain')).toHaveAttribute(
-      'aria-label',
-      'Dependencies: failed'
+      'data-tone',
+      'warn'
     )
   })
 
   test('a RAN or SKIPPED hunt gets its cell without the warning tone', () => {
-    // LUM-740/1012: every layer has a cell; only an incomplete one warns. The
-    // cells sit on the PR row itself, visible while the row is collapsed.
+    // LUM-740/1308: every layer has a row; only an incomplete one warns.
     renderWith(
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'SKIPPED' },
       true
     )
     const hunt = screen.getByTestId('stage-hunt')
-    expect(hunt).toHaveAttribute('aria-label', 'Exploit paths: skipped')
+    expect(
+      screen.getByLabelText('Attack paths: Not needed')
+    ).toBeInTheDocument()
     expect(hunt.querySelector('.text-warning-text')).toBeNull()
     expect(
       screen.getByTestId('stage-secrets').querySelector('.text-warning-text')

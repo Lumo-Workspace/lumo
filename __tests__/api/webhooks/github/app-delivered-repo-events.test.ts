@@ -30,7 +30,6 @@ jest.mock('@/app/api/webhooks/github/handlers', () => ({
   handleCheckSuite: jest.fn(),
   handleStatus: jest.fn(),
   handleIssueComment: jest.fn(),
-  handlePullRequestReview: jest.fn(),
   handlePullRequestReviewComment: jest.fn(),
 }))
 

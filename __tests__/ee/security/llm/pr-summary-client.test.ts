@@ -14,6 +14,7 @@ import {
   summarizeWholePr,
 } from '@/ee/security/llm/pr-summary-client'
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputProviderOptions } from '@/lib/ai/structured-output-routing'
 
 const BASE = {
   files: [{ path: 'src/a.ts', additions: 3, deletions: 1 }],
@@ -60,6 +61,10 @@ it('calls the MEMORY_JUDGE tier with the whole-PR instruction', async () => {
   })
   const call = (generateObject as jest.Mock).mock.calls[0]![0]
   expect(call.model).toEqual({ id: MEMORY_JUDGE_MODEL })
+  // LUM-1304: routed to hosts that honour structured outputs.
+  expect(call.providerOptions).toEqual(
+    structuredOutputProviderOptions(MEMORY_JUDGE_MODEL)
+  )
   expect(call.system).toBe(WHOLE_PR_SUMMARY_SYSTEM_PROMPT)
   expect(call.system).toContain('not only the most recent commit')
 })

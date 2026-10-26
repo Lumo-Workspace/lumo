@@ -14,6 +14,7 @@ import { useMembers } from '../../hooks/useMembers'
 import { useProjects } from '../../hooks/useProjects'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
 import { AsyncContent } from '../AsyncContent'
+import { TaskTableSkeleton } from '../skeletons/TaskSkeletons'
 import { TaskListView } from '../task-list/TaskListView'
 import { BulkActionBar } from '../task-list/BulkActionBar'
 import { BulkDeleteConfirm } from '../task-list/BulkDeleteConfirm'
@@ -179,6 +180,7 @@ export function MilestoneTasksWorkspace({
         error={error ? (error.message ?? 'Could not load tasks.') : null}
         empty={localTasks.length === 0}
         onRetry={refetch}
+        loadingState={<TaskTableSkeleton rows={5} />}
         className='flex flex-col'
         emptyState={
           <Empty>

@@ -7,6 +7,9 @@
  * repository outside the workspace's confirmed list (LUM-883).
  */
 
+import { pipeline, Readable } from 'node:stream'
+import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web'
+import { createGunzip } from 'node:zlib'
 import { logger } from '@/lib/logger'
 import { getRepoToken, revokeInstallationToken } from './auth'
 import { REPO_TOKEN_PERMISSIONS } from './token-permissions'
@@ -178,6 +181,73 @@ export async function listRepoDirWithToken(opts: {
 }
 
 /**
+ * LUM-1310 — stream a repository's archive at `ref` (one tarball request,
+ * the PR's own repository, a contents:read token the caller holds) and hand
+ * each gunzipped chunk to `onChunk` (a `TarReader` from `./tar-reader`).
+ * Read-only: nothing is built or run.
+ *
+ * Bounded: reading stops once `maxBytes` of uncompressed archive were read
+ * (`stop: 'size'`) or when `signal` fires (`stop: 'time'`); `complete` is
+ * true only when the whole archive was read. A failed request (404 for an
+ * unknown ref, 403, 5xx) throws with its status.
+ */
+export async function streamRepoTarballWithToken(opts: {
+  token: string
+  fullName: string
+  ref: string
+  maxBytes: number
+  signal: AbortSignal
+  onChunk: (chunk: Buffer) => void
+}): Promise<{
+  complete: boolean
+  bytes: number
+  stop: 'end' | 'size' | 'time'
+}> {
+  const [owner, repo] = splitFullName(opts.fullName)
+  let bytes = 0
+  let source: Readable | null = null
+  const gunzip = createGunzip()
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/tarball/${encodeURIComponent(opts.ref)}`,
+      {
+        headers: { ...GH_HEADERS, Authorization: `Bearer ${opts.token}` },
+        redirect: 'follow',
+        signal: opts.signal,
+      }
+    )
+    if (!res.ok || !res.body) {
+      logger.error(
+        `[github/contents] tarball failed for ${opts.fullName}@${opts.ref.slice(0, 12)}: ${res.status}`
+      )
+      throw Object.assign(
+        new Error(
+          `GitHub API error ${res.status} for ${opts.fullName} tarball`
+        ),
+        { status: res.status }
+      )
+    }
+    source = Readable.fromWeb(res.body as unknown as NodeWebReadableStream)
+    // `pipeline`, not `pipe`: a download error (the deadline aborting the
+    // body) must end the gunzip loop below, not leave it waiting.
+    pipeline(source, gunzip, () => undefined)
+    for await (const chunk of gunzip) {
+      const buf = chunk as Buffer
+      bytes += buf.length
+      if (bytes > opts.maxBytes) return { complete: false, bytes, stop: 'size' }
+      opts.onChunk(buf)
+    }
+    return { complete: true, bytes, stop: 'end' }
+  } catch (error) {
+    if (opts.signal.aborted) return { complete: false, bytes, stop: 'time' }
+    throw error
+  } finally {
+    gunzip.destroy()
+    source?.destroy()
+  }
+}
+
+/**
  * Fetches the unified diff for a pull request.
  * Returns the raw diff text.
  */
@@ -344,6 +414,84 @@ export async function fetchReviewChangedPaths(opts: {
     file.filename,
     ...(file.previous_filename ? [file.previous_filename] : []),
   ])
+}
+
+/** GitHub's compare file list is cut at this many files. */
+const COMPARE_FILES_MAX = 300
+
+/**
+ * LUM-1312 — what changed from `base` to `head`, as a unified diff built
+ * from the compare's per-file patches. `ancestor` is false when `base` is
+ * not an ancestor of `head` (a force-push or rebase): the diff is then not
+ * returned, since it would not be "what changed since". `complete` is false
+ * when GitHub cut the file list (a file without a patch — binary, or too
+ * large — is listed by its header and a line saying so). Throws on
+ * an API error like its siblings.
+ */
+export async function fetchCompareDiff(opts: {
+  workspaceId: string
+  fullName: string
+  base: string
+  head: string
+}): Promise<
+  | { ancestor: false; status: string }
+  | {
+      ancestor: true
+      aheadBy: number
+      files: number
+      diff: string
+      complete: boolean
+    }
+> {
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.contentsRead
+  )
+  const [owner, repo] = splitFullName(opts.fullName)
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/compare/${encodeURIComponent(opts.base)}...${encodeURIComponent(opts.head)}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok)
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} comparing ${opts.fullName} ${opts.base.slice(0, 7)}...${opts.head.slice(0, 7)}`
+      ),
+      { status: res.status }
+    )
+  const body = (await res.json()) as {
+    status?: unknown
+    ahead_by?: unknown
+    files?: Array<{
+      filename: string
+      previous_filename?: string
+      status?: string
+      patch?: string
+    }>
+  }
+  const status = typeof body.status === 'string' ? body.status : 'unknown'
+  if (status !== 'ahead' && status !== 'identical')
+    return { ancestor: false, status }
+  const files = body.files ?? []
+  const diff = files
+    .map(f => {
+      const from = f.previous_filename ?? f.filename
+      return [
+        `diff --git a/${from} b/${f.filename}`,
+        `--- ${f.status === 'added' ? '/dev/null' : `a/${from}`}`,
+        `+++ ${f.status === 'removed' ? '/dev/null' : `b/${f.filename}`}`,
+        f.patch ?? '(no patch shown: binary or too large)',
+      ].join('\n')
+    })
+    .join('\n')
+  return {
+    ancestor: true,
+    aheadBy: typeof body.ahead_by === 'number' ? body.ahead_by : 0,
+    files: files.length,
+    diff: diff ? `${diff}\n` : '',
+    complete: files.length < COMPARE_FILES_MAX,
+  }
 }
 
 /** One entry of GitHub's `pulls/{n}/files` listing, narrowed to what the

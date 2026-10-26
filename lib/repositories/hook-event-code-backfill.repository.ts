@@ -101,7 +101,11 @@ export const hookEventCodeBackfillRepository = {
    * Returns how many rows were written.
    */
   async rewritePayloads(
-    updates: { id: string; payload: Prisma.InputJsonValue }[]
+    updates: {
+      id: string
+      workspaceId: string
+      payload: Prisma.InputJsonValue
+    }[]
   ): Promise<number> {
     let written = 0
     for (let i = 0; i < updates.length; i += WRITE_CHUNK) {
@@ -113,7 +117,12 @@ export const hookEventCodeBackfillRepository = {
             // Re-checked at write time: a workspace switched to RETAIN
             // between the read and this write keeps its event whole.
             const r = await tx.hookEvent.updateMany({
-              where: { id: u.id, payloadPrunedAt: null, ...USED_UP_WORKSPACE },
+              where: {
+                id: u.id,
+                workspaceId: u.workspaceId,
+                payloadPrunedAt: null,
+                ...USED_UP_WORKSPACE,
+              },
               data: { payload: u.payload },
             })
             count += r.count

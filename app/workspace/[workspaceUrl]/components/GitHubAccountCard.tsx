@@ -23,9 +23,9 @@ import { Spinner } from '@/components/ui/spinner'
  * A member's own GitHub link — a PERSONAL card, like Figma.
  *
  * This grant is identity only: it records which GitHub login belongs to this
- * member so comments arriving from GitHub are attributed to them in Lumo.
- * Nothing repository-shaped runs on it; that is the team-level App
- * installation on the GitHub card.
+ * member. Since LUM-1313 no PR comment is mirrored into Lumo, so nothing is
+ * attributed through it any more. Nothing repository-shaped runs on it; that
+ * is the team-level App installation on the GitHub card.
  */
 export function GitHubAccountCard({
   onConnectedChange,

@@ -1,8 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
-  PRUNED_PAYLOAD_KEY,
   PRUNE_REASON_USER_DELETED,
+  prunedReasonOf,
 } from '@/lib/hook-event/retention'
 
 /** Crossing lookups are chunked so a long session never builds one huge `IN`. */
@@ -16,12 +16,9 @@ const CROSSING_LOOKUP_CHUNK = 1000
  */
 export const CLEARED_TURN_SUMMARY = ''
 
-/** Matches events whose payload carries the LUM-944 user-deleted marker. */
+/** Matches events whose payload was replaced by the LUM-944 user-deleted marker. */
 const USER_DELETED_FILTER = {
-  payload: {
-    path: [PRUNED_PAYLOAD_KEY, 'reason'],
-    equals: PRUNE_REASON_USER_DELETED,
-  },
+  payloadPrunedReason: PRUNE_REASON_USER_DELETED,
 }
 
 export interface SessionOwnerRow {
@@ -128,22 +125,29 @@ export const sessionRawRecordRepository = {
    * number of payloads cleared.
    */
   async clearRawRecord(
+    workspaceId: string,
     eventIds: string[],
     marker: Prisma.InputJsonValue,
     at: Date
   ): Promise<number> {
     if (eventIds.length === 0) return 0
-    const where = { id: { in: eventIds }, payloadPrunedAt: null }
-    const [, cleared] = await prisma.$transaction([
-      prisma.hookEvent.updateMany({
+    const where = { workspaceId, id: { in: eventIds }, payloadPrunedAt: null }
+    // Interactive, not a batch: sealing the payload (LUM-1302) may load the
+    // workspace's data key first.
+    const cleared = await prisma.$transaction(async tx => {
+      await tx.hookEvent.updateMany({
         where: { ...where, turnSummary: { not: null } },
         data: { turnSummary: CLEARED_TURN_SUMMARY },
-      }),
-      prisma.hookEvent.updateMany({
+      })
+      return tx.hookEvent.updateMany({
         where,
-        data: { payload: marker, payloadPrunedAt: at },
-      }),
-    ])
+        data: {
+          payload: marker,
+          payloadPrunedAt: at,
+          payloadPrunedReason: prunedReasonOf(marker),
+        },
+      })
+    })
     return cleared.count
   },
 

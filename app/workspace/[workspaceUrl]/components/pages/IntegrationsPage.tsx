@@ -14,6 +14,7 @@ import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { GitHubAccountCard } from '../GitHubAccountCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { SentryIntegrationCard } from '../SentryIntegrationCard'
+import { CodeupIntegrationCard } from '../CodeupIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
 
@@ -36,11 +37,17 @@ interface IntegrationsPageProps {
    * nobody can change); the page names it once as not available instead.
    */
   configured: Record<IntegrationId, boolean>
+  /**
+   * LUM-1315 — integrations whose rollout flag is off for this workspace
+   * (decided on the server). Not rendered and not named anywhere.
+   */
+  unreleased?: readonly IntegrationId[]
 }
 
 export function IntegrationsPage({
   isOwner,
   configured,
+  unreleased = [],
 }: IntegrationsPageProps) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -59,6 +66,8 @@ export function IntegrationsPage({
         setConnectedMap(p => (p.slack === c ? p : { ...p, slack: c })),
       sentry: (c: boolean) =>
         setConnectedMap(p => (p.sentry === c ? p : { ...p, sentry: c })),
+      codeup: (c: boolean) =>
+        setConnectedMap(p => (p.codeup === c ? p : { ...p, codeup: c })),
       figma: (c: boolean) =>
         setConnectedMap(p => (p.figma === c ? p : { ...p, figma: c })),
       googleDrive: (c: boolean) =>
@@ -138,6 +147,12 @@ export function IntegrationsPage({
         onConnectedChange={reporters.sentry}
       />
     ),
+    codeup: (
+      <CodeupIntegrationCard
+        isOwner={isOwner}
+        onConnectedChange={reporters.codeup}
+      />
+    ),
     githubAccount: (
       <GitHubAccountCard onConnectedChange={reporters.githubAccount} />
     ),
@@ -183,8 +198,10 @@ export function IntegrationsPage({
   const isCardVisible = (id: IntegrationId) =>
     isOwner || getIntegrationKind(id) !== 'TEAM' || connectedMap[id] === true
 
+  const released = (id: IntegrationId) => !unreleased.includes(id)
+
   const unavailableNames = (Object.keys(cards) as IntegrationId[])
-    .filter(id => !configured[id])
+    .filter(id => released(id) && !configured[id])
     .map(id => intl.formatMessage({ id: `${id}.title` }))
     .sort((a, b) => a.localeCompare(b, intl.locale))
 
@@ -200,7 +217,9 @@ export function IntegrationsPage({
 
         <div className='flex flex-col gap-10'>
           {KIND_ORDER.map(kind => {
-            const ids = idsByKind[kind].filter(id => configured[id])
+            const ids = idsByKind[kind].filter(
+              id => released(id) && configured[id]
+            )
             if (ids.length === 0) return null
             const section = SECTION_KEY[kind]
             const sectionVisible = ids.some(id => isCardVisible(id))

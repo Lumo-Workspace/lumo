@@ -32,6 +32,8 @@ describe('taskTabs exposes a single dossier tab and drops delivery memory lineag
       'activity',
       'comments',
       'context',
+      // LUM-1303
+      'decisions',
       'dossier',
     ])
   })

@@ -22,6 +22,12 @@ function getKey(): Buffer {
   return Buffer.from(hex, 'hex')
 }
 
+/** Whether ENCRYPTION_KEY is set to a usable key (encrypt/decrypt would not throw on it). */
+export function isEncryptionKeyConfigured(): boolean {
+  const hex = process.env.ENCRYPTION_KEY
+  return !!hex && /^[0-9a-fA-F]{64}$/.test(hex)
+}
+
 export function encrypt(plaintext: string): string {
   const key = getKey()
   const iv = randomBytes(12) // 96-bit IV — GCM standard

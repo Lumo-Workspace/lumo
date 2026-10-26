@@ -1,5 +1,5 @@
 {
-  "cliVersion": "2.0.0",
+  "cliVersion": "2.1.0",
   "globalFlags": {
     "--no-hints": {
       "long": "--no-hints",
@@ -3930,10 +3930,19 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "text", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--why": {
+          "long": "--why",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional rationale: why this was decided"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments.",
+      "description": "Record a ruling on the task's Decisions tab (dated by the server). Use for decisions instead of comments.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "task delete": {
