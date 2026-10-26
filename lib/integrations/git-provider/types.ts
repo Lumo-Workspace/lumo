@@ -21,6 +21,14 @@ import type { TarReaderOptions } from '@/lib/integrations/github/tar-reader'
 import type { GitProviderCapabilities } from './capabilities'
 import type { GitProviderId } from './ids'
 
+/** The data shapes the scan reads, re-exported so it never names a platform module. */
+export type {
+  ListedComment,
+  ListedPullRequestFile,
+  ListedReview,
+} from '@/lib/integrations/github/pr-comment-client'
+export type { ReviewThreadState } from '@/lib/integrations/github/review-threads'
+
 /**
  * What a minted repository token may do — the purposes the scan asks for.
  * Each adapter maps a purpose to its platform's narrowest grant (GitHub:

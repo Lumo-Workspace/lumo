@@ -1,7 +1,8 @@
 import { logger } from '@/lib/logger'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
-import { isConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 
 /**
  * LUM-896 — the confirmed-list check on a scan's token happens when the token
@@ -26,13 +27,10 @@ export async function scrubScanIfRepositoryUnconfirmed(
   try {
     const scope = await prSecurityScanRepository.findScanRepository(scanId)
     if (!scope) return false
-    const installation = await githubAppInstallationRepository.findByWorkspace(
-      scope.workspaceId
-    )
-    if (
-      installation &&
-      isConfirmedRepository(installation.repositories, scope.repo)
-    )
+    // LUM-1318: the scan's own platform decides what "confirmed" means.
+    const git = gitProviderFor(scope)
+    const confirmed = await git.findConfirmedRepositories(scope.workspaceId)
+    if (confirmed && git.isConfirmedRepository(confirmed, scope.repo))
       return false
     const counts = await prSecurityScanRepository.scrubCodeForScan(scanId)
     logger.info(
@@ -82,10 +80,15 @@ export async function sweepUnconfirmedScanCode(): Promise<{
     ).map(row => [row.workspaceId, row.repositories])
   )
 
+  // The confirmed lists above are the GitHub App installations' (this sweep
+  // backstops the GitHub repository lifecycle), so GitHub's matching rules.
+  const github = gitProviderFor({ provider: GITHUB_PROVIDER })
   const summary = { workspaces: 0, repositories: 0, failed: 0 }
   for (const [workspaceId, repos] of byWorkspace) {
     const confirmed = lists.get(workspaceId) ?? []
-    const stray = repos.filter(repo => !isConfirmedRepository(confirmed, repo))
+    const stray = repos.filter(
+      repo => !github.isConfirmedRepository(confirmed, repo)
+    )
     if (stray.length === 0) continue
     try {
       const counts = await prSecurityScanRepository.scrubCodeForWorkspace(

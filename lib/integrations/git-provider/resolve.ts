@@ -13,7 +13,7 @@
  */
 import { githubGitProvider } from './github'
 import { GITHUB_PROVIDER, type GitProviderId } from './ids'
-import type { GitProvider } from './types'
+import type { GitApiError, GitProvider } from './types'
 
 const ADAPTERS: Partial<Record<GitProviderId, GitProvider>> = {
   [GITHUB_PROVIDER]: githubGitProvider,
@@ -21,7 +21,7 @@ const ADAPTERS: Partial<Record<GitProviderId, GitProvider>> = {
 
 /** Anything that names its Git platform the way a PR row does. */
 export interface GitProviderRef {
-  provider?: string | null
+  provider?: string | null | undefined
 }
 
 export function unsupportedGitProviderError(provider: string) {
@@ -43,4 +43,22 @@ export function gitProviderFor(
     : undefined
   if (!adapter) throw unsupportedGitProviderError(id)
   return adapter
+}
+
+/**
+ * `ref`'s provider as a spreadable `{ provider }` — empty when `ref` names
+ * none, so a call forwarding it to a nested service keeps its arguments
+ * unchanged for a row without the column.
+ */
+export function gitProviderRefOf(ref: GitProviderRef): GitProviderRef {
+  return ref.provider === undefined ? {} : { provider: ref.provider }
+}
+
+/**
+ * Whether `error` is an API refusal of any registered platform — for code
+ * that classifies an error without knowing which PR it came from (a log
+ * line, a 404 / 422 check after a write).
+ */
+export function isGitApiError(error: unknown): error is GitApiError {
+  return Object.values(ADAPTERS).some(adapter => adapter?.isApiError(error))
 }

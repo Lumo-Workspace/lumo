@@ -435,6 +435,8 @@ export interface ScanForReview {
   pullRequest: {
     id: string
     repo: string
+    /** LUM-1318: the Git platform (`gitProviderFor`); absent in older fixtures = GitHub. */
+    provider?: string | null
     headSha?: string | null
     number: number
     /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
@@ -671,7 +673,13 @@ export interface SuggestionCandidateRow {
 
 export interface ScanForSuggestion {
   id: string
-  pullRequest: { workspaceId: string; repo: string; number: number }
+  pullRequest: {
+    workspaceId: string
+    repo: string
+    number: number
+    /** LUM-1318: the Git platform (`gitProviderFor`). */
+    provider: string
+  }
   findings: SuggestionCandidateRow[]
 }
 
@@ -1009,13 +1017,21 @@ export const prSecurityScanRepository = {
   /** LUM-896 — the workspace and repository a scan belongs to. */
   async findScanRepository(
     scanId: string
-  ): Promise<{ workspaceId: string; repo: string } | null> {
+  ): Promise<{ workspaceId: string; repo: string; provider: string } | null> {
     const row = await prisma.prSecurityScan.findUnique({
       where: { id: scanId },
-      select: { workspaceId: true, pullRequest: { select: { repo: true } } },
+      select: {
+        workspaceId: true,
+        pullRequest: { select: { repo: true, provider: true } },
+      },
     })
     return row
-      ? { workspaceId: row.workspaceId, repo: row.pullRequest.repo }
+      ? {
+          workspaceId: row.workspaceId,
+          repo: row.pullRequest.repo,
+          // LUM-1318: the Git platform whose confirmed list gates the scan.
+          provider: row.pullRequest.provider,
+        }
       : null
   },
 
@@ -2001,6 +2017,7 @@ export const prSecurityScanRepository = {
           select: {
             id: true,
             repo: true,
+            provider: true,
             headSha: true,
             number: true,
             // LUM-1140: the off-mode withdrawal only touches an open PR.
@@ -2295,7 +2312,12 @@ export const prSecurityScanRepository = {
       select: {
         id: true,
         pullRequest: {
-          select: { workspaceId: true, repo: true, number: true },
+          select: {
+            workspaceId: true,
+            repo: true,
+            number: true,
+            provider: true,
+          },
         },
         findings: {
           where: {

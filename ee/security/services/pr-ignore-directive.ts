@@ -1,9 +1,12 @@
 import { logger } from '@/lib/logger'
-import { fetchPrBody } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { hasIgnoreDirective } from '@/ee/security/security-scan/auto-review-policy'
 import { prCommandHandle } from './pr-command-parse'
 
-export interface IgnoreDirectivePr {
+export interface IgnoreDirectivePr extends GitProviderRef {
   workspaceId: string
   repo: string
   number: number
@@ -23,7 +26,7 @@ export async function isPrReviewIgnored(
   const handle = prCommandHandle()
   if (!handle) return false
   try {
-    const body = await fetchPrBody({
+    const body = await gitProviderFor(pr).fetchPrBody({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,

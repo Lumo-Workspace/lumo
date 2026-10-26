@@ -26,6 +26,7 @@
  * Layering: service — the database through repositories, GitHub (repo
  * visibility, `auto` scope only) through an injectable reader.
  */
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { createSlidingWindowRateLimiter } from '@/lib/services/sliding-window-rate-limit'
@@ -136,10 +137,10 @@ export function latestRulings(
 }
 
 const readRepoVisibility: RepoVisibilityReader = async opts => {
-  // Dynamic import keeps the GitHub App auth (ESM) out of the static graph.
-  const { fetchRepoVisibility } =
-    await import('@/lib/integrations/github/contents')
-  return fetchRepoVisibility(opts)
+  // The adapter loads the platform's token minting lazily (ESM auth stays
+  // out of the static graph).
+  const { provider, ...read } = opts
+  return gitProviderFor({ provider }).fetchRepoVisibility(read)
 }
 
 /** The ACTIVE learnings a review of this repository would read, keys only. */

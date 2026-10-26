@@ -32,10 +32,16 @@
  * an unreadable compare makes it say "from scratch"; a failed read of the
  * earlier scans drops the section.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*` (loaded
- * lazily), the database through repositories, the model client by dynamic
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through repositories, the model client by dynamic
  * import.
  */
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type { GitProvider } from '@/lib/integrations/git-provider'
 import { logger } from '@/lib/logger'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -108,10 +114,6 @@ export function isPreMergeChecksEnabled(): boolean {
   return process.env.LUMO_PRE_MERGE_CHECKS?.trim().toLowerCase() !== 'off'
 }
 
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
-
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -128,7 +130,7 @@ function cap(text: string, max: number): { text: string; cut: boolean } {
  * earlier scans cannot be read (the caller drops the section).
  */
 async function sinceLastAssessment(
-  gh: Awaited<ReturnType<typeof github>>,
+  gh: GitProvider,
   target: ChecksTarget,
   checkId: string,
   isReviewable: ReturnType<typeof reviewablePathPredicate>
@@ -179,7 +181,7 @@ async function sinceLastAssessment(
   }
 }
 
-export interface ChecksTarget {
+export interface ChecksTarget extends GitProviderRef {
   scanId: string
   pullRequestId: string
   workspaceId: string
@@ -198,11 +200,13 @@ export const preMergeChecksService = {
    * The repository's checks: its Lumo setting, `.lumo.yaml` at `baseSha`
    * applied over it. A failed settings read falls back to the defaults.
    */
-  async resolveSetting(input: {
-    workspaceId: string
-    repo: string
-    baseSha: string | null
-  }): Promise<ResolvedPreMergeSetting> {
+  async resolveSetting(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      baseSha: string | null
+    }
+  ): Promise<ResolvedPreMergeSetting> {
     let row:
       | Awaited<
           ReturnType<typeof repoReviewSettingRepository.findSettings>
@@ -219,6 +223,7 @@ export const preMergeChecksService = {
       )
     }
     const file = await repoConfigService.fileForDecision({
+      ...gitProviderRefOf(input),
       workspaceId: input.workspaceId,
       repo: input.repo,
       baseSha: input.baseSha,
@@ -249,7 +254,7 @@ export const preMergeChecksService = {
     if (!isPreMergeChecksEnabled()) return null
     let record: PreMergeChecksRecord | null = null
     try {
-      const gh = await github()
+      const gh = gitProviderFor(target)
       const pr = await gh.fetchPrDetails({
         workspaceId: target.workspaceId,
         fullName: target.repo,
@@ -257,6 +262,7 @@ export const preMergeChecksService = {
       })
       const { setting, pathFilters } =
         await preMergeChecksService.resolveSetting({
+          ...gitProviderRefOf(target),
           workspaceId: target.workspaceId,
           repo: target.repo,
           baseSha: pr.baseSha,
@@ -538,6 +544,7 @@ export const preMergeChecksService = {
       if (pr.headSha && scan.headSha !== pr.headSha) return 'skipped'
       await preMergeChecksService.run(
         {
+          provider: pr.provider,
           scanId: scan.id,
           pullRequestId,
           workspaceId: pr.workspaceId,

@@ -18,7 +18,11 @@
  * through the repository, the workflow through its start wrapper.
  */
 import { logger } from '@/lib/logger'
-import { fetchDefaultBranchHead } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import type { SecurityBaseline } from '@/ee/security/security-scan/types'
 import {
   BASELINE_STALE_MS,
@@ -107,7 +111,7 @@ export const securityBaselineService = {
    * a PR scan over the baseline.
    */
   async ensure(
-    opts: { workspaceId: string; repo: string },
+    opts: { workspaceId: string; repo: string } & GitProviderRef,
     now: Date = new Date()
   ): Promise<BaselineRequestOutcome> {
     try {
@@ -120,12 +124,17 @@ export const securityBaselineService = {
       if (existing === undefined) return 'unlinked'
       const live = isBaselineLive(existing, now)
       if (live) return live
-      const head = await fetchDefaultBranchHead({
+      const head = await gitProviderFor(opts).fetchDefaultBranchHead({
         workspaceId: opts.workspaceId,
         fullName: opts.repo,
       })
       return await claimAndStart(
-        { workspaceId: opts.workspaceId, repo: opts.repo, sha: head.sha },
+        {
+          ...gitProviderRefOf(opts),
+          workspaceId: opts.workspaceId,
+          repo: opts.repo,
+          sha: head.sha,
+        },
         now
       )
     } catch (error) {

@@ -21,3 +21,30 @@ describe('gitProviderFor', () => {
     )
   })
 })
+
+describe('gitProviderRefOf', () => {
+  it('keeps a named provider (null included) and drops an absent one', () => {
+    const { gitProviderRefOf } = jest.requireActual<
+      typeof import('@/lib/integrations/git-provider/resolve')
+    >('@/lib/integrations/git-provider/resolve')
+    expect(gitProviderRefOf({ provider: 'github' })).toEqual({
+      provider: 'github',
+    })
+    expect(gitProviderRefOf({ provider: null })).toEqual({ provider: null })
+    expect(gitProviderRefOf({})).toEqual({})
+  })
+})
+
+describe('isGitApiError', () => {
+  it('is true for a registered platform API error only', () => {
+    const { isGitApiError } = jest.requireActual<
+      typeof import('@/lib/integrations/git-provider/resolve')
+    >('@/lib/integrations/git-provider/resolve')
+    const { GithubApiError } = jest.requireActual<
+      typeof import('@/lib/integrations/github/pr-comment-client')
+    >('@/lib/integrations/github/pr-comment-client')
+    expect(isGitApiError(new GithubApiError(422, null))).toBe(true)
+    expect(isGitApiError(new Error('boom'))).toBe(false)
+    expect(isGitApiError(null)).toBe(false)
+  })
+})
