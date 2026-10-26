@@ -29,10 +29,20 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/services/task-notifications.service', () => ({
   dispatchCreateTaskSideEffects: jest.fn(),
 }))
+jest.mock('@/lib/services/task-embedding.service', () => ({
+  stampTaskTitleEmbedding: jest.fn().mockResolvedValue(undefined),
+}))
+const waitUntilPromises: Array<Promise<unknown>> = []
+jest.mock('@/lib/runtime/wait-until', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    waitUntilPromises.push(p)
+  },
+}))
 
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { stampTaskTitleEmbedding } from '@/lib/services/task-embedding.service'
 import {
   createTask,
   createFromAutomation,
@@ -259,5 +269,21 @@ describe('createdByMemberId (LUM-1283)', () => {
       tagIds: [],
     })
     expect(createMock.mock.calls[0][0].createdByMemberId).toBeNull()
+  })
+})
+
+describe('createFromAutomation — title embedding (LUM-1286)', () => {
+  it('stamps the new task title after the response', async () => {
+    waitUntilPromises.length = 0
+    await createFromAutomation('proj-1', {
+      title: 'Sentry alert',
+      description: null,
+      priority: 'HIGH',
+      assigneeActorId: null,
+      tagIds: [],
+    })
+    await Promise.all(waitUntilPromises)
+
+    expect(stampTaskTitleEmbedding).toHaveBeenCalledWith('t-1', 'T')
   })
 })

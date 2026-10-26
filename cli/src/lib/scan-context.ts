@@ -212,7 +212,13 @@ function fromCache(
  * The server context of `repo` (and `branch`'s open PR). Never throws.
  */
 export async function loadScanContext(
-  opts: { repo: string | null; branch: string | null; offline: boolean },
+  opts: {
+    repo: string | null
+    branch: string | null
+    offline: boolean
+    /** LUM-1258 — `--timeout`: how long to wait for Lumo before the cache. */
+    timeoutMs?: number
+  },
   deps: ScanContextDeps = {}
 ): Promise<ScanContextResult> {
   const creds = (deps.readCredentials ?? readCredentials)()
@@ -256,7 +262,7 @@ export async function loadScanContext(
   try {
     res = await (deps.fetch ?? fetch)(url, {
       headers,
-      signal: AbortSignal.timeout(SCAN_CONTEXT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? SCAN_CONTEXT_TIMEOUT_MS),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -316,7 +322,8 @@ export type PrScanLoad =
 export async function loadPrScan(
   number: number,
   repo: string,
-  deps: ScanContextDeps = {}
+  deps: ScanContextDeps = {},
+  timeoutMs: number = SCAN_CONTEXT_TIMEOUT_MS
 ): Promise<PrScanLoad> {
   const creds = (deps.readCredentials ?? readCredentials)()
   if (!creds) return { ok: false, note: 'not logged in (lumo auth login)' }
@@ -326,7 +333,7 @@ export async function loadPrScan(
     const url = `${trimTrailingSlash(apiUrl)}/api/pull-requests/${number}/scans?${new URLSearchParams({ repo })}`
     res = await (deps.fetch ?? fetch)(url, {
       headers: { Authorization: `Bearer ${creds.token}` },
-      signal: AbortSignal.timeout(SCAN_CONTEXT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

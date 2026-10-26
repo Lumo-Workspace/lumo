@@ -33,6 +33,7 @@ const FUNNEL = {
   index: 277,
   pulled: 0,
   used: 14,
+  voted: 20,
   tokensSaved: 1200000,
 }
 
@@ -64,10 +65,17 @@ describe('DisclosureFunnel', () => {
           index: 0,
           pulled: 0,
           used: 0,
+          voted: 0,
           tokensSaved: null,
         }}
       />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows "not reported" instead of 0% when no agent voted (LUM-1294)', () => {
+    render(<DisclosureFunnel funnel={{ ...FUNNEL, used: 0, voted: 0 }} />)
+    expect(screen.getByText('— not reported')).toBeInTheDocument()
+    expect(screen.queryByText('0%')).toBeNull()
   })
 })

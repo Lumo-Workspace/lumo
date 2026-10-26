@@ -38,3 +38,16 @@ export function computeLiveBlockers(edges: DependencyEdge[]): DependencyEdge[] {
       !isClosedTaskStatus(e.other.status)
   )
 }
+
+/** LUM-1286: suggested duplicates where this task is the possible duplicate
+ *  (left by the background check after `lumo task create`). */
+export function selectSuggestedDuplicates(
+  edges: DependencyEdge[]
+): DependencyEdge[] {
+  return edges.filter(
+    e =>
+      e.status === 'SUGGESTED' &&
+      e.kind === 'DUPLICATES' &&
+      e.direction === 'BLOCKED_BY'
+  )
+}

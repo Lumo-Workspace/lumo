@@ -761,6 +761,8 @@ export interface LineageResponse {
       index: number
       pulled: number
       used: number
+      /** LUM-1294: edges with a used/unused vote; 0 = usefulness not reported. */
+      voted: number
       tokensSaved: number | null
     }
     topOperations: {
@@ -780,6 +782,12 @@ export interface LineageResponse {
         total: number
       }[]
     }[]
+    /** LUM-1294: precision of `topOperations`; null when nothing was attributed. */
+    operationsPrecision: {
+      perStepPct: number | null
+      cacheReadPct: number
+      hasToolRows: boolean
+    } | null
   }
   groups: LineageGroup[]
 }

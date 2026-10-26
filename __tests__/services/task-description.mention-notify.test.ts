@@ -11,6 +11,11 @@ const mockDispatchTaskUpdateNotifications = jest.fn<(...args: any[]) => any>()
 // Collect fire-and-forget promises so the test can await them before asserting
 // (the notify resolution runs inside an async waitUntil callback).
 const mockBackgroundPromises: Promise<unknown>[] = []
+// LUM-1286: a title change schedules an embedding stamp; keep the AI SDK
+// (needs TransformStream, absent in jsdom) out of this test.
+jest.mock('@/lib/services/task-embedding.service', () => ({
+  stampTaskTitleEmbedding: jest.fn(async () => undefined),
+}))
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => {
     mockBackgroundPromises.push(Promise.resolve(p))

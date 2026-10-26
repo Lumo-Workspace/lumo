@@ -15,11 +15,6 @@ export interface RewardHackState {
   costUsd: number
   /** The judged input was cut to fit the input cap. */
   truncated: boolean
-  /**
-   * Items past the refute cap were neither refuted nor reported (absent on
-   * a state written before the cap was told: read as false).
-   */
-  refuteCapped?: boolean
 }
 
 function isStringRecord(v: unknown): v is Record<string, string> {
@@ -47,15 +42,16 @@ export function parseRewardHackState(value: unknown): RewardHackState | null {
   if (typeof v.truncated !== 'boolean') return null
   // A state written before versions existed is never reused.
   if (typeof v.version !== 'string') return null
-  if (v.refuteCapped !== undefined && typeof v.refuteCapped !== 'boolean')
-    return null
+  // A `refuteCapped` key on a state written while the layer still had a
+  // refute step (removed 2026-10-22) is ignored. Production only has such
+  // states under older versions (never reused); an rh-v3 state written by a
+  // preview of this change could still carry it and is reused as is.
   return {
     version: v.version,
     watermark: v.watermark,
     findingFingerprints: v.findingFingerprints as string[],
     costUsd: v.costUsd,
     truncated: v.truncated,
-    ...(v.refuteCapped === true ? { refuteCapped: true } : {}),
   }
 }
 

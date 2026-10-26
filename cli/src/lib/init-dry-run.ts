@@ -7,32 +7,29 @@ import {
   LUMO_CODEX_RULES,
 } from './codex-rules'
 import {
-  HOOK_SCRIPT_BLOCK,
-  LUMO_HOOK_BEGIN,
   LUMO_HOOK_END,
+  PREPARE_COMMIT_MSG_HOOK,
+  type GitHookSpec,
 } from './git-hook-template'
+import { SCAN_HOOKS } from './scan-hook-template'
 import { CODEX_HOOK_EVENTS } from './hooks-template'
 import {
-  decideSkillInstall,
   planGitHookInstall,
   planHooksMerge,
   type HooksMergePlan,
 } from './install-plan'
-import { isPathGitTracked } from './install-state'
+import { isPathGitTracked } from './repo-root'
 import {
-  diffSkillDirs,
-  displayPath,
-  filesWord,
-  formatSkillChangeLine,
-  type SkillFileChange,
-} from './skill-copies'
-import { MARKER_FILE } from './skill-hash'
+  classifySkillStub,
+  LUMO_SKILL_STUB,
+  skillStubPaths,
+} from './skill-stub'
 import { icons } from './ui'
 import { formatUnifiedDiff } from './unified-diff'
 
 /**
  * LUM-1113 / LUM-1118 — `lumo init --dry-run`: for every file `lumo init`
- * would visit in the chosen scope (and `--agent`), what it would do (path,
+ * would visit in the current repo (and `--agent`), what it would do (path,
  * action, unified diff) and whether Codex would ask to trust its hooks. The
  * decisions come from `install-plan` — the same functions the real run acts
  * on — and nothing here writes a file.
@@ -44,27 +41,21 @@ import { formatUnifiedDiff } from './unified-diff'
  */
 
 export type InitItemKind =
-  | 'skill'
   | 'claude-settings'
   | 'codex-hooks'
   | 'codex-rules'
+  | 'skill-stub'
   | 'git-hook'
+  | 'scan-hook'
 
 /**
- * - `install`: a new file / dir would be written;
- * - `update`: the file(s) would be rewritten;
- * - `adopt`: content unchanged, only the `.lumo-install.json` marker is written;
+ * - `install`: a new file would be written;
+ * - `update`: the file would be rewritten;
  * - `unchanged`: nothing to do;
- * - `skip`: left alone on purpose (modified, newer, not Lumo's, the source repo);
+ * - `skip`: left alone on purpose (not Lumo's, a custom hooks dir);
  * - `error`: cannot be planned (unparseable JSON, …) — the real run fails it too.
  */
-export type InitAction =
-  | 'install'
-  | 'update'
-  | 'adopt'
-  | 'unchanged'
-  | 'skip'
-  | 'error'
+export type InitAction = 'install' | 'update' | 'unchanged' | 'skip' | 'error'
 
 export interface InitItem {
   kind: InitItemKind
@@ -74,20 +65,21 @@ export interface InitItem {
   summary: string
   /** Extra lines (re-trust, git tracking, folded content). */
   notes: string[]
-  /** Skill dirs: the per-file change list. */
-  files?: SkillFileChange[]
   /** Unified diffs, one per changed file ('' parts omitted). */
   diffs: string[]
   /** Codex will ask to trust these hooks (again). */
   retrust: boolean
+  /** Overrides the kind's label (a scan hook names its git hook). */
+  label?: string
 }
 
 const KIND_LABEL: Record<InitItemKind, string> = {
-  skill: 'skill',
   'claude-settings': 'Claude settings hooks',
   'codex-hooks': 'Codex hooks',
   'codex-rules': 'Codex rule',
+  'skill-stub': 'Lumo skill stub',
   'git-hook': 'prepare-commit-msg hook',
+  'scan-hook': 'scan hook',
 }
 
 // ── normalized hook-file view ──────────────────────────────────────────────
@@ -164,10 +156,13 @@ export function lumoHooksView(content: unknown): string {
 
 // ── planning ───────────────────────────────────────────────────────────────
 
-function gitNote(files?: number): string {
-  return files === undefined
-    ? `ℹ tracked by git — the change would show up in \`git diff\` for you to commit`
-    : `ℹ tracked by git — the update would leave ${filesWord(files)} changed for you to commit in a PR`
+const GIT_NOTE =
+  'ℹ tracked by git — the change would show up in `git diff` for you to commit'
+
+/** `file` relative to the repo root when inside it, else as given. */
+export function displayPath(file: string, root: string): string {
+  const rel = path.relative(root, file)
+  return rel === '' || rel.startsWith('..') || path.isAbsolute(rel) ? file : rel
 }
 
 /** Lines of a text without the final newline's empty tail. */
@@ -210,90 +205,12 @@ function readOrEmpty(file: string): string {
   }
 }
 
-function skillItem(
-  bundled: string,
-  dir: string,
-  cliVersion: string,
-  force: boolean
-): InitItem {
-  const base = { kind: 'skill' as const, path: dir, diffs: [], retrust: false }
-  if (!fs.existsSync(path.join(bundled, 'SKILL.md'))) {
-    throw new Error(
-      `Bundled skill asset missing at ${bundled} — reinstall @lumoai/cli.`
-    )
-  }
-  const d = decideSkillInstall(bundled, dir, force, cliVersion)
-  switch (d.kind) {
-    case 'skipped-source':
-      return {
-        ...base,
-        action: 'skip',
-        summary: 'Lumo skill source (not an install) — left untouched',
-        notes: [],
-      }
-    case 'skipped-newer':
-      return {
-        ...base,
-        action: 'skip',
-        summary: `${d.installed} is newer than this CLI (${cliVersion}) — never downgraded; run \`lumo update\``,
-        notes: [],
-      }
-    case 'skipped-modified':
-      return {
-        ...base,
-        action: 'skip',
-        summary:
-          'modified locally — left as is (`--force` overwrites it, discarding the edits)',
-        notes: [],
-      }
-    case 'up-to-date':
-      return d.adoptVersion === null
-        ? { ...base, action: 'unchanged', summary: 'up to date', notes: [] }
-        : {
-            ...base,
-            action: 'adopt',
-            summary: `matches the ${d.adoptVersion} skill — writes only the ${MARKER_FILE} marker`,
-            notes: d.gitTracked ? [gitNote()] : [],
-          }
-    case 'write': {
-      const files = diffSkillDirs(bundled, dir)
-      if (d.result === 'installed')
-        // A fresh copy of the bundle: the file list says it all.
-        return {
-          ...base,
-          action: 'install',
-          summary: `new ${cliVersion} copy: ${filesWord(files.length)}`,
-          notes: [],
-          files,
-        }
-      const diffs = files.map(f => {
-        const installed = path.join(dir, f.file)
-        const bundledFile = path.join(bundled, f.file)
-        return textDiff(
-          f.change === 'added' ? '' : readOrEmpty(installed),
-          f.change === 'deleted' ? '' : readOrEmpty(bundledFile),
-          f.change === 'added' ? '/dev/null' : `a/${f.file}`,
-          f.change === 'deleted' ? '/dev/null' : `b/${f.file}`
-        )
-      })
-      return {
-        ...base,
-        action: 'update',
-        summary: `${d.fromVersion ?? 'modified'} → ${cliVersion}: ${filesWord(files.length)} changed`,
-        notes: d.gitTracked ? [gitNote(files.length)] : [],
-        files,
-        diffs: diffs.filter(Boolean),
-      }
-    }
-  }
-}
-
 function hooksItem(
   kind: 'claude-settings' | 'codex-hooks',
   file: string,
   plan: HooksMergePlan,
   agent: string,
-  home: string
+  root: string
 ): InitItem {
   const { addedEvents, updatedEvents, removedEvents } = plan.stats
   const label = kind === 'codex-hooks' ? '' : ` (agent=${agent})`
@@ -338,7 +255,7 @@ function hooksItem(
         .map(l => l.trim())
     )
   }
-  if (plan.exists && isPathGitTracked(file)) notes.push(gitNote())
+  if (plan.exists && isPathGitTracked(file)) notes.push(GIT_NOTE)
   return {
     kind,
     path: file,
@@ -349,23 +266,23 @@ function hooksItem(
       textDiff(
         lumoHooksView(plan.existing),
         lumoHooksView(plan.merged),
-        `${displayPath(file, home)} (now, Lumo entries)`,
-        `${displayPath(file, home)} (after, Lumo entries)`
+        `${displayPath(file, root)} (now, Lumo entries)`,
+        `${displayPath(file, root)} (after, Lumo entries)`
       ),
     ].filter(Boolean),
     retrust,
   }
 }
 
-function codexRulesItem(file: string, force: boolean): InitItem {
+function codexRulesItem(file: string): InitItem {
   const base = { kind: 'codex-rules' as const, path: file, retrust: false }
   const state = classifyCodexRules(file)
-  if (state === 'foreign' && !force)
+  if (state === 'foreign')
     return {
       ...base,
       action: 'skip',
       summary:
-        "not written by Lumo — left as is (`--force` replaces it with Lumo's rule)",
+        "not written by Lumo — left as is (move it aside and re-run `lumo init` to use Lumo's rule)",
       notes: [],
       diffs: [],
     }
@@ -378,16 +295,14 @@ function codexRulesItem(file: string, force: boolean): InitItem {
       diffs: [],
     }
   const notes = ['ℹ restart Codex to load the new rule']
-  if (state !== 'missing' && isPathGitTracked(file)) notes.push(gitNote())
+  if (state !== 'missing' && isPathGitTracked(file)) notes.push(GIT_NOTE)
   return {
     ...base,
     action: state === 'missing' ? 'install' : 'update',
     summary:
       state === 'missing'
-        ? "Lumo's rule for server-only `lumo` commands"
-        : state === 'foreign'
-          ? 'not written by Lumo — replaced (--force)'
-          : 'Lumo-managed file differs from this CLI — rewritten',
+        ? "Lumo's rules: run `lumo` outside the sandbox, ask before local-writing commands"
+        : 'Lumo-managed file differs from this CLI — rewritten',
     notes,
     diffs:
       state === 'missing'
@@ -403,23 +318,67 @@ function codexRulesItem(file: string, force: boolean): InitItem {
   }
 }
 
+function skillStubItem(file: string): InitItem {
+  const base = { kind: 'skill-stub' as const, path: file, retrust: false }
+  const state = classifySkillStub(file)
+  if (state === 'current')
+    return {
+      ...base,
+      action: 'unchanged',
+      summary: 'up to date',
+      notes: [],
+      diffs: [],
+    }
+  if (state === 'missing')
+    return {
+      ...base,
+      action: 'install',
+      summary: 'frozen pointer to `lumo skill read` (gives the agent /lumo)',
+      notes: [],
+      diffs: [],
+    }
+  return {
+    ...base,
+    action: 'update',
+    summary: 'differs from the Lumo stub — overwritten',
+    notes: isPathGitTracked(file) ? [GIT_NOTE] : [],
+    diffs: [
+      textDiff(
+        readOrEmpty(file),
+        LUMO_SKILL_STUB,
+        `${path.basename(path.dirname(file))}/SKILL.md (now)`,
+        `${path.basename(path.dirname(file))}/SKILL.md (after)`
+      ),
+    ].filter(Boolean),
+  }
+}
+
 /** The Lumo block of a hook file ('' when its end marker is missing). */
-function lumoBlock(text: string): string {
-  const begin = text.indexOf(LUMO_HOOK_BEGIN)
+function lumoBlock(text: string, beginMarker: string): string {
+  const begin = text.indexOf(beginMarker)
   const end = begin === -1 ? -1 : text.indexOf(LUMO_HOOK_END, begin)
   return end === -1 ? '' : text.slice(begin, end + LUMO_HOOK_END.length) + '\n'
 }
 
-function gitHookItem(root: string, home: string): InitItem {
-  const plan = planGitHookInstall(root)
-  const base = { kind: 'git-hook' as const, retrust: false, diffs: [] }
+function gitHookItem(
+  root: string,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK,
+  kind: 'git-hook' | 'scan-hook' = 'git-hook'
+): InitItem {
+  const plan = planGitHookInstall(root, spec)
+  const base = {
+    kind,
+    retrust: false,
+    diffs: [],
+    ...(kind === 'scan-hook' ? { label: `${spec.hook} scan hook` } : {}),
+  }
   switch (plan.status) {
     case 'not-repo':
       return {
         ...base,
         path: root,
         action: 'skip',
-        summary: 'not a git repository — no hook',
+        summary: 'not a git repository — no git hook (folder install)',
         notes: [],
       }
     case 'degrade':
@@ -427,8 +386,7 @@ function gitHookItem(root: string, home: string): InitItem {
         ...base,
         path: plan.coreHooksPath,
         action: 'skip',
-        summary:
-          'core.hooksPath is set (husky or a custom dir) — never written; `lumo init --scope project` prints the block to add by hand',
+        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init${kind === 'scan-hook' ? ' --scan-hooks' : ''}\` prints the block to add by hand`,
         notes: [],
       }
     case 'no-dir':
@@ -449,7 +407,7 @@ function gitHookItem(root: string, home: string): InitItem {
       }
   }
   const file = plan.hookPath
-  const label = displayPath(file, home)
+  const label = displayPath(file, root)
   if (plan.status === 'created')
     return {
       ...base,
@@ -458,14 +416,15 @@ function gitHookItem(root: string, home: string): InitItem {
       summary: 'new hook with the Lumo block',
       notes: [],
     }
-  const old = plan.status === 'updated' ? lumoBlock(plan.existing ?? '') : ''
+  const old =
+    plan.status === 'updated' ? lumoBlock(plan.existing ?? '', spec.begin) : ''
   return {
     ...base,
     path: file,
     action: 'update',
     summary:
       plan.status === 'appended'
-        ? (plan.existing ?? '').includes(LUMO_HOOK_BEGIN)
+        ? (plan.existing ?? '').includes(spec.begin)
           ? 'Lumo block has no end marker — a fresh block is appended'
           : 'Lumo block appended; the existing hook is kept'
         : 'Lumo block replaced',
@@ -475,7 +434,7 @@ function gitHookItem(root: string, home: string): InitItem {
     diffs: [
       textDiff(
         old,
-        `${HOOK_SCRIPT_BLOCK}\n`,
+        `${spec.block}\n`,
         `${label} (now, Lumo block)`,
         `${label} (after, Lumo block)`
       ),
@@ -495,26 +454,16 @@ function errorItem(kind: InitItemKind, file: string, err: unknown): InitItem {
   }
 }
 
-/** Where init puts the skill for an agent token (mirrors `skillInstallDir`). */
-function skillDirFor(root: string, token: string): string {
-  return token === 'codex'
-    ? path.join(root, '.agents', 'skills', 'lumo')
-    : path.join(root, '.claude', 'skills', 'lumo')
-}
-
 /**
- * Plan every file `lumo init` would visit for `scope` and the agent `tokens`,
- * in the order it runs. Writes nothing.
+ * Plan every file `lumo init` would visit in the repo at `root` for the agent
+ * `tokens`, in the order it runs. Writes nothing.
  */
 export function planInit(args: {
-  scope: 'user' | 'project'
   tokens: readonly string[]
-  /** The scope root: home for `--scope user`, the cwd for `--scope project`. */
+  /** The install root: the git repo root, or the folder (Task 11). */
   root: string
-  homeDir: string
-  bundled: string
-  cliVersion: string
-  force: boolean
+  /** LUM-1258: `--scan-hooks` — also plan the pre-commit / pre-push scan hooks. */
+  scanHooks?: boolean
 }): InitItem[] {
   const items: InitItem[] = []
   const attempt = (kind: InitItemKind, file: string, fn: () => InitItem) => {
@@ -525,10 +474,6 @@ export function planInit(args: {
     }
   }
   for (const token of args.tokens) {
-    const skill = skillDirFor(args.root, token)
-    attempt('skill', skill, () =>
-      skillItem(args.bundled, skill, args.cliVersion, args.force)
-    )
     if (token === 'codex') {
       const hooks = codexHooksPath(args.root)
       attempt('codex-hooks', hooks, () =>
@@ -537,11 +482,11 @@ export function planInit(args: {
           hooks,
           planHooksMerge(hooks, 'codex', CODEX_HOOK_EVENTS),
           'codex',
-          args.homeDir
+          args.root
         )
       )
       const rules = codexRulesPath(args.root)
-      attempt('codex-rules', rules, () => codexRulesItem(rules, args.force))
+      attempt('codex-rules', rules, () => codexRulesItem(rules))
     } else {
       const settings = path.join(args.root, '.claude', 'settings.json')
       attempt('claude-settings', settings, () =>
@@ -550,25 +495,53 @@ export function planInit(args: {
           settings,
           planHooksMerge(settings, token),
           token,
-          args.homeDir
+          args.root
         )
       )
     }
+    for (const stub of skillStubPaths(args.root, [token]))
+      attempt('skill-stub', stub, () => skillStubItem(stub))
   }
-  if (args.scope === 'project')
-    attempt('git-hook', args.root, () => gitHookItem(args.root, args.homeDir))
+  attempt('git-hook', args.root, () => gitHookItem(args.root))
+  if (args.scanHooks)
+    for (const spec of SCAN_HOOKS)
+      attempt('scan-hook', args.root, () =>
+        gitHookItem(args.root, spec, 'scan-hook')
+      )
   return items
 }
 
 /** The `lumo init …` command that applies a dry run with the same flags. */
-export function initApplyCommand(
-  scope: 'user' | 'project',
-  opts: { agent?: string; force?: boolean }
-): string {
-  let cmd = `lumo init --scope ${scope}`
+export function initApplyCommand(opts: {
+  agent?: string
+  scanHooks?: boolean
+}): string {
+  let cmd = 'lumo init'
   if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
-  if (opts.force) cmd += ' --force'
+  if (opts.scanHooks) cmd += ' --scan-hooks'
   return cmd
+}
+
+/** Task 11: the warnings shown before a folder (non-git) install. */
+export function folderWarnings(root: string): string[] {
+  return [
+    `${icons.warning} ${root} is not a git repository — these files can't be shared with teammates via git.`,
+    `${icons.warning} They apply only to agent sessions started in this folder (a project inside it that has its own \`lumo init\` uses that install instead).`,
+  ]
+}
+
+/** Task 11: the files a folder install would write (changing items only). */
+export function renderFolderPlan(
+  items: readonly InitItem[],
+  root: string
+): string {
+  const lines = items
+    .filter(i => i.action === 'install' || i.action === 'update')
+    .map(
+      i =>
+        `  ${VERB[i.action]} ${displayPath(i.path, root)} — ${i.label ?? KIND_LABEL[i.kind]}`
+    )
+  return lines.length > 0 ? lines.join('\n') + '\n' : '  (nothing to change)\n'
 }
 
 // ── rendering ──────────────────────────────────────────────────────────────
@@ -576,7 +549,6 @@ export function initApplyCommand(
 const VERB: Record<InitAction, string> = {
   install: 'would install',
   update: 'would update',
-  adopt: 'would adopt',
   unchanged: '·',
   skip: `${icons.warning} skip`,
   error: `${icons.error} cannot plan`,
@@ -589,30 +561,36 @@ const indent = (text: string, pad = '    '): string =>
     .join('\n')
 
 /**
- * Plain-text report: one heading line per install, then its notes, file
- * list and diffs indented beneath; a summary line at the end. Diff lines are
+ * Plain-text report: one heading line per file, then its notes and diffs
+ * indented beneath; a summary line at the end. Diff lines are
  * indented four spaces (strip them to feed `patch`).
  */
 export function renderInitPlan(
   items: readonly InitItem[],
   opts: {
-    cliVersion: string
-    home: string
-    scope: 'user' | 'project'
-    /** The command that applies the plan, e.g. `lumo init --scope project`. */
+    cliVersion: string | null
+    /** The git repo root. */
+    root: string
+    /** The command that applies the plan, e.g. `lumo init --agent codex`. */
     applyCommand: string
+    /** Folder install (not a git repo): shows the folder warnings. */
+    folder?: boolean
   }
 ): string {
-  let out = `Lumo init --dry-run — ${opts.scope} scope, nothing is written (CLI ${opts.cliVersion})\n\n`
+  let out = `Lumo init --dry-run — ${opts.folder ? 'folder' : 'repo'} ${opts.root}, nothing is written (CLI ${opts.cliVersion ?? 'unknown version'})\n\n`
+  if (opts.folder)
+    out +=
+      folderWarnings(opts.root)
+        .map(w => `${w}\n`)
+        .join('') + '\n'
   for (const i of items) {
-    out += `${VERB[i.action]} ${displayPath(i.path, opts.home)} — ${KIND_LABEL[i.kind]}: ${i.summary}\n`
+    out += `${VERB[i.action]} ${displayPath(i.path, opts.root)} — ${i.label ?? KIND_LABEL[i.kind]}: ${i.summary}\n`
     for (const n of i.notes) out += `    ${n}\n`
-    for (const f of i.files ?? []) out += formatSkillChangeLine(f)
     for (const d of i.diffs) out += `\n${indent(d)}\n`
     if (i.diffs.length > 0) out += '\n'
   }
   const changing = items.filter(
-    i => i.action === 'install' || i.action === 'update' || i.action === 'adopt'
+    i => i.action === 'install' || i.action === 'update'
   )
   const retrust = items.filter(i => i.retrust).length
   const errors = items.filter(i => i.action === 'error').length
@@ -626,7 +604,6 @@ export function renderInitPlan(
   if (errors > 0)
     out += `; ${errors} cannot be planned (\`lumo init\` would fail ${errors === 1 ? 'it' : 'them'} too)`
   out += '.\n'
-  if (changing.length > 0)
-    out += `Run \`${opts.applyCommand}\` to apply (it also records the installs in the install registry).\n`
+  if (changing.length > 0) out += `Run \`${opts.applyCommand}\` to apply.\n`
   return out
 }

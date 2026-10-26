@@ -116,7 +116,7 @@ Prisma`. API routes stay thin (auth, Zod validation, call a service);
 - **React:** follow the [Rules of React](https://react.dev/reference/rules) —
   no `new Date()`, `Math.random()` or mutation during render.
 - **CLI:** a change under `cli/src/commands/` updates
-  `.claude/skills/lumo/SKILL.md` (and its `references/`) in the same pull
+  `cli/skill/SKILL.md` (and its `references/`) in the same pull
   request, and regenerates `scripts/cli-grammar/grammar.json` when the command
   tree changes.
 - Async/await rather than `.then()`, named exports, and no `console.log` in

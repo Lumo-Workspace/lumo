@@ -46,8 +46,8 @@ describe('spot-check removed (LUM-1231)', () => {
     expect(read('cli/src/lib/codex-rules.ts')).not.toContain("'spot-check'")
     expect(read('scripts/cli-grammar/grammar.json')).not.toContain('spot-check')
     for (const f of [
-      '.claude/skills/lumo/SKILL.md',
-      '.claude/skills/lumo/references/test-cases.md',
+      'cli/skill/SKILL.md',
+      'cli/skill/references/test-cases.md',
     ]) {
       expect(read(f)).not.toMatch(/spot-check|run-reviews/)
     }

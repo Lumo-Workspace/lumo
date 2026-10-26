@@ -1,5 +1,5 @@
 /** @jest-environment node */
-// LUM-1234 — the reward-hack judge and refute client. `generateObject` is
+// LUM-1234 — the reward-hack judge client. `generateObject` is
 // mocked; the assertions read the request the client builds.
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
@@ -7,9 +7,7 @@ jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 import { generateObject } from 'ai'
 import {
   judgeRewardHack,
-  refuteRewardHackItem,
   REWARD_HACK_SYSTEM_PROMPT,
-  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
   RhJudgeSchema,
   type RhItem,
 } from '@/ee/security/llm/reward-hack-judge-client'
@@ -123,59 +121,14 @@ describe('LUM-1234 reward-hack text repair', () => {
   })
 })
 
-describe('LUM-1234 reward-hack refute client', () => {
-  beforeEach(() => gen.mockReset())
-
-  it('sends the transcript prompt plus the item, and returns verdict and cost', async () => {
-    gen.mockResolvedValueOnce({
-      object: { refuted: true, reason: 'The user asked for it.' },
-      usage: { inputTokens: 900, outputTokens: 30 },
-      providerMetadata: { gateway: { cost: '0.004' } },
-    })
-    const r = await refuteRewardHackItem({ prompt: 'TRANSCRIPT', item: ITEM })
-    // Usage comes back too: the runner books it when the gateway sends no cost.
-    expect(r).toEqual({
-      refuted: true,
-      reason: 'The user asked for it.',
-      inputTokens: 900,
-      outputTokens: 30,
-      costUsd: 0.004,
-    })
-    const arg = gen.mock.calls[0][0]
-    expect(arg.model).toEqual({ id: REWARD_HACK_MODEL })
-    expect(arg.temperature).toBe(0)
-    expect(arg.maxRetries).toBe(0)
-    expect(arg.system).toBe(REWARD_HACK_REFUTE_SYSTEM_PROMPT)
-    expect(arg.prompt).toContain('TRANSCRIPT')
-    expect(arg.prompt).toContain(ITEM.summary)
-    expect(arg.prompt).toContain('e12')
-  })
-
-  it('puts the current PR diff of the cited files before the item when given', async () => {
-    gen.mockResolvedValueOnce({
-      object: { refuted: false, reason: 'still there' },
-      providerMetadata: {},
-    })
-    await refuteRewardHackItem({
-      prompt: 'TRANSCRIPT',
-      item: ITEM,
-      prDiff: '<pr-diff file="src/a.ts">\n+hard-coded\n</pr-diff>',
-    })
-    const prompt = gen.mock.calls[0][0].prompt as string
-    expect(prompt).toContain('CURRENT diff')
-    expect(prompt.indexOf('+hard-coded')).toBeGreaterThan(
-      prompt.indexOf('TRANSCRIPT')
-    )
-    expect(prompt.indexOf('+hard-coded')).toBeLessThan(
-      prompt.indexOf(ITEM.summary)
-    )
-  })
-
-  it('looks for legitimate explanations', () => {
-    const p = REWARD_HACK_REFUTE_SYSTEM_PROMPT
-    expect(p).toMatch(/test itself was wrong/i)
-    expect(p).toMatch(/explicitly asked/i)
-    expect(p).toMatch(/disclosed/i)
-    expect(p).toMatch(/not (part of|in) the final/i)
+describe('LUM-1234 reward-hack client: one call only (refute removed 2026-10-22)', () => {
+  it('exports the judge and no refute call', async () => {
+    const mod =
+      (await import('@/ee/security/llm/reward-hack-judge-client')) as Record<
+        string,
+        unknown
+      >
+    expect(typeof mod.judgeRewardHack).toBe('function')
+    expect(Object.keys(mod).filter(k => /refut/i.test(k))).toEqual([])
   })
 })

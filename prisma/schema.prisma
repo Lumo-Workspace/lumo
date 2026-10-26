@@ -1071,6 +1071,12 @@ model Task {
   trashRootId      String?
   deletedByClerkId String?
 
+  /// LUM-1286: 1024-dim embedding of the title (alibaba/qwen3-embedding-0.6b),
+  /// for duplicate-check candidate recall. Read/written ONLY via parameterized
+  /// raw SQL in task.repository.ts — Prisma can't touch Unsupported columns.
+  /// NULL until stamped (create/rename, or the backfill script).
+  titleEmbedding   Unsupported("vector(1024)")?
+
   // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
   // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
   // one carrying a MERGED lineage edge (DB fact of delivery), else the latest
@@ -3060,12 +3066,12 @@ model Session {
   parentSessionId       String?
   agentId               String?
   agentType             String?
-  // LUM-1136: the Lumo CLI and skill versions the session's SessionStart hook
-  // reported (X-Lumo-Cli-Version / X-Lumo-Skill-Version), shown on the members
-  // page. Skill is `1.2.3`, `1.2.3 modified`, `modified`, `source` or `none`.
-  // Null when the CLI predates the headers; a later SessionStart without them
-  // never clears a known value.
+  // LUM-1136: the Lumo CLI version the session's hook events reported
+  // (X-Lumo-Cli-Version), shown on the members page. Null when the CLI
+  // predates the header.
   cliVersion            String?
+  // DEPRECATED (LUM-1292): no longer written or read; historical rows keep
+  // their value. Drop the column in the next release.
   skillVersion          String?
   // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
   // row) or INHERITED (copied from the parent's explicit binding).

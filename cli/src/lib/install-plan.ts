@@ -1,116 +1,26 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { ENUM_TO_TOKEN, normalizeAgent } from './agent'
-import { listFiles } from './codex-plugin'
 import { classifyCodexRules, codexRulesPath } from './codex-rules'
-import { mergeGitHook, resolveHookInstall } from './git-hook-template'
+import {
+  mergeGitHook,
+  PREPARE_COMMIT_MSG_HOOK,
+  resolveHookInstall,
+  type GitHookSpec,
+} from './git-hook-template'
 import { gitCapture, resolveGitHooksDir } from './git-hooks-dir'
 import {
-  isLumoHookCommand,
-  LUMO_HOOK_EVENTS,
+  isLumoHookEntry,
   mergeLumoHooks,
-  RETIRED_LUMO_HOOK_EVENTS,
   type MergeStats,
 } from './hooks-template'
-import { isLumoSkillSource } from './install-locations'
-import { readMarker } from './install-registry'
-import { classifySkillDir, isNewerVersion } from './install-state'
-import { MARKER_FILE } from './skill-hash'
 
 /**
  * LUM-1113 / LUM-1118 — the read-only half of `lumo init`: what it would do
- * to each install of the chosen scope. `init` acts on these decisions and
+ * to each file of the current repo. `init` acts on these decisions and
  * `init --dry-run` only reports them, so the preview cannot drift from what
  * the real run writes. Nothing here writes.
  */
-
-function filesEqual(src: string, dst: string): boolean {
-  if (!fs.existsSync(dst)) return false
-  if (fs.statSync(src).size !== fs.statSync(dst).size) return false
-  return fs.readFileSync(src).equals(fs.readFileSync(dst))
-}
-
-/** Whether `dir` holds exactly `relFiles` (ignoring the Lumo marker). */
-function sameFileSet(dir: string, relFiles: readonly string[]): boolean {
-  const have = listFiles(dir).filter(f => f !== MARKER_FILE)
-  return (
-    have.length === relFiles.length && have.every((f, i) => f === relFiles[i])
-  )
-}
-
-/**
- * What installing the bundled skill into `skillDir` does:
- * - `skipped-source`: the Lumo repo's own `.claude/skills/lumo` (never written);
- * - `skipped-newer`: a managed copy newer than the CLI (never downgraded, not even with force);
- * - `up-to-date`: nothing to copy; `adoptVersion` set when a marker would be written (legacy / identical copy);
- * - `skipped-modified`: edited locally and `force` is off;
- * - `write`: the whole dir is replaced by the bundle.
- */
-export type SkillInstallDecision =
-  | { kind: 'skipped-source' }
-  | { kind: 'skipped-newer'; installed: string }
-  | { kind: 'up-to-date'; adoptVersion: string | null; gitTracked: boolean }
-  | { kind: 'skipped-modified'; gitTracked: boolean }
-  | {
-      kind: 'write'
-      result: 'installed' | 'upgraded'
-      /** Managed version being replaced; null for a fresh install or a modified copy. */
-      fromVersion: string | null
-      gitTracked: boolean
-    }
-
-export function decideSkillInstall(
-  skillSrcDir: string,
-  skillDir: string,
-  force: boolean,
-  cliVersion: string
-): SkillInstallDecision {
-  if (isLumoSkillSource(skillDir)) return { kind: 'skipped-source' }
-
-  const relFiles = listFiles(skillSrcDir)
-  const cls = classifySkillDir(skillDir)
-  const installed = cls.state === 'managed' ? (cls.version ?? '0.0.0') : null
-  if (installed !== null && isNewerVersion(cliVersion, installed)) {
-    return { kind: 'skipped-newer', installed }
-  }
-
-  if (cls.state !== 'missing' && !force) {
-    const allMatch = relFiles.every(rel =>
-      filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
-    )
-    // A modified copy is only adopted when it IS the bundle: same file set and
-    // bytes. Bundled files + an extra user file must stay `modified`, or the
-    // marker would make that user file Lumo-managed (and later deletable).
-    const identical = allMatch && sameFileSet(skillDir, relFiles)
-    const upToDate =
-      cls.state === 'managed'
-        ? allMatch || !isNewerVersion(installed!, cliVersion)
-        : identical
-    if (upToDate) {
-      const adopt = !readMarker(skillDir) || cls.state === 'modified'
-      return {
-        kind: 'up-to-date',
-        adoptVersion: adopt ? (allMatch ? cliVersion : installed!) : null,
-        gitTracked: cls.gitTracked,
-      }
-    }
-    if (cls.state === 'modified') {
-      return { kind: 'skipped-modified', gitTracked: cls.gitTracked }
-    }
-    return {
-      kind: 'write',
-      result: 'upgraded',
-      fromVersion: installed,
-      gitTracked: cls.gitTracked,
-    }
-  }
-  return {
-    kind: 'write',
-    result: cls.state === 'missing' ? 'installed' : 'upgraded',
-    fromVersion: installed,
-    gitTracked: cls.gitTracked,
-  }
-}
 
 export interface HooksMergePlan {
   exists: boolean
@@ -181,11 +91,15 @@ export type GitHookInstallPlan =
     }
 
 /**
- * What `lumo init --scope project` does to the repo's prepare-commit-msg: create
- * it, append the Lumo block to a foreign hook, replace a stale block, or
- * nothing. A configured `core.hooksPath` is never written.
+ * What `lumo init` does to the repo's prepare-commit-msg (or,
+ * LUM-1258, a scan hook `spec` names): create it, append the Lumo block to a
+ * foreign hook, replace a stale block, or nothing. A configured
+ * `core.hooksPath` is never written.
  */
-export function planGitHookInstall(projectRoot: string): GitHookInstallPlan {
+export function planGitHookInstall(
+  projectRoot: string,
+  spec: GitHookSpec = PREPARE_COMMIT_MSG_HOOK
+): GitHookInstallPlan {
   if (
     gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
   )
@@ -194,11 +108,11 @@ export function planGitHookInstall(projectRoot: string): GitHookInstallPlan {
   if (resolveHookInstall(coreHooksPath).mode === 'degrade')
     return { status: 'degrade', coreHooksPath: coreHooksPath! }
   if (!dir) return { status: 'no-dir' }
-  const hookPath = path.join(dir, 'prepare-commit-msg')
+  const hookPath = path.join(dir, spec.hook)
   const existing = fs.existsSync(hookPath)
     ? fs.readFileSync(hookPath, 'utf8')
     : null
-  const { content, status } = mergeGitHook(existing)
+  const { content, status } = mergeGitHook(existing, spec)
   if (status === 'unchanged') return { status, hookPath }
   return { status, hookPath, existing, content }
 }
@@ -220,21 +134,17 @@ export function projectClaudeSettingsTarget(
   }
   const hooks = (parsed as { hooks?: unknown } | null)?.hooks
   if (!hooks || typeof hooks !== 'object') return null
-  for (const [event, slug] of [
-    ...LUMO_HOOK_EVENTS,
-    ...RETIRED_LUMO_HOOK_EVENTS,
-  ]) {
-    const groups = (hooks as Record<string, unknown>)[event]
+  for (const groups of Object.values(hooks as Record<string, unknown>)) {
     if (!Array.isArray(groups)) continue
     for (const g of groups) {
       const list = (g as { hooks?: unknown } | null)?.hooks
       if (!Array.isArray(list)) continue
       for (const h of list) {
         const cmd = (h as { command?: unknown } | null)?.command
-        if (typeof cmd !== 'string' || !isLumoHookCommand(cmd, slug)) continue
+        if (typeof cmd !== 'string' || !isLumoHookEntry(cmd)) continue
         // Only the `--agent <token>` right after the slug, and only a known
         // agent: anything else falls back to the Claude Code default.
-        const m = /^--agent (\S+)/.exec(cmd.slice(`lumo hook ${slug} `.length))
+        const m = /^lumo hook \S+ --agent (\S+)/.exec(cmd)
         const e = m?.[1] ? normalizeAgent(m[1]) : null
         return { path: file, agent: (e && ENUM_TO_TOKEN[e]) || 'claude-code' }
       }

@@ -5,6 +5,7 @@ import {
   HEADER_MARKER_OPEN,
   HEADER_MARKER_CLOSE,
   computeBodyHash,
+  stripLinkReferenceDefinitions,
 } from '@/lib/integrations/github/markdown-bridge'
 
 describe('markdown-bridge', () => {
@@ -91,6 +92,90 @@ describe('markdown-bridge', () => {
       expect(computeBodyHash('hello\nworld')).toBe(
         computeBodyHash('hello\r\nworld')
       )
+    })
+  })
+
+  describe('stripLinkReferenceDefinitions', () => {
+    const VERCEL =
+      '[vc]: #MFSpIgWW1sYkXEkHPHzTyO7XPgL8GGHn4rzaDAFPdMU=:eyJpc01vbm9yZXBvIjp0cnVlfQ==\n' +
+      'The latest updates on your projects. Learn more about [Vercel for GitHub](https://vercel.link/github-learn-more).'
+
+    it("drops Vercel's [vc]: marker and keeps the text and inline links", () => {
+      expect(stripLinkReferenceDefinitions(VERCEL)).toBe(
+        'The latest updates on your projects. Learn more about [Vercel for GitHub](https://vercel.link/github-learn-more).'
+      )
+    })
+
+    it('drops an unused definition with a title anywhere in the body', () => {
+      const md = 'See the docs.\n\n[d]: https://example.com "Docs"'
+      expect(stripLinkReferenceDefinitions(md)).toBe('See the docs.\n')
+    })
+
+    it('matches a used label case-insensitively with collapsed whitespace', () => {
+      const md = 'See [docs][My Link].\n\n[my  link]: https://example.com'
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('does not open a fence on a one-line inline code span', () => {
+      const md = '```code```\n\n[x]: https://drop.example\n\nText.'
+      expect(stripLinkReferenceDefinitions(md)).toBe('```code```\n\n\nText.')
+    })
+
+    it('drops a definition right after a heading or a thematic break', () => {
+      expect(
+        stripLinkReferenceDefinitions('## Deploys\n[vc]: #abc\nText.')
+      ).toBe('## Deploys\nText.')
+      expect(stripLinkReferenceDefinitions('---\n[vc]: #abc\nText.')).toBe(
+        '---\nText.'
+      )
+      expect(
+        stripLinkReferenceDefinitions('Title\n===\n[vc]: #abc\nText.')
+      ).toBe('Title\n===\nText.')
+    })
+
+    it('keeps a definition-shaped line that continues a paragraph', () => {
+      const md = 'Some prose\n[x]: https://example.com'
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('drops consecutive definitions after a blank line', () => {
+      const md = 'Text.\n\n[a]: https://a.example\n[b]: https://b.example'
+      expect(stripLinkReferenceDefinitions(md)).toBe('Text.\n')
+    })
+
+    it('keeps a definition the body still references, so its URL survives', () => {
+      const full = 'See [docs][D].\n\n[d]: https://example.com'
+      const shortcut = 'See [docs].\n\n[docs]: https://example.com'
+      expect(stripLinkReferenceDefinitions(full)).toBe(full)
+      expect(stripLinkReferenceDefinitions(shortcut)).toBe(shortcut)
+    })
+
+    it('keeps a fenced block open past a fence line with an info string', () => {
+      const md = ['```', '```js', '[x]: https://kept.example', '```'].join('\n')
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('leaves the body untouched, leading blank lines included, when nothing is stripped', () => {
+      expect(stripLinkReferenceDefinitions('\n\nhello')).toBe('\n\nhello')
+    })
+
+    it.each([
+      ['a footnote with a URL', '[^1]: https://example.com'],
+      [
+        'prose that starts like a definition',
+        '[this]: it stays because prose follows',
+      ],
+      ['a whitespace-only label', '[ ]: https://example.com'],
+      ['fenced code', '```\n[x]: https://kept.example\n```'],
+    ])('keeps %s', (_name, md) => {
+      expect(stripLinkReferenceDefinitions(md)).toBe(md)
+    })
+
+    it('githubMarkdownToLumoHtml no longer mirrors the marker', () => {
+      const html = githubMarkdownToLumoHtml(VERCEL, () => null)
+      expect(html).not.toContain('[vc]')
+      expect(html).not.toContain('eyJ')
+      expect(html).toContain('The latest updates on your projects.')
     })
   })
 })

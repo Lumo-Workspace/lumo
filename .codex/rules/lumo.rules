@@ -1,172 +1,210 @@
 # Managed by `lumo init` (LUM-1054). Remove with `lumo uninstall`.
-# Lets the server-only `lumo` commands (they only call the Lumo API, read no
-# local file to upload and write none) run outside Codex's no-network sandbox
-# without prompting. Every other command, including `lumo init`, `lumo update`,
-# `lumo uninstall`, `lumo auth`, `lumo worktree`, `lumo memory sync/push`,
-# `lumo session attach`, `lumo task update` and the commands that take a
-# `--file` (`lumo doc create/update/patch …`), stays sandboxed, so Codex asks.
+# Every `lumo` command runs outside Codex's no-network sandbox without a
+# prompt, except the commands below that touch local files, start local
+# processes or change local setup: Codex asks first for those (the strictest
+# matching rule wins). A command missing from this list is allowed.
 prefix_rule(
-    pattern = ["lumo", ["cost", "next", "priority", "report"]],
+    pattern = ["lumo"],
     decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo cost", "lumo next", "lumo priority", "lumo report"],
-    not_match = ["lumo auth login", "lumo auth logout", "lumo crossing disposition", "lumo crossing explain", "lumo doctor", "lumo hook", "lumo init", "lumo setup", "lumo skill status", "lumo skill update", "lumo uninstall", "lumo uninstall --confirm", "lumo update", "lumo usage resync", "lumo whoami", "lumo worktree", "lumo worktree add LUM-1", "lumox status"],
+    justification = "Lumo CLI command: needs network to reach the Lumo API",
+    match = ["lumo status"],
+    not_match = ["lumox status"],
 )
 prefix_rule(
-    pattern = ["lumo", "audit", "list"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo audit list"],
+    pattern = ["lumo", "auth", "login"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: writes ~/.lumo credentials and opens a browser",
+    match = ["lumo auth login"],
 )
 prefix_rule(
-    pattern = ["lumo", "doc", ["bind", "delete", "import-gdoc", "list", "move", "rebuild-source", "share", "share-list", "show", "sync", "unbind", "unshare"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo doc bind", "lumo doc delete", "lumo doc import-gdoc", "lumo doc list", "lumo doc move", "lumo doc rebuild-source", "lumo doc share", "lumo doc share-list", "lumo doc show", "lumo doc sync", "lumo doc unbind", "lumo doc unshare"],
-    not_match = ["lumo doc append", "lumo doc create", "lumo doc diff", "lumo doc patch", "lumo doc update"],
+    pattern = ["lumo", "auth", "logout"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: deletes ~/.lumo credentials",
+    match = ["lumo auth logout"],
 )
 prefix_rule(
-    pattern = ["lumo", "member", "list"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo member list"],
+    pattern = ["lumo", "crossing", "disposition"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (a human-only ruling: keep Codex asking the user first)",
+    match = ["lumo crossing disposition"],
 )
 prefix_rule(
-    pattern = ["lumo", "memory", ["fold", "promote", "rm", "show"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo memory fold", "lumo memory promote", "lumo memory rm", "lumo memory show"],
-    not_match = ["lumo memory push", "lumo memory sync"],
+    pattern = ["lumo", "crossing", "explain"],
+    decision = "prompt",
+    justification = "reads the local file named by --file <json> and uploads it to Lumo",
+    match = ["lumo crossing explain"],
 )
 prefix_rule(
-    pattern = ["lumo", "milestone", ["add", "archive", "changelog", "create", "delete", "list", "move", "remove", "reorder", "show", "summary", "triage", "unarchive", "update"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo milestone add", "lumo milestone archive", "lumo milestone changelog", "lumo milestone create", "lumo milestone delete", "lumo milestone list", "lumo milestone move", "lumo milestone remove", "lumo milestone reorder", "lumo milestone show", "lumo milestone summary", "lumo milestone triage", "lumo milestone unarchive", "lumo milestone update"],
+    pattern = ["lumo", "doc", "append"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo doc append"],
 )
 prefix_rule(
-    pattern = ["lumo", "milestone", "criteria", ["list", "verdict"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo milestone criteria list", "lumo milestone criteria verdict"],
-    not_match = ["lumo milestone criteria set"],
+    pattern = ["lumo", "doc", "create"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo doc create"],
 )
 prefix_rule(
-    pattern = ["lumo", "outcome", "show"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo outcome show"],
+    pattern = ["lumo", "doc", "diff"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo doc diff"],
 )
 prefix_rule(
-    pattern = ["lumo", "pr", "scan"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo pr scan"],
+    pattern = ["lumo", "doc", "patch"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo doc patch"],
 )
 prefix_rule(
-    pattern = ["lumo", "project", ["create", "list", "update"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo project create", "lumo project list", "lumo project update"],
+    pattern = ["lumo", "doc", "update"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo doc update"],
 )
 prefix_rule(
-    pattern = ["lumo", "project", "memory", ["add", "list"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo project memory add", "lumo project memory list"],
+    pattern = ["lumo", "doctor"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable))",
+    match = ["lumo doctor"],
 )
 prefix_rule(
-    pattern = ["lumo", "session", "status"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo session status"],
-    not_match = ["lumo session attach"],
+    pattern = ["lumo", "feedback", "create"],
+    decision = "prompt",
+    justification = "reads the local file named by --evidence-file and uploads it to Lumo",
+    match = ["lumo feedback create"],
 )
 prefix_rule(
-    pattern = ["lumo", "sprint", ["add", "close", "create", "delete", "list", "remove", "show", "start", "summary", "update"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo sprint add", "lumo sprint close", "lumo sprint create", "lumo sprint delete", "lumo sprint list", "lumo sprint remove", "lumo sprint show", "lumo sprint start", "lumo sprint summary", "lumo sprint update"],
+    pattern = ["lumo", "finding", "disposition"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (a human-only ruling: keep Codex asking the user first)",
+    match = ["lumo finding disposition"],
 )
 prefix_rule(
-    pattern = ["lumo", "tag", ["create", "list"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo tag create", "lumo tag list"],
+    pattern = ["lumo", "hook"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: agent hooks write local logs/memory; Codex runs its hooks outside the sandbox itself",
+    match = ["lumo hook"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", ["comment", "context", "create", "decide", "delete", "history", "lineage", "list", "search", "show", "status", "statuses", "wrapup"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task comment", "lumo task context", "lumo task create", "lumo task decide", "lumo task delete", "lumo task history", "lumo task lineage", "lumo task list", "lumo task search", "lumo task show", "lumo task status", "lumo task statuses", "lumo task wrapup"],
-    not_match = ["lumo task update"],
+    pattern = ["lumo", "init"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: writes hook and rules files in this repo",
+    match = ["lumo init"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "artifact", ["list", "rm", "show", "update"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task artifact list", "lumo task artifact rm", "lumo task artifact show", "lumo task artifact update"],
-    not_match = ["lumo task artifact add"],
+    pattern = ["lumo", "memory", "push"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: deletes local memory files after pushing",
+    match = ["lumo memory push"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "comments", ["edit", "list", "rm"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task comments edit", "lumo task comments list", "lumo task comments rm"],
+    pattern = ["lumo", "memory", "sync"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: writes the local memory directory",
+    match = ["lumo memory sync"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "deps", ["add", "confirm", "dismiss", "list", "rm"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task deps add", "lumo task deps confirm", "lumo task deps dismiss", "lumo task deps list", "lumo task deps rm"],
+    pattern = ["lumo", "milestone", "testcase", "disposition"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (a human-only ruling: keep Codex asking the user first)",
+    match = ["lumo milestone testcase disposition"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "figma", ["add", "context", "list", "refresh", "rm"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task figma add", "lumo task figma context", "lumo task figma list", "lumo task figma refresh", "lumo task figma rm"],
+    pattern = ["lumo", "milestone", "testcase", "download"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: writes local files (saves evidence into <dir>) — Codex asks first",
+    match = ["lumo milestone testcase download"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "memory", ["add", "list"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task memory add", "lumo task memory list"],
+    pattern = ["lumo", "milestone", "testcase", "run"],
+    decision = "prompt",
+    justification = "reads the local file named by --evidence-file, --step-evidence <step>=<file> and uploads it to Lumo",
+    match = ["lumo milestone testcase run"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "pr", "show"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task pr show"],
+    pattern = ["lumo", "security", "scan"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH)",
+    match = ["lumo security scan"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "slack", "show"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task slack show"],
+    pattern = ["lumo", "session", "attach"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: can create a git worktree (--worktree / autoWorktree) and sync local memory",
+    match = ["lumo session attach"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "template", ["list", "rm", "show"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task template list", "lumo task template rm", "lumo task template show"],
-    not_match = ["lumo task template create", "lumo task template edit"],
+    pattern = ["lumo", "task", "artifact", "add"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo task artifact add"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "testcase", ["add", "list", "rm", "show", "update"]],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task testcase add", "lumo task testcase list", "lumo task testcase rm", "lumo task testcase show", "lumo task testcase update"],
-    not_match = ["lumo task testcase disposition", "lumo task testcase run"],
+    pattern = ["lumo", "task", "template", "create"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo task template create"],
 )
 prefix_rule(
-    pattern = ["lumo", "task", "web", "show"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo task web show"],
+    pattern = ["lumo", "task", "template", "update"],
+    decision = "prompt",
+    justification = "reads the local file named by --file and uploads it to Lumo",
+    match = ["lumo task template update"],
 )
 prefix_rule(
-    pattern = ["lumo", "workspace", "security-scan"],
-    decision = "allow",
-    justification = "Server-only Lumo command: needs network to reach the Lumo API, reads no local file to upload, writes none",
-    match = ["lumo workspace security-scan"],
+    pattern = ["lumo", "task", "testcase", "disposition"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (a human-only ruling: keep Codex asking the user first)",
+    match = ["lumo task testcase disposition"],
+)
+prefix_rule(
+    pattern = ["lumo", "task", "testcase", "download"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: writes local files (saves evidence into <dir>) — Codex asks first",
+    match = ["lumo task testcase download"],
+)
+prefix_rule(
+    pattern = ["lumo", "task", "testcase", "run"],
+    decision = "prompt",
+    justification = "reads the local file named by --evidence-file, --step-evidence <step>=<file> and uploads it to Lumo",
+    match = ["lumo task testcase run"],
+)
+prefix_rule(
+    pattern = ["lumo", "task", "update"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: a confirmed DONE removes local git worktrees",
+    match = ["lumo task update"],
+)
+prefix_rule(
+    pattern = ["lumo", "uninstall"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: deletes hook and rules entries in this repo",
+    match = ["lumo uninstall"],
+)
+prefix_rule(
+    pattern = ["lumo", "update"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: runs npm install -g",
+    match = ["lumo update"],
+)
+prefix_rule(
+    pattern = ["lumo", "usage", "resync"],
+    decision = "prompt",
+    justification = "Reads local Claude Code transcripts ($CLAUDE_CONFIG_DIR or ~/.claude/projects)",
+    match = ["lumo usage resync"],
+)
+prefix_rule(
+    pattern = ["lumo", "whoami"],
+    decision = "prompt",
+    justification = "not a plain Lumo API call (local-only (reads credentials, no Lumo API call; runs fine sandboxed))",
+    match = ["lumo whoami"],
+)
+prefix_rule(
+    pattern = ["lumo", "worktree"],
+    decision = "prompt",
+    justification = "changes local files or starts local processes: creates/removes git worktrees and branches (list: local git only)",
+    match = ["lumo worktree"],
 )

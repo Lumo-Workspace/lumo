@@ -60,26 +60,6 @@
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook pre-compact --agent codex"
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook post-compact --agent codex"
-          }
-        ]
-      }
-    ],
     "SubagentStart": [
       {
         "hooks": [
@@ -106,16 +86,6 @@
           {
             "type": "command",
             "command": "lumo hook stop --agent codex"
-          }
-        ]
-      }
-    ],
-    "Interrupt": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "lumo hook interrupt --agent codex"
           }
         ]
       }

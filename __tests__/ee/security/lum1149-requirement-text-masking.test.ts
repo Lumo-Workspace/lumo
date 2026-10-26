@@ -79,7 +79,7 @@ describe('backticked paths in requirements stay readable', () => {
   it('the summary block and the review comment render them as code spans', () => {
     const block = formatRequirementsBlock(assessed)!
     expect(block).toContain(
-      '**LUM-1201 · Done when 1**: `src/probe/clamp.ts` exports `clamp(value, min, max)` that returns `value` limited'
+      '**LUM-1201 · Requirement 1 of 2**: `src/probe/clamp.ts` exports `clamp(value, min, max)` that returns `value` limited'
     )
     const review = buildUnmetRequirementsReview({
       assessments: assessed,

@@ -71,12 +71,89 @@ export function lumoHtmlToGithubMarkdown(
 
 const GH_MENTION_RE = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9-]+)/g
 
+// A CommonMark link reference definition on its own line: `[label]: dest`
+// with an optional quoted or parenthesized title. The label needs a
+// non-blank character; `[^…]:` is a footnote, which GitHub does render, so
+// it is left alone.
+const LINK_REF_DEF_RE =
+  /^ {0,3}\[((?!\^)(?=[^\]\n]*[^\]\s])[^\]\n]+)\]:[ \t]*\S+(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/
+// A backtick fence's info string can't itself contain a backtick.
+const FENCE_OPEN_RE = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}).*)$/
+// A closing fence carries no info string.
+const FENCE_CLOSE_RE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/
+// Single-line blocks (ATX heading, thematic break) that end without starting
+// a paragraph, so a definition may follow them directly.
+const LEAF_BLOCK_RE =
+  /^ {0,3}(?:#{1,6}(?:[ \t]|$)|(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$)/
+
+const SETEXT_EQ_RE = /^ {0,3}=+[ \t]*$/
+
+// CommonMark label matching: case-insensitive, internal whitespace collapsed.
+const normalizeLabel = (label: string) =>
+  label.trim().replace(/\s+/g, ' ').toLowerCase()
+
+/**
+ * Drop the link reference definitions GitHub never renders — e.g. Vercel's
+ * `[vc]: #<base64>` marker opening every deployment comment, which otherwise
+ * mirrors in as a wall of base64. A definition whose label the body still
+ * uses (`[text][label]`, `[label]`) is kept, so its URL isn't lost; lines
+ * inside fenced code blocks are kept too.
+ */
+export function stripLinkReferenceDefinitions(markdown: string): string {
+  const lines = markdown.split('\n')
+  let fence: string | null = null
+  // A definition can't interrupt a paragraph: right after a prose line it is
+  // plain text on GitHub, so only a line that opens a new block counts.
+  let inParagraph = false
+  const defs = new Map<number, string>()
+  lines.forEach((raw, i) => {
+    const line = raw.replace(/\r$/, '')
+    if (fence) {
+      const close = FENCE_CLOSE_RE.exec(line)?.[1]
+      if (close && close[0] === fence[0] && close.length >= fence.length) {
+        fence = null
+      }
+      return
+    }
+    const openMatch = FENCE_OPEN_RE.exec(line)
+    const open = openMatch?.[1] ?? openMatch?.[2]
+    if (open) {
+      fence = open
+      inParagraph = false
+      return
+    }
+    const label = inParagraph ? undefined : LINK_REF_DEF_RE.exec(line)?.[1]
+    if (label) {
+      defs.set(i, normalizeLabel(label))
+      return
+    }
+    // `===` under a paragraph line turns it into a setext heading, which
+    // closes the paragraph just as a `---` underline does.
+    const setextUnderline = inParagraph && SETEXT_EQ_RE.test(line)
+    inParagraph =
+      line.trim() !== '' && !setextUnderline && !LEAF_BLOCK_RE.test(line)
+  })
+  if (defs.size === 0) return markdown
+
+  const rest = lines.filter((_, i) => !defs.has(i)).join('\n')
+  const used = new Set(
+    Array.from(rest.matchAll(/\[([^\]]+)\]/g), m => normalizeLabel(m[1] ?? ''))
+  )
+  const isUsed = (label: string) => used.has(label)
+  const kept = lines.filter((_, i) => {
+    const label = defs.get(i)
+    return label === undefined || isUsed(label)
+  })
+  if (kept.length === lines.length) return markdown
+  return kept.join('\n').replace(/^\s*\n/, '')
+}
+
 export function githubMarkdownToLumoHtml(
   markdown: string,
   resolver: GithubMentionResolver
 ): string {
   // Strip any header marker that may have leaked back (defense in depth)
-  let work = markdown.replace(HEADER_RE, '')
+  let work = stripLinkReferenceDefinitions(markdown.replace(HEADER_RE, ''))
   // LUM-921: the body is untrusted GitHub text — escape it BEFORE inserting
   // our own markup, so raw HTML (<img onerror>, <svg onload>) lands as text.
   // Logins are [a-zA-Z0-9-] and `@` survives escaping, so mentions still match.

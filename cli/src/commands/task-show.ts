@@ -79,7 +79,38 @@ interface ShowResponse {
     createdBy?: MemberView | null
     /** LUM-821 — optional so an older server still renders. */
     dueDate?: string | null
+    /** LUM-1286 — likely originals from the background duplicate check;
+     *  optional so an older server still renders. */
+    possibleDuplicates?: Array<{
+      identifier: string
+      title: string
+      status: string
+      score: number | null
+    }>
   }
+}
+
+/**
+ * LUM-1286: the "possible duplicate" block under the fields — each likely
+ * original with the two commands that rule on it, ready to copy.
+ */
+function possibleDuplicateLines(task: ShowResponse['task']): string[] {
+  const dups = task.possibleDuplicates ?? []
+  if (dups.length === 0) return []
+  const lines = [
+    '',
+    '⚠ Possible duplicate — the duplicate check thinks this task repeats:',
+  ]
+  for (const d of dups) {
+    const match =
+      d.score === null ? '' : ` · ${Math.round(d.score * 100)}% match`
+    lines.push(
+      `  ${sanitizeField(d.identifier)}  "${sanitizeField(d.title)}"  ${sanitizeField(d.status)}${match}`,
+      `    Confirm duplicate:  lumo task dep confirm ${task.identifier} ${sanitizeField(d.identifier)}`,
+      `    Not a duplicate:    lumo task dep dismiss ${task.identifier} ${sanitizeField(d.identifier)}`
+    )
+  }
+  return lines
 }
 
 /**
@@ -115,6 +146,7 @@ export function formatTaskShow(
   if (task.dueDate) fields.push({ label: 'Due', value: fmtDay(task.dueDate) })
   fields.push({ label: 'URL', value: task.url, whole: true })
   lines.push(...fieldLines(fields, 0, opts))
+  lines.push(...possibleDuplicateLines(task))
   // `--full` prints the description once, inside the context body.
   const description =
     opts.description === false

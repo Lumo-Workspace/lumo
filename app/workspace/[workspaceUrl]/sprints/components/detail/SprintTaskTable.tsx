@@ -1,5 +1,6 @@
 'use client'
 
+import { Fragment } from 'react'
 import { useIntl, type IntlShape } from 'react-intl'
 import { CheckSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { Item, ItemGroup, ItemSeparator } from '@/components/ui/item'
 import {
   Table,
   TableBody,
@@ -157,40 +159,45 @@ export function SprintTaskTable({ rows, onOpenTask }: SprintTaskTableProps) {
               </TableBody>
             </Table>
           </div>
-          <ul className='overflow-hidden rounded-lg border border-border md:hidden'>
-            {rows.map(row => {
+          <ItemGroup className='overflow-hidden rounded-lg border border-border md:hidden'>
+            {rows.map((row, i) => {
               const status = statusOf(intl, row)
               const waiting = waitingText(intl, row)
               return (
-                <li
-                  key={row.taskId}
-                  className='border-b border-border last:border-b-0'
-                >
-                  <button
-                    type='button'
-                    onClick={() => onOpenTask(row.taskId)}
-                    className='flex w-full flex-col gap-1.5 px-4 py-3 text-left'
-                  >
-                    <span className='flex items-center justify-between gap-2'>
-                      <code className='text-caption text-muted-foreground'>
-                        {row.identifier}
-                      </code>
-                      <StatusChip {...status} />
-                    </span>
-                    <span className='text-body-strong'>{row.title}</span>
-                    <span className='flex flex-wrap items-center gap-1.5'>
-                      <TrustBadges {...row} />
-                      {waiting !== '—' && (
-                        <span className='text-caption text-muted-foreground'>
-                          {waiting}
+                <Fragment key={row.taskId}>
+                  {i > 0 && <ItemSeparator />}
+                  <div role='listitem'>
+                    <Item
+                      asChild
+                      size='sm'
+                      className='w-full flex-col items-stretch gap-1.5 rounded-none text-left hover:bg-accent/50'
+                    >
+                      <button
+                        type='button'
+                        onClick={() => onOpenTask(row.taskId)}
+                      >
+                        <span className='flex items-center justify-between gap-2'>
+                          <code className='text-caption text-muted-foreground'>
+                            {row.identifier}
+                          </code>
+                          <StatusChip {...status} />
                         </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
+                        <span className='text-body-strong'>{row.title}</span>
+                        <span className='flex flex-wrap items-center gap-1.5'>
+                          <TrustBadges {...row} />
+                          {waiting !== '—' && (
+                            <span className='text-caption text-muted-foreground'>
+                              {waiting}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </Item>
+                  </div>
+                </Fragment>
               )
             })}
-          </ul>
+          </ItemGroup>
         </>
       )}
     </section>

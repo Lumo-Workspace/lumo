@@ -56,9 +56,7 @@ describe('extractLumoSegments', () => {
     ).toEqual([])
     expect(extractLumoSegments('lumo task list \\')).toEqual([])
     expect(
-      extractLumoSegments(
-        `sed -n '/lumo milestone show/' .claude/skills/lumo/SKILL.md`
-      )
+      extractLumoSegments(`sed -n '/lumo milestone show/' cli/skill/SKILL.md`)
     ).toEqual([])
   })
 

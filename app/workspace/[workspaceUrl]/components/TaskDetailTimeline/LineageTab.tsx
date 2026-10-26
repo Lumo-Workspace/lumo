@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -13,12 +12,10 @@ import {
 } from '@/components/ui/collapsible'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
-import type {
-  LineageDisclosure,
-  LineageFragment,
-  LineageOutcome,
-} from '../../types'
+import { LineageSkeleton } from './RecordSkeletons'
+import type { LineageDisclosure, LineageFragment } from '../../types'
 import { DisclosureFunnel } from './DisclosureFunnel'
+import { LineageHeader } from './LineageHeader'
 import { TopOperations } from './TopOperations'
 
 interface LineageTabProps {
@@ -33,26 +30,6 @@ interface LineageTabProps {
   showCost?: boolean
 }
 
-// Fixed display order for outcome rollups, mirroring the CLI's OUTCOME_ORDER
-// (cli/src/commands/task-lineage.ts) so the web + terminal audit views agree.
-const OUTCOME_ORDER: LineageOutcome[] = [
-  'MERGED',
-  'REWORKED',
-  'REJECTED',
-  'UNKNOWN',
-]
-
-// Outcome badge styling via the semantic feedback tokens (LUM-258/290):
-// -subtle tint + -border + accent dot, with the LABEL kept neutral
-// (text-foreground/-muted) because the bright accents fail AA as text on their
-// own subtle tint. UNKNOWN carries no color — typography only.
-const OUTCOME_BADGE: Record<LineageOutcome, BadgeProps['variant']> = {
-  MERGED: 'success',
-  REWORKED: 'warning',
-  REJECTED: 'danger',
-  UNKNOWN: 'outline-muted',
-}
-
 function disclosureLabel(
   intl: ReturnType<typeof useIntl>,
   disclosure: LineageDisclosure,
@@ -61,16 +38,16 @@ function disclosureLabel(
   if (disclosure === 'FULL')
     return intl.formatMessage({
       id: 'lineage.fragment.disclosure.full',
-      defaultMessage: '全文',
+      defaultMessage: 'Full text',
     })
   return pulled
     ? intl.formatMessage({
         id: 'lineage.fragment.disclosure.indexPulled',
-        defaultMessage: '仅索引·已展开',
+        defaultMessage: 'Index · expanded',
       })
     : intl.formatMessage({
         id: 'lineage.fragment.disclosure.indexNotPulled',
-        defaultMessage: '仅索引·未展开',
+        defaultMessage: 'Index only',
       })
 }
 
@@ -90,7 +67,7 @@ function usedLabel(
     })
   return intl.formatMessage({
     id: 'lineage.fragment.used.abstained',
-    defaultMessage: '· 未表态',
+    defaultMessage: '· not reported',
   })
 }
 
@@ -113,12 +90,12 @@ export function LineageTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-caption text-muted-foreground'>
-        {intl.formatMessage({
+      <LineageSkeleton
+        label={intl.formatMessage({
           id: 'lineage.loading',
           defaultMessage: '加载中…',
         })}
-      </div>
+      />
     )
   }
 
@@ -154,33 +131,21 @@ export function LineageTab({
   const { totals } = data
   const { tokens } = totals
 
-  // "107 MERGED · 2 REWORKED" — fixed order, zeros omitted. Outcome enum values
-  // are raw data (like fragmentType), mirrored from the API/CLI verbatim.
-  const outcomeSummary = OUTCOME_ORDER.filter(o => totals.outcomes[o] > 0)
-    .map(o => `${totals.outcomes[o]} ${o}`)
-    .join(' · ')
-
   return (
     <Card className='text-caption'>
-      {/* Summary row */}
-      <div className='px-3 py-2 border-b border-border text-muted-foreground'>
-        {intl.formatMessage(
-          {
-            id: 'lineage.summary',
-            defaultMessage:
-              '{fragments, plural, one {# fragment} other {# fragments}} · {outcomes} · {sessions, plural, one {# session} other {# sessions}}',
-          },
-          {
-            fragments: totals.fragmentCount,
-            outcomes: outcomeSummary,
-            sessions: totals.runCount,
-          }
-        )}
-      </div>
+      <LineageHeader
+        impressions={totals.funnel.impressions}
+        index={totals.funnel.index}
+        used={totals.funnel.used}
+        voted={totals.funnel.voted}
+        sessions={totals.runCount}
+        outcomes={totals.outcomes}
+      />
 
       <DisclosureFunnel funnel={totals.funnel} />
       <TopOperations
         operations={totals.topOperations}
+        precision={totals.operationsPrecision}
         taskIdentifier={taskIdentifier}
       />
 
@@ -242,18 +207,6 @@ export function LineageTab({
               key={`${f.fragmentType}-${f.fragmentId}-${i}`}
               className='flex items-center gap-2 px-3 py-1.5 border-t border-border/60 first:border-t-0 text-muted-foreground'
             >
-              <Badge
-                variant={OUTCOME_BADGE[f.outcome]}
-                size='xs'
-                shape='square'
-                className={
-                  f.outcome === 'UNKNOWN'
-                    ? 'font-semibold'
-                    : 'font-semibold text-foreground'
-                }
-              >
-                {f.outcome}
-              </Badge>
               <span className='truncate'>
                 {f.fragmentType} — {f.sourceLabel}
               </span>

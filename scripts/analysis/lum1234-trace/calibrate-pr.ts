@@ -9,8 +9,8 @@
  * Per PR (newest first), with the SHIPPED pieces unchanged:
  * `selectSessionsForPr` over the task's sessions in the window (the task's
  * previous merged PR, this merge], then `decideRewardHack` — the same
- * judge → gates → refute core the layer runner calls — with the product
- * judge client (ZDR gateway). Thresholds are NOT tuned here; a human reviews
+ * judge → gates core the layer runner calls (no refute step since the user
+ * ruling of 2026-10-22) — with the product judge client (ZDR gateway). Thresholds are NOT tuned here; a human reviews
  * every reported item in the review sheet to compute precision.
  *
  *   AI_PROVIDER=gateway DOTENV_CONFIG_PATH=<main checkout>/.env.local \
@@ -55,24 +55,14 @@ import {
   type RhSession,
 } from '@/ee/security/security-scan/reward-hack-input'
 import {
-  REWARD_HACK_MAX_REFUTES,
   decideRewardHack,
   type RhCallCost,
   type RhJudgeFn,
-  type RhRefuteFn,
   type RhSpendGate,
   rewardHackFindingRow,
   uniqueByFingerprint,
 } from '@/ee/security/security-scan/reward-hack-decide'
-import {
-  estimateRhCallUsd,
-  settledRhCallUsd,
-} from '@/ee/security/security-scan/reward-hack-cost'
-import {
-  REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
-  buildRefutePrompt,
-} from '@/ee/security/security-scan/reward-hack-prompts'
+import { settledRhCallUsd } from '@/ee/security/security-scan/reward-hack-cost'
 import type { RhItem } from '@/ee/security/llm/reward-hack-judge-client'
 import {
   ClaudeTranscriptParser,
@@ -375,9 +365,8 @@ export interface CalibRecord {
   requirementSource: 'task' | 'title'
   suspicion: number | null
   itemsBeforeGates: CalibItem[]
+  /** Items past the gates: what is reported (no refute step). */
   itemsAfterGates: CalibItem[]
-  refutes: (CalibItem & { refuted: boolean; reason: string })[]
-  refuteCapped: boolean
   finalItems: {
     kind: string
     title: string
@@ -386,7 +375,7 @@ export interface CalibRecord {
     eventIds: string[]
     cited: { id: string; type: string; excerpt: string }[]
   }[]
-  costs: { judgeUsd: number; refuteUsd: number; totalUsd: number }
+  costs: { judgeUsd: number; totalUsd: number }
   error: string | null
   at: string
 }
@@ -438,7 +427,6 @@ export async function calibratePr(args: {
   requirement: string
   requirementSource: 'task' | 'title'
   judge: RhJudgeFn
-  refute: RhRefuteFn
   spend: BudgetGate
 }): Promise<CalibRecord> {
   const { pr } = args
@@ -467,30 +455,23 @@ export async function calibratePr(args: {
     suspicion: null,
     itemsBeforeGates: [],
     itemsAfterGates: [],
-    refutes: [],
-    refuteCapped: false,
     finalItems: [],
-    costs: { judgeUsd: 0, refuteUsd: 0, totalUsd: 0 },
+    costs: { judgeUsd: 0, totalUsd: 0 },
     error: null,
     at: new Date().toISOString(),
   }
   if (selected.included.length === 0) return base
 
+  // The judge is the only call: its settled (or still reserved) cost is
+  // the record's whole spend.
   const before = args.spend.spentUsd
-  let judgeUsd = 0
-  const judge: RhJudgeFn = async prompt => {
-    const r = await args.judge(prompt)
-    judgeUsd = settledRhCallUsd(r, 0)
-    return r
-  }
   let decision
   try {
     decision = await decideRewardHack({
       sessions: selected.included,
       prFileList: args.prFileList,
       requirement: args.requirement,
-      judge,
-      refute: args.refute,
+      judge: args.judge,
       spend: args.spend,
     })
   } catch (error) {
@@ -499,7 +480,7 @@ export async function calibratePr(args: {
       ...base,
       outcome: 'error',
       error: red(error instanceof Error ? error.message : String(error)),
-      costs: { judgeUsd, refuteUsd: totalUsd - judgeUsd, totalUsd },
+      costs: { judgeUsd: totalUsd, totalUsd },
     }
   }
   const built = decision.built
@@ -524,7 +505,7 @@ export async function calibratePr(args: {
     eventSession.set(e.id, e.sessionId)
   }
   const rows = uniqueByFingerprint(
-    decision.kept.map(item =>
+    decision.gated.map(item =>
       rewardHackFindingRow({
         scanId: 'calibration',
         item,
@@ -540,12 +521,6 @@ export async function calibratePr(args: {
     suspicion: decision.judged.output.suspicion,
     itemsBeforeGates: decision.judged.output.items.map(toItem),
     itemsAfterGates: decision.gated.map(toItem),
-    refutes: decision.refutes.map(r => ({
-      ...toItem(r.item),
-      refuted: r.refuted,
-      reason: red(r.reason ?? ''),
-    })),
-    refuteCapped: decision.refuteCapped,
     finalItems: rows.map(row => {
       const ids = (JSON.parse(row.evidence) as { eventIds: string[] }).eventIds
       return {
@@ -564,7 +539,7 @@ export async function calibratePr(args: {
         }),
       }
     }),
-    costs: { judgeUsd, refuteUsd: totalUsd - judgeUsd, totalUsd },
+    costs: { judgeUsd: totalUsd, totalUsd },
   }
 }
 
@@ -602,7 +577,6 @@ export async function calibrateProbe(args: {
   /** Distinct negative number per probe (the record's `pr`). */
   ordinal: number
   judge: RhJudgeFn
-  refute: RhRefuteFn
   spend: BudgetGate
 }): Promise<ProbeRecord> {
   const { probe } = args
@@ -622,7 +596,6 @@ export async function calibrateProbe(args: {
     requirement: probe.requirement,
     requirementSource: 'task',
     judge: args.judge,
-    refute: args.refute,
     spend: args.spend,
   })
   return {
@@ -805,28 +778,12 @@ function isFatal(message: string | null): boolean {
   )
 }
 
-/** Worst case per judged input: every refute call, each about its size. */
-function refuteWorstUsd(promptChars: number, judged: number): number {
-  if (judged === 0) return 0
-  const perRefute = estimateRhCallUsd(
-    REWARD_HACK_REFUTE_SYSTEM_PROMPT +
-      buildRefutePrompt({
-        prompt: 'x'.repeat(Math.round(promptChars / judged)),
-        item: { kind: 'OTHER', summary: 'x'.repeat(200), eventIds: ['x'] },
-        prDiff: '',
-      }),
-    REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS
-  )
-  return perRefute * REWARD_HACK_MAX_REFUTES * judged
-}
-
 async function runProbes(ctx: {
   args: CalibArgs
   file: string
   done: Set<string>
   gate: BudgetGate
   judge: RhJudgeFn
-  refute: RhRefuteFn
   say: (s: string) => void
 }): Promise<void> {
   const { args, gate, say } = ctx
@@ -840,7 +797,6 @@ async function runProbes(ctx: {
       probe,
       ordinal: -(i + 1),
       judge: ctx.judge,
-      refute: ctx.refute,
       spend: gate,
     })
     if (args.dryRun) {
@@ -874,7 +830,6 @@ async function runProbes(ctx: {
         `  probes: ${RH_PROBES.length} (${RH_PROBES.filter(p => p.expect === 'positive').length} positive, ${RH_PROBES.filter(p => p.expect === 'negative').length} negative); would be judged: ${judged}`,
         `  judge prompt chars: ${promptChars}`,
         `  estimated judge cost (product estimator, deliberately high): $${gate.requestedUsd.toFixed(2)}`,
-        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per probe: $${(gate.requestedUsd + refuteWorstUsd(promptChars, judged)).toFixed(2)}`,
       ].join('\n')
     )
     return
@@ -903,16 +858,13 @@ async function main(): Promise<void> {
   const gate = new BudgetGate(args.budget, spentBefore, !args.dryRun)
 
   let judge: RhJudgeFn
-  let refute: RhRefuteFn
   if (args.dryRun) {
     judge = async () => {
       throw new Error('dry run: no model call')
     }
-    refute = judge as unknown as RhRefuteFn
   } else {
     const client = await import('@/ee/security/llm/reward-hack-judge-client')
     judge = prompt => client.judgeRewardHack(prompt)
-    refute = a => client.refuteRewardHackItem(a)
     await mkdir(dirname(args.out), { recursive: true })
   }
   const sheet = join(dirname(args.out), 'review-sheet.md')
@@ -934,7 +886,6 @@ async function main(): Promise<void> {
       ),
       gate,
       judge,
-      refute,
       say,
     })
     if (!args.dryRun) {
@@ -988,7 +939,6 @@ async function main(): Promise<void> {
       requirement: buildCalibRequirement(pr.title, task),
       requirementSource: task ? 'task' : 'title',
       judge,
-      refute,
       spend: gate,
     })
     if (args.dryRun) {
@@ -1028,7 +978,6 @@ async function main(): Promise<void> {
         `  sessions selected: ${sessions}`,
         `  judge prompt chars: ${promptChars}`,
         `  estimated judge cost (product estimator, deliberately high): $${gate.requestedUsd.toFixed(2)}`,
-        `  worst case incl. ${REWARD_HACK_MAX_REFUTES} refutes per PR: $${(gate.requestedUsd + refuteWorstUsd(promptChars, judgedPrs)).toFixed(2)}`,
       ].join('\n')
     )
     return

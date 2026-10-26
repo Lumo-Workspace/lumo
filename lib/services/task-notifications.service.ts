@@ -20,6 +20,27 @@ import type {
   TaskDetailForUpdate,
 } from '@/lib/services/task.service'
 
+// ── Title embedding (LUM-1286) ──────────────────────────────────────────────
+
+/** Stamp the title embedding after the response. The dynamic import keeps the
+ *  embedding/gateway chain out of every module that imports this file. */
+function scheduleTitleEmbedding(taskId: string, title: string) {
+  waitUntil(
+    import('@/lib/services/task-embedding.service').then(m =>
+      m.stampTaskTitleEmbedding(taskId, title)
+    )
+  )
+}
+
+/** Re-stamp a task's title embedding when an update changed its title. */
+export function scheduleTitleEmbeddingOnUpdate(
+  taskId: string,
+  changedFields: readonly string[],
+  title: string
+) {
+  if (changedFields.includes('title')) scheduleTitleEmbedding(taskId, title)
+}
+
 // ── Create-task side-effects ────────────────────────────────────────────────
 
 /**
@@ -51,6 +72,8 @@ export function dispatchCreateTaskSideEffects(opts: {
     actorClerkId,
     assigneeActorId,
   } = opts
+
+  scheduleTitleEmbedding(task.id, task.title)
 
   // ── Fire-and-forget: task created activity event ────────────────────────
   waitUntil(
@@ -249,6 +272,12 @@ export function dispatchUpdateTaskSideEffects(opts: {
   const { taskId, input, result, taskCheck, actorId, actorClerkId } = opts
   const triggerActorId = actorId
   const projectId = result.task.projectId as string
+
+  scheduleTitleEmbeddingOnUpdate(
+    taskId,
+    result.changedFields,
+    result.task.title as string
+  )
 
   // Build and dispatch activity events
   const activityEvents = buildActivityEvents(

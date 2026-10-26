@@ -1,5 +1,6 @@
 import {
   attributeOperationCost,
+  summarizeOperationPrecision,
   THINKING_BUCKET,
   type OperationCostEvent,
 } from '@/lib/agent-run/operation-cost'
@@ -306,5 +307,81 @@ describe('attributeOperationCost — SUBAGENT_STOP (LUM-932)', () => {
     expect(totalOf(rows)).toBeCloseTo(8)
     expect(rows.every(r => r.sessionId === child)).toBe(true)
     expect(coverage.toolTurns).toBe(1)
+  })
+
+  it('keeps tools across usage-less batches so a child turn is not billed to thinking (LUM-1294)', () => {
+    // Child events never carry usage: each step's POST_TOOL_BATCH arrives
+    // empty and the whole delta is settled onto SUBAGENT_STOP later.
+    const child = 'sess-parent:agent1'
+    const events: OperationCostEvent[] = [
+      ev({
+        sessionId: child,
+        type: 'POST_TOOL_USE',
+        toolName: 'Grep',
+        createdAt: at(1),
+      }),
+      ev({ sessionId: child, type: 'POST_TOOL_BATCH', createdAt: at(2) }),
+      ev({
+        sessionId: child,
+        type: 'POST_TOOL_USE',
+        toolName: 'Read',
+        createdAt: at(3),
+      }),
+      ev({ sessionId: child, type: 'POST_TOOL_BATCH', createdAt: at(4) }),
+      ev({
+        sessionId: child,
+        type: 'SUBAGENT_STOP',
+        usageByModel: u(0, 8, 0),
+        createdAt: at(5),
+      }),
+    ]
+    const { rows, coverage } = attributeOperationCost(events)
+    expect(out(rows, THINKING_BUCKET)).toBe(0)
+    expect(out(rows, 'Grep')).toBeCloseTo(4)
+    expect(out(rows, 'Read')).toBeCloseTo(4)
+    expect(totalOf(rows)).toBeCloseTo(8)
+    expect(coverage).toEqual({ toolTurns: 1, perStepTurns: 0 })
+  })
+
+  it('a usage-less batch still lets the next measured batch bill only its own step', () => {
+    const events: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Grep', createdAt: at(1) }),
+      ev({ type: 'POST_TOOL_BATCH', createdAt: at(2) }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Read', createdAt: at(3) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 6, 0),
+        createdAt: at(4),
+      }),
+      ev({ type: 'STOP', usageByModel: u(0, 10, 0), createdAt: at(5) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    // The measured batch covers both pending steps (Grep's own was unmeasured).
+    expect(out(rows, 'Grep')).toBeCloseTo(3)
+    expect(out(rows, 'Read')).toBeCloseTo(3)
+    expect(out(rows, THINKING_BUCKET)).toBeCloseTo(4)
+    expect(totalOf(rows)).toBeCloseTo(10)
+  })
+})
+
+describe('summarizeOperationPrecision (LUM-1294)', () => {
+  it('flags a thinking-only read-out and computes the cache-read share', () => {
+    expect(
+      summarizeOperationPrecision({
+        grandTotal: { cacheRead: 96, total: 100 },
+        perStepPct: 0,
+        toolLabels: [THINKING_BUCKET],
+      })
+    ).toEqual({ perStepPct: 0, cacheReadPct: 0.96, hasToolRows: false })
+  })
+
+  it('reports tool rows and guards a zero total', () => {
+    expect(
+      summarizeOperationPrecision({
+        grandTotal: { cacheRead: 0, total: 0 },
+        perStepPct: null,
+        toolLabels: [THINKING_BUCKET, 'Read'],
+      })
+    ).toEqual({ perStepPct: null, cacheReadPct: 0, hasToolRows: true })
   })
 })

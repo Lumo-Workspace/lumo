@@ -18,8 +18,19 @@ interface DependencyRowProps {
 }
 
 /** Human-readable evidence line for a detected edge (reason + detail are untrusted; React escapes them). */
-function evidenceText(edge: DependencyEdge): string | null {
+function evidenceText(
+  edge: DependencyEdge,
+  intl: ReturnType<typeof useIntl>
+): string | null {
   if (edge.source !== 'DETECTED' || !edge.reason) return null
+  if (edge.reason === 'possible_duplicate') {
+    // LUM-1286: suggested by the background check after `lumo task create`.
+    const detail = edge.detail as { score?: number } | null
+    return intl.formatMessage(
+      { id: 'task.dependencies.evidence.possibleDuplicate' },
+      { score: Math.round((detail?.score ?? 0) * 100) }
+    )
+  }
   if (edge.reason === 'shared_files') {
     const detail = edge.detail as { count?: number } | null
     return detail?.count ? `shares ${detail.count} files` : 'shares files'
@@ -37,7 +48,7 @@ export function DependencyRow({
   busy,
 }: DependencyRowProps) {
   const intl = useIntl()
-  const evidence = evidenceText(edge)
+  const evidence = evidenceText(edge, intl)
   const [confirming, setConfirming] = useState(false)
   return (
     <div className='group flex min-w-0 items-center gap-2 py-1.5 text-body border-b border-border/50 last:border-b-0'>

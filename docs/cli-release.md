@@ -1,6 +1,6 @@
 # Releasing `@lumoai/cli`
 
-The CLI, the bundled `lumo` skill (`.claude/skills/lumo` → `cli/skills/lumo`) and the hook commands all ship in the one npm package, so one release carries all three. There is no CI publish: a maintainer runs the release locally and types the npm OTP.
+The CLI, the bundled `lumo` skill (`cli/skill/`, served by `lumo skill read`) and the hook commands all ship in the one npm package, so one release carries all three. There is no CI publish: a maintainer runs the release locally and types the npm OTP.
 
 The version is bumped **once per release**, not per PR (LUM-1119): ordinary PRs that change the CLI leave `cli/package.json` alone. The release script makes the bump in its own release PR, so parallel CLI PRs no longer collide on version numbers.
 
@@ -62,7 +62,7 @@ The changelog covers changes since the last release. That is the newest `cli-v*`
 | -------- | ------------------------------------------------------------------------------------------------------------------- |
 | Commands | `scripts/cli-grammar/grammar.json` diff: added/removed commands and flags, changed flag values                      |
 | Hooks    | `lumo hook …` commands from the same diff, the event lists in `cli/src/lib/hooks-template.ts`, changed hook sources |
-| Skill    | files changed under `.claude/skills/lumo/`                                                                          |
-| Commits  | `git log` of `cli/`, `.claude/skills/lumo/` and `grammar.json`                                                      |
+| Skill    | files changed under `cli/skill/`                                                                                    |
+| Commits  | `git log` of `cli/` (which includes `cli/skill/`) and `grammar.json`                                                |
 
 Add `--changelog-out <file>` to also write it to a file. `--no-fetch` skips `git fetch`.

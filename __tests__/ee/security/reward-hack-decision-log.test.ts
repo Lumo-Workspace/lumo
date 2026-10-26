@@ -59,10 +59,9 @@ describe('rhDecisionLogLine', () => {
       suspicion: 72,
       items: 2,
       gated: 1,
-      kept: 0,
     })
     expect(line).toContain(
-      'truncated=false requirementTruncated=true outcome=judged suspicion=72 items=2 gated=1 kept=0'
+      'truncated=false requirementTruncated=true outcome=judged suspicion=72 items=2 gated=1'
     )
   })
 })

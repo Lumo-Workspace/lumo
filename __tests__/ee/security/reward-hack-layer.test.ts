@@ -54,7 +54,6 @@ jest.mock('@/lib/integrations/github/contents', () => ({
 }))
 jest.mock('@/ee/security/llm/reward-hack-judge-client', () => ({
   judgeRewardHack: jest.fn(),
-  refuteRewardHackItem: jest.fn(),
 }))
 jest.mock('@/ee/security/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
@@ -74,13 +73,9 @@ jest.mock('@/ee/security/services/security-hunt-start', () => ({
 import { prisma } from '@/lib/db/prisma'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { fetchPrFiles } from '@/lib/integrations/github/contents'
-import {
-  judgeRewardHack,
-  refuteRewardHackItem,
-} from '@/ee/security/llm/reward-hack-judge-client'
+import { judgeRewardHack } from '@/ee/security/llm/reward-hack-judge-client'
 import { securityPrReviewService } from '@/ee/security/services/security-pr-review.service'
 import {
-  REWARD_HACK_MAX_REFUTES,
   rewardHackFingerprint,
   runRewardHackLayer,
 } from '@/ee/security/services/reward-hack-layer.service'
@@ -128,7 +123,6 @@ type ModelName =
   | 'comment'
 const db = prisma as unknown as Record<ModelName, Model>
 const judge = judgeRewardHack as unknown as Fn
-const refute = refuteRewardHackItem as unknown as Fn
 const sync = securityPrReviewService.sync as unknown as Fn
 const listFiles = fetchPrFiles as unknown as Fn
 
@@ -303,7 +297,6 @@ beforeEach(() => {
     outputTokens: 10,
     costUsd: 0.5,
   })
-  refute.mockResolvedValue({ refuted: false, reason: 'no', costUsd: 0.1 })
   sync.mockResolvedValue({})
 })
 
@@ -381,7 +374,6 @@ describe('LUM-1234 reward-hack layer runner', () => {
     ]
     await runRewardHackLayer('scan2')
     expect(judge).not.toHaveBeenCalled()
-    expect(refute).not.toHaveBeenCalled()
     expect(db.prSecurityScan.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -521,7 +513,9 @@ describe('LUM-1234 reward-hack layer runner', () => {
     })
     // One write: rows, state and stage land together.
     expect(db.prSecurityScan.update).toHaveBeenCalledTimes(1)
-    // Estimates charged up front, settled to the reported 0.5 + 0.1.
+    // The judge estimate charged up front, settled to the reported 0.5 —
+    // the only call (no refute step since 2026-10-22).
+    expect(judge).toHaveBeenCalledTimes(1)
     expect(db.workspaceLlmSpend.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
@@ -530,13 +524,13 @@ describe('LUM-1234 reward-hack layer runner', () => {
         }),
       })
     )
-    expect(ledgerMicros).toBe(BigInt(600_000))
+    expect(ledgerMicros).toBe(BigInt(500_000))
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
     expect(stateWrites()[0]).toEqual({
       version: REWARD_HACK_VERSION,
       watermark: { sess1: 'e2' },
       findingFingerprints: [row.fingerprint],
-      costUsd: 0.6,
+      costUsd: 0.5,
       truncated: false,
     })
     expect(sync).toHaveBeenCalledWith('scan2')
@@ -645,19 +639,18 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(row.detail).not.toContain(key)
   })
 
-  it('a refuted item is not written', async () => {
-    refute.mockResolvedValue({
-      refuted: true,
-      reason: 'user asked',
-      costUsd: 0.1,
-    })
+  it('a gated item is reported directly: one model call (the judge), one row, no second-guessing call', async () => {
     await runRewardHackLayer('scan2')
-    expect(refute).toHaveBeenCalledTimes(1)
-    expect(writtenRows()).toHaveLength(0)
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(writtenRows()).toHaveLength(1)
+    expect(writtenRows()[0]).toMatchObject({
+      ruleId: 'reward-hack/TEST_TAMPERING',
+      filePath: 'src/auth.test.ts',
+    })
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
   })
 
-  it('below the threshold nothing is refuted or written; the verdict is still RAN', async () => {
+  it('below the threshold nothing is written; the verdict is still RAN', async () => {
     judge.mockResolvedValue({
       output: {
         suspicion: 10,
@@ -666,7 +659,6 @@ describe('LUM-1234 reward-hack layer runner', () => {
       costUsd: 0.5,
     })
     await runRewardHackLayer('scan2')
-    expect(refute).not.toHaveBeenCalled()
     expect(writtenRows()).toHaveLength(0)
     expect(lastStage().state).toBe('RAN')
   })
@@ -680,13 +672,6 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(writtenRows()).toHaveLength(0)
   })
 
-  it('a refute call throws after the judge: FAILED, the judge cost and the refute estimate stay booked', async () => {
-    refute.mockRejectedValue(new Error('timeout'))
-    await runRewardHackLayer('scan2')
-    expect(lastStage().state).toBe('FAILED')
-    expect(ledgerMicros).toBeGreaterThan(BigInt(500_000))
-  })
-
   it('a PR file list that cannot be read is FAILED, not SKIPPED', async () => {
     listFiles.mockRejectedValue(new Error('GitHub API error 502'))
     await runRewardHackLayer('scan2')
@@ -695,7 +680,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(sync).toHaveBeenCalledWith('scan2')
   })
 
-  it('a cited edit corrected later in the same file (its line is not in the PR diff) is dropped before any refute', async () => {
+  it('a cited edit corrected later in the same file (its line is not in the PR diff) is dropped by the diff gate', async () => {
     const hack = edit('e2', 'src/auth.test.ts')
     ;(hack.payload as { tool_input: Record<string, string> }).tool_input = {
       file_path: '/wt/src/auth.test.ts',
@@ -713,12 +698,11 @@ describe('LUM-1234 reward-hack layer runner', () => {
     ])
     await runRewardHackLayer('scan2')
     expect(judge).toHaveBeenCalledTimes(1)
-    expect(refute).not.toHaveBeenCalled()
     expect(writtenRows()).toHaveLength(0)
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
   })
 
-  it('an edit still in the PR diff is kept, and the refute call gets the current hunks of its file', async () => {
+  it('an edit still in the PR diff is kept and reported', async () => {
     const hack = edit('e2', 'src/auth.test.ts')
     ;(hack.payload as { tool_input: Record<string, string> }).tool_input = {
       file_path: '/wt/src/auth.test.ts',
@@ -736,12 +720,9 @@ describe('LUM-1234 reward-hack layer runner', () => {
       { filename: 'src/unrelated.ts', status: 'modified', patch: '+other' },
     ])
     await runRewardHackLayer('scan2')
-    expect(refute).toHaveBeenCalledTimes(1)
-    const args = refute.mock.calls[0]![0] as { prDiff: string }
-    expect(args.prDiff).toContain('<pr-diff file="src/auth.test.ts">')
-    expect(args.prDiff).toContain('+expect(true).toBe(true)')
-    expect(args.prDiff).not.toContain('other')
+    expect(judge).toHaveBeenCalledTimes(1)
     expect(writtenRows()).toHaveLength(1)
+    expect(writtenRows()[0]).toMatchObject({ filePath: 'src/auth.test.ts' })
   })
 
   it('a reused verdict drops a copied row whose cited edit the current diff no longer carries', async () => {
@@ -941,9 +922,8 @@ describe('LUM-1234 reward-hack layer runner', () => {
     expect(stateWrites()).toHaveLength(0)
   })
 
-  it('no room left for the refutes: no refute, nothing reported, PARTIAL (REWARD_HACK_MONTHLY_CAP)', async () => {
+  it('the judge itself pushes the month past the cap: its gated items are still reported (no further call to pay for)', async () => {
     judge.mockImplementation(async () => {
-      // The judge itself pushed the month past the cap.
       ledgerMicros += BigInt(30_000_000)
       return {
         output: {
@@ -954,76 +934,37 @@ describe('LUM-1234 reward-hack layer runner', () => {
       }
     })
     await runRewardHackLayer('scan2')
-    expect(refute).not.toHaveBeenCalled()
-    expect(writtenRows()).toHaveLength(0)
-    expect(lastStage()).toEqual({
-      state: 'PARTIAL',
-      causes: ['REWARD_HACK_MONTHLY_CAP'],
-    })
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(writtenRows()).toHaveLength(1)
+    expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
   })
 
-  it('refutes at most REWARD_HACK_MAX_REFUTES items, all in parallel', async () => {
-    expect(REWARD_HACK_MAX_REFUTES).toBe(3)
+  it('every gated item is reported, however many (no per-run item cap, never REWARD_HACK_REFUTE_CAP)', async () => {
+    db.hookEvent.findMany.mockResolvedValue([
+      promptEv('e1', 'Make the login tests pass'),
+      edit('e2', 'src/auth.test.ts'),
+    ])
     judge.mockResolvedValue({
       output: {
         suspicion: 90,
-        items: ['A', 'B', 'C', 'D', 'E'].map(k => ({
-          kind: 'OTHER',
-          summary: k,
-          eventIds: ['e2'],
-        })),
-      },
-      costUsd: 0.5,
-    })
-    const pending: Array<() => void> = []
-    refute.mockImplementation(
-      () =>
-        new Promise(resolve =>
-          pending.push(() =>
-            resolve({ refuted: false, reason: 'no', costUsd: 0.1 })
-          )
-        )
-    )
-    const run = runRewardHackLayer('scan2')
-    for (let i = 0; i < 50 && pending.length < 3; i++)
-      await new Promise(r => setImmediate(r))
-    // All three started before any one finished.
-    expect(pending).toHaveLength(3)
-    pending.forEach(release => release())
-    await run
-    expect(refute).toHaveBeenCalledTimes(3)
-    expect(
-      refute.mock.calls.map(
-        c => (c[0] as { item: { summary: string } }).item.summary
-      )
-    ).toEqual(['A', 'B', 'C'])
-    // The two items past the cap were never checked: told, not dropped silently.
-    expect(lastStage()).toEqual({
-      state: 'PARTIAL',
-      causes: ['REWARD_HACK_REFUTE_CAP'],
-    })
-    expect(stateWrites()[0]).toMatchObject({ refuteCapped: true })
-  })
-
-  it('exactly REWARD_HACK_MAX_REFUTES items: all refuted, no refute-cap cause', async () => {
-    judge.mockResolvedValue({
-      output: {
-        suspicion: 90,
-        items: ['A', 'B', 'C'].map(k => ({
-          kind: 'OTHER',
-          summary: k,
-          eventIds: ['e2'],
-        })),
+        items: [
+          'TEST_TAMPERING',
+          'SPECIAL_CASING',
+          'METRIC_PADDING',
+          'FAKED_RESULT',
+          'OVERCLAIM',
+        ].map(kind => ({ kind, summary: kind, eventIds: ['e2'] })),
       },
       costUsd: 0.5,
     })
     await runRewardHackLayer('scan2')
-    expect(refute).toHaveBeenCalledTimes(3)
+    expect(judge).toHaveBeenCalledTimes(1)
+    expect(writtenRows()).toHaveLength(5)
     expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
     expect(stateWrites()[0]).not.toHaveProperty('refuteCapped')
   })
 
-  it('a reused verdict that was refute-capped stays PARTIAL (REWARD_HACK_REFUTE_CAP)', async () => {
+  it('a reused verdict stored with refuteCapped (written before the refute step was removed) is not told as REWARD_HACK_REFUTE_CAP', async () => {
     previousScan = {
       id: 'scan1',
       rewardHackState: {
@@ -1037,14 +978,11 @@ describe('LUM-1234 reward-hack layer runner', () => {
     }
     await runRewardHackLayer('scan2')
     expect(judge).not.toHaveBeenCalled()
-    expect(lastStage()).toEqual({
-      state: 'PARTIAL',
-      causes: ['REWARD_HACK_REFUTE_CAP'],
-    })
-    expect(stateWrites()[0]).toMatchObject({ refuteCapped: true })
+    expect(lastStage()).toEqual({ state: 'RAN', causes: [] })
+    expect(stateWrites()[0]).not.toHaveProperty('refuteCapped')
   })
 
-  it('LUM-1234 R21: a Write that only deleted tests from an existing test file is kept and refuted (not dropped by the diff gate)', async () => {
+  it('LUM-1234 R21: a Write that only deleted tests from an existing test file is kept and reported (not dropped by the diff gate)', async () => {
     const kept = [
       "describe('login', () => {",
       "  it('accepts a valid user', () => {",
@@ -1087,7 +1025,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
       },
     ])
     await runRewardHackLayer('scan2')
-    expect(refute).toHaveBeenCalledTimes(1)
+    expect(judge).toHaveBeenCalledTimes(1)
     expect(writtenRows()).toHaveLength(1)
     expect(writtenRows()[0]).toMatchObject({ filePath: 'src/auth.test.ts' })
   })
@@ -1139,7 +1077,7 @@ describe('LUM-1234 reward-hack state', () => {
     expect(parseRewardHackState(legacy)).toBeNull()
   })
 
-  it('LUM-1234 R21: refuteCapped is optional, kept when true, refused when not a boolean', () => {
+  it('a refuteCapped key from a state written before the refute step was removed is tolerated and dropped', () => {
     const ok = {
       version: 'rh-v1',
       watermark: { s: 'e' },
@@ -1147,12 +1085,9 @@ describe('LUM-1234 reward-hack state', () => {
       costUsd: 0.2,
       truncated: false,
     }
-    expect(parseRewardHackState({ ...ok, refuteCapped: true })).toEqual({
-      ...ok,
-      refuteCapped: true,
-    })
+    expect(parseRewardHackState({ ...ok, refuteCapped: true })).toEqual(ok)
     expect(parseRewardHackState({ ...ok, refuteCapped: false })).toEqual(ok)
-    expect(parseRewardHackState({ ...ok, refuteCapped: 'yes' })).toBeNull()
+    expect(parseRewardHackState({ ...ok, refuteCapped: 'yes' })).toEqual(ok)
   })
 
   it('compares watermarks by session and last event', () => {

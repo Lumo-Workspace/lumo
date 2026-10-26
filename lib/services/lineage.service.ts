@@ -8,6 +8,10 @@ import { toModelCosts } from '@/lib/services/model-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
+import {
+  summarizeOperationPrecision,
+  type OperationPrecision,
+} from '@/lib/agent-run/operation-cost'
 import type {
   LineageDisclosure,
   LineageFragmentType,
@@ -84,6 +88,8 @@ export interface LineageDto {
       index: number
       pulled: number
       used: number
+      /** LUM-1294: edges whose agent reported used / unused (a vote); 0 = usefulness unknown. */
+      voted: number
       /**
        * LUM-522 tokens saved: Σ(fullTokens − indexTokens) over INDEX edges
        * that were never pulled (pulledAt null) and carry both token columns.
@@ -112,6 +118,8 @@ export interface LineageDto {
         total: number
       }[]
     }[]
+    /** LUM-1294: precision of `topOperations`; null when nothing was attributed. */
+    operationsPrecision: OperationPrecision | null
   }
   groups: LineageGroup[]
 }
@@ -371,6 +379,7 @@ export const lineageService = {
       index: 0,
       pulled: 0,
       used: 0,
+      voted: 0,
       tokensSaved: 0,
     }
     let hasTokenData = false
@@ -391,6 +400,7 @@ export const lineageService = {
         }
       }
       if (e.used === true) funnel.used += 1
+      if (e.used !== null) funnel.voted += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
 
       const gkey = e.sessionId ?? ORPHAN
@@ -496,6 +506,14 @@ export const lineageService = {
             }
           : {}),
       })) ?? []
+    const operationsPrecision =
+      opCost && opCost.byTool.length > 0
+        ? summarizeOperationPrecision({
+            grandTotal: opCost.grandTotal,
+            perStepPct: opCost.coverage.perStepPct,
+            toolLabels: opCost.byTool.map(r => r.label),
+          })
+        : null
 
     return {
       task: {
@@ -515,6 +533,7 @@ export const lineageService = {
           tokensSaved: hasTokenData ? funnel.tokensSaved : null,
         },
         topOperations,
+        operationsPrecision,
       },
       groups: groupList,
     }

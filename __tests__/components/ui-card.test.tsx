@@ -7,7 +7,7 @@
 
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
-import { Card, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 
 it('renders a div surface by default and merges className', () => {
   render(<Card data-testid='card' className='rounded-xl p-4' />)
@@ -28,6 +28,30 @@ it('puts the surface on the child element with asChild', () => {
   const btn = screen.getByRole('button', { name: 'Open' })
   expect(btn.tagName).toBe('BUTTON')
   expect(btn).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-4')
+})
+
+it('CardAction sits in the header grid as the top-right slot (LUM-1291)', () => {
+  render(
+    <CardHeader data-testid='header'>
+      <CardTitle>Title</CardTitle>
+      <CardAction data-testid='action'>
+        <span>12%</span>
+      </CardAction>
+    </CardHeader>
+  )
+  const header = screen.getByTestId('header')
+  const action = screen.getByTestId('action')
+  expect(header).toHaveAttribute('data-slot', 'card-header')
+  // The grid switch is keyed on the action's slot, so headers without an
+  // action keep the plain column.
+  expect(header).toHaveClass(
+    'flex',
+    'flex-col',
+    'has-data-[slot=card-action]:grid'
+  )
+  expect(action).toHaveAttribute('data-slot', 'card-action')
+  expect(action).toHaveClass('col-start-2', 'row-start-1', 'justify-self-end')
+  expect(action).toHaveTextContent('12%')
 })
 
 it('CardTitle uses text-title, not the old text-2xl', () => {

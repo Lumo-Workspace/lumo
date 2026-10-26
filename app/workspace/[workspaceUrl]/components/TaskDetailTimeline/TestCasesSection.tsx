@@ -7,6 +7,7 @@ import { useTestCases } from '../../hooks/useTestCases'
 import type { TestCaseOwnerRef } from '@/lib/api-client/test-cases'
 import { TestCaseCard } from './TestCaseCard'
 import { TestCaseForm } from './TestCaseForm'
+import { TestCaseListSkeleton } from './RecordSkeletons'
 import { RecordRunDialog } from './RecordRunDialog'
 import { runAnchorId } from './taskTabs'
 import { ConfirmActionDialog } from '../ConfirmActionDialog'
@@ -150,9 +151,9 @@ export function TestCasesSection({
 
   if (loading) {
     return (
-      <p className='py-2 text-body text-muted-foreground'>
-        {intl.formatMessage({ id: 'testCases.loading' })}
-      </p>
+      <TestCaseListSkeleton
+        label={intl.formatMessage({ id: 'testCases.loading' })}
+      />
     )
   }
 

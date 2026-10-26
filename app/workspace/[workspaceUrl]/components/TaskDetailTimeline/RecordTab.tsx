@@ -12,6 +12,7 @@ import { deriveDoneGate } from '@/lib/acceptance/done-gate'
 import { RecordDoneGate } from './RecordDoneGate'
 import { RunReportTiles } from './RunReportTiles'
 import { deriveRunReportTiles } from './run-report-tiles'
+import { DoneGateSkeleton } from './RecordSkeletons'
 
 /** Anchor of the Needs action section — the Done gate's rows link here. */
 const NEEDS_ACTION_ANCHOR = 'record-needs-action'
@@ -123,12 +124,12 @@ export function RecordTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-caption text-muted-foreground'>
-        {intl.formatMessage({
+      <DoneGateSkeleton
+        label={intl.formatMessage({
           id: 'acceptance.tab.loading',
           defaultMessage: '加载中…',
         })}
-      </div>
+      />
     )
   }
 
