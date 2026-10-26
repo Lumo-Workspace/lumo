@@ -1,4 +1,4 @@
-import { apiFetch } from './base'
+import { ApiClientError, apiFetch } from './base'
 import type { FeedbackKindValue } from '@/lib/validation/feedback'
 
 /** The JSON `payload` part of `POST /api/feedback` that the web form sends. */
@@ -18,6 +18,21 @@ export interface FeedbackSubmitResult {
   ref: string
   /** Screenshots that could not be attached; the report itself was saved. */
   failedFiles: File[]
+}
+
+/**
+ * Statuses that refuse only the file in hand (bad type or size, too large for
+ * the request body). Anything else — auth, a missing report, the 15-minute
+ * attach window, a rate limit, a server or network error — would refuse the
+ * remaining uploads too.
+ */
+const PER_FILE_UPLOAD_STATUSES: readonly number[] = [400, 413]
+
+function failsOnlyThisFile(error: unknown): boolean {
+  return (
+    error instanceof ApiClientError &&
+    PER_FILE_UPLOAD_STATUSES.includes(error.status)
+  )
 }
 
 /**
@@ -48,7 +63,9 @@ export const feedbackClient = {
 
   /**
    * Create the report, then attach each screenshot in turn. A failed upload
-   * does not undo the report — it is returned in `failedFiles` instead.
+   * does not undo the report — it is returned in `failedFiles` instead. A
+   * failure that would refuse every later upload too stops the loop, and the
+   * files not tried yet are returned as failed with it.
    */
   async submit(
     input: FeedbackCreateInput,
@@ -56,11 +73,16 @@ export const feedbackClient = {
   ): Promise<FeedbackSubmitResult> {
     const { ref } = await feedbackClient.create(input)
     const failedFiles: File[] = []
-    for (const file of files) {
+    for (const [i, file] of files.entries()) {
       try {
         await feedbackClient.attachEvidence(ref, file)
-      } catch {
-        failedFiles.push(file)
+      } catch (error) {
+        if (failsOnlyThisFile(error)) {
+          failedFiles.push(file)
+          continue
+        }
+        failedFiles.push(...files.slice(i))
+        break
       }
     }
     return { ref, failedFiles }

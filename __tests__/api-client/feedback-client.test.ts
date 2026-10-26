@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
 import { feedbackClient } from '@/lib/api-client/feedback'
+import { ApiClientError } from '@/lib/api-client/base'
 
 const mockFetch = jest.fn()
 jest.mock('@/lib/api-client/base', () => ({
+  ApiClientError: jest.requireActual('@/lib/api-client/base').ApiClientError,
   apiFetch: (...a: unknown[]) => mockFetch(...a),
 }))
 
@@ -56,19 +58,50 @@ describe('LUM-1287 feedbackClient', () => {
     ])
   })
 
-  it('submit keeps the report when a screenshot fails, and returns that file', async () => {
-    const bad = png('bad.png')
-    mockFetch.mockResolvedValueOnce({ feedback: { ref: 'FB-8' } })
-    mockFetch.mockRejectedValueOnce(new Error('413'))
-    mockFetch.mockResolvedValueOnce({})
-    const out = await feedbackClient.submit({ kind: 'BUG', title: 'T' }, [
-      bad,
-      png('ok.png'),
-    ])
+  it.each([400, 413])(
+    'submit keeps going after a %i on one screenshot, returning only that file',
+    async status => {
+      const bad = png('bad.png')
+      mockFetch.mockResolvedValueOnce({ feedback: { ref: 'FB-8' } })
+      mockFetch.mockRejectedValueOnce(new ApiClientError('refused', status))
+      mockFetch.mockResolvedValueOnce({})
+      const out = await feedbackClient.submit({ kind: 'BUG', title: 'T' }, [
+        bad,
+        png('ok.png'),
+      ])
 
-    expect(out.ref).toBe('FB-8')
-    expect(out.failedFiles).toEqual([bad])
-  })
+      expect(out.ref).toBe('FB-8')
+      expect(out.failedFiles).toEqual([bad])
+      expect(mockFetch).toHaveBeenCalledTimes(3)
+    }
+  )
+
+  it.each([
+    ['rate limit', new ApiClientError('limit', 429, 'RATE_LIMITED')],
+    ['expired session', new ApiClientError('Unauthorized', 401)],
+    ['closed attach window', new ApiClientError('window', 409)],
+    ['network error', new TypeError('Failed to fetch')],
+  ])(
+    'submit stops uploading after a %s and returns every file not attached',
+    async (_label, error) => {
+      const ok = png('ok.png')
+      const failed = png('failed.png')
+      const untried = png('untried.png')
+      mockFetch.mockResolvedValueOnce({ feedback: { ref: 'FB-9' } })
+      mockFetch.mockResolvedValueOnce({})
+      mockFetch.mockRejectedValueOnce(error)
+      const out = await feedbackClient.submit({ kind: 'BUG', title: 'T' }, [
+        ok,
+        failed,
+        untried,
+      ])
+
+      expect(out).toEqual({ ref: 'FB-9', failedFiles: [failed, untried] })
+      // create + the upload that worked + the one that failed — no retry of
+      // the untried file.
+      expect(mockFetch).toHaveBeenCalledTimes(3)
+    }
+  )
 
   it('submit rejects without uploading when the report itself fails', async () => {
     mockFetch.mockRejectedValueOnce(new Error('429'))

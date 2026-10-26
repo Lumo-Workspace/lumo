@@ -94,6 +94,13 @@ function png(name: string, size = 100): File {
 }
 
 describe('LUM-1287 FeedbackDialog', () => {
+  it('puts focus in the title when it opens', async () => {
+    renderDialog()
+    await waitFor(() =>
+      expect(screen.getByLabelText('feedback.field.title')).toHaveFocus()
+    )
+  })
+
   it('keeps Send disabled until there is a title', async () => {
     const user = userEvent.setup()
     renderDialog()

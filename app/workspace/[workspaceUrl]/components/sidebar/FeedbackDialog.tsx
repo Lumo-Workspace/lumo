@@ -112,7 +112,19 @@ export function FeedbackDialog({ onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={open => !open && !busy && onClose()}>
-      <DialogContent className='max-w-[560px]' onKeyDown={handleKeyDown}>
+      <DialogContent
+        className='max-w-[560px]'
+        onKeyDown={handleKeyDown}
+        // Radix would focus the first chip; the title is where typing starts.
+        // Focusing it here, not with autoFocus, leaves Radix's focus trap in
+        // charge of the dialog.
+        onOpenAutoFocus={event => {
+          const title = document.getElementById(`${fieldId}-title`)
+          if (!title) return
+          event.preventDefault()
+          title.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t('feedback.dialog.title')}</DialogTitle>
           <DialogDescription>
@@ -152,7 +164,6 @@ export function FeedbackDialog({ onClose }: Props) {
               maxLength={MAX_FEEDBACK_TITLE_LEN}
               placeholder={t('feedback.field.title.placeholder')}
               onChange={e => setTitle(e.target.value)}
-              autoFocus
             />
           </div>
 
@@ -225,11 +236,7 @@ export function FeedbackDialog({ onClose }: Props) {
           </div>
 
           {errorMessage && (
-            <p
-              role='alert'
-              aria-live='polite'
-              className='text-body text-danger-text'
-            >
+            <p role='alert' className='text-body text-danger-text'>
               {errorMessage}
             </p>
           )}
