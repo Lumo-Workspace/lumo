@@ -31,12 +31,9 @@ import type {
   GitReviewThreadClient,
 } from '../types'
 
+// `auth.ts` is imported inline per method (below), never through a helper.
 function contents() {
   return import('@/lib/integrations/github/contents')
-}
-
-function auth() {
-  return import('@/lib/integrations/github/auth')
 }
 
 const comments: GitCommentClient = {
@@ -74,14 +71,19 @@ export const githubGitProvider: GitProvider = {
 
   // ── tokens ────────────────────────────────────────────────────────────
   async getRepoToken(workspaceId, repository, purpose) {
-    return (await auth()).getRepoToken(
+    // Named at the load site: the LUM-889 token-mint audit follows the
+    // bindings of a dynamic import of auth.ts, never a whole-module load.
+    const { getRepoToken } = await import('@/lib/integrations/github/auth')
+    return getRepoToken(
       workspaceId,
       repository,
       REPO_TOKEN_PERMISSIONS[purpose]
     )
   },
   async revokeToken(token) {
-    return (await auth()).revokeInstallationToken(token)
+    const { revokeInstallationToken } =
+      await import('@/lib/integrations/github/auth')
+    return revokeInstallationToken(token)
   },
 
   // ── reads ─────────────────────────────────────────────────────────────
@@ -151,7 +153,8 @@ export const githubGitProvider: GitProvider = {
     return new TarReader(opts)
   },
   async getRepoCloneToken(workspaceId, repository) {
-    return (await auth()).getRepoCloneToken(workspaceId, repository)
+    const { getRepoCloneToken } = await import('@/lib/integrations/github/auth')
+    return getRepoCloneToken(workspaceId, repository)
   },
 
   // ── writes ────────────────────────────────────────────────────────────
