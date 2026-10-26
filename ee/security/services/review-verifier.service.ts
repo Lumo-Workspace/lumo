@@ -18,7 +18,11 @@
  * a finding by failing.
  */
 import { logger } from '@/lib/logger'
-import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { splitDiffByFile } from '@/ee/security/security-scan/diff-lines'
 import { redactForInjection } from '@/lib/security-scan/scan-secrets'
@@ -46,7 +50,7 @@ import {
 import { securityPrReviewService } from './security-pr-review.service'
 import { isReviewRankerEnabled } from './review-verifier.config'
 
-export interface ReviewVerifierJob {
+export interface ReviewVerifierJob extends GitProviderRef {
   scanId: string
   workspaceId: string
   /** `owner/repo` */
@@ -196,12 +200,13 @@ export const reviewVerifierService = {
       const findings = judged.filter(verifierAppliesTo)
       findingsCount = findings.length
       if (findings.length > 0) {
-        diff = await fetchPrDiff({
+        diff = await gitProviderFor(job).fetchPrDiff({
           workspaceId: job.workspaceId,
           fullName: job.repo,
           prNumber: job.prNumber,
         })
         handle = await attachOrCreateHuntSandbox({
+          ...gitProviderRefOf(job),
           scanId: job.scanId,
           workspaceId: job.workspaceId,
           repo: job.repo,

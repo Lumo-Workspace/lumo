@@ -21,7 +21,10 @@ import { logger } from '@/lib/logger'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
 import { HUNT_MODEL } from '@/lib/ai/models'
 import { isModelUnavailableError } from '@/ee/security/security-scan/hunt/model-unavailable'
-import { readRepoFile } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+} from '@/lib/integrations/git-provider/resolve'
 import { redactFindingProse } from '@/ee/security/security-scan/finding-prose'
 import {
   redactKnownSecrets,
@@ -128,7 +131,7 @@ const PATH_MAX = 400
 const CONTROL_CHARS = /[\x00-\x08\x0B-\x1F]/g
 
 function readAtHead(job: HuntJob, path: string): Promise<string | null> {
-  return readRepoFile({
+  return gitProviderFor(job).readRepoFile({
     workspaceId: job.workspaceId,
     fullName: job.repo,
     path,
@@ -426,6 +429,7 @@ export const securityHuntService = {
     // handle down the same attach-or-create path `huntBatch` uses. By now the
     // managed scan's VM is usually still up, or the hunt's own one is.
     const handle = await attachOrCreateHuntSandbox({
+      ...gitProviderRefOf(input.job),
       scanId: input.job.scanId,
       workspaceId: input.job.workspaceId,
       repo: input.job.repo,
@@ -657,6 +661,7 @@ export const securityHuntService = {
     // per batch from the one clock that decides whether the next task runs.
     const started = Date.now()
     const handle = await attachOrCreateHuntSandbox({
+      ...gitProviderRefOf(input.job),
       scanId: input.job.scanId,
       workspaceId: input.job.workspaceId,
       repo: input.job.repo,

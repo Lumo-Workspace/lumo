@@ -6,6 +6,7 @@
  * for `isHuntEnabled`. Anything that needs GitHub, the AI SDK, zod or the
  * repositories goes in `security-hunt.service.ts`.
  */
+import type { GitProviderRef } from '@/lib/integrations/git-provider/resolve'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import type { Subgraph } from '@/ee/security/security-scan/graph/types'
 import type {
@@ -21,7 +22,7 @@ import type { PlanFailureFacts } from '@/ee/security/security-scan/hunt/plan-ret
 import type { PlanRepairKind } from '@/ee/security/security-scan/hunt/plan-repair'
 import type { PartialCause } from '@/shared/src/security-scan'
 
-export interface HuntJob {
+export interface HuntJob extends GitProviderRef {
   scanId: string
   pullRequestId: string
   taskId: string | null
