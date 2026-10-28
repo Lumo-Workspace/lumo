@@ -243,6 +243,7 @@ const comments: GitCommentClient = {
    * stop the others; once all were tried the first refusal is thrown (422
    * for a 4xx, like a line GitHub will not take) so the scan retries the
    * unposted ones next sync — the posted ones are deduped by their markers.
+   * Any other refusal (auth, permission, server) is thrown as it came.
    */
   async createReview(input) {
     if (input.comments.length === 0)
@@ -267,7 +268,13 @@ const comments: GitCommentClient = {
         refused ??= error
       }
     }
-    if (refused instanceof CodeupApiError && refused.status < 500)
+    // Only a refusal of the comment itself (400 / 422: a line or path not
+    // in the diff) is the "line not taken" 422; auth / permission / missing
+    // MR keep their own status so they surface as what they are.
+    if (
+      refused instanceof CodeupApiError &&
+      (refused.status === 400 || refused.status === 422)
+    )
       throw new CodeupApiError(422, refused.message)
     if (refused) throw refused
     return { id: 0, html_url: '' }

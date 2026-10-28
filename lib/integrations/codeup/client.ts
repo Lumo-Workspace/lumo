@@ -472,18 +472,37 @@ export function createCodeupClient(
     async listComments(ref, type) {
       // The listing filters on `resolved`: read both, so a comment someone
       // resolved still counts as posted.
+      // Paged like the other list endpoints (`page` / `perPage`); a page
+      // that brings no new comment ends the walk too, so a server that
+      // ignores the paging cannot loop or double-count.
       const out: CodeupComment[] = []
+      const seen = new Set<string>()
       for (const resolved of [false, true]) {
-        const res = await call(`${mrPath(ref)}/comments/list`, {
-          method: 'POST',
-          body: {
-            patchSetBizIds: [],
-            commentType: type,
-            state: 'OPENED',
-            resolved,
-          },
-        })
-        out.push(...toComments(await res.json()))
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const res = await call(
+            `${mrPath(ref)}/comments/list?page=${page}&perPage=${PER_PAGE}`,
+            {
+              method: 'POST',
+              body: {
+                patchSetBizIds: [],
+                commentType: type,
+                state: 'OPENED',
+                resolved,
+              },
+            }
+          )
+          const body = (await res.json()) as unknown
+          const rows = toComments(body)
+          const fresh = rows.filter(c => !seen.has(c.commentBizId))
+          for (const c of fresh) seen.add(c.commentBizId)
+          out.push(...fresh)
+          const pageSize = Array.isArray(body) ? body.length : 0
+          if (pageSize < PER_PAGE || fresh.length === 0) break
+          if (page === MAX_PAGES)
+            logger.warn(
+              `[codeup] merge request lists more than ${MAX_PAGES * PER_PAGE} comments; markers past them are not seen`
+            )
+        }
       }
       return out
     },

@@ -468,6 +468,20 @@ describe('comments', () => {
     expect(n).toBe(2)
   })
 
+  it('an auth / permission refusal keeps its own status (not the line-refused 422)', async () => {
+    useFake(fakeCodeup({ fail: { [`POST ${MR}/comments`]: 403 } }))
+    await expect(
+      git.comments.createReview({
+        repo: repoRef,
+        prNumber: LOCAL_ID,
+        token: token(),
+        commitId: HEAD,
+        body: '',
+        comments: [{ path: 'lib/run.ts', line: 2, side: 'RIGHT', body: 'x' }],
+      })
+    ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+  })
+
   it('getPullRequestHead / getPullRequestBody / listPullRequestFiles', async () => {
     const input = { repo: repoRef, prNumber: LOCAL_ID, token: token() }
     await expect(git.comments.getPullRequestHead(input)).resolves.toEqual({

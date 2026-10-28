@@ -37,9 +37,11 @@ export function hunksOf(diff: string): string {
 function countLines(hunks: string): { additions: number; deletions: number } {
   let additions = 0
   let deletions = 0
+  // `hunks` starts at the first `@@`: no file header follows, so every `+`
+  // / `-` line is content — `+++x` is an added line `++x`.
   for (const line of hunks.split('\n')) {
-    if (line.startsWith('+') && !line.startsWith('+++')) additions++
-    else if (line.startsWith('-') && !line.startsWith('---')) deletions++
+    if (line.startsWith('+')) additions++
+    else if (line.startsWith('-')) deletions++
   }
   return { additions, deletions }
 }

@@ -94,6 +94,36 @@ describe('client calls', () => {
     ).rejects.toEqual(expect.objectContaining({ status: 502 }))
   })
 
+  it('listComments walks the pages, and stops when paging is ignored', async () => {
+    const rows = (from: number, n: number) =>
+      Array.from({ length: n }, (_, k) =>
+        comment({ comment_biz_id: `c${from + k}` })
+      )
+    const answer = (body: unknown) =>
+      new Response(JSON.stringify(body), { status: 200 })
+    const paged = jest.fn(async (url: string, init?: RequestInit) => {
+      const resolved = JSON.parse(String(init!.body)).resolved
+      if (resolved) return answer([])
+      return answer(url.includes('page=1&') ? rows(0, 100) : rows(100, 1))
+    })
+    await expect(
+      createCodeupClient(ORG, TOKEN, paged).listComments(ref, 'INLINE_COMMENT')
+    ).resolves.toHaveLength(101)
+    expect(paged.mock.calls[1]![0]).toContain(
+      '/comments/list?page=2&perPage=100'
+    )
+
+    const ignored = jest.fn(async () => answer(rows(0, 100)))
+    await expect(
+      createCodeupClient(ORG, TOKEN, ignored).listComments(
+        ref,
+        'GLOBAL_COMMENT'
+      )
+    ).resolves.toHaveLength(100)
+    // page 1 + page 2 (nothing new) for each of resolved false / true.
+    expect(ignored).toHaveBeenCalledTimes(3)
+  })
+
   it('an invalid merge request id is refused before any request', async () => {
     const f = fakeCodeup()
     await expect(
@@ -196,6 +226,14 @@ describe('comparison → diff', () => {
     ).toBe(true)
     expect(diff.endsWith('\n')).toBe(true)
     expect(toUnifiedDiff([])).toBe('')
+  })
+
+  it('counts a content line that itself starts with ++ or --', () => {
+    const d = {
+      ...diffs[0]!,
+      diff: '--- a/x\n+++ b/x\n@@ -1 +1,2 @@\n---old\n+++new\n+b',
+    }
+    expect(toChangedFiles([d])[0]).toMatchObject({ additions: 2, deletions: 1 })
   })
 
   it('toChangedFiles counts lines and keeps a rename’s old name', () => {
