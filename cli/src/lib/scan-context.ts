@@ -339,10 +339,18 @@ export function renamedRemoteUrl(
   to: string
 ): string {
   if (parseGithubRepo(remoteUrl)?.toLowerCase() === from.toLowerCase()) {
-    const at = remoteUrl.toLowerCase().lastIndexOf(from.toLowerCase())
-    return remoteUrl.slice(0, at) + to + remoteUrl.slice(at + from.length)
+    const url = withoutHttpCredentials(remoteUrl)
+    const at = url.toLowerCase().lastIndexOf(from.toLowerCase())
+    return url.slice(0, at) + to + url.slice(at + from.length)
   }
   return `https://github.com/${to}.git`
+}
+
+/** An http(s) remote's `user[:token]@` — a credential, never printed. */
+const HTTP_USERINFO = /^(https?:\/\/)[^@/]+@/i
+
+function withoutHttpCredentials(url: string): string {
+  return url.replace(HTTP_USERINFO, '$1')
 }
 
 /**
@@ -360,6 +368,11 @@ export function renamedRemoteLines(
   return [
     `${note} Update your git remote:`,
     `  git remote set-url origin ${sanitizeField(renamedRemoteUrl(remoteUrl, from, to))}`,
+    ...(HTTP_USERINFO.test(remoteUrl)
+      ? [
+          '  (your remote URL holds credentials; they are left out — use a git credential helper rather than a token in the URL)',
+        ]
+      : []),
   ]
 }
 

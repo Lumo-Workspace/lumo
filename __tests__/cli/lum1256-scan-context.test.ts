@@ -15,6 +15,7 @@ import {
   loadPrScan,
   loadScanContext,
   parseGithubRepo,
+  renamedRemoteLines,
   renamedRemoteUrl,
   SCAN_CONTEXT_PATH,
   type ScanContext,
@@ -346,5 +347,34 @@ describe('LUM-1330 renamedRemoteUrl', () => {
     expect(
       renamedRemoteUrl('git@github.com:acme/other.git', 'acme/old', 'acme/new')
     ).toBe('https://github.com/acme/new.git')
+  })
+})
+
+describe('LUM-1330 a remote URL with credentials', () => {
+  // Built at run time: no credential-shaped literal in the repository.
+  const secret = ['placeholder', 'credential'].join('-')
+  const remote = `https://x-access-token:${secret}@github.com/acme/old.git`
+  it('the suggested URL leaves the credentials out', () => {
+    expect(renamedRemoteUrl(remote, 'acme/old', 'acme/new')).toBe(
+      'https://github.com/acme/new.git'
+    )
+  })
+  it('the printed lines never contain them, and say they were left out', () => {
+    const lines = renamedRemoteLines('acme/old', 'acme/new', remote).join('\n')
+    expect(lines).not.toContain(secret)
+    expect(lines).not.toContain('x-access-token')
+    expect(lines).toContain(
+      'git remote set-url origin https://github.com/acme/new.git'
+    )
+    expect(lines).toContain('credentials; they are left out')
+  })
+  it('an ssh remote keeps its git@ user and gets no credentials line', () => {
+    const lines = renamedRemoteLines(
+      'acme/old',
+      'acme/new',
+      'git@github.com:acme/old.git'
+    ).join('\n')
+    expect(lines).toContain('git@github.com:acme/new.git')
+    expect(lines).not.toContain('credentials')
   })
 })
