@@ -25,6 +25,13 @@ describe('isBlockingUnderPolicy parity with the server', () => {
         { provenance: 'DETERMINISTIC' as const, severity: 'MEDIUM' as const },
       ],
     },
+    // LUM-1328: a workspace that opted in to blocking on agent reviews.
+    {
+      block: [
+        { provenance: 'AGENT_REVIEW' as const, severity: 'HIGH' as const },
+        { provenance: 'EXTERNAL_TOOL' as const, severity: 'HIGH' as const },
+      ],
+    },
   ]
   // LUM-1321: a CI scanner's row and an imported agent review's row.
   const ruleIds = ['ext:semgrep:js.sqli', 'ext:claude-code:sqli'] as const
@@ -46,6 +53,6 @@ describe('isBlockingUnderPolicy parity with the server', () => {
                 expect(cliPredicate(f, policy)).toBe(serverPredicate(f, policy))
                 n++
               }
-    expect(n).toBe(486)
+    expect(n).toBe(648)
   })
 })

@@ -21,9 +21,10 @@ import {
 import { DEFAULT_AUTO_PAUSE_AFTER } from '@/ee/security/security-scan/review-control'
 
 /**
- * The stored workspace switches: the three layer switches (default on) and
- * LUM-1130's request-changes workflow (default OFF — it changes the PR's
- * merge UX, so a workspace opts in).
+ * The stored workspace switches: the layer switches and LUM-1130's
+ * request-changes workflow (default OFF — it changes the PR's merge UX, so a
+ * workspace opts in). LUM-1328: Lumo's own AI review and hunt also start OFF
+ * for a new workspace — the developer's own agent review is the default.
  */
 export interface WorkspaceSecuritySwitches {
   securityScanEnabled: boolean
@@ -44,8 +45,8 @@ export interface WorkspaceSecuritySwitches {
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityScanEnabled: true,
-  securityAiReviewEnabled: true,
-  securityHuntEnabled: true,
+  securityAiReviewEnabled: false,
+  securityHuntEnabled: false,
   securityRewardHackEnabled: true,
   securityRequestChangesEnabled: false,
   securityAllowAuthorApproval: true,
@@ -120,8 +121,8 @@ export function platformSecurityCeiling(
 }
 
 /**
- * A missing row (or a partial one) reads as the column defaults — all on —
- * exactly what the database would hold for it.
+ * A missing row (or a partial one) reads as the column defaults — exactly
+ * what the database would hold for a new workspace.
  */
 export function resolveSecurityLayers(
   stored: Partial<WorkspaceSecuritySwitches> | null | undefined,

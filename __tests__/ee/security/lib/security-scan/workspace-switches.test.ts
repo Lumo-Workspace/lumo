@@ -7,25 +7,39 @@ import {
   resolveSecurityLayers,
 } from '@/ee/security/security-scan/workspace-switches'
 
-const ALL_ON = DEFAULT_WORKSPACE_SECURITY_SWITCHES
+const ALL_ON = {
+  ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+  securityAiReviewEnabled: true,
+  securityHuntEnabled: true,
+}
 /** LUM-1025: Vercel Sandbox configured — the layers' default-on baseline. */
 const SANDBOX = { VERCEL: '1' }
 
 describe('LUM-866 env is the ceiling', () => {
-  it('everything on by default: a missing row reads as all on', () => {
+  it('LUM-1328: a missing row reads as a new workspace — scan on, AI review and hunt off', () => {
     expect(resolveSecurityLayers(null, SANDBOX)).toEqual({
       scan: true,
       managedScan: true,
-      aiReview: true,
-      hunt: true,
+      aiReview: false,
+      hunt: false,
       rewardHack: false,
-      aiReviewTurnedOff: false,
-      huntTurnedOff: false,
+      aiReviewTurnedOff: true,
+      huntTurnedOff: true,
       rewardHackTurnedOff: false,
     })
     expect(resolveSecurityLayers(undefined, SANDBOX)).toEqual(
-      resolveSecurityLayers(ALL_ON, SANDBOX)
+      resolveSecurityLayers(DEFAULT_WORKSPACE_SECURITY_SWITCHES, SANDBOX)
     )
+  })
+
+  it('LUM-1328: new workspaces start with AI review and hunt off, everything else unchanged', () => {
+    expect(DEFAULT_WORKSPACE_SECURITY_SWITCHES).toMatchObject({
+      securityScanEnabled: true,
+      securityAiReviewEnabled: false,
+      securityHuntEnabled: false,
+      securityRewardHackEnabled: true,
+      securityRequestChangesEnabled: false,
+    })
   })
 
   it('LUMO_SECURITY_HUNT=off turns the hunt off even with the workspace switch on', () => {

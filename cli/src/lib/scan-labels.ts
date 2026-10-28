@@ -61,7 +61,8 @@ export const SCANNER_PROVENANCE: Record<LocalScanner, Provenance> = {
 /**
  * Same predicate as the server's `isBlockingUnderPolicy`: an undispositioned,
  * non-persisting finding whose { provenance, severity } the policy lists.
- * An LLM finding (LLM_JUDGE, or an imported agent review) never blocks.
+ * An LLM_JUDGE finding never blocks; an imported agent review only through
+ * an `AGENT_REVIEW` policy entry (LUM-1328).
  */
 export function isBlockingUnderPolicy(
   f: {
@@ -75,9 +76,11 @@ export function isBlockingUnderPolicy(
 ): boolean {
   if (f.disposition !== null || f.persisting) return false
   if (f.provenance === 'LLM_JUDGE') return false
-  if (isAgentReviewRuleId(f.ruleId)) return false
+  const provenance = isAgentReviewRuleId(f.ruleId)
+    ? 'AGENT_REVIEW'
+    : f.provenance
   return policy.block.some(
-    r => r.provenance === f.provenance && r.severity === f.severity
+    r => r.provenance === provenance && r.severity === f.severity
   )
 }
 

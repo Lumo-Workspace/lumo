@@ -217,7 +217,7 @@ describe('LUM-901 dispatched hunt stops before first round when switch is off', 
 
     // Switch on: the run goes on and nothing is written.
     repo.disableStaleHunt.mockClear()
-    switches({})
+    switches({ securityHuntEnabled: true })
     await expect(securityHuntOpsService.stopIfHuntTurnedOff(JOB)).resolves.toBe(
       false
     )

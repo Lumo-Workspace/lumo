@@ -8,11 +8,20 @@
  * dropped by `parseSecurityPolicy` at the reader — so an LLM finding can
  * never block DONE (spec §12 R2: advisory until the judge-precision data is
  * in). Pure: no I/O, no Prisma, so the gate can import it statically.
+ *
+ * LUM-1328: `AGENT_REVIEW` is a policy-only label (not a finding provenance)
+ * for the rows a developer imported from their own Claude Code / Codex
+ * review (`ext:claude-code:*` / `ext:codex:*`). Such a row blocks only when
+ * the workspace lists `{ provenance: 'AGENT_REVIEW', severity }` — an owner's
+ * opt-in, absent from the default — and never through an EXTERNAL_TOOL entry.
  */
 import { z } from 'zod'
 import { isAgentReviewRuleId } from '@/shared/src/security-scan'
 
-export type BlockableProvenance = 'DETERMINISTIC' | 'EXTERNAL_TOOL'
+export type BlockableProvenance =
+  | 'DETERMINISTIC'
+  | 'EXTERNAL_TOOL'
+  | 'AGENT_REVIEW'
 export type PolicySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface SecurityPolicyRule {
@@ -30,14 +39,14 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
 
 const ruleSchema = z
   .object({
-    provenance: z.enum(['DETERMINISTIC', 'EXTERNAL_TOOL']),
+    provenance: z.enum(['DETERMINISTIC', 'EXTERNAL_TOOL', 'AGENT_REVIEW']),
     severity: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   })
   .strict()
 
 /** The API-edge shape: strict, and LLM_JUDGE is simply not an option. */
 export const securityPolicySchema = z
-  .object({ block: z.array(ruleSchema).max(6) })
+  .object({ block: z.array(ruleSchema).max(9) })
   .strict()
 
 /**
@@ -61,7 +70,8 @@ export function parseSecurityPolicy(json: unknown): SecurityPolicy {
 }
 
 export interface PolicyFindingInput {
-  /** LUM-1321: an imported agent review (`ext:claude-code:…`) never blocks. */
+  /** LUM-1321: an imported agent review (`ext:claude-code:…`) blocks only
+   *  through an `AGENT_REVIEW` policy entry (LUM-1328). */
   ruleId: string
   provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
   severity: PolicySeverity
@@ -72,7 +82,8 @@ export interface PolicyFindingInput {
 
 /**
  * An undispositioned, non-persisting finding whose pair the policy lists —
- * never an LLM finding (LLM_JUDGE, or an imported agent review).
+ * never an LLM_JUDGE finding; an imported agent review only when the policy
+ * opts in with an `AGENT_REVIEW` entry.
  */
 export function isBlockingUnderPolicy(
   f: PolicyFindingInput,
@@ -80,8 +91,10 @@ export function isBlockingUnderPolicy(
 ): boolean {
   if (f.disposition !== null || f.persisting) return false
   if (f.provenance === 'LLM_JUDGE') return false
-  if (isAgentReviewRuleId(f.ruleId)) return false
+  const provenance = isAgentReviewRuleId(f.ruleId)
+    ? 'AGENT_REVIEW'
+    : f.provenance
   return policy.block.some(
-    r => r.provenance === f.provenance && r.severity === f.severity
+    r => r.provenance === provenance && r.severity === f.severity
   )
 }

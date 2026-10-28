@@ -432,6 +432,47 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     )
   })
 
+  test('LUM-1328: an agent-review import is recorded on the scan even with zero findings, merged with earlier ones', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'CLEAN',
+      stages: { secrets: 'RAN' },
+      partial: false,
+      agentReviewTools: ['claude-code'],
+    })
+    const out = await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['codex'],
+      [],
+      { partialCauses: [] }
+    )
+    expect(out).toEqual({ written: 0, flippedToFindings: false })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 's1' },
+        data: expect.objectContaining({
+          agentReviewTools: ['claude-code', 'codex'],
+        }),
+      })
+    )
+  })
+
+  test('LUM-1328: a CI scanner import leaves agentReviewTools alone', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: null,
+      partial: false,
+      agentReviewTools: [],
+    })
+    await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['semgrep'],
+      [],
+      { partialCauses: [] }
+    )
+    const data = mockScan.update.mock.calls[0]![0].data
+    expect(data).not.toHaveProperty('agentReviewTools')
+  })
+
   test('ingestExternalFindings takes the scan-row lock BEFORE touching findings', async () => {
     // LUM-735 review C1: two completion paths (onUploadCompleted + /complete)
     // dispatch the same job milliseconds apart, so two ingests run at once.

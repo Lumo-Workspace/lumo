@@ -140,7 +140,8 @@ beforeEach(() => {
   ])
   findSwitches.mockResolvedValue({
     ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
-    securityHuntEnabled: false,
+    // LUM-1328: AI review is off by default; this workspace turned it on.
+    securityAiReviewEnabled: true,
   })
 })
 
@@ -205,9 +206,10 @@ describe('@uselumo configuration (service)', () => {
     )
 
     // Workspace switches with their source; the layers that run.
-    expect(row(body, 'huntEnabled')).toBe(
-      '| `huntEnabled` | off | workspace setting |'
+    expect(row(body, 'aiReviewEnabled')).toBe(
+      '| `aiReviewEnabled` | on | workspace setting |'
     )
+    expect(row(body, 'huntEnabled')).toBe('| `huntEnabled` | off | default |')
     expect(row(body, 'scanEnabled')).toBe('| `scanEnabled` | on | default |')
     expect(body).toMatch(/Running on this deployment: .*hunt: off/)
     // The reply carries its redelivery marker.
@@ -297,7 +299,7 @@ describe('prConfigurationService.forPullRequest', () => {
       "couldn't read this repository's review configuration"
     )
     // The workspace part is still there.
-    expect(body).toContain('| `huntEnabled` | off | workspace setting |')
+    expect(body).toContain('| `aiReviewEnabled` | on | workspace setting |')
   })
 })
 

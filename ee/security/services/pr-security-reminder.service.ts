@@ -138,6 +138,11 @@ export interface TaskSecurityOpenState {
   /** LUM-735 — one entry per PR with a latest scan (same set as
    *  `latestScans`, open or closed PRs alike). */
   scans: TaskSecurityScanSummary[]
+  /** LUM-1328 — open PRs whose head has no imported agent review
+   *  (`lumo security import`); empty while scanning is off. */
+  agentReviewMissing: number[]
+  /** LUM-1328 — Lumo's own AI review runs for this workspace. */
+  lumoAiReviewOn: boolean
 }
 
 const EMPTY_STATE: TaskSecurityOpenState = {
@@ -146,6 +151,22 @@ const EMPTY_STATE: TaskSecurityOpenState = {
   unconfirmedPrs: [],
   latestScans: [],
   scans: [],
+  agentReviewMissing: [],
+  lumoAiReviewOn: false,
+}
+
+/**
+ * LUM-1328 — an agent review (`lumo security import`) was imported into the
+ * PR's current head. A scan of an older head does not count; a PR whose head
+ * Lumo has not recorded yet trusts its latest scan.
+ */
+export function hasAgentReviewOnHead(
+  scan: Pick<ScanWithFindings, 'headSha' | 'agentReviewTools'> | undefined,
+  prHeadSha: string | null
+): boolean {
+  if (!scan) return false
+  if (prHeadSha !== null && scan.headSha !== prHeadSha) return false
+  return (scan.agentReviewTools ?? []).length > 0
 }
 
 function unconfirmedReason(
@@ -192,7 +213,8 @@ export const prSecurityReminderService = {
     // LUM-892: with scanning off, no scan vouches for an open PR's newer
     // commits — an earlier CLEAN must not keep standing as its answer. Old
     // findings still count (and still block DONE); only the vouching stops.
-    const scanningOff = !(await loadSecurityLayers(prs[0]!.workspaceId)).scan
+    const layers = await loadSecurityLayers(prs[0]!.workspaceId)
+    const scanningOff = !layers.scan
     // LUM-1127: threads a human resolved on GitHub. Fail-open to "none": a
     // failed read shows those findings as open, never hides one.
     const resolvedOnGithub = await prFindingThreadRepository
@@ -202,8 +224,16 @@ export const prSecurityReminderService = {
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
     const scanSummaries: TaskSecurityScanSummary[] = []
+    const agentReviewMissing: number[] = []
     for (const pr of prs) {
       const scan = latest.get(pr.id)
+      if (
+        pr.state === 'open' &&
+        !scanningOff &&
+        !hasAgentReviewOnHead(scan, pr.headSha)
+      ) {
+        agentReviewMissing.push(pr.number)
+      }
       // LUM-775: which undispositioned, non-persisting rows have left the
       // queue (merged / closed PR), and why — computed once per row here and
       // shared by the summary counters and the reminder list below.
@@ -314,6 +344,8 @@ export const prSecurityReminderService = {
       unconfirmedPrs,
       latestScans,
       scans: scanSummaries,
+      agentReviewMissing,
+      lumoAiReviewOn: layers.aiReview,
     }
   },
 

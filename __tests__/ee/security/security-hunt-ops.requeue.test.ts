@@ -8,14 +8,17 @@
  * "scanning" until the retry lands. Only once the attempts are exhausted does
  * the scan read unfinished-on-our-side.
  */
-// LUM-866: every workspace here has the default switches (all on); the
+// LUM-866: every workspace here has AI review and hunt on (off by default since LUM-1328); the
 // platform env in each test still decides the ceiling.
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
       .requireActual('@/ee/security/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
+      .resolveSecurityLayers({
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      }),
 }))
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildVerifySubgraphStep: jest.fn(),

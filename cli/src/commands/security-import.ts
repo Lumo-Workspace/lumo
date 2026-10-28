@@ -24,8 +24,8 @@ import { gitOutput } from '../lib/worktree'
  * LUM-1321 — `lumo security import <file>`: attach a security review the
  * developer ran in Claude Code or Codex to the branch's open PR scan. The
  * file is SARIF 2.1.0 or the Lumo JSON (`lib/agent-review-format.ts`). The
- * server keeps the results on lines the PR changed; they are advisory and
- * never block DONE. Importing again for the same tool and head replaces the
+ * server keeps the results on lines the PR changed; they are advisory unless
+ * the workspace policy opts in to blocking on them (LUM-1328). Importing again for the same tool and head replaces the
  * earlier import.
  */
 
@@ -208,7 +208,7 @@ export async function securityImportCommand(
     `Imported ${out.results} result${out.results === 1 ? '' : 's'} from ${out.tool} into ${ref} @ ${out.headSha.slice(0, 7)}`
   )
   console.log(
-    `Replaces earlier ${out.tool} imports on this head. Lumo keeps the results on lines this PR changed; they are advisory and never block DONE.`
+    `Replaces earlier ${out.tool} imports on this head. Lumo keeps the results on lines this PR changed; they are advisory unless your workspace policy blocks DONE on agent reviews.`
   )
   console.log(
     `The import runs in the background — see it in \`lumo pr show ${out.prNumber}\` in a minute.`

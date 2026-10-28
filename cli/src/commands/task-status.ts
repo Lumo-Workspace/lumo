@@ -194,6 +194,15 @@ export interface TaskStatusResponse {
         command: string
         advisory: true
       }
+    /** LUM-1328: the open PR's head has no imported agent review. Advisory. */
+    | {
+        kind: 'AGENT_REVIEW_MISSING'
+        prNumber: number
+        lumoAiReviewOn: boolean
+        statement: string
+        command: string
+        advisory: true
+      }
   >
   /** LUM-1186: the Done gate, derived server-side by the web Record tab's
    *  `deriveDoneGate`. Absent on an older server (rendered as "cannot
@@ -277,7 +286,10 @@ export interface TaskStatusResponse {
 
 type NextActionItem = TaskStatusResponse['nextActions'][number]
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
-type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
+type TestCaseAction = Extract<
+  NextActionItem,
+  { kind: 'TEST_CASE' | 'AGENT_REVIEW_MISSING' }
+>
 export type TestCaseVerdictAction = Extract<
   NextActionItem,
   { kind: 'TEST_CASE_VERDICT' }
@@ -295,7 +307,11 @@ function isTestCaseVerdictAction(
  *  kind this CLI version does not know yet — rendered generically. */
 function isAdvisoryAction(a: NextActionItem): a is TestCaseAction {
   const raw = a as { kind?: unknown; advisory?: unknown }
-  return raw.kind === 'TEST_CASE' || raw.advisory === true
+  return (
+    raw.kind === 'TEST_CASE' ||
+    raw.kind === 'AGENT_REVIEW_MISSING' ||
+    raw.advisory === true
+  )
 }
 export function splitNextActions(actions: NextActionItem[]): {
   security: SecurityAction[]
@@ -334,7 +350,7 @@ export function pushTestCaseActions(
     const hasCommand = typeof a.command === 'string'
     lines.push(
       ...bulletLines(
-        `[TEST CASE] ${sanitizeField(statement)} (advisory)${hasCommand ? ' — run:' : ''}`,
+        `${a.kind === 'AGENT_REVIEW_MISSING' ? '[SECURITY REVIEW]' : '[TEST CASE]'} ${sanitizeField(statement)} (advisory)${hasCommand ? ' — run:' : ''}`,
         2,
         opts
       )
