@@ -193,8 +193,8 @@ export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
  * reasoning only, which the SDK reports as "No object generated: the model did
  * not return a response"; alibaba honours it but reasons 2–3k tokens at about
  * 40 tokens/s, past a 60 s budget on most calls; azure and deepinfra answer a
- * schema-valid object in 3–9 s (measured on real pre-merge prompts,
- * `scripts/analysis/lum1304-pre-merge-probe/`). Every host listed is already
+ * schema-valid object in 3–9 s (measured on real pre-merge prompts in
+ * LUM-1304). Every host listed is already
  * on the published subprocessor list. Used per call site, through
  * `structuredOutputProviderOptions` (`lib/ai/structured-output-routing.ts`).
  */

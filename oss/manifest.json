@@ -236,6 +236,14 @@
       "reason": "LUM-1033 2/5: symlinks into the excluded .agents/ tree (would dangle)"
     },
     {
+      "glob": "docs/security-scan.md",
+      "reason": "LUM-1326: documents the proprietary security plugin (scanners, sandbox, hunt, blocking policy, its env vars); added by the README rewrite (LUM-1323) and not covered by the plugin-copy rules"
+    },
+    {
+      "glob": ".claude/skills/lumo/**",
+      "reason": "LUM-1326: the frozen `lumo init` stub (LUM-1292) points agents at this team's Lumo workspace; same as its .agents/ twin, which .agents/** already excludes"
+    },
+    {
       "glob": "LICENSE",
       "reason": "MIT relicense (LUM-1066; MIT open-core ruling 2026-10-10, LUM-1058 RFC docs/rfc/2026-10-10-LUM-1058-plugin-boundary.md §8): the private LICENSE adds a scope note that the ee/ security plugin is proprietary; the snapshot ships without the plugin, so it gets the plain MIT License (Lumo AI) from oss/overlay/LICENSE"
     },
@@ -725,9 +733,9 @@
     {
       "file": "README.md",
       "type": "replace",
-      "pattern": "^## 🤝 Contributing\\n\\n1\\. Fork the repository\\n[\\s\\S]*?^5\\. Open a Pull Request\\n",
-      "replacement": "## 🤝 Contributing\n\nSee [CONTRIBUTING.md](CONTRIBUTING.md): pull requests are reviewed in this\nrepository, and every commit needs a DCO sign-off (`git commit -s`). Report\nvulnerabilities privately as described in [SECURITY.md](SECURITY.md), not in\na public issue.\n",
-      "reason": "LUM-1035: the public repository's contribution path (DCO, review here, patch back-port) lives in CONTRIBUTING.md from oss/overlay"
+      "pattern": "^(## Community and support\\n\\n)",
+      "replacement": "$1Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md): pull\nrequests are reviewed in this repository, and every commit needs a DCO\nsign-off (`git commit -s`). Report vulnerabilities privately as described in\n[SECURITY.md](SECURITY.md), not in a public issue.\n\n",
+      "reason": "LUM-1035: the public repository's contribution path (DCO, review here, patch back-port) lives in CONTRIBUTING.md from oss/overlay; LUM-1326: the README rewrite (LUM-1323) replaced the fork steps with \"Community and support\", so the pointer goes there"
     },
     {
       "file": "components/landing/home/how-it-works.tsx",
@@ -903,6 +911,20 @@
       "delete": "^(securityScan\\.(action|banner|callChain|codeScrubbed|disposition|finding|fixed|group|kind|meta|provenance|reachability|result|review|severity|stageInfo|stageReason|suggested|verifier)(\\.|$)|securityScan\\.external\\.(failedReason|notConfigured)|securityScan\\.section\\.(empty|scanningOff|loadError)$|securityScan\\.prTooLarge\\.|securityScan\\.status\\.tooLarge$|workspaceSettings\\.(securityScan|scanEvidence)\\.|dataRetention\\.scan\\.|boundary\\.panel\\.triage|record\\.queue\\.securityBlocking$|apiKeys\\.ingest\\.|security\\.(infra\\.sandbox|code\\.triage|retention\\.(scan|uninstall))$)",
       "promote": "oss.",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: drop the plugin's own messages (settings incl. aiReview, panel, triage, /security paragraphs) that no snapshot code renders, and swap in the translated `oss.*` wording for the /security page and GitHub card messages core code still renders"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^- \\*\\*Pull-request scanning\\*\\* \\(Lumo Cloud;[\\s\\S]*?\\[docs/security-scan\\.md\\]\\(docs/security-scan\\.md\\)\\.\\n",
+      "replacement": "",
+      "reason": "LUM-1326: the security plugin is not in the snapshot (MIT open-core, LUM-1058); drop its feature bullet from the public README"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^- \\[docs/security-scan\\.md\\]\\(docs/security-scan\\.md\\) — [^\\n]*\\n[^\\n]*\\n",
+      "replacement": "",
+      "reason": "LUM-1326: docs/security-scan.md is excluded from the snapshot; drop its Reference entry"
     }
   ],
   "configRefFiles": [
