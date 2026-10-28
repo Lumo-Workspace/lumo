@@ -175,7 +175,8 @@ export function hasAgentReviewOnHead(
  * LUM-1328 — of the PRs missing an agent review, those an import would be
  * accepted for: the repository is confirmed in the workspace (the import
  * refuses an unconfirmed one). A failed read nudges for none — the nudge is
- * advisory, so silence is the safe side.
+ * advisory, so silence is the safe side. The GitHub list is the import's own
+ * check for these rows: `findManyForSecurityByTaskId` reads GitHub PRs only.
  */
 async function importablePrNumbers(
   candidates: Array<{ number: number; repo: string }>,
