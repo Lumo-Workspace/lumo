@@ -53,6 +53,34 @@ export function isServerRealtimeConfigured(): boolean {
   return getPusher() !== null
 }
 
+/**
+ * LUM-1332 — one signed request to the Pusher-protocol server (`GET
+ * /channels`), for the self-host config check: proves the server is
+ * reachable from the app and accepts these credentials. Never throws.
+ */
+export async function checkRealtimeConnection(): Promise<
+  | { status: 'ok' }
+  | { status: 'not_configured' }
+  | { status: 'failed'; message: string }
+> {
+  try {
+    const pusher = getPusher()
+    if (!pusher) return { status: 'not_configured' }
+    const res = await pusher.get({ path: '/channels' })
+    if (res.status === 200) return { status: 'ok' }
+    return { status: 'failed', message: `HTTP ${res.status}` }
+  } catch (err) {
+    const status = (err as { status?: unknown }).status
+    const message =
+      typeof status === 'number'
+        ? `HTTP ${status}`
+        : err instanceof Error
+          ? err.message
+          : String(err)
+    return { status: 'failed', message: message.slice(0, 200) }
+  }
+}
+
 async function trigger(
   channel: string,
   eventName: string,

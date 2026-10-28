@@ -2,9 +2,11 @@
  * @jest-environment node
  *
  * LUM-1325, LUM-1332 — scripts/self-host/setup.sh, run for real with /bin/sh
- * against a copy of the repo's .env.example in a temp directory.
+ * against a copy of the repo's .env.example in a temp directory. `run` adds
+ * --no-start (only .env); `runWithDocker` puts a fake `docker` on PATH that
+ * logs its arguments.
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import {
   copyFileSync,
@@ -38,6 +40,10 @@ beforeEach(() => {
     join(REPO, 'scripts', 'self-host', 'setup.sh'),
     join(dir, 'scripts', 'self-host', 'setup.sh')
   )
+  copyFileSync(
+    join(REPO, 'scripts', 'self-host', 'check-config.mjs'),
+    join(dir, 'scripts', 'self-host', 'check-config.mjs')
+  )
   copyFileSync(join(REPO, '.env.example'), join(dir, '.env.example'))
 })
 
@@ -48,12 +54,56 @@ afterEach(() => {
 function run(...args: string[]): string {
   return execFileSync(
     'sh',
-    [join(dir, 'scripts', 'self-host', 'setup.sh'), ...args],
+    [join(dir, 'scripts', 'self-host', 'setup.sh'), '--no-start', ...args],
     {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   )
+}
+
+/**
+ * setup.sh with a fake `docker` first on PATH: it appends each call's
+ * arguments to docker.log and exits with $FAKE_EXEC_EXIT for `compose exec`.
+ */
+function runWithDocker(
+  args: string[],
+  execExit = 0
+): { status: number | null; out: string; calls: string[] } {
+  const bin = join(dir, 'fake-bin')
+  mkdirSync(bin, { recursive: true })
+  const log = join(dir, 'docker.log')
+  writeFileSync(
+    join(bin, 'docker'),
+    [
+      '#!/bin/sh',
+      `echo "$*" >> '${log}'`,
+      'case "$*" in *"compose exec"*) cat > /dev/null; exit "$FAKE_EXEC_EXIT" ;; esac',
+      'exit 0',
+      '',
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  const res = spawnSync(
+    'sh',
+    [join(dir, 'scripts', 'self-host', 'setup.sh'), ...args],
+    {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ''}`,
+        FAKE_EXEC_EXIT: String(execExit),
+      },
+    }
+  )
+  let calls: string[] = []
+  try {
+    calls = readFileSync(log, 'utf8').trim().split('\n')
+  } catch {
+    // docker never ran
+  }
+  return { status: res.status, out: `${res.stdout}${res.stderr}`, calls }
 }
 
 function appendEnv(text: string): void {
@@ -230,6 +280,77 @@ describe('scripts/self-host/setup.sh', () => {
     run()
     expect(() => run('--url', 'lumo.example.com')).toThrow()
     expect(env().get('NEXT_PUBLIC_APP_URL')).toBe('http://localhost:3000')
+  })
+
+  it('--help prints the options and the docs link, exits 0 and writes nothing', () => {
+    const out = run('--help')
+    for (const flag of ['--url', '--realtime', '--no-realtime']) {
+      expect(out).toContain(flag)
+    }
+    expect(out).toContain('docs/self-hosting/README.md')
+    expect(run('-h')).toBe(out)
+    expect(() => statSync(join(dir, '.env'))).toThrow()
+  })
+
+  it('by default starts the stack, waits for it, then runs the check in the app container', () => {
+    const { status, out, calls } = runWithDocker([])
+    expect(status).toBe(0)
+    expect(calls).toEqual([
+      'compose version',
+      'compose up -d --remove-orphans --wait --wait-timeout 600',
+      'compose exec -T app node --input-type=module - --report',
+    ])
+    expect(env().get('BETTER_AUTH_SECRET')).toMatch(/^[0-9a-f]{64}$/)
+    expect(out).toContain('Lumo is running at http://localhost:3000')
+  })
+
+  it('a failing check makes setup.sh fail with the same exit code', () => {
+    const { status, out } = runWithDocker([], 1)
+    expect(status).toBe(1)
+    expect(out).not.toContain('Lumo is running')
+  })
+
+  it('--check only re-runs the check and leaves .env alone', () => {
+    run()
+    const before = readFileSync(join(dir, '.env'), 'utf8')
+    const { status, calls } = runWithDocker(['--check'])
+    expect(status).toBe(0)
+    expect(calls).toEqual([
+      'compose version',
+      'compose exec -T app node --input-type=module - --report',
+    ])
+    expect(readFileSync(join(dir, '.env'), 'utf8')).toBe(before)
+  })
+
+  it('--check needs a .env and takes no other option', () => {
+    expect(runWithDocker(['--check']).status).toBe(1)
+    run()
+    const res = runWithDocker(['--check', '--realtime'])
+    expect(res.status).toBe(2)
+    expect(res.calls).toEqual([])
+  })
+
+  it('--caddy / --no-caddy toggle only caddy in COMPOSE_PROFILES', () => {
+    run('--url', 'https://lumo.example.com', '--caddy')
+    expect(env().get('COMPOSE_PROFILES')).toBe('caddy')
+    expect(run()).toContain('HTTPS via caddy: on')
+    // The operator added a profile of their own.
+    writeFileSync(
+      join(dir, '.env'),
+      readFileSync(join(dir, '.env'), 'utf8').replace(
+        /^COMPOSE_PROFILES=.*$/m,
+        'COMPOSE_PROFILES=mail,caddy'
+      )
+    )
+    run('--no-caddy')
+    expect(env().get('COMPOSE_PROFILES')).toBe('mail')
+    run('--caddy')
+    expect(env().get('COMPOSE_PROFILES')).toBe('mail,caddy')
+    expect(countLines('COMPOSE_PROFILES')).toBe(1)
+  })
+
+  it('warns when caddy is on without a domain', () => {
+    expect(run('--caddy')).toContain('LUMO_DOMAIN is empty')
   })
 
   it('stays quiet about email once SMTP_URL is set', () => {

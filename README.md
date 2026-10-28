@@ -67,29 +67,31 @@ compiled on it.
 
 ```bash
 git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
-scripts/self-host/setup.sh    # creates .env and generates the secrets
-docker compose up -d
+scripts/self-host/setup.sh    # writes .env, starts the stack, checks the configuration
 ```
 
-Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
+`setup.sh` generates the secrets, runs `docker compose up -d`, waits until
+the stack is healthy, then checks every component you configured against
+the real service (database, file storage, email, Redis, realtime, public
+URL) and prints ✓ / ✗ with what to fix. Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 then create a workspace.
 
 On a real domain with HTTPS (DNS pointed at the server, ports 80 and 443
 open), with live updates (Soketi) turned on:
 
 ```bash
-scripts/self-host/setup.sh --url https://lumo.example.com --realtime
-docker compose --profile caddy up -d
+scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
 ```
 
-`--url` is the only URL you set, and the `caddy` profile gets a certificate
-and serves the app and its realtime socket on that one domain. Re-running
-`setup.sh` with new options and `docker compose up -d` changes either later,
-with no rebuild. Then:
+`--url` is the only URL you set, and `--caddy` gets a certificate and serves
+the app and its realtime socket on that one domain. Optional settings go in
+`.env` after the first start; re-running `setup.sh` applies them, with no
+rebuild, and checks them again (`setup.sh --help` lists every option). Then:
 
 - **Configure email** (`SMTP_URL` or `RESEND_API_KEY`). Without it, nobody
-  can verify an address, so workspace invites cannot be accepted. `setup.sh`
-  warns while it is missing.
+  can verify an address, so workspace invites cannot be accepted. The check
+  shows it as not configured until it is set, and signs in to the server
+  (without sending mail) once it is.
 - **Close sign-up** once your team has joined: `AUTH_DISABLE_SIGNUP=true`.
 
 AI features, GitHub / Slack / Figma / Google Drive / Sentry and social

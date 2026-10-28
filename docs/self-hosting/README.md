@@ -40,10 +40,34 @@ Postgres.
 
 ```bash
 git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
-scripts/self-host/setup.sh         # creates .env, generates the secrets
-docker compose up -d               # pulls the images and starts everything
-docker compose ps                  # postgres, app and cron "healthy" / running
+scripts/self-host/setup.sh         # writes .env, starts the stack, checks the configuration
 ```
+
+`setup.sh` does three things:
+
+1. Writes `.env`: copies `.env.example` the first time and generates the
+   secrets.
+2. Runs `docker compose up -d` (pulls the images, applies the migrations)
+   and waits until postgres, app and cron are healthy.
+3. Checks the configuration from inside the app container, with the app's
+   own env and network, and prints one line per component:
+
+```
+  ✓ Database      connected, schema present
+  ✓ File storage  disk: write, read and delete work
+  – Email         not configured
+                  Invites cannot be accepted without email: set SMTP_URL, SMTP_HOST or RESEND_API_KEY.
+  – Redis         not configured (rate limits kept in memory)
+  – Realtime      off (the UI refreshes on focus and every minute)
+  – Public URL    http://localhost:3000 is local to this machine; open it in a browser
+```
+
+`✓` works, `–` not configured (fine for optional components), `✗` configured
+but not working, with what to fix. Email is checked by signing in to the
+SMTP server (or the Resend relay) without sending anything; S3 by writing,
+reading and deleting one object; the public URL by fetching it from the
+server. `setup.sh` exits non-zero when any check fails. `--no-start` stops
+after writing `.env`; `--check` only re-runs the check on the running stack.
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 create an account with your email and a password, then create a workspace,
@@ -52,35 +76,42 @@ account creation.) The first
 account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
+Optional components (email, your own Redis or S3, OAuth, AI keys) are
+configured after the first start: set them in `.env` and run `setup.sh`
+again, which restarts what changed and checks it.
+
 `setup.sh` creates `.env` readable by its owner only (mode 600) and is safe
-to re-run: it keeps realtime as chosen earlier unless you pass `--realtime` /
-`--no-realtime`, fills only secrets that are still empty and never replaces
-one that has a value (changing `BETTER_AUTH_SECRET` signs everybody out; the
-database password must keep matching its volume). It warns when no email is configured.
+to re-run: it keeps realtime and caddy as chosen earlier unless you pass
+`--realtime` / `--no-realtime` or `--caddy` / `--no-caddy`, fills only
+secrets that are still empty and never replaces one that has a value
+(changing `BETTER_AUTH_SECRET` signs everybody out; the database password
+must keep matching its volume).
+`scripts/self-host/setup.sh --help` lists every option.
 
 ### On your own domain (HTTPS)
 
 Point the domain's DNS at the server, open ports 80 and 443, then:
 
 ```bash
-scripts/self-host/setup.sh --url https://lumo.example.com --realtime
-docker compose --profile caddy up -d
+scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
 ```
 
 `--url` sets `NEXT_PUBLIC_APP_URL` — compose derives `LUMO_PUBLIC_URL` and
 `BETTER_AUTH_URL` from it — and `LUMO_DOMAIN` for Caddy. With realtime on it
 also points the browser's realtime connection at the same origin
-(`SOKETI_PUBLIC_HOST` = the domain, the URL's port or 443, TLS on). The
-`caddy` service gets a Let's Encrypt certificate and serves
+(`SOKETI_PUBLIC_HOST` = the domain, the URL's port or 443, TLS on).
+`--caddy` adds the `caddy` profile to `COMPOSE_PROFILES` in `.env`; that
+service gets a Let's Encrypt certificate and serves
 everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
 the rest to the app. Leave `--realtime` out if you don't need live updates.
 
-With your own reverse proxy (nginx, Traefik, …) instead of the profile, run
-the same `setup.sh --url` and give the proxy the same two rules: `/app/` →
+With your own reverse proxy (nginx, Traefik, …) instead, run the same
+`setup.sh --url` without `--caddy` and give the proxy the same two rules: `/app/` →
 port 6001 (WebSocket upgrade on), everything else → port 3000.
 
-Changing the URL later is the same command followed by `docker compose up -d`
-— no rebuild. A plain-HTTP URL (`--url http://192.168.1.20:3000`) keeps the
+Changing the URL later is the same command — no rebuild. The public-URL
+check then fetches the new URL from the server, so a DNS, port or proxy
+problem shows up right away. A plain-HTTP URL (`--url http://192.168.1.20:3000`) keeps the
 browser talking to Soketi directly on port 6001.
 
 ### Image versions and building from source
@@ -134,7 +165,7 @@ carrying `WORKFLOW_SECRET`, see [workflow.md](workflow.md)), `PORT`,
 `PUSHER_*` settings for Soketi.
 Everything else in `.env` is passed
 to the app unchanged, so the optional features below are turned on by
-editing `.env` and running `docker compose up -d`.
+editing `.env` and running `scripts/self-host/setup.sh` (or `docker compose up -d`).
 
 ## What works without optional services
 
@@ -224,7 +255,7 @@ once email is configured; and **email + password**, on by default.
 ```bash
 git pull
 docker compose pull      # the newest images (or the release LUMO_IMAGE pins)
-docker compose up -d     # add --build if you build from source
+scripts/self-host/setup.sh   # restarts on the new images and re-checks
 ```
 
 The new app container applies new migrations (`prisma migrate deploy` only —
