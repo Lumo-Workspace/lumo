@@ -49,6 +49,9 @@ const ALL_ON = {
   securityReviewAutoPauseAfter: 5,
 }
 
+/** LUM-1329 — the level the fake server holds (what renderCard started with). */
+let storedAgentReview: AgentReviewBlockingView = 'off'
+
 function renderCard(
   initial: WorkspaceSecuritySwitches = ALL_ON,
   huntAvailable = true,
@@ -56,6 +59,7 @@ function renderCard(
   rewardHackAvailable = true,
   agentReviewBlocking: AgentReviewBlockingView = 'off'
 ) {
+  storedAgentReview = agentReviewBlocking
   return render(
     <SecurityScanSwitchesCard
       initial={initial}
@@ -71,23 +75,29 @@ const toggle = (name: string | RegExp) => screen.getByRole('switch', { name })
 
 beforeEach(() => {
   jest.clearAllMocks()
-  updateSecurityScan.mockImplementation(async (u: Record<string, unknown>) => ({
-    // LUM-1329: the server echoes the level it now holds.
-    agentReviewBlocking: u.agentReviewBlocking ?? 'off',
-    switches:
-      'all' in u
-        ? {
-            securityScanEnabled: u.all,
-            securityAiReviewEnabled: u.all,
-            securityHuntEnabled: u.all,
-            securityRewardHackEnabled: u.all,
-            securityRequestChangesEnabled: false,
-            securityAllowAuthorApproval: true,
-            securityLearningsScope: 'auto' as const,
-            securityReviewAutoPauseAfter: 5,
-          }
-        : { ...ALL_ON, ...u, agentReviewBlocking: undefined },
-  }))
+  updateSecurityScan.mockImplementation(
+    async ({ agentReviewBlocking, ...u }: Record<string, unknown>) => {
+      // LUM-1329: the server holds the level it was sent, else the one it had.
+      if (agentReviewBlocking !== undefined)
+        storedAgentReview = agentReviewBlocking as AgentReviewBlockingView
+      return {
+        agentReviewBlocking: storedAgentReview,
+        switches:
+          'all' in u
+            ? {
+                securityScanEnabled: u.all,
+                securityAiReviewEnabled: u.all,
+                securityHuntEnabled: u.all,
+                securityRewardHackEnabled: u.all,
+                securityRequestChangesEnabled: false,
+                securityAllowAuthorApproval: true,
+                securityLearningsScope: 'auto' as const,
+                securityReviewAutoPauseAfter: 5,
+              }
+            : { ...ALL_ON, ...u },
+      }
+    }
+  )
 })
 
 describe('LUM-866 SecurityScanSwitchesCard', () => {
@@ -448,4 +458,20 @@ describe('LUM-1329 imported agent reviews block Done', () => {
       'agentReviewBlocking'
     )
   })
+})
+
+it('LUM-1329 an unrelated save keeps showing the stored level the server echoes', async () => {
+  renderCard(ALL_ON, true, true, true, 'medium')
+  fireEvent.click(toggle('Exploitability check'))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+  )
+  expect(
+    (
+      screen.getByRole('combobox', {
+        name: 'Imported agent reviews block Done',
+      }) as HTMLSelectElement
+    ).value
+  ).toBe('medium')
 })
