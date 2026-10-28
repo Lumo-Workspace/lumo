@@ -5,12 +5,14 @@
  * copy of the repo's .env.example in a temp directory.
  */
 import { execFileSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -81,21 +83,29 @@ describe('scripts/self-host/init.sh', () => {
     expect(out).toContain('no email configured')
   })
 
+  it('creates .env readable by its owner only, and keeps that mode on re-runs', () => {
+    run()
+    expect(statSync(join(dir, '.env')).mode & 0o777).toBe(0o600)
+    run('--url', 'https://lumo.example.com')
+    expect(statSync(join(dir, '.env')).mode & 0o777).toBe(0o600)
+  })
+
   it('never overwrites a secret that already has a value', () => {
     run()
     const first = env()
+    // Generated per run, quoted the way an operator might write it; env()
+    // and init.sh both read the value without the quotes.
+    const operatorValue = randomBytes(24).toString('hex')
     writeFileSync(
       join(dir, '.env'),
       readFileSync(join(dir, '.env'), 'utf8').replace(
         /^BETTER_AUTH_SECRET=.*$/m,
-        'BETTER_AUTH_SECRET="kept-by-the-operator-0123456789abcdef"'
+        `BETTER_AUTH_SECRET="${operatorValue}"`
       )
     )
     const out = run('--url', 'https://lumo.example.com')
     const second = env()
-    expect(second.get('BETTER_AUTH_SECRET')).toBe(
-      'kept-by-the-operator-0123456789abcdef'
-    )
+    expect(second.get('BETTER_AUTH_SECRET')).toBe(operatorValue)
     for (const name of SECRETS.filter(n => n !== 'BETTER_AUTH_SECRET')) {
       expect(second.get(name)).toBe(first.get(name))
       expect(countLines(name)).toBe(1)
@@ -115,6 +125,18 @@ describe('scripts/self-host/init.sh', () => {
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('443')
     expect(vars.get('SOKETI_PUBLIC_TLS')).toBe('true')
     expect(countLines('NEXT_PUBLIC_APP_URL')).toBe(1)
+  })
+
+  it('--url https with a port keeps realtime on that port', () => {
+    run('--url', 'https://lumo.example.com:8443')
+    const vars = env()
+    expect(vars.get('NEXT_PUBLIC_APP_URL')).toBe(
+      'https://lumo.example.com:8443'
+    )
+    expect(vars.get('LUMO_DOMAIN')).toBe('lumo.example.com')
+    expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('lumo.example.com')
+    expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('8443')
+    expect(vars.get('SOKETI_PUBLIC_TLS')).toBe('true')
   })
 
   it('--url http keeps realtime on port 6001 without TLS', () => {

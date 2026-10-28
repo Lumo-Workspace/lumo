@@ -60,8 +60,9 @@ docker compose --profile caddy up -d
 
 `--url` sets `NEXT_PUBLIC_APP_URL`, `LUMO_PUBLIC_URL` and `BETTER_AUTH_URL`
 to that URL, `LUMO_DOMAIN` for Caddy, and points the browser's realtime
-connection at the same origin (`SOKETI_PUBLIC_HOST` = the domain, port 443,
-TLS on). The `caddy` service gets a Let's Encrypt certificate and serves
+connection at the same origin (`SOKETI_PUBLIC_HOST` = the domain, the URL's
+port or 443, TLS on). It also creates `.env` readable by its owner only. The
+`caddy` service gets a Let's Encrypt certificate and serves
 everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
 the rest to the app.
 

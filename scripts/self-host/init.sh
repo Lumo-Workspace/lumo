@@ -67,6 +67,9 @@ set_var() {
 if [ ! -f "$ENV_FILE" ]; then
   [ -f "$EXAMPLE_FILE" ] || { echo "init.sh: $EXAMPLE_FILE not found" >&2; exit 1; }
   cp "$EXAMPLE_FILE" "$ENV_FILE"
+  # Owner-only: the secrets below are written into it. set_var rewrites the
+  # file in place, so the mode sticks.
+  chmod 600 "$ENV_FILE"
   echo "Created .env from .env.example"
 fi
 
@@ -101,10 +104,15 @@ if [ -n "$URL" ]; then
   case "$URL" in
     https://*)
       # Behind the caddy profile (or any proxy sending /app/ to Soketi):
-      # realtime shares the app's origin and port 443.
+      # realtime shares the app's origin — its port, 443 unless the URL
+      # names one.
+      case "$host" in
+        *:*) public_port=${host##*:} ;;
+        *) public_port=443 ;;
+      esac
       set_var LUMO_DOMAIN "$hostname"
       set_var SOKETI_PUBLIC_HOST "$hostname"
-      set_var SOKETI_PUBLIC_PORT 443
+      set_var SOKETI_PUBLIC_PORT "$public_port"
       set_var SOKETI_PUBLIC_TLS true
       set_var SOKETI_PORT 6001
       ;;
