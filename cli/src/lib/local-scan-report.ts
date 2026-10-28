@@ -473,6 +473,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
             source: r.server.source,
             note: r.server.note,
             repo: r.server.repo,
+            // LUM-1330: the remote's old name when Lumo followed a rename.
+            renamedFrom: r.server.renamedFrom ?? null,
             fetchedAt: r.server.fetchedAt,
             pullRequest: r.server.pullRequest,
             policy: r.server.policy,

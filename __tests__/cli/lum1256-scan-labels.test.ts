@@ -346,6 +346,26 @@ describe('report with server context', () => {
     )
   })
 
+  it('LUM-1330 --json carries renamedFrom (null when there was no rename)', () => {
+    const server = {
+      source: 'live' as const,
+      note: null,
+      repo: 'acme/new',
+      renamedFrom: 'acme/old',
+      fetchedAt: 't',
+      pullRequest: null,
+      policy: ctx().policy,
+      pr: null,
+    }
+    expect(localScanJson(result(server)).serverContext).toMatchObject({
+      repo: 'acme/new',
+      renamedFrom: 'acme/old',
+    })
+    expect(
+      localScanJson(result({ ...server, renamedFrom: null })).serverContext
+    ).toMatchObject({ renamedFrom: null })
+  })
+
   it('says why there is no context', () => {
     const out = formatLocalScan(
       result({

@@ -330,11 +330,6 @@ export const githubAppInstallationRepository = {
     })
   },
 
-  /**
-   * LUM-882 — the fields the access recheck narrows, plus the versions
-   * `updateRecheckIfUnchanged` checks: `verifiedAt` (which verification the
-   * result belongs to) and `updatedAt` (any other write since the read).
-   */
   /** LUM-1330 — the confirmed list and the rename record, for resolving an
    *  old repository name. */
   async findRenameState(workspaceId: string) {
@@ -344,6 +339,11 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /**
+   * LUM-882 — the fields the access recheck narrows, plus the versions
+   * `updateRecheckIfUnchanged` checks: `verifiedAt` (which verification the
+   * result belongs to) and `updatedAt` (any other write since the read).
+   */
   async findRecheckState(workspaceId: string) {
     return prisma.gitHubAppInstallation.findUnique({
       where: { workspaceId },

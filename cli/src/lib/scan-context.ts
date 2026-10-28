@@ -206,7 +206,7 @@ function fromCache(
   return {
     source: 'cache',
     note: `${note} — using the context cached ${entry.fetchedAt}`,
-    repo,
+    repo: currentRepo(entry.context, repo),
     fetchedAt: entry.fetchedAt,
     context: entry.context,
   }
@@ -248,7 +248,7 @@ export async function loadScanContext(
       ? {
           source: 'cache',
           note: `--offline — using the context cached ${cached.fetchedAt}`,
-          repo,
+          repo: currentRepo(cached.context, repo),
           fetchedAt: cached.fetchedAt,
           context: cached.context,
         }

@@ -119,7 +119,7 @@ Local results are a preview: the PR scan stays the authority for DONE.
 
 Declared finding fields: `scanner`, `kind` (`SECRET` | `DEPENDENCY`), `ruleId`, `severity` (`LOW|MEDIUM|HIGH`), `title`, `filePath`, `line` (`null` for DEPENDENCY), `evidence` (redacted; `null` for DEPENDENCY), `fingerprint` (the server's), `detail`, `downgrade` (`PLACEHOLDER_VALUE` | `DOWNGRADED_PATH` | `null`), `server` (`null` without context, else `{ status: NEW|ON_MAIN|FALSE_POSITIVE|ACCEPTED_RISK|LEARNING, by, at, pullRequest, carriesOver, learningId, wouldBlockDone }`). A DEPENDENCY finding adds `dependency: { ecosystem, name, version, osvId, aliases, malicious, fixedVersion, score, url, ignoreExpired }`.
 
-Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fetchedAt, pullRequest, policy, pr }` (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
+Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, renamedFrom, fetchedAt, pullRequest, policy, pr }` (`renamedFrom`: the remote's old name when Lumo followed a rename, else `null`) (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
 
 ## Exit codes
 

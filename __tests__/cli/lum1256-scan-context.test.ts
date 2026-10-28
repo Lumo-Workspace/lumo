@@ -207,6 +207,17 @@ describe('loadScanContext', () => {
       .mockResolvedValue(new Response(null, { status: 304 }))
     const r2 = await loadScanContext(opts, { ...base(), fetch: again })
     expect(r2.repo).toBe('acme/new')
+    // So do --offline and the fallback to the cache when Lumo is down.
+    const offline = await loadScanContext(
+      { ...opts, offline: true },
+      { ...base(), fetch: jest.fn() }
+    )
+    expect(offline).toMatchObject({ source: 'cache', repo: 'acme/new' })
+    const down = await loadScanContext(opts, {
+      ...base(),
+      fetch: jest.fn().mockRejectedValue(new Error('fetch failed')),
+    })
+    expect(down).toMatchObject({ source: 'cache', repo: 'acme/new' })
   })
 
   it('a repository the workspace does not own (JSON 404) is no context', async () => {
