@@ -23,8 +23,9 @@ file. Lumo is built around one rule: **nothing closes on the agent's word.**
   classified across 9 categories, and the irreversible ones are held before
   merge.
 - **Pull-request scanning.** Every pull request runs five layers before it
-  merges — secrets, code scan, dependencies, AI review, and an agent that
-  hunts for a working exploit path. Findings land on the PR with a severity
+  merges — secrets (gitleaks), code scan (semgrep, zizmor, trivy),
+  dependencies (osv-scanner), AI review, and an agent that hunts for a
+  working exploit path. Findings land on the PR with a severity
   and a fingerprint. A finished layer means "checked", not "clean". Details:
   [docs/security-scan.md](docs/security-scan.md).
 - **Cost and time.** Every agent run is metered to the token, per task, per
@@ -57,7 +58,8 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Fill in the required secrets first — the full guide is
+Fill in the required secrets in `.env` before `up` (the guide lists them);
+database migrations run automatically on every `up`. The full guide is
 [docs/self-hosting/README.md](docs/self-hosting/README.md), and
 [docs/self-hosting/integrations.md](docs/self-hosting/integrations.md) covers
 GitHub, Slack, Figma, Google Drive and Sentry.

@@ -1,6 +1,6 @@
 # GitHub App permissions
 
-> This section documents the hosted service's App, which also carries the
+> This page documents the hosted service's App, which also carries the
 > security plugin's permissions. To register an App for a self-hosted
 > deployment, follow
 > [docs/self-hosting/integrations.md](self-hosting/integrations.md):
