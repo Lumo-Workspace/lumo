@@ -26,10 +26,8 @@ jest.mock('@/lib/services/content-summary.service', () => ({
   contentSummaryService: { summarize: jest.fn().mockResolvedValue(null) },
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: any) => p }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: async () => ({
-    users: { getUserList: async () => ({ data: [] }) },
-  }),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: async () => ({ getUserList: async () => ({ data: [] }) }),
 }))
 
 beforeEach(() => {

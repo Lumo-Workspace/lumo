@@ -26,10 +26,8 @@ jest.mock('@/lib/repositories/github.repository', () => ({
     findIntegrationByLogin: jest.fn(),
   },
 }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: { getUser: jest.fn() },
-  }),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({ getUser: jest.fn() }),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: {

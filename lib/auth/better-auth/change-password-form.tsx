@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * LUM-1070 — "change password" on the profile page (Better Auth only; under
- * Clerk the slot renders nothing). Changing it signs out every other session.
+ * LUM-1070 — "change password" on the profile page. Changing it signs out
+ * every other session.
  * An account without a password (GitHub / Google only) is told to set one
  * through "Forgot password?" instead — a reset adds the password.
  * LUM-1082: nothing at all when the instance turned password sign-in off.

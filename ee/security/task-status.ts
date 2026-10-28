@@ -36,6 +36,36 @@ export interface NextActionSecurityFinding {
   secretDowngrade?: string | null
 }
 
+/**
+ * LUM-1328 — the task's open PR has no agent security review on its head:
+ * run `/security-review` (Claude Code) or a Codex review, then
+ * `lumo security import`. Advisory only — it never holds DONE.
+ */
+export interface NextActionAgentReview {
+  kind: 'AGENT_REVIEW_MISSING'
+  prNumber: number
+  /** Lumo's own AI review runs here, so the agent review is an extra. */
+  lumoAiReviewOn: boolean
+  /** Rendered as is; an older CLI shows it as a generic advisory row. */
+  statement: string
+  command: string
+  advisory: true
+}
+
+export const AGENT_REVIEW_IMPORT_COMMAND = 'lumo security import <file>'
+
+/** LUM-1328 — the wording of the nudge, with or without Lumo's AI review. */
+export function agentReviewStatement(
+  prNumber: number,
+  lumoAiReviewOn: boolean
+): string {
+  const run =
+    'run /security-review in Claude Code or a Codex review, write its findings to a file and import it'
+  return lumoAiReviewOn
+    ? `PR #${prNumber} has no agent security review on its latest commit. Lumo's AI review is on for this workspace, so an agent review is an extra: ${run}`
+    : `PR #${prNumber} has no security review on its latest commit (Lumo's AI review is off for this workspace): ${run}`
+}
+
 export interface TaskSecurityFindingsSummary {
   open: number
   blocking: number
@@ -49,6 +79,7 @@ export interface TaskSecurityFindingsSummary {
 declare module '@/lib/services/task-status.service' {
   interface PluginNextActionKinds {
     SECURITY_FINDING: NextActionSecurityFinding
+    AGENT_REVIEW_MISSING: NextActionAgentReview
   }
   interface TaskStatusPluginFields {
     /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
@@ -68,7 +99,7 @@ export async function securityTaskStatusSection(
       ])
     const state =
       await prSecurityReminderService.loadOpenFindingsForTask(taskId)
-    const nextActions = state.findings.map(
+    const findingActions = state.findings.map(
       (f): NextActionSecurityFinding => ({
         kind: 'SECURITY_FINDING',
         findingId: f.id,
@@ -83,6 +114,17 @@ export async function securityTaskStatusSection(
         secretDowngrade: f.secretDowngrade ?? null,
       })
     )
+    const agentReviewActions = (state.agentReviewMissing ?? []).map(
+      (prNumber): NextActionAgentReview => ({
+        kind: 'AGENT_REVIEW_MISSING',
+        prNumber,
+        lumoAiReviewOn: state.lumoAiReviewOn,
+        statement: agentReviewStatement(prNumber, state.lumoAiReviewOn),
+        command: AGENT_REVIEW_IMPORT_COMMAND,
+        advisory: true,
+      })
+    )
+    const nextActions = [...findingActions, ...agentReviewActions]
     const summary: TaskSecurityFindingsSummary = {
       open: state.findings.length,
       blocking: state.blockingCount,

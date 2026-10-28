@@ -3010,7 +3010,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory: never blocks DONE.",
+      "description": "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory unless the workspace policy blocks DONE on agent reviews.",
       "codex": {
         "serverOnly": false,
         "localFiles": "reads",

@@ -1,12 +1,10 @@
 /**
  * @jest-environment node
  */
-// LUM-1027 — one UserDirectory contract, run against BOTH implementations
-// through the public @/lib/auth/users entry point (AUTH_PROVIDER switches
-// them). Each provider's backend is an in-memory fake of what it really
-// talks to: Clerk's Backend API users resource, and the auth_users
-// repository for Better Auth.
-import type { AuthUser, UserDirectory } from '@/lib/auth/users'
+// LUM-1027 — the UserDirectory contract, run through the public
+// @/lib/auth/users entry point against an in-memory fake of the auth_users
+// repository Better Auth reads. (Clerk's side went with Clerk, LUM-1077.)
+import type { UserDirectory } from '@/lib/auth/users'
 
 interface Seed {
   id: string
@@ -18,62 +16,6 @@ const SEED: Seed[] = [
   { id: 'u1', firstName: 'Ada', lastName: 'Lovelace', email: 'ada@x.io' },
   { id: 'u2', firstName: 'Grace', lastName: 'Hopper', email: 'grace@x.io' },
 ]
-
-// ── Clerk fake (Backend API `users` resource) ───────────────────────────────
-const clerkStore = new Map<string, AuthUser>()
-function clerkUser(s: Seed): AuthUser {
-  const email = {
-    id: `idn_${s.id}`,
-    emailAddress: s.email,
-    verification: { status: 'verified' },
-  }
-  return {
-    id: s.id,
-    firstName: s.firstName,
-    lastName: s.lastName,
-    username: null,
-    imageUrl: 'https://img.clerk/x',
-    primaryEmailAddressId: email.id,
-    primaryEmailAddress: email,
-    emailAddresses: [email],
-  }
-}
-const fakeClerkUsers = {
-  getUser: async (id: string) => {
-    const u = clerkStore.get(id)
-    if (!u) throw Object.assign(new Error('not found'), { status: 404 })
-    return u
-  },
-  getUserList: async (q: {
-    userId?: string[]
-    emailAddress?: string[]
-    limit?: number
-  }) => ({
-    data: [...clerkStore.values()]
-      .filter(
-        u =>
-          q.userId?.includes(u.id) ||
-          q.emailAddress?.some(
-            e => e.toLowerCase() === u.emailAddresses[0]?.emailAddress
-          )
-      )
-      .slice(0, q.limit ?? 10),
-  }),
-  updateUser: async (
-    id: string,
-    upd: { firstName?: string; lastName?: string }
-  ) => {
-    const u = await fakeClerkUsers.getUser(id)
-    const next = { ...u, ...upd }
-    clerkStore.set(id, next)
-    return next
-  },
-  updateUserProfileImage: async () => ({}),
-}
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: async () => ({ users: fakeClerkUsers }),
-  createClerkClient: () => ({ users: fakeClerkUsers }),
-}))
 
 // ── Better Auth fake (auth_users repository) ────────────────────────────────
 type Row = {
@@ -107,45 +49,25 @@ jest.mock('@/lib/repositories/auth-user.repository', () => ({
 
 import { getUserDirectory } from '@/lib/auth/users'
 
-const savedProvider = process.env.AUTH_PROVIDER
-afterAll(() => {
-  if (savedProvider === undefined) delete process.env.AUTH_PROVIDER
-  else process.env.AUTH_PROVIDER = savedProvider
-})
+function seed() {
+  baStore.clear()
+  for (const s of SEED) {
+    baStore.set(s.id, {
+      id: s.id,
+      name: `${s.firstName} ${s.lastName}`,
+      email: s.email,
+      emailVerified: true,
+      image: null,
+      firstName: s.firstName,
+      lastName: s.lastName,
+    })
+  }
+}
 
-const PROVIDERS = [
-  {
-    name: 'clerk',
-    setup: () => {
-      delete process.env.AUTH_PROVIDER
-      clerkStore.clear()
-      for (const s of SEED) clerkStore.set(s.id, clerkUser(s))
-    },
-  },
-  {
-    name: 'better-auth',
-    setup: () => {
-      process.env.AUTH_PROVIDER = 'better-auth'
-      baStore.clear()
-      for (const s of SEED) {
-        baStore.set(s.id, {
-          id: s.id,
-          name: `${s.firstName} ${s.lastName}`,
-          email: s.email,
-          emailVerified: true,
-          image: null,
-          firstName: s.firstName,
-          lastName: s.lastName,
-        })
-      }
-    },
-  },
-]
-
-describe.each(PROVIDERS)('UserDirectory contract — $name', ({ setup }) => {
+describe('UserDirectory contract', () => {
   let dir: UserDirectory
   beforeEach(async () => {
-    setup()
+    seed()
     dir = await getUserDirectory()
   })
 

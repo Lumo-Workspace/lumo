@@ -1,6 +1,6 @@
 // LUM-1070 — the Better Auth password UI: /reset-password (request a link,
 // then set the new password) and the profile page's change-password slot,
-// reached through @/lib/auth/client. Under Clerk the slot renders nothing.
+// reached through @/lib/auth/client.
 const mockRequestPasswordReset = jest.fn()
 const mockResetPassword = jest.fn()
 const mockChangePassword = jest.fn()
@@ -14,14 +14,6 @@ jest.mock('@/lib/auth/better-auth/auth-client', () => ({
     listAccounts: (...a: unknown[]) => mockListAccounts(...a),
     $fetch: (...a: unknown[]) => mockFetch(...a),
   }),
-}))
-jest.mock('@clerk/nextjs', () => ({
-  ClerkProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid='clerk-provider'>{children}</div>
-  ),
-  SignIn: () => <div data-testid='clerk-sign-in' />,
-  useClerk: () => ({ signOut: jest.fn() }),
-  useUser: () => ({ isLoaded: false }),
 }))
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -44,7 +36,7 @@ import {
 } from '@/lib/auth/client'
 
 const baWrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider provider='better-auth'>{children}</AuthProvider>
+  <AuthProvider>{children}</AuthProvider>
 )
 
 const type = (label: string, value: string) =>
@@ -155,19 +147,6 @@ describe('ResetPassword — set the new password (LUM-1070)', () => {
 })
 
 describe('PasswordSettings (LUM-1070)', () => {
-  it('renders nothing under Clerk (profile page unchanged)', () => {
-    const { container } = render(
-      <AuthProvider provider='clerk'>
-        <div data-testid='slot'>
-          <PasswordSettings />
-        </div>
-      </AuthProvider>
-    )
-    expect(screen.getByTestId('slot')).toBeEmptyDOMElement()
-    expect(container.querySelector('form')).toBeNull()
-    expect(mockListAccounts).not.toHaveBeenCalled()
-  })
-
   it('Better Auth: changes the password and signs out other sessions', async () => {
     mockListAccounts.mockResolvedValue({
       data: [{ providerId: 'credential' }],

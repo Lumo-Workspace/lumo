@@ -6,14 +6,17 @@
  * finding (ruleId `llm-output-to-sink:<sink>`, no falsifier verdict) in the
  * same `persistResult` as the secret rows, and the falsifier is never asked.
  */
-// LUM-866: every workspace here has the default switches (all on); the
+// LUM-866: every workspace here has AI review and hunt on (off by default since LUM-1328); the
 // platform env in each test still decides the ceiling.
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
       .requireActual('@/ee/security/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
+      .resolveSecurityLayers({
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      }),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),

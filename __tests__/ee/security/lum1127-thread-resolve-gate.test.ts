@@ -10,7 +10,10 @@ jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: async () =>
     jest
       .requireActual('@/ee/security/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
+      .resolveSecurityLayers({
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      }),
 }))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
@@ -46,6 +49,10 @@ jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
 import { securityTaskStatusSection } from '@/ee/security/task-status'
 import { listOpenBlockingFindings } from '@/ee/security/services/pr-security-scan-gate'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
+
+/** LUM-1328: the open PR also gets an AGENT_REVIEW_MISSING row; count findings only. */
+const findingRows = (section: { nextActions?: Array<{ kind: string }> }) =>
+  (section.nextActions ?? []).filter(a => a.kind === 'SECURITY_FINDING').length
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
@@ -137,12 +144,12 @@ describe('LUM-1127 — a GitHub resolve is not a disposition', () => {
   it('without any resolved thread, both findings are open', async () => {
     resolved.mockResolvedValue(new Map())
     const section = await securityTaskStatusSection('t-1')
-    expect((section.nextActions ?? []).length).toBe(2)
+    expect(findingRows(section)).toBe(2)
   })
 
   it('a failed thread read hides nothing', async () => {
     resolved.mockRejectedValue(new Error('down'))
     const section = await securityTaskStatusSection('t-1')
-    expect((section.nextActions ?? []).length).toBe(2)
+    expect(findingRows(section)).toBe(2)
   })
 })

@@ -9,9 +9,9 @@ const mockRedirect = jest.fn((url: string) => {
   throw Object.assign(new Error('NEXT_REDIRECT'), { url })
 })
 
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: () => mockAuth(),
-  currentUser: () => mockCurrentUser(),
+jest.mock('@/lib/auth/session', () => ({
+  getCurrentUserId: async () => (await mockAuth())?.userId ?? null,
+  getCurrentUser: async () => mockCurrentUser(),
 }))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {

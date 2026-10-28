@@ -8,7 +8,7 @@
 
 // task.service transitively imports @octokit/auth-app (ESM) via
 // task-pr-sync.service → lib/integrations/github — mock the whole module to
-// keep jest in CJS-land. document.service pulls in @clerk/nextjs — same story.
+// keep jest in CJS-land.
 jest.mock('@/lib/services/task.service', () => ({
   taskService: { resolveIdentifier: jest.fn() },
 }))

@@ -216,7 +216,7 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
     )
   })
 
-  it('the image defaults to better-auth at build AND runtime, and needs the Clerk key only for a Clerk build', () => {
+  it('the image defaults to better-auth at build AND runtime and accepts nothing else', () => {
     expect(dockerfile).toMatch(/^ARG AUTH_PROVIDER=better-auth$/m)
     const builder = dockerfile.slice(
       dockerfile.indexOf('AS builder'),
@@ -227,11 +227,9 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
       expect(stage).toMatch(/^ARG AUTH_PROVIDER$/m)
       expect(stage).toMatch(/AUTH_PROVIDER=\$AUTH_PROVIDER\b/)
     }
-    // The Clerk key is optional unless AUTH_PROVIDER=clerk.
-    expect(builder).toMatch(/^ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$/m)
-    expect(builder).toMatch(
-      /clerk\) test -n "\$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"/
-    )
+    // LUM-1077: Clerk is gone — no Clerk build args, no clerk branch.
+    expect(dockerfile).not.toMatch(/CLERK|clerk\)/)
+    expect(builder).toMatch(/must be better-auth, got/)
   })
 
   it('the app refuses to start with a BETTER_AUTH_SECRET shorter than the library minimum', () => {
@@ -239,12 +237,11 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
     expect(cmd).toContain(`\${#BETTER_AUTH_SECRET} -lt ${MIN_SECRET_LENGTH}`)
   })
 
-  it('.env.example makes Better Auth the required provider and leaves Clerk optional', () => {
+  it('.env.example makes Better Auth the provider and has no Clerk variables', () => {
     const required = envExample.slice(0, envExample.indexOf('# 2. OPTIONAL'))
     expect(required).toMatch(/^AUTH_PROVIDER=better-auth$/m)
     expect(required).toMatch(/^BETTER_AUTH_SECRET=$/m)
-    expect(required).not.toMatch(/^[A-Z_]*CLERK[A-Z_]*=/m)
-    expect(required).toMatch(/^# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=/m)
+    expect(envExample).not.toMatch(/CLERK[A-Z_]*=/)
   })
 
   it('the self-hosting guide no longer requires Clerk and documents the auth setup', () => {

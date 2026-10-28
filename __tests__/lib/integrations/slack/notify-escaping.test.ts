@@ -13,14 +13,13 @@ jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn(() => 'xoxb-test') }))
 jest.mock('@/lib/integrations/slack/token', () => ({
   getSlackIntegrationToken: jest.fn(async () => ({ token: 'xoxb-test' })),
 }))
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: {
-      getUser: async () => ({
-        primaryEmailAddressId: 'em_1',
-        emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
-      }),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  isUserDirectoryConfigured: () => true,
+  createUserDirectory: async () => ({
+    getUser: async () => ({
+      primaryEmailAddressId: 'em_1',
+      emailAddresses: [{ id: 'em_1', emailAddress: 'dev@example.com' }],
+    }),
   }),
 }))
 

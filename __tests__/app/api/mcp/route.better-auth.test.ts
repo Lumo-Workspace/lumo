@@ -8,29 +8,9 @@
  * answer 501 saying what to set (not a 401 that would send MCP clients into a
  * login loop). With one, the instance is its own authorization server:
  * /api/mcp challenges with 401 + resource_metadata, the metadata documents
- * are served, and tokens are checked by the Better Auth server — never Clerk.
+ * are served, and tokens are checked by the Better Auth server.
  * (Full OAuth flow on a real database: __tests__/integration/better-auth.mcp-oauth.test.ts.)
  */
-const mockVerifyClerkToken = jest.fn()
-const mockClerkAuth = jest.fn()
-jest.mock('@clerk/mcp-tools/server', () => ({
-  verifyClerkToken: (...a: unknown[]) => mockVerifyClerkToken(...a),
-}))
-const mockClerkMetadata = jest.fn()
-jest.mock(
-  '@clerk/mcp-tools/next',
-  () => ({
-    authServerMetadataHandlerClerk: () => mockClerkMetadata,
-    protectedResourceHandlerClerk: () => mockClerkMetadata,
-    metadataCorsOptionsRequestHandler: () => async () =>
-      new Response(null, { status: 204 }),
-  }),
-  { virtual: true }
-)
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: (...a: unknown[]) => mockClerkAuth(...a),
-}))
-
 // The Better Auth server: only the two server-side endpoints MCP uses.
 const mockVerifyEndpoint = jest.fn()
 const mockServerConfig = jest.fn()
@@ -97,7 +77,6 @@ describe('MCP with Better Auth and no public URL', () => {
         error_description: MCP_OAUTH_UNSUPPORTED_MESSAGE,
       })
       expect(MCP_OAUTH_UNSUPPORTED_MESSAGE).toContain('BETTER_AUTH_URL')
-      expect(mockClerkAuth).not.toHaveBeenCalled()
     }
   )
 
@@ -109,14 +88,12 @@ describe('MCP with Better Auth and no public URL', () => {
       new Request('https://lumo.example.com/.well-known/x')
     )
     expect(res.status).toBe(501)
-    expect(mockClerkMetadata).not.toHaveBeenCalled()
   })
 
   it('verifyMcpAccessToken never verifies a token', async () => {
     expect(isMcpOAuthSupported()).toBe(false)
     await expect(verifyMcpAccessToken('t')).resolves.toBeUndefined()
     expect(mockVerifyEndpoint).not.toHaveBeenCalled()
-    expect(mockVerifyClerkToken).not.toHaveBeenCalled()
   })
 })
 
@@ -145,7 +122,6 @@ describe('MCP with Better Auth and BETTER_AUTH_URL', () => {
     expect(mockVerifyEndpoint).toHaveBeenCalledWith({
       body: { token: 'bad-token' },
     })
-    expect(mockVerifyClerkToken).not.toHaveBeenCalled()
   })
 
   it('a verification error fails closed as a 401, not a 500', async () => {
@@ -192,7 +168,6 @@ describe('MCP with Better Auth and BETTER_AUTH_URL', () => {
       resource: RESOURCE,
       authorization_servers: ['https://lumo.example.com'],
     })
-    expect(mockClerkMetadata).not.toHaveBeenCalled()
   })
 
   it('serves the authorization-server metadata from the OAuth provider (RFC 8414)', async () => {
@@ -207,6 +182,5 @@ describe('MCP with Better Auth and BETTER_AUTH_URL', () => {
     await expect(res.json()).resolves.toEqual({
       issuer: 'https://lumo.example.com',
     })
-    expect(mockClerkMetadata).not.toHaveBeenCalled()
   })
 })

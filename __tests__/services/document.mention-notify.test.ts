@@ -25,9 +25,9 @@ async function flushBackground() {
   await Promise.all(mockBackgroundPromises)
 }
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn(async () => ({
-    users: { getUserList: jest.fn(async () => ({ data: [] })) },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn(async () => ({
+    getUserList: jest.fn(async () => ({ data: [] })),
   })),
 }))
 jest.mock('@/lib/repositories/document.repository', () => ({

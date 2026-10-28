@@ -474,13 +474,15 @@ model Workspace {
   // after it finished whatever this says (lib/security-scan/evidence-retention.ts).
   scanEvidenceRetentionDays Int @default(7)
 
-  // LUM-866: per-workspace switches for the PR security scan. All on by
-  // default; the platform env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays
-  // the ceiling — a workspace can only turn a layer off, never on. Scan off =
-  // no scan row, no layer, no PR comment for this workspace's PRs.
+  // LUM-866: per-workspace switches for the PR security scan; the platform
+  // env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays the ceiling — a
+  // workspace can only turn a layer off, never on. Scan off = no scan row, no
+  // layer, no PR comment for this workspace's PRs. LUM-1328: a new workspace
+  // starts with Lumo's AI review and hunt off — the developer's own agent
+  // review (`lumo security import`) is the default; an owner turns ours on.
   securityScanEnabled     Boolean           @default(true)
-  securityAiReviewEnabled Boolean           @default(true)
-  securityHuntEnabled     Boolean           @default(true)
+  securityAiReviewEnabled Boolean           @default(false)
+  securityHuntEnabled     Boolean           @default(false)
   // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
   securityRewardHackEnabled Boolean         @default(true)
   // LUM-1130: the PR reviewer's request-changes workflow.
@@ -1882,6 +1884,10 @@ model PrSecurityScan {
   // as our fault or coverage still owed; neither is ever the customer's.
   // Union across writers, like `partial`.
   partialCauses     String[]               @default([])
+  // LUM-1328: the agent reviews (`lumo security import`, slugs `claude-code` /
+  // `codex`) imported into this head — kept even when an import had zero
+  // findings, so `lumo task status` can tell a clean review from none.
+  agentReviewTools  String[]               @default([])
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
   detectorVersion   String
   error             String?

@@ -23,8 +23,8 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 const mockLookupProfiles = jest.fn()
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: (...a: unknown[]) => mockLookupProfiles(...a),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: (...a: unknown[]) => mockLookupProfiles(...a),
 }))
 
 import { sessionDetailService } from '@/lib/services/session-detail.service'

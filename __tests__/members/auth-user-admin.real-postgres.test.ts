@@ -32,10 +32,8 @@ jest.mock('@/lib/integrations/email/client', () => ({
 
 import { handleAuthRequest } from '@/lib/auth/handler'
 import { authUserAdminService } from '@/lib/services/auth-user-admin.service'
-import { memberDeprovisionService } from '@/lib/services/member-deprovision.service'
 import { authService } from '@/lib/services/auth.service'
 import { generateApiKey } from '@/lib/services/api-key.service'
-import { WEBHOOK_AUDIT_CONTEXT } from '@/lib/services/audit.service'
 import { runAuthAdmin } from '../../scripts/auth-admin/run'
 
 jest.setTimeout(180_000)
@@ -520,44 +518,6 @@ describe('LUM-1071 auth admin on Better Auth (real Postgres)', () => {
       deactivationReason: 'LEFT',
     })
     expect(await db().auditEvent.count()).toBe(before)
-  })
-
-  it('auth admin leaves the Clerk webhook deprovisioning unchanged', async () => {
-    await seedKey('m_clerk_gone')
-    const outcomes = await memberDeprovisionService.deprovisionClerkUser(
-      {
-        clerkUserId: 'user_clerk_gone',
-        reason: 'CLERK_USER_DELETED',
-        webhookId: 'msg_1071',
-      },
-      WEBHOOK_AUDIT_CONTEXT
-    )
-    expect(outcomes).toEqual([
-      {
-        workspaceId: CLERK_WS,
-        memberId: 'm_clerk_gone',
-        outcome: 'deactivated',
-        apiKeysRevoked: 1,
-      },
-    ])
-    expect(await membership('m_clerk_gone')).toMatchObject({
-      deactivationReason: 'CLERK_USER_DELETED',
-    })
-    // Exactly the pre-LUM-1071 metadata: no new keys.
-    expect(await audits(CLERK_WS, 'm_clerk_gone')).toEqual([
-      {
-        action: 'member.deprovisioned',
-        actorType: 'SYSTEM',
-        source: 'WEBHOOK',
-        metadata: {
-          reason: 'CLERK_USER_DELETED',
-          clerkUserId: 'user_clerk_gone',
-          webhookId: 'msg_1071',
-          role: 'MEMBER',
-          apiKeysRevoked: 1,
-        },
-      },
-    ])
   })
 
   it('auth admin: impersonation endpoints are closed (404)', async () => {

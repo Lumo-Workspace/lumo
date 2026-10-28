@@ -23,9 +23,8 @@ jest.mock('@/lib/db/prisma', () => ({
 // A redirect request has no X-Lumo-Workspace header.
 jest.mock('next/headers', () => ({ headers: async () => new Headers() }))
 const mockClerkAuth = jest.fn()
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: () => mockClerkAuth(),
-  currentUser: jest.fn(),
+jest.mock('@/lib/auth/session', () => ({
+  getCurrentUserId: async () => (await mockClerkAuth())?.userId ?? null,
 }))
 jest.mock('@/lib/services/github.service', () => ({
   githubService: { upsertIntegration: jest.fn() },

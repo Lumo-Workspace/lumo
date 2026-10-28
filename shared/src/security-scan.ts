@@ -31,9 +31,9 @@ export function externalFailureReason(
  * coding agent and imported with `lumo security import`. The server rewrites
  * an import's SARIF tool name to one of these, so its rows are always
  * `ext:<slug>:<rule>`. Such a row is model output the developer chose to
- * share: advisory like an LLM_JUDGE row, never blocking DONE whatever the
- * workspace policy lists. Shared so the CLI's copy of the DONE predicate
- * agrees with the server's.
+ * share: advisory like an LLM_JUDGE row unless the workspace policy opts in
+ * with an `AGENT_REVIEW` entry (LUM-1328). Shared so the CLI's copy of the
+ * DONE predicate agrees with the server's.
  */
 export const AGENT_REVIEW_TOOLS = ['claude-code', 'codex'] as const
 export type AgentReviewTool = (typeof AGENT_REVIEW_TOOLS)[number]

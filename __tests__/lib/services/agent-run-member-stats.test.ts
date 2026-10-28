@@ -21,14 +21,14 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: { findByTaskIdWithSession: jest.fn() },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  enrichClerkUsers: jest.fn(async () => new Map()),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  enrichUsers: jest.fn(async () => new Map()),
 }))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import { enrichUsers } from '@/lib/auth/user-profiles'
 import {
   agentRunTimelineService,
   aggregateRunsByMember,
@@ -38,7 +38,7 @@ import type { ModelCost } from '@/lib/services/model-cost'
 const sessions = sessionRepository.listForTask as jest.Mock
 const events = hookEventRepository.findByTaskId as jest.Mock
 const memories = memoryRepository.findByTaskIdWithSession as jest.Mock
-const enrich = enrichClerkUsers as jest.Mock
+const enrich = enrichUsers as jest.Mock
 
 const opus = (n: number): ModelCost => ({
   model: 'opus',

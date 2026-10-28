@@ -50,7 +50,9 @@ export interface ScanContext {
   learningsScope: string
   policy: {
     block: Array<{
-      provenance: 'DETERMINISTIC' | 'EXTERNAL_TOOL'
+      /** LUM-1328: `AGENT_REVIEW` = the workspace opted in to blocking on
+       *  imported Claude Code / Codex findings. */
+      provenance: 'DETERMINISTIC' | 'EXTERNAL_TOOL' | 'AGENT_REVIEW'
       severity: 'LOW' | 'MEDIUM' | 'HIGH'
     }>
   }

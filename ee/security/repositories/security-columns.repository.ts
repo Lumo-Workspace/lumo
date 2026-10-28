@@ -98,6 +98,16 @@ export const securityColumnsRepository = {
     return parseAutoPauseAfter(row?.securityReviewAutoPauseAfter)
   },
 
+  /** LUM-1328: when the workspace was created — which switch defaults it
+   *  started with. null when the workspace is missing. */
+  async findWorkspaceCreatedAt(id: string): Promise<Date | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { createdAt: true },
+    })
+    return row?.createdAt ?? null
+  },
+
   /** LUM-866: the three security-scan switches (+ LUM-1130's request-changes
    *  workflow and LUM-1134's learnings scope); null when the workspace is
    *  missing — resolve with `resolveSecurityLayers`. */

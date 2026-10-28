@@ -6,7 +6,7 @@ import { cliVersionDenied } from '@/lib/api/cli-version-gate'
 export const PUBLIC_ROUTES = [
   '/signin(.*)',
   '/signup(.*)',
-  // Forgot / reset password (LUM-1070); a 404 page under Clerk.
+  // Forgot / reset password (LUM-1070).
   '/reset-password(.*)',
   '/api/(.*)',
   '/invite(.*)',

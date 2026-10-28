@@ -1,5 +1,5 @@
 import { actorRepository } from '@/lib/repositories/actor.repository'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { logger } from '@/lib/logger'
 
 /** The fields {@link actorLabel} reads (one row of `findLabelFieldsByIds`). */
@@ -35,7 +35,7 @@ async function memberDisplayNames(
   const out = new Map<string, string>()
   if (clerkIds.length === 0) return out
   try {
-    for (const [id, p] of await lookupClerkProfiles(clerkIds)) {
+    for (const [id, p] of await lookupUserProfiles(clerkIds)) {
       if (p.name) out.set(id, p.name)
     }
   } catch (error) {

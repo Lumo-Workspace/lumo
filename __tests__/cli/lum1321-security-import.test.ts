@@ -160,7 +160,7 @@ describe('lumo security import', () => {
     expect(out).toContain(
       `Imported 1 result from claude-code into acme/app#12 @ ${head.slice(0, 7)}`
     )
-    expect(out).toContain('never block DONE')
+    expect(out).toContain('advisory unless your workspace policy')
     expect(out).toContain('lumo pr show 12')
     expect(out).not.toContain('test-token')
   })

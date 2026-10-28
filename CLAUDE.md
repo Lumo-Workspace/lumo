@@ -3,7 +3,7 @@
 ## Project
 
 This is Lumo - a project management tool for small dev teams.
-Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, Tailwind CSS, shadcn/ui.
+Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Better Auth, Tailwind CSS, shadcn/ui.
 
 ## Code Style
 

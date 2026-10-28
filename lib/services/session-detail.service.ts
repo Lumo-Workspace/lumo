@@ -5,7 +5,7 @@ import {
   sessionListService,
   type SessionAttributionView,
 } from '@/lib/services/session-list.service'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { logger } from '@/lib/logger'
 import { canDeleteSessionRawRecord } from '@/lib/services/session-raw-record.service'
 
@@ -63,7 +63,7 @@ export interface SessionDetailForViewer {
 
 async function resolveOwnerName(clerkId: string): Promise<string | null> {
   try {
-    const profile = (await lookupClerkProfiles([clerkId])).get(clerkId)
+    const profile = (await lookupUserProfiles([clerkId])).get(clerkId)
     return profile?.name ?? profile?.email ?? null
   } catch (err) {
     logger.warn('[session-detail] owner name lookup failed', { error: err })

@@ -176,6 +176,43 @@ describe('LUM-740 security policy', () => {
         isBlockingUnderPolicy(open({ severity: 'HIGH' }), everyExternal)
       ).toBe(true)
     })
+    it('LUM-1328: an AGENT_REVIEW entry opts in to blocking on imported agent findings of that severity only', () => {
+      const agentHigh: SecurityPolicy = {
+        block: [{ provenance: 'AGENT_REVIEW', severity: 'HIGH' }],
+      }
+      for (const ruleId of ['ext:claude-code:sqli', 'ext:codex:idor']) {
+        expect(
+          isBlockingUnderPolicy(open({ ruleId, severity: 'HIGH' }), agentHigh)
+        ).toBe(true)
+        expect(
+          isBlockingUnderPolicy(open({ ruleId, severity: 'MEDIUM' }), agentHigh)
+        ).toBe(false)
+        // Still off by default, and a ruling still clears it.
+        expect(
+          isBlockingUnderPolicy(
+            open({ ruleId, severity: 'HIGH' }),
+            DEFAULT_SECURITY_POLICY
+          )
+        ).toBe(false)
+        expect(
+          isBlockingUnderPolicy(
+            open({ ruleId, severity: 'HIGH', disposition: 'ACCEPTED_RISK' }),
+            agentHigh
+          )
+        ).toBe(false)
+      }
+      // The entry does not reach a CI scanner's EXTERNAL_TOOL row.
+      expect(isBlockingUnderPolicy(open({ severity: 'HIGH' }), agentHigh)).toBe(
+        false
+      )
+    })
+    it('LUM-1328: the API edge and the reader accept AGENT_REVIEW', () => {
+      const policy = {
+        block: [{ provenance: 'AGENT_REVIEW', severity: 'HIGH' }],
+      }
+      expect(securityPolicySchema.safeParse(policy).success).toBe(true)
+      expect(parseSecurityPolicy(policy)).toEqual(policy)
+    })
     it('an LLM_JUDGE finding never blocks even when a caller smuggles the pair in', () => {
       expect(
         isBlockingUnderPolicy(
