@@ -940,9 +940,10 @@ const FOOTER_COLS = [
 ]
 
 // Footer links that have a real page; the rest are still placeholders.
-const FOOTER_HREFS: Record<string, string> = {
-  Security: '/security',
-  Discord: DISCORD_URL,
+// `external` links open in a new tab.
+const FOOTER_HREFS: Record<string, { href: string; external?: boolean }> = {
+  Security: { href: '/security' },
+  Discord: { href: DISCORD_URL, external: true },
 }
 
 function Footer() {
@@ -962,8 +963,9 @@ function Footer() {
               <div className={styles.footerColLabel}>{col.label}</div>
               <div className={styles.footerLinks}>
                 {col.links.map(link => {
-                  const href = FOOTER_HREFS[link] ?? '#'
-                  const external = href.startsWith('https://')
+                  const { href, external } = FOOTER_HREFS[link] ?? {
+                    href: '#',
+                  }
                   return (
                     <a
                       key={link}
