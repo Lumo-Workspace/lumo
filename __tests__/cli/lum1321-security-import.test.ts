@@ -232,6 +232,23 @@ describe('lumo security import', () => {
     expect(err).toMatch(/cannot read/)
   })
 
+  it('refuses a report that only grows past 1 MiB once converted, before sending it', async () => {
+    const findings = Array.from({ length: 500 }, (_, i) => ({
+      file: 'app.ts',
+      line: 1,
+      severity: 'low',
+      title: `finding ${i}`,
+      detail: 'x'.repeat(1990),
+    }))
+    fs.writeFileSync(reportFile, JSON.stringify({ findings }))
+    expect(fs.statSync(reportFile).size).toBeLessThan(1024 * 1024)
+    const fetch = api({ number: 12, headSha: null })
+    const { result, err } = await run({}, fetch)
+    expect(result).toBe(1)
+    expect(err).toMatch(/larger than 1 MiB once converted to SARIF/)
+    expect(importCall(fetch)).toBeUndefined()
+  })
+
   it('reports a missing file', async () => {
     const { result, err } = await run(
       {},

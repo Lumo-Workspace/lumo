@@ -213,6 +213,7 @@ function fromSarif(
 ): ImportSarifResult {
   if (doc['version'] !== '2.1.0' || !Array.isArray(doc['runs']))
     return { ok: false, error: 'only SARIF 2.1.0 is accepted' }
+  const outside: string[] = []
   let count = 0
   const runs = doc['runs'].map((run: unknown) => {
     if (!isRecord(run) || !Array.isArray(run['results'])) return run
@@ -227,7 +228,10 @@ function fromSarif(
           const uri = isRecord(art) ? art['uri'] : null
           if (typeof uri !== 'string') return loc
           const rel = repoRelative(uri, root)
-          if (rel === null) return loc
+          if (rel === null) {
+            outside.push(uri)
+            return loc
+          }
           return {
             ...(loc as Record<string, unknown>),
             physicalLocation: {
@@ -243,6 +247,11 @@ function fromSarif(
     })
     return { ...run, results }
   })
+  if (outside.length > 0)
+    return {
+      ok: false,
+      error: `${outside.length} result location${outside.length === 1 ? ' is' : 's are'} outside the repository (first: ${outside[0]}) — run the export from this checkout`,
+    }
   if (count > AGENT_REVIEW_MAX_FINDINGS)
     return {
       ok: false,

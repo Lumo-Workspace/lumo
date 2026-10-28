@@ -148,6 +148,21 @@ export async function securityImportCommand(
     prNumber = pr.number
   }
 
+  const payload = JSON.stringify({
+    repository: repo,
+    prNumber,
+    headSha: head,
+    tool,
+    sarif: converted.sarif,
+  })
+  // The server caps the request body, which is larger than the file once a
+  // Lumo JSON list becomes SARIF.
+  if (Buffer.byteLength(payload, 'utf8') > MAX_FILE_BYTES) {
+    console.error(
+      `Error: ${file} is larger than 1 MiB once converted to SARIF — shorten the details or drop findings (each import replaces the previous one, so splitting does not work)`
+    )
+    return EXIT_ERROR
+  }
   const url = `${trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))}${SECURITY_IMPORT_PATH}`
   let res: Response
   try {
@@ -157,13 +172,7 @@ export async function securityImportCommand(
         Authorization: `Bearer ${creds.token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        repository: repo,
-        prNumber,
-        headSha: head,
-        tool,
-        sarif: converted.sarif,
-      }),
+      body: payload,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

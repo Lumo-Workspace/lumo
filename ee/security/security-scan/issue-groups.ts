@@ -34,6 +34,8 @@
  */
 import {
   SUCCESSOR_LINE_WINDOW,
+  SUCCESSOR_TITLE_SIMILARITY,
+  titleSimilarity,
   sameIssueScore,
   type FindingIdentity,
 } from '@/ee/security/security-scan/finding-successor'
@@ -86,8 +88,8 @@ function sourceRank(f: { ruleId: string }): number {
 /**
  * The same issue as `sameIssueScore`, which reads only the LLM layers; a pair
  * with an imported agent finding is the same issue on the same file within
- * `SUCCESSOR_LINE_WINDOW` lines and a related class — scored like it (same
- * line, exact class, nearer first).
+ * `SUCCESSOR_LINE_WINDOW` lines and a related class (a broad one only with
+ * a similar title) — scored like it (same line, exact class, nearer first).
  */
 function issueScore(a: GroupableFinding, b: GroupableFinding): number | null {
   if (!isAgentReviewRuleId(a.ruleId) && !isAgentReviewRuleId(b.ruleId))
@@ -97,6 +99,13 @@ function issueScore(a: GroupableFinding, b: GroupableFinding): number | null {
   const distance = Math.abs(a.line - b.line)
   const classes = classMatch(a.ruleId, b.ruleId)
   if (distance > SUCCESSOR_LINE_WINDOW || classes === null) return null
+  // A broad class (`hunt:logic`) is the same issue only with a similar
+  // title, as in `sameIssueScore`.
+  if (
+    classes === 'broad' &&
+    titleSimilarity(a.title, b.title) < SUCCESSOR_TITLE_SIMILARITY
+  )
+    return null
   return (
     (distance === 0 ? 2 : 0) + (classes === 'exact' ? 1 : 0) - distance / 100
   )

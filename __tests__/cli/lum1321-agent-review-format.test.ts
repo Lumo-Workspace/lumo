@@ -257,6 +257,15 @@ describe('SARIF', () => {
     ).toBe('b.ts')
   })
 
+  it('rejects a location outside the repository instead of sending it', () => {
+    const out = convert(sarif('file:///other/checkout/app.ts'))
+    expect(out.ok).toBe(false)
+    if (!out.ok)
+      expect(out.error).toMatch(
+        /1 result location is outside the repository \(first: file:\/\/\/other\/checkout\/app\.ts\)/
+      )
+  })
+
   it('rejects another SARIF version', () => {
     const out = convert({ ...sarif('a.ts'), version: '2.0.0' })
     expect(out.ok).toBe(false)

@@ -717,6 +717,28 @@ describe('LUM-1321 — an imported Claude Code / Codex review joins the issue', 
     expect(g.mergedInto.get('codex-fp')).toBe('hunt-fp')
   })
 
+  it('joins a broad hunt category only with a similar title', () => {
+    const logic = hunt({
+      fingerprint: 'logic-fp',
+      ruleId: 'hunt:logic',
+      title: 'Quantity parsed without bounds lets totals go negative',
+    })
+    const unrelated = agent({
+      fingerprint: 'a1',
+      ruleId: 'ext:codex:weak-crypto',
+      title: 'Session id from Math.random',
+    })
+    const similar = agent({
+      fingerprint: 'a2',
+      ruleId: 'ext:claude-code:data-integrity',
+      title: 'Quantity parsed without bounds makes totals negative',
+    })
+    expect(groupSameIssue([logic, unrelated], none).mergedInto.size).toBe(0)
+    expect(groupSameIssue([logic, similar], none).mergedInto.get('a2')).toBe(
+      'logic-fp'
+    )
+  })
+
   it('never joins two issues one agent reported separately, nor a CI scanner row', () => {
     const g = groupSameIssue(
       [
