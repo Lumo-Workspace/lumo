@@ -205,7 +205,9 @@ migration script for this.
 - **TLS / domain**: put a reverse proxy (Caddy, nginx, Traefik) in front of
   port 3000 and of Soketi's 6001 (or set `SOKETI_PUBLIC_HOST` to a host the
   proxy serves with `SOKETI_PUBLIC_TLS=true`), set `NEXT_PUBLIC_APP_URL` to
-  the public URL and rebuild. If you can, have the proxy refuse
+  the public URL and rebuild. Set `LUMO_PUBLIC_URL` to the same URL (no
+  rebuild): links Lumo writes outside the app — CLI output, GitHub comments,
+  notices — otherwise point at the hosted service. If you can, have the proxy refuse
   `/.well-known/workflow/v1/flow` and `/step` from outside (they are already
   protected by `WORKFLOW_SECRET`; see [workflow.md](workflow.md)).
 - **One app instance** is what this file runs and the only setup that has

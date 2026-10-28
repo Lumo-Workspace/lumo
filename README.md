@@ -50,44 +50,137 @@ lumo init
 
 `lumo init` sets up the hooks for Claude Code and Codex in the current repo.
 
-**Self-hosted:** one Docker Compose stack (Postgres with pgvector, Redis,
-MinIO, Soketi), no third-party account needed:
+Prefer your own server? See [Self-hosting](#self-hosting) below.
+
+## Self-hosting
+
+Lumo runs on a single machine with Docker Compose: the app, Postgres
+(pgvector), Redis, MinIO (file storage), Soketi (realtime) and a cron runner.
+No third-party account is needed — users sign in with built-in email +
+password accounts stored in your Postgres.
+
+**Prerequisites**: Docker with Compose v2, about 8 GB of memory available to
+Docker for the build, ~10 GB of disk, and `openssl`.
 
 ```bash
+git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
 cp .env.example .env
+
+# Required secrets
+sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
+  -e "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" .env \
+  && rm .env.bak
+for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
+  echo "$v=$(openssl rand -hex 32)"
+done >> .env
+grep -cE '^(CRON_SECRET|BETTER_AUTH_SECRET)=.+' .env   # must print 2
+
 docker compose up -d --build
 ```
 
-Fill in the required secrets in `.env` before `up` (the guide lists them);
-database migrations run automatically on every `up`. The full guide is
-[docs/self-hosting/README.md](docs/self-hosting/README.md), and
-[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md) covers
-GitHub, Slack, Figma, Google Drive and Sentry.
+Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
+then create a workspace.
 
-## Development
+Before you put it on a real domain:
 
-Stack: Next.js (App Router), React, TypeScript, Prisma, Postgres 16 with
-pgvector, Tailwind CSS + shadcn/ui. Sign-in is Better Auth (built in) or Clerk,
-chosen with `AUTH_PROVIDER`.
+- **`NEXT_PUBLIC_APP_URL` is baked in at build time.** Set it to your public
+  URL in `.env` and run `docker compose up -d --build` again. Put a reverse
+  proxy (Caddy, nginx, Traefik) with TLS in front of ports 3000 and 6001.
+- **Set `LUMO_PUBLIC_URL` to the same URL.** Links Lumo writes outside the
+  app (CLI output, GitHub comments, notices) otherwise point at the hosted
+  service.
+- **Configure email** (`SMTP_URL` or `RESEND_API_KEY`). Without it, nobody
+  can verify an address, so workspace invites cannot be accepted.
+- **Close sign-up** once your team has joined: `AUTH_DISABLE_SIGNUP=true`.
+
+AI features, GitHub / Slack / Figma / Google Drive / Sentry and social
+sign-in are optional; each is switched on by variables in `.env.example`
+and degrades cleanly when unset.
+
+Full guide — services, build-time settings, what works without optional
+services, upgrades and backups:
+[docs/self-hosting/README.md](docs/self-hosting/README.md). Integrations:
+[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md).
+Scheduled jobs: [docs/self-hosting/cron.md](docs/self-hosting/cron.md).
+
+## Local development
+
+**Prerequisites**: Node.js 24 and npm (the repository is an npm workspace),
+plus a Postgres 16 with the `vector` extension. The quickest way to get one:
+
+```bash
+docker run -d --name lumo-postgres -p 5432:5432 \
+  -e POSTGRES_USER=lumo -e POSTGRES_PASSWORD=lumo -e POSTGRES_DB=lumo \
+  pgvector/pgvector:pg16
+```
+
+Then:
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the REQUIRED section
-npx prisma migrate deploy
-npm run dev
+cp .env.example .env
 ```
 
-Tests run with `npm test` (Jest). Conventions — layering, i18n, migrations,
-commit and branch naming — are in [CLAUDE.md](CLAUDE.md); database migration
-rules are in [docs/database-migrations.md](docs/database-migrations.md).
+In `.env`, set:
 
-### Deploying to Vercel
+- `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to
+  `postgresql://lumo:lumo@localhost:5432/lumo?sslmode=disable`
+- `BETTER_AUTH_SECRET` and `CRON_SECRET` to `openssl rand -hex 32` values
 
-`vercel.json` sets the build command to `scripts/deploy/vercel-build.sh`. On a
-**production** deploy it runs `prisma migrate deploy` (plus a
-`prisma migrate status` drift check) **before** `next build`, so migrations
-land ahead of the code that depends on them and a failed migration fails the
-build. Preview builds skip the migrate step.
+Use `.env` rather than `.env.local`: the Prisma CLI only reads `.env`.
+Everything else in `.env.example` is optional and off until set.
+
+```bash
+npx prisma migrate deploy   # apply the existing migrations
+npm run dev                 # http://localhost:3000
+```
+
+Without email configured, `next dev` writes sign-in codes and links to the
+server log. Run the tests with `npm test` and type-check with
+`npx tsc --noEmit`. Conventions for contributors (layering, i18n, tests,
+migrations) are in [CLAUDE.md](CLAUDE.md).
+
+## Tech stack
+
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui + Radix UI primitives
+- **Authentication**: Better Auth (self-hosted default) or Clerk (hosted service)
+- **Database**: PostgreSQL 16 with pgvector, via Prisma
+- **Background jobs**: Workflow DevKit (Postgres World when self-hosted)
+- **Realtime**: Pusher protocol (Pusher Channels or Soketi)
+- **AI**: AI SDK — Vercel AI Gateway, or your own Anthropic / OpenAI-compatible endpoint
+- **Data fetching**: TanStack Query; forms with React Hook Form + Zod
+- **i18n**: react-intl
+- **Testing**: Jest + React Testing Library
+
+## Project structure
+
+Data flows `Component → API Client → API Route → Service → Repository → Prisma`:
+
+| Path                | What lives there                                       |
+| ------------------- | ------------------------------------------------------ |
+| `app/`              | Next.js routes; `app/api/` holds the thin API routes   |
+| `components/`       | React components                                       |
+| `lib/api-client/`   | Typed `fetch()` wrappers used by components            |
+| `lib/services/`     | Business logic                                         |
+| `lib/repositories/` | Prisma queries                                         |
+| `lib/validation/`   | Zod schemas                                            |
+| `lib/i18n/`         | Locale files                                           |
+| `prisma/`           | Schema and migrations                                  |
+| `cli/`              | The `lumo` CLI (`@lumoai/cli` on npm)                  |
+| `shared/`           | Types and constants shared by the app and the CLI      |
+| `deploy/self-host/` | Cron image and crontab for Docker Compose              |
+| `docs/`             | Self-hosting, design system, database migrations, RFCs |
+
+## Deploying to Vercel
+
+`vercel.json` sets the build command to
+`scripts/deploy/vercel-build.sh`, which on a **production** deploy runs
+`prisma migrate deploy` (plus a `prisma migrate status` drift check)
+**before** `next build`, so a failed migration fails the build instead of
+shipping code against an old schema (LUM-682). Preview builds skip it.
+Vercel needs a managed Postgres with pgvector (e.g. Neon) and the same
+required variables as above.
 
 ## Reference
 
