@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Isolierte Maschinen für Add-ons von Lumo Cloud",
   "security.subprocessors.purpose.vercelAiGateway": "Leitet Anfragen an KI-Modelle mit erzwungener Zero Data Retention weiter",
   "security.subprocessors.purpose.neon": "Primäre Datenbank für alle Arbeitsbereichsdaten",
-  "security.subprocessors.purpose.clerk": "Früherer Anmeldedienst: bewahrt die bereits vorhandenen Kontodaten während des Rückfallzeitraums auf; Löschung bis spätestens 2026-11-11",
   "security.subprocessors.purpose.pusher": "Live-Aktualisierungen in geöffneten Browser-Tabs",
   "security.subprocessors.purpose.upstash": "Ratenbegrenzung",
   "security.subprocessors.purpose.resend": "Transaktions-E-Mails: einmalige Anmeldecodes, Einladungen zum Arbeitsbereich, Löschhinweise und Hinweise zu Änderungen bei Unterauftragsverarbeitern",

@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "供 Lumo Cloud 附加功能使用的隔離機器",
   "security.subprocessors.purpose.vercelAiGateway": "在強制執行零資料保留的前提下路由 AI 模型請求",
   "security.subprocessors.purpose.neon": "存放所有工作區資料的主要資料庫",
-  "security.subprocessors.purpose.clerk": "原登入服務：回復期間內僅保留既有的帳號資料，2026-11-11 前刪除",
   "security.subprocessors.purpose.pusher": "已開啟瀏覽器分頁中的即時更新",
   "security.subprocessors.purpose.upstash": "速率限制",
   "security.subprocessors.purpose.resend": "交易型電子郵件：一次性登入驗證碼、工作區邀請、刪除通知和次處理者變更通知",

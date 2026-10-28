@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Lumo Cloud 애드온용 격리된 머신",
   "security.subprocessors.purpose.vercelAiGateway": "제로 데이터 보존을 강제 적용하여 AI 모델 요청 라우팅",
   "security.subprocessors.purpose.neon": "모든 워크스페이스 데이터를 위한 기본 데이터베이스",
-  "security.subprocessors.purpose.clerk": "이전 로그인 제공업체: 롤백 기간 동안 기존에 보유한 계정 데이터만 보관하며 2026-11-11까지 삭제",
   "security.subprocessors.purpose.pusher": "열려 있는 브라우저 탭의 실시간 업데이트",
   "security.subprocessors.purpose.upstash": "속도 제한",
   "security.subprocessors.purpose.resend": "트랜잭션 이메일: 일회용 로그인 코드, 워크스페이스 초대, 삭제 알림, 하위 처리자 변경 알림",
