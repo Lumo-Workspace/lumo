@@ -1236,11 +1236,16 @@ function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {
   return `${resolvePublicUrl()}/workspace/${pr.workspace.slug}/my-tasks/${identifier}`
 }
 
-/** LUM-849 — the reviewed head on GitHub; null for a repo name we cannot trust. */
-export function commitUrlOf(repo: string, sha: string): string | null {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[0-9a-f]{7,40}$/i.test(sha))
-    return null
-  return `https://github.com/${repo}/commit/${sha}`
+/**
+ * LUM-849 — the reviewed head on the PR's platform; null for a repo name we
+ * cannot trust. LUM-1318: the platform builds the link (`links.commit`).
+ */
+export function commitUrlOf(
+  repo: string,
+  sha: string,
+  ref: GitProviderRef = {}
+): string | null {
+  return gitProviderFor(ref).links.commit(repo, sha)
 }
 
 function describe(error: unknown): string {
@@ -2114,7 +2119,7 @@ export const securityPrReviewService = {
                 token,
                 prSummary: scan.prSummary,
                 headSha: scan.headSha,
-                commitUrl: commitUrlOf(pr.repo, scan.headSha),
+                commitUrl: git.links.commit(pr.repo, scan.headSha),
               })
             : 'not_open'
         if (outcome !== 'written' && outcome !== 'unchanged')
@@ -2178,7 +2183,7 @@ export const securityPrReviewService = {
         attentionFiles: open
           .filter(f => f.severity !== 'LOW' && f.suggestedDisposition == null)
           .map(f => f.filePath),
-        commitUrl: commitUrlOf(pr.repo, scan.headSha),
+        commitUrl: git.links.commit(pr.repo, scan.headSha),
         threads: {
           ...threads.counts,
           // About to be posted below: open threads from this sync on.

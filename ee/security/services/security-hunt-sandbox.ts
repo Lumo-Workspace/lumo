@@ -365,7 +365,7 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
   try {
     handle = await create(input, token)
     try {
-      await scrubCloneCredentials(handle, input.repo, {
+      await scrubCloneCredentials(handle, git.cloneSource(input.repo).url, {
         ...(input.checkoutWaitMs === undefined
           ? {}
           : { waitMs: input.checkoutWaitMs }),
@@ -393,6 +393,7 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
 async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
   const sandbox = await createRepoSandbox({
     repository: input.repo,
+    clone: gitProviderFor(input).cloneSource(input.repo),
     revision: input.headSha,
     token,
     timeoutMs: SANDBOX_TIMEOUT_WITH_HUNT_MS,
@@ -442,10 +443,11 @@ async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
  */
 export async function scrubCloneCredentials(
   handle: HuntSandbox,
-  repo: string,
+  /** LUM-1318: the credential-free clone URL (`GitProvider.cloneSource`). */
+  remoteUrl: string,
   opts: ScrubOptions = {}
 ): Promise<void> {
-  await scrubSandboxCredentials(handle, repo, opts)
+  await scrubSandboxCredentials(handle, remoteUrl, opts)
 }
 
 /**

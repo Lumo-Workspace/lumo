@@ -147,7 +147,7 @@ export const prDescriptionSummaryService = {
       token: input.token,
       prSummary: scan.prSummary,
       headSha: scan.headSha,
-      commitUrl: commitUrlOf(input.repo, scan.headSha),
+      commitUrl: commitUrlOf(input.repo, scan.headSha, input),
     })
     switch (outcome) {
       case 'no_summary':
@@ -166,11 +166,13 @@ export const prDescriptionSummaryService = {
   },
 }
 
-function commitUrlOf(repo: Repo, sha: string): string | null {
-  const full = `${repo.owner}/${repo.name}`
-  if (!/^[\w.-]+\/[\w.-]+$/.test(full) || !/^[0-9a-f]{7,40}$/i.test(sha))
-    return null
-  return `https://github.com/${full}/commit/${sha}`
+/** LUM-1318: the PR's platform builds the link (null when unsafe to link). */
+function commitUrlOf(
+  repo: Repo,
+  sha: string,
+  ref: GitProviderRef
+): string | null {
+  return gitProviderFor(ref).links.commit(`${repo.owner}/${repo.name}`, sha)
 }
 
 /** PURE — the reply to `@<app> summary`. */
