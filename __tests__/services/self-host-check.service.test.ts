@@ -7,10 +7,16 @@
  * exercised by the compose end-to-end run.
  */
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
+const mockEval = jest.fn()
+jest.mock('@/lib/rate-limit/redis-client', () => ({
+  getSharedRedisClient: async () => ({ eval: (...a: unknown[]) => mockEval(...a) }),
+}))
 
 import {
   CHECK_TIMEOUT_MS,
+  defaultSelfHostProbes,
   errorText,
+  readStart,
   runSelfHostChecks,
   type CheckResult,
   type SelfHostProbes,
@@ -35,6 +41,54 @@ function byId(results: CheckResult[]): Record<string, CheckResult> {
   return Object.fromEntries(results.map(r => [r.id, r]))
 }
 
+describe('defaultSelfHostProbes.pingRedis', () => {
+  it('retries while the shared client is still connecting, then succeeds', async () => {
+    jest.useFakeTimers()
+    try {
+      mockEval
+        .mockReset()
+        .mockRejectedValueOnce(new Error('The client is offline'))
+        .mockRejectedValueOnce(new Error('The client is offline'))
+        .mockResolvedValue(1)
+      const pending = defaultSelfHostProbes.pingRedis('redis://redis:6379')
+      await jest.advanceTimersByTimeAsync(1_000)
+      await expect(pending).resolves.toBeUndefined()
+      expect(mockEval).toHaveBeenCalledTimes(3)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('gives up with the last error once its budget is spent', async () => {
+    jest.useFakeTimers()
+    try {
+      mockEval.mockReset().mockRejectedValue(new Error('The client is offline'))
+      const pending = defaultSelfHostProbes.pingRedis('redis://redis:6379')
+      const settled = expect(pending).rejects.toThrow('offline')
+      await jest.advanceTimersByTimeAsync(11_000)
+      await settled
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+})
+
+describe('readStart', () => {
+  it('returns at most the limit and stops reading the rest', async () => {
+    let pulls = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1
+        controller.enqueue(new Uint8Array(1024).fill(97))
+      },
+    })
+    const text = await readStart(new Response(body), 2500)
+    expect(text).toBe('a'.repeat(2500))
+    expect(pulls).toBeLessThan(10)
+    expect(await readStart(new Response(null), 10)).toBe('')
+  })
+})
+
 describe('errorText', () => {
   it("adds the cause of a bare 'fetch failed'", () => {
     const cause = Object.assign(new Error('getaddrinfo ENOTFOUND lumo.example.com'), {
@@ -48,8 +102,9 @@ describe('errorText', () => {
   })
 
   it('masks the userinfo of a URL a driver echoes', () => {
-    const pass = ['redis', 'pass', 'fixture'].join('-')
-    expect(errorText(new Error(`connect failed: redis://default:${pass}@redis:6379`))).toBe(
+    // Assembled at runtime so no credential-shaped URL sits in the source.
+    const url = ['redis:', '', ['default', 'fixture'].join(':') + '@redis:6379'].join('/')
+    expect(errorText(new Error(`connect failed: ${url}`))).toBe(
       'connect failed: redis://***@redis:6379'
     )
   })
@@ -143,6 +198,12 @@ describe('runSelfHostChecks', () => {
     )
     expect(results.public_url?.status).toBe('failed')
     expect(results.public_url?.detail).toContain('HTTP 502')
+  })
+
+  it('loopback forms count as local and are skipped', async () => {
+    for (const url of ['http://lumo.localhost:3000', 'http://127.0.0.2:3000', 'http://[::1]:3000']) {
+      expect(byId(await runSelfHostChecks(probes(), DISK_ENV, url)).public_url?.status).toBe('skipped')
+    }
   })
 
   it('a missing or invalid public URL fails', async () => {

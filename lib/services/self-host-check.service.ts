@@ -43,6 +43,18 @@ export interface SelfHostProbes {
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
 
+/** A host that, from inside the container, is not this server's public face. */
+function isLocalHost(host: string): boolean {
+  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || host.startsWith('127.')
+}
+
+/** The shared Redis client waits ~2 s for its first connect; give it longer. */
+const REDIS_CONNECT_RETRY_MS = 500
+const REDIS_CONNECT_BUDGET_MS = 10_000
+
+/** Only the first bytes of a public-URL response are needed. */
+const PUBLIC_URL_BODY_BYTES = 4096
+
 /**
  * The error's message, plus its cause's when there is one: `fetch` rejects
  * with a bare "fetch failed" whose cause says why (ENOTFOUND, ECONNREFUSED,
@@ -221,7 +233,7 @@ async function checkPublicUrl(
       hint: 'Run setup.sh --url <public URL>.',
     }
   }
-  if (LOCAL_HOSTS.has(host)) {
+  if (isLocalHost(host)) {
     return {
       id: 'public_url',
       status: 'skipped',
@@ -270,6 +282,25 @@ export async function runSelfHostChecks(
   ])
 }
 
+/** Up to `limit` bytes of the body as text; the rest is never downloaded. */
+export async function readStart(res: Response, limit: number): Promise<string> {
+  if (!res.body) return ''
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (size < limit) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      size += value.byteLength
+    }
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+  return Buffer.concat(chunks).subarray(0, limit).toString('utf8')
+}
+
 /** The probes against the real services, through the app's own wrappers. */
 export const defaultSelfHostProbes: SelfHostProbes = {
   pingDatabase: () => selfHostCheckRepository.pingDatabase(),
@@ -290,12 +321,28 @@ export const defaultSelfHostProbes: SelfHostProbes = {
   },
   verifyEmail: verifyEmailTransport,
   async pingRedis(url) {
-    const client = await getSharedRedisClient(url)
-    await client.eval('return 1', { keys: [], arguments: [] })
+    // The rate limiter's client rejects commands until it has connected, and
+    // only waits ~2 s for that: retry so a slow (TLS) connect is not a failure.
+    const deadline = Date.now() + REDIS_CONNECT_BUDGET_MS
+    for (;;) {
+      try {
+        const client = await getSharedRedisClient(url)
+        await client.eval('return 1', { keys: [], arguments: [] })
+        return
+      } catch (err) {
+        if (Date.now() + REDIS_CONNECT_RETRY_MS >= deadline) throw err
+        await new Promise(resolve => setTimeout(resolve, REDIS_CONNECT_RETRY_MS))
+      }
+    }
   },
   checkRealtime: checkRealtimeConnection,
   async fetchUrl(url) {
-    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' })
-    return { status: res.status, body: (await res.text()).slice(0, 4096) }
+    const res = await fetch(url, {
+      redirect: 'follow',
+      cache: 'no-store',
+      // Closes the socket when the check gives up on it.
+      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    })
+    return { status: res.status, body: await readStart(res, PUBLIC_URL_BODY_BYTES) }
   },
 }

@@ -64,11 +64,26 @@ async function main() {
     console.error('This Lumo image has no configuration check yet; update LUMO_IMAGE to a newer release.')
     process.exit(3)
   }
-  if (!res.ok) {
-    console.error(`Configuration check failed: HTTP ${res.status}`)
+  if (res.status === 401) {
+    console.error('The app refused the check (HTTP 401): its CRON_SECRET differs from .env.')
+    console.error('Restart it with `docker compose up -d`, then re-run scripts/self-host/setup.sh --check.')
     process.exit(1)
   }
-  const { checks } = await res.json()
+  if (!res.ok) {
+    console.error(`Configuration check failed: HTTP ${res.status}. See \`docker compose logs app\`.`)
+    process.exit(1)
+  }
+  let checks = null
+  try {
+    const body = await res.json()
+    if (Array.isArray(body?.checks)) checks = body.checks
+  } catch {
+    // not JSON: reported below
+  }
+  if (!checks) {
+    console.error('The app answered the check with an unexpected response; update LUMO_IMAGE and the checkout to the same release.')
+    process.exit(1)
+  }
   const { lines, exitCode } = formatReport(checks)
   process.stdout.write(`${lines.join('\n')}\n`)
   process.exit(exitCode)
