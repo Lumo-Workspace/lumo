@@ -145,15 +145,16 @@ describe('LUM-1287 FeedbackDialog', () => {
     await user.click(sendButton())
 
     await waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(submitMock).toHaveBeenCalledWith(
-      {
-        kind: 'BUG',
-        title: 'Board crashes',
-        actual: 'White screen',
-        expected: null,
-      },
-      [shot]
-    )
+    const [input, files] = submitMock.mock.calls[0] as [unknown, File[]]
+    expect(input).toEqual({
+      kind: 'BUG',
+      title: 'Board crashes',
+      actual: 'White screen',
+      expected: null,
+    })
+    // Identity, not toEqual: toEqual sees any two Files as equal.
+    expect(files).toHaveLength(1)
+    expect(files[0]).toBe(shot)
     expect(toastSuccess).toHaveBeenCalledWith('feedback.sent {"ref":"FB-12"}')
   })
 

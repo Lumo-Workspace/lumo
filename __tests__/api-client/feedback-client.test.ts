@@ -71,7 +71,8 @@ describe('LUM-1287 feedbackClient', () => {
       ])
 
       expect(out.ref).toBe('FB-8')
-      expect(out.failedFiles).toEqual([bad])
+      // By name: toEqual sees two Files as equal whatever their name.
+      expect(out.failedFiles.map(f => f.name)).toEqual(['bad.png'])
       expect(mockFetch).toHaveBeenCalledTimes(3)
     }
   )
@@ -96,7 +97,11 @@ describe('LUM-1287 feedbackClient', () => {
         untried,
       ])
 
-      expect(out).toEqual({ ref: 'FB-9', failedFiles: [failed, untried] })
+      expect(out.ref).toBe('FB-9')
+      expect(out.failedFiles.map(f => f.name)).toEqual([
+        'failed.png',
+        'untried.png',
+      ])
       // create + the upload that worked + the one that failed — no retry of
       // the untried file.
       expect(mockFetch).toHaveBeenCalledTimes(3)
