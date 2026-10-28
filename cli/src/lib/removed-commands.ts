@@ -573,6 +573,20 @@ export function taskSearchReplacement(
   )
 }
 
+/**
+ * LUM-1333: one `review import` for an agent's security review and its code
+ * review (`--kind bug`); `security import` named only the first.
+ */
+const REVIEW_TOMBSTONES: readonly Tombstone[] = [
+  {
+    path: 'security import',
+    optionsOf: 'review import',
+    replacement: (args, _f, options) =>
+      cmd('lumo review import', args.slice(0, 1), options),
+    help: 'lumo review import',
+  },
+]
+
 const SEARCH_TOMBSTONES: readonly Tombstone[] = [
   {
     path: 'task search',
@@ -660,6 +674,7 @@ export const TOMBSTONES: readonly Tombstone[] = [
   ...CONFIRM_TOMBSTONES,
   ...RENAME_TOMBSTONES,
   ...SEARCH_TOMBSTONES,
+  ...REVIEW_TOMBSTONES,
 ]
 
 /** `<milestone> TC3` / `<milestone> 3` → `<milestone>/TC3`. */

@@ -209,7 +209,7 @@ export const pullRequestRepository = {
   },
 
   /**
-   * LUM-1321 — the GitHub PR a `lumo security import` targets, scoped by the
+   * LUM-1321 — the GitHub PR a `lumo review import` targets, scoped by the
    * caller's workspace (another workspace's PR is simply not found).
    */
   async findForSecurityImport(

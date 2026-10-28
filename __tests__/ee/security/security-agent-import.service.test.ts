@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1321 — `lumo security import`: a Claude Code / Codex security review
+ * LUM-1321 — `lumo review import`: a Claude Code / Codex security review
  * enters the SARIF ingest run of the caller's workspace PR, under the agent's
  * own tool name. Every refusal the ingest workflow would make silently is
  * made here, synchronously, with a reason.
@@ -87,6 +87,7 @@ const body = (over: Partial<AgentImportBody> = {}): AgentImportBody => ({
   prNumber: 7,
   headSha: HEAD,
   tool: 'claude-code',
+  kind: 'security',
   sarif: sarif(),
   ...over,
 })
@@ -111,6 +112,26 @@ beforeEach(() => {
     pathname,
   }))
   startRun.mockResolvedValue('run_1')
+})
+
+describe('LUM-1333 a code review (kind bug)', () => {
+  it('stores rules as bug kinds and asks the ingest to replace only the bug rows', async () => {
+    const out = await securityAgentImportService.import(
+      caller,
+      body({ kind: 'bug' })
+    )
+    expect(out).toMatchObject({ kind: 'bug', results: 1 })
+    const [, gz] = put.mock.calls[0]!
+    const stored = JSON.parse(gunzipSync(gz).toString('utf8'))
+    // `sqli` is no bug kind: it becomes logic_error, keeping its own rule.
+    expect(stored.runs[0].results[0].ruleId).toBe('bug:logic_error:sqli')
+    expect(stored.runs[0].tool.driver.rules).toEqual([
+      { id: 'bug:logic_error:sqli' },
+    ])
+    expect(startRun).toHaveBeenCalledWith(
+      expect.objectContaining({ agentKind: 'bug' })
+    )
+  })
 })
 
 describe('LUM-1330 a renamed repository under its old name', () => {
@@ -180,6 +201,7 @@ describe('securityAgentImportService.import', () => {
       prNumber: 7,
       headSha: HEAD,
       tool: 'claude-code',
+      kind: 'security',
       results: 1,
     })
     expect(findPr).toHaveBeenCalledWith('ws1', 'acme/app', 7)
@@ -209,6 +231,7 @@ describe('securityAgentImportService.import', () => {
       headSha: HEAD,
       prNumber: 7,
       tool: 'claude-code',
+      agentKind: 'security',
     })
   })
 

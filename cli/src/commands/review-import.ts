@@ -7,6 +7,10 @@ import {
   toImportSarif,
   type AgentReviewTool,
 } from '../lib/agent-review-format'
+import {
+  AGENT_REVIEW_KINDS,
+  type AgentReviewKind,
+} from '../../../shared/src/security-scan'
 import { errAuth, errNotLoggedIn, httpFailed } from '../lib/errors'
 import { EXIT_ERROR, EXIT_USAGE } from '../lib/exit-codes'
 import { emitJson, withVersion } from '../lib/json-output'
@@ -23,27 +27,31 @@ import {
 import { gitOutput } from '../lib/worktree'
 
 /**
- * LUM-1321 — `lumo security import <file>`: attach a security review the
- * developer ran in Claude Code or Codex to the branch's open PR scan. The
- * file is SARIF 2.1.0 or the Lumo JSON (`lib/agent-review-format.ts`). The
- * server keeps the results on lines the PR changed; they are advisory unless
- * the workspace policy opts in to blocking on them (LUM-1328). Importing
- * again for the same tool and head replaces the earlier import.
+ * LUM-1321 / LUM-1333 — `lumo review import <file>` (was `lumo security
+ * import`): attach a review the developer ran in Claude Code or Codex to the
+ * branch's open PR scan — a security review (`--kind security`, the default)
+ * or a code review's bugs (`--kind bug`). The file is SARIF 2.1.0 or the Lumo
+ * JSON (`lib/agent-review-format.ts`). The server keeps the results on lines
+ * the PR changed. Security findings are advisory unless the workspace policy
+ * opts in to blocking on them (LUM-1328); bugs never block. Importing again
+ * for the same tool, kind and head replaces the earlier import of that kind.
  */
 
-export const SECURITY_IMPORT_PATH = '/api/workspaces/me/security-scan/import'
+export const REVIEW_IMPORT_PATH = '/api/workspaces/me/security-scan/import'
 
 /** The server refuses a larger body (413); checked before reading. */
 const MAX_FILE_BYTES = 1024 * 1024
 
-export interface SecurityImportOptions {
+export interface ReviewImportOptions {
   tool?: string
+  /** LUM-1333: `security` (default) | `bug`. */
+  kind?: string
   repo?: string
   pr?: string
   json?: boolean
 }
 
-export interface SecurityImportDeps extends ScanContextDeps {
+export interface ReviewImportDeps extends ScanContextDeps {
   env?: Record<string, string | undefined>
   cwd?: string
 }
@@ -54,6 +62,8 @@ interface ImportResponse {
   prNumber: number
   headSha: string
   tool: AgentReviewTool
+  /** LUM-1333: absent on an older server (a security review). */
+  kind?: AgentReviewKind
   results: number
   /** LUM-1330: the name sent, when the server followed a rename. */
   renamedFrom?: string
@@ -63,10 +73,10 @@ function parsePr(value: string): number | null {
   return /^[1-9]\d*$/.test(value) ? Number(value) : null
 }
 
-export async function securityImportCommand(
+export async function reviewImportCommand(
   file: string,
-  opts: SecurityImportOptions,
-  deps: SecurityImportDeps = {}
+  opts: ReviewImportOptions,
+  deps: ReviewImportDeps = {}
 ): Promise<number> {
   const env = deps.env ?? process.env
   const tool = opts.tool?.toLowerCase() ?? detectAgentTool(env)
@@ -79,6 +89,13 @@ export async function securityImportCommand(
   if (!(AGENT_REVIEW_TOOLS as readonly string[]).includes(tool)) {
     console.error(
       `Error: invalid --tool "${tool}" (allowed: ${AGENT_REVIEW_TOOLS.join(', ')})`
+    )
+    return EXIT_USAGE
+  }
+  const kind = (opts.kind ?? 'security').toLowerCase()
+  if (!(AGENT_REVIEW_KINDS as readonly string[]).includes(kind)) {
+    console.error(
+      `Error: invalid --kind "${opts.kind}" (allowed: ${AGENT_REVIEW_KINDS.join(', ')})`
     )
     return EXIT_USAGE
   }
@@ -157,6 +174,9 @@ export async function securityImportCommand(
     prNumber,
     headSha: head,
     tool,
+    // A server before LUM-1333 refuses an unknown field, so a security
+    // review (its default) is sent without one.
+    ...(kind === 'bug' ? { kind } : {}),
     sarif: converted.sarif,
   })
   // The server caps the request body, which is larger than the file once a
@@ -167,7 +187,7 @@ export async function securityImportCommand(
     )
     return EXIT_ERROR
   }
-  const url = `${trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))}${SECURITY_IMPORT_PATH}`
+  const url = `${trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))}${REVIEW_IMPORT_PATH}`
   let res: Response
   try {
     res = await (deps.fetch ?? fetch)(url, {
@@ -184,7 +204,7 @@ export async function securityImportCommand(
     return EXIT_ERROR
   }
   if (isMissingPluginRoute(res)) {
-    console.error(missingPluginMessage('security import', 'security'))
+    console.error(missingPluginMessage('review import', 'security'))
     return EXIT_ERROR
   }
   if (res.status === 401) {
@@ -197,8 +217,12 @@ export async function securityImportCommand(
     } | null
     const detail = typeof body?.error === 'string' ? body.error : null
     console.error(
-      `Error: ${detail ? sanitizeField(detail) : httpFailed('security import', res.status)}`
+      `Error: ${detail ? sanitizeField(detail) : httpFailed('review import', res.status)}`
     )
+    if (kind === 'bug' && res.status === 400)
+      console.error(
+        'This Lumo server may predate code-review imports (--kind bug); a security review imports without --kind.'
+      )
     return EXIT_ERROR
   }
   const out = (await res.json()) as ImportResponse
@@ -216,11 +240,16 @@ export async function securityImportCommand(
       opts.repo === undefined ? originUrl(root) : null
     ))
       console.log(line)
+  // Only a server that knows `--kind bug` answers with a kind.
+  const bugs = out.kind === 'bug'
+  const what = bugs ? 'code review' : 'security review'
   console.log(
-    `Imported ${out.results} result${out.results === 1 ? '' : 's'} from ${out.tool} into ${ref} @ ${out.headSha.slice(0, 7)}`
+    `Imported ${out.results} ${bugs ? 'bug' : 'result'}${out.results === 1 ? '' : 's'} from ${out.tool}'s ${what} into ${ref} @ ${out.headSha.slice(0, 7)}`
   )
   console.log(
-    `Replaces earlier ${out.tool} imports on this head. Lumo keeps the results on lines this PR changed; they are advisory unless your workspace policy blocks DONE on agent reviews.`
+    bugs
+      ? `Replaces earlier ${out.tool} code-review imports on this head (its security review stays). Lumo keeps the bugs on lines this PR changed; they are advisory and never block DONE.`
+      : `Replaces earlier ${out.tool} security-review imports on this head (its code review stays). Lumo keeps the results on lines this PR changed; they are advisory unless your workspace policy blocks DONE on agent reviews.`
   )
   console.log(
     `The import runs in the background — see it in \`lumo pr show ${out.prNumber}\` in a minute.`

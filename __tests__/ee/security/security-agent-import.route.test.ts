@@ -46,10 +46,21 @@ it('answers 202 with the service result for the caller', async () => {
   const res = await post(valid)
   expect(res.status).toBe(202)
   await expect(res.json()).resolves.toEqual({ runId: 'run_1', results: 3 })
+  // LUM-1333: an older CLI sends no kind — it is a security review.
   expect(importMock).toHaveBeenCalledWith(
     { workspaceId: 'ws1', memberId: 'm1' },
-    valid
+    { ...valid, kind: 'security' }
   )
+})
+
+it('LUM-1333 passes a code review through as kind bug, and refuses another kind', async () => {
+  importMock.mockResolvedValue({ runId: 'run_1', results: 0 })
+  expect((await post({ ...valid, kind: 'bug' })).status).toBe(202)
+  expect(importMock).toHaveBeenLastCalledWith(
+    { workspaceId: 'ws1', memberId: 'm1' },
+    { ...valid, kind: 'bug' }
+  )
+  expect((await post({ ...valid, kind: 'style' })).status).toBe(400)
 })
 
 it('returns the identity refusal as is (not logged in / scoped key)', async () => {

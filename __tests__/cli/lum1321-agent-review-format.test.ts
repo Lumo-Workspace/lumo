@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1321 — `lumo security import` reads either SARIF 2.1.0 or the small
+ * LUM-1321 — `lumo review import` reads either SARIF 2.1.0 or the small
  * Lumo JSON an agent writes after a security review, and sends SARIF with
  * repo-relative paths. Every rejection names what to fix.
  */

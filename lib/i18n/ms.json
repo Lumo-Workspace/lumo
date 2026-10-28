@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Jeda semakan automatik selepas",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke PR terbuka mendapat semakan AI. Selepas sebanyak ini commit disemak pada satu PR, Lumo berhenti seketika sehingga seseorang meminta semakan. 0 = tidak pernah dijeda. Lalai: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Semakan ejen yang diimport menyekat Selesai",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Dapatan yang diimport pembangun daripada semakan keselamatan Claude Code atau Codex mereka sendiri (lumo security import) hanya bersifat nasihat secara lalai. Pilih tahap keterukan supaya dapatan import pada tahap itu atau lebih tinggi menyekat tugasan daripada dipindahkan ke Selesai.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Dapatan yang diimport pembangun daripada semakan keselamatan Claude Code atau Codex mereka sendiri (lumo review import) hanya bersifat nasihat secara lalai. Pilih tahap keterukan supaya dapatan import pada tahap itu atau lebih tinggi menyekat tugasan daripada dipindahkan ke Selesai.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Mati (nasihat sahaja)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM dan HIGH",

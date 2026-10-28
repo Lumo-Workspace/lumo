@@ -1,5 +1,8 @@
 import { z } from 'zod'
-import { AGENT_REVIEW_TOOLS } from '@/shared/src/security-scan'
+import {
+  AGENT_REVIEW_KINDS,
+  AGENT_REVIEW_TOOLS,
+} from '@/shared/src/security-scan'
 import { sarifClientPayloadSchema } from './security-sarif'
 
 /**
@@ -16,6 +19,8 @@ export const agentImportBodySchema = sarifClientPayloadSchema
     // Full SHA: it is compared with the PR's head.
     headSha: z.string().regex(/^[0-9a-f]{40}$/),
     tool: z.enum(AGENT_REVIEW_TOOLS),
+    /** LUM-1333: a code review's bugs, or (default) a security review. */
+    kind: z.enum(AGENT_REVIEW_KINDS).default('security'),
     sarif: z.record(z.string(), z.unknown()),
   })
   .strict()

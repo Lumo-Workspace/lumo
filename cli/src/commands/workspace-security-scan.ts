@@ -363,7 +363,7 @@ function describeAgentReviewChange(
   return [
     head,
     widens
-      ? 'Workspace-wide (every member’s tasks): an undispositioned Claude Code / Codex finding imported with `lumo security import` at that severity blocks Done until someone rules on it'
+      ? 'Workspace-wide (every member’s tasks): an undispositioned Claude Code / Codex finding imported with `lumo review import` at that severity blocks Done until someone rules on it'
       : 'Workspace-wide (every member’s tasks): imported Claude Code / Codex findings below that level no longer block Done — they stay on the PR scan as advisory',
   ]
 }

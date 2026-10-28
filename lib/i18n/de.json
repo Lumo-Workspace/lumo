@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Automatisches Review pausieren nach",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Jeder Push in einen offenen PR erhält ein KI-Review. Nach so vielen geprüften Commits in einem PR pausiert Lumo, bis jemand ein Review anfordert. 0 = nie pausieren. Standard: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Importierte Agent-Reviews blockieren „Erledigt“",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Befunde, die Entwickler aus ihrem eigenen Claude-Code- oder Codex-Sicherheitsreview importieren (lumo security import), sind standardmäßig nur Hinweise. Wähle einen Schweregrad, ab dem ein importierter Befund das Verschieben der Aufgabe nach „Erledigt“ blockiert.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Befunde, die Entwickler aus ihrem eigenen Claude-Code- oder Codex-Sicherheitsreview importieren (lumo review import), sind standardmäßig nur Hinweise. Wähle einen Schweregrad, ab dem ein importierter Befund das Verschieben der Aufgabe nach „Erledigt“ blockiert.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Aus (nur Hinweis)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM und HIGH",

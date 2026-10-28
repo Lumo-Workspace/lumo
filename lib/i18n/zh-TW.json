@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "自動審查暫停門檻",
   "workspaceSettings.securityScan.autoPauseAfter.description": "開啟中的 PR 每次推送都會觸發 AI 審查。同一個 PR 審查滿這麼多個提交後就會暫停，直到有人要求審查。0 = 不暫停，預設 5。",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "匯入的代理審查會阻擋完成",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "開發者從自己的 Claude Code 或 Codex 安全審查匯入的發現(lumo security import)預設僅供參考。選擇一個嚴重度後,達到或高於該嚴重度的匯入發現會阻擋將任務移到「完成」。",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "開發者從自己的 Claude Code 或 Codex 安全審查匯入的發現(lumo review import)預設僅供參考。選擇一個嚴重度後,達到或高於該嚴重度的匯入發現會阻擋將任務移到「完成」。",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "關閉(僅供參考)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM 和 HIGH",

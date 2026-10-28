@@ -509,6 +509,24 @@ describe('fetchAndNormalize', () => {
 })
 
 describe('persistFindings', () => {
+  it("LUM-1333 passes an agent import's kind on, so it replaces only that kind", async () => {
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    repo.ingestExternalFindings.mockResolvedValue({
+      written: 0,
+      flippedToFindings: false,
+    })
+    await securitySarifIngestService.persistFindings({
+      ...PERSIST_INPUT,
+      agentKind: 'bug',
+    })
+    expect(repo.ingestExternalFindings).toHaveBeenLastCalledWith(
+      's1',
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ agentKind: 'bug' })
+    )
+  })
+
   it('LUM-896 write path rechecks the confirmed list after the SARIF rows land', async () => {
     const { scrubScanIfRepositoryUnconfirmed: recheck } = jest.requireMock(
       '@/ee/security/services/scan-code-retention.service'

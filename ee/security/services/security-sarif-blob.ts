@@ -31,7 +31,7 @@ export async function fetchPrivateBlob(
 
 /**
  * LUM-1321 — store a report the server received in the request body (`lumo
- * security import`), so it enters the same ingest run as a CI push.
+ * review import`), so it enters the same ingest run as a CI push.
  */
 export async function putPrivateSarifBlob(
   pathname: string,

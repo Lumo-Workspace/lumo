@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 /**
- * LUM-1321 — `lumo security import`, end to end on a real checkout with the
+ * LUM-1321 / LUM-1333 — `lumo review import`, end to end on a real checkout with the
  * Lumo API faked: the branch's PR comes from the scan context, the report is
  * sent as SARIF for the local HEAD under the agent's tool name, and every
  * refusal (no PR, unpushed HEAD, bad file, server refusal, not logged in,
@@ -11,9 +11,10 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { securityImportCommand } from '../../cli/src/commands/security-import'
+import { reviewImportCommand } from '../../cli/src/commands/review-import'
 import type { Credentials } from '../../cli/src/lib/config'
 import type { ScanContext } from '../../cli/src/lib/scan-context'
+import { findRemovedCommand } from '../../cli/src/lib/removed-commands'
 import {
   captureOutput,
   git,
@@ -48,7 +49,7 @@ const REPORT = {
   ],
 }
 
-describe('lumo security import', () => {
+describe('lumo review import', () => {
   let restore: () => void
   let sb: Sandbox
   let cacheDir: string
@@ -84,6 +85,7 @@ describe('lumo security import', () => {
             prNumber: body.prNumber,
             headSha: body.headSha,
             tool: body.tool,
+            ...(body.kind ? { kind: body.kind } : {}),
             results: 1,
           }),
           { status: 202, headers: { 'content-type': 'application/json' } }
@@ -121,7 +123,7 @@ describe('lumo security import', () => {
   })
 
   const run = (
-    opts: Parameters<typeof securityImportCommand>[1],
+    opts: Parameters<typeof reviewImportCommand>[1],
     fetch: jest.Mock,
     env: Record<string, string | undefined> = { CLAUDE_CODE_SESSION_ID: 's1' },
     file = reportFile,
@@ -129,7 +131,7 @@ describe('lumo security import', () => {
   ) =>
     inDir(sb.main, () =>
       captureOutput(() =>
-        securityImportCommand(file, opts, {
+        reviewImportCommand(file, opts, {
           fetch: fetch as unknown as typeof globalThis.fetch,
           readCredentials: readCreds,
           cacheDir,
@@ -158,11 +160,48 @@ describe('lumo security import', () => {
     expect(body.sarif.version).toBe('2.1.0')
     expect(body.sarif.runs[0].results[0].ruleId).toBe('sql-injection')
     expect(out).toContain(
-      `Imported 1 result from claude-code into acme/app#12 @ ${head.slice(0, 7)}`
+      `Imported 1 result from claude-code's security review into acme/app#12 @ ${head.slice(0, 7)}`
     )
     expect(out).toContain('advisory unless your workspace policy')
     expect(out).toContain('lumo pr show 12')
     expect(out).not.toContain('test-token')
+  })
+
+  it('LUM-1333 --kind bug sends a code review and says it never blocks DONE', async () => {
+    const fetch = api({ number: 12, headSha: null })
+    const { result, out } = await run({ kind: 'BUG' }, fetch)
+    expect(result).toBe(0)
+    const body = JSON.parse(importCall(fetch)![1].body)
+    expect(body.kind).toBe('bug')
+    expect(out).toContain("from claude-code's code review into acme/app#12")
+    expect(out).toContain('its security review stays')
+    expect(out).toContain('never block DONE')
+  })
+
+  it('LUM-1333 a server without --kind refuses a code review with a hint', async () => {
+    // A pre-LUM-1333 server's strict schema refuses the unknown field.
+    const fetch = api(
+      { number: 12, headSha: null },
+      new Response(JSON.stringify({ error: 'Unrecognized key: "kind"' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+    const { result, err } = await run({ kind: 'bug' }, fetch)
+    expect(result).toBe(1)
+    expect(err).toContain('may predate code-review imports')
+  })
+
+  it('LUM-1333 --kind is security by default and anything else is a usage error', async () => {
+    const fetch = api({ number: 12, headSha: null })
+    await run({}, fetch)
+    // Sent without a kind, so a pre-LUM-1333 server still accepts it.
+    expect(JSON.parse(importCall(fetch)![1].body)).not.toHaveProperty('kind')
+    const bad = api({ number: 12, headSha: null })
+    const { result, err } = await run({ kind: 'style' }, bad)
+    expect(result).toBe(2)
+    expect(err).toContain('invalid --kind "style" (allowed: security, bug)')
+    expect(importCall(bad)).toBeUndefined()
   })
 
   it('LUM-1330 the server found the PR under a renamed repository: says how to update the remote', async () => {
@@ -341,7 +380,7 @@ describe('lumo security import', () => {
     )
     const { result, err } = await run({ pr: '12' }, fetch)
     expect(result).toBe(1)
-    expect(err).toMatch(/security import.*not available on this Lumo server/)
+    expect(err).toMatch(/review import.*not available on this Lumo server/)
   })
 
   it('needs a login', async () => {
@@ -354,5 +393,22 @@ describe('lumo security import', () => {
     )
     expect(result).toBe(1)
     expect(err).toMatch(/lumo auth login/)
+  })
+})
+
+describe('LUM-1333 the old name', () => {
+  const takesValue = (_p: string, f: string) =>
+    ['--tool', '--pr', '--repo', '--kind'].includes(f)
+  it.each([
+    [['security', 'import', 'r.json'], 'lumo review import r.json'],
+    [
+      ['security', 'import', 'r.sarif', '--tool', 'codex', '--pr', '42'],
+      'lumo review import r.sarif --tool codex --pr 42',
+    ],
+  ])('%j → %s', (argv, replacement) => {
+    expect(findRemovedCommand(argv, takesValue)?.replacement).toBe(replacement)
+  })
+  it('security scan is still a live command', () => {
+    expect(findRemovedCommand(['security', 'scan'], takesValue)).toBeNull()
   })
 })

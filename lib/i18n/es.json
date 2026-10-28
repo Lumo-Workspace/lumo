@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Pausar la revisión automática tras",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Cada push a una PR abierta recibe una revisión de IA. Tras este número de commits revisados en una misma PR, Lumo se pausa hasta que alguien pida una revisión. 0 = no pausar nunca. Predeterminado: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Las revisiones de agente importadas bloquean Hecho",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Los hallazgos que un desarrollador importa de su propia revisión de seguridad de Claude Code o Codex (lumo security import) son solo informativos por defecto. Elige una gravedad para que un hallazgo importado de ese nivel o superior impida mover la tarea a Hecho.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Los hallazgos que un desarrollador importa de su propia revisión de seguridad de Claude Code o Codex (lumo review import) son solo informativos por defecto. Elige una gravedad para que un hallazgo importado de ese nivel o superior impida mover la tarea a Hecho.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Desactivado (solo informativo)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM y HIGH",

@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Tạm dừng review tự động sau",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Mỗi lần push lên PR đang mở đều được AI review. Sau số commit đã review này trên một PR, Lumo tạm dừng cho đến khi có người yêu cầu review. 0 = không bao giờ tạm dừng. Mặc định: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Review của agent được nhập sẽ chặn Hoàn thành",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Phát hiện mà lập trình viên nhập từ review bảo mật Claude Code hoặc Codex của chính họ (lumo security import) mặc định chỉ mang tính tham khảo. Chọn một mức độ nghiêm trọng để phát hiện được nhập ở mức đó trở lên chặn việc chuyển tác vụ sang Hoàn thành.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Phát hiện mà lập trình viên nhập từ review bảo mật Claude Code hoặc Codex của chính họ (lumo review import) mặc định chỉ mang tính tham khảo. Chọn một mức độ nghiêm trọng để phát hiện được nhập ở mức đó trở lên chặn việc chuyển tác vụ sang Hoàn thành.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Tắt (chỉ tham khảo)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM và HIGH",

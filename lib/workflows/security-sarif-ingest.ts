@@ -89,6 +89,7 @@ export async function securitySarifIngestWorkflow(
             auth: job.workspaceId === undefined ? 'oidc' : 'key',
             tool: fetched.tool,
             tools: fetched.tools,
+            agentKind: job.agentKind,
             findings: fetched.findings,
             truncated: fetched.truncated,
             dropped: fetched.dropped,

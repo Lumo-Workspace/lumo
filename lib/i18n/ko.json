@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "자동 리뷰 일시 중지 기준",
   "workspaceSettings.securityScan.autoPauseAfter.description": "열린 PR에 push할 때마다 AI 리뷰가 실행됩니다. 한 PR에서 이 수만큼 커밋을 리뷰하면 누군가 리뷰를 요청할 때까지 Lumo가 일시 중지합니다. 0 = 일시 중지 안 함. 기본값: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "가져온 에이전트 리뷰가 완료를 차단",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "개발자가 자신의 Claude Code 또는 Codex 보안 리뷰에서 가져온 결과(lumo security import)는 기본적으로 참고용입니다. 심각도를 선택하면 그 이상인 가져온 결과가 작업을 완료로 옮기는 것을 차단합니다.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "개발자가 자신의 Claude Code 또는 Codex 보안 리뷰에서 가져온 결과(lumo review import)는 기본적으로 참고용입니다. 심각도를 선택하면 그 이상인 가져온 결과가 작업을 완료로 옮기는 것을 차단합니다.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "끄기(참고용)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM 및 HIGH",

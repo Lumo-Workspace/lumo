@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Jeda tinjauan otomatis setelah",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Setiap push ke PR terbuka mendapat tinjauan AI. Setelah sebanyak ini commit ditinjau pada satu PR, Lumo berhenti sementara sampai ada yang meminta tinjauan. 0 = tidak pernah dijeda. Default: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Review agen yang diimpor memblokir Selesai",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Temuan yang diimpor developer dari review keamanan Claude Code atau Codex miliknya sendiri (lumo security import) secara default hanya bersifat saran. Pilih tingkat keparahan agar temuan impor pada tingkat itu atau lebih tinggi memblokir pemindahan tugas ke Selesai.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Temuan yang diimpor developer dari review keamanan Claude Code atau Codex miliknya sendiri (lumo review import) secara default hanya bersifat saran. Pilih tingkat keparahan agar temuan impor pada tingkat itu atau lebih tinggi memblokir pemindahan tugas ke Selesai.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Mati (hanya saran)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM dan HIGH",

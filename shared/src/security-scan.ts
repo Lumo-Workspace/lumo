@@ -28,7 +28,7 @@ export function externalFailureReason(
 
 /**
  * LUM-1321 — the tool slugs of a security review a developer ran in their own
- * coding agent and imported with `lumo security import`. The server rewrites
+ * coding agent and imported with `lumo review import`. The server rewrites
  * an import's SARIF tool name to one of these, so its rows are always
  * `ext:<slug>:<rule>`. Such a row is model output the developer chose to
  * share: advisory like an LLM_JUDGE row unless the workspace policy opts in
@@ -52,6 +52,28 @@ export function isAgentReviewRuleId(ruleId: string): boolean {
     slug !== undefined &&
     isAgentReviewTool(slug) &&
     rule.join(':').length > 0
+  )
+}
+
+/**
+ * LUM-1333 — a code review a developer imported with `lumo review import
+ * --kind bug`: its rows are `ext:<agent>:bug:<kind>[:<rule>]` (kind one of
+ * the AI review's bug kinds), stored as CORRECTNESS. Like Lumo's own `review:<kind>`
+ * bugs they are tagged `[BUG]` and never block DONE. A security import's own
+ * rule ids never start with `bug:` (the server renames them).
+ */
+export const AGENT_BUG_RULE_SEGMENT = 'bug:'
+
+/** What one import carries: a security review, or a code review's bugs. */
+export const AGENT_REVIEW_KINDS = ['security', 'bug'] as const
+export type AgentReviewKind = (typeof AGENT_REVIEW_KINDS)[number]
+
+export function isAgentBugRuleId(ruleId: string): boolean {
+  if (!isAgentReviewRuleId(ruleId)) return false
+  const rule = ruleId.split(':').slice(2).join(':')
+  return (
+    rule.startsWith(AGENT_BUG_RULE_SEGMENT) &&
+    rule.length > AGENT_BUG_RULE_SEGMENT.length
   )
 }
 
@@ -904,7 +926,9 @@ export function formatPrTooLarge(c: PrTooLargeInput): string {
 export const CODE_REVIEW_RULE_PREFIX = 'review:'
 
 export function isCodeReviewFinding(ruleId: string): boolean {
-  return ruleId.startsWith(CODE_REVIEW_RULE_PREFIX)
+  // A caller's row without the column (an old cached view) is not one.
+  if (typeof ruleId !== 'string') return false
+  return ruleId.startsWith(CODE_REVIEW_RULE_PREFIX) || isAgentBugRuleId(ruleId)
 }
 
 /**

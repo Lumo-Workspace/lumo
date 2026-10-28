@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Suspendre la revue automatique après",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Chaque push sur une PR ouverte reçoit une revue IA. Après ce nombre de commits relus sur une même PR, Lumo se met en pause jusqu'à ce que quelqu'un demande une revue. 0 = jamais de pause. Par défaut : 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Les revues d’agent importées bloquent « Terminé »",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Les constats qu’un développeur importe de sa propre revue de sécurité Claude Code ou Codex (lumo security import) sont indicatifs par défaut. Choisissez une gravité à partir de laquelle un constat importé empêche de passer la tâche à « Terminé ».",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Les constats qu’un développeur importe de sa propre revue de sécurité Claude Code ou Codex (lumo review import) sont indicatifs par défaut. Choisissez une gravité à partir de laquelle un constat importé empêche de passer la tâche à « Terminé ».",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Désactivé (indicatif uniquement)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM et HIGH",

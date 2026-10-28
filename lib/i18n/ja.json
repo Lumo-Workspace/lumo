@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "自動レビューを一時停止するまでの数",
   "workspaceSettings.securityScan.autoPauseAfter.description": "オープンな PR への push ごとに AI レビューが行われます。1 つの PR でこの数のコミットをレビューすると、誰かがレビューを依頼するまで Lumo は一時停止します。0 = 一時停止しない。デフォルト：5。",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "インポートしたエージェントレビューで完了をブロック",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "開発者が自分の Claude Code / Codex のセキュリティレビューからインポートした指摘(lumo security import)は、既定では参考情報です。重大度を選ぶと、その重大度以上のインポート済み指摘があるタスクは完了にできなくなります。",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "開発者が自分の Claude Code / Codex のセキュリティレビューからインポートした指摘(lumo review import)は、既定では参考情報です。重大度を選ぶと、その重大度以上のインポート済み指摘があるタスクは完了にできなくなります。",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "オフ(参考情報のみ)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM と HIGH",

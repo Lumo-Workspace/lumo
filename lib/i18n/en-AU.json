@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Pause automatic review after",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Each push to an open PR gets an AI review. After this many reviewed commits on one PR, Lumo pauses until someone asks for a review. 0 = never pause. Default: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Imported agent reviews block Done",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Findings a developer imports from their own Claude Code or Codex security review (lumo security import) are advisory by default. Pick a severity to let an imported finding at or above it block moving the task to Done.",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Findings a developer imports from their own Claude Code or Codex security review (lumo review import) are advisory by default. Pick a severity to let an imported finding at or above it block moving the task to Done.",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Off (advisory only)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM and HIGH",

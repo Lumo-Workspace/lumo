@@ -3060,7 +3060,7 @@
   "workspaceSettings.securityScan.autoPauseAfter.label": "Приостанавливать автоматическое ревью после",
   "workspaceSettings.securityScan.autoPauseAfter.description": "Каждый push в открытый PR получает ИИ-ревью. После указанного числа проверенных коммитов в одном PR Lumo приостанавливается, пока кто-нибудь не запросит ревью. 0 = никогда не приостанавливать. По умолчанию: 5.",
   "workspaceSettings.securityScan.agentReviewBlocking.label": "Импортированные проверки агента блокируют «Готово»",
-  "workspaceSettings.securityScan.agentReviewBlocking.description": "Находки, которые разработчик импортирует из собственной проверки безопасности Claude Code или Codex (lumo security import), по умолчанию носят рекомендательный характер. Выберите уровень серьёзности, начиная с которого импортированная находка не даст перевести задачу в «Готово».",
+  "workspaceSettings.securityScan.agentReviewBlocking.description": "Находки, которые разработчик импортирует из собственной проверки безопасности Claude Code или Codex (lumo review import), по умолчанию носят рекомендательный характер. Выберите уровень серьёзности, начиная с которого импортированная находка не даст перевести задачу в «Готово».",
   "workspaceSettings.securityScan.agentReviewBlocking.off": "Выключено (только рекомендации)",
   "workspaceSettings.securityScan.agentReviewBlocking.high": "HIGH",
   "workspaceSettings.securityScan.agentReviewBlocking.medium": "MEDIUM и HIGH",

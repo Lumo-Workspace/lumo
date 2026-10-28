@@ -63,15 +63,15 @@ const DEVIATIONS = {
     'skill read',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
-  // LUM-1321: `security import` reads the report it sends.
+  // LUM-1321 / LUM-1333: `review import` reads the report it sends.
   fileReadingAdded: {
     'feedback create': '--evidence-file',
-    'security import': 'reads the report file <file> and uploads it to Lumo',
+    'review import': 'reads the report file <file> and uploads it to Lumo',
   } as Record<string, string>,
   sandboxedAdded: {
     'feedback create':
       'reads local files (--file …) — Codex asks first (--evidence-file)',
-    'security import':
+    'review import':
       'reads local files (--file …) — Codex asks first (reads the report file <file> and uploads it to Lumo)',
     // LUM-1255: reads git and the working tree, so it stays sandboxed;
     // LUM-1256: it also reads server context from the Lumo API, which inside
