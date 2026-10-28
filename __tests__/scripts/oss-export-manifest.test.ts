@@ -834,6 +834,13 @@ describe('oss/manifest.json', () => {
         '[Contributing](CONTRIBUTING.md)** · **[Security policy](SECURITY.md)'
       )
       expect(readme).toContain('See [CONTRIBUTING.md](CONTRIBUTING.md)')
+      // LUM-1326: the snapshot ships the plain MIT LICENSE and no ee/, so the
+      // License section neither carves out the plugin nor links to it.
+      expect(readme).toContain(
+        'Everything in this repository is under the [MIT License](LICENSE).'
+      )
+      expect(readme).not.toMatch(/security plugin|\(ee\/|`ee\/`/)
+      expect(read('README.md')).toContain('**except the security plugin**')
 
       // Private repo keeps the hosted-service copy (ruling 2026-10-11 ④).
       expect(read('components/landing/home/lumo-home.tsx')).toContain(

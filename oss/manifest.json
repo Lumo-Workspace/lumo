@@ -925,6 +925,13 @@
       "pattern": "^- \\[docs/security-scan\\.md\\]\\(docs/security-scan\\.md\\) — [^\\n]*\\n[^\\n]*\\n",
       "replacement": "",
       "reason": "LUM-1326: docs/security-scan.md is excluded from the snapshot; drop its Reference entry"
+    },
+    {
+      "file": "README.md",
+      "type": "replace",
+      "pattern": "^Lumo uses an open-core model\\. Everything in this repository is under the\\n\\[MIT License\\]\\(LICENSE\\) \\*\\*except the security plugin\\*\\*[\\s\\S]*?\\[Lumo Cloud\\]\\(https://www\\.uselumo\\.ai\\)\\.\\n",
+      "replacement": "Everything in this repository is under the [MIT License](LICENSE).\n",
+      "reason": "LUM-1326: the snapshot ships the plain MIT LICENSE (oss/overlay/LICENSE) and no ee/; drop the License section's plugin carve-out and its links to the excluded ee/ tree"
     }
   ],
   "configRefFiles": [
