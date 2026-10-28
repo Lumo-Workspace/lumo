@@ -36,8 +36,8 @@ A comprehensive, modern document and project management platform built with Next
 
 ### 🔐 Authentication & Security
 
-- **Google OAuth Login**: Secure sign-in with Google accounts
-- **Account Linking**: Link Google accounts to existing profiles
+- **Built-in accounts**: email + password and one-time email codes, stored in your own Postgres
+- **Optional social sign-in**: GitHub and Google
 - **Session Management**: Secure session handling with automatic refresh
 - **Data Protection**: AES-256-GCM encryption for sensitive data
 - **GDPR Compliance**: Data export and deletion capabilities
@@ -84,6 +84,7 @@ sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
 for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
   echo "$v=$(openssl rand -hex 32)"
 done >> .env
+grep -cE '^(CRON_SECRET|BETTER_AUTH_SECRET)=.+' .env   # must print 2
 
 docker compose up -d --build
 ```
