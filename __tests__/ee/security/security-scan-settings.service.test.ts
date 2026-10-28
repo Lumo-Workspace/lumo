@@ -430,6 +430,20 @@ describe('LUM-1329 agent-review blocking', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
+  it('a 409 on the policy leaves the switches in the same save unwritten', async () => {
+    asOwner()
+    m(securityColumnsRepository.replaceSecurityPolicyIf).mockResolvedValue(
+      false
+    )
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        securityHuntEnabled: false,
+        agentReviewBlocking: 'high',
+      })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(workspaceService.updateWorkspace).not.toHaveBeenCalled()
+  })
+
   it('turning it off back to exactly the default writes null (follows the default again)', async () => {
     asOwner()
     const stored = {

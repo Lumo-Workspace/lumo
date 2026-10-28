@@ -134,7 +134,7 @@ const POLICY_WRITE_ATTEMPTS = 3
  * LUM-1329 — write the agent-review level as a compare-and-set on the stored
  * policy, so an edit to other entries made meanwhile (e.g. a raw
  * `PATCH /api/workspaces/me`) is never overwritten: re-read and retry, then
- * 409. Called only after `updateWorkspace` passed the OWNER gate; audited
+ * 409. Called only after `update`'s OWNER check; audited
  * as its own plugin action (user ruling, LUM-1329 Decision 1): the plugin
  * may only write plugin actions, and this write skips updateWorkspace's.
  */
@@ -212,6 +212,21 @@ export const securityScanSettingsService = {
       miscRepository.findMemberRoleById(caller.memberId),
       securityColumnsRepository.findSecuritySwitches(caller.workspaceId),
     ])
+    // LUM-1329: the policy's AGENT_REVIEW entries, as a compare-and-set of
+    // their own, go first — a 409 (the policy kept changing) then leaves the
+    // switches unsaved too. It needs the OWNER gate updateWorkspace applies.
+    if (update.agentReviewBlocking !== undefined) {
+      if (role !== 'OWNER')
+        throw Object.assign(
+          new Error('Only admins can update workspace settings'),
+          { status: 403 }
+        )
+      await writeAgentReviewBlocking(
+        caller.workspaceId,
+        update.agentReviewBlocking,
+        audit
+      )
+    }
     await workspaceService.updateWorkspace(
       caller.workspaceId,
       role ?? '',
@@ -219,14 +234,6 @@ export const securityScanSettingsService = {
       switchesForUpdate(update),
       audit
     )
-    // LUM-1329: past the OWNER gate above — the policy's AGENT_REVIEW
-    // entries, as a compare-and-set of their own.
-    if (update.agentReviewBlocking !== undefined)
-      await writeAgentReviewBlocking(
-        caller.workspaceId,
-        update.agentReviewBlocking,
-        audit
-      )
     const settings = await this.get(caller)
     // LUM-1140: the request-changes workflow went on → off — dismiss Lumo's
     // standing "changes requested" reviews on the workspace's open PRs, in
