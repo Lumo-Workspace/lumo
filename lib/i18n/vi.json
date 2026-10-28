@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "ID tổ chức",
   "codeup.accessTokenLabel": "Mã truy cập cá nhân",
   "codeup.accessTokenHint": "Cần quyền đọc kho mã và quyền quản lý webhook. Lumo lưu mã ở dạng mã hóa và không bao giờ hiển thị lại.",
+  "codeup.commentAuthorHint": "Lumo đăng bài đánh giá lên merge request dưới danh nghĩa chủ sở hữu token này. Hãy dùng một tài khoản dịch vụ riêng có quyền đọc các kho mã này và bình luận trên merge request, thay vì tài khoản cá nhân.",
   "codeup.connectSuccess": "Đã kết nối Codeup",
   "codeup.connectFailed": "Codeup đã từ chối ID tổ chức hoặc mã truy cập.",
   "codeup.repositoriesTitle": "Chọn kho mã",

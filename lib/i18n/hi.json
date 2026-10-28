@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "संगठन ID",
   "codeup.accessTokenLabel": "व्यक्तिगत एक्सेस टोकन",
   "codeup.accessTokenHint": "रिपॉज़िटरी पढ़ने की अनुमति और वेबहुक प्रबंधित करने की अनुमति चाहिए। Lumo इसे एन्क्रिप्ट करके रखता है और दोबारा कभी नहीं दिखाता।",
+  "codeup.commentAuthorHint": "Lumo इस टोकन के स्वामी के नाम से मर्ज रिक्वेस्ट पर अपनी समीक्षा पोस्ट करता है। निजी खाते के बजाय एक अलग सर्विस खाता इस्तेमाल करें, जो इन रिपॉज़िटरी को पढ़ सके और मर्ज रिक्वेस्ट पर टिप्पणी कर सके।",
   "codeup.connectSuccess": "Codeup कनेक्ट हो गया",
   "codeup.connectFailed": "Codeup ने संगठन ID या एक्सेस टोकन अस्वीकार कर दिया।",
   "codeup.repositoriesTitle": "रिपॉज़िटरी चुनें",

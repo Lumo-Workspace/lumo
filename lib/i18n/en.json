@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "Organization ID",
   "codeup.accessTokenLabel": "Personal access token",
   "codeup.accessTokenHint": "Needs read access to repositories and permission to manage webhooks. Lumo stores it encrypted and never shows it again.",
+  "codeup.commentAuthorHint": "Lumo posts its review on merge requests as the owner of this token. Use a dedicated service account that can read these repositories and comment on merge requests, not a personal account.",
   "codeup.connectSuccess": "Codeup connected",
   "codeup.connectFailed": "Codeup rejected the organization ID or access token.",
   "codeup.repositoriesTitle": "Choose repositories",

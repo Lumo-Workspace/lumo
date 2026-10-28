@@ -66,6 +66,10 @@ export const issueAssessmentReviewService = {
     )
     const key = unmetKey(result?.requirements)
     if (!result || !key) return 'nothing'
+    // LUM-1316: posted as a review and deduped against Lumo's own reviews —
+    // a platform without reviews (reviewVerdict) keeps it in the summary's
+    // pre-merge checks only.
+    if (!gitProviderFor(input).capabilities.reviewVerdict) return 'nothing'
     try {
       const reviews = await gitProviderFor(input).comments.listReviews({
         repo: input.repo,

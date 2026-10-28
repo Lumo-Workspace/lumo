@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "ID organisasi",
   "codeup.accessTokenLabel": "Token akses peribadi",
   "codeup.accessTokenHint": "Memerlukan akses baca ke repositori dan kebenaran mengurus webhook. Lumo menyimpannya secara tersulit dan tidak akan memaparkannya lagi.",
+  "codeup.commentAuthorHint": "Lumo menyiarkan semakannya pada merge request atas nama pemilik token ini. Gunakan akaun perkhidmatan khusus yang boleh membaca repositori ini dan mengulas pada merge request, bukan akaun peribadi.",
   "codeup.connectSuccess": "Codeup disambungkan",
   "codeup.connectFailed": "Codeup menolak ID organisasi atau token akses.",
   "codeup.repositoriesTitle": "Pilih repositori",

@@ -14,6 +14,8 @@ import {
   webhookTokenMatches,
 } from '@/lib/integrations/codeup/webhook'
 import { codeupRepository } from '@/lib/repositories/codeup.repository'
+import { CODEUP_PROVIDER } from '@/lib/integrations/git-provider/ids'
+import { emitCoreEvent } from '@/lib/plugins/events'
 import {
   githubRepository,
   type WebhookTask,
@@ -97,6 +99,35 @@ export async function findTaskForCodeupBranch(
 
 // ── Event handlers ──────────────────────────────────────────────────────────
 
+/**
+ * LUM-1316 — a Codeup merge request action in the pull request vocabulary
+ * the `git.pullRequest` listeners read (`opened` / `synchronize` / …).
+ * Codeup sends `update` for any change; only one that moved the head is a
+ * new push (`synchronize`) — a title or description edit is `edited`, and a
+ * redelivered update (same head, or none in the payload) is never a push.
+ */
+export function pullRequestAction(
+  action: string | null,
+  headBefore: string | null,
+  headNow: string | null
+): string {
+  switch (action) {
+    case 'open':
+      return 'opened'
+    case 'reopen':
+      return 'reopened'
+    case 'close':
+    case 'merge':
+      return 'closed'
+    case 'update':
+      // No head recorded yet (an earlier delivery was missed): a push as
+      // far as Lumo knows — the scan dedups on (merge request, head).
+      return headNow && headNow !== headBefore ? 'synchronize' : 'edited'
+    default:
+      return action ?? 'unknown'
+  }
+}
+
 /** `Merge Request Hook`: upsert the workspace's PR row and link its task. */
 export async function handleCodeupMergeRequest(
   payload: unknown,
@@ -106,6 +137,11 @@ export async function handleCodeupMergeRequest(
   if (!mr) return 'ignored'
 
   const task = await findTaskForCodeupBranch(mr.sourceBranch, repo)
+  const headBefore = await codeupRepository.findMergeRequestHead(
+    repo.workspaceId,
+    repo.pathWithNamespace,
+    mr.iid
+  )
   const row = await codeupRepository.upsertMergeRequest({
     workspaceId: repo.workspaceId,
     taskId: task?.id ?? null,
@@ -132,6 +168,24 @@ export async function handleCodeupMergeRequest(
       repo: repo.pathWithNamespace,
       branchName: mr.sourceBranch,
     })
+    // LUM-1316: plugins react to a task-linked merge request event — the
+    // security plugin reviews an opened / pushed one through the Codeup
+    // GitProvider adapter. Delivery already passed the `codeup-integration`
+    // gate for this workspace. Task-less merge requests are not offered to
+    // the automatic review yet: its task-less decision reads the GitHub
+    // App's confirmed repositories and review settings.
+    if (isFeatureEnabled('codeup-integration', repo.workspaceId))
+      emitCoreEvent('git.pullRequest', {
+        provider: CODEUP_PROVIDER,
+        workspaceId: repo.workspaceId,
+        taskId,
+        pullRequestId: row.id,
+        action: pullRequestAction(mr.action, headBefore, mr.headSha),
+        state: mr.state,
+        repo: repo.pathWithNamespace,
+        prNumber: mr.iid,
+        isDraft: mr.isDraft,
+      })
   }
   return 'handled'
 }

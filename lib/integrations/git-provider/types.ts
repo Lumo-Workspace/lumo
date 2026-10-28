@@ -88,13 +88,21 @@ export interface GitProviderCodeDownload {
   getRepoCloneToken(workspaceId: string, repository: string): Promise<string>
 }
 
-/** Writes on a pull request: comments, reviews, inline comments, verdict, description. */
+type CommentUpdateInput = Parameters<
+  typeof prCommentClient.updateIssueComment
+>[0]
+
+/**
+ * Writes on a pull request: comments, reviews, inline comments, verdict, description.
+ *
+ * LUM-1316: a created comment's id is whatever the platform later takes
+ * back as `externalId` — a number on GitHub, an opaque string on Codeup
+ * (`comment_biz_id`) — so the scan only ever stringifies it. The update
+ * calls' answers are not read.
+ */
 export type GitCommentClient = Pick<
   typeof prCommentClient,
-  | 'createIssueComment'
   | 'createReviewLineReply'
-  | 'updateIssueComment'
-  | 'updateReviewLineComment'
   | 'deleteIssueComment'
   | 'listIssueComments'
   | 'listIssueCommentsSince'
@@ -108,7 +116,13 @@ export type GitCommentClient = Pick<
   | 'getPullRequestBody'
   | 'updatePullRequestBody'
   | 'listPullRequestFiles'
->
+> & {
+  createIssueComment(
+    input: Parameters<typeof prCommentClient.createIssueComment>[0]
+  ): Promise<{ id: number | string }>
+  updateIssueComment(input: CommentUpdateInput): Promise<unknown>
+  updateReviewLineComment(input: CommentUpdateInput): Promise<unknown>
+}
 
 /** Review threads on a pull request. */
 export type GitReviewThreadClient = Pick<

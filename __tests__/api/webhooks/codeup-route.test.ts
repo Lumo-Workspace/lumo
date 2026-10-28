@@ -13,8 +13,11 @@ jest.mock('@/lib/repositories/codeup.repository', () => ({
     findOtherConfirmingWorkspaceIds: jest.fn(),
     upsertMergeRequest: jest.fn(),
     upsertTaskBranch: jest.fn(),
+    findMergeRequestHead: jest.fn(),
   },
 }))
+// LUM-1316: the core event the security plugin reviews on.
+jest.mock('@/lib/plugins/events', () => ({ emitCoreEvent: jest.fn() }))
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: {
     findTaskByIdentifier: jest.fn(),
@@ -28,6 +31,7 @@ import { POST } from '@/app/api/webhooks/codeup/route'
 import { hashWebhookToken } from '@/lib/integrations/codeup/webhook'
 import { codeupRepository } from '@/lib/repositories/codeup.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
+import { emitCoreEvent } from '@/lib/plugins/events'
 
 const codeup = codeupRepository as jest.Mocked<typeof codeupRepository>
 const github = githubRepository as jest.Mocked<typeof githubRepository>
@@ -87,6 +91,7 @@ beforeEach(() => {
   codeup.findDeliveryCandidates.mockResolvedValue([candidate()])
   codeup.findOtherConfirmingWorkspaceIds.mockResolvedValue([])
   codeup.upsertMergeRequest.mockResolvedValue({ id: 'pr-1', taskId: 'task-12' })
+  codeup.findMergeRequestHead.mockResolvedValue(null)
   github.findTaskByIdentifier.mockResolvedValue(TASK as never)
   github.findOtherWorkspaceIdsWithTask.mockResolvedValue([])
 })
@@ -250,6 +255,73 @@ describe('Merge Request Hook', () => {
     codeup.upsertMergeRequest.mockRejectedValue(new Error('db down'))
     const res = await post(mergeRequestHook, mrHeaders)
     expect(res.status).toBe(200)
+  })
+})
+
+describe('LUM-1316 Merge Request Hook → git.pullRequest (Lumo review)', () => {
+  const emitted = () => (emitCoreEvent as jest.Mock).mock.calls
+  const HEAD = mergeRequestHook.object_attributes.last_commit.id
+  const update = (headId = HEAD) => ({
+    ...mergeRequestHook,
+    object_attributes: {
+      ...mergeRequestHook.object_attributes,
+      action: 'update',
+      last_commit: {
+        ...mergeRequestHook.object_attributes.last_commit,
+        id: headId,
+      },
+    },
+  })
+
+  it('an opened, task-linked MR emits git.pullRequest (provider codeup, action opened)', async () => {
+    const res = await post(mergeRequestHook, mrHeaders)
+    expect(res.status).toBe(200)
+    expect(emitted()).toEqual([
+      [
+        'git.pullRequest',
+        {
+          provider: 'codeup',
+          workspaceId: WS,
+          taskId: 'task-12',
+          pullRequestId: 'pr-1',
+          action: 'opened',
+          state: 'open',
+          repo: PATH,
+          prNumber: 1,
+          isDraft: false,
+        },
+      ],
+    ])
+  })
+
+  it('a push (new head) is synchronize; the same head again is an edit, not a push', async () => {
+    codeup.findMergeRequestHead.mockResolvedValue('0'.repeat(40))
+    await post(update(), mrHeaders)
+    expect(emitted()[0]![1]).toMatchObject({ action: 'synchronize' })
+
+    jest.clearAllMocks()
+    codeup.findMergeRequestHead.mockResolvedValue(HEAD)
+    codeup.upsertMergeRequest.mockResolvedValue({
+      id: 'pr-1',
+      taskId: 'task-12',
+    })
+    await post(update(), mrHeaders)
+    expect(emitted()[0]![1]).toMatchObject({ action: 'edited' })
+  })
+
+  it('a task-less MR emits nothing (not offered to the automatic review)', async () => {
+    codeup.upsertMergeRequest.mockResolvedValue({ id: 'pr-1', taskId: null })
+    github.findTaskByIdentifier.mockResolvedValue(null)
+    await post(mergeRequestHook, mrHeaders)
+    expect(emitCoreEvent).not.toHaveBeenCalled()
+  })
+
+  it('flag off: 404, nothing stored, nothing emitted — no scan', async () => {
+    process.env = { ...OLD_ENV, LUMO_DOGFOOD_WORKSPACE_IDS: 'other-ws' }
+    const res = await post(mergeRequestHook, mrHeaders)
+    expect(res.status).toBe(404)
+    expect(codeup.upsertMergeRequest).not.toHaveBeenCalled()
+    expect(emitCoreEvent).not.toHaveBeenCalled()
   })
 })
 

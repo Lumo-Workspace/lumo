@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "ID de l'organisation",
   "codeup.accessTokenLabel": "Jeton d'accès personnel",
   "codeup.accessTokenHint": "Nécessite l'accès en lecture aux dépôts et le droit de gérer les webhooks. Lumo le stocke chiffré et ne l'affiche plus jamais.",
+  "codeup.commentAuthorHint": "Lumo publie ses revues sur les merge requests au nom du propriétaire de ce jeton. Utilisez un compte de service dédié, capable de lire ces dépôts et de commenter les merge requests, plutôt qu’un compte personnel.",
   "codeup.connectSuccess": "Codeup connecté",
   "codeup.connectFailed": "Codeup a refusé l'ID de l'organisation ou le jeton d'accès.",
   "codeup.repositoriesTitle": "Choisir des dépôts",

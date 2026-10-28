@@ -304,6 +304,9 @@ async function approveAndDismiss(
 
 export const prReviewVerdictService = {
   async apply(input: VerdictSyncInput): Promise<VerdictOutcome> {
+    // LUM-1316: a platform without review verdicts gets none (never the
+    // token owner's personal approval in Lumo's name).
+    if (!gitProviderFor(input).capabilities.reviewVerdict) return 'none'
     const where = `pr=#${input.prNumber} head=${short(input.headSha)}`
     try {
       const listed = await gitProviderFor(input).comments.listReviews({
@@ -418,6 +421,8 @@ export const prReviewVerdictService = {
       token: string
     }
   ): Promise<number> {
+    // LUM-1316: no verdict was ever given there — nothing to withdraw.
+    if (!gitProviderFor(input).capabilities.reviewVerdict) return 0
     const { changesRequestedIds } = standingLumoReview(
       await gitProviderFor(input).comments.listReviews(input)
     )

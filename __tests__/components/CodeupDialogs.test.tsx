@@ -78,6 +78,19 @@ describe('CodeupConnectDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('LUM-1316: tells the owner reviews post as the token owner (use a service account)', () => {
+    render(
+      <CodeupConnectDialog
+        open
+        onOpenChange={jest.fn()}
+        onConnected={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('codeup-comment-author-hint').textContent).toBe(
+      'codeup.commentAuthorHint'
+    )
+  })
+
   it('shows the localized error when Codeup refuses', async () => {
     api.connect.mockRejectedValue(new Error('refused'))
     const onConnected = jest.fn()

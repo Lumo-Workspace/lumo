@@ -92,6 +92,12 @@ export function CodeupConnectDialog({
             <p className='mt-1 text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'codeup.accessTokenHint' })}
             </p>
+            <p
+              className='mt-1 text-caption text-muted-foreground'
+              data-testid='codeup-comment-author-hint'
+            >
+              {intl.formatMessage({ id: 'codeup.commentAuthorHint' })}
+            </p>
           </div>
           <div className='flex justify-end gap-2 pt-2'>
             <Button

@@ -164,6 +164,29 @@ export const codeupRepository = {
     return [...new Set(rows.map(r => r.connection.workspaceId))]
   },
 
+  /**
+   * LUM-1316 — the head this workspace last recorded for a merge request
+   * (null: no row yet, or no head recorded).
+   */
+  async findMergeRequestHead(
+    workspaceId: string,
+    repo: string,
+    number: number
+  ): Promise<string | null> {
+    const row = await prisma.pullRequest.findUnique({
+      where: {
+        workspaceId_provider_repo_number: {
+          workspaceId,
+          provider: CODEUP_PROVIDER,
+          repo,
+          number,
+        },
+      },
+      select: { headSha: true },
+    })
+    return row?.headSha ?? null
+  },
+
   /** Upsert this workspace's row for a Codeup merge request. */
   async upsertMergeRequest(data: UpsertMergeRequestData) {
     return prisma.pullRequest.upsert({

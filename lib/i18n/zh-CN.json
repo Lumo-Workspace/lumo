@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "组织 ID",
   "codeup.accessTokenLabel": "个人访问令牌",
   "codeup.accessTokenHint": "需要代码库读取权限和管理 Webhook 的权限。Lumo 会加密保存，且不会再次显示。",
+  "codeup.commentAuthorHint": "Lumo 会以此令牌所属用户的身份在合并请求上发布审查评论。请使用一个能读取这些代码库并评论合并请求的专用服务账号，而不是个人账号。",
   "codeup.connectSuccess": "Codeup 已连接",
   "codeup.connectFailed": "Codeup 拒绝了该组织 ID 或访问令牌。",
   "codeup.repositoriesTitle": "选择代码库",

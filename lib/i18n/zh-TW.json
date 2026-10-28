@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "組織 ID",
   "codeup.accessTokenLabel": "個人存取權杖",
   "codeup.accessTokenHint": "需要程式碼庫讀取權限與管理 Webhook 的權限。Lumo 會加密儲存，且不會再次顯示。",
+  "codeup.commentAuthorHint": "Lumo 會以此權杖所屬使用者的身分在合併請求上發布審查留言。請使用能讀取這些程式碼庫並留言於合併請求的專用服務帳號，而非個人帳號。",
   "codeup.connectSuccess": "Codeup 已連線",
   "codeup.connectFailed": "Codeup 拒絕了該組織 ID 或存取權杖。",
   "codeup.repositoriesTitle": "選擇程式碼庫",
