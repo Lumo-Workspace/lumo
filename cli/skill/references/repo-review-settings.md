@@ -4,7 +4,7 @@
 
 ## Auto-review filters and path filters
 
-Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web card has the same fields under **Filters**.
+Per repository, for **task-less** PRs (task-linked PRs are always scanned; `@<app> review` / `lumo pr review` always work). Each repeatable flag **replaces** its list; `""` clears it. OWNER only, no confirmation, audited like the switches. The web settings have the same fields under **Configure → When to review** (one Save for the whole repository).
 
 ```bash
 lumo workspace security-scan update --repo acme/app --ignore-title WIP --ignore-title "do not review"
@@ -28,7 +28,7 @@ lumo workspace security-scan update --repo acme/app --labels ""                 
 
 ## Pre-merge checks
 
-Per repository, rules every reviewed PR is held to, reported in the PR's security summary (failures in a table, passes folded). Built-ins: **title** (concise, describes the change, plus optional `--title-requirements`) and **description** (filled in; follows the repository's PR template when it has one). Each is `off`, `warning` (default — reported, never blocks) or `error` (a failure keeps Lumo at "Changes requested" while the request-changes workflow is on, and `@uselumo approve` is refused, until the check passes on a later push or title/description edit, or the PR overrides the checks). An **inconclusive** check never blocks (a failed model call never lifts a failure already recorded for the same head). Up to 5 **custom checks** (name ≤ 50 chars, plain-language instructions ≤ 1000) are set in the web card (**Pre-merge checks**) or `.lumo.yaml` (`reviews.pre_merge_checks.custom_checks`), not by flag. The checks run with the AI review (one model call per reviewed head; not on a paused head).
+Per repository, rules every reviewed PR is held to, reported in the PR's security summary (failures in a table, passes folded). Built-ins: **title** (concise, describes the change, plus optional `--title-requirements`) and **description** (filled in; follows the repository's PR template when it has one). Each is `off`, `warning` (default — reported, never blocks) or `error` (a failure keeps Lumo at "Changes requested" while the request-changes workflow is on, and `@uselumo approve` is refused, until the check passes on a later push or title/description edit, or the PR overrides the checks). An **inconclusive** check never blocks (a failed model call never lifts a failure already recorded for the same head). Up to 5 **custom checks** (name ≤ 50 chars, plain-language instructions ≤ 1000) are set in the web settings (**Configure → Pre-merge checks**) or `.lumo.yaml` (`reviews.pre_merge_checks.custom_checks`), not by flag. The checks run with the AI review (one model call per reviewed head; not on a paused head).
 
 ```bash
 lumo workspace security-scan update --repo acme/app --title-check error --title-requirements 'start with feat:, fix: or chore:'
@@ -60,7 +60,7 @@ lumo workspace security-scan update --repo acme/app --task-details-on-public-rep
 
 ## Review style: path instructions, profile, tone
 
-Per repository, for every AI review of its PRs (task-linked too). OWNER only, no confirmation, audited like the filters. The web card has the same fields under **Review style**.
+Per repository, for every AI review of its PRs (task-linked too). OWNER only, no confirmation, audited like the filters. The web settings have the same fields under **Configure → Review style**.
 
 ```bash
 lumo workspace security-scan update --repo acme/app --profile quiet                 # fewer inline comments
@@ -82,7 +82,7 @@ lumo workspace security-scan update --repo acme/app --summary comment   # keep i
 lumo workspace security-scan update --repo acme/app --summary off
 ```
 
-- `--summary <description|comment|off>` (OWNER, no confirmation, audited; web card: **Review style → High-level summary**): where the AI review's summary of each PR goes. `description` (default) writes it into the PR **description** inside a Lumo section (`<!-- lumo:summary:start -->` … `<!-- lumo:summary:end -->`): at a line holding only `@uselumo summary` if the author put one there, else appended; every later review rewrites that section only — the author's own text is never changed, and the description is read right before each edit so concurrent edits are kept. The summary comment then points to the description (if the edit fails, the comment shows the summary as before). `comment` = only in Lumo's summary comment, description never edited. `off` = nowhere (an existing section is left as it is).
+- `--summary <description|comment|off>` (OWNER, no confirmation, audited; web settings: **Configure → Review style → High-level summary**): where the AI review's summary of each PR goes. `description` (default) writes it into the PR **description** inside a Lumo section (`<!-- lumo:summary:start -->` … `<!-- lumo:summary:end -->`): at a line holding only `@uselumo summary` if the author put one there, else appended; every later review rewrites that section only — the author's own text is never changed, and the description is read right before each edit so concurrent edits are kept. The summary comment then points to the description (if the edit fails, the comment shows the summary as before). `comment` = only in Lumo's summary comment, description never edited. `off` = nowhere (an existing section is left as it is).
 - The summary always describes the **whole PR** (base…head). An incremental review (only files changed since Lumo's last complete review) gets one extra summary-only model call over the whole PR diff (MEMORY_JUDGE tier, secrets masked, ≤40k characters; over that, the file list plus the previous summary); if that call fails, the previous summary stays and says which commit it describes.
 - The setting in force is stored on each scan, so a change applies from the next review (`@uselumo summary` reads the current setting). `.lumo.yaml` key `reviews.high_level_summary` (`description` / `comment` / `off`, or `true` / `false`) overrides it (base commit only).
 - `@uselumo summary` on the PR rewrites the section from the latest review's summary (no new AI review), following the repository's current setting. The summary comment's folded **Walkthrough** lists the PR's changed files (status, +/− lines; first 50 named).
@@ -94,6 +94,6 @@ lumo workspace security-scan update --repo acme/app --summary off
 lumo workspace security-scan update --repo acme/app --sequence-diagrams off
 ```
 
-- `--sequence-diagrams <on|off>` (OWNER, no confirmation, audited; web card: **Review style → Sequence diagram of the call flow**; default on): when a PR changes a call flow, the folded **Walkthrough** of Lumo's summary comment gets a Mermaid sequence diagram of its main flow (≤8 participants, ≤16 calls). No extra pass: the AI review's own call draws it (an incremental review: the whole-PR summary call, only when the whole diff fits its 40k budget). Trivial PRs never get one — fewer than 2 changed source files or fewer than 20 changed lines in them (tests, docs, migrations, config don't count). The model only names participants and calls; Lumo writes the Mermaid itself and validates it before posting (a diagram that fails is left out).
+- `--sequence-diagrams <on|off>` (OWNER, no confirmation, audited; web settings: **Configure → Review style → Sequence diagram of the call flow**; default on): when a PR changes a call flow, the folded **Walkthrough** of Lumo's summary comment gets a Mermaid sequence diagram of its main flow (≤8 participants, ≤16 calls). No extra pass: the AI review's own call draws it (an incremental review: the whole-PR summary call, only when the whole diff fits its 40k budget). Trivial PRs never get one — fewer than 2 changed source files or fewer than 20 changed lines in them (tests, docs, migrations, config don't count). The model only names participants and calls; Lumo writes the Mermaid itself and validates it before posting (a diagram that fails is left out).
 - `.lumo.yaml` key `reviews.sequence_diagrams` (`true` / `false`) overrides it (base commit only). `@uselumo diagram` on the PR draws it again on request (current setting; refused when off).
 - `--repo X` prints `sequence diagrams:`; `--json` adds `sequenceDiagrams`.

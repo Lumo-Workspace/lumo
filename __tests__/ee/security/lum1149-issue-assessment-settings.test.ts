@@ -6,7 +6,7 @@
  * flags (switching the check off or opening task details to public
  * repositories is confirmed first) and the settings card's PATCH body.
  */
-// The card's pure helpers are imported; its rendering is not exercised here.
+// The settings sheet's pure helpers are imported; its rendering is not exercised here.
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }))
@@ -34,7 +34,7 @@ import {
 import {
   draftOfChecks,
   preMergeChecksUpdate,
-} from '@/ee/security/components/settings/RepoPreMergeChecksEditor'
+} from '@/ee/security/components/settings/repo-review-draft'
 
 const SETTING = parsePreMergeChecksSetting(null)
 
