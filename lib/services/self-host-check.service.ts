@@ -49,13 +49,15 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
  * a certificate error).
  */
 export function errorText(err: unknown): string {
-  if (!(err instanceof Error)) return String(err).slice(0, 200)
+  if (!(err instanceof Error)) return String(err).replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
   const cause = (err as { cause?: unknown }).cause
   const why =
     cause instanceof Error
       ? [(cause as { code?: unknown }).code, cause.message].filter(Boolean).join(' ')
       : ''
-  return (why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message).slice(0, 200)
+  const text = why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message
+  // A driver may echo a connection URL; never its userinfo (password).
+  return text.replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
 }
 
 async function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {

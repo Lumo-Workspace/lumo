@@ -308,6 +308,9 @@ describe('scripts/self-host/setup.sh', () => {
     const { status, out } = runWithDocker([], 1)
     expect(status).toBe(1)
     expect(out).not.toContain('Lumo is running')
+    // 3 = the image predates the check; passed through unchanged.
+    expect(runWithDocker([], 3).status).toBe(3)
+    expect(runWithDocker(['--check'], 3).status).toBe(3)
   })
 
   it('--check only re-runs the check and leaves .env alone', () => {

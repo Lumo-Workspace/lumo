@@ -52,6 +52,8 @@ async function main() {
     res = await fetch(`http://127.0.0.1:${port}/api/internal/self-host-check`, {
       method: 'POST',
       headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` },
+      // Every check has its own 15 s limit and they run concurrently.
+      signal: AbortSignal.timeout(60_000),
     })
   } catch (err) {
     console.error(`The app is not answering on port ${port}: ${err.message}`)

@@ -46,6 +46,13 @@ describe('errorText', () => {
     expect(errorText(new Error('plain'))).toBe('plain')
     expect(errorText('text')).toBe('text')
   })
+
+  it('masks the userinfo of a URL a driver echoes', () => {
+    const pass = ['redis', 'pass', 'fixture'].join('-')
+    expect(errorText(new Error(`connect failed: redis://default:${pass}@redis:6379`))).toBe(
+      'connect failed: redis://***@redis:6379'
+    )
+  })
 })
 
 describe('runSelfHostChecks', () => {
