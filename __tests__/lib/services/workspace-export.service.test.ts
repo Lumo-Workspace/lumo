@@ -34,8 +34,8 @@ jest.mock('@/lib/services/workspace-export-blob', () => ({
 jest.mock('@/lib/services/workspace-export-start', () => ({
   startWorkspaceExport: jest.fn(),
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn(),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn(),
 }))
 
 import {
@@ -51,7 +51,7 @@ import {
 } from '@/lib/services/workspace-export.service'
 import * as blob from '@/lib/services/workspace-export-blob'
 import { startWorkspaceExport } from '@/lib/services/workspace-export-start'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { readZipText } from '@/lib/archive/zip'
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
@@ -146,7 +146,7 @@ beforeEach(() => {
     async (kind: ExportKind, _ws: string, afterId: string | null) =>
       afterId ? [] : rowsFor(kind)
   )
-  m(lookupClerkProfiles).mockResolvedValue(
+  m(lookupUserProfiles).mockResolvedValue(
     new Map([['user_owner', { name: 'Olive Owner', email: 'olive@acme.test' }]])
   )
 })

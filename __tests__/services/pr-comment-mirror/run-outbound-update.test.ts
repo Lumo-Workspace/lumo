@@ -33,15 +33,13 @@ jest.mock('@/lib/utils/buildTaskUrl', () => ({
       'https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'
     ),
 }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: {
-      getUser: jest.fn().mockResolvedValue({
-        firstName: 'Someone',
-        lastName: null,
-        emailAddresses: [],
-      }),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({
+    getUser: jest.fn().mockResolvedValue({
+      firstName: 'Someone',
+      lastName: null,
+      emailAddresses: [],
+    }),
   }),
 }))
 

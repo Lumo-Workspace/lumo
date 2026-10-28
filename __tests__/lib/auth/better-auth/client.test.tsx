@@ -1,6 +1,6 @@
 // LUM-1027 — the Better Auth client half of @/lib/auth/client: hooks mapped
 // onto the provider-neutral contract, sign-out, and the sign-in form, all
-// reached through <AuthProvider provider='better-auth'> (the dispatcher).
+// reached through <AuthProvider>.
 const mockUseSession = jest.fn()
 const mockSignOut = jest.fn()
 const mockSignInEmail = jest.fn()
@@ -22,14 +22,6 @@ jest.mock('@/lib/auth/better-auth/auth-client', () => ({
 const mockNavigate = jest.fn()
 jest.mock('@/lib/auth/better-auth/navigate', () => ({
   hardNavigate: (url: string) => mockNavigate(url),
-}))
-jest.mock('@clerk/nextjs', () => ({
-  ClerkProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid='clerk-provider'>{children}</div>
-  ),
-  SignIn: () => <div data-testid='clerk-sign-in' />,
-  useClerk: () => ({ signOut: jest.fn() }),
-  useUser: () => ({ isLoaded: false }),
 }))
 // Message ids render as-is (with {provider} filled) so assertions are exact.
 jest.mock('react-intl', () => ({
@@ -55,7 +47,7 @@ import type { ReactNode } from 'react'
 import { AuthProvider, SignIn, useSignOut, useUser } from '@/lib/auth/client'
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider provider='better-auth'>{children}</AuthProvider>
+  <AuthProvider>{children}</AuthProvider>
 )
 
 beforeEach(() => {

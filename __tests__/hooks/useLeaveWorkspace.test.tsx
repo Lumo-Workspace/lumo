@@ -1,6 +1,6 @@
 const mockSignOut = jest.fn()
-jest.mock('@clerk/nextjs', () => ({
-  useClerk: () => ({ signOut: mockSignOut }),
+jest.mock('@/lib/auth/client', () => ({
+  useSignOut: () => mockSignOut,
 }))
 jest.mock('@/lib/api-client', () => ({
   workspacesClient: { leaveWorkspace: jest.fn() },

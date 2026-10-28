@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-987 — active-workspace resolution for Clerk sessions (unit level; the
+ * LUM-987 — active-workspace resolution for browser sessions (unit level; the
  * real-Postgres behavior is pinned in
  * __tests__/security/cross-tenant-idor.real-postgres.test.ts).
  */
@@ -17,10 +17,6 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 const mockHeaders = jest.fn()
 jest.mock('next/headers', () => ({ headers: () => mockHeaders() }))
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: jest.fn(),
-  currentUser: jest.fn(),
-}))
 
 import { NextResponse } from 'next/server'
 import {

@@ -8,8 +8,8 @@ jest.mock('@/lib/integrations/email/client', () => ({
   isEmailDelivered: jest.requireActual('@/lib/integrations/email/client')
     .isEmailDelivered,
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn(),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn(),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
@@ -17,7 +17,7 @@ jest.mock('@/lib/logger', () => ({
 
 import { buildWorkspaceDeletionEmail } from '@/lib/integrations/email'
 import { sendEmail } from '@/lib/integrations/email/client'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { sendDeletionNotice } from '@/lib/services/workspace-deletion-notice'
 
 const executeAt = new Date('2026-10-03T12:00:00.000Z')
@@ -60,7 +60,7 @@ describe('sendDeletionNotice', () => {
         status: 'failed',
         error: { name: 'Error', message: 'bounced' },
       })
-    ;(lookupClerkProfiles as jest.Mock).mockResolvedValue(
+    ;(lookupUserProfiles as jest.Mock).mockResolvedValue(
       new Map([
         ['o1', { name: 'Ada', email: 'ada@example.test' }],
         ['o2', { name: 'Bo', email: 'bo@example.test' }],
@@ -97,7 +97,7 @@ describe('sendDeletionNotice', () => {
       prior: 'sent',
       id: 'm0',
     })
-    ;(lookupClerkProfiles as jest.Mock).mockResolvedValue(
+    ;(lookupUserProfiles as jest.Mock).mockResolvedValue(
       new Map([['o1', { name: 'Ada', email: 'ada@example.test' }]])
     )
 

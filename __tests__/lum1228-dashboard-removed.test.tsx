@@ -26,8 +26,8 @@ jest.mock('next/link', () => ({
     </a>
   ),
 }))
-jest.mock('@clerk/nextjs', () => ({
-  useClerk: () => ({ signOut: jest.fn() }),
+jest.mock('@/lib/auth/client', () => ({
+  useSignOut: () => jest.fn(),
 }))
 
 // workspace hooks the sidebar reads

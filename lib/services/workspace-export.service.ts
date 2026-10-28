@@ -15,7 +15,7 @@ import type { WorkspaceRole } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { createZipWriter } from '@/lib/archive/zip'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { EXCLUDED_MODELS } from '@/lib/workspace/export-coverage'
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
 import {
@@ -121,7 +121,7 @@ function documentMarkdown(row: ExportRow): string {
 }
 
 async function withProfiles(rows: ExportRow[]): Promise<ExportRow[]> {
-  const profiles = await lookupClerkProfiles(rows.map(r => String(r.clerkId)))
+  const profiles = await lookupUserProfiles(rows.map(r => String(r.clerkId)))
   return rows.map(r => {
     const p = profiles.get(String(r.clerkId))
     return { ...r, name: p?.name ?? null, email: p?.email ?? null }

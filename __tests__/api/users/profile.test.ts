@@ -6,17 +6,17 @@ jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn(),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn(),
 }))
 
 import { requireAuth } from '@/lib/auth'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { PATCH } from '@/app/api/users/profile/route'
 import { POST } from '@/app/api/users/profile/avatar/route'
 
 const mockRequireAuth = requireAuth as jest.Mock
-const mockClerkClient = clerkClient as jest.Mock
+const mockGetUserDirectory = getUserDirectory as jest.Mock
 
 function makeJsonRequest(body: unknown, method = 'PATCH'): Request {
   return new Request('http://localhost/api/users/profile', {
@@ -59,12 +59,10 @@ describe('PATCH /api/users/profile', () => {
     expect(data.error).toMatch(/firstName or lastName/)
   })
 
-  it('calls clerkClient updateUser and returns ok:true', async () => {
+  it('calls the directory updateUser and returns ok:true', async () => {
     mockRequireAuth.mockResolvedValueOnce({ userId: 'user_abc' })
     const mockUpdateUser = jest.fn().mockResolvedValueOnce({})
-    mockClerkClient.mockResolvedValueOnce({
-      users: { updateUser: mockUpdateUser },
-    })
+    mockGetUserDirectory.mockResolvedValueOnce({ updateUser: mockUpdateUser })
 
     const res = await PATCH(
       makeJsonRequest({ firstName: 'Chao', lastName: 'Li' })
@@ -81,9 +79,7 @@ describe('PATCH /api/users/profile', () => {
   it('only sends non-empty fields to Clerk (partial update)', async () => {
     mockRequireAuth.mockResolvedValueOnce({ userId: 'user_abc' })
     const mockUpdateUser = jest.fn().mockResolvedValueOnce({})
-    mockClerkClient.mockResolvedValueOnce({
-      users: { updateUser: mockUpdateUser },
-    })
+    mockGetUserDirectory.mockResolvedValueOnce({ updateUser: mockUpdateUser })
 
     // Send only firstName — lastName should NOT be included in the update
     const res = await PATCH(
@@ -132,11 +128,11 @@ describe('POST /api/users/profile/avatar', () => {
     expect(data.error).toMatch(/JPG, PNG/)
   })
 
-  it('calls clerkClient updateUserProfileImage and returns ok:true', async () => {
+  it('calls the directory updateUserProfileImage and returns ok:true', async () => {
     mockRequireAuth.mockResolvedValueOnce({ userId: 'user_abc' })
     const mockUpdateImage = jest.fn().mockResolvedValueOnce({})
-    mockClerkClient.mockResolvedValueOnce({
-      users: { updateUserProfileImage: mockUpdateImage },
+    mockGetUserDirectory.mockResolvedValueOnce({
+      updateUserProfileImage: mockUpdateImage,
     })
     const file = new File(['data'], 'avatar.png', { type: 'image/png' })
     const res = await POST(makeFormRequest(file))

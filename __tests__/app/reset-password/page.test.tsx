@@ -1,5 +1,5 @@
-// LUM-1070 — /reset-password exists only under Better Auth; under Clerk
-// (production today) the route stays a 404.
+// LUM-1070 — /reset-password exists while password sign-in is on; a 404
+// when the instance turned it off (AUTH_DISABLE_PASSWORD, LUM-1082).
 const mockNotFound = jest.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
@@ -25,8 +25,14 @@ describe('/reset-password page (LUM-1070)', () => {
     expect(mockNotFound).not.toHaveBeenCalled()
   })
 
-  it('is a 404 under Clerk', () => {
-    delete process.env.AUTH_PROVIDER
-    expect(() => render(<ResetPasswordPage />)).toThrow('NEXT_NOT_FOUND')
+  it('is a 404 when password sign-in is off', () => {
+    const savedFlag = process.env.AUTH_DISABLE_PASSWORD
+    process.env.AUTH_DISABLE_PASSWORD = 'true'
+    try {
+      expect(() => render(<ResetPasswordPage />)).toThrow('NEXT_NOT_FOUND')
+    } finally {
+      if (savedFlag === undefined) delete process.env.AUTH_DISABLE_PASSWORD
+      else process.env.AUTH_DISABLE_PASSWORD = savedFlag
+    }
   })
 })

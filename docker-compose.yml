@@ -22,7 +22,7 @@ x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
     context: .
     dockerfile: Dockerfile
     args:
-      # Better Auth: no Clerk account needed (LUM-1043). Must match the
+      # Better Auth (LUM-1043). Must match the
       # runtime AUTH_PROVIDER below — static pages bake it in at build time.
       # The NEXT_PUBLIC_* args are only fallbacks: the app reads the runtime
       # values below (LUM-1325), so changing them needs no rebuild.

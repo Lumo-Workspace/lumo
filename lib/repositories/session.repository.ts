@@ -217,7 +217,7 @@ const TIMELINE_SESSION_SELECT = {
   agent: true,
   workspaceMemberId: true,
   // clerkId feeds the per-person token rollup (LUM-307); resolved to a
-  // display name + avatar in the service via enrichClerkUsers.
+  // display name + avatar in the service via enrichUsers.
   member: { select: { clerkId: true } },
   startedAt: true,
   lastActivityAt: true,

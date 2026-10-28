@@ -38,11 +38,9 @@ jest.mock('@/lib/db/prisma', () => ({
 
 const mockClerkGetUserList = jest.fn()
 
-jest.mock('@clerk/nextjs/server', () => ({
-  createClerkClient: () => ({
-    users: {
-      getUserList: (...args: any[]) => mockClerkGetUserList(...args),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  createUserDirectory: async () => ({
+    getUserList: (...args: any[]) => mockClerkGetUserList(...args),
   }),
 }))
 

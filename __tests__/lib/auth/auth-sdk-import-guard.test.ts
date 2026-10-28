@@ -104,23 +104,31 @@ describe('auth SDK import guard (LUM-1026 / LUM-1027)', () => {
     expect(findOffendingImports(pairs)).toEqual([])
   })
 
-  it('lib/auth is where the Clerk and Better Auth implementations live', () => {
+  it('lib/auth is where the Better Auth implementation lives', () => {
     const files = listSourceFiles(path.join(ROOT, 'lib', 'auth'))
     const importers = files
       .filter(f => IMPORT_RE.test(fs.readFileSync(f, 'utf8')))
       .map(f => path.relative(ROOT, f))
     expect(importers).toEqual(
       expect.arrayContaining([
-        path.join('lib', 'auth', 'clerk', 'session.ts'),
-        path.join('lib', 'auth', 'clerk', 'users.ts'),
-        path.join('lib', 'auth', 'clerk', 'client.tsx'),
-        path.join('lib', 'auth', 'clerk', 'middleware.ts'),
-        path.join('lib', 'auth', 'clerk', 'mcp.ts'),
-        path.join('lib', 'auth', 'clerk', 'oauth-metadata.ts'),
-        path.join('lib', 'auth', 'clerk-webhook.ts'),
         path.join('lib', 'auth', 'better-auth', 'server.ts'),
         path.join('lib', 'auth', 'better-auth', 'auth-client.ts'),
       ])
     )
+  })
+})
+
+// LUM-1077: Clerk is gone, so no source file — lib/auth included — may name
+// a Clerk package any more.
+describe('no Clerk SDK anywhere (LUM-1077)', () => {
+  it('finds no @clerk/* module specifier in the scanned sources', () => {
+    const files = [
+      ...SCANNED_DIRS.flatMap(d => listSourceFiles(path.join(ROOT, d))),
+      ...SCANNED_FILES.map(f => path.join(ROOT, f)),
+    ]
+    const offenders = files
+      .filter(f => /['"]@clerk\/[^'"\s]+['"]/.test(fs.readFileSync(f, 'utf8')))
+      .map(f => path.relative(ROOT, f))
+    expect(offenders).toEqual([])
   })
 })

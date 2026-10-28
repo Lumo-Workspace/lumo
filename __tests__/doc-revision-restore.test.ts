@@ -183,9 +183,9 @@ jest.mock('@/lib/services/mention-notify.service', () => ({
 jest.mock('@/lib/services/content-summary.service', () => ({
   contentSummaryService: { summarize: jest.fn().mockResolvedValue('') },
 }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: { getUserList: jest.fn().mockResolvedValue({ data: [] }) },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({
+    getUserList: jest.fn().mockResolvedValue({ data: [] }),
   }),
 }))
 

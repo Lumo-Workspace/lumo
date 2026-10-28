@@ -27,12 +27,12 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 let mockUserId: string | null = null
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: async () => ({ userId: mockUserId }),
+jest.mock('@/lib/auth/session', () => ({
+  getCurrentUserId: async () => mockUserId,
 }))
 
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: async (ids: string[]) =>
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: async (ids: string[]) =>
     new Map(ids.map(id => [id, { name: 'Mia Member', email: null }])),
 }))
 

@@ -52,11 +52,9 @@ const AUTH_GUARDS = new Set([
   'ee/security/auth/sarif-ingest-auth#authenticateSarifIngest',
   'lib/integrations/github#verifyGitHubSignature',
   'lib/integrations/github/verify#verifyGitHubSignature',
-  // LUM-906: Clerk webhook — Svix signature via Clerk's verifyWebhook.
-  'lib/auth/clerk-webhook#verifyClerkWebhook',
   'lib/services/auth.service#authService.verifyApiKey',
   // app/api/mcp: passed to `withMcpAuth(..., { required: true })`.
-  // LUM-1026: the @/lib/auth wrapper around Clerk's verifyClerkToken.
+  // LUM-1026: the @/lib/auth wrapper around MCP OAuth token verification.
   'lib/auth/mcp#verifyMcpAccessToken',
 ])
 

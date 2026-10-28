@@ -3,9 +3,9 @@
  *
  * Integration test for the MCP HTTP route (Task 2.10).
  *
- * Strategy: Option A — mock Clerk auth layers so that `withMcpAuth` runs
- * unchanged and produces a real `AuthInfo` for the fixture user. Mocks only
- * the Clerk-owned verification surface and the DB repositories. The full
+ * Strategy: mock the token verification (@/lib/auth/mcp) so that
+ * `withMcpAuth` runs unchanged and produces an `AuthInfo` for the fixture
+ * user. Mocks only the verification surface and the DB repositories. The full
  * server.ts + tools pipeline runs for real.
  *
  * URL note: the route handler is configured with basePath='/api', which
@@ -45,25 +45,20 @@ jest.mock('@/lib/mcp/audit', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }))
 
-// ── Clerk auth — Option A ─────────────────────────────────────────────────────
-// Mock the Clerk server packages that the route's `verifyToken` callback calls.
-// `verifyClerkToken` returns a fixture AuthInfo; `auth` returns a stub
-// MachineAuthObject that verifyClerkToken normally consumes (but here ignored
-// since we mock verifyClerkToken directly).
-//
-// Note: FIXTURE_AUTH_INFO is inlined in the factory — jest.mock factories are
-// hoisted before const declarations so we cannot reference module-level vars.
-
-jest.mock('@clerk/mcp-tools/server', () => ({
-  verifyClerkToken: jest.fn().mockReturnValue({
+// ── Token verification ───────────────────────────────────────────────────────
+// The route's `verifyToken` callback calls @/lib/auth/mcp; it returns a
+// fixture AuthInfo for the fixture user. (Inlined: jest.mock factories are
+// hoisted before const declarations.)
+jest.mock('@/lib/auth/mcp', () => ({
+  isMcpOAuthSupported: () => true,
+  mcpOAuthUnsupportedResponse: () => new Response(null, { status: 501 }),
+  verifyMcpAccessToken: jest.fn().mockResolvedValue({
     token: 'fixture-bearer-token',
     clientId: 'test_client',
     scopes: [],
+    userId: 'test_user_clerk_id',
+    extra: { userId: 'test_user_clerk_id' },
   }),
-}))
-
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: jest.fn().mockResolvedValue({ userId: 'test_user_clerk_id' }),
 }))
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────

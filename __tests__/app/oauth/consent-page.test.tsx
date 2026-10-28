@@ -1,5 +1,5 @@
-// LUM-1044 — /oauth/consent exists only for the self-hosted (Better Auth)
-// authorization server; under Clerk the route is a 404.
+// LUM-1044 — /oauth/consent is the consent screen of this instance's MCP
+// OAuth authorization server; with Clerk gone (LUM-1077) it always renders.
 const mockNotFound = jest.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
@@ -25,8 +25,9 @@ describe('/oauth/consent page', () => {
     expect(mockNotFound).not.toHaveBeenCalled()
   })
 
-  it('is a 404 under Clerk', () => {
+  it('renders with AUTH_PROVIDER unset too', () => {
     delete process.env.AUTH_PROVIDER
-    expect(() => render(<OAuthConsentPage />)).toThrow('NEXT_NOT_FOUND')
+    render(<OAuthConsentPage />)
+    expect(screen.getAllByTestId('consent').length).toBeGreaterThan(0)
   })
 })

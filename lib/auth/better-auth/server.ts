@@ -9,7 +9,7 @@
  * first/last-name columns of `auth_users` in step with Better Auth's `name`.
  *
  * Built lazily on first use: importing this module never reads env, so
- * `next build` and Clerk deployments do not need BETTER_AUTH_SECRET.
+ * `next build` does not need BETTER_AUTH_SECRET.
  */
 import { betterAuth } from 'better-auth'
 import { createAuthEndpoint } from 'better-auth/api'

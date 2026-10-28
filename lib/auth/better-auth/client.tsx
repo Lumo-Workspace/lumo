@@ -3,7 +3,7 @@
 /**
  * LUM-1027 — Better Auth implementation of the client-side auth interface:
  * provider and hooks. The sign-in UI is ./sign-in-form, loaded lazily by
- * ../client-dispatch so Clerk deployments never download it.
+ * ../client-components.
  */
 import { useMemo, type ReactNode } from 'react'
 import type { SignOut, UseUserReturn } from '../types'

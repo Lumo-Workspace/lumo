@@ -37,10 +37,8 @@ jest.mock('@/lib/repositories/notification.repository', () => ({
 
 // enrichNotifications calls clerkClient() for HUMAN trigger actors. Stub it out
 // so the tests that exercise entity-reference serialization don't hit Clerk.
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: async () => ({
-    users: { getUserList: async () => ({ data: [] }) },
-  }),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: async () => ({ getUserList: async () => ({ data: [] }) }),
 }))
 
 beforeEach(() => jest.clearAllMocks())

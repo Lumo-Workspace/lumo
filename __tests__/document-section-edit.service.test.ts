@@ -50,11 +50,9 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   },
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: {
-      getUserList: jest.fn().mockResolvedValue({ data: [] }),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({
+    getUserList: jest.fn().mockResolvedValue({ data: [] }),
   }),
 }))
 

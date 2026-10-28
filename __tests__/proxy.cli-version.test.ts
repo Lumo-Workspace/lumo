@@ -5,26 +5,21 @@ import { NextRequest } from 'next/server'
 
 // LUM-1110 — proxy.ts answers a CLI below the minimum version with a 426
 // before authentication runs, and the version header never changes what
-// authentication does. Clerk is stubbed so only the proxy's own decision runs.
+// authentication does. Auth is stubbed so only the proxy's own decision runs.
 
 const protect = jest.fn(async () => undefined)
-jest.mock('@clerk/nextjs/server', () => {
-  const actual = jest.requireActual<typeof import('@clerk/nextjs/server')>(
-    '@clerk/nextjs/server'
+jest.mock('@/lib/auth/middleware', () => {
+  const actual = jest.requireActual<typeof import('@/lib/auth/route-matcher')>(
+    '@/lib/auth/route-matcher'
   )
   type Handler = (
-    auth: (() => Promise<{ userId: string | null }>) & {
-      protect: typeof protect
-    },
+    auth: { userId: () => Promise<string | null>; protect: typeof protect },
     req: NextRequest
   ) => Promise<Response>
   return {
     createRouteMatcher: actual.createRouteMatcher,
-    clerkMiddleware: (handler: Handler) => (req: NextRequest) =>
-      handler(
-        Object.assign(async () => ({ userId: null }), { protect }),
-        req
-      ),
+    createAuthMiddleware: (handler: Handler) => (req: NextRequest) =>
+      handler({ userId: async () => null, protect }, req),
   }
 })
 

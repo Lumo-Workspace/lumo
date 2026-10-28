@@ -32,18 +32,23 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 const clerkSession: { userId: string | null } = { userId: null }
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: jest.fn(async () => ({ userId: clerkSession.userId })),
-  currentUser: jest.fn(async () => null),
-  clerkClient: jest.fn(async () => ({
-    users: {
-      getUserList: jest.fn(async () => ({ data: [], totalCount: 0 })),
-      getUser: jest.fn(async () => {
-        throw Object.assign(new Error('clerk stub: no user'), { status: 404 })
-      }),
-    },
-  })),
+jest.mock('@/lib/auth/session', () => ({
+  getCurrentUserId: async () => clerkSession.userId,
+  getCurrentUser: async () => null,
 }))
+jest.mock('@/lib/auth/users', () => {
+  const directory = {
+    getUserList: jest.fn(async () => ({ data: [], totalCount: 0 })),
+    getUser: jest.fn(async () => {
+      throw Object.assign(new Error('directory stub: no user'), { status: 404 })
+    }),
+  }
+  return {
+    getUserDirectory: async () => directory,
+    createUserDirectory: async () => directory,
+    isUserDirectoryConfigured: () => true,
+  }
+})
 jest.mock('@octokit/auth-app', () => ({ createAppAuth: jest.fn() }))
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: unknown) => {
