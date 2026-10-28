@@ -2,6 +2,7 @@
 # LUM-1325, LUM-1332 — prepare .env for `docker compose up -d` (self-hosting).
 #
 #   scripts/self-host/setup.sh [--url https://lumo.example.com] [--realtime | --no-realtime]
+#                              [--caddy | --no-caddy] [--no-start | --check]
 #
 # - Copies .env.example to .env when .env does not exist yet.
 # - Fills every secret the stack needs with `openssl rand -hex 32`. A secret
@@ -13,7 +14,12 @@
 #   COMPOSE_FILE and points the browser's realtime connection at the URL's
 #   origin (served under /app/ by the caddy profile behind HTTPS);
 #   --no-realtime removes it. Other COMPOSE_FILE entries are left alone.
-# - Warns when no email is configured (invites need it).
+# - --caddy adds the caddy profile (HTTPS on LUMO_DOMAIN) to COMPOSE_PROFILES;
+#   --no-caddy removes it. Other profiles are left alone.
+# - Then runs `docker compose up -d`, waits until the stack is healthy and
+#   checks every configured component against the real service
+#   (scripts/self-host/check-config.mjs, inside the app container).
+#   --no-start stops after writing .env; --check only re-runs the check.
 #
 # Safe to re-run. POSIX sh; works with the macOS and GNU userlands.
 set -eu
@@ -26,19 +32,80 @@ BASE_FILE=docker-compose.yml
 REALTIME_FILE=deploy/self-host/compose.realtime.yml
 
 usage() {
-  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime]" >&2
+  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime] [--caddy | --no-caddy] [--no-start | --check]" >&2
+  echo "Run with --help for details." >&2
   exit 2
+}
+
+help() {
+  cat <<'EOF'
+usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime]
+                                  [--caddy | --no-caddy] [--no-start | --check]
+
+Sets up and starts a self-hosted Lumo:
+  1. Writes .env: copies .env.example the first time and generates every
+     secret that is still empty (BETTER_AUTH_SECRET, CRON_SECRET,
+     WORKFLOW_SECRET, POSTGRES_PASSWORD, and SOKETI_APP_SECRET with
+     realtime). A secret that has a value is never replaced.
+  2. Runs `docker compose up -d` and waits until the stack is healthy.
+  3. Checks that what you configured works, from inside the app: database,
+     file storage, email (signs in, sends nothing), Redis, realtime and the
+     public URL. Exits non-zero when a check fails.
+Safe to re-run: to add email, Redis or S3 later, set it in .env and run
+setup.sh again.
+
+Options:
+  --url <URL>     Public URL of this instance (http:// or https://).
+                  Sets NEXT_PUBLIC_APP_URL; compose derives LUMO_PUBLIC_URL
+                  and BETTER_AUTH_URL from it. An https URL also sets
+                  LUMO_DOMAIN for `docker compose --profile caddy up -d`.
+                  Without --url it asks on a terminal; Enter keeps the
+                  current URL (http://localhost:3000 on a fresh .env).
+  --realtime      Turn on live updates (Soketi): adds
+                  deploy/self-host/compose.realtime.yml to COMPOSE_FILE.
+  --no-realtime   Turn them off again. Without realtime the UI refreshes
+                  when the window regains focus and every minute.
+  --caddy         Serve HTTPS on the --url domain with an automatic
+                  certificate (adds the caddy profile to COMPOSE_PROFILES).
+                  Needs DNS pointing here and ports 80/443 open.
+  --no-caddy      Stop serving HTTPS through caddy (e.g. your own proxy).
+  --no-start      Only write .env; start it yourself with docker compose.
+  --check         Only re-run the configuration check on the running stack.
+  -h, --help      Show this help.
+
+Without --realtime / --no-realtime or --caddy / --no-caddy the earlier
+choice is kept (both off on a fresh .env).
+
+Examples:
+  scripts/self-host/setup.sh
+  scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
+  scripts/self-host/setup.sh --check
+
+Email (SMTP_URL, SMTP_HOST or RESEND_API_KEY), your own Redis (REDIS_URL)
+or S3 (BLOB_STORAGE=s3 with S3_*) are optional; set them in .env
+(see .env.example).
+
+Docs: docs/self-hosting/README.md
+EOF
+  exit 0
 }
 
 URL=
 REALTIME=
+CADDY=
+START=on
+CHECK_ONLY=
 while [ $# -gt 0 ]; do
   case "$1" in
     --url) [ $# -ge 2 ] || usage; URL=$2; shift 2 ;;
     --url=*) URL=${1#--url=}; shift ;;
     --realtime) REALTIME=on; shift ;;
     --no-realtime) REALTIME=off; shift ;;
-    -h|--help) usage ;;
+    --caddy) CADDY=on; shift ;;
+    --no-caddy) CADDY=off; shift ;;
+    --no-start) START=off; shift ;;
+    --check) CHECK_ONLY=1; shift ;;
+    -h|--help) help ;;
     *) echo "setup.sh: unknown argument: $1" >&2; usage ;;
   esac
 done
@@ -51,6 +118,33 @@ check_url() {
 }
 # A bad argument fails before .env is touched at all.
 [ -z "$URL" ] || check_url "$URL"
+if [ -n "$CHECK_ONLY" ] && { [ -n "$URL$REALTIME$CADDY" ] || [ "$START" = off ]; }; then
+  echo "setup.sh: --check takes no other options" >&2
+  usage
+fi
+
+need_docker() {
+  command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 || {
+    echo "setup.sh: Docker with Compose v2 is required (docker compose version)" >&2
+    exit 1
+  }
+}
+
+# The configuration check, run by the app itself inside its container.
+run_check() {
+  echo
+  echo "Checking the configuration..."
+  (cd "$ROOT" && docker compose exec -T app node --input-type=module - --report) \
+    < "$ROOT/scripts/self-host/check-config.mjs"
+}
+
+if [ -n "$CHECK_ONLY" ]; then
+  [ -f "$ENV_FILE" ] || { echo "setup.sh: no .env yet; run scripts/self-host/setup.sh first" >&2; exit 1; }
+  need_docker
+  run_check
+  exit $?
+fi
+[ "$START" = off ] || need_docker
 
 command -v openssl >/dev/null 2>&1 || {
   echo "setup.sh: openssl is required to generate secrets" >&2
@@ -111,6 +205,18 @@ elif [ "$REALTIME" = off ] && [ -n "$realtime_on" ]; then
   realtime_on=
 fi
 echo "Realtime: $([ -n "$realtime_on" ] && echo on || echo off)"
+
+# COMPOSE_PROFILES (comma-separated): add or drop only caddy.
+profiles=$(get_var COMPOSE_PROFILES)
+case ",$profiles," in *",caddy,"*) caddy_on=1 ;; *) caddy_on= ;; esac
+if [ "$CADDY" = on ] && [ -z "$caddy_on" ]; then
+  set_var COMPOSE_PROFILES "${profiles:+$profiles,}caddy"
+  caddy_on=1
+elif [ "$CADDY" = off ] && [ -n "$caddy_on" ]; then
+  set_var COMPOSE_PROFILES "$(printf '%s' ",$profiles," | sed 's|,caddy,|,|; s|^,||; s|,$||')"
+  caddy_on=
+fi
+echo "HTTPS via caddy: $([ -n "$caddy_on" ] && echo on || echo off)"
 
 [ -z "$realtime_on" ] || SECRETS="$SECRETS SOKETI_APP_SECRET"
 for name in $SECRETS; do ensure_secret "$name"; done
@@ -178,12 +284,36 @@ if [ -n "$EFFECTIVE_URL" ]; then
   fi
 fi
 
-if [ -z "$(get_var SMTP_URL)" ] && [ -z "$(get_var SMTP_HOST)" ] && [ -z "$(get_var RESEND_API_KEY)" ]; then
+if [ -n "$caddy_on" ] && [ -z "$(get_var LUMO_DOMAIN)" ]; then
   echo
-  echo "Warning: no email configured (SMTP_URL, SMTP_HOST or RESEND_API_KEY)."
-  echo "  Sign-in works, but nobody can verify an address, so workspace invites"
-  echo "  cannot be accepted. Set one in .env before inviting your team."
+  echo "Warning: caddy is on but LUMO_DOMAIN is empty; run setup.sh --url https://<your domain>."
+fi
+
+if [ "$START" = off ]; then
+  if [ -z "$(get_var SMTP_URL)" ] && [ -z "$(get_var SMTP_HOST)" ] && [ -z "$(get_var RESEND_API_KEY)" ]; then
+    echo
+    echo "Warning: no email configured (SMTP_URL, SMTP_HOST or RESEND_API_KEY)."
+    echo "  Sign-in works, but nobody can verify an address, so workspace invites"
+    echo "  cannot be accepted. Set one in .env before inviting your team."
+  fi
+  echo
+  echo "Next: docker compose up -d, then scripts/self-host/setup.sh --check"
+  exit 0
 fi
 
 echo
-echo "Next: docker compose up -d"
+echo "Starting Lumo (the first start pulls the images and applies the migrations)..."
+# --remove-orphans drops Soketi after --no-realtime; --wait returns once
+# every service is healthy (or fails when one is not).
+(cd "$ROOT" && docker compose up -d --remove-orphans --wait --wait-timeout 600) || {
+  echo
+  echo "setup.sh: the stack did not become healthy; see: docker compose logs app" >&2
+  exit 1
+}
+
+if run_check; then
+  echo
+  echo "Lumo is running at $(get_var NEXT_PUBLIC_APP_URL)"
+else
+  exit $?
+fi
