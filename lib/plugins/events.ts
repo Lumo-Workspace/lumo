@@ -8,14 +8,47 @@
  * handler → nothing happens.
  */
 import { logger } from '@/lib/logger'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import { getPluginRegistry } from './registry'
-import type { CoreEvents } from './types'
+import type { CoreEventHandler, CoreEvents, GithubCoreEvent } from './types'
+
+/**
+ * LUM-1318 — each GitHub webhook event's provider-neutral name. Emitting a
+ * `github.*` event also delivers its `git.*` twin with `provider: 'github'`,
+ * so plugins listen on the neutral name and the GitHub emitters (and every
+ * event name they log) stay as they are.
+ */
+export const GITHUB_TO_GIT_EVENT = {
+  'github.pullRequest': 'git.pullRequest',
+  'github.push': 'git.push',
+  'github.reviewThread': 'git.reviewThread',
+  'github.issueComment': 'git.issueComment',
+  'github.reviewComment': 'git.reviewComment',
+} as const satisfies Record<GithubCoreEvent, keyof CoreEvents>
+
+function isGithubEvent(event: keyof CoreEvents): event is GithubCoreEvent {
+  return Object.prototype.hasOwnProperty.call(GITHUB_TO_GIT_EVENT, event)
+}
 
 export function emitCoreEvent<E extends keyof CoreEvents>(
   event: E,
   payload: CoreEvents[E]
 ): void {
-  for (const handler of getPluginRegistry().handlersFor(event)) {
+  deliver(event, payload)
+  if (isGithubEvent(event))
+    deliver(GITHUB_TO_GIT_EVENT[event], {
+      ...(payload as CoreEvents[GithubCoreEvent]),
+      provider: GITHUB_PROVIDER,
+    } as never)
+}
+
+function deliver<E extends keyof CoreEvents>(
+  event: E,
+  payload: CoreEvents[E]
+): void {
+  const handlers: readonly CoreEventHandler<E>[] =
+    getPluginRegistry().handlersFor(event)
+  for (const handler of handlers) {
     try {
       handler(payload)
     } catch (error) {

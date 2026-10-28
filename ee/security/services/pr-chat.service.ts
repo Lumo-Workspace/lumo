@@ -25,9 +25,9 @@
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
-import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import {
   gitProviderFor,
+  gitProviderRefOf,
   type GitProviderRef,
 } from '@/lib/integrations/git-provider/resolve'
 import type { CoreEvents } from '@/lib/plugins/types'
@@ -102,10 +102,15 @@ function sha(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 12)
 }
 
-/** `github.*` plugin events come from the GitHub webhook: their PR is on GitHub. */
-function gitHubEvents() {
-  return gitProviderFor({ provider: GITHUB_PROVIDER })
-}
+/**
+ * LUM-1318 — a Git platform comment event (`git.*`); no `provider` = the
+ * GitHub webhook's (the column default).
+ */
+type PlatformEvent<E extends 'git.reviewComment' | 'git.issueComment'> = Omit<
+  CoreEvents[E],
+  'provider'
+> &
+  GitProviderRef
 
 async function hasWriteAccess(q: ChatQuestion): Promise<boolean> {
   try {
@@ -380,7 +385,7 @@ function isHuman(user: { login?: string; type?: string } | null): user is {
  * through the thread-reply service). Answered in the same thread.
  */
 export async function applyLineMention(
-  event: CoreEvents['github.reviewComment']
+  event: PlatformEvent<'git.reviewComment'>
 ): Promise<ChatOutcome | 'ignored'> {
   if (event.action !== 'created') return 'ignored'
   const handle = prCommandHandle()
@@ -390,6 +395,7 @@ export async function applyLineMention(
   const repo = parseRepo(event.repo)
   const threadRoot = event.comment.inReplyToId ?? event.comment.id
   return answerQuestion({
+    ...gitProviderRefOf(event),
     workspaceId: event.workspaceId,
     pullRequestId: event.pullRequestId,
     repo: event.repo,
@@ -409,7 +415,7 @@ export async function applyLineMention(
     blockingFindingId: null,
     marker: CHAT_ANSWER_MARKER,
     post: async (body, token) => {
-      await gitHubEvents().comments.createReviewLineReply({
+      await gitProviderFor(event).comments.createReviewLineReply({
         repo,
         prNumber: event.prNumber,
         inReplyTo: threadRoot,
@@ -425,7 +431,7 @@ export async function applyLineMention(
  * (`routeConversationComment` decided). Answered with a conversation comment.
  */
 export async function applyConversationQuestion(
-  event: CoreEvents['github.issueComment']
+  event: PlatformEvent<'git.issueComment'>
 ): Promise<ChatOutcome | 'ignored'> {
   if (event.action !== 'created') return 'ignored'
   const handle = prCommandHandle()
@@ -434,6 +440,7 @@ export async function applyConversationQuestion(
   if (!mentionsHandle(event.comment.body, handle)) return 'ignored'
   const repo = parseRepo(event.repo)
   return answerQuestion({
+    ...gitProviderRefOf(event),
     workspaceId: event.workspaceId,
     pullRequestId: event.pullRequestId,
     repo: event.repo,
@@ -447,7 +454,7 @@ export async function applyConversationQuestion(
     blockingFindingId: null,
     marker: CHAT_ANSWER_MARKER,
     post: async (body, token) => {
-      await gitHubEvents().comments.createIssueComment({
+      await gitProviderFor(event).comments.createIssueComment({
         repo,
         prNumber: event.prNumber,
         body,
