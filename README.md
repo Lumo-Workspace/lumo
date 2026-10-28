@@ -52,88 +52,122 @@ A comprehensive, modern document and project management platform built with Next
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui + Radix UI primitives
-- **Authentication**: NextAuth.js v5 with Google OAuth 2.0
-- **Database**: PostgreSQL with Prisma ORM
-- **State Management**: React Hooks
-- **Icons**: Lucide React
-- **Drag & Drop**: @hello-pangea/dnd
-- **Forms**: React Hook Form + Zod validation
-- **Date Handling**: date-fns
-- **Testing**: Jest + React Testing Library (TDD)
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui + Radix UI primitives
+- **Authentication**: Better Auth (self-hosted default) or Clerk (hosted service)
+- **Database**: PostgreSQL 16 with pgvector, via Prisma
+- **Background jobs**: Workflow DevKit (Postgres World when self-hosted)
+- **Realtime**: Pusher protocol (Pusher Channels or Soketi)
+- **AI**: AI SDK — Vercel AI Gateway, or your own Anthropic / OpenAI-compatible endpoint
+- **Data fetching**: TanStack Query; forms with React Hook Form + Zod
+- **i18n**: react-intl
+- **Testing**: Jest + React Testing Library
 
-## 📦 Installation
+## 🐳 Self-hosting
 
-### Prerequisites
+Lumo runs on a single machine with Docker Compose: the app, Postgres
+(pgvector), Redis, MinIO (file storage), Soketi (realtime) and a cron runner.
+No third-party account is needed — users sign in with built-in email +
+password accounts stored in your Postgres.
 
-- Node.js 18+
-- npm, yarn, pnpm, or bun
+**Prerequisites**: Docker with Compose v2, about 8 GB of memory available to
+Docker for the build, ~10 GB of disk, and `openssl`.
 
-### Setup
+```bash
+git clone <repository-url> lumo && cd lumo
+cp .env.example .env
 
-1. **Clone the repository**
+# Required secrets
+sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
+  -e "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" .env \
+  && rm .env.bak
+for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
+  echo "$v=$(openssl rand -hex 32)"
+done >> .env
 
-   ```bash
-   git clone <repository-url>
-   cd lumo
-   ```
+docker compose up -d --build
+```
 
-2. **Install dependencies**
+Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
+then create a workspace.
 
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   # or
-   bun install
-   ```
+Before you put it on a real domain:
 
-3. **Start the development server**
+- **`NEXT_PUBLIC_APP_URL` is baked in at build time.** Set it to your public
+  URL in `.env` and run `docker compose up -d --build` again. Put a reverse
+  proxy (Caddy, nginx, Traefik) with TLS in front of ports 3000 and 6001.
+- **Set `LUMO_PUBLIC_URL` to the same URL.** Links Lumo writes outside the
+  app (CLI output, GitHub comments, notices) otherwise point at the hosted
+  service.
+- **Configure email** (`SMTP_URL` or `RESEND_API_KEY`). Without it, nobody
+  can verify an address, so workspace invites cannot be accepted.
+- **Close sign-up** once your team has joined: `AUTH_DISABLE_SIGNUP=true`.
 
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   # or
-   bun dev
-   ```
+AI features, GitHub / Slack / Figma / Google Drive / Sentry and social
+sign-in are optional; each is switched on by variables in `.env.example`
+and degrades cleanly when unset.
 
-4. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+Full guide — services, build-time settings, what works without optional
+services, upgrades and backups:
+[docs/self-hosting/README.md](docs/self-hosting/README.md). Integrations:
+[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md).
+Scheduled jobs: [docs/self-hosting/cron.md](docs/self-hosting/cron.md).
+
+## 💻 Local development
+
+**Prerequisites**: Node.js 24 and npm (the repository is an npm workspace),
+plus a Postgres 16 with the `vector` extension. The quickest way to get one:
+
+```bash
+docker run -d --name lumo-postgres -p 5432:5432 \
+  -e POSTGRES_USER=lumo -e POSTGRES_PASSWORD=lumo -e POSTGRES_DB=lumo \
+  pgvector/pgvector:pg16
+```
+
+Then:
+
+```bash
+npm install
+cp .env.example .env
+```
+
+In `.env`, set:
+
+- `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to
+  `postgresql://lumo:lumo@localhost:5432/lumo?sslmode=disable`
+- `BETTER_AUTH_SECRET` and `CRON_SECRET` to `openssl rand -hex 32` values
+
+Use `.env` rather than `.env.local`: the Prisma CLI only reads `.env`.
+Everything else in `.env.example` is optional and off until set.
+
+```bash
+npx prisma migrate deploy   # apply the existing migrations
+npm run dev                 # http://localhost:3000
+```
+
+Without email configured, `next dev` writes sign-in codes and links to the
+server log. Run the tests with `npm test` and type-check with
+`npx tsc --noEmit`. Conventions for contributors (layering, i18n, tests,
+migrations) are in [CLAUDE.md](CLAUDE.md).
 
 ## 🏗️ Project Structure
 
-```
-lumo/
-├── app/                    # Next.js App Router
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Home page
-│   └── test-kanban/       # Test pages
-├── components/            # React components
-│   ├── ui/               # Reusable UI components
-│   ├── kanban/           # Kanban-specific components
-│   ├── story-wizard/     # Story creation wizard
-│   ├── ai-chat.tsx       # AI chat interface
-│   ├── kanban-board.tsx  # Main Kanban board
-│   ├── markdown-editor.tsx # Main editor component
-│   └── sidebar.tsx       # Application sidebar
-├── hooks/                # Custom React hooks
-│   ├── use-pages.ts      # Page management
-│   ├── use-teams.ts      # Team/project management
-│   ├── use-blocks.ts     # Document blocks
-│   └── use-ui-state.ts   # UI state management
-├── lib/                  # Utility libraries
-├── utils/                # Helper functions
-└── styles/               # Additional styles
-```
+Data flows `Component → API Client → API Route → Service → Repository → Prisma`:
+
+| Path                | What lives there                                       |
+| ------------------- | ------------------------------------------------------ |
+| `app/`              | Next.js routes; `app/api/` holds the thin API routes   |
+| `components/`       | React components                                       |
+| `lib/api-client/`   | Typed `fetch()` wrappers used by components            |
+| `lib/services/`     | Business logic                                         |
+| `lib/repositories/` | Prisma queries                                         |
+| `lib/validation/`   | Zod schemas                                            |
+| `lib/i18n/`         | Locale files                                           |
+| `prisma/`           | Schema and migrations                                  |
+| `cli/`              | The `lumo` CLI (`@lumoai/cli` on npm)                  |
+| `shared/`           | Types and constants shared by the app and the CLI      |
+| `deploy/self-host/` | Cron image and crontab for Docker Compose              |
+| `docs/`             | Self-hosting, design system, database migrations, RFCs |
 
 ## 🎯 Usage
 
@@ -151,12 +185,6 @@ lumo/
 3. **Kanban Management**: Drag and drop tasks between status columns
 4. **Track Progress**: Monitor project progress with AI-powered insights
 
-### Authentication
-
-1. **Sign In**: Click "Sign in with Google" to authenticate
-2. **Account Linking**: Link Google accounts to existing profiles in settings
-3. **Account Management**: Manage connected accounts and security settings
-
 ### AI Assistant
 
 1. **Open AI Chat**: Click the AI button in the sidebar
@@ -165,53 +193,14 @@ lumo/
 
 ## 🔧 Configuration
 
-### Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```env
-# Database
-SUPA_POSTGRES_PRISMA_URL="postgresql://username:password@localhost:5432/lumo"
-SUPA_POSTGRES_URL_NON_POOLING="postgresql://username:password@localhost:5432/lumo"
-
-# NextAuth.js
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-here"
-
-# Google OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-
-# Encryption Keys (generate with: openssl rand -base64 32)
-ACCESS_TOKEN_KEY="your-32-byte-encryption-key"
-REFRESH_TOKEN_KEY="your-32-byte-encryption-key"
-```
-
-### Database Setup
-
-1. **Install PostgreSQL** and create a database
-2. **Run Prisma migrations**:
-   ```bash
-   npx prisma migrate dev
-   ```
-3. **Generate Prisma client**:
-   ```bash
-   npx prisma generate
-   ```
-
-### Google OAuth Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google` (development)
-   - `https://yourdomain.com/api/auth/callback/google` (production)
+Every setting is an environment variable documented in
+[.env.example](.env.example): a short **required** part, then optional
+groups by feature (AI, file storage, realtime, email, sign-in options,
+integrations). An optional feature stays off until its variables are set.
 
 ### Customization
 
-- **Themes**: Modify `tailwind.config.ts` for custom styling
+- **Themes**: design tokens in `app/globals.css`; see [docs/design-system.md](docs/design-system.md)
 - **Components**: Extend UI components in `components/ui/`
 - **Hooks**: Add custom logic in `hooks/`
 
@@ -475,39 +464,14 @@ statuses); a check is recognised by its name (`typecheck` / `tsc`, `test` /
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Deploy with zero configuration
-
-**Migration gate (LUM-682):** `vercel.json` sets the build command to
-`scripts/deploy/vercel-build.sh`. On a **production** deploy this runs
-`prisma migrate deploy` (plus a `prisma migrate status` drift check) **before**
-`next build`, so migrations are applied ahead of the code that depends on them —
-a failed/blocked migration fails the build instead of shipping code against a
-not-yet-migrated schema. Preview/dev builds skip the migrate step. Migrations
-use the unpooled connection automatically via `prisma.config.ts`.
-
-### Self-hosting (Docker Compose)
-
-`cp .env.example .env`, fill in the required values, then
-`docker compose up -d --build` — see
-[docs/self-hosting/README.md](docs/self-hosting/README.md) for the full guide
-(services, build-time settings, what works without optional services,
-upgrades) and
-[docs/self-hosting/integrations.md](docs/self-hosting/integrations.md) for
-GitHub, Slack, Figma, Google Drive and Sentry.
-
-### Other Platforms
-
-```bash
-# Build the application
-npm run build
-
-# Start production server
-npm start
-```
+- **Your own server**: Docker Compose — see [Self-hosting](#-self-hosting).
+- **Vercel**: `vercel.json` sets the build command to
+  `scripts/deploy/vercel-build.sh`, which on a **production** deploy runs
+  `prisma migrate deploy` (plus a `prisma migrate status` drift check)
+  **before** `next build`, so a failed migration fails the build instead of
+  shipping code against an old schema (LUM-682). Preview builds skip it.
+  Vercel needs a managed Postgres with pgvector (e.g. Neon) and the same
+  required variables as above.
 
 ## 💬 Community
 
