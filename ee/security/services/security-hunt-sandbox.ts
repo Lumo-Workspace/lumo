@@ -35,9 +35,9 @@ import {
   type RepoSandbox,
 } from '@/ee/security/integrations/vercel-sandbox'
 import {
-  getRepoCloneToken,
-  revokeInstallationToken,
-} from '@/lib/integrations/github/auth'
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   redactPrivateKeyBlocks,
   redactToolOutputLine,
@@ -87,7 +87,7 @@ export type { ScrubOptions }
 const SHELL_TIMEOUT_MS = 20_000
 const TRUNCATION_NOTE = '\n…(truncated)'
 
-export interface AttachInput {
+export interface AttachInput extends GitProviderRef {
   scanId: string
   workspaceId: string
   /** `owner/repo` */
@@ -358,13 +358,14 @@ async function waitForManagedScanDone(
  * dead before the agent's first command — or the agent gets no VM.
  */
 async function createSealed(input: AttachInput): Promise<HuntSandbox> {
-  const token = await getRepoCloneToken(input.workspaceId, input.repo)
+  const git = gitProviderFor(input)
+  const token = await git.getRepoCloneToken(input.workspaceId, input.repo)
   let handle: HuntSandbox
   let revoked = false
   try {
     handle = await create(input, token)
     try {
-      await scrubCloneCredentials(handle, input.repo, {
+      await scrubCloneCredentials(handle, git.cloneSource(input.repo).url, {
         ...(input.checkoutWaitMs === undefined
           ? {}
           : { waitMs: input.checkoutWaitMs }),
@@ -377,7 +378,7 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
       throw error
     }
   } finally {
-    revoked = await revokeInstallationToken(token)
+    revoked = await git.revokeToken(token)
   }
   if (!revoked) {
     logger.error(
@@ -392,6 +393,7 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
 async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
   const sandbox = await createRepoSandbox({
     repository: input.repo,
+    clone: gitProviderFor(input).cloneSource(input.repo),
     revision: input.headSha,
     token,
     timeoutMs: SANDBOX_TIMEOUT_WITH_HUNT_MS,
@@ -441,10 +443,11 @@ async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
  */
 export async function scrubCloneCredentials(
   handle: HuntSandbox,
-  repo: string,
+  /** LUM-1318: the credential-free clone URL (`GitProvider.cloneSource`). */
+  remoteUrl: string,
   opts: ScrubOptions = {}
 ): Promise<void> {
-  await scrubSandboxCredentials(handle, repo, opts)
+  await scrubSandboxCredentials(handle, remoteUrl, opts)
 }
 
 /**

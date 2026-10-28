@@ -501,6 +501,7 @@ describe('LUM-1234 reward-hack layer runner', () => {
     })
     expect(
       isBlockingFinding({
+        ruleId: row.ruleId,
         provenance: row.provenance,
         severity: row.severity,
         disposition: row.disposition ?? null,

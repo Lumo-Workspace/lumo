@@ -65,6 +65,7 @@ export function DeadLetterRetentionRow({
           ? intl.formatMessage({ id: 'dataRetention.shortenWarning' })
           : null
       }
+      dirty={days !== saved}
       saving={saving}
       onSave={handleSave}
     />

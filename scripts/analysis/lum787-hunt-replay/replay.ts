@@ -25,6 +25,7 @@
  * deterministic fallback for this category", so a floor-forced task reads
  * what production would brief it with today.
  */
+import { githubGitProvider } from '@/lib/integrations/git-provider/github'
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -331,6 +332,7 @@ async function main(): Promise<void> {
   const bootedAt = Date.now()
   const sandbox = await createRepoSandbox({
     repository: args.repo,
+    clone: githubGitProvider.cloneSource(args.repo),
     revision: args.sha,
     token,
     timeoutMs: SANDBOX_TIMEOUT_WITH_HUNT_MS,

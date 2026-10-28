@@ -33,6 +33,8 @@ function Cite({ n }: { n: number }) {
   )
 }
 
+const DISCORD_URL = 'https://discord.gg/D7AYBagRk'
+
 function Navbar() {
   return (
     <nav className={styles.nav}>
@@ -65,6 +67,14 @@ function Navbar() {
             className={`${styles.navLink} ${styles.navLinkHideSm}`}
           >
             FAQ
+          </a>
+          <a
+            href={DISCORD_URL}
+            target='_blank'
+            rel='noopener noreferrer'
+            className={`${styles.navLink} ${styles.navLinkHideSm}`}
+          >
+            Discord
           </a>
           <Link href='/signin' className={styles.navLink}>
             Sign in
@@ -926,10 +936,15 @@ const FOOTER_COLS = [
   },
   { label: 'COMPANY', links: ['About', 'Blog', 'Careers'] },
   { label: 'RESOURCES', links: ['Docs', 'API', 'Security'] },
+  { label: 'COMMUNITY', links: ['Discord'] },
 ]
 
 // Footer links that have a real page; the rest are still placeholders.
-const FOOTER_HREFS: Record<string, string> = { Security: '/security' }
+// `external` links open in a new tab.
+const FOOTER_HREFS: Record<string, { href: string; external?: boolean }> = {
+  Security: { href: '/security' },
+  Discord: { href: DISCORD_URL, external: true },
+}
 
 function Footer() {
   return (
@@ -947,15 +962,23 @@ function Footer() {
             <div key={col.label}>
               <div className={styles.footerColLabel}>{col.label}</div>
               <div className={styles.footerLinks}>
-                {col.links.map(link => (
-                  <a
-                    key={link}
-                    href={FOOTER_HREFS[link] ?? '#'}
-                    className={styles.footerLink}
-                  >
-                    {link}
-                  </a>
-                ))}
+                {col.links.map(link => {
+                  const { href, external } = FOOTER_HREFS[link] ?? {
+                    href: '#',
+                  }
+                  return (
+                    <a
+                      key={link}
+                      href={href}
+                      className={styles.footerLink}
+                      {...(external
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
+                      {link}
+                    </a>
+                  )
+                })}
               </div>
             </div>
           ))}

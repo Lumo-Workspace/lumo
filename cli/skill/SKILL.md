@@ -73,7 +73,7 @@ Read with `lumo skill read references/<file>`:
 - [worktree.md](references/worktree.md) — `worktree add/rm/list/prune`
 - [pr-scan.md](references/pr-scan.md) — `pr show`, `pr review`, `task show --scans`, `finding disposition`
 - [pr-scan-output.md](references/pr-scan-output.md) — reading a scan: layers, findings, hunt, size caps
-- [security-scan.md](references/security-scan.md) — `security scan`, git scan hooks
+- [security-scan.md](references/security-scan.md) — `security scan`/`import`, git scan hooks
 - [workspace-settings.md](references/workspace-settings.md) — `workspace security-scan show/update`
 - [repo-review-settings.md](references/repo-review-settings.md) — per-repo filters, pre-merge checks, review style
 - [members.md](references/members.md) · [tags.md](references/tags.md) · [audit.md](references/audit.md) · [feedback.md](references/feedback.md) — `member list`, `tag list/create`, `audit list` (OWNER), `feedback create/list/show`

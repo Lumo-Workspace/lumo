@@ -1,7 +1,10 @@
 import { logger } from '@/lib/logger'
-import { fetchPrCommitCount } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 
-export interface CommitCountPr {
+export interface CommitCountPr extends GitProviderRef {
   workspaceId: string
   repo: string
   number: number
@@ -16,7 +19,7 @@ export async function prCommitCountBestEffort(
   head: string
 ): Promise<number | null> {
   try {
-    return await fetchPrCommitCount({
+    return await gitProviderFor(pr).fetchPrCommitCount({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,

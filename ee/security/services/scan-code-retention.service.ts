@@ -1,7 +1,8 @@
 import { logger } from '@/lib/logger'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
-import { isConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 
 /**
  * LUM-896 — the confirmed-list check on a scan's token happens when the token
@@ -26,13 +27,10 @@ export async function scrubScanIfRepositoryUnconfirmed(
   try {
     const scope = await prSecurityScanRepository.findScanRepository(scanId)
     if (!scope) return false
-    const installation = await githubAppInstallationRepository.findByWorkspace(
-      scope.workspaceId
-    )
-    if (
-      installation &&
-      isConfirmedRepository(installation.repositories, scope.repo)
-    )
+    // LUM-1318: the scan's own platform decides what "confirmed" means.
+    const git = gitProviderFor(scope)
+    const confirmed = await git.findConfirmedRepositories(scope.workspaceId)
+    if (confirmed && git.isConfirmedRepository(confirmed, scope.repo))
       return false
     const counts = await prSecurityScanRepository.scrubCodeForScan(scanId)
     logger.info(
@@ -68,7 +66,15 @@ export async function sweepUnconfirmedScanCode(): Promise<{
 }> {
   const held = await prSecurityScanRepository.findRepositoriesHoldingCode()
   const byWorkspace = new Map<string, string[]>()
-  for (const { workspaceId, repo } of held) {
+  // LUM-1316: another platform's repositories are checked against that
+  // platform's own confirmed list (below), never GitHub's.
+  const elsewhere = new Map<string, string[]>()
+  for (const { workspaceId, repo, provider } of held) {
+    if (provider !== undefined && provider !== GITHUB_PROVIDER) {
+      const key = `${provider}\u0000${workspaceId}`
+      elsewhere.set(key, [...(elsewhere.get(key) ?? []), repo])
+      continue
+    }
     byWorkspace.set(workspaceId, [
       ...(byWorkspace.get(workspaceId) ?? []),
       repo,
@@ -82,10 +88,15 @@ export async function sweepUnconfirmedScanCode(): Promise<{
     ).map(row => [row.workspaceId, row.repositories])
   )
 
+  // The confirmed lists above are the GitHub App installations' (this sweep
+  // backstops the GitHub repository lifecycle), so GitHub's matching rules.
+  const github = gitProviderFor({ provider: GITHUB_PROVIDER })
   const summary = { workspaces: 0, repositories: 0, failed: 0 }
   for (const [workspaceId, repos] of byWorkspace) {
     const confirmed = lists.get(workspaceId) ?? []
-    const stray = repos.filter(repo => !isConfirmedRepository(confirmed, repo))
+    const stray = repos.filter(
+      repo => !github.isConfirmedRepository(confirmed, repo)
+    )
     if (stray.length === 0) continue
     try {
       const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
@@ -101,6 +112,32 @@ export async function sweepUnconfirmedScanCode(): Promise<{
       summary.failed++
       logger.error(
         `[security-scan] backstop: workspace ${workspaceId} scrub failed; retried next run: ${String(error)}`
+      )
+    }
+  }
+  for (const [key, repos] of elsewhere) {
+    const [provider = '', workspaceId = ''] = key.split('\u0000')
+    try {
+      const git = gitProviderFor({ provider })
+      const confirmed = (await git.findConfirmedRepositories(workspaceId)) ?? []
+      const stray = repos.filter(
+        repo => !git.isConfirmedRepository(confirmed, repo)
+      )
+      if (stray.length === 0) continue
+      const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
+        workspaceId,
+        stray,
+        provider
+      )
+      summary.workspaces++
+      summary.repositories += stray.length
+      logger.info(
+        `[security-scan] backstop: workspace ${workspaceId} (${provider}): ${stray.length} repository(ies) not confirmed; scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+      )
+    } catch (error) {
+      summary.failed++
+      logger.error(
+        `[security-scan] backstop: workspace ${workspaceId} (${provider}) scrub failed; retried next run: ${String(error)}`
       )
     }
   }

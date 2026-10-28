@@ -39,19 +39,19 @@
  * it in Lumo; only non-blocking ones leave "open" when their thread is
  * resolved.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*`, the
- * database through the repository. Best effort throughout: a thread failure
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through the repository. Best effort throughout: a thread failure
  * is logged and retried by the next sync, never thrown at the write-back.
  */
 import { logger } from '@/lib/logger'
 import {
-  prCommentClient,
-  type ListedComment,
-} from '@/lib/integrations/github/pr-comment-client'
-import {
-  reviewThreadClient,
-  type ReviewThreadState,
-} from '@/lib/integrations/github/review-threads'
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type {
+  ListedComment,
+  ReviewThreadState,
+} from '@/lib/integrations/git-provider'
 import {
   prFindingThreadRepository,
   type FindingThreadPatch,
@@ -1207,7 +1207,7 @@ function countStates(states: FindingThreadState[]): ThreadCounts {
 
 // ── Sync side (called by the PR write-back) ─────────────────────────────────
 
-export interface ThreadSyncContext {
+export interface ThreadSyncContext extends GitProviderRef {
   pullRequestId: string
   workspaceId: string
   repo: { owner: string; name: string }
@@ -1416,7 +1416,11 @@ export function mergedHistory(
 
 /** The web URL of a review comment, for the duplicate note's link. */
 function commentUrl(ctx: ThreadSyncContext, commentId: string): string {
-  return `https://github.com/${ctx.repo.owner}/${ctx.repo.name}/pull/${ctx.prNumber}#discussion_r${commentId}`
+  return gitProviderFor(ctx).links.reviewComment({
+    repo: ctx.repo,
+    prNumber: ctx.prNumber,
+    commentId,
+  })
 }
 
 /**
@@ -1475,7 +1479,10 @@ async function mergeDuplicates(
           )
           continue
         }
-        await reviewThreadClient.resolveThread({ threadId, token: ctx.token })
+        await gitProviderFor(ctx).reviewThreads.resolveThread({
+          threadId,
+          token: ctx.token,
+        })
         await reply(
           ctx,
           drop.commentId,
@@ -1510,7 +1517,7 @@ async function readRemote(
   ctx: ThreadSyncContext
 ): Promise<Map<string, ReviewThreadState> | null> {
   try {
-    const threads = await reviewThreadClient.listReviewThreads({
+    const threads = await gitProviderFor(ctx).reviewThreads.listReviewThreads({
       repo: ctx.repo,
       prNumber: ctx.prNumber,
       token: ctx.token,
@@ -1533,7 +1540,7 @@ async function reply(
   body: string
 ): Promise<void> {
   try {
-    await prCommentClient.createReviewLineReply({
+    await gitProviderFor(ctx).comments.createReviewLineReply({
       repo: ctx.repo,
       prNumber: ctx.prNumber,
       inReplyTo: Number(commentId),
@@ -1604,7 +1611,7 @@ async function execute(
     // to record it): record only — no second note.
     const already = remote?.get(row.commentId)?.isResolved === true
     if (!already) {
-      await reviewThreadClient.resolveThread({
+      await gitProviderFor(ctx).reviewThreads.resolveThread({
         threadId: action.threadId,
         token: ctx.token,
       })
@@ -1620,7 +1627,7 @@ async function execute(
     return 'ADDRESSED'
   }
   // REOPEN
-  await reviewThreadClient.unresolveThread({
+  await gitProviderFor(ctx).reviewThreads.unresolveThread({
     threadId: action.threadId,
     token: ctx.token,
   })
@@ -1641,6 +1648,9 @@ export const prFindingThreadService = {
    * reopen / record each thread against this scan. Never throws.
    */
   async reconcile(ctx: ThreadSyncContext): Promise<ThreadReconcileResult> {
+    // LUM-1316: a platform without resolvable review threads has no thread
+    // lifecycle — the inline comments are deduped by their markers alone.
+    if (!gitProviderFor(ctx).capabilities.reviewThreads) return NO_THREADS
     let rows: FindingThreadRow[]
     try {
       rows = await prFindingThreadRepository.findByPullRequest(
@@ -1851,8 +1861,12 @@ export const prFindingThreadService = {
     posted: ReviewFindingRow[],
     repost: ThreadReconcileResult['repost']
   ): Promise<void> {
+    // LUM-1316: no review threads on the platform — nothing to record.
+    if (!gitProviderFor(ctx).capabilities.reviewThreads) return
     try {
-      const comments = await prCommentClient.listReviewCommentsOfReview({
+      const comments = await gitProviderFor(
+        ctx
+      ).comments.listReviewCommentsOfReview({
         repo: ctx.repo,
         prNumber: ctx.prNumber,
         reviewId,
@@ -1874,7 +1888,7 @@ export const prFindingThreadService = {
         if (moved) {
           if (moved.oldThreadId) {
             try {
-              await reviewThreadClient.resolveThread({
+              await gitProviderFor(ctx).reviewThreads.resolveThread({
                 threadId: moved.oldThreadId,
                 token: ctx.token,
               })
@@ -2048,7 +2062,7 @@ export async function applyReviewThreadEvent(
 
 // ── Command side (LUM-1129 `@<app> resolve`) ────────────────────────────────
 
-export interface ResolveByCommandInput {
+export interface ResolveByCommandInput extends GitProviderRef {
   pullRequestId: string
   repo: { owner: string; name: string }
   prNumber: number
@@ -2092,11 +2106,13 @@ export async function resolveThreadsByCommand(
 
   let remote: Map<string, ReviewThreadState> | null = null
   try {
-    const threads = await reviewThreadClient.listReviewThreads({
-      repo: input.repo,
-      prNumber: input.prNumber,
-      token: input.token,
-    })
+    const threads = await gitProviderFor(input).reviewThreads.listReviewThreads(
+      {
+        repo: input.repo,
+        prNumber: input.prNumber,
+        token: input.token,
+      }
+    )
     remote = new Map(
       threads
         .filter(t => t.firstCommentId !== null)
@@ -2117,7 +2133,10 @@ export async function resolveThreadsByCommand(
     }
     try {
       if (!r?.isResolved)
-        await reviewThreadClient.resolveThread({ threadId, token: input.token })
+        await gitProviderFor(input).reviewThreads.resolveThread({
+          threadId,
+          token: input.token,
+        })
       // Already resolved on GitHub by someone else: credit them, not the asker.
       const by =
         r?.isResolved && r.resolvedBy && !isLumoActor(r.resolvedBy)

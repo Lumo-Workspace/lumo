@@ -17,7 +17,10 @@
  * partial (P9: a layer that could not run is a fact, not a blank).
  */
 import { createHash } from 'node:crypto'
-import { readRepoFile } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { redactKnownSecrets } from '@/ee/security/security-scan'
 import {
   listImports,
@@ -175,7 +178,7 @@ export function toAgentLoopRows(
   })
 }
 
-export interface GraphRulesJob {
+export interface GraphRulesJob extends GitProviderRef {
   scanId: string
   workspaceId: string
   /** `owner/repo` */
@@ -220,7 +223,7 @@ export type ReadRepoFileAtHead = (path: string) => Promise<string | null>
 export async function collectDiffGraphInputs(
   job: Omit<GraphRulesJob, 'scanId'>,
   read: ReadRepoFileAtHead = path =>
-    readRepoFile({
+    gitProviderFor(job).readRepoFile({
       workspaceId: job.workspaceId,
       fullName: job.repo,
       path,

@@ -1,22 +1,34 @@
-# Lumo — one-command self-hosting (LUM-1028).
+# Lumo — one-command self-hosting (LUM-1028, LUM-1325).
 #
-#   cp .env.example .env      # fill the "Required" section, then
-#   docker compose up -d --build
+#   scripts/self-host/init.sh --url https://lumo.example.com
+#   docker compose up -d                    # pulls the prebuilt images
+#   docker compose --profile caddy up -d    # …plus HTTPS on that domain
+#
+# `docker compose up -d --build` builds the images from this checkout instead
+# (needs ~8 GB of memory for Docker).
 #
 # Full guide: docs/self-hosting/README.md. Values come from `.env` (read by
 # compose for ${...} below and passed to the app via env_file). The service
 # wiring (database, Redis, MinIO, Soketi, workflows) is fixed here and
 # overrides whatever `.env` says for those variables.
 
+# Prebuilt images come from the public repository's Images workflow; pin a
+# release with LUMO_IMAGE=ghcr.io/lumo-workspace/lumo:<version> (and
+# LUMO_CRON_IMAGE). Compose pulls the image and builds it only when the pull
+# fails or `--build` is passed.
 x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
-  image: ${LUMO_IMAGE:-lumo-app:local}
+  image: ${LUMO_IMAGE:-ghcr.io/lumo-workspace/lumo:latest}
   build:
     context: .
     dockerfile: Dockerfile
     args:
       # Better Auth: no Clerk account needed (LUM-1043). Must match the
       # runtime AUTH_PROVIDER below — static pages bake it in at build time.
+      # The NEXT_PUBLIC_* args are only fallbacks: the app reads the runtime
+      # values below (LUM-1325), so changing them needs no rebuild.
       AUTH_PROVIDER: better-auth
+      # Node heap for `next build`; lower it on a builder with < 8 GB.
+      BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-6144}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
       NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
@@ -56,8 +68,14 @@ x-app-env: &app-env
     S3_FORCE_PATH_STYLE: 'true'
     S3_ACCESS_KEY_ID: lumo
     S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
-    # Realtime on Soketi. The server reaches it inside the network; browsers
-    # use the NEXT_PUBLIC_PUSHER_* build args above.
+    # This deployment's public URL and the browser's realtime endpoint, read
+    # at runtime (LUM-1325) and served to browsers by /api/public-config.
+    NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
+    NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
+    NEXT_PUBLIC_PUSHER_PORT: ${SOKETI_PUBLIC_PORT:-6001}
+    NEXT_PUBLIC_PUSHER_USE_TLS: ${SOKETI_PUBLIC_TLS:-false}
+    # Realtime on Soketi. The server reaches it inside the network.
     PUSHER_APP_ID: lumo
     PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
     PUSHER_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
@@ -129,7 +147,9 @@ services:
       SOKETI_DEFAULT_APP_ID: lumo
       SOKETI_DEFAULT_APP_KEY: ${SOKETI_APP_KEY:-lumo}
       SOKETI_DEFAULT_APP_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
-    ports: ['${SOKETI_PUBLIC_PORT:-6001}:6001']
+    # Host port for browsers that reach Soketi directly (plain HTTP setups).
+    # Behind HTTPS the browser goes through the proxy instead (/app/ on 443).
+    ports: ['${SOKETI_PORT:-6001}:6001']
     healthcheck:
       test:
         - CMD
@@ -144,7 +164,7 @@ services:
   # Runs on every `up`; both steps are idempotent.
   migrate:
     <<: *app-env
-    image: ${LUMO_IMAGE:-lumo-app:local}
+    image: ${LUMO_IMAGE:-ghcr.io/lumo-workspace/lumo:latest}
     command:
       ['sh', '-c', 'npx prisma migrate deploy && npm run workflow:bootstrap']
     depends_on:
@@ -174,7 +194,7 @@ services:
   # Scheduled jobs (docs/self-hosting/cron.md): supercronic runs
   # deploy/self-host/crontab, each line calling the app with CRON_SECRET.
   cron:
-    image: ${LUMO_CRON_IMAGE:-lumo-cron:local}
+    image: ${LUMO_CRON_IMAGE:-ghcr.io/lumo-workspace/lumo-cron:latest}
     build:
       context: deploy/self-host
       dockerfile: cron.Dockerfile
@@ -186,6 +206,25 @@ services:
       LUMO_CRON_DISABLED: ${LUMO_CRON_DISABLED:-}
     depends_on:
       app: { condition: service_healthy }
+
+  # Optional HTTPS front door (LUM-1325): `docker compose --profile caddy up -d`.
+  # Serves LUMO_DOMAIN with an automatic Let's Encrypt certificate (ports 80
+  # and 443 must be reachable), proxying /app/ to Soketi and the rest to the
+  # app — one origin, one port. scripts/self-host/init.sh --url sets it up.
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: [caddy]
+    restart: unless-stopped
+    environment:
+      LUMO_DOMAIN: ${LUMO_DOMAIN:-localhost}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./deploy/self-host/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app: { condition: service_healthy }
+      soketi: { condition: service_healthy }
 
   # Dev only: catches outgoing mail (sign-up verification, invites — an
   # invitee must verify their email before accepting). Set
@@ -200,3 +239,5 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+  caddy-data:
+  caddy-config:

@@ -97,6 +97,7 @@ export function SessionRecordRetentionRow({
           ? intl.formatMessage({ id: 'dataRetention.session.tightenNote' })
           : null
       }
+      dirty={choice !== saved}
       saving={saving}
       onSave={handleSave}
     />

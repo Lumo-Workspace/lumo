@@ -60,6 +60,7 @@ import {
   parseFingerprintMarkers,
   provenanceLabel,
   findingKindLabel,
+  alsoReportedLine,
   type InlineFinding,
   fingerprintMarker,
   SUMMARY_MARKER,
@@ -172,6 +173,20 @@ describe('pure builders', () => {
     expect(
       provenanceLabel({ provenance: 'LLM_JUDGE', ruleId: 'judge:sqli' })
     ).toBe('LLM review')
+  })
+
+  it('LUM-1321: an imported review listed under another thread names its agent', () => {
+    const line = alsoReportedLine({
+      fingerprint: 'fp-cc',
+      ruleId: 'ext:claude-code:command-injection',
+      provenance: 'EXTERNAL_TOOL',
+      kind: 'VULNERABILITY',
+      severity: 'HIGH',
+      title: 'Command injection in makeThumbnail',
+    } as Parameters<typeof alsoReportedLine>[0])
+    expect(line).toMatch(
+      /^Same issue also reported by \*\*claude-code\*\* · HIGH — Command injection in makeThumbnail\n/
+    )
   })
 
   it('builds the inline body for a blocking deterministic finding', () => {

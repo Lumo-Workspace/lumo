@@ -27,6 +27,35 @@ export function externalFailureReason(
 }
 
 /**
+ * LUM-1321 — the tool slugs of a security review a developer ran in their own
+ * coding agent and imported with `lumo security import`. The server rewrites
+ * an import's SARIF tool name to one of these, so its rows are always
+ * `ext:<slug>:<rule>`. Such a row is model output the developer chose to
+ * share: advisory like an LLM_JUDGE row, never blocking DONE whatever the
+ * workspace policy lists. Shared so the CLI's copy of the DONE predicate
+ * agrees with the server's.
+ */
+export const AGENT_REVIEW_TOOLS = ['claude-code', 'codex'] as const
+export type AgentReviewTool = (typeof AGENT_REVIEW_TOOLS)[number]
+
+export function isAgentReviewTool(value: string): value is AgentReviewTool {
+  return (AGENT_REVIEW_TOOLS as readonly string[]).includes(value)
+}
+
+/** True for a finding row imported from a Claude Code / Codex review. */
+export function isAgentReviewRuleId(ruleId: string): boolean {
+  // A caller's row without the column (an old cached view) is not one.
+  if (typeof ruleId !== 'string') return false
+  const [prefix, slug, ...rule] = ruleId.split(':')
+  return (
+    prefix === 'ext' &&
+    slug !== undefined &&
+    isAgentReviewTool(slug) &&
+    rule.join(':').length > 0
+  )
+}
+
+/**
  * LUM-763 — the scan's five layers, as stored.
  *
  * These keys are a persisted contract, not a display choice: they sit in

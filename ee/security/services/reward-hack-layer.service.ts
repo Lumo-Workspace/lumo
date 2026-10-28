@@ -28,7 +28,10 @@
  */
 import { logger } from '@/lib/logger'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { fetchPrFiles } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -78,11 +81,13 @@ export {
 export interface RhDeps {
   judge: RhJudgeFn
   /** The PR's changed files (path + hunks) at its head. Throws when unreadable. */
-  listPrFiles: (pr: {
-    workspaceId: string
-    repo: string
-    number: number
-  }) => Promise<RhPrFile[]>
+  listPrFiles: (
+    pr: {
+      workspaceId: string
+      repo: string
+      number: number
+    } & GitProviderRef
+  ) => Promise<RhPrFile[]>
   now: () => Date
 }
 
@@ -95,7 +100,7 @@ const defaultDeps: RhDeps = {
     return judgeRewardHack(prompt)
   },
   async listPrFiles(pr) {
-    const files = await fetchPrFiles({
+    const files = await gitProviderFor(pr).fetchPrFiles({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,

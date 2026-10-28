@@ -10,6 +10,7 @@
  * in). Pure: no I/O, no Prisma, so the gate can import it statically.
  */
 import { z } from 'zod'
+import { isAgentReviewRuleId } from '@/shared/src/security-scan'
 
 export type BlockableProvenance = 'DETERMINISTIC' | 'EXTERNAL_TOOL'
 export type PolicySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -60,6 +61,8 @@ export function parseSecurityPolicy(json: unknown): SecurityPolicy {
 }
 
 export interface PolicyFindingInput {
+  /** LUM-1321: an imported agent review (`ext:claude-code:…`) never blocks. */
+  ruleId: string
   provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
   severity: PolicySeverity
   disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | null
@@ -67,13 +70,17 @@ export interface PolicyFindingInput {
   persisting?: boolean
 }
 
-/** An undispositioned, non-persisting finding whose pair the policy lists. */
+/**
+ * An undispositioned, non-persisting finding whose pair the policy lists —
+ * never an LLM finding (LLM_JUDGE, or an imported agent review).
+ */
 export function isBlockingUnderPolicy(
   f: PolicyFindingInput,
   policy: SecurityPolicy
 ): boolean {
   if (f.disposition !== null || f.persisting) return false
   if (f.provenance === 'LLM_JUDGE') return false
+  if (isAgentReviewRuleId(f.ruleId)) return false
   return policy.block.some(
     r => r.provenance === f.provenance && r.severity === f.severity
   )

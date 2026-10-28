@@ -11,6 +11,7 @@ import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const appUrl = resolveAppUrl() ?? 'http://localhost:3000'
     const expiresAt = inviteExpiresAt()
     const inviteResults = await inviteService.createInvites(
       workspaceId,

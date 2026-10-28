@@ -17,7 +17,10 @@
  * Never throws.
  */
 import { logger } from '@/lib/logger'
-import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   ISSUE_ASSESSMENT_CHECK_ID,
   buildUnmetRequirementsReview,
@@ -48,21 +51,27 @@ function describe(error: unknown): string {
 
 export const issueAssessmentReviewService = {
   /** Post the unmet requirements of `record` (this head's), once. */
-  async flagUnmet(input: {
-    repo: { owner: string; name: string }
-    prNumber: number
-    token: string
-    headSha: string
-    record: PreMergeChecksRecord | null
-  }): Promise<'posted' | 'already_posted' | 'nothing'> {
+  async flagUnmet(
+    input: GitProviderRef & {
+      repo: { owner: string; name: string }
+      prNumber: number
+      token: string
+      headSha: string
+      record: PreMergeChecksRecord | null
+    }
+  ): Promise<'posted' | 'already_posted' | 'nothing'> {
     const where = `pr=#${input.prNumber}`
     const result = input.record?.results.find(
       r => r.id === ISSUE_ASSESSMENT_CHECK_ID && r.verdict === 'failed'
     )
     const key = unmetKey(result?.requirements)
     if (!result || !key) return 'nothing'
+    // LUM-1316: posted as a review and deduped against Lumo's own reviews —
+    // a platform without reviews (reviewVerdict) keeps it in the summary's
+    // pre-merge checks only.
+    if (!gitProviderFor(input).capabilities.reviewVerdict) return 'nothing'
     try {
-      const reviews = await prCommentClient.listReviews({
+      const reviews = await gitProviderFor(input).comments.listReviews({
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,
@@ -80,7 +89,7 @@ export const issueAssessmentReviewService = {
         mode: result.mode,
       })
       if (!body) return 'nothing'
-      await prCommentClient.createReview({
+      await gitProviderFor(input).comments.createReview({
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,

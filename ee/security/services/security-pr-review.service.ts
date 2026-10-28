@@ -16,18 +16,22 @@
  * scrubbed text (marked by `EXTERNAL_ERROR_PREFIX`) is ever published;
  * stage A's raw `error.message` carries no prefix and stays off the PR.
  *
- * Layering: service — GitHub through `@/lib/integrations/github`, the database
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database
  * through the repository, no Prisma and no HTTP of its own. No LLM import, so
  * stage A can import it statically (it is not behind the gateway boundary).
  */
 import { logger } from '@/lib/logger'
-import { getRepoToken } from '@/lib/integrations/github/auth'
-import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import {
-  prCommentClient,
-  GithubApiError,
-  type ListedComment,
-} from '@/lib/integrations/github/pr-comment-client'
+  gitProviderFor,
+  gitProviderRefOf,
+  isGitApiError,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type {
+  GitProvider,
+  ListedComment,
+} from '@/lib/integrations/git-provider'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import type {
   FindingKind,
@@ -102,6 +106,7 @@ import {
   type JudgePartialInput,
   type HuntProgressInput,
   type PrTooLargeInput,
+  isAgentReviewRuleId,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
@@ -340,6 +345,7 @@ async function reconcileVerifierComments(input: {
   profile: ReviewProfile
   repo: { owner: string; name: string }
   token: string
+  git: GitProvider
 }): Promise<void> {
   const edits: Array<{ id: number; body: string }> = []
   const ours = input.comments.filter(isLumoBotComment)
@@ -363,7 +369,7 @@ async function reconcileVerifierComments(input: {
   }
   for (const e of edits) {
     try {
-      await prCommentClient.updateReviewLineComment({
+      await input.git.comments.updateReviewLineComment({
         repo: input.repo,
         externalId: String(e.id),
         body: e.body,
@@ -550,7 +556,10 @@ export const alsoReportedMarker = (fp: string): string =>
  * can tell it is already listed.
  */
 export function alsoReportedLine(m: AlsoReportedFinding): string {
-  const label = SCAN_STAGE_LABELS[layerOf(m)]
+  // LUM-1321: an imported review names its agent (`claude-code`), not "Code scan".
+  const label = isAgentReviewRuleId(m.ruleId)
+    ? provenanceLabel(m)
+    : SCAN_STAGE_LABELS[layerOf(m)]
   const title = stripHtmlComments(m.title).replace(/\s+/g, ' ').trim()
   return `Same issue also reported by **${label}** · ${m.severity} — ${title}\n${alsoReportedMarker(m.fingerprint)}`
 }
@@ -1220,9 +1229,15 @@ export function buildScanningOffSummary(): string {
 
 // ── sync ────────────────────────────────────────────────────────────────────
 
+/**
+ * LUM-1316: split at the LAST slash — a Codeup path nests groups
+ * (`org/group/repo` → owner `org/group`); a GitHub `owner/name` is unchanged.
+ */
 function parseRepo(repo: string): { owner: string; name: string } {
-  const parts = repo.split('/')
-  return { owner: parts[0] ?? '', name: parts[1] ?? '' }
+  const at = repo.lastIndexOf('/')
+  return at < 0
+    ? { owner: repo, name: '' }
+    : { owner: repo.slice(0, at), name: repo.slice(at + 1) }
 }
 
 function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {
@@ -1231,15 +1246,20 @@ function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {
   return `${resolvePublicUrl()}/workspace/${pr.workspace.slug}/my-tasks/${identifier}`
 }
 
-/** LUM-849 — the reviewed head on GitHub; null for a repo name we cannot trust. */
-export function commitUrlOf(repo: string, sha: string): string | null {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[0-9a-f]{7,40}$/i.test(sha))
-    return null
-  return `https://github.com/${repo}/commit/${sha}`
+/**
+ * LUM-849 — the reviewed head on the PR's platform; null for a repo name we
+ * cannot trust. LUM-1318: the platform builds the link (`links.commit`).
+ */
+export function commitUrlOf(
+  repo: string,
+  sha: string,
+  ref: GitProviderRef = {}
+): string | null {
+  return gitProviderFor(ref).links.commit(repo, sha)
 }
 
 function describe(error: unknown): string {
-  if (error instanceof GithubApiError) return `${error.status} ${error.message}`
+  if (isGitApiError(error)) return `${error.status} ${error.message}`
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -1299,17 +1319,14 @@ async function releaseClaims(ids: string[], where: string): Promise<void> {
  * retries them.
  */
 async function threadToken(
+  git: GitProvider,
   workspaceId: string,
   repository: string,
   fallback: string,
   where: string
 ): Promise<string> {
   try {
-    return await getRepoToken(
-      workspaceId,
-      repository,
-      REPO_TOKEN_PERMISSIONS.reviewThreadWrite
-    )
+    return await git.getRepoToken(workspaceId, repository, 'reviewThreadWrite')
   } catch (error) {
     logger.warn(
       `[security-pr-review] thread token mint failed ${where}: ${describe(error)}`
@@ -1338,6 +1355,7 @@ const SUMMARY_WAIT_MAX_MS = SUMMARY_CLAIM_TTL_MS + 10_000
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 interface SummaryTarget {
+  git: GitProvider
   repo: { owner: string; name: string }
   prNumber: number
   token: string
@@ -1383,7 +1401,7 @@ async function updateSummaryIfPresent(
   id: string
 ): Promise<boolean> {
   try {
-    await prCommentClient.updateIssueComment({
+    await t.git.comments.updateIssueComment({
       repo: t.repo,
       externalId: id,
       body: t.body,
@@ -1391,13 +1409,13 @@ async function updateSummaryIfPresent(
     })
     return true
   } catch (error) {
-    if (error instanceof GithubApiError && error.status === 404) return false
+    if (isGitApiError(error) && error.status === 404) return false
     throw error
   }
 }
 
 async function createSummaryComment(t: SummaryTarget): Promise<string> {
-  const created = await prCommentClient.createIssueComment({
+  const created = await t.git.comments.createIssueComment({
     repo: t.repo,
     prNumber: t.prNumber,
     body: t.body,
@@ -1531,7 +1549,7 @@ async function healDuplicateSummaries(
       await prSecurityScanRepository.isPullRequestHeldElsewhere(t.pullRequestId)
     )
       return
-    const listing = await prCommentClient.listIssueComments({
+    const listing = await t.git.comments.listIssueComments({
       repo: t.repo,
       prNumber: t.prNumber,
       token: t.token,
@@ -1547,13 +1565,13 @@ async function healDuplicateSummaries(
     }
     for (const extra of mine.slice(1)) {
       try {
-        await prCommentClient.deleteIssueComment({
+        await t.git.comments.deleteIssueComment({
           repo: t.repo,
           externalId: String(extra.id),
           token: t.token,
         })
       } catch (error) {
-        if (!(error instanceof GithubApiError && error.status === 404))
+        if (!(isGitApiError(error) && error.status === 404))
           logger.warn(
             `[security-pr-review] duplicate summary ${extra.id} not deleted ${t.where}: ${describe(error)}`
           )
@@ -1588,6 +1606,7 @@ export function clearChangedFilesCache(): void {
  * when GitHub does not answer. Never throws.
  */
 async function changedFilesBestEffort(
+  git: GitProvider,
   repo: { owner: string; name: string },
   prNumber: number,
   headSha: string,
@@ -1598,7 +1617,7 @@ async function changedFilesBestEffort(
   const cached = changedFilesCache.get(key)
   if (cached) return cached
   try {
-    const files = await prCommentClient.listPullRequestFiles({
+    const files = await git.comments.listPullRequestFiles({
       repo,
       prNumber,
       token,
@@ -1667,7 +1686,7 @@ async function upsertSummary(
     // mistaken for it — only a bot-authored comment is eligible. `user` is
     // null on comments whose account has since been deleted; such a comment
     // is simply not ours.
-    const issueComments = await prCommentClient.listIssueComments({
+    const issueComments = await t.git.comments.listIssueComments({
       repo: t.repo,
       prNumber: t.prNumber,
       token: t.token,
@@ -1709,6 +1728,7 @@ async function listMergedInPostedThreads(input: {
   threadFingerprintOf: (fp: string) => string
   repo: { owner: string; name: string }
   token: string
+  git: GitProvider
   where: string
 }): Promise<void> {
   for (const fp of input.keptOnPr) {
@@ -1731,7 +1751,7 @@ async function listMergedInPostedThreads(input: {
     const body = withAlsoReported(comment.body, markerFp, merged)
     if (body === null) continue
     try {
-      await prCommentClient.updateReviewLineComment({
+      await input.git.comments.updateReviewLineComment({
         repo: input.repo,
         externalId: String(comment.id),
         body,
@@ -1777,23 +1797,26 @@ export const securityPrReviewService = {
    * gets nothing (turning scanning off must not start posting). Best effort
    * and idempotent — never throws, and a deleted comment is left deleted.
    */
-  async markScanningOff(pr: {
-    id: string
-    workspaceId: string
-    repo: string
-    number: number
-  }): Promise<{ updated: boolean }> {
+  async markScanningOff(
+    pr: {
+      id: string
+      workspaceId: string
+      repo: string
+      number: number
+    } & GitProviderRef
+  ): Promise<{ updated: boolean }> {
     const where = `pr=#${pr.number}`
     try {
       const commentId =
         await prSecurityScanRepository.findSummaryCommentIdByPullRequest(pr.id)
       if (!commentId) return { updated: false }
-      const token = await getRepoToken(
+      const git = gitProviderFor(pr)
+      const token = await git.getRepoToken(
         pr.workspaceId,
         pr.repo,
-        REPO_TOKEN_PERMISSIONS.pullRequestWrite
+        'pullRequestWrite'
       )
-      await prCommentClient.updateIssueComment({
+      await git.comments.updateIssueComment({
         repo: parseRepo(pr.repo),
         externalId: commentId,
         body: buildScanningOffSummary(),
@@ -1867,10 +1890,12 @@ export const securityPrReviewService = {
     // LUM-1150: claims this sync holds on comments it has not posted yet.
     let pendingClaims: string[] = []
     try {
-      const token = await getRepoToken(
+      // LUM-1318: the PR's Git platform — every write below goes through it.
+      const git = gitProviderFor(pr)
+      const token = await git.getRepoToken(
         pr.workspaceId,
         pr.repo,
-        REPO_TOKEN_PERMISSIONS.pullRequestWrite
+        'pullRequestWrite'
       )
 
       // LUM-738: a persisting row (already on the default branch) is not
@@ -1892,7 +1917,7 @@ export const securityPrReviewService = {
       const isInline = (f: ReviewFindingRow) =>
         inlineEligible(f, policy, profile)
 
-      const reviewComments = await prCommentClient.listReviewComments({
+      const reviewComments = await git.comments.listReviewComments({
         repo,
         prNumber: pr.number,
         token,
@@ -1900,11 +1925,12 @@ export const securityPrReviewService = {
       // LUM-1127: the inline threads' lifecycle — resolve what a complete
       // pass no longer reports, reopen regressions, honour a human's resolve.
       const threadCtx: ThreadSyncContext = {
+        ...gitProviderRefOf(pr),
         pullRequestId: pr.id,
         workspaceId: pr.workspaceId,
         repo,
         prNumber: pr.number,
-        token: await threadToken(pr.workspaceId, pr.repo, token, where),
+        token: await threadToken(git, pr.workspaceId, pr.repo, token, where),
         headSha: scan.headSha,
         scan: {
           status: scan.status,
@@ -2008,6 +2034,7 @@ export const securityPrReviewService = {
         profile,
         repo,
         token,
+        git,
       })
       // LUM-740: LOW rows and LLM-suggested false positives stay off the
       // diff — the summary carries one line for each group instead.
@@ -2096,18 +2123,20 @@ export const securityPrReviewService = {
         const outcome =
           pr.state === undefined || pr.state === 'open'
             ? await prDescriptionSummaryService.sync({
+                ...gitProviderRefOf(pr),
                 repo,
                 prNumber: pr.number,
                 token,
                 prSummary: scan.prSummary,
                 headSha: scan.headSha,
-                commitUrl: commitUrlOf(pr.repo, scan.headSha),
+                commitUrl: git.links.commit(pr.repo, scan.headSha),
               })
             : 'not_open'
         if (outcome !== 'written' && outcome !== 'unchanged')
           summaryWhere = 'comment'
       }
       const changedFiles = await changedFilesBestEffort(
+        git,
         repo,
         pr.number,
         scan.headSha,
@@ -2164,7 +2193,7 @@ export const securityPrReviewService = {
         attentionFiles: open
           .filter(f => f.severity !== 'LOW' && f.suggestedDisposition == null)
           .map(f => f.filePath),
-        commitUrl: commitUrlOf(pr.repo, scan.headSha),
+        commitUrl: git.links.commit(pr.repo, scan.headSha),
         threads: {
           ...threads.counts,
           // About to be posted below: open threads from this sync on.
@@ -2177,6 +2206,7 @@ export const securityPrReviewService = {
       // own hunt run, or the next push's scan) updates it instead of listing.
       // LUM-1150: false = a concurrent sync of this PR is creating it.
       posted = await upsertSummary({
+        git,
         repo,
         prNumber: pr.number,
         token,
@@ -2195,6 +2225,7 @@ export const securityPrReviewService = {
       // LUM-1149: requirements of the linked task / issue this head does not
       // address — one review comment per distinct set. Never throws.
       await issueAssessmentReviewService.flagUnmet({
+        ...gitProviderRefOf(pr),
         repo,
         prNumber: pr.number,
         token,
@@ -2213,13 +2244,14 @@ export const securityPrReviewService = {
         threadFingerprintOf: fp => threads.carried.get(fp) ?? fp,
         repo,
         token,
+        git,
         where,
       })
 
       if (selected.length > 0) {
         const winners = suggestionWinners(selected)
         const postReview = (withSuggestions: boolean) =>
-          prCommentClient.createReview({
+          git.comments.createReview({
             repo,
             prNumber: pr.number,
             token,
@@ -2246,7 +2278,7 @@ export const securityPrReviewService = {
             // cost the comments — retry once with every comment back on its
             // own line and no suggestion. Anything else goes to the handler.
             if (
-              !(error instanceof GithubApiError && error.status === 422) ||
+              !(isGitApiError(error) && error.status === 422) ||
               winners.size === 0
             )
               throw error
@@ -2278,7 +2310,7 @@ export const securityPrReviewService = {
           // claim them again.
           await releaseClaims(pendingClaims, where)
           pendingClaims = []
-          if (error instanceof GithubApiError && error.status === 422) {
+          if (isGitApiError(error) && error.status === 422) {
             logger.warn(
               `[security-pr-review] review rejected ${where}: ${describe(error)}`
             )
@@ -2299,6 +2331,7 @@ export const securityPrReviewService = {
           inline > 0 ? selected.map(f => f.fingerprint) : []
         )
         await prReviewVerdictService.apply({
+          ...gitProviderRefOf(pr),
           repo,
           prNumber: pr.number,
           token,
@@ -2327,6 +2360,7 @@ export const securityPrReviewService = {
         // dismissed here. Never approves; never throws.
         await requestChangesOffService.withdrawOnPullRequest(
           {
+            ...gitProviderRefOf(pr),
             id: pr.id,
             workspaceId: pr.workspaceId,
             repo: pr.repo,

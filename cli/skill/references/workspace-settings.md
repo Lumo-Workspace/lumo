@@ -2,7 +2,7 @@
 
 ### `lumo workspace security-scan show` / `update` — PR security-scan switches
 
-`show` reads and `update` changes (`update` with no setting exits 2) the workspace's PR security-scan switches — the same layer switches as Settings → Workspace → **PR security scanning** in the web app:
+`show` reads and `update` changes (`update` with no setting exits 2) the workspace's PR security-scan switches — the same switches as Settings → Workspace → **Code review → Pull request review** in the web app (where some carry plainer names — e.g. the hunt is "Exploitability check", agent behavior is "Agent shortcut check"):
 
 - **Security scan** (master) — off = no layer runs on new pushes and no scan comment is posted.
 - **AI review** — LLM security review, change summary, false-positive suggestions, semantic rules, claim checks and AI triage of boundary crossings.

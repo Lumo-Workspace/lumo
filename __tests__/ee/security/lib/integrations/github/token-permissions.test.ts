@@ -35,8 +35,13 @@ it('mints with the narrowed permission set: security plugin services (source tab
     const calls = [
       ...src.matchAll(/getRepoToken\(([^()]*?)\)(?:\.catch)?/g),
     ].map(m => m[1] ?? '')
+    // LUM-1318: through the GitProvider port the set is named by its
+    // purpose ('pullRequestWrite'), which the GitHub adapter maps 1:1 to
+    // REPO_TOKEN_PERMISSIONS[purpose].
     const named = calls.map(
-      args => /REPO_TOKEN_PERMISSIONS\.(\w+)/.exec(args)?.[1] ?? 'NONE'
+      args =>
+        (/REPO_TOKEN_PERMISSIONS\.(\w+)/.exec(args) ??
+          /'(\w+)'\s*,?\s*$/.exec(args.trim()))?.[1] ?? 'NONE'
     )
     expect({ file, sets: named }).toEqual({ file, sets })
   }

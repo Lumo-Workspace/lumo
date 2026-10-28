@@ -8,6 +8,7 @@
  *   webhook or a link call can never fail because the scanner is down.
  */
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * LUM-735: `SARIF_PUSH` is the ingest worker asking stage A to run on a scan
@@ -36,7 +37,7 @@ export async function dispatchPrSecurityScan(
   /** LUM-1152 follow-up: a deferred manual review is never deferred again. */
   options?: { deferred?: boolean }
 ): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_APP_URL
+  const base = resolveAppUrl()
   if (!base) {
     logger.warn(
       '[pr-security-scan] NEXT_PUBLIC_APP_URL unset — skipping dispatch'

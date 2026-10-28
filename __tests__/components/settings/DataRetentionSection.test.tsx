@@ -74,7 +74,6 @@ function renderSection(settings = DEFAULTS) {
       settings={settings}
       // LUM-1062: plugin rows (slots) read the workspace row.
       workspace={settings}
-      workspaceName='Acme'
     />
   )
 }

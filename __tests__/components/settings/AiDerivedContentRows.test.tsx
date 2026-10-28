@@ -1,6 +1,7 @@
 /**
  * LUM-917 — Settings → Data retention carries the AI-derived content switch
- * (on by default, explains what turning it off does) and the OWNER's delete,
+ * (on by default, explains what turning it off does); the OWNER's delete
+ * (in the danger zone since LUM-1327)
  * which needs the workspace name re-typed and runs batched passes until done.
  */
 import {
@@ -11,6 +12,7 @@ import {
   within,
 } from '@testing-library/react'
 import { DataRetentionSection } from '@/app/workspace/[workspaceUrl]/components/settings/DataRetentionSection'
+import { AiDerivedContentDeleteRow } from '@/app/workspace/[workspaceUrl]/components/settings/AiDerivedContentDeleteRow'
 import { workspacesClient } from '@/lib/api-client'
 import { toast } from 'sonner'
 
@@ -60,13 +62,16 @@ const SETTINGS = {
 }
 
 function renderSection(settings = SETTINGS) {
+  // LUM-1327: the delete row moved to the danger zone; render both.
   return render(
-    <DataRetentionSection
-      settings={settings}
-      // LUM-1062: the plugin rows (scan evidence) read the workspace row.
-      workspace={settings}
-      workspaceName='Acme'
-    />
+    <>
+      <DataRetentionSection
+        settings={settings}
+        // LUM-1062: the plugin rows (scan evidence) read the workspace row.
+        workspace={settings}
+      />
+      <AiDerivedContentDeleteRow workspaceName='Acme' />
+    </>
   )
 }
 
@@ -97,10 +102,10 @@ describe('AI-derived content switch (LUM-917)', () => {
     await screen.findByTestId('ai-derived-counts')
     expect(switchSelect().value).toBe('on')
     expect(screen.getByTestId('retention-hint-ai-derived')).toHaveTextContent(
-      /no new memories are extracted/
+      /no new memories, summaries/
     )
     expect(screen.getByTestId('retention-hint-ai-derived')).toHaveTextContent(
-      /no AI-generated task claim/
+      /AI-generated task claims are created/
     )
     expect(
       screen.queryByTestId('retention-warning-ai-derived')
@@ -159,7 +164,7 @@ describe('AI-derived content delete (LUM-917)', () => {
     fireEvent.click(
       within(screen.getByTestId('retention-row-ai-derived-delete')).getByRole(
         'button',
-        { name: 'Delete…' }
+        { name: 'Delete content…' }
       )
     )
     const dialog = await screen.findByRole('alertdialog')
@@ -205,7 +210,7 @@ describe('AI-derived content delete (LUM-917)', () => {
     expect(
       within(screen.getByTestId('retention-row-ai-derived-delete')).getByRole(
         'button',
-        { name: 'Delete…' }
+        { name: 'Delete content…' }
       )
     ).toBeDisabled()
   })
@@ -217,7 +222,7 @@ describe('AI-derived content delete (LUM-917)', () => {
     fireEvent.click(
       within(screen.getByTestId('retention-row-ai-derived-delete')).getByRole(
         'button',
-        { name: 'Delete…' }
+        { name: 'Delete content…' }
       )
     )
     const dialog = await screen.findByRole('alertdialog')

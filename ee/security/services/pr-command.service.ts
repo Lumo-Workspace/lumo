@@ -42,15 +42,16 @@
  *     asked for while the head's scan is still in flight waits for that scan
  *     to settle and then runs (LUM-1152 follow-up, security-deferred-review).
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*`, the
- * database through repositories and the existing services.
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through repositories and the existing services.
  */
 import { createHash } from 'crypto'
 import { logger } from '@/lib/logger'
-import { getRepoToken } from '@/lib/integrations/github/auth'
-import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
-import { checkRepositoryWriteAccess } from '@/lib/integrations/github/collaborator-access'
-import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import type { CoreEvents } from '@/lib/plugins/types'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { prReviewControlService } from '@/ee/security/services/pr-review-control.service'
@@ -80,7 +81,12 @@ import {
   type PreMergeChecksOverride,
 } from '@/ee/security/security-scan/pre-merge-checks'
 
-export type PrCommentEvent = CoreEvents['github.issueComment']
+/**
+ * LUM-1318: a Git platform conversation comment (`git.issueComment`); no
+ * `provider` = the GitHub webhook's event (the column default).
+ */
+export type PrCommentEvent = Omit<CoreEvents['git.issueComment'], 'provider'> &
+  GitProviderRef
 
 export type PrCommandOutcome =
   | 'ignored_action'
@@ -273,7 +279,7 @@ async function alreadyAnswered(
     ? new Date(event.comment.createdAt)
     : new Date(0)
   const comments =
-    (await prCommentClient.listIssueCommentsSince({
+    (await gitProviderFor(event).comments.listIssueCommentsSince({
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
       since,
@@ -354,7 +360,7 @@ async function approve(
       body: buildApproveReply({ kind: 'checks', failing }, handle),
     }
   const repo = parseRepo(event.repo)
-  const live = await prCommentClient.getPullRequestHead({
+  const live = await gitProviderFor(event).comments.getPullRequestHead({
     repo,
     prNumber: event.prNumber,
     token: writeToken,
@@ -373,6 +379,7 @@ async function approve(
   const minted = await mintThreadToken(event, handle, 'approve')
   if (!('token' in minted)) return minted
   const result = await resolveThreadsByCommand({
+    ...gitProviderRefOf(event),
     pullRequestId: event.pullRequestId,
     repo,
     prNumber: event.prNumber,
@@ -386,6 +393,7 @@ async function approve(
       body: buildApproveReply({ kind: 'unresolved', result }, handle),
     }
   const approved = await prReviewVerdictService.approveByCommand({
+    ...gitProviderRefOf(event),
     repo,
     prNumber: event.prNumber,
     token: writeToken,
@@ -438,7 +446,7 @@ async function reviewedBy(
   event: PrCommentEvent,
   token: string
 ): Promise<string[]> {
-  const reviews = await prCommentClient.listReviews({
+  const reviews = await gitProviderFor(event).comments.listReviews({
     repo: parseRepo(event.repo),
     prNumber: event.prNumber,
     token,
@@ -461,8 +469,7 @@ async function overrideChecks(
   handle: string,
   writeToken: string
 ): Promise<{ outcome: PrCommandOutcome; body: string }> {
-  const { fetchPrDetails } = await import('@/lib/integrations/github/contents')
-  const pr = await fetchPrDetails({
+  const pr = await gitProviderFor(event).fetchPrDetails({
     workspaceId: event.workspaceId,
     fullName: event.repo,
     prNumber: event.prNumber,
@@ -479,6 +486,7 @@ async function overrideChecks(
       body: buildOverrideReply({ kind: 'already', override: existing }, handle),
     }
   const { setting } = await preMergeChecksService.resolveSetting({
+    ...gitProviderRefOf(event),
     workspaceId: event.workspaceId,
     repo: event.repo,
     baseSha: pr.baseSha,
@@ -554,10 +562,10 @@ async function mintThreadToken(
 ): Promise<{ token: string } | { outcome: PrCommandOutcome; body: string }> {
   try {
     return {
-      token: await getRepoToken(
+      token: await gitProviderFor(event).getRepoToken(
         event.workspaceId,
         event.repo,
-        REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+        'reviewThreadWrite'
       ),
     }
   } catch (error) {
@@ -628,6 +636,7 @@ async function run(
     if (!('token' in minted)) return minted
     const threadToken = minted.token
     const result = await resolveThreadsByCommand({
+      ...gitProviderRefOf(event),
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
@@ -644,6 +653,7 @@ async function run(
     const { prDescriptionSummaryService, buildSummaryCommandReply } =
       await import('@/ee/security/services/pr-description-summary.service')
     const result = await prDescriptionSummaryService.regenerate({
+      ...gitProviderRefOf(event),
       workspaceId: event.workspaceId,
       pullRequestId: event.pullRequestId,
       repo: parseRepo(event.repo),
@@ -665,6 +675,7 @@ async function run(
     const { prSequenceDiagramService, buildDiagramCommandReply } =
       await import('@/ee/security/services/pr-sequence-diagram.service')
     const result = await prSequenceDiagramService.regenerate({
+      ...gitProviderRefOf(event),
       workspaceId: event.workspaceId,
       pullRequestId: event.pullRequestId,
       repo: event.repo,
@@ -685,6 +696,7 @@ async function run(
       outcome: 'done',
       body: buildConfigurationReply(
         await prConfigurationService.forPullRequest({
+          ...gitProviderRefOf(event),
           workspaceId: event.workspaceId,
           repo: event.repo,
           prNumber: event.prNumber,
@@ -735,7 +747,7 @@ async function run(
 // ── Entry ───────────────────────────────────────────────────────────────────
 
 /**
- * One `github.issueComment` event. Silent outcomes (not a command, not
+ * One `git.issueComment` event. Silent outcomes (not a command, not
  * allowed, an edit, a bot) post nothing; a command, a refusal and a 4xx
  * from the control service get one reply. Never throws — an unexpected
  * failure (GitHub, database, a 5xx) is logged and gets no reply.
@@ -754,12 +766,13 @@ export async function applyPrCommentCommand(
   const where = `pr=${event.repo}#${event.prNumber} comment=${event.comment.id}`
 
   try {
-    const readToken = await getRepoToken(
+    const git = gitProviderFor(event)
+    const readToken = await git.getRepoToken(
       event.workspaceId,
       event.repo,
-      REPO_TOKEN_PERMISSIONS.collaboratorPermission
+      'collaboratorPermission'
     )
-    const access = await checkRepositoryWriteAccess(
+    const access = await git.checkRepositoryWriteAccess(
       readToken,
       event.repo,
       login
@@ -771,10 +784,10 @@ export async function applyPrCommentCommand(
       return 'unauthorized'
     }
 
-    const writeToken = await getRepoToken(
+    const writeToken = await git.getRepoToken(
       event.workspaceId,
       event.repo,
-      REPO_TOKEN_PERMISSIONS.pullRequestWrite
+      'pullRequestWrite'
     )
     const marker = ackMarker(event.comment.id, event.workspaceId)
     if (await alreadyAnswered(event, writeToken, marker)) {
@@ -785,7 +798,7 @@ export async function applyPrCommentCommand(
     const { outcome, body } = parsed.command
       ? await run(event, parsed.command, login, handle, writeToken)
       : { outcome: 'help' as const, body: buildHelpReply(handle, parsed.text) }
-    await prCommentClient.createIssueComment({
+    await git.comments.createIssueComment({
       repo: parseRepo(event.repo),
       prNumber: event.prNumber,
       body: withMarker(body, marker),

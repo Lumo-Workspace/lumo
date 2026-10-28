@@ -27,10 +27,11 @@
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
-import { getRepoToken } from '@/lib/integrations/github/auth'
-import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
-import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
-import { reviewThreadClient } from '@/lib/integrations/github/review-threads'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type { GitProvider } from '@/lib/integrations/git-provider'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -71,7 +72,8 @@ import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
 import { answerQuestion } from '@/ee/security/services/pr-chat.service'
 import type { ThreadReplyVerdict } from '@/ee/security/llm/thread-reply-client'
 
-export interface ThreadReplyEvent {
+/** LUM-1318: no `provider` = the GitHub webhook's event (the column default). */
+export interface ThreadReplyEvent extends GitProviderRef {
   workspaceId: string
   pullRequestId: string
   taskId: string | null
@@ -188,6 +190,8 @@ async function blockingFindingId(
 }
 
 interface GithubCtx {
+  /** LUM-1318: the PR's Git platform. */
+  git: GitProvider
   repo: { owner: string; name: string }
   prNumber: number
   token: string
@@ -203,10 +207,10 @@ async function threadToken(
   gh: GithubCtx
 ): Promise<string> {
   try {
-    return await getRepoToken(
+    return await gh.git.getRepoToken(
       workspaceId,
       `${gh.repo.owner}/${gh.repo.name}`,
-      REPO_TOKEN_PERMISSIONS.reviewThreadWrite
+      'reviewThreadWrite'
     )
   } catch (error) {
     logger.warn(
@@ -233,8 +237,9 @@ async function closeThread(
     let threadId = row.threadNodeId
     let resolved = false
     if (!threadId) {
-      const threads = await reviewThreadClient.listReviewThreads({
-        ...gh,
+      const threads = await gh.git.reviewThreads.listReviewThreads({
+        repo: gh.repo,
+        prNumber: gh.prNumber,
         token,
       })
       const t = threads.find(x => String(x.firstCommentId) === row.commentId)
@@ -242,7 +247,7 @@ async function closeThread(
       resolved = t?.isResolved ?? false
     }
     if (!threadId) return false
-    if (!resolved) await reviewThreadClient.resolveThread({ threadId, token })
+    if (!resolved) await gh.git.reviewThreads.resolveThread({ threadId, token })
     await prFindingThreadRepository.update(row.id, {
       state: 'RESOLVED_BY_USER',
       resolvedByLogin: login,
@@ -263,7 +268,7 @@ async function postReply(
   row: FindingThreadRow,
   body: string
 ): Promise<void> {
-  await prCommentClient.createReviewLineReply({
+  await gh.git.comments.createReviewLineReply({
     repo: gh.repo,
     prNumber: gh.prNumber,
     inReplyTo: Number(row.commentId),
@@ -443,11 +448,12 @@ export async function applyThreadReply(
     return 'duplicate'
 
   let token: string
+  const git = gitProviderFor(event)
   try {
-    token = await getRepoToken(
+    token = await git.getRepoToken(
       event.workspaceId,
       event.repo,
-      REPO_TOKEN_PERMISSIONS.pullRequestWrite
+      'pullRequestWrite'
     )
   } catch (error) {
     logger.warn(
@@ -458,6 +464,7 @@ export async function applyThreadReply(
   }
   const [owner = '', name = ''] = event.repo.split('/')
   const gh: GithubCtx = {
+    git,
     repo: { owner, name },
     prNumber: event.prNumber,
     token,

@@ -65,6 +65,7 @@ export function CrossingRawRetentionRow({
           ? intl.formatMessage({ id: 'dataRetention.crossing.tightenNote' })
           : null
       }
+      dirty={days !== saved}
       saving={saving}
       onSave={handleSave}
     />

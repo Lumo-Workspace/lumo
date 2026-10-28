@@ -87,6 +87,15 @@ function slotComponents<K extends ClientSlotName>(
   })
 }
 
+/** Whether any installed plugin fills the slot — lets the core drop a slot's
+ *  surrounding chrome (a section heading) when nothing would render in it. */
+export function hasPluginSlot(
+  name: ClientSlotName,
+  plugins: readonly LumoClientPlugin[] = INSTALLED_CLIENT_PLUGINS
+): boolean {
+  return slotComponents(plugins, name).length > 0
+}
+
 /** Renders every installed plugin's component for the slot; nothing without one. */
 export function PluginSlot<K extends SimpleSlotName>({
   name,

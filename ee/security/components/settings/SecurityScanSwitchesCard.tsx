@@ -42,6 +42,15 @@ interface SecurityScanSwitchesCardProps {
   sandboxAvailable: boolean
 }
 
+/** LUM-1327 — a sub-heading splitting the card's rows into groups. */
+function GroupLabel({ children }: { children: string }) {
+  return (
+    <p className='px-5 py-2 bg-muted text-caption text-muted-foreground border-b border-border'>
+      {children}
+    </p>
+  )
+}
+
 interface SwitchRowProps {
   id: string
   label: string
@@ -62,8 +71,8 @@ function SwitchRow({
   onChange,
 }: SwitchRowProps) {
   return (
-    <div className='flex items-start justify-between gap-4 px-5 py-4 border-b border-border'>
-      <div>
+    <div className='flex items-start justify-between gap-4 px-5 py-4 border-b border-border last:border-b-0'>
+      <div className='min-w-0'>
         <Label htmlFor={id} className='text-body-strong text-foreground'>
           {label}
         </Label>
@@ -106,7 +115,7 @@ function ScopeRow({
   onChange,
 }: ScopeRowProps) {
   return (
-    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
       <div className='min-w-0 sm:flex-1'>
         <Label
           htmlFor='security-learnings-scope'
@@ -183,7 +192,7 @@ function PauseAfterRow({
   // `value`.
   const [draft, setDraft] = useState<string | null>(null)
   return (
-    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
       <div className='min-w-0 sm:flex-1'>
         <Label
           htmlFor='security-review-auto-pause-after'
@@ -230,6 +239,8 @@ export function SecurityScanSwitchesCard({
   const intl = useIntl()
   const queryClient = useQueryClient()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
+  // LUM-1327: what the server holds — Save shows only when they differ.
+  const [saved, setSaved] = useState<WorkspaceSecuritySwitches>(initial)
   const [saving, setSaving] = useState(false)
   const t = (id: string) =>
     intl.formatMessage({ id: `workspaceSettings.securityScan.${id}` })
@@ -244,19 +255,21 @@ export function SecurityScanSwitchesCard({
     (next: boolean) =>
       setSwitches(prev => ({ ...prev, [key]: next }))
 
-  const save = async (
-    update: Parameters<typeof securityScanClient.updateSecurityScan>[0],
-    successId: string
-  ) => {
+  const dirty = (
+    Object.keys(switches) as (keyof WorkspaceSecuritySwitches)[]
+  ).some(key => switches[key] !== saved[key])
+
+  const handleSave = async () => {
     setSaving(true)
     try {
-      const next = await securityScanClient.updateSecurityScan(update)
+      const next = await securityScanClient.updateSecurityScan(switches)
       setSwitches(next.switches)
+      setSaved(next.switches)
       // LUM-1114: the AI review switch decides which rules are checked.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workspacePolicyCoverage(),
       })
-      toast.success(t(successId))
+      toast.success(t('updated'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('updateFailed'))
     } finally {
@@ -264,17 +277,9 @@ export function SecurityScanSwitchesCard({
     }
   }
 
-  const handleSave = () => save(switches, 'updated')
-
-  // LUM-1002: one click to turn every switch off (or back on), saved at once.
-  const allOff =
-    !switches.securityScanEnabled &&
-    !switches.securityAiReviewEnabled &&
-    !switches.securityHuntEnabled &&
-    !switches.securityRewardHackEnabled
-  const handleToggleAll = () =>
-    save({ all: allOff }, allOff ? 'allEnabled' : 'allDisabled')
-
+  // LUM-1327: the scan switch is the card's master — every row below needs
+  // it — so it sits in the header like the other switches, replacing the
+  // old "Disable all" button.
   const scanOn = switches.securityScanEnabled
   const platformNote = t(
     sandboxAvailable ? 'platformOff' : 'sandboxUnavailable'
@@ -283,31 +288,31 @@ export function SecurityScanSwitchesCard({
   return (
     <div className='rounded-lg border border-border overflow-hidden mb-8'>
       <div className='flex items-start justify-between gap-4 px-5 py-3 border-b border-border'>
-        <div>
-          <p className='text-body-strong text-foreground'>{t('title')}</p>
+        <div className='min-w-0'>
+          <Label
+            htmlFor='security-scan-enabled'
+            className='text-body-strong text-foreground'
+          >
+            {t('title')}
+          </Label>
           <p className='text-caption text-muted-foreground mt-0.5'>
             {t('description')}
           </p>
+          {!sandboxAvailable && (
+            <p className='text-caption text-muted-foreground mt-1'>
+              {t('scan.sandboxUnavailable')}
+            </p>
+          )}
         </div>
-        <Button
-          size='sm'
-          variant='outline'
-          onClick={handleToggleAll}
+        <Switch
+          id='security-scan-enabled'
+          checked={scanOn}
           disabled={saving}
-        >
-          {t(allOff ? 'enableAll' : 'disableAll')}
-        </Button>
+          onCheckedChange={set('securityScanEnabled')}
+        />
       </div>
 
-      <SwitchRow
-        id='security-scan-enabled'
-        label={t('scan.label')}
-        description={t('scan.description')}
-        checked={scanOn}
-        disabled={saving}
-        note={sandboxAvailable ? undefined : t('scan.sandboxUnavailable')}
-        onChange={set('securityScanEnabled')}
-      />
+      <GroupLabel>{t('group.checks')}</GroupLabel>
       <SwitchRow
         id='security-ai-review-enabled'
         label={t('aiReview.label')}
@@ -338,8 +343,10 @@ export function SecurityScanSwitchesCard({
         note={rewardHackAvailable ? undefined : t('platformOff')}
         onChange={set('securityRewardHackEnabled')}
       />
+
+      <GroupLabel>{t('group.behavior')}</GroupLabel>
       {/* LUM-1130: not a layer — how Lumo's review reads on the PR. Off by
-          default; "enable all" / "disable all" leave it as it is. */}
+          default. */}
       <SwitchRow
         id='security-request-changes-enabled'
         label={t('requestChanges.label')}
@@ -349,8 +356,7 @@ export function SecurityScanSwitchesCard({
         onChange={set('securityRequestChangesEnabled')}
       />
       {/* LUM-1142: author approval — who may run
-          `@uselumo resolve` / `approve`. On by default; "enable all" /
-          "disable all" leave it as it is. */}
+          `@uselumo resolve` / `approve`. On by default. */}
       <SwitchRow
         id='security-allow-author-approval'
         label={t('allowAuthorApproval.label')}
@@ -360,8 +366,7 @@ export function SecurityScanSwitchesCard({
         onChange={set('securityAllowAuthorApproval')}
       />
       {/* LUM-1134: learnings only shape the AI review — locked while it is
-          off. Saved with the switches; "enable all" / "disable all" leave
-          it as it is. */}
+          off. */}
       <ScopeRow
         label={t('learningsScope.label')}
         description={t('learningsScope.description')}
@@ -393,13 +398,15 @@ export function SecurityScanSwitchesCard({
         }
       />
 
-      <div className='flex justify-end px-5 py-4'>
-        <Button size='sm' onClick={handleSave} disabled={saving}>
-          {saving
-            ? intl.formatMessage({ id: 'common.saving' })
-            : intl.formatMessage({ id: 'common.save' })}
-        </Button>
-      </div>
+      {dirty && (
+        <div className='flex justify-end px-5 py-3'>
+          <Button size='sm' onClick={handleSave} disabled={saving}>
+            {saving
+              ? intl.formatMessage({ id: 'common.saving' })
+              : intl.formatMessage({ id: 'common.save' })}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

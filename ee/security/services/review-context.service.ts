@@ -9,16 +9,15 @@
  * Never throws: a failed mint, read or timeout comes back as `error` with no
  * context, and the review runs on the diff.
  *
- * Only `@/lib/integrations/github/contents` is imported, never `./auth`
- * directly: the scan service imports this module statically, and pulling
- * `@octokit/auth-app` (ESM) into its graph breaks every jest suite that
- * mocks `contents` but not `auth`.
+ * The repository is read through the `GitProvider` port (LUM-1318), whose
+ * GitHub adapter loads `contents` / `auth` lazily: the scan service imports
+ * this module statically, and pulling `@octokit/auth-app` (ESM) into its
+ * graph breaks every jest suite that mocks `contents` but not `auth`.
  */
 import {
-  listRepoDirWithToken,
-  readRepoFileWithToken,
-  withRepoReadToken,
-} from '@/lib/integrations/github/contents'
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   isSkippedContextPath,
   loadReviewContext,
@@ -37,28 +36,31 @@ const noContext = (error: string | null): LoadedReviewContext => ({
 })
 
 export const reviewContextService = {
-  async load(opts: {
-    workspaceId: string
-    repo: string
-    headSha: string
-    /** Changed, not-deleted paths the review covers. */
-    paths: readonly string[]
-    /** Char cap for the packed context (the caller's remaining budget). */
-    maxChars?: number
-  }): Promise<LoadedReviewContext> {
+  async load(
+    opts: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      headSha: string
+      /** Changed, not-deleted paths the review covers. */
+      paths: readonly string[]
+      /** Char cap for the packed context (the caller's remaining budget). */
+      maxChars?: number
+    }
+  ): Promise<LoadedReviewContext> {
     // Nothing to read (no path, only lockfiles / binaries, no budget): no
     // token is minted at all.
     const paths = opts.paths.filter(p => !isSkippedContextPath(p))
     if (paths.length === 0 || opts.maxChars === 0) return noContext(null)
     try {
-      return await withRepoReadToken(
+      const git = gitProviderFor(opts)
+      return await git.withRepoReadToken(
         { workspaceId: opts.workspaceId, fullName: opts.repo },
         token =>
           loadReviewContext({
             paths,
             ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
             readFile: (path, signal) =>
-              readRepoFileWithToken({
+              git.readRepoFileWithToken({
                 token,
                 fullName: opts.repo,
                 path,
@@ -79,19 +81,22 @@ export const reviewContextService = {
    * Mints nothing when the plan has no trigger or there is no budget. Never
    * throws: any failure is `error` with no config, and the review runs.
    */
-  async loadServerConfig(opts: {
-    workspaceId: string
-    repo: string
-    headSha: string
-    plan: ServerConfigPlan
-    /** Every path the PR changes (never re-sent as config). */
-    changedPaths: readonly string[]
-    maxChars?: number
-  }): Promise<LoadedServerConfig> {
+  async loadServerConfig(
+    opts: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      headSha: string
+      plan: ServerConfigPlan
+      /** Every path the PR changes (never re-sent as config). */
+      changedPaths: readonly string[]
+      maxChars?: number
+    }
+  ): Promise<LoadedServerConfig> {
     if (opts.plan.triggers.length === 0 || opts.maxChars === 0)
       return noContext(null)
     try {
-      return await withRepoReadToken(
+      const git = gitProviderFor(opts)
+      return await git.withRepoReadToken(
         { workspaceId: opts.workspaceId, fullName: opts.repo },
         token =>
           loadServerConfigContext({
@@ -99,7 +104,7 @@ export const reviewContextService = {
             changedPaths: opts.changedPaths,
             ...(opts.maxChars !== undefined ? { maxChars: opts.maxChars } : {}),
             listDir: (path, signal) =>
-              listRepoDirWithToken({
+              git.listRepoDirWithToken({
                 token,
                 fullName: opts.repo,
                 path,
@@ -107,7 +112,7 @@ export const reviewContextService = {
                 signal,
               }),
             readFile: (path, signal) =>
-              readRepoFileWithToken({
+              git.readRepoFileWithToken({
                 token,
                 fullName: opts.repo,
                 path,
