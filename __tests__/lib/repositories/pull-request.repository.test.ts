@@ -86,7 +86,7 @@ describe('pullRequestRepository.findForSecurityImport (LUM-1321)', () => {
       where: {
         workspaceId: 'ws1',
         provider: 'github',
-        repo: 'acme/app',
+        repo: { equals: 'acme/app', mode: 'insensitive' },
         number: 7,
       },
       select: {

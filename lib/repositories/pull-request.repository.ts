@@ -218,7 +218,13 @@ export const pullRequestRepository = {
     number: number
   ) {
     return prisma.pullRequest.findFirst({
-      where: { workspaceId, provider: GITHUB_PROVIDER, repo, number },
+      where: {
+        workspaceId,
+        provider: GITHUB_PROVIDER,
+        // GitHub names are case-insensitive; origin may be cased differently.
+        repo: { equals: repo, mode: 'insensitive' },
+        number,
+      },
       select: {
         id: true,
         provider: true,

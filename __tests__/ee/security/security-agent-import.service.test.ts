@@ -169,6 +169,16 @@ describe('securityAgentImportService.import', () => {
     expect(startRun.mock.calls[0]![0].tool).toBe('codex')
   })
 
+  it("uses the PR's stored repo name when origin is cased differently", async () => {
+    await securityAgentImportService.import(
+      caller,
+      body({ repository: 'ACME/App' })
+    )
+    expect(findPr).toHaveBeenCalledWith('ws1', 'ACME/App', 7)
+    expect(put.mock.calls[0]![0]).toMatch(/^security-sarif\/acme--app\//)
+    expect(startRun.mock.calls[0]![0].repository).toBe('acme/app')
+  })
+
   it('accepts a PR whose head is not known yet', async () => {
     findPr.mockResolvedValue({
       id: 'pr1',

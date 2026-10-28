@@ -81,6 +81,18 @@ it('413 on a body over 1 MiB, before parsing', async () => {
   expect(importMock).not.toHaveBeenCalled()
 })
 
+it('413 from a declared Content-Length before reading the body', async () => {
+  const res = await POST(
+    new NextRequest(URL_, {
+      method: 'POST',
+      body: JSON.stringify(valid),
+      headers: { 'content-length': String(2 * 1024 * 1024) },
+    })
+  )
+  expect(res.status).toBe(413)
+  expect(importMock).not.toHaveBeenCalled()
+})
+
 it('maps a service refusal to its status and message', async () => {
   importMock.mockRejectedValue(
     Object.assign(

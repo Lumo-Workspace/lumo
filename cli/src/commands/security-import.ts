@@ -88,21 +88,23 @@ export async function securityImportCommand(
     return EXIT_USAGE
   }
 
-  let size: number
+  let text: string
   try {
-    size = statSync(file).size
+    const stat = statSync(file)
+    if (!stat.isFile()) throw new Error('not a file')
+    if (stat.size > MAX_FILE_BYTES) {
+      console.error(`Error: ${file} is larger than 1 MiB`)
+      return EXIT_ERROR
+    }
+    text = readFileSync(file, 'utf8')
   } catch {
     console.error(`Error: cannot read ${file}`)
-    return EXIT_ERROR
-  }
-  if (size > MAX_FILE_BYTES) {
-    console.error(`Error: ${file} is larger than 1 MiB`)
     return EXIT_ERROR
   }
 
   const cwd = deps.cwd ?? process.cwd()
   const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
-  const converted = toImportSarif(readFileSync(file, 'utf8'), root)
+  const converted = toImportSarif(text, root)
   if (!converted.ok) {
     console.error(`Error: ${file}: ${converted.error}`)
     return EXIT_ERROR

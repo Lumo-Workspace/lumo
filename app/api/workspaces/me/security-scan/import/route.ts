@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
 
+  const declared = Number(request.headers.get('content-length') ?? '')
+  if (Number.isFinite(declared) && declared > AGENT_IMPORT_MAX_BYTES) {
+    return NextResponse.json(
+      { error: 'Report is larger than 1 MiB' },
+      { status: 413 }
+    )
+  }
   const text = await request.text()
   if (Buffer.byteLength(text, 'utf8') > AGENT_IMPORT_MAX_BYTES) {
     return NextResponse.json(

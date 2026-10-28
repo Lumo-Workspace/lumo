@@ -138,6 +138,25 @@ describe('Lumo JSON', () => {
     )
   })
 
+  it("accepts a file whose name starts with '..' and a malformed file:// escape", () => {
+    const { sarif } = ok({
+      findings: [
+        { file: '..env.ts', line: 1, severity: 'low', title: 'a' },
+        {
+          file: `file://${ROOT}/lib/100%.ts`,
+          line: 2,
+          severity: 'low',
+          title: 'b',
+        },
+      ],
+    })
+    expect(
+      sarif.runs[0]!.results.map(
+        r => r.locations[0]!.physicalLocation.artifactLocation.uri
+      )
+    ).toEqual(['..env.ts', 'lib/100%.ts'])
+  })
+
   it('accepts an empty list (a clean review clears the earlier import)', () => {
     expect(ok({ findings: [] }).results).toBe(0)
   })

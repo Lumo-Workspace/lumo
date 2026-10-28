@@ -111,7 +111,7 @@ export const securityAgentImportService = {
       0
     )
     const blob = await putPrivateSarifBlob(
-      importPathname(body),
+      importPathname({ ...body, repository: pr.repo }),
       gzipSync(JSON.stringify(doc))
     )
     const runId = await startSecuritySarifIngest({

@@ -226,6 +226,12 @@ describe('lumo security import', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('reports a directory as unreadable instead of crashing', async () => {
+    const { result, err } = await run({}, api(null), undefined, cacheDir)
+    expect(result).toBe(1)
+    expect(err).toMatch(/cannot read/)
+  })
+
   it('reports a missing file', async () => {
     const { result, err } = await run(
       {},

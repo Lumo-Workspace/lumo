@@ -51,12 +51,23 @@ export function detectAgentTool(
 
 /** `path` relative to `root`, or null when it is outside the repository. */
 function repoRelative(file: string, root: string): string | null {
-  const stripped = file.startsWith('file://')
-    ? decodeURIComponent(file.slice('file://'.length))
-    : file
+  let stripped = file
+  if (file.startsWith('file://')) {
+    try {
+      stripped = decodeURIComponent(file.slice('file://'.length))
+    } catch {
+      stripped = file.slice('file://'.length) // malformed escape: use as written
+    }
+  }
   const abs = path.resolve(root, stripped)
   const rel = path.relative(root, abs)
-  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null
+  if (
+    rel === '' ||
+    rel === '..' ||
+    rel.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(rel)
+  )
+    return null
   return rel.split(path.sep).join('/')
 }
 
