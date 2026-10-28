@@ -2183,6 +2183,11 @@ model GitHubAppInstallation {
   /// permissions not yet accepted). Cleared by the next successful mint;
   /// past three days it raises an ops alert and a notice on the settings card.
   tokenFailingSince   DateTime?
+  /// LUM-1330 — repositories renamed while confirmed here: old `owner/name`
+  /// (lower-cased) → the name it was renamed to. Written with every rename
+  /// (LUM-879) so a CLI whose git remote still has the old name finds the
+  /// repository; a name that is confirmed again is never redirected.
+  repositoryAliases   Json             @default("{}")
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 

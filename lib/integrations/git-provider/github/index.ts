@@ -20,6 +20,7 @@ import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissi
 import {
   isConfirmedRepository,
   loadConfirmedRepositories,
+  loadRenamedRepository,
 } from '@/lib/integrations/github/confirmed-repositories'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import { allCapabilities } from '../capabilities'
@@ -191,6 +192,9 @@ export const githubGitProvider: GitProvider = {
   },
   loadConfirmedRepositories(workspaceId) {
     return loadConfirmedRepositories(workspaceId)
+  },
+  resolveRenamedRepository(workspaceId, repository) {
+    return loadRenamedRepository(workspaceId, repository)
   },
   async findConfirmedRepositories(workspaceId) {
     const installation =

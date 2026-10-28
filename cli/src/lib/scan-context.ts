@@ -5,6 +5,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { configDir, readCredentials, type Credentials } from './config'
 import { isMissingPluginRoute } from './plugin-route'
 import type { ServerPrFinding } from './scan-labels'
+import { sanitizeField } from './sanitize'
 import { runGit } from './worktree'
 
 /**
@@ -54,6 +55,9 @@ export interface ScanContext {
     }>
   }
   pullRequest: { number: number; headSha: string | null } | null
+  /** LUM-1330: the name this CLI sent, when the server found the repository
+   *  under its current name `repo` (a rename). Absent on an older server. */
+  renamedFrom?: string
 }
 
 /** Where the context came from: the server now, the cache, or nowhere. */
@@ -276,7 +280,7 @@ export async function loadScanContext(
     return {
       source: 'live',
       note: null,
-      repo,
+      repo: currentRepo(cached.context, repo),
       fetchedAt: now,
       context: cached.context,
     }
@@ -303,7 +307,29 @@ export async function loadScanContext(
     return fromCache(cached, 'Lumo sent a context of an unknown version', repo)
   const etag = res.headers.get('etag')
   if (etag) writeCache(file, { etag, fetchedAt: now, context: body })
-  return { source: 'live', note: null, repo, fetchedAt: now, context: body }
+  return {
+    source: 'live',
+    note: null,
+    repo: currentRepo(body, repo),
+    fetchedAt: now,
+    context: body,
+  }
+}
+
+/** LUM-1330 — the repository's current name when the server followed a rename. */
+function currentRepo(context: ScanContext, sent: string): string {
+  return context.renamedFrom ? context.repo : sent
+}
+
+/**
+ * LUM-1330 — the server found `from` under its current name `to`: say so and
+ * how to point the local remote at it.
+ */
+export function renamedRemoteLines(from: string, to: string): string[] {
+  return [
+    `Note: ${sanitizeField(from)} was renamed to ${sanitizeField(to)}. Update your git remote:`,
+    `  git remote set-url origin https://github.com/${sanitizeField(to)}.git`,
+  ]
 }
 
 /** The latest server scan of a PR, as `--pr` reads it. */

@@ -323,6 +323,29 @@ describe('report with server context', () => {
     )
   })
 
+  it('LUM-1330 a renamed repository: names both and how to update the remote', () => {
+    const out = formatLocalScan(
+      result({
+        source: 'live',
+        note: null,
+        repo: 'acme/new',
+        renamedFrom: 'acme/old',
+        fetchedAt: 't',
+        pullRequest: null,
+        policy: ctx().policy,
+        pr: null,
+      }),
+      { width: 200 }
+    )
+    expect(out).toContain('Server: acme/new · live · 0 would block DONE')
+    expect(out).toContain(
+      'Note: acme/old was renamed to acme/new. Update your git remote:'
+    )
+    expect(out).toContain(
+      '  git remote set-url origin https://github.com/acme/new.git'
+    )
+  })
+
   it('says why there is no context', () => {
     const out = formatLocalScan(
       result({

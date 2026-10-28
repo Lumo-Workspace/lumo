@@ -31,6 +31,12 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findStatesByIds: jest.fn() },
 }))
+const mockResolveRenamedRepository = jest.fn()
+jest.mock('@/lib/integrations/git-provider/resolve', () => ({
+  gitProviderFor: () => ({
+    resolveRenamedRepository: mockResolveRenamedRepository,
+  }),
+}))
 
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import { securityScanContextRepository } from '@/ee/security/repositories/security-scan-context.repository'
@@ -69,6 +75,46 @@ beforeEach(() => {
   m(prReviewLearningRepository.findActiveKeys).mockResolvedValue([])
   m(memberRepository.labelsByIds).mockResolvedValue(new Map())
   m(pullRequestRepository.findStatesByIds).mockResolvedValue(new Map())
+  mockResolveRenamedRepository.mockResolvedValue(null)
+})
+
+describe('LUM-1330 a renamed repository under its old name', () => {
+  it("serves the current name's context and says the name was renamed", async () => {
+    m(securityColumnsRepository.findSecurityBaseline).mockImplementation(
+      async (_ws: string, repo: string) =>
+        repo === 'acme/new' ? null : undefined
+    )
+    mockResolveRenamedRepository.mockResolvedValue('acme/new')
+    const view = await securityScanContextService.getForRepo('ws1', {
+      repo: 'acme/old',
+      branch: 'feat',
+    })
+    expect(mockResolveRenamedRepository).toHaveBeenCalledWith('ws1', 'acme/old')
+    expect(view).toMatchObject({ repo: 'acme/new', renamedFrom: 'acme/old' })
+    expect(
+      m(securityScanContextRepository.findOpenPullRequestByBranch)
+    ).toHaveBeenCalledWith('ws1', 'acme/new', 'feat')
+  })
+
+  it('a linked name never asks for a rename and carries no renamedFrom', async () => {
+    const view = await securityScanContextService.getForRepo('ws1', {
+      repo: 'acme/app',
+    })
+    expect(mockResolveRenamedRepository).not.toHaveBeenCalled()
+    expect(view).not.toHaveProperty('renamedFrom')
+  })
+
+  it('not linked and no rename record: 404 that points at --repo', async () => {
+    m(securityColumnsRepository.findSecurityBaseline).mockResolvedValue(
+      undefined
+    )
+    await expect(
+      securityScanContextService.getForRepo('ws1', { repo: 'acme/zzz' })
+    ).rejects.toMatchObject({
+      status: 404,
+      message: expect.stringContaining('--repo'),
+    })
+  })
 })
 
 describe('latestRulings', () => {

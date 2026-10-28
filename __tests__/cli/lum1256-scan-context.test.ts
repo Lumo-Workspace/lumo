@@ -189,6 +189,26 @@ describe('loadScanContext', () => {
     })
   })
 
+  it('LUM-1330 the server followed a rename: the result carries the current name', async () => {
+    const fetch = jest.fn().mockResolvedValue(
+      json({ ...context, repo: 'acme/new', renamedFrom: 'acme/app' }, 200, {
+        etag: '"e9"',
+      })
+    )
+    const r = await loadScanContext(opts, { ...base(), fetch })
+    expect(r).toMatchObject({
+      source: 'live',
+      repo: 'acme/new',
+      context: { renamedFrom: 'acme/app' },
+    })
+    // A 304 from the cache keeps following it.
+    const again = jest
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 304 }))
+    const r2 = await loadScanContext(opts, { ...base(), fetch: again })
+    expect(r2.repo).toBe('acme/new')
+  })
+
   it('a repository the workspace does not own (JSON 404) is no context', async () => {
     const fetch = jest
       .fn()

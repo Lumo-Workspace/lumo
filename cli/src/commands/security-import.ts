@@ -16,6 +16,7 @@ import {
   detectBranch,
   detectRepo,
   loadScanContext,
+  renamedRemoteLines,
   type ScanContextDeps,
 } from '../lib/scan-context'
 import { gitOutput } from '../lib/worktree'
@@ -53,6 +54,8 @@ interface ImportResponse {
   headSha: string
   tool: AgentReviewTool
   results: number
+  /** LUM-1330: the name sent, when the server followed a rename. */
+  renamedFrom?: string
 }
 
 function parsePr(value: string): number | null {
@@ -204,6 +207,9 @@ export async function securityImportCommand(
     return 0
   }
   const ref = `${sanitizeField(out.repository)}#${out.prNumber}`
+  if (out.renamedFrom)
+    for (const line of renamedRemoteLines(out.renamedFrom, out.repository))
+      console.log(line)
   console.log(
     `Imported ${out.results} result${out.results === 1 ? '' : 's'} from ${out.tool} into ${ref} @ ${out.headSha.slice(0, 7)}`
   )

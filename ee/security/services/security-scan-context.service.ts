@@ -83,6 +83,9 @@ export interface ScanContextLearning {
 export interface ScanContextView {
   version: typeof SCAN_CONTEXT_VERSION
   repo: string
+  /** LUM-1330: the name the CLI sent, when it was a renamed repository's old
+   *  name (`repo` is the current one). Absent otherwise. */
+  renamedFrom?: string
   baseline: {
     sha: string
     at: string
@@ -205,6 +208,31 @@ async function learningsInScope(
     }))
 }
 
+/**
+ * LUM-1330 — the repository by the name the CLI sent (its git remote); when
+ * that is not linked here, the current name of a repository renamed from it.
+ */
+async function linkedRepository(workspaceId: string, sent: string) {
+  const baseline = await securityColumnsRepository.findSecurityBaseline(
+    workspaceId,
+    sent
+  )
+  if (baseline !== undefined) return { repo: sent, baseline, renamedFrom: null }
+  const current = await gitProviderFor(null).resolveRenamedRepository(
+    workspaceId,
+    sent
+  )
+  if (current === null) return { repo: sent, baseline, renamedFrom: null }
+  return {
+    repo: current,
+    baseline: await securityColumnsRepository.findSecurityBaseline(
+      workspaceId,
+      current
+    ),
+    renamedFrom: sent,
+  }
+}
+
 export const securityScanContextService = {
   /**
    * The context of `repo` (owner/name) in the caller's workspace. 404 when
@@ -216,13 +244,15 @@ export const securityScanContextService = {
     input: { repo: string; branch?: string | undefined },
     deps: { repoVisibility?: RepoVisibilityReader } = {}
   ): Promise<ScanContextView> {
-    const baseline = await securityColumnsRepository.findSecurityBaseline(
+    const { repo, baseline, renamedFrom } = await linkedRepository(
       workspaceId,
       input.repo
     )
     if (baseline === undefined) {
       throw Object.assign(
-        new Error('Repository not linked to this workspace'),
+        new Error(
+          'Repository not linked to this workspace (if it was renamed, pass its current owner/name with --repo)'
+        ),
         { status: 404 }
       )
     }
@@ -231,13 +261,13 @@ export const securityScanContextService = {
       securityColumnsRepository.findSecurityPolicy(workspaceId),
       securityScanContextRepository.findRulingRows(
         workspaceId,
-        input.repo,
+        repo,
         SCAN_CONTEXT_RULING_ROWS
       ),
       input.branch
         ? securityScanContextRepository.findOpenPullRequestByBranch(
             workspaceId,
-            input.repo,
+            repo,
             input.branch
           )
         : Promise.resolve(null),
@@ -251,18 +281,13 @@ export const securityScanContextService = {
     ]
     const [names, learnings] = await Promise.all([
       memberRepository.labelsByIds(memberIds),
-      learningsInScope(
-        workspaceId,
-        input.repo,
-        scope,
-        openPr?.id ?? null,
-        deps
-      ),
+      learningsInScope(workspaceId, repo, scope, openPr?.id ?? null, deps),
     ])
 
     return {
       version: SCAN_CONTEXT_VERSION,
-      repo: input.repo,
+      repo,
+      ...(renamedFrom ? { renamedFrom } : {}),
       baseline:
         baseline && baseline.at !== null
           ? {
