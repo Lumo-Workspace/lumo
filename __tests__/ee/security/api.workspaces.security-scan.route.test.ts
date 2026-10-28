@@ -96,3 +96,18 @@ it('LUM-1234 PATCH accepts the reward-hack switch alone, not with `all`', async 
   )
   expect(bad.status).toBe(400)
 })
+
+it('LUM-1329 PATCH passes agentReviewBlocking through; custom, a bad level or `all` with it is a 400', async () => {
+  const ok = await PATCH(req('PATCH', { agentReviewBlocking: 'medium' }))
+  expect(ok.status).toBe(200)
+  expect(m(securityScanSettingsService.update).mock.calls[0][1]).toEqual({
+    agentReviewBlocking: 'medium',
+  })
+  for (const body of [
+    { agentReviewBlocking: 'custom' },
+    { agentReviewBlocking: 'critical' },
+    { all: true, agentReviewBlocking: 'high' },
+  ])
+    expect((await PATCH(req('PATCH', body))).status).toBe(400)
+  expect(securityScanSettingsService.update).toHaveBeenCalledTimes(1)
+})

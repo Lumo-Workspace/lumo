@@ -98,3 +98,70 @@ export function isBlockingUnderPolicy(
     r => r.provenance === provenance && r.severity === f.severity
   )
 }
+
+/**
+ * LUM-1329 — the owner's agent-review opt-in as one setting: `off`, or the
+ * lowest severity that blocks (`medium` = MEDIUM and HIGH). A stored set that
+ * is not one of those (e.g. MEDIUM alone, written through the raw API) reads
+ * as `custom`; only `withAgentReviewBlocking` writes it back to a threshold.
+ */
+export const AGENT_REVIEW_BLOCKING_LEVELS = [
+  'off',
+  'high',
+  'medium',
+  'low',
+] as const
+export type AgentReviewBlocking = (typeof AGENT_REVIEW_BLOCKING_LEVELS)[number]
+export type AgentReviewBlockingView = AgentReviewBlocking | 'custom'
+
+/** The severities each level blocks, highest first. */
+const BLOCKED_SEVERITIES: Record<AgentReviewBlocking, PolicySeverity[]> = {
+  off: [],
+  high: ['HIGH'],
+  medium: ['HIGH', 'MEDIUM'],
+  low: ['HIGH', 'MEDIUM', 'LOW'],
+}
+
+/** The agent-review setting the policy holds. */
+export function agentReviewBlocking(
+  policy: SecurityPolicy
+): AgentReviewBlockingView {
+  const listed = new Set(
+    policy.block
+      .filter(r => r.provenance === 'AGENT_REVIEW')
+      .map(r => r.severity)
+  )
+  const level = AGENT_REVIEW_BLOCKING_LEVELS.find(
+    l =>
+      BLOCKED_SEVERITIES[l].length === listed.size &&
+      BLOCKED_SEVERITIES[l].every(s => listed.has(s))
+  )
+  return level ?? 'custom'
+}
+
+/**
+ * The policy with its `AGENT_REVIEW` entries replaced by `level`'s — every
+ * other entry kept, in order, minus repeats (a pair listed twice blocks the
+ * same as once; dropping them keeps the result within the schema's 9).
+ */
+export function withAgentReviewBlocking(
+  policy: SecurityPolicy,
+  level: AgentReviewBlocking
+): SecurityPolicy {
+  const seen = new Set<string>()
+  const others = policy.block.filter(r => {
+    const key = `${r.provenance}:${r.severity}`
+    if (r.provenance === 'AGENT_REVIEW' || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  return {
+    block: [
+      ...others,
+      ...BLOCKED_SEVERITIES[level].map(severity => ({
+        provenance: 'AGENT_REVIEW' as const,
+        severity,
+      })),
+    ],
+  }
+}
