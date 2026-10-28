@@ -5,7 +5,6 @@ import { SessionRecordRetentionRow } from './SessionRecordRetentionRow'
 import { CrossingRawRetentionRow } from './CrossingRawRetentionRow'
 import { DeadLetterRetentionRow } from './DeadLetterRetentionRow'
 import { AiDerivedContentRow } from './AiDerivedContentRow'
-import { AiDerivedContentDeleteRow } from './AiDerivedContentDeleteRow'
 import { PluginSlot, type WorkspaceSettingsView } from '@/lib/plugins/client'
 
 export interface DataRetentionSettings {
@@ -20,17 +19,15 @@ export interface DataRetentionSettings {
 /**
  * LUM-933 — Settings → Data retention: one row per kind of data, each saved
  * on its own. Rendered for OWNERs only (the API refuses everyone else).
+ * Deleting AI-derived content lives in the danger zone (LUM-1327).
  */
 export function DataRetentionSection({
   settings,
   workspace,
-  workspaceName,
 }: {
   settings: DataRetentionSettings
   /** LUM-1062: the workspace row, for plugin rows (scan evidence, LUM-911). */
   workspace: WorkspaceSettingsView
-  /** Re-typed to confirm deleting AI-derived content (LUM-917). */
-  workspaceName: string
 }) {
   const intl = useIntl()
   return (
@@ -57,7 +54,6 @@ export function DataRetentionSection({
       />
       <DeadLetterRetentionRow initialDays={settings.deadLetterRetentionDays} />
       <AiDerivedContentRow initialEnabled={settings.aiDerivedContentEnabled} />
-      <AiDerivedContentDeleteRow workspaceName={workspaceName} />
     </section>
   )
 }

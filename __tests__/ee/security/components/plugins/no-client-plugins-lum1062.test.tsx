@@ -191,7 +191,6 @@ describe('LUM-1062 core UI without client plugins', () => {
       <DataRetentionSection
         settings={settings}
         workspace={{ id: 'w1', ...settings, scanEvidenceRetentionDays: 7 }}
-        workspaceName='Acme'
       />
     )
     const section = screen.getByTestId('data-retention-section')

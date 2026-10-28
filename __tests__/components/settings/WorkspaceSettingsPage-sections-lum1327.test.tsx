@@ -48,8 +48,12 @@ jest.mock(
   () => ({ WorkspaceExportCard: () => <div>export-card</div> })
 )
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/settings/WorkspaceDeletionCard',
-  () => ({ WorkspaceDeletionCard: () => <div>deletion-card</div> })
+  '@/app/workspace/[workspaceUrl]/components/settings/WorkspaceDeletionRow',
+  () => ({ WorkspaceDeletionRow: () => <div>deletion-card</div> })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/settings/AiDerivedContentDeleteRow',
+  () => ({ AiDerivedContentDeleteRow: () => <div>ai-delete-row</div> })
 )
 jest.mock('@/lib/plugins/client', () => ({
   PluginSlot: () => <div>plugin-cards</div>,
@@ -98,7 +102,12 @@ it('groups the settings into titled sections with jump links', async () => {
   const data = section('data-privacy')
   expect(within(data).getByText('retention-card')).toBeTruthy()
   expect(within(data).getByText('export-card')).toBeTruthy()
-  expect(within(section('danger-zone')).getByText('deletion-card')).toBeTruthy()
+  // Both irreversible actions sit in the danger zone, not in Data & privacy.
+  const danger = section('danger-zone')
+  expect(within(danger).getByText('Danger zone')).toBeTruthy()
+  expect(within(danger).getByText('ai-delete-row')).toBeTruthy()
+  expect(within(danger).getByText('deletion-card')).toBeTruthy()
+  expect(within(data).queryByText('ai-delete-row')).toBeNull()
 })
 
 it('drops the Code review section when no plugin fills the slot', async () => {

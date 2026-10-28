@@ -12,7 +12,9 @@ import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
-import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
+import { WorkspaceDeletionRow } from '../settings/WorkspaceDeletionRow'
+import { AiDerivedContentDeleteRow } from '../settings/AiDerivedContentDeleteRow'
+import { DangerZoneCard } from '../settings/DangerZoneCard'
 import {
   SettingsSection,
   SettingsSectionNav,
@@ -430,21 +432,24 @@ export function WorkspaceSettingsPage() {
                   workspace.aiDerivedContentEnabled ?? null,
               }}
               workspace={workspace}
-              workspaceName={workspace.name}
             />
             {/* GDPR data export (LUM-858). */}
             <WorkspaceExportCard key={`export:${workspace.id}`} />
           </SettingsSection>
         )}
 
-        {/* Danger zone — 48h undo window (LUM-918); the card carries its
-            own header. */}
+        {/* Danger zone — every irreversible action: deleting AI-derived
+            content (LUM-917) and the workspace, 48h undo (LUM-918). The
+            card carries its own header. */}
         {loaded && workspace && (
           <SettingsSection id='danger-zone'>
-            <WorkspaceDeletionCard
-              workspaceName={workspace.name}
-              onDeleted={handleDeleted}
-            />
+            <DangerZoneCard>
+              <AiDerivedContentDeleteRow workspaceName={workspace.name} />
+              <WorkspaceDeletionRow
+                workspaceName={workspace.name}
+                onDeleted={handleDeleted}
+              />
+            </DangerZoneCard>
           </SettingsSection>
         )}
       </div>

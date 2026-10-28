@@ -18,22 +18,23 @@ import { usePendingDeletion } from '../../hooks/usePendingDeletion'
 
 type DialogMode = 'schedule' | 'deleteNow'
 
-interface WorkspaceDeletionCardProps {
+interface WorkspaceDeletionRowProps {
   workspaceName: string
   /** Called after the workspace is actually gone (delete-now path). */
   onDeleted: () => void
 }
 
 /**
- * LUM-918 — the OWNER danger zone. Deleting schedules the purge 48h out;
- * while it is pending the card shows the deadline with cancel and
+ * LUM-918 — the delete-workspace row of the OWNER danger zone (LUM-1327:
+ * the card itself is `DangerZoneCard`). Deleting schedules the purge 48h
+ * out; while it is pending the row shows the deadline with cancel and
  * delete-now (the immediate-erasure path). Both destructive steps require
  * the workspace name to be typed.
  */
-export function WorkspaceDeletionCard({
+export function WorkspaceDeletionRow({
   workspaceName,
   onDeleted,
-}: WorkspaceDeletionCardProps) {
+}: WorkspaceDeletionRowProps) {
   const intl = useIntl()
   const { pendingDeletion, schedule, cancel, deleteNow } = usePendingDeletion()
   const [mode, setMode] = useState<DialogMode | null>(null)
@@ -90,65 +91,58 @@ export function WorkspaceDeletionCard({
 
   return (
     <>
-      <div className='rounded-lg border border-danger-border overflow-hidden'>
-        <div className='px-5 py-3 bg-danger-subtle border-b border-danger-border'>
-          <p className='text-body-strong text-danger-text'>
-            {intl.formatMessage({ id: 'workspaceSettings.dangerZone' })}
-          </p>
-        </div>
-        {pendingDeletion ? (
-          <div className='flex items-center justify-between px-5 py-4 gap-4'>
-            <div>
-              <p className='text-body-strong text-foreground'>
-                {intl.formatMessage({ id: 'workspaceDeletion.pendingTitle' })}
-              </p>
-              <p className='text-caption text-muted-foreground mt-0.5'>
-                {intl.formatMessage(
-                  { id: 'workspaceDeletion.pendingDesc' },
-                  { date: deadline }
-                )}
-              </p>
-            </div>
-            <div className='flex shrink-0 gap-2'>
-              <Button
-                variant='outline'
-                size='sm'
-                disabled={busy}
-                onClick={handleCancel}
-              >
-                {intl.formatMessage({ id: 'workspaceDeletion.cancel' })}
-              </Button>
-              <Button
-                variant='destructive'
-                size='sm'
-                disabled={busy}
-                onClick={() => setMode('deleteNow')}
-              >
-                {intl.formatMessage({ id: 'workspaceDeletion.deleteNow' })}
-              </Button>
-            </div>
+      {pendingDeletion ? (
+        <div className='flex items-center justify-between px-5 py-4 gap-4'>
+          <div>
+            <p className='text-body-strong text-foreground'>
+              {intl.formatMessage({ id: 'workspaceDeletion.pendingTitle' })}
+            </p>
+            <p className='text-caption text-muted-foreground mt-0.5'>
+              {intl.formatMessage(
+                { id: 'workspaceDeletion.pendingDesc' },
+                { date: deadline }
+              )}
+            </p>
           </div>
-        ) : (
-          <div className='flex items-center justify-between px-5 py-4'>
-            <div>
-              <p className='text-body-strong text-foreground'>
-                {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
-              </p>
-              <p className='text-caption text-muted-foreground mt-0.5'>
-                {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
-              </p>
-            </div>
+          <div className='flex shrink-0 gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={busy}
+              onClick={handleCancel}
+            >
+              {intl.formatMessage({ id: 'workspaceDeletion.cancel' })}
+            </Button>
             <Button
               variant='destructive'
               size='sm'
-              onClick={() => setMode('schedule')}
-              className='shrink-0 ml-4'
+              disabled={busy}
+              onClick={() => setMode('deleteNow')}
             >
-              {intl.formatMessage({ id: 'workspaceSettings.deleteWorkspace' })}
+              {intl.formatMessage({ id: 'workspaceDeletion.deleteNow' })}
             </Button>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className='flex items-center justify-between px-5 py-4'>
+          <div>
+            <p className='text-body-strong text-foreground'>
+              {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
+            </p>
+            <p className='text-caption text-muted-foreground mt-0.5'>
+              {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
+            </p>
+          </div>
+          <Button
+            variant='destructive'
+            size='sm'
+            onClick={() => setMode('schedule')}
+            className='shrink-0 ml-4'
+          >
+            {intl.formatMessage({ id: 'workspaceSettings.deleteWorkspace' })}
+          </Button>
+        </div>
+      )}
 
       <AlertDialog
         open={mode !== null}

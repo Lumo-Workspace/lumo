@@ -65,6 +65,7 @@ export function AiDerivedContentRow({
           ? intl.formatMessage({ id: 'dataRetention.aiDerived.offWarning' })
           : null
       }
+      dirty={choice !== saved}
       saving={saving}
       onSave={handleSave}
     />

@@ -50,8 +50,12 @@ jest.mock(
   () => ({ WorkspaceExportCard: () => null })
 )
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/settings/WorkspaceDeletionCard',
-  () => ({ WorkspaceDeletionCard: () => null })
+  '@/app/workspace/[workspaceUrl]/components/settings/WorkspaceDeletionRow',
+  () => ({ WorkspaceDeletionRow: () => null })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/settings/AiDerivedContentDeleteRow',
+  () => ({ AiDerivedContentDeleteRow: () => null })
 )
 jest.mock('@/lib/plugins/client', () => ({
   PluginSlot: () => null,
@@ -91,7 +95,7 @@ it('shows one language setting — the default language', async () => {
   expect(selects).toHaveLength(1)
   expect(screen.queryByText('Report Language')).toBeNull()
   expect(screen.queryByRole('option', { name: 'Chinese' })).toBeNull()
-  expect(screen.getByText(/AI summaries use it too/)).toBeTruthy()
+  expect(screen.getByText(/and AI summaries/)).toBeTruthy()
 })
 
 it('no longer offers the workspace briefing schedule (LUM-1228)', async () => {

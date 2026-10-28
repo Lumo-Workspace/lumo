@@ -31,13 +31,15 @@ interface RetentionRowProps {
   onChange: (value: string) => void
   /** Shown under the select when the pending choice is stricter than the saved one. */
   warning?: string | null
+  /** The choice differs from the saved one — only then is Save shown (LUM-1327). */
+  dirty: boolean
   saving: boolean
   onSave: () => void
 }
 
 /**
  * LUM-933 — one data category in Settings → Data retention: what is kept,
- * the choice, and its own save button. Presentational only; each category's
+ * the choice, and its own save button (shown once the choice changes). Presentational only; each category's
  * row owns its state and API call.
  */
 export function RetentionRow({
@@ -49,6 +51,7 @@ export function RetentionRow({
   value,
   onChange,
   warning,
+  dirty,
   saving,
   onSave,
 }: RetentionRowProps) {
@@ -75,7 +78,7 @@ export function RetentionRow({
           <Select value={value} onValueChange={onChange} disabled={saving}>
             <SelectTrigger
               id={`retention-${id}`}
-              className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none text-foreground'
+              className='h-8 min-w-0 flex-1 sm:w-56 sm:flex-none text-foreground'
             >
               <SelectValue />
             </SelectTrigger>
@@ -87,11 +90,13 @@ export function RetentionRow({
               ))}
             </SelectContent>
           </Select>
-          <Button size='sm' onClick={onSave} disabled={saving}>
-            {saving
-              ? intl.formatMessage({ id: 'common.saving' })
-              : intl.formatMessage({ id: 'common.save' })}
-          </Button>
+          {dirty && (
+            <Button size='sm' onClick={onSave} disabled={saving}>
+              {saving
+                ? intl.formatMessage({ id: 'common.saving' })
+                : intl.formatMessage({ id: 'common.save' })}
+            </Button>
+          )}
         </div>
       </div>
       {warning && (
