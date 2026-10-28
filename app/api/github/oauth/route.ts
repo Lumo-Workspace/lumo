@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/github/oauth?workspaceUrl={slug}
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`,
+    redirect_uri: `${resolveAppUrl()}/api/github/callback`,
     scope: 'read:user',
     state,
   })

@@ -5,6 +5,7 @@ import {
 } from '@/lib/integrations/email'
 import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 export interface DeletionNotice {
   kind: 'scheduled' | 'cancelled'
@@ -30,7 +31,7 @@ export async function sendDeletionNotice(
   ])
   const actor = profiles.get(notice.actorClerkId)
   const actorName = actor?.name ?? actor?.email ?? 'A workspace owner'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = resolveAppUrl() ?? 'http://localhost:3000'
   const { subject, html } = buildWorkspaceDeletionEmail({
     kind: notice.kind,
     workspaceName: notice.workspaceName,

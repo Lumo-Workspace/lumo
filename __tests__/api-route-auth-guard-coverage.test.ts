@@ -95,6 +95,8 @@ const ALLOW_LISTED: Record<string, string> = {
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
   'app/api/blob/public/[...path]/route.ts':
     'Intentionally public (LUM-1021): serves workspace logos on S3/disk storage; reads only the public namespace and logo-shaped paths',
+  'app/api/public-config/route.ts':
+    'Intentionally public (LUM-1325): the runtime NEXT_PUBLIC_* values every page loads before sign-in; no secrets, no database',
 }
 
 type RouteScan = {

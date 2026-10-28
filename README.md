@@ -60,45 +60,42 @@ Lumo runs on a single machine with Docker Compose: the app, Postgres
 No third-party account is needed — users sign in with built-in email +
 password accounts stored in your Postgres.
 
-**Prerequisites**: Docker with Compose v2, about 8 GB of memory available to
-Docker for the build, ~10 GB of disk, and `openssl`.
+**Prerequisites**: Docker with Compose v2 and `openssl`. The images are
+prebuilt for amd64 and arm64, so a small server is enough — nothing is
+compiled on it.
 
 ```bash
 git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
-cp .env.example .env
-
-# Required secrets
-sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
-  -e "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" .env \
-  && rm .env.bak
-for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
-  echo "$v=$(openssl rand -hex 32)"
-done >> .env
-grep -cE '^(CRON_SECRET|BETTER_AUTH_SECRET)=.+' .env   # must print 2
-
-docker compose up -d --build
+scripts/self-host/init.sh     # creates .env and generates every secret
+docker compose up -d
 ```
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 then create a workspace.
 
-Before you put it on a real domain:
+On a real domain with HTTPS (DNS pointed at the server, ports 80 and 443
+open):
 
-- **`NEXT_PUBLIC_APP_URL` is baked in at build time.** Set it to your public
-  URL in `.env` and run `docker compose up -d --build` again. Put a reverse
-  proxy (Caddy, nginx, Traefik) with TLS in front of ports 3000 and 6001.
-- **Set `LUMO_PUBLIC_URL` to the same URL.** Links Lumo writes outside the
-  app (CLI output, GitHub comments, notices) otherwise point at the hosted
-  service.
+```bash
+scripts/self-host/init.sh --url https://lumo.example.com
+docker compose --profile caddy up -d
+```
+
+`--url` sets every URL setting at once, and the `caddy` profile gets a
+certificate and serves the app and its realtime socket on that one domain.
+Changing the URL later needs no rebuild — re-run `init.sh --url` and
+`docker compose up -d`. Then:
+
 - **Configure email** (`SMTP_URL` or `RESEND_API_KEY`). Without it, nobody
-  can verify an address, so workspace invites cannot be accepted.
+  can verify an address, so workspace invites cannot be accepted. `init.sh`
+  warns while it is missing.
 - **Close sign-up** once your team has joined: `AUTH_DISABLE_SIGNUP=true`.
 
 AI features, GitHub / Slack / Figma / Google Drive / Sentry and social
 sign-in are optional; each is switched on by variables in `.env.example`
 and degrades cleanly when unset.
 
-Full guide — services, build-time settings, what works without optional
+Full guide — services, image versions, what works without optional
 services, upgrades and backups:
 [docs/self-hosting/README.md](docs/self-hosting/README.md). Integrations:
 [docs/self-hosting/integrations.md](docs/self-hosting/integrations.md).

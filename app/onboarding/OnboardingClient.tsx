@@ -14,12 +14,13 @@ import {
   workspaceUrlPrefixFromHost,
 } from '@/lib/workspace/url-prefix'
 import { Plus, X } from 'lucide-react'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 // Shown before the slug input. Derived from this deployment's own URL
-// (NEXT_PUBLIC_APP_URL, inlined at build time) so a self-hosted instance
+// (NEXT_PUBLIC_APP_URL, read at runtime) so a self-hosted instance
 // shows its own address rather than the hosted one.
 function configuredWorkspaceUrlPrefix(): string | null {
-  return workspaceUrlPrefixFromAppUrl(process.env.NEXT_PUBLIC_APP_URL)
+  return workspaceUrlPrefixFromAppUrl(resolveAppUrl())
 }
 
 // The page host never changes while mounted, so there is nothing to subscribe to.
@@ -28,7 +29,7 @@ function subscribeToNothing(): () => void {
 }
 
 function useWorkspaceUrlPrefix(): string {
-  // No usable build-time URL: fall back to the host the page is served from.
+  // No configured URL: fall back to the host the page is served from.
   // The server snapshot has no window, so it renders the bare fallback and
   // React swaps in the browser host after hydration without a mismatch.
   return useSyncExternalStore(
