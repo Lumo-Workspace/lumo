@@ -91,6 +91,7 @@ describe('pullRequestRepository.findForSecurityImport (LUM-1321)', () => {
       },
       select: {
         id: true,
+        provider: true,
         repo: true,
         number: true,
         state: true,

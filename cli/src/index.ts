@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node    "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory: never blocks DONE."
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -887,11 +887,11 @@ security
   .command('import <file>')
   .codex(readsLocalFile('<file>'))
   .description(
-    'Attach a security review you ran in Claude Code or Codex to the branch\'s open PR scan. <file> is SARIF 2.1.0 or { "findings": [{ file, line, severity, title, detail?, rule? }] }. Advisory: never blocks DONE.'
+    "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory: never blocks DONE."
   )
   .option(
     '--tool <tool>',
-    'The agent that ran the review: claude-code | codex (default: the agent this shell runs in)'
+    'The agent that ran the review: claude-code | codex (case-insensitive; default: the agent this shell runs in)'
   )
   .option(
     '--pr <number>',

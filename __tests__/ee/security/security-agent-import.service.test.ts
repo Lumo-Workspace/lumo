@@ -11,8 +11,11 @@ import { gunzipSync } from 'node:zlib'
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findForSecurityImport: jest.fn() },
 }))
-jest.mock('@/lib/integrations/github/confirmed-repositories', () => ({
-  loadConfirmedRepositories: jest.fn(),
+const mockLoadConfirmedRepositories = jest.fn()
+jest.mock('@/lib/integrations/git-provider/resolve', () => ({
+  gitProviderFor: () => ({
+    loadConfirmedRepositories: mockLoadConfirmedRepositories,
+  }),
 }))
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: jest.fn(),
@@ -30,7 +33,6 @@ jest.mock('@/ee/security/services/security-sarif-ingest-start', () => ({
 
 import { securityAgentImportService } from '@/ee/security/services/security-agent-import.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
 import { checkSarifIngestRateLimit } from '@/ee/security/services/security-sarif-rate-limit'
 import {
@@ -45,7 +47,7 @@ import {
 import type { AgentImportBody } from '@/ee/security/validation/security-agent-import'
 
 const findPr = pullRequestRepository.findForSecurityImport as jest.Mock
-const confirmed = loadConfirmedRepositories as jest.Mock
+const confirmed = mockLoadConfirmedRepositories
 const layers = loadSecurityLayers as jest.Mock
 const rateLimit = checkSarifIngestRateLimit as jest.Mock
 const put = putPrivateSarifBlob as jest.Mock

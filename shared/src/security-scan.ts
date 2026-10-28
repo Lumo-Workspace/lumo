@@ -44,6 +44,8 @@ export function isAgentReviewTool(value: string): value is AgentReviewTool {
 
 /** True for a finding row imported from a Claude Code / Codex review. */
 export function isAgentReviewRuleId(ruleId: string): boolean {
+  // A caller's row without the column (an old cached view) is not one.
+  if (typeof ruleId !== 'string') return false
   const [prefix, slug, ...rule] = ruleId.split(':')
   return (
     prefix === 'ext' &&

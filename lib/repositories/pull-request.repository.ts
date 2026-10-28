@@ -221,6 +221,7 @@ export const pullRequestRepository = {
       where: { workspaceId, provider: GITHUB_PROVIDER, repo, number },
       select: {
         id: true,
+        provider: true,
         repo: true,
         number: true,
         state: true,

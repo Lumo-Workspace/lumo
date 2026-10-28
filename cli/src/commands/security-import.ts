@@ -65,7 +65,7 @@ export async function securityImportCommand(
   deps: SecurityImportDeps = {}
 ): Promise<number> {
   const env = deps.env ?? process.env
-  const tool = opts.tool ?? detectAgentTool(env)
+  const tool = opts.tool?.toLowerCase() ?? detectAgentTool(env)
   if (tool === null) {
     console.error(
       `Error: pass --tool (${AGENT_REVIEW_TOOLS.join(' | ')}): this shell is not a Claude Code or Codex session`

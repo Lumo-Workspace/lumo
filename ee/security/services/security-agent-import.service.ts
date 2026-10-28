@@ -13,7 +13,7 @@
 import { gzipSync } from 'node:zlib'
 import { randomBytes } from 'node:crypto'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { parseSarif } from '@/ee/security/security-scan/sarif'
 import { loadSecurityLayers } from './security-workspace-switches.service'
 import { checkSarifIngestRateLimit } from './security-sarif-rate-limit'
@@ -94,7 +94,9 @@ export const securityAgentImportService = {
         409,
         `Pull request ${ref} head is ${pr.headSha.slice(0, 7)}, not ${body.headSha.slice(0, 7)}: push your commits, or review the PR head`
       )
-    const confirmed = await loadConfirmedRepositories(caller.workspaceId)
+    const confirmed = await gitProviderFor(pr).loadConfirmedRepositories(
+      caller.workspaceId
+    )
     if (confirmed(pr.repo) === null)
       throw fail(
         409,
