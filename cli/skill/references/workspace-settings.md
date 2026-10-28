@@ -12,8 +12,9 @@
 - **PR authors may resolve / approve by command** (**on by default**, not a layer) — the PR's author (with write access) may run `@uselumo resolve` and `@uselumo approve` on their own PR; off, only other write-access accounts may ([pr-scan.md](pr-scan.md)). Approve's preconditions (request-changes on, no blocking finding, latest head reviewed) and resolve never clearing a blocking finding are unchanged. `--disable-all` / `--enable-all` leave it unchanged.
 - **Learnings scope** (`local | global | auto`, **default `auto`**, not a layer) — which repositories' PR-review learnings (what reviewers told Lumo in review threads) the AI review reads. `local` = the reviewed repository only; `global` = every repository of this workspace (never another workspace); `auto` = local for a public repository, global for a private one — the visibility is read live from GitHub at review time, and when Lumo cannot read it the review stays local. Another repository's learning counts only once it is repository-wide there (its source PR merged) and relevant to the files under review; the reviewed repository's own learnings come first under the same cap (12 learnings / 4,000 characters). `--disable-all` / `--enable-all` leave it unchanged.
 - **Automatic review pause-after** (`0..100`, **default `5`**, not a layer) — every push to an open PR gets an automatic incremental AI review (and exploit-path hunt) until this many commits of that PR have been reviewed; then automatic review pauses until someone asks for a review or resumes (`lumo pr review --resume`, `@uselumo resume`). `0` = never pause. A PR's own `--resume --limit N` wins over it. Reviewed commits = the commits each reviewed push added (the first automatic review counts one commit; resume counts from the PR's current commits). An hourly cap per PR author also applies (20 automatic reviews per hour); a push over it is marked rate-limited and the next push after the hour is reviewed. `--disable-all` / `--enable-all` leave it unchanged.
+- **Imported agent reviews block Done** (`--agent-review-blocks off|high|medium|low`, **default `off`**, not a layer) — whether findings imported with `lumo review import` (rule ids `ext:claude-code:…` / `ext:codex:…`, [security-scan.md](security-scan.md)) block Done: `high` = HIGH, `medium` = MEDIUM and HIGH, `low` = every severity; off = advisory only. It sets only the `AGENT_REVIEW` entries of the workspace's Done policy (`securityPolicy`); every other entry is kept. A set of entries that is no single level (written through the raw API) reads `custom` until an owner picks one. `--disable-all` / `--enable-all` leave it unchanged.
 
-The platform env is the ceiling: a workspace can only turn a layer off, never on past it (the `Platform` column; `-` = no platform switch). `Runs` is what actually runs. Any member may read; changing is **OWNER only** — anyone else gets `Error: only workspace owners can change security-scan settings` (exit 1) before any confirmation envelope. Changes from either surface write the same `workspace.security_settings_updated` audit event: source `CLI` for this command (any API-key request), `WEB` for the settings card.
+The platform env is the ceiling: a workspace can only turn a layer off, never on past it (the `Platform` column; `-` = no platform switch). `Runs` is what actually runs. Any member may read; changing is **OWNER only** — anyone else gets `Error: only workspace owners can change security-scan settings` (exit 1) before any confirmation envelope. Changes from either surface write the same `workspace.security_settings_updated` audit event: source `CLI` for this command (any API-key request), `WEB` for the settings card. Agent-review blocking writes its own `workspace.agent_review_blocking_updated` event instead (`{ from, to }` levels plus the policy before and after); it is written as a compare-and-set, so a policy edit made at the same moment is kept, and one that keeps changing it fails with 409 (try again).
 
 ```bash
 lumo workspace security-scan show
@@ -26,6 +27,7 @@ lumo workspace security-scan update --allow-author-approval off --confirm  # aft
 lumo workspace security-scan update --learnings-scope local           # local | global | auto
 lumo workspace security-scan update --learnings-scope global --confirm  # after the user approved the envelope
 lumo workspace security-scan update --auto-pause-after 0              # review every push, never pause (default 5)
+lumo workspace security-scan update --agent-review-blocks medium --confirm  # after the user approved the envelope
 lumo workspace security-scan show --json
 ```
 
@@ -39,6 +41,7 @@ Agent behavior            on       off       no
 
 Request-changes workflow: off
 Learnings scope: auto
+Imported agent reviews block Done: off (advisory only)
 Automatic review: every push · pauses after 5 reviewed commits
 ```
 
@@ -47,9 +50,10 @@ Flags:
 - `--scan <on|off>`, `--ai-review <on|off>`, `--hunt <on|off>`, `--reward-hack <on|off>`, `--request-changes <on|off>`, `--allow-author-approval <on|off>` — set single switches (`true`/`false` also accepted).
 - `--learnings-scope <local|global|auto>` — the learnings scope (case-insensitive; anything else is an error, exit 1).
 - `--auto-pause-after <n>` — pause automatic review of a PR after `n` reviewed commits, a whole number `0..100` (`0` = never pause; anything else is an error, exit 1). No confirmation needed. The line reads `Automatic review: every push · never pauses` for `0`.
-- `--disable-all` / `--enable-all` — every layer switch at once (not the request-changes workflow, author approval, the learnings scope or the pause-after); cannot be combined with each other or with the single-switch flags.
+- `--agent-review-blocks <off|high|medium|low>` — which imported agent-review findings block Done (case-insensitive; anything else is an error, exit 1). **Any change is gated** (exit 4 envelope listing `off → …`; widening blocks members' tasks, narrowing lets imported findings through as advisory); the level already stored needs none. A server older than the setting refuses it with `Error: this Lumo server does not support --agent-review-blocks yet.` (exit 1) and `show` prints no line for it.
+- `--disable-all` / `--enable-all` — every layer switch at once (not the request-changes workflow, author approval, the learnings scope, the pause-after or agent-review blocking); cannot be combined with each other or with the single-switch flags.
 - **Turning anything off — and turning the request-changes workflow or author approval on, or switching the learnings scope to `global` — is gated** by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it exits 4 with an envelope listing each change and sends nothing (`global` lets a public repository's publicly posted review draw on private repositories' learnings; the settings card shows the same warning while `Global` is selected). Turning layer switches on, and `--learnings-scope local` / `auto`, need no confirmation.
-- `--json` prints `{ switches: { securityScanEnabled, securityAiReviewEnabled, securityHuntEnabled, securityRewardHackEnabled, securityRequestChangesEnabled, securityAllowAuthorApproval, securityLearningsScope, securityReviewAutoPauseAfter }, platform: { managedScan, hunt, rewardHack, sandbox }, effective: { scan, managedScan, aiReview, hunt, rewardHack, aiReviewTurnedOff, huntTurnedOff, rewardHackTurnedOff }, canEdit }` (`canEdit` = the caller is an OWNER).
+- `--json` prints `{ switches: { securityScanEnabled, securityAiReviewEnabled, securityHuntEnabled, securityRewardHackEnabled, securityRequestChangesEnabled, securityAllowAuthorApproval, securityLearningsScope, securityReviewAutoPauseAfter }, platform: { managedScan, hunt, rewardHack, sandbox }, effective: { scan, managedScan, aiReview, hunt, rewardHack, aiReviewTurnedOff, huntTurnedOff, rewardHackTurnedOff }, canEdit, agentReviewBlocking }` (`canEdit` = the caller is an OWNER; `agentReviewBlocking` = `off|high|medium|low|custom`).
 - On a server without the security plugin (e.g. a self-hosted open-source build) the command prints ``Error: `lumo workspace security-scan` is not available on this Lumo server — the security plugin is not installed there.`` and exits 1 (CLI ≥ 1.106.0); there are no switches to show or change.
 
 ### Per-repository automatic review — `--repos` / `--repo`
@@ -70,7 +74,7 @@ acme/app    on      off
 acme/web    off     off
 ```
 
-- `--review <on|off>` / `--drafts <on|off>` need `--repo`; neither combines with the switch flags (`--scan`, `--ai-review`, `--hunt`, `--reward-hack`, `--request-changes`, `--allow-author-approval`, `--learnings-scope`, `--auto-pause-after`, `--disable-all`, `--enable-all`).
+- `--review <on|off>` / `--drafts <on|off>` need `--repo`; neither combines with the switch flags (`--scan`, `--ai-review`, `--hunt`, `--reward-hack`, `--request-changes`, `--allow-author-approval`, `--learnings-scope`, `--auto-pause-after`, `--agent-review-blocks`, `--disable-all`, `--enable-all`).
 - A repository the workspace has not connected → `Error: repository … is not connected to this workspace` (exit 1).
 - Turning `--review` or `--drafts` **off** is gated by the confirmation protocol (exit 4, nothing sent); OWNER only, refused before any envelope for anyone else. Each change writes a `repository.review_settings_updated` audit event (target `repository`, `{ repo, from, to }`).
 
@@ -91,4 +95,5 @@ PR-review learnings are read with `lumo memory list --learnings [--repo owner/na
 - "What has Lumo learned from our review replies", "delete that learning", "undo a learning on a repo without a project" → `lumo memory list --learnings [--repo]`, then `lumo memory delete <ref>` (exits 4 first; relay the envelope).
 - "Use learnings from our other repos", "keep each repo's learnings separate", "share learnings across repositories" → `--learnings-scope global|local|auto` (`global` exits 4 first; relay the envelope).
 - "Review every push", "stop pausing reviews after a few pushes", "pause automatic review after N reviewed commits" → `--auto-pause-after <n>` (`0` = never pause).
+- "Make our Claude Code / Codex security reviews block Done", "imported findings should block", "stop imported findings blocking" → `--agent-review-blocks high|medium|low|off` (exits 4 first; relay the envelope).
 - **Never** turn a switch off on your own initiative (e.g. to make findings go away): relay the exit-4 envelope and let the user decide. Earlier blocking findings still block Done either way.

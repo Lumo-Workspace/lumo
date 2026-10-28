@@ -110,7 +110,9 @@ findings — the hunt above and the LLM review — can never be configured to
 block: the API refuses the value and the reader ignores it. A review the
 developer ran in their own Claude Code or Codex and imported with
 `lumo review import` is advisory too, unless an owner opts in with an
-`{ "provenance": "AGENT_REVIEW", "severity": … }` entry (LUM-1328); an
+`{ "provenance": "AGENT_REVIEW", "severity": … }` entry (LUM-1328; set it
+with `lumo workspace security-scan update --agent-review-blocks` or the
+settings card's "Imported agent reviews block Done", LUM-1329); an
 `EXTERNAL_TOOL` entry never covers it. That agent review is the default
 review: a workspace created since LUM-1328 starts with the LLM review and
 the hunt switched off, and `lumo task status` asks for an agent review on

@@ -143,6 +143,14 @@ export interface GitProviderRepoGating {
   ): Promise<(repository: string) => string | null>
   /** The workspace's confirmed list as stored; null when the platform is not connected. */
   findConfirmedRepositories(workspaceId: string): Promise<string[] | null>
+  /**
+   * LUM-1330 — the confirmed repository `repository` was renamed to, or null
+   * (not renamed, confirmed itself, or the platform keeps no rename record).
+   */
+  resolveRenamedRepository(
+    workspaceId: string,
+    repository: string
+  ): Promise<string | null>
   checkRepositoryWriteAccess(
     token: string,
     repositoryFullName: string,

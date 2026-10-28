@@ -34,6 +34,7 @@ jest.mock('@/ee/security/api-client', () => ({
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { securityScanClient } from '@/ee/security/api-client'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
+import type { AgentReviewBlockingView } from '@/ee/security/security-scan/policy'
 
 const updateSecurityScan = securityScanClient.updateSecurityScan as jest.Mock
 
@@ -48,18 +49,24 @@ const ALL_ON = {
   securityReviewAutoPauseAfter: 5,
 }
 
+/** LUM-1329 — the level the fake server holds (what renderCard started with). */
+let storedAgentReview: AgentReviewBlockingView = 'off'
+
 function renderCard(
   initial: WorkspaceSecuritySwitches = ALL_ON,
   huntAvailable = true,
   sandboxAvailable = true,
-  rewardHackAvailable = true
+  rewardHackAvailable = true,
+  agentReviewBlocking: AgentReviewBlockingView = 'off'
 ) {
+  storedAgentReview = agentReviewBlocking
   return render(
     <SecurityScanSwitchesCard
       initial={initial}
       huntAvailable={huntAvailable}
       rewardHackAvailable={rewardHackAvailable}
       sandboxAvailable={sandboxAvailable}
+      initialAgentReviewBlocking={agentReviewBlocking}
     />
   )
 }
@@ -68,21 +75,29 @@ const toggle = (name: string | RegExp) => screen.getByRole('switch', { name })
 
 beforeEach(() => {
   jest.clearAllMocks()
-  updateSecurityScan.mockImplementation(async (u: Record<string, boolean>) => ({
-    switches:
-      'all' in u
-        ? {
-            securityScanEnabled: u.all,
-            securityAiReviewEnabled: u.all,
-            securityHuntEnabled: u.all,
-            securityRewardHackEnabled: u.all,
-            securityRequestChangesEnabled: false,
-            securityAllowAuthorApproval: true,
-            securityLearningsScope: 'auto' as const,
-            securityReviewAutoPauseAfter: 5,
-          }
-        : { ...ALL_ON, ...u },
-  }))
+  updateSecurityScan.mockImplementation(
+    async ({ agentReviewBlocking, ...u }: Record<string, unknown>) => {
+      // LUM-1329: the server holds the level it was sent, else the one it had.
+      if (agentReviewBlocking !== undefined)
+        storedAgentReview = agentReviewBlocking as AgentReviewBlockingView
+      return {
+        agentReviewBlocking: storedAgentReview,
+        switches:
+          'all' in u
+            ? {
+                securityScanEnabled: u.all,
+                securityAiReviewEnabled: u.all,
+                securityHuntEnabled: u.all,
+                securityRewardHackEnabled: u.all,
+                securityRequestChangesEnabled: false,
+                securityAllowAuthorApproval: true,
+                securityLearningsScope: 'auto' as const,
+                securityReviewAutoPauseAfter: 5,
+              }
+            : { ...ALL_ON, ...u },
+      }
+    }
+  )
 })
 
 describe('LUM-866 SecurityScanSwitchesCard', () => {
@@ -371,4 +386,94 @@ describe('LUM-1234 agent behavior (reward-hack) switch', () => {
       screen.getByText('Currently turned off for all workspaces by Lumo.')
     ).toBeInTheDocument()
   })
+})
+
+describe('LUM-1329 imported agent reviews block Done', () => {
+  const level = () =>
+    screen.getByRole('combobox', {
+      name: 'Imported agent reviews block Done',
+    }) as HTMLSelectElement
+
+  it('is off by default with the four levels, and warns only while a level blocks', () => {
+    renderCard()
+    expect(level().value).toBe('off')
+    expect([...level().options].map(o => o.value)).toEqual([
+      'off',
+      'high',
+      'medium',
+      'low',
+    ])
+    expect(screen.queryByTestId('agent-review-blocking-warning')).toBeNull()
+    fireEvent.change(level(), { target: { value: 'medium' } })
+    expect(
+      screen.getByTestId('agent-review-blocking-warning')
+    ).toHaveTextContent(/blocks Done on every member’s task/)
+  })
+
+  it('changing it shows Save; an OWNER turns it on and it is saved with the switches', async () => {
+    renderCard()
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    fireEvent.change(level(), { target: { value: 'high' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ agentReviewBlocking: 'high' })
+      )
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    )
+    expect(level().value).toBe('high')
+  })
+
+  it('turns it back off', async () => {
+    renderCard(ALL_ON, true, true, true, 'low')
+    expect(level().value).toBe('low')
+    fireEvent.change(level(), { target: { value: 'off' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ agentReviewBlocking: 'off' })
+      )
+    )
+  })
+
+  it('an unrelated save does not send the level, so a newer level set elsewhere is kept', async () => {
+    renderCard(ALL_ON, true, true, true, 'off')
+    fireEvent.click(toggle('Exploitability check'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(updateSecurityScan).toHaveBeenCalled())
+    expect(updateSecurityScan.mock.calls[0]![0]).not.toHaveProperty(
+      'agentReviewBlocking'
+    )
+  })
+
+  it('a custom policy shows as custom and is not rewritten by an unrelated save', async () => {
+    renderCard(ALL_ON, true, true, true, 'custom')
+    expect(level().value).toBe('custom')
+    fireEvent.click(toggle('Exploitability check'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(updateSecurityScan).toHaveBeenCalled())
+    expect(updateSecurityScan.mock.calls[0]![0]).not.toHaveProperty(
+      'agentReviewBlocking'
+    )
+  })
+})
+
+it('LUM-1329 after a save the card shows the level the server echoes, not the one it loaded with', async () => {
+  renderCard(ALL_ON, true, true, true, 'off')
+  // Set elsewhere (e.g. from the CLI) after the page loaded.
+  storedAgentReview = 'medium'
+  fireEvent.click(toggle('Exploitability check'))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+  )
+  expect(
+    (
+      screen.getByRole('combobox', {
+        name: 'Imported agent reviews block Done',
+      }) as HTMLSelectElement
+    ).value
+  ).toBe('medium')
 })

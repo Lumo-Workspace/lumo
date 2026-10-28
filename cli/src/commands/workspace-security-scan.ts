@@ -23,6 +23,9 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   learningsScope?: string
   /** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
   autoPauseAfter?: string
+  /** LUM-1329 — off | high | medium | low: which imported agent-review
+   *  findings block Done (the policy's AGENT_REVIEW entries). */
+  agentReviewBlocks?: string
   disableAll?: boolean
   enableAll?: boolean
   json?: boolean
@@ -77,6 +80,15 @@ export interface SecurityScanSwitches {
 export type LearningsScope = 'local' | 'global' | 'auto'
 const LEARNINGS_SCOPES: readonly LearningsScope[] = ['local', 'global', 'auto']
 
+/** LUM-1329 — the agent-review blocking levels (`medium` = MEDIUM and HIGH). */
+export type AgentReviewBlocking = 'off' | 'high' | 'medium' | 'low'
+const AGENT_REVIEW_LEVELS: readonly AgentReviewBlocking[] = [
+  'off',
+  'high',
+  'medium',
+  'low',
+]
+
 /** The on/off switches (everything but the learnings scope and pause-after). */
 type OnOffSwitch = Exclude<
   keyof SecurityScanSwitches,
@@ -96,11 +108,16 @@ export interface SecurityScanSettingsView {
   }
   /** OWNER may change the switches; absent on a server older than this flag. */
   canEdit?: boolean
+  /** LUM-1329 — absent on a server older than the setting. `custom` = a set
+   *  of AGENT_REVIEW entries that is no single threshold (raw API). */
+  agentReviewBlocking?: AgentReviewBlocking | 'custom'
 }
 
 export type SecurityScanUpdate =
   | { all: boolean }
-  | Partial<SecurityScanSwitches>
+  | (Partial<SecurityScanSwitches> & {
+      agentReviewBlocking?: AgentReviewBlocking
+    })
 
 const SWITCH_LABELS: Record<OnOffSwitch, string> = {
   securityScanEnabled: 'Security scan (master)',
@@ -139,6 +156,16 @@ function parseAutoPauseAfter(value: string): number {
   return n
 }
 
+function parseAgentReviewBlocks(value: string): AgentReviewBlocking {
+  const v = value.trim().toLowerCase()
+  const level = AGENT_REVIEW_LEVELS.find(l => l === v)
+  if (!level)
+    throw new Error(
+      `--agent-review-blocks takes off, high, medium or low (got "${value}")`
+    )
+  return level
+}
+
 /**
  * The PATCH body the flags ask for, or null when no change was asked for
  * (a plain read). Throws on a conflicting or malformed combination.
@@ -146,7 +173,9 @@ function parseAutoPauseAfter(value: string): number {
 export function buildSecurityScanUpdate(
   opts: WorkspaceSecurityScanOptions
 ): SecurityScanUpdate | null {
-  const singles: Partial<SecurityScanSwitches> = {}
+  const singles: Partial<SecurityScanSwitches> & {
+    agentReviewBlocking?: AgentReviewBlocking
+  } = {}
   if (opts.scan !== undefined)
     singles.securityScanEnabled = parseOnOff('--scan', opts.scan)
   if (opts.aiReview !== undefined)
@@ -174,6 +203,8 @@ export function buildSecurityScanUpdate(
     singles.securityReviewAutoPauseAfter = parseAutoPauseAfter(
       opts.autoPauseAfter
     )
+  if (opts.agentReviewBlocks !== undefined)
+    singles.agentReviewBlocking = parseAgentReviewBlocks(opts.agentReviewBlocks)
 
   if (opts.disableAll && opts.enableAll) {
     throw new Error('use either --disable-all or --enable-all, not both')
@@ -182,7 +213,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after / --agent-review-blocks'
       )
     }
     return { all }
@@ -235,10 +266,14 @@ export function describeTurnOffs(
  * LUM-1130 — every change that needs the user's confirmation: the turn-offs
  * above, plus turning the request-changes workflow ON (it changes how Lumo's
  * review reads on every PR in the workspace — "Changes requested" / an
- * approval — which branch protection may count).
+ * approval — which branch protection may count), and LUM-1329's change to
+ * which imported agent-review findings block Done (either direction).
  */
 export function describeGatedChanges(
-  current: SecurityScanSwitches,
+  current: SecurityScanSwitches & {
+    /** LUM-1329 — the stored level (absent = off). */
+    agentReviewBlocking?: AgentReviewBlocking | 'custom' | undefined
+  },
   update: SecurityScanUpdate
 ): string[] {
   const lines = describeTurnOffs(current, update)
@@ -282,7 +317,55 @@ export function describeGatedChanges(
       'Including public repositories: their reviews (posted publicly on GitHub) may draw on learnings from your private repositories'
     )
   }
+  // LUM-1329: any change to which imported agent reviews block Done —
+  // widening blocks members' tasks, narrowing lets such findings through.
+  if ('agentReviewBlocking' in update && update.agentReviewBlocking) {
+    const next = update.agentReviewBlocking
+    const now = current.agentReviewBlocking ?? 'off'
+    if (next !== now) lines.push(...describeAgentReviewChange(now, next))
+  }
   return lines
+}
+
+/** LUM-1329 — the human label of an agent-review blocking level. */
+export function agentReviewBlockingLabel(
+  level: AgentReviewBlocking | 'custom'
+): string {
+  switch (level) {
+    case 'off':
+      return 'off (advisory only)'
+    case 'high':
+      return 'HIGH'
+    case 'medium':
+      return 'MEDIUM and HIGH'
+    case 'low':
+      return 'every severity'
+    case 'custom':
+      return 'custom (set through the API)'
+  }
+}
+
+const AGENT_REVIEW_RANK: Record<AgentReviewBlocking | 'custom', number> = {
+  off: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  custom: -1,
+}
+
+function describeAgentReviewChange(
+  now: AgentReviewBlocking | 'custom',
+  next: AgentReviewBlocking
+): string[] {
+  const head = `Will change: Imported agent reviews block Done — ${agentReviewBlockingLabel(now)} → ${agentReviewBlockingLabel(next)}`
+  const widens =
+    now === 'custom' || AGENT_REVIEW_RANK[next] > AGENT_REVIEW_RANK[now]
+  return [
+    head,
+    widens
+      ? 'Workspace-wide (every member’s tasks): an undispositioned Claude Code / Codex finding imported with `lumo review import` at that severity blocks Done until someone rules on it'
+      : 'Workspace-wide (every member’s tasks): imported Claude Code / Codex findings below that level no longer block Done — they stay on the PR scan as advisory',
+  ]
 }
 
 const onOff = (b: boolean) => (b ? 'on' : 'off')
@@ -347,6 +430,12 @@ export function formatSecurityScanSettings(
   if (s.switches.securityLearningsScope !== undefined) {
     lines.push(`Learnings scope: ${s.switches.securityLearningsScope}`)
   }
+  // LUM-1329: only a server that knows the setting reports it.
+  if (s.agentReviewBlocking !== undefined) {
+    lines.push(
+      `Imported agent reviews block Done: ${agentReviewBlockingLabel(s.agentReviewBlocking)}`
+    )
+  }
   // LUM-1137: every push is reviewed until N reviewed commits.
   const pauseAfter = s.switches.securityReviewAutoPauseAfter
   if (pauseAfter !== undefined) {
@@ -404,7 +493,23 @@ export async function workspaceSecurityScan(
       )
       return 1
     }
-    const changes = describeGatedChanges(current.data.switches, update)
+    // LUM-1329: a server older than the setting would reject the field.
+    if (
+      'agentReviewBlocking' in update &&
+      current.data.agentReviewBlocking === undefined
+    ) {
+      console.error(
+        'Error: this Lumo server does not support --agent-review-blocks yet.'
+      )
+      return 1
+    }
+    const changes = describeGatedChanges(
+      {
+        ...current.data.switches,
+        agentReviewBlocking: current.data.agentReviewBlocking,
+      },
+      update
+    )
     if (changes.length > 0 && !isConfirmed(opts)) {
       return emitConfirmation({
         command: 'workspace security-scan update',

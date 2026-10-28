@@ -24,6 +24,11 @@ import {
   type LearningsScope,
 } from '@/ee/security/security-scan/learnings-scope'
 import { AUTO_PAUSE_AFTER_MAX } from '@/ee/security/security-scan/review-control'
+import {
+  AGENT_REVIEW_BLOCKING_LEVELS,
+  type AgentReviewBlocking,
+  type AgentReviewBlockingView,
+} from '@/ee/security/security-scan/policy'
 
 /** LUM-1134 — the order the scope choices are offered in (default first). */
 const SCOPE_CHOICES: readonly LearningsScope[] = ['auto', 'local', 'global']
@@ -40,6 +45,8 @@ interface SecurityScanSwitchesCardProps {
    * say so instead of blaming a platform-wide switch.
    */
   sandboxAvailable: boolean
+  /** LUM-1329 — which imported agent-review findings block Done. */
+  initialAgentReviewBlocking: AgentReviewBlockingView
 }
 
 /** LUM-1327 — a sub-heading splitting the card's rows into groups. */
@@ -161,6 +168,86 @@ function ScopeRow({
   )
 }
 
+interface AgentReviewRowProps {
+  label: string
+  description: string
+  value: AgentReviewBlockingView
+  disabled: boolean
+  optionLabel: (level: AgentReviewBlockingView) => string
+  /** Shown while any level blocks (the CLI's confirmation, in words). */
+  blockingWarning: string
+  onChange: (next: AgentReviewBlocking) => void
+}
+
+/**
+ * LUM-1329 — the policy's AGENT_REVIEW entries as one choice: off, or the
+ * lowest severity of an imported agent-review finding that blocks Done. A
+ * set written through the raw API that is no single level shows as
+ * `custom` until the owner picks one.
+ */
+function AgentReviewRow({
+  label,
+  description,
+  value,
+  disabled,
+  optionLabel,
+  blockingWarning,
+  onChange,
+}: AgentReviewRowProps) {
+  const choices: AgentReviewBlockingView[] =
+    value === 'custom'
+      ? [...AGENT_REVIEW_BLOCKING_LEVELS, 'custom']
+      : [...AGENT_REVIEW_BLOCKING_LEVELS]
+  return (
+    <div className='flex flex-col gap-3 px-5 py-4 border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+      <div className='min-w-0 sm:flex-1'>
+        <Label
+          htmlFor='security-agent-review-blocking'
+          className='text-body-strong text-foreground'
+        >
+          {label}
+        </Label>
+        <p className='text-caption text-muted-foreground mt-0.5'>
+          {description}
+        </p>
+        {value !== 'off' && (
+          <Alert
+            variant='warning'
+            size='sm'
+            data-testid='agent-review-blocking-warning'
+            className='mt-2'
+          >
+            <AlertTriangle />
+            <AlertDescription>{blockingWarning}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+      <Select
+        value={value}
+        disabled={disabled}
+        onValueChange={v => {
+          const level = AGENT_REVIEW_BLOCKING_LEVELS.find(l => l === v)
+          if (level) onChange(level)
+        }}
+      >
+        <SelectTrigger
+          id='security-agent-review-blocking'
+          className='h-8 min-w-0 sm:w-56 sm:shrink-0 text-foreground'
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {choices.map(level => (
+            <SelectItem key={level} value={level} disabled={level === 'custom'}>
+              {optionLabel(level)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 interface PauseAfterRowProps {
   label: string
   description: string
@@ -235,12 +322,21 @@ export function SecurityScanSwitchesCard({
   huntAvailable,
   rewardHackAvailable,
   sandboxAvailable,
+  initialAgentReviewBlocking,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
   const queryClient = useQueryClient()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
   // LUM-1327: what the server holds — Save shows only when they differ.
   const [saved, setSaved] = useState<WorkspaceSecuritySwitches>(initial)
+  // LUM-1329: the agent-review level, and the one the server holds. A save
+  // sends it only when the owner changed it, so an unrelated save never
+  // undoes a newer level set elsewhere (e.g. from the CLI).
+  const [agentReview, setAgentReview] = useState<AgentReviewBlockingView>(
+    initialAgentReviewBlocking
+  )
+  const [savedAgentReview, setSavedAgentReview] =
+    useState<AgentReviewBlockingView>(initialAgentReviewBlocking)
   const [saving, setSaving] = useState(false)
   const t = (id: string) =>
     intl.formatMessage({ id: `workspaceSettings.securityScan.${id}` })
@@ -255,16 +351,26 @@ export function SecurityScanSwitchesCard({
     (next: boolean) =>
       setSwitches(prev => ({ ...prev, [key]: next }))
 
-  const dirty = (
-    Object.keys(switches) as (keyof WorkspaceSecuritySwitches)[]
-  ).some(key => switches[key] !== saved[key])
+  const agentReviewChanged =
+    agentReview !== savedAgentReview && agentReview !== 'custom'
+  const dirty =
+    agentReviewChanged ||
+    (Object.keys(switches) as (keyof WorkspaceSecuritySwitches)[]).some(
+      key => switches[key] !== saved[key]
+    )
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      const next = await securityScanClient.updateSecurityScan(switches)
+      const next = await securityScanClient.updateSecurityScan(
+        agentReviewChanged
+          ? { ...switches, agentReviewBlocking: agentReview }
+          : switches
+      )
       setSwitches(next.switches)
       setSaved(next.switches)
+      setAgentReview(next.agentReviewBlocking)
+      setSavedAgentReview(next.agentReviewBlocking)
       // LUM-1114: the AI review switch decides which rules are checked.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workspacePolicyCoverage(),
@@ -396,6 +502,17 @@ export function SecurityScanSwitchesCard({
             securityReviewAutoPauseAfter: next,
           }))
         }
+      />
+      {/* LUM-1329: not a layer — whether a developer's imported Claude
+          Code / Codex findings block Done. Off by default. */}
+      <AgentReviewRow
+        label={t('agentReviewBlocking.label')}
+        description={t('agentReviewBlocking.description')}
+        value={agentReview}
+        disabled={saving}
+        optionLabel={level => t(`agentReviewBlocking.${level}`)}
+        blockingWarning={t('agentReviewBlocking.warning')}
+        onChange={setAgentReview}
       />
 
       {dirty && (

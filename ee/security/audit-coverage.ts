@@ -23,6 +23,10 @@ export const SECURITY_AUDIT_INSTRUMENTED: Readonly<
   'ee/security/services/repo-review-settings.service.ts#update': [
     'repository.review_settings_updated',
   ],
+  // LUM-1329: the agent-review level, a compare-and-set on securityPolicy
+  // after update's OWNER check.
+  'ee/security/services/security-scan-settings.service.ts#writeAgentReviewBlocking':
+    ['workspace.agent_review_blocking_updated'],
 }
 
 /** OWNER-gated plugin units that are not sensitive mutations, with the reason. */
@@ -30,6 +34,11 @@ export const SECURITY_AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   // LUM-1002: `get` only reports whether the caller is an OWNER (`canEdit`);
   // the write goes through workspaceService.updateWorkspace, which is audited.
   'ee/security/services/security-scan-settings.service.ts#get': 'read-only',
+  // LUM-1329: `update` checks OWNER itself before the agent-review write;
+  // it writes only through audited units — writeAgentReviewBlocking above
+  // and workspaceService.updateWorkspace.
+  'ee/security/services/security-scan-settings.service.ts#update':
+    'writes only through audited units (writeAgentReviewBlocking, updateWorkspace)',
   // LUM-1133: `list` only reports whether the caller is an OWNER (`canEdit`).
   'ee/security/services/repo-review-settings.service.ts#list': 'read-only',
 }

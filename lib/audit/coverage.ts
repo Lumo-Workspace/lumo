@@ -217,6 +217,8 @@ export const AUDIT_PLUGIN_ACTIONS: readonly AuditAction[] = [
   'security_finding.suggestions_confirmed',
   // LUM-1133: per-repository automatic PR review settings
   'repository.review_settings_updated',
+  // LUM-1329: agent-review blocking (the policy's AGENT_REVIEW entries)
+  'workspace.agent_review_blocking_updated',
 ]
 
 /**

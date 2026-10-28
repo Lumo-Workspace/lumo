@@ -5480,6 +5480,14 @@
     "workspace security-scan update": {
       "arguments": [],
       "flags": {
+        "--agent-review-blocks": {
+          "long": "--agent-review-blocks",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which imported Claude Code / Codex findings (`lumo review import`) block Done (default off = advisory): high = HIGH, medium = MEDIUM and HIGH, low = every severity; any change needs --confirm"
+        },
         "--ai-review": {
           "long": "--ai-review",
           "short": null,
@@ -5739,7 +5747,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.",
+      "description": "Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off (or changing what blocks Done) needs --confirm.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
     "worktree": {

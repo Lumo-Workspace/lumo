@@ -323,6 +323,72 @@ describe('report with server context', () => {
     )
   })
 
+  it('LUM-1330 a renamed repository: names both and how to update the remote', () => {
+    const out = formatLocalScan(
+      result({
+        source: 'live',
+        note: null,
+        repo: 'acme/new',
+        renamedFrom: 'acme/old',
+        remoteUrl: 'git@github.com:acme/old.git',
+        fetchedAt: 't',
+        pullRequest: null,
+        policy: ctx().policy,
+        pr: null,
+      }),
+      { width: 200 }
+    )
+    expect(out).toContain('Server: acme/new · live · 0 would block DONE')
+    expect(out).toContain(
+      'Note: acme/old was renamed to acme/new. Update your git remote:'
+    )
+    // The remote keeps its form (ssh here), only the name changes.
+    expect(out).toContain(
+      '  git remote set-url origin git@github.com:acme/new.git'
+    )
+  })
+
+  it('LUM-1330 the old name came from --repo: says to pass the new one', () => {
+    const out = formatLocalScan(
+      result({
+        source: 'live',
+        note: null,
+        repo: 'acme/new',
+        renamedFrom: 'acme/old',
+        remoteUrl: null,
+        fetchedAt: 't',
+        pullRequest: null,
+        policy: ctx().policy,
+        pr: null,
+      }),
+      { width: 200 }
+    )
+    expect(out).toContain(
+      'Note: acme/old was renamed to acme/new. Pass --repo acme/new.'
+    )
+    expect(out).not.toContain('git remote set-url')
+  })
+
+  it('LUM-1330 --json carries renamedFrom (null when there was no rename)', () => {
+    const server = {
+      source: 'live' as const,
+      note: null,
+      repo: 'acme/new',
+      renamedFrom: 'acme/old',
+      fetchedAt: 't',
+      pullRequest: null,
+      policy: ctx().policy,
+      pr: null,
+    }
+    expect(localScanJson(result(server)).serverContext).toMatchObject({
+      repo: 'acme/new',
+      renamedFrom: 'acme/old',
+    })
+    expect(
+      localScanJson(result({ ...server, renamedFrom: null })).serverContext
+    ).toMatchObject({ renamedFrom: null })
+  })
+
   it('says why there is no context', () => {
     const out = formatLocalScan(
       result({

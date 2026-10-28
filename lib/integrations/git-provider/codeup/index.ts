@@ -533,6 +533,10 @@ export const codeupGitProvider: GitProvider = {
   findConfirmedRepositories(workspaceId) {
     return confirmedPaths(workspaceId)
   },
+  // LUM-1330: no rename record for Codeup.
+  async resolveRenamedRepository() {
+    return null
+  },
   async checkRepositoryWriteAccess() {
     return 'unknown'
   },
