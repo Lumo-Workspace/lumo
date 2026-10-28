@@ -22,7 +22,8 @@ file. Lumo is built around one rule: **nothing closes on the agent's word.**
   force-pushing to a protected branch is recorded the moment it happens,
   classified across 9 categories, and the irreversible ones are held before
   merge.
-- **Pull-request scanning.** Every pull request runs five layers before it
+- **Pull-request scanning** (Lumo Cloud; part of the proprietary security
+  plugin, see [License](#license)). Every pull request runs five layers before it
   merges — secrets (gitleaks), code scan (semgrep, zizmor, trivy),
   dependencies (osv-scanner), AI review, and an agent that hunts for a
   working exploit path. Findings land on the PR with a severity
