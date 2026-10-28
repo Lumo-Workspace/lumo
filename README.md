@@ -55,10 +55,11 @@ Prefer your own server? See [Self-hosting](#self-hosting) below.
 
 ## Self-hosting
 
-Lumo runs on a single machine with Docker Compose: the app, Postgres
-(pgvector), Redis, MinIO (file storage), Soketi (realtime) and a cron runner.
-No third-party account is needed — users sign in with built-in email +
-password accounts stored in your Postgres.
+Lumo runs on a single machine with Docker Compose. The default stack is
+four containers — the app, Postgres (pgvector), a one-shot migration and a
+cron runner — with uploaded files on a local volume. No third-party account
+is needed: users sign in with built-in email + password accounts stored in
+your Postgres.
 
 **Prerequisites**: Docker with Compose v2 and `openssl`. The images are
 prebuilt for amd64 and arm64, so a small server is enough — nothing is
@@ -66,28 +67,30 @@ compiled on it.
 
 ```bash
 git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
-scripts/self-host/init.sh     # creates .env and generates every secret
+scripts/self-host/setup.sh    # creates .env and generates the secrets
 docker compose up -d
 ```
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 then create a workspace.
 
-On a real domain with HTTPS (DNS pointed at the server, ports 80 and 443
-open):
+For a team on a real domain with HTTPS (DNS pointed at the server, ports 80
+and 443 open), add the optional components — realtime updates (Soketi),
+Redis and S3-compatible storage (MinIO):
 
 ```bash
-scripts/self-host/init.sh --url https://lumo.example.com
+scripts/self-host/setup.sh --url https://lumo.example.com --with all
 docker compose --profile caddy up -d
 ```
 
-`--url` sets every URL setting at once, and the `caddy` profile gets a
-certificate and serves the app and its realtime socket on that one domain.
-Changing the URL later needs no rebuild — re-run `init.sh --url` and
-`docker compose up -d`. Then:
+`--url` is the only URL you set, and the `caddy` profile gets a certificate
+and serves the app and its realtime socket on that one domain. `--with`
+also takes single components (`--with realtime`). Re-running `setup.sh`
+with new options and `docker compose up -d` changes either later, with no
+rebuild. Then:
 
 - **Configure email** (`SMTP_URL` or `RESEND_API_KEY`). Without it, nobody
-  can verify an address, so workspace invites cannot be accepted. `init.sh`
+  can verify an address, so workspace invites cannot be accepted. `setup.sh`
   warns while it is missing.
 - **Close sign-up** once your team has joined: `AUTH_DISABLE_SIGNUP=true`.
 

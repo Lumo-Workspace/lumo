@@ -2,7 +2,8 @@
 #
 # One origin for everything the browser talks to: the realtime socket
 # (pusher-js connects to /app/<key>) goes to Soketi, the rest to the app.
-# LUMO_DOMAIN comes from .env (scripts/self-host/init.sh --url sets it).
+# LUMO_DOMAIN comes from .env (scripts/self-host/setup.sh --url sets it).
+# /app/ needs the realtime overlay (deploy/self-host/compose.realtime.yml).
 {$LUMO_DOMAIN} {
 	handle /app/* {
 		reverse_proxy soketi:6001

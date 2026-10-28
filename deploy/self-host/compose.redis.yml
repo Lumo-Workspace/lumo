@@ -1,0 +1,24 @@
+# Optional overlay (LUM-1332): rate-limit counters in Redis, shared across
+# restarts and instances. Without it they live in the app's memory — fine for
+# the single instance docker-compose.yml runs, reset on every restart.
+# Loaded through COMPOSE_FILE (scripts/self-host/setup.sh --with redis).
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+
+volumes:
+  redis-data:

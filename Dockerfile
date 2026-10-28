@@ -98,6 +98,9 @@ COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/shared ./shared
 COPY --from=builder --chown=node:node /app/lib/db/database-url.ts ./lib/db/
 COPY --from=builder --chown=node:node /app/scripts/workflow-postgres-bootstrap.mjs ./scripts/
+# LOCAL_BLOB_DIR of docker-compose.yml (LUM-1332). A new named volume takes
+# this directory's owner, so the app can write its files there.
+RUN mkdir -p /var/lib/lumo/blobs && chown node:node /var/lib/lumo/blobs
 USER node
 EXPOSE 3000
 # `next start` must listen on $PORT — the in-process workflow worker delivers

@@ -22,6 +22,39 @@ const cronDockerfile = read('deploy/self-host/cron.Dockerfile')
 const envExample = read('.env.example')
 const runner = read('deploy/self-host/cron-run.sh')
 const guide = read('docs/self-hosting/README.md')
+const OVERLAYS = ['redis', 'minio', 'realtime'] as const
+const overlays = Object.fromEntries(
+  OVERLAYS.map(name => [name, read(`deploy/self-host/compose.${name}.yml`)])
+) as Record<(typeof OVERLAYS)[number], string>
+
+/** Top-level service names of a compose file. */
+function serviceNames(text: string): string[] {
+  const body = text.slice(text.indexOf('\nservices:\n'))
+  const end = body.indexOf('\nvolumes:')
+  return [
+    ...(end < 0 ? body : body.slice(0, end)).matchAll(
+      /^ {2}([a-z][a-z0-9-]*):$/gm
+    ),
+  ].map(m => m[1]!)
+}
+
+/** `KEY: value` entries under one service's `environment:` in an overlay. */
+function overlayEnvironment(
+  text: string,
+  service: string
+): Map<string, string> {
+  const lines = text.split('\n')
+  const start = lines.indexOf(`  ${service}:`)
+  const env = new Map<string, string>()
+  let inEnv = false
+  for (const line of lines.slice(start + 1)) {
+    if (/^ {0,2}\S/.test(line)) break
+    if (/^ {4}\S/.test(line)) inEnv = line === '    environment:'
+    const m = /^ {6}([A-Z][A-Z0-9_]*): (.*)$/.exec(line)
+    if (inEnv && m) env.set(m[1]!, m[2]!.replace(/^'(.*)'$/, '$1'))
+  }
+  return env
+}
 
 /** The indented block of one top-level compose service. */
 function serviceBlock(name: string): string {
@@ -148,14 +181,94 @@ describe('self-host compose: app wiring', () => {
     expect(missing).toEqual([])
   })
 
+  it('every app variable an overlay sets is documented in .env.example', () => {
+    const documented = documentedEnvNames()
+    const set = OVERLAYS.flatMap(name => [
+      ...overlayEnvironment(overlays[name], 'app').keys(),
+    ])
+    expect(set.length).toBeGreaterThan(0)
+    expect(set.filter(n => !documented.has(n))).toEqual([])
+  })
+
   it('every ${VAR} compose reads from .env is mentioned in .env.example', () => {
     const vars = new Set(
-      [...compose.matchAll(/\$\{([A-Z][A-Z0-9_]*)[:}-]/g)].map(m => m[1]!)
+      [compose, ...Object.values(overlays)].flatMap(text =>
+        [...text.matchAll(/\$\{([A-Z][A-Z0-9_]*)[:}-]/g)].map(m => m[1]!)
+      )
     )
     const missing = [...vars].filter(
       v => !new RegExp(`\\b${v}\\b`).test(envExample)
     )
     expect(missing).toEqual([])
+  })
+})
+
+describe('self-host compose: minimal base + optional overlays (LUM-1332)', () => {
+  const env = appEnvironment()
+
+  it('the base runs only Postgres, migrate, the app and cron (caddy / mailpit are profiles)', () => {
+    expect(serviceNames(compose)).toEqual([
+      'postgres',
+      'migrate',
+      'app',
+      'cron',
+      'caddy',
+      'mailpit',
+    ])
+    for (const name of [
+      'REDIS_URL',
+      'S3_BUCKET',
+      'PUSHER_HOST',
+      'NEXT_PUBLIC_PUSHER_HOST',
+    ]) {
+      expect(env.has(name)).toBe(false)
+    }
+  })
+
+  it('the base stores files on the blob-data volume, in the directory the image owns', () => {
+    expect(env.get('BLOB_STORAGE')).toBe('${BLOB_STORAGE:-disk}')
+    expect(env.get('LOCAL_BLOB_DIR')).toBe('/var/lib/lumo/blobs')
+    expect(serviceBlock('app')).toContain(
+      'volumes: [blob-data:/var/lib/lumo/blobs]'
+    )
+    expect(dockerfile).toContain(
+      'mkdir -p /var/lib/lumo/blobs && chown node:node /var/lib/lumo/blobs'
+    )
+  })
+
+  it('links that leave the app default to the app URL, not the hosted service', () => {
+    expect(env.get('LUMO_PUBLIC_URL')).toBe(
+      '${LUMO_PUBLIC_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}'
+    )
+  })
+
+  it('each overlay adds its service and the app wiring for it', () => {
+    expect(serviceNames(overlays.redis)).toEqual(['redis', 'app'])
+    expect(overlayEnvironment(overlays.redis, 'app').get('REDIS_URL')).toBe(
+      'redis://redis:6379'
+    )
+    expect(serviceNames(overlays.minio)).toEqual([
+      'minio',
+      'minio-init',
+      'migrate',
+      'app',
+    ])
+    const minio = overlayEnvironment(overlays.minio, 'app')
+    expect(minio.get('BLOB_STORAGE')).toBe('s3')
+    expect(minio.get('S3_ENDPOINT')).toBe('http://minio:9000')
+    expect(
+      overlayEnvironment(overlays.minio, 'migrate').get('BLOB_STORAGE')
+    ).toBe('s3')
+    expect(serviceNames(overlays.realtime)).toEqual(['soketi', 'app'])
+    expect(
+      overlayEnvironment(overlays.realtime, 'app').get('PUSHER_HOST')
+    ).toBe('soketi')
+  })
+
+  it('migrate refuses a .env that still holds MinIO files when the overlay is missing', () => {
+    expect(serviceBlock('migrate')).toContain(
+      'if [ "$$BLOB_STORAGE" = disk ] && [ -n "$${MINIO_ROOT_PASSWORD:-}" ]; then'
+    )
   })
 })
 
@@ -193,7 +306,11 @@ describe('self-host image: NEXT_PUBLIC_* build args', () => {
     }
     // Server and browser must agree on the Soketi app key.
     expect(build).toContain('NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}')
-    expect(appEnvironment().get('PUSHER_KEY')).toBe('${SOKETI_APP_KEY:-lumo}')
+    const realtime = overlayEnvironment(overlays.realtime, 'app')
+    expect(realtime.get('PUSHER_KEY')).toBe('${SOKETI_APP_KEY:-lumo}')
+    expect(realtime.get('NEXT_PUBLIC_PUSHER_KEY')).toBe(
+      '${SOKETI_APP_KEY:-lumo}'
+    )
   })
 })
 
