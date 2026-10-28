@@ -70,6 +70,12 @@ function slug(text: string): string {
   return s || 'finding'
 }
 
+/** `command-injection` → `Command injection`. */
+function humanize(ruleId: string): string {
+  const words = ruleId.replace(/-/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
@@ -84,8 +90,14 @@ function fromLumoJson(findings: unknown[], root: string): ImportSarifResult {
       ok: false,
       error: `${findings.length} findings — at most ${AGENT_REVIEW_MAX_FINDINGS} per import`,
     }
-  const rules = new Map<string, string>()
-  const results: unknown[] = []
+  const parsed: Array<{
+    ruleId: string
+    uri: string
+    line: number
+    sev: Severity
+    title: string
+    detail: string
+  }> = []
   for (const [i, raw] of findings.entries()) {
     const at = `findings[${i}]`
     if (!isRecord(raw)) return { ok: false, error: `${at} is not an object` }
@@ -118,27 +130,47 @@ function fromLumoJson(findings: unknown[], root: string): ImportSarifResult {
       typeof raw['rule'] === 'string' && raw['rule'].trim() !== ''
         ? slug(raw['rule'])
         : slug(title)
-    const shortTitle = clip(title, MAX_TITLE)
-    if (!rules.has(ruleId)) rules.set(ruleId, shortTitle)
-    results.push({
+    parsed.push({
       ruleId,
-      level: SEVERITY[sev].level,
-      message: {
-        text: detail
-          ? `${shortTitle}\n\n${clip(detail, MAX_DETAIL)}`
-          : shortTitle,
-      },
-      properties: { 'security-severity': SEVERITY[sev].score },
+      uri,
+      line,
+      sev,
+      title: clip(title, MAX_TITLE),
+      detail: clip(detail, MAX_DETAIL),
+    })
+  }
+  // The PR comment heads with the rule's description and shows the message
+  // under it. A rule with one title describes itself by it, and its messages
+  // carry the detail alone; a rule shared by differently titled findings is
+  // described by its name, and each message leads with its own title.
+  const titles = new Map<string, Set<string>>()
+  for (const p of parsed)
+    titles.set(p.ruleId, (titles.get(p.ruleId) ?? new Set()).add(p.title))
+  const rules = new Map<string, string>()
+  for (const [id, set] of titles)
+    rules.set(id, set.size === 1 ? [...set][0]! : humanize(id))
+  const results = parsed.map(p => {
+    const own = titles.get(p.ruleId)!.size === 1
+    const text = own
+      ? p.detail || p.title
+      : p.detail
+        ? `${p.title}\n\n${p.detail}`
+        : p.title
+    return {
+      ruleId: p.ruleId,
+      level: SEVERITY[p.sev].level,
+      message: { text },
+      properties: { 'security-severity': SEVERITY[p.sev].score },
       locations: [
         {
           physicalLocation: {
-            artifactLocation: { uri },
-            region: { startLine: line },
+            artifactLocation: { uri: p.uri },
+            region: { startLine: p.line },
           },
         },
       ],
-    })
-  }
+    }
+  })
   return {
     ok: true,
     results: results.length,

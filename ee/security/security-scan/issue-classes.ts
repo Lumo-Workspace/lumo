@@ -4,6 +4,7 @@
  * match (`finding-successor.ts`).
  */
 import { REVIEW_KINDS } from '@/ee/security/security-scan/review-kinds'
+import { isAgentReviewRuleId } from '@/shared/src/security-scan'
 
 /** The AI review kinds that the hunt's `injection` category covers (CWE-74 family). */
 const INJECTION_KINDS = [
@@ -43,9 +44,10 @@ const REVIEW_KIND_SET: ReadonlySet<string> = new Set(REVIEW_KINDS)
 
 /**
  * The issue classes a rule id stands for, in the AI review's kind
- * vocabulary. Only the two LLM layers have one — security (`vuln:`) and
- * correctness (`review:`) kinds alike; secrets and external-tool rules are
- * never grouped. An unknown hunt category is a class of its own.
+ * vocabulary. Only the LLM layers have one — security (`vuln:`) and
+ * correctness (`review:`) kinds alike, and an imported agent review
+ * (LUM-1321); secrets and CI scanner rules are never grouped. An unknown
+ * hunt category or agent rule is a class of its own.
  */
 export function issueClasses(ruleId: string): ReadonlySet<string> {
   if (ruleId.startsWith('vuln:') || ruleId.startsWith('review:')) {
@@ -55,6 +57,12 @@ export function issueClasses(ruleId: string): ReadonlySet<string> {
   if (ruleId.startsWith('hunt:')) {
     const category = ruleId.slice(5)
     return new Set(HUNT_CATEGORY_CLASSES[category] ?? [`hunt:${category}`])
+  }
+  // LUM-1321: an imported Claude Code / Codex review names its own rule; one
+  // that spells an AI review kind (`command-injection`) is that kind.
+  if (isAgentReviewRuleId(ruleId)) {
+    const kind = ruleId.split(':').slice(2).join(':').replace(/-/g, '_')
+    return REVIEW_KIND_SET.has(kind) ? new Set([kind]) : new Set([ruleId])
   }
   return NO_CLASS
 }

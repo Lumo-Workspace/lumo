@@ -66,9 +66,8 @@ describe('Lumo JSON', () => {
     expect(a).toMatchObject({
       ruleId: 'sql-injection',
       level: 'error',
-      message: {
-        text: 'SQL injection in search\n\nq reaches prisma.$queryRawUnsafe',
-      },
+      // The comment heads with the rule's title; the message adds the detail only.
+      message: { text: 'q reaches prisma.$queryRawUnsafe' },
       properties: { 'security-severity': '8.0' },
       locations: [
         {
@@ -80,7 +79,11 @@ describe('Lumo JSON', () => {
       ],
     })
     // No rule given: a stable slug of the title, so a re-import keeps the fingerprint.
-    expect(b).toMatchObject({ ruleId: 'verbose-error', level: 'note' })
+    expect(b).toMatchObject({
+      ruleId: 'verbose-error',
+      level: 'note',
+      message: { text: 'Verbose error' },
+    })
     expect(sarif.runs[0]!.tool.driver.rules).toEqual(
       expect.arrayContaining([
         {
@@ -90,6 +93,38 @@ describe('Lumo JSON', () => {
         { id: 'verbose-error', shortDescription: { text: 'Verbose error' } },
       ])
     )
+  })
+
+  it('a rule shared by differently titled findings is described by its name; each message leads with its title', () => {
+    const { sarif } = ok({
+      findings: [
+        {
+          file: 'a.ts',
+          line: 1,
+          severity: 'high',
+          title: 'exec in thumb',
+          detail: 'd1',
+          rule: 'command_injection',
+        },
+        {
+          file: 'a.ts',
+          line: 9,
+          severity: 'high',
+          title: 'exec in backup',
+          rule: 'command_injection',
+        },
+      ],
+    })
+    expect(sarif.runs[0]!.tool.driver.rules).toEqual([
+      {
+        id: 'command-injection',
+        shortDescription: { text: 'Command injection' },
+      },
+    ])
+    expect(sarif.runs[0]!.results.map(r => r.message.text)).toEqual([
+      'exec in thumb\n\nd1',
+      'exec in backup',
+    ])
   })
 
   it('accepts a bare array, critical as high, and an absolute path inside the repository', () => {

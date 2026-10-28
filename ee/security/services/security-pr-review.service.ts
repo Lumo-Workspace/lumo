@@ -106,6 +106,7 @@ import {
   type JudgePartialInput,
   type HuntProgressInput,
   type PrTooLargeInput,
+  isAgentReviewRuleId,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
@@ -555,7 +556,10 @@ export const alsoReportedMarker = (fp: string): string =>
  * can tell it is already listed.
  */
 export function alsoReportedLine(m: AlsoReportedFinding): string {
-  const label = SCAN_STAGE_LABELS[layerOf(m)]
+  // LUM-1321: an imported review names its agent (`claude-code`), not "Code scan".
+  const label = isAgentReviewRuleId(m.ruleId)
+    ? provenanceLabel(m)
+    : SCAN_STAGE_LABELS[layerOf(m)]
   const title = stripHtmlComments(m.title).replace(/\s+/g, ' ').trim()
   return `Same issue also reported by **${label}** · ${m.severity} — ${title}\n${alsoReportedMarker(m.fingerprint)}`
 }

@@ -41,6 +41,7 @@ import {
   classMatch,
   issueClasses,
 } from '@/ee/security/security-scan/issue-classes'
+import { isAgentReviewRuleId } from '@/shared/src/security-scan'
 
 export {
   classMatch,
@@ -65,6 +66,40 @@ export interface GroupableFinding {
 
 function layer(f: { ruleId: string }): 'judge' | 'hunt' {
   return f.ruleId.startsWith('hunt:') ? 'hunt' : 'judge'
+}
+
+/**
+ * LUM-1321 — who reported a finding, for grouping: the AI review, the hunt,
+ * or one imported agent review (`agent:claude-code`). Lumo's own layers keep
+ * the thread over an import of the same issue.
+ */
+function source(f: { ruleId: string }): string {
+  if (isAgentReviewRuleId(f.ruleId)) return `agent:${f.ruleId.split(':')[1]}`
+  return layer(f)
+}
+
+function sourceRank(f: { ruleId: string }): number {
+  const s = source(f)
+  return s === 'judge' ? 0 : s === 'hunt' ? 1 : 2
+}
+
+/**
+ * The same issue as `sameIssueScore`, which reads only the LLM layers; a pair
+ * with an imported agent finding is the same issue on the same file within
+ * `SUCCESSOR_LINE_WINDOW` lines and a related class — scored like it (same
+ * line, exact class, nearer first).
+ */
+function issueScore(a: GroupableFinding, b: GroupableFinding): number | null {
+  if (!isAgentReviewRuleId(a.ruleId) && !isAgentReviewRuleId(b.ruleId))
+    return sameIssueScore(identity(a), identity(b))
+  if (a.filePath !== b.filePath || a.line === null || b.line === null)
+    return null
+  const distance = Math.abs(a.line - b.line)
+  const classes = classMatch(a.ruleId, b.ruleId)
+  if (distance > SUCCESSOR_LINE_WINDOW || classes === null) return null
+  return (
+    (distance === 0 ? 2 : 0) + (classes === 'exact' ? 1 : 0) - distance / 100
+  )
 }
 
 const SEVERITY_RANK: Record<Severity, number> = {
@@ -123,7 +158,7 @@ function bestScoreAgainst<F extends GroupableFinding>(
   let best: number | null = null
   for (const m of g.members) {
     if (m !== g.kept && !sameCode(m, f)) continue
-    const score = sameIssueScore(identity(m), identity(f))
+    const score = issueScore(m, f)
     if (score !== null && (best === null || score > best)) best = score
   }
   return best
@@ -159,7 +194,8 @@ export function groupSameIssue<F extends GroupableFinding>(
   const resolved = opts.resolvedByUser ?? new Set<string>()
   const files = new Map<string, F[]>()
   for (const f of findings) {
-    if (f.provenance !== 'LLM_JUDGE' || f.line === null) continue
+    if (f.line === null) continue
+    if (f.provenance !== 'LLM_JUDGE' && !isAgentReviewRuleId(f.ruleId)) continue
     if (issueClasses(f.ruleId).size === 0) continue
     const bucket = files.get(f.filePath)
     if (bucket) bucket.push(f)
@@ -178,7 +214,7 @@ export function groupSameIssue<F extends GroupableFinding>(
         rb.blocking - ra.blocking ||
         rb.posted - ra.posted ||
         SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] ||
-        (layer(a) === layer(b) ? 0 : layer(a) === 'judge' ? -1 : 1) ||
+        sourceRank(a) - sourceRank(b) ||
         (a.line ?? 0) - (b.line ?? 0) ||
         (a.fingerprint < b.fingerprint
           ? -1
@@ -195,8 +231,12 @@ export function groupSameIssue<F extends GroupableFinding>(
         for (const g of groups) {
           // One AI-review finding per group: the AI review names each issue
           // once, so two of its findings are two issues — never joined, not
-          // even through a broad hunt finding both resemble.
-          if (layer(f) === 'judge' && g.members.some(m => layer(m) === 'judge'))
+          // even through a broad hunt finding both resemble. The same for
+          // each imported agent review (LUM-1321).
+          if (
+            source(f) !== 'hunt' &&
+            g.members.some(m => source(m) === source(f))
+          )
             continue
           if (
             resolved.has(g.kept.fingerprint) &&

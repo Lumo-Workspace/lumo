@@ -668,3 +668,69 @@ describe('LUM-1200 follow-up #5 groupingCandidates', () => {
     expect(groups.mergedInto.get('med')).toBe('low-threaded')
   })
 })
+
+describe('LUM-1321 — an imported Claude Code / Codex review joins the issue', () => {
+  const agent = (over: Partial<GroupableFinding> = {}) =>
+    f({
+      fingerprint: 'agent-fp',
+      ruleId: 'ext:claude-code:command-injection',
+      provenance: 'EXTERNAL_TOOL',
+      title: 'Command injection in makeThumbnail',
+      ...over,
+    })
+
+  it('reads the agent rule as an AI review kind (dashes or underscores), an unknown rule as its own class', () => {
+    expect([...issueClasses('ext:claude-code:command-injection')]).toEqual([
+      'command_injection',
+    ])
+    expect([...issueClasses('ext:codex:path_traversal')]).toEqual([
+      'path_traversal',
+    ])
+    expect([...issueClasses('ext:codex:leaky-logs')]).toEqual([
+      'ext:codex:leaky-logs',
+    ])
+  })
+
+  it("keeps Lumo's AI review thread and lists the agent's report of the same issue under it", () => {
+    const judge = f()
+    const g = groupSameIssue([agent(), judge], none)
+    expect(g.mergedInto.get('agent-fp')).toBe('judge-fp')
+    expect(g.mergedOf.get('judge-fp')).toEqual([agent()])
+  })
+
+  it('groups with the hunt too, and two agents reporting one issue share the thread', () => {
+    const g = groupSameIssue(
+      [
+        hunt(),
+        agent(),
+        agent({
+          fingerprint: 'codex-fp',
+          ruleId: 'ext:codex:command_injection',
+        }),
+      ],
+      none
+    )
+    expect(g.mergedInto.get('agent-fp')).toBe('hunt-fp')
+    expect(g.mergedInto.get('codex-fp')).toBe('hunt-fp')
+  })
+
+  it('never joins two issues one agent reported separately, nor a CI scanner row', () => {
+    const g = groupSameIssue(
+      [
+        agent(),
+        agent({
+          fingerprint: 'agent-2',
+          ruleId: 'ext:claude-code:command-injection',
+          title: 'Second exec call',
+        }),
+        f({
+          fingerprint: 'semgrep-fp',
+          ruleId: 'ext:semgrep:exec',
+          provenance: 'EXTERNAL_TOOL',
+        }),
+      ],
+      none
+    )
+    expect(g.mergedInto.size).toBe(0)
+  })
+})
