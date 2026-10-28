@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Изолированные машины для дополнений Lumo Cloud",
   "security.subprocessors.purpose.vercelAiGateway": "Маршрутизирует запросы к моделям ИИ с принудительным нулевым хранением данных",
   "security.subprocessors.purpose.neon": "Основная база данных для всех данных рабочего пространства",
-  "security.subprocessors.purpose.clerk": "Прежний провайдер входа: хранит уже имеющиеся данные учётных записей на период возможного отката; удаляются не позднее 2026-11-11",
   "security.subprocessors.purpose.pusher": "Обновления в реальном времени в открытых вкладках браузера",
   "security.subprocessors.purpose.upstash": "Ограничение частоты запросов",
   "security.subprocessors.purpose.resend": "Транзакционные письма: одноразовые коды для входа, приглашения в рабочее пространство, уведомления об удалении и об изменениях субобработчиков",

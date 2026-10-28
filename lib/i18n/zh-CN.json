@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "供 Lumo Cloud 附加功能使用的隔离机器",
   "security.subprocessors.purpose.vercelAiGateway": "在强制执行零数据保留的前提下路由 AI 模型请求",
   "security.subprocessors.purpose.neon": "存放所有工作区数据的主数据库",
-  "security.subprocessors.purpose.clerk": "原登录服务：回滚期内仅保留已有的账户数据，2026-11-11 前删除",
   "security.subprocessors.purpose.pusher": "已打开浏览器标签页中的实时更新",
   "security.subprocessors.purpose.upstash": "速率限制",
   "security.subprocessors.purpose.resend": "事务性邮件：一次性登录验证码、工作区邀请、删除通知和子处理方变更通知",

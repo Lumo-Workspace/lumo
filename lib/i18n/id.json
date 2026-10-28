@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Mesin terisolasi untuk add-on Lumo Cloud",
   "security.subprocessors.purpose.vercelAiGateway": "Merutekan permintaan model AI dengan tanpa retensi data yang diberlakukan",
   "security.subprocessors.purpose.neon": "Basis data utama untuk semua data ruang kerja",
-  "security.subprocessors.purpose.clerk": "Penyedia masuk sebelumnya: menyimpan data akun yang sudah dimilikinya selama masa rollback; dihapus paling lambat 2026-11-11",
   "security.subprocessors.purpose.pusher": "Pembaruan langsung di tab browser yang terbuka",
   "security.subprocessors.purpose.upstash": "Pembatasan laju permintaan",
   "security.subprocessors.purpose.resend": "Email transaksional: kode masuk sekali pakai, undangan ruang kerja, pemberitahuan penghapusan, dan pemberitahuan perubahan subprosesor",

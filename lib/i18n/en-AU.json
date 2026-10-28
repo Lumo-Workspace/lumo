@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Isolated machines for Lumo Cloud add-ons",
   "security.subprocessors.purpose.vercelAiGateway": "Routes AI model requests with zero data retention enforced",
   "security.subprocessors.purpose.neon": "Primary database for all workspace data",
-  "security.subprocessors.purpose.clerk": "Former sign-in provider: keeps the account data it already held during the rollback period; deleted by 2026-11-11",
   "security.subprocessors.purpose.pusher": "Live updates in open browser tabs",
   "security.subprocessors.purpose.upstash": "Rate limiting",
   "security.subprocessors.purpose.resend": "Transactional emails: one-time sign-in codes, workspace invitations, deletion notices and subprocessor change notices",

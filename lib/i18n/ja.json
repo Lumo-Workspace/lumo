@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Lumo Cloud のアドオン用の隔離されたマシン",
   "security.subprocessors.purpose.vercelAiGateway": "ゼロデータ保持を強制した上で AI モデルへのリクエストをルーティング",
   "security.subprocessors.purpose.neon": "すべてのワークスペースデータを保存するプライマリデータベース",
-  "security.subprocessors.purpose.clerk": "以前のサインインプロバイダー：ロールバック期間中、保持済みのアカウントデータのみを保管。2026-11-11 までに削除",
   "security.subprocessors.purpose.pusher": "開いているブラウザタブへのリアルタイム更新",
   "security.subprocessors.purpose.upstash": "レート制限",
   "security.subprocessors.purpose.resend": "トランザクションメール：ワンタイムのサインインコード、ワークスペースへの招待、削除のお知らせ、サブプロセッサー変更のお知らせ",

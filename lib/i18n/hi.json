@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Lumo Cloud ऐड-ऑन के लिए पृथक मशीनें",
   "security.subprocessors.purpose.vercelAiGateway": "शून्य डेटा प्रतिधारण लागू करते हुए AI मॉडल अनुरोधों को रूट करता है",
   "security.subprocessors.purpose.neon": "सभी कार्यक्षेत्र डेटा के लिए प्राथमिक डेटाबेस",
-  "security.subprocessors.purpose.clerk": "पूर्व साइन-इन प्रदाता: रोलबैक अवधि के दौरान पहले से मौजूद खाता डेटा रखता है; 2026-11-11 तक हटा दिया जाएगा",
   "security.subprocessors.purpose.pusher": "खुले ब्राउज़र टैब में लाइव अपडेट",
   "security.subprocessors.purpose.upstash": "दर सीमित करना (रेट लिमिटिंग)",
   "security.subprocessors.purpose.resend": "लेन-देन संबंधी ईमेल: एक बार उपयोग होने वाले साइन-इन कोड, कार्यक्षेत्र आमंत्रण, हटाने की सूचनाएँ और उप-प्रोसेसर में बदलाव की सूचनाएँ",

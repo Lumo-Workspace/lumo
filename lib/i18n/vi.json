@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Các máy biệt lập cho tiện ích bổ sung của Lumo Cloud",
   "security.subprocessors.purpose.vercelAiGateway": "Định tuyến yêu cầu đến mô hình AI với chế độ không lưu giữ dữ liệu được áp dụng",
   "security.subprocessors.purpose.neon": "Cơ sở dữ liệu chính cho toàn bộ dữ liệu không gian làm việc",
-  "security.subprocessors.purpose.clerk": "Nhà cung cấp đăng nhập trước đây: chỉ giữ dữ liệu tài khoản sẵn có trong thời gian dự phòng khôi phục; xóa chậm nhất vào 2026-11-11",
   "security.subprocessors.purpose.pusher": "Cập nhật trực tiếp trong các tab trình duyệt đang mở",
   "security.subprocessors.purpose.upstash": "Giới hạn tần suất yêu cầu",
   "security.subprocessors.purpose.resend": "Email giao dịch: mã đăng nhập dùng một lần, lời mời tham gia không gian làm việc, thông báo xóa và thông báo thay đổi bên xử lý phụ",

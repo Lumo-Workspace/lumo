@@ -1,6 +1,6 @@
 # Lumo Subprocessors
 
-Last updated: 2026-10-14 · Draft for legal review (LUM-857)
+Last updated: 2026-10-28 · Draft for legal review (LUM-857)
 
 This page lists the third parties ("subprocessors") that [Lumo legal entity] ("Lumo", "we") engages to process Customer Personal Data on behalf of our customers when providing the Lumo service. It is the list referenced by the Lumo Data Processing Agreement (DPA). We notify customers of changes as described in "Changes to this list" below.
 
@@ -15,7 +15,6 @@ These subprocessors process data for every workspace.
 | Vercel Inc. | Vercel Sandbox | Short-lived isolated virtual machines that clone a customer repository to run static security analysis on a pull request; the machine is discarded after the scan | Customer source code | United States |
 | Vercel Inc. | Vercel AI Gateway | Routes every model request to an LLM hosting provider; every request except boundary-crossing triage is sent with zero data retention enforced, and the gateway itself does not retain prompts or outputs | Prompts and outputs (may contain customer code) | Global edge network; no retention |
 | Neon Inc. (a Databricks company) | Serverless Postgres | Primary database for all workspace data | All stored customer data | United States (AWS us-east-1) |
-| Clerk Inc. | Authentication | Former sign-in provider: since 2026-10-12 it no longer handles sign-in and only keeps the account data it already held, so that Lumo can switch back if needed; that data is deleted no later than 2026-11-11 | Name, email address, profile image, authentication metadata | United States |
 | Pusher Ltd. | Pusher Channels | Real-time updates pushed to open browser tabs | Task and activity update events | United States (us2 cluster) |
 | Upstash Inc. (via Vercel KV) | Redis key-value store | Rate limiting of API and upload endpoints | Request counters keyed by workspace or token identifier | United States |
 | Resend Inc. | Transactional email | Sends transactional emails: one-time sign-in codes, workspace invitations, workspace deletion notices to workspace owners, and subprocessor change notices to workspace owners | Recipient email address, one-time sign-in code, workspace name, name of the member who sent the invitation or requested the deletion | United States |
@@ -76,5 +75,6 @@ The main tables above list only subprocessors in effect on the "Last updated" da
 | 2026-10-12-resend-purpose | 2026-10-12 | 2026-10-12 | Resend (transactional email): purpose now also includes one-time sign-in codes, since Lumo moved sign-in to its own authentication service on 2026-10-12. These emails are already being sent; nothing else changes. |
 | 2026-10-12-clerk-purpose | 2026-10-12 | 2026-10-12 | Clerk (authentication): no longer handles sign-in since Lumo moved sign-in to its own authentication service on 2026-10-12. Clerk keeps the account data it already held only so that Lumo can switch back if needed, and that data is deleted no later than 2026-11-11. |
 | 2026-10-14-anthropic-purpose | 2026-10-14 | 2026-10-14 | Anthropic (AI model hosting): purpose extended from AI code review to AI code review and security hunt of pull requests, because the model the hunt ran on through Alibaba Cloud was withdrawn. Hunt requests go only to Anthropic's own API under zero data retention; no subprocessor is added. |
+| 2026-10-28-clerk-removed | 2026-10-28 | 2026-10-28 | Clerk (authentication) removed: its instance, and with it the account data it still held from before Lumo moved sign-in to its own authentication service, was deleted on 2026-10-28. |
 
 Workspace owners receive change notices automatically. A customer can ask [privacy@uselumo.ai] to send these notices to one additional recipient address as well, which we record manually. Anyone else who wants to hear about changes, or who has a question about this list, can contact [privacy@uselumo.ai].

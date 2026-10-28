@@ -2518,7 +2518,6 @@
   "oss.security.subprocessors.purpose.vercelSandbox": "Máquinas aisladas para los complementos de Lumo Cloud",
   "security.subprocessors.purpose.vercelAiGateway": "Enruta las solicitudes a modelos de IA con retención cero de datos aplicada",
   "security.subprocessors.purpose.neon": "Base de datos principal para todos los datos del espacio de trabajo",
-  "security.subprocessors.purpose.clerk": "Antiguo proveedor de inicio de sesión: conserva los datos de cuenta que ya tenía durante el periodo de reversión; se eliminarán antes del 2026-11-11",
   "security.subprocessors.purpose.pusher": "Actualizaciones en tiempo real en las pestañas abiertas del navegador",
   "security.subprocessors.purpose.upstash": "Limitación de frecuencia",
   "security.subprocessors.purpose.resend": "Correos transaccionales: códigos de inicio de sesión de un solo uso, invitaciones al espacio de trabajo, avisos de eliminación y avisos de cambios de subencargados",
