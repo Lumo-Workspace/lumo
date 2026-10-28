@@ -19,6 +19,7 @@ import {
 } from '@/ee/security/security-scan/policy'
 
 const f = (over: Partial<ProfileFinding> = {}): ProfileFinding => ({
+  ruleId: 'vuln:sql_injection',
   line: 3,
   severity: 'MEDIUM',
   provenance: 'LLM_JUDGE',

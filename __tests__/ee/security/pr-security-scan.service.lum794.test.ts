@@ -251,6 +251,7 @@ describe('LUM-794 agent-loop finding', () => {
     const row = repo.persistResult.mock.calls[0]![1][0]!
     expect(
       isBlockingFinding({
+        ruleId: row.ruleId,
         provenance: row.provenance,
         severity: row.severity,
         disposition: null,
@@ -260,6 +261,7 @@ describe('LUM-794 agent-loop finding', () => {
     // rows being harmless: the same provenance at HIGH does block.
     expect(
       isBlockingFinding({
+        ruleId: row.ruleId,
         provenance: row.provenance,
         severity: 'HIGH',
         disposition: null,

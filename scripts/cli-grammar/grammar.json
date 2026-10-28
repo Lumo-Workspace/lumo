@@ -2970,7 +2970,52 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Run Lumo security scans on your local changes before you push. Read-only; the PR scan stays the authority for DONE."
+      "description": "Run Lumo security scans on your local changes before you push (read-only), or import a Claude Code / Codex security review into the branch's PR scan. The PR scan stays the authority for DONE."
+    },
+    "security import": {
+      "arguments": [{ "name": "file", "required": true, "variadic": false }],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the result ({ version, runId, repository, prNumber, headSha, tool, results })"
+        },
+        "--pr": {
+          "long": "--pr",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The pull request to import into, instead of the branch's open one"
+        },
+        "--repo": {
+          "long": "--repo",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The repository of the pull request, instead of origin's"
+        },
+        "--tool": {
+          "long": "--tool",
+          "short": null,
+          "value": "required",
+          "enum": ["claude-code", "codex"],
+          "enumCaseInsensitive": true,
+          "description": "The agent that ran the review: claude-code | codex (case-insensitive; default: the agent this shell runs in)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory: never blocks DONE.",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "reads",
+        "detail": "reads the report file <file> and uploads it to Lumo"
+      }
     },
     "security scan": {
       "arguments": [],

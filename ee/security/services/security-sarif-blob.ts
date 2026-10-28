@@ -29,6 +29,22 @@ export async function fetchPrivateBlob(
   return Buffer.from(arrayBuffer)
 }
 
+/**
+ * LUM-1321 — store a report the server received in the request body (`lumo
+ * security import`), so it enters the same ingest run as a CI push.
+ */
+export async function putPrivateSarifBlob(
+  pathname: string,
+  gz: Buffer
+): Promise<{ url: string; pathname: string }> {
+  const storage = await getBlobStorage()
+  const blob = await storage.put(pathname, gz, {
+    access: 'private',
+    contentType: 'application/gzip',
+  })
+  return { url: blob.url, pathname: blob.pathname }
+}
+
 export async function deleteBlob(url: string): Promise<void> {
   const storage = await getBlobStorage()
   await storage.delete(url, 'private')

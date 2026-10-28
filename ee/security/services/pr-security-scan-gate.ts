@@ -42,6 +42,7 @@ import { securityColumnsRepository } from '@/ee/security/repositories/security-c
  */
 export function isBlockingFinding(
   f: {
+    ruleId: string
     provenance: FindingProvenance
     severity: FindingSeverity
     disposition: FindingDisposition | null

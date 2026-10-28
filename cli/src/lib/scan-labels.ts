@@ -1,4 +1,5 @@
 import { matchPathGlob } from '../../../shared/src/path-glob'
+import { isAgentReviewRuleId } from '../../../shared/src/security-scan'
 import type { LocalScanner } from './local-scan-report'
 import type { ScanContext } from './scan-context'
 
@@ -60,10 +61,11 @@ export const SCANNER_PROVENANCE: Record<LocalScanner, Provenance> = {
 /**
  * Same predicate as the server's `isBlockingUnderPolicy`: an undispositioned,
  * non-persisting finding whose { provenance, severity } the policy lists.
- * An LLM finding never blocks.
+ * An LLM finding (LLM_JUDGE, or an imported agent review) never blocks.
  */
 export function isBlockingUnderPolicy(
   f: {
+    ruleId: string
     provenance: Provenance
     severity: Severity
     disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK' | null
@@ -73,6 +75,7 @@ export function isBlockingUnderPolicy(
 ): boolean {
   if (f.disposition !== null || f.persisting) return false
   if (f.provenance === 'LLM_JUDGE') return false
+  if (isAgentReviewRuleId(f.ruleId)) return false
   return policy.block.some(
     r => r.provenance === f.provenance && r.severity === f.severity
   )
@@ -103,6 +106,7 @@ export function labelFinding(f: LabelInput, ctx: ScanContext): ServerLabel {
     : null
   const wouldBlockDone = isBlockingUnderPolicy(
     {
+      ruleId: f.ruleId,
       provenance: SCANNER_PROVENANCE[f.scanner],
       severity: f.severity,
       disposition: ruling && carriesOver ? ruling.disposition : null,
