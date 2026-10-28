@@ -1,4 +1,4 @@
-#!/usr/bin/env node    "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory: never blocks DONE."
+#!/usr/bin/env node
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'

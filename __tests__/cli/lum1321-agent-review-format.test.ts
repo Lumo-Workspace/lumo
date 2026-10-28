@@ -255,3 +255,15 @@ describe('detectAgentTool', () => {
     expect(detectAgentTool({})).toBeNull()
   })
 })
+
+describe('the CLI entrypoint', () => {
+  it('keeps a bare shebang line (anything after `node` breaks the installed binary)', () => {
+    const first = require('fs')
+      .readFileSync(
+        require('path').join(__dirname, '../../cli/src/index.ts'),
+        'utf8'
+      )
+      .split('\n')[0]
+    expect(first).toBe('#!/usr/bin/env node')
+  })
+})

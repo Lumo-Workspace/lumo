@@ -118,7 +118,7 @@ function fromLumoJson(findings: unknown[], root: string): ImportSarifResult {
       }
     const sevRaw = String(raw['severity'] ?? '').toLowerCase()
     const sev = (sevRaw === 'critical' ? 'high' : sevRaw) as Severity
-    if (!(sev in SEVERITY))
+    if (!Object.prototype.hasOwnProperty.call(SEVERITY, sev))
       return {
         ok: false,
         error: `${at}.severity must be high, medium or low (got ${JSON.stringify(raw['severity'] ?? null)})`,
