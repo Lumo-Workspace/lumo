@@ -8,7 +8,8 @@
  * handler → nothing happens.
  */
 import { logger } from '@/lib/logger'
-import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
+// The ids module only: the event bus must not load the port's other modules.
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider/ids'
 import { getPluginRegistry } from './registry'
 import type { CoreEventHandler, CoreEvents, GithubCoreEvent } from './types'
 

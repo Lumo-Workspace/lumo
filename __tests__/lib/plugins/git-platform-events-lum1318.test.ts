@@ -18,6 +18,7 @@ const plugin: LumoServerPlugin = {
     api.on('git.reviewComment', p => void seen.push(['git.reviewComment', p]))
     api.on('git.reviewThread', p => void seen.push(['git.reviewThread', p]))
     api.on('git.pullRequest', p => void seen.push(['git.pullRequest', p]))
+    api.on('task.prLinked', p => void seen.push(['task.prLinked', p]))
   },
 }
 
@@ -67,6 +68,8 @@ describe('git.* events', () => {
 
   it('a non-Git event is delivered once', () => {
     emitCoreEvent('task.prLinked', { taskId: 't', pullRequestId: 'p' })
-    expect(seen).toEqual([])
+    expect(seen).toEqual([
+      ['task.prLinked', { taskId: 't', pullRequestId: 'p' }],
+    ])
   })
 })
