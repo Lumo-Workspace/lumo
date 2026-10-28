@@ -86,7 +86,9 @@ if [ -z "$URL" ] && [ -t 0 ]; then
   current=$(get_var NEXT_PUBLIC_APP_URL)
   printf 'Public URL of this Lumo [%s]: ' "${current:-http://localhost:3000}"
   read -r URL || URL=
-  [ -n "$URL" ] || URL=${current:-http://localhost:3000}
+  # Enter keeps an existing URL as it is (including any hand-tuned realtime
+  # settings); on a fresh .env it accepts the localhost default.
+  [ -n "$URL" ] || [ -n "$current" ] || URL=http://localhost:3000
 fi
 
 if [ -n "$URL" ]; then
@@ -97,7 +99,18 @@ if [ -n "$URL" ]; then
   esac
   host=${URL#*://}
   host=${host%%/*}
-  hostname=${host%%:*}
+  host=${host##*@}
+  # hostname and the explicit port (empty when the URL names none);
+  # an IPv6 literal keeps its brackets, as a URL host must.
+  case "$host" in
+    \[*)
+      hostname="${host%%]*}]"
+      port=${host#*]}
+      port=${port#:}
+      ;;
+    *:*) hostname=${host%%:*}; port=${host##*:} ;;
+    *) hostname=$host; port= ;;
+  esac
   for name in NEXT_PUBLIC_APP_URL LUMO_PUBLIC_URL BETTER_AUTH_URL; do
     set_var "$name" "$URL"
   done
@@ -106,18 +119,16 @@ if [ -n "$URL" ]; then
       # Behind the caddy profile (or any proxy sending /app/ to Soketi):
       # realtime shares the app's origin — its port, 443 unless the URL
       # names one.
-      case "$host" in
-        *:*) public_port=${host##*:} ;;
-        *) public_port=443 ;;
-      esac
       set_var LUMO_DOMAIN "$hostname"
       set_var SOKETI_PUBLIC_HOST "$hostname"
-      set_var SOKETI_PUBLIC_PORT "$public_port"
+      set_var SOKETI_PUBLIC_PORT "${port:-443}"
       set_var SOKETI_PUBLIC_TLS true
       set_var SOKETI_PORT 6001
       ;;
     *)
-      # Plain HTTP: the browser reaches Soketi directly on port 6001.
+      # Plain HTTP: the browser reaches Soketi directly on port 6001, and
+      # the caddy profile has no domain to serve.
+      [ -z "$(get_var LUMO_DOMAIN)" ] || set_var LUMO_DOMAIN ""
       set_var SOKETI_PUBLIC_HOST "$hostname"
       set_var SOKETI_PUBLIC_PORT 6001
       set_var SOKETI_PUBLIC_TLS false

@@ -44,7 +44,8 @@ account creation.) The first
 account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
-`init.sh` is safe to re-run: it fills only secrets that are still empty and
+`init.sh` creates `.env` readable by its owner only (mode 600) and is safe
+to re-run: it fills only secrets that are still empty and
 never replaces one that has a value (changing `BETTER_AUTH_SECRET` signs
 everybody out; the database and MinIO passwords must keep matching their
 volumes). It warns when no email is configured.
@@ -61,7 +62,7 @@ docker compose --profile caddy up -d
 `--url` sets `NEXT_PUBLIC_APP_URL`, `LUMO_PUBLIC_URL` and `BETTER_AUTH_URL`
 to that URL, `LUMO_DOMAIN` for Caddy, and points the browser's realtime
 connection at the same origin (`SOKETI_PUBLIC_HOST` = the domain, the URL's
-port or 443, TLS on). It also creates `.env` readable by its owner only. The
+port or 443, TLS on). The
 `caddy` service gets a Let's Encrypt certificate and serves
 everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
 the rest to the app.

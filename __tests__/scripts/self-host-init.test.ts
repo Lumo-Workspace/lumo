@@ -99,8 +99,8 @@ describe('scripts/self-host/init.sh', () => {
     writeFileSync(
       join(dir, '.env'),
       readFileSync(join(dir, '.env'), 'utf8').replace(
-        /^BETTER_AUTH_SECRET=.*$/m,
-        `BETTER_AUTH_SECRET="${operatorValue}"`
+        /^(BETTER_AUTH_SECRET)=.*$/m,
+        (_line, key: string) => `${key}="${operatorValue}"`
       )
     )
     const out = run('--url', 'https://lumo.example.com')
@@ -147,6 +147,23 @@ describe('scripts/self-host/init.sh', () => {
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('6001')
     expect(vars.get('SOKETI_PUBLIC_TLS')).toBe('false')
     expect(vars.has('LUMO_DOMAIN')).toBe(false)
+  })
+
+  it('switching from https to http clears the caddy domain', () => {
+    run('--url', 'https://lumo.example.com')
+    run('--url', 'http://192.168.1.20:3000')
+    expect(env().get('LUMO_DOMAIN')).toBe('')
+  })
+
+  it('parses userinfo and IPv6 hosts', () => {
+    run('--url', 'https://admin@[2001:db8::1]:8443')
+    let vars = env()
+    expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('[2001:db8::1]')
+    expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('8443')
+    run('--url', 'http://[::1]:3000')
+    vars = env()
+    expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('[::1]')
+    expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('6001')
   })
 
   it('a later --url replaces the earlier one in place', () => {
