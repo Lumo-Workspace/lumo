@@ -9,8 +9,8 @@ steps and sleeps are stored in Postgres and executed by a worker
 
 ## Configuration
 
-[Docker Compose](README.md) sets all of this up (the `migrate` service runs
-the deploy order below); the rest of this page explains what it does.
+[Docker Compose](README.md) sets all of this up (the app container runs
+the deploy order below on every start); the rest of this page explains what it does.
 
 | Variable                               | Required | Meaning                                                                                                            |
 | -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -92,7 +92,7 @@ exist`). On such a database `npm run workflow:bootstrap` refuses to run and
    ```
 
    then run `npm run workflow:bootstrap` again (compose: `docker compose up -d`
-   re-runs `migrate`). This deletes only workflow run history — Lumo's own
+   restarts the app, which re-runs it). This deletes only workflow run history — Lumo's own
    data lives in `public` and is untouched.
 
 A database created on 5.x needs neither step.

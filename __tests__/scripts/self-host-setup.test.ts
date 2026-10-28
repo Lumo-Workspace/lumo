@@ -1,9 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-1325, LUM-1332 — scripts/self-host/setup.sh (and the init.sh name it
- * replaced), run for real with /bin/sh against a copy of the repo's
- * .env.example in a temp directory.
+ * LUM-1325, LUM-1332 — scripts/self-host/setup.sh, run for real with /bin/sh
+ * against a copy of the repo's .env.example in a temp directory.
  */
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -26,21 +25,19 @@ const BASE_SECRETS = [
   'WORKFLOW_SECRET',
   'POSTGRES_PASSWORD',
 ]
-const SECRETS = [...BASE_SECRETS, 'MINIO_ROOT_PASSWORD', 'SOKETI_APP_SECRET']
-const FULL_FILES =
-  'docker-compose.yml:deploy/self-host/compose.redis.yml:deploy/self-host/compose.minio.yml:deploy/self-host/compose.realtime.yml'
+const SECRETS = [...BASE_SECRETS, 'SOKETI_APP_SECRET']
+const REALTIME_FILES =
+  'docker-compose.yml:deploy/self-host/compose.realtime.yml'
 
 let dir: string
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'lumo-setup-'))
   mkdirSync(join(dir, 'scripts', 'self-host'), { recursive: true })
-  for (const name of ['setup.sh', 'init.sh']) {
-    copyFileSync(
-      join(REPO, 'scripts', 'self-host', name),
-      join(dir, 'scripts', 'self-host', name)
-    )
-  }
+  copyFileSync(
+    join(REPO, 'scripts', 'self-host', 'setup.sh'),
+    join(dir, 'scripts', 'self-host', 'setup.sh')
+  )
   copyFileSync(join(REPO, '.env.example'), join(dir, '.env.example'))
 })
 
@@ -48,19 +45,15 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-function runScript(script: string, args: string[]): string {
+function run(...args: string[]): string {
   return execFileSync(
     'sh',
-    [join(dir, 'scripts', 'self-host', script), ...args],
+    [join(dir, 'scripts', 'self-host', 'setup.sh'), ...args],
     {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   )
-}
-
-function run(...args: string[]): string {
-  return runScript('setup.sh', args)
 }
 
 function appendEnv(text: string): void {
@@ -86,7 +79,7 @@ function countLines(key: string): number {
 }
 
 describe('scripts/self-host/setup.sh', () => {
-  it('a fresh .env gets the minimal stack: only the base secrets, no overlay', () => {
+  it('a fresh .env gets the base secrets and no overlay', () => {
     const out = run()
     const vars = env()
     for (const name of BASE_SECRETS) {
@@ -96,63 +89,45 @@ describe('scripts/self-host/setup.sh', () => {
     expect(new Set(BASE_SECRETS.map(n => vars.get(n))).size).toBe(
       BASE_SECRETS.length
     )
-    expect(vars.get('MINIO_ROOT_PASSWORD') ?? '').toBe('')
     expect(vars.get('SOKETI_APP_SECRET') ?? '').toBe('')
-    expect(vars.get('COMPOSE_FILE')).toBe('docker-compose.yml')
+    // No COMPOSE_FILE: docker compose then reads docker-compose.yml alone.
+    expect(vars.has('COMPOSE_FILE')).toBe(false)
     expect(out).toContain('Created .env from .env.example')
-    expect(out).toContain('Optional components: none')
+    expect(out).toContain('Realtime: off')
     expect(out).toContain('no email configured')
   })
 
-  it('--with all loads every overlay and fills their secrets', () => {
-    run('--with', 'all')
-    const vars = env()
-    expect(vars.get('COMPOSE_FILE')).toBe(FULL_FILES)
-    for (const name of SECRETS) expect(vars.get(name)).toMatch(/^[0-9a-f]{64}$/)
-    expect(new Set(SECRETS.map(n => vars.get(n))).size).toBe(SECRETS.length)
-    // Realtime is pointed at the default URL once.
+  it('--realtime adds the overlay and its secret; a later run keeps it', () => {
+    run('--realtime')
+    let vars = env()
+    expect(vars.get('COMPOSE_FILE')).toBe(REALTIME_FILES)
+    expect(vars.get('SOKETI_APP_SECRET')).toMatch(/^[0-9a-f]{64}$/)
+    // Pointed at the default URL once.
     expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('localhost')
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('6001')
+    expect(run()).toContain('Realtime: on')
+    vars = env()
+    expect(vars.get('COMPOSE_FILE')).toBe(REALTIME_FILES)
+    expect(countLines('COMPOSE_FILE')).toBe(1)
   })
 
-  it('--with picks single components, and a later run keeps the choice', () => {
-    run('--with=redis,minio')
-    expect(env().get('COMPOSE_FILE')).toBe(
-      'docker-compose.yml:deploy/self-host/compose.redis.yml:deploy/self-host/compose.minio.yml'
-    )
-    expect(env().get('SOKETI_APP_SECRET') ?? '').toBe('')
-    run('--url', 'https://lumo.example.com')
-    expect(env().get('COMPOSE_FILE')).toContain('compose.minio.yml')
-  })
-
-  it('rejects an unknown component', () => {
-    expect(() => run('--with', 'mailpit')).toThrow()
-  })
-
-  it('a .env from before LUM-1332 keeps redis, minio and realtime', () => {
+  it('--realtime / --no-realtime keep COMPOSE_FILE entries the operator added', () => {
     run()
-    // An init.sh-era .env: every secret, no COMPOSE_FILE.
-    writeFileSync(
-      join(dir, '.env'),
-      readFileSync(join(dir, '.env'), 'utf8').replace(/^COMPOSE_FILE=.*\n/m, '')
+    appendEnv('COMPOSE_FILE=docker-compose.yml:compose.override.local.yml')
+    run('--realtime')
+    expect(env().get('COMPOSE_FILE')).toBe(
+      'docker-compose.yml:compose.override.local.yml:deploy/self-host/compose.realtime.yml'
     )
-    appendEnv('MINIO_ROOT_PASSWORD=abc\nSOKETI_APP_SECRET=def')
-    const out = run()
-    expect(env().get('COMPOSE_FILE')).toBe(FULL_FILES)
-    expect(env().get('MINIO_ROOT_PASSWORD')).toBe('abc')
-    expect(out).toContain('Kept redis, minio and realtime')
+    run('--no-realtime')
+    expect(env().get('COMPOSE_FILE')).toBe(
+      'docker-compose.yml:compose.override.local.yml'
+    )
   })
 
-  it('refuses to drop MinIO while its password (and so its files) is still in .env', () => {
-    run('--with', 'minio')
-    expect(() => run('--with', 'none')).toThrow()
-    expect(env().get('COMPOSE_FILE')).toContain('compose.minio.yml')
-  })
-
-  it('init.sh still works and forwards to setup.sh', () => {
-    const out = runScript('init.sh', ['--with', 'redis'])
-    expect(out).toContain('Created .env from .env.example')
-    expect(env().get('COMPOSE_FILE')).toContain('compose.redis.yml')
+  it('an unknown argument or a bad --url on a fresh checkout writes nothing', () => {
+    expect(() => run('--with', 'all')).toThrow()
+    expect(() => run('--realtime', '--url', 'lumo.example.com')).toThrow()
+    expect(() => statSync(join(dir, '.env'))).toThrow()
   })
 
   it('creates .env readable by its owner only, and keeps that mode on re-runs', () => {
@@ -163,7 +138,7 @@ describe('scripts/self-host/setup.sh', () => {
   })
 
   it('never overwrites a secret that already has a value', () => {
-    run('--with', 'all')
+    run('--realtime')
     const first = env()
     // Generated per run, quoted the way an operator might write it; env()
     // and setup.sh both read the value without the quotes.
@@ -198,18 +173,8 @@ describe('scripts/self-host/setup.sh', () => {
     expect(countLines('NEXT_PUBLIC_APP_URL')).toBe(1)
   })
 
-  it('--url also moves LUMO_PUBLIC_URL / BETTER_AUTH_URL an earlier init.sh wrote', () => {
-    run()
-    appendEnv(
-      'LUMO_PUBLIC_URL=https://old.example.com\nBETTER_AUTH_URL=https://old.example.com'
-    )
-    run('--url', 'https://new.example.com')
-    expect(env().get('LUMO_PUBLIC_URL')).toBe('https://new.example.com')
-    expect(env().get('BETTER_AUTH_URL')).toBe('https://new.example.com')
-  })
-
   it('with realtime, --url https points the realtime origin at the domain', () => {
-    run('--with', 'realtime', '--url', 'https://lumo.example.com')
+    run('--realtime', '--url', 'https://lumo.example.com')
     const vars = env()
     expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('lumo.example.com')
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('443')
@@ -218,7 +183,7 @@ describe('scripts/self-host/setup.sh', () => {
 
   it('turning realtime on later derives its settings from the URL already in .env', () => {
     run('--url', 'https://lumo.example.com:8443')
-    run('--with', 'realtime')
+    run('--realtime')
     const vars = env()
     expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('lumo.example.com')
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('8443')
@@ -226,7 +191,7 @@ describe('scripts/self-host/setup.sh', () => {
   })
 
   it('with realtime, --url http keeps realtime on port 6001 without TLS', () => {
-    run('--with', 'realtime', '--url=http://192.168.1.20:3000')
+    run('--realtime', '--url=http://192.168.1.20:3000')
     const vars = env()
     expect(vars.get('NEXT_PUBLIC_APP_URL')).toBe('http://192.168.1.20:3000')
     expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('192.168.1.20')
@@ -242,7 +207,7 @@ describe('scripts/self-host/setup.sh', () => {
   })
 
   it('parses userinfo and IPv6 hosts', () => {
-    run('--with', 'realtime', '--url', 'https://admin@[2001:db8::1]:8443')
+    run('--realtime', '--url', 'https://admin@[2001:db8::1]:8443')
     let vars = env()
     expect(vars.get('SOKETI_PUBLIC_HOST')).toBe('[2001:db8::1]')
     expect(vars.get('SOKETI_PUBLIC_PORT')).toBe('8443')
@@ -253,17 +218,12 @@ describe('scripts/self-host/setup.sh', () => {
   })
 
   it('a later --url replaces the earlier one in place', () => {
-    run('--with', 'realtime', '--url', 'https://old.example.com')
+    run('--realtime', '--url', 'https://old.example.com')
     run('--url', 'https://new.example.com')
     expect(env().get('NEXT_PUBLIC_APP_URL')).toBe('https://new.example.com')
     expect(countLines('LUMO_DOMAIN')).toBe(1)
     expect(countLines('SOKETI_PUBLIC_HOST')).toBe(1)
     expect(countLines('COMPOSE_FILE')).toBe(1)
-  })
-
-  it('a bad --url on a fresh checkout writes nothing', () => {
-    expect(() => run('--with', 'all', '--url', 'lumo.example.com')).toThrow()
-    expect(() => statSync(join(dir, '.env'))).toThrow()
   })
 
   it('rejects a URL without a scheme and leaves .env URL untouched', () => {

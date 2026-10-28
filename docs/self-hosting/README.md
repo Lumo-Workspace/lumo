@@ -3,28 +3,25 @@
 One command starts Lumo on a single machine. The default stack is the
 minimum Lumo needs:
 
-| Service    | Image                                 | What it does                                                                                                                          |
-| ---------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `app`      | `ghcr.io/lumo-workspace/lumo`         | Lumo (`next start`), including the in-process workflow worker. Published on port 3000. Uploaded files live on the `blob-data` volume. |
-| `migrate`  | same image as `app`                   | One-shot on every `up`: `prisma migrate deploy`, then `npm run workflow:bootstrap`. `app` starts only after it succeeds.              |
-| `postgres` | `pgvector/pgvector:pg16`              | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                                  |
-| `cron`     | `ghcr.io/lumo-workspace/lumo-cron`    | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)). Built from `deploy/self-host/cron.Dockerfile`.   |
-| `caddy`    | `caddy:2.10-alpine` (profile `caddy`) | Optional HTTPS on your domain with an automatic certificate; sends `/app/` to Soketi (realtime) and the rest to the app.              |
-| `mailpit`  | `axllent/mailpit` (profile `mail`)    | Development only: catches outgoing mail.                                                                                              |
+| Service    | Image                                 | What it does                                                                                                                                                                 |
+| ---------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`      | `ghcr.io/lumo-workspace/lumo`         | Lumo (`next start`), including the in-process workflow worker. Published on port 3000. Applies migrations on every start, then serves. Files live on the `blob-data` volume. |
+| `postgres` | `pgvector/pgvector:pg16`              | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                                                                         |
+| `cron`     | `ghcr.io/lumo-workspace/lumo-cron`    | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)). Built from `deploy/self-host/cron.Dockerfile`.                                          |
+| `caddy`    | `caddy:2.10-alpine` (profile `caddy`) | Optional HTTPS on your domain with an automatic certificate; sends `/app/` to Soketi (realtime) and the rest to the app.                                                     |
+| `mailpit`  | `axllent/mailpit` (profile `mail`)    | Development only: catches outgoing mail.                                                                                                                                     |
 
-Three optional components are overlay files in `deploy/self-host/`, added
-with `scripts/self-host/setup.sh --with <name>` (or `--with all`):
+**Realtime updates** (Soketi, Pusher protocol) are optional:
+`scripts/self-host/setup.sh --realtime` adds `deploy/self-host/compose.realtime.yml`
+to `COMPOSE_FILE` in `.env`, which `docker compose` reads by itself, so every
+command stays a plain `docker compose …`. Without it the UI refetches when the
+window regains focus and every minute. (`COMPOSE_FILE` separates files with
+`:`; on Windows outside WSL also set `COMPOSE_PATH_SEPARATOR=:` in `.env`.)
 
-| `--with`   | Adds                                                                  | Without it                                                                                                 |
-| ---------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `realtime` | `soketi` (`quay.io/soketi/soketi:1.6-16-debian`)                      | No live updates: the UI refetches when the window regains focus and every minute.                          |
-| `redis`    | `redis` (`redis:7-alpine`)                                            | Rate-limit counters live in the app's memory and reset on restart. Fine for the one instance compose runs. |
-| `minio`    | `minio` + `minio-init` (`cgr.dev/chainguard/minio`, a private bucket) | Files stay on the `blob-data` volume. Pick MinIO for S3-style storage you back up or move on its own.      |
-
-`setup.sh` writes the chosen overlays into `COMPOSE_FILE` in `.env`, which
-`docker compose` reads by itself, so every command stays a plain
-`docker compose …`. (`COMPOSE_FILE` separates files with `:`; on Windows
-outside WSL also set `COMPOSE_PATH_SEPARATOR=:` in `.env`.)
+Rate limits are counted in the app's memory and files are stored on the
+`blob-data` volume — enough for the one app instance compose runs. To use
+your own Redis or S3 instead, set `REDIS_URL` or `BLOB_STORAGE=s3` with
+`S3_*` in `.env` (see `.env.example`).
 
 Kubernetes / Helm are not provided.
 
@@ -45,7 +42,7 @@ Postgres.
 git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
 scripts/self-host/setup.sh         # creates .env, generates the secrets
 docker compose up -d               # pulls the images and starts everything
-docker compose ps                  # every service "healthy" / migrate "exited (0)"
+docker compose ps                  # postgres, app and cron "healthy" / running
 ```
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
@@ -56,18 +53,17 @@ account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
 `setup.sh` creates `.env` readable by its owner only (mode 600) and is safe
-to re-run: it keeps the components chosen earlier unless you pass `--with`,
-fills only secrets that are still empty and never replaces one that has a
-value (changing `BETTER_AUTH_SECRET` signs
-everybody out; the database and MinIO passwords must keep matching their
-volumes). It warns when no email is configured.
+to re-run: it keeps realtime as chosen earlier unless you pass `--realtime` /
+`--no-realtime`, fills only secrets that are still empty and never replaces
+one that has a value (changing `BETTER_AUTH_SECRET` signs everybody out; the
+database password must keep matching its volume). It warns when no email is configured.
 
 ### On your own domain (HTTPS)
 
 Point the domain's DNS at the server, open ports 80 and 443, then:
 
 ```bash
-scripts/self-host/setup.sh --url https://lumo.example.com --with all
+scripts/self-host/setup.sh --url https://lumo.example.com --realtime
 docker compose --profile caddy up -d
 ```
 
@@ -77,8 +73,7 @@ also points the browser's realtime connection at the same origin
 (`SOKETI_PUBLIC_HOST` = the domain, the URL's port or 443, TLS on). The
 `caddy` service gets a Let's Encrypt certificate and serves
 everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
-the rest to the app. `--with all` is the setup for a team; leave it out for
-the minimal stack.
+the rest to the app. Leave `--realtime` out if you don't need live updates.
 
 With your own reverse proxy (nginx, Traefik, …) instead of the profile, run
 the same `setup.sh --url` and give the proxy the same two rules: `/app/` →
@@ -133,10 +128,10 @@ Postgres has no TLS, and Lumo otherwise insists on a verified TLS
 connection), the Postgres World (`WORKFLOW_TARGET_WORLD`,
 `WORKFLOW_POSTGRES_URL` — a direct connection — and `WORKFLOW_LOCAL_BASE_URL`
 carrying `WORKFLOW_SECRET`, see [workflow.md](workflow.md)), `PORT`,
-`BLOB_STORAGE=disk` with `LOCAL_BLOB_DIR`, `LUMO_PUBLIC_URL`, and
-`AUTH_PROVIDER=better-auth` with `BETTER_AUTH_URL` (each from `.env` if set,
-else `NEXT_PUBLIC_APP_URL`). The overlays add `REDIS_URL`, the MinIO `S3_*`
-settings with `BLOB_STORAGE=s3`, and the `PUSHER_*` settings for Soketi.
+`LOCAL_BLOB_DIR`, and `AUTH_PROVIDER=better-auth`. It defaults
+`BLOB_STORAGE` to `disk`, and `LUMO_PUBLIC_URL` and `BETTER_AUTH_URL` to
+`NEXT_PUBLIC_APP_URL`, unless `.env` sets them. The realtime overlay adds the
+`PUSHER_*` settings for Soketi.
 Everything else in `.env` is passed
 to the app unchanged, so the optional features below are turned on by
 editing `.env` and running `docker compose up -d`.
@@ -232,23 +227,16 @@ docker compose pull      # the newest images (or the release LUMO_IMAGE pins)
 docker compose up -d     # add --build if you build from source
 ```
 
-The stack before LUM-1332 always ran Redis, MinIO and Soketi. Run
-`scripts/self-host/setup.sh` once after pulling: it recognises that `.env`
-and keeps all three (`COMPOSE_FILE`). Until then `migrate` refuses to start
-while `.env` holds `MINIO_ROOT_PASSWORD` without the minio overlay, so the
-app never switches to an empty disk store and loses sight of your files.
-
-`migrate` applies new migrations (`prisma migrate deploy` only — never
-`migrate dev` or `db push`) and upgrades the workflow schemas before the new
-app starts. Back up the `postgres-data` and `blob-data` (or `minio-data`)
-volumes first
+The new app container applies new migrations (`prisma migrate deploy` only —
+never `migrate dev` or `db push`) and upgrades the workflow schemas before it
+starts serving. Back up the `postgres-data` and `blob-data` volumes first
 (`docker compose exec postgres pg_dump -U lumo lumo > lumo.sql`).
 
 ### Moving from Vercel (or another storage backend)
 
 Switching storage does **not** move files. Vercel Blob URLs already stored in
 the database (test evidence, editor images, exports, workspace logos) cannot be
-read through MinIO until the objects are copied and the references rewritten —
+read from disk or S3 until the objects are copied and the references rewritten —
 see [uploaded-files.md](../privacy/uploaded-files.md). The repository ships no
 migration script for this.
 
@@ -256,24 +244,23 @@ migration script for this.
 
 - **TLS / domain**: see [On your own domain](#on-your-own-domain-https).
   Links Lumo writes outside the app — CLI output, GitHub comments, notices —
-  use `LUMO_PUBLIC_URL`, which compose defaults to the app URL. If you can, have the proxy refuse
+  use `LUMO_PUBLIC_URL`, which compose defaults to the app URL. If you can,
+  have the proxy refuse
   `/.well-known/workflow/v1/flow` and `/step` from outside (they are already
   protected by `WORKFLOW_SECRET`; see [workflow.md](workflow.md)).
 - **One app instance** is what this file runs and the only setup that has
-  been tested. With the minimal stack files are on the app's `blob-data`
-  volume, so a second instance needs `--with minio` (and `--with redis` for
-  shared rate limits); every instance also runs a
-  workflow worker and re-enqueues active runs when it boots; running several
-  replicas is untested. Never drop `REDIS_URL` with more than one instance:
+  been tested: every start runs the migrations, files are on the app's
+  `blob-data` volume, and every instance also runs a workflow worker and
+  re-enqueues active runs when it boots. Several replicas would need shared
+  storage (`BLOB_STORAGE=s3`) and `REDIS_URL`, and are untested. Never drop `REDIS_URL` with more than one instance:
   the in-memory fallback counts per process (the effective limit becomes N ×
   the configured one) and resets on every restart.
 - **Scheduled jobs** run in `cron` against `http://app:3000`. Turn jobs off
   with `LUMO_CRON_DISABLED=<name>,<name>` in `.env` (details in
   [cron.md](cron.md)).
 - **Logs**: `docker compose logs -f app cron`.
-- **Data** lives in the named volumes `postgres-data` and `blob-data` (with
-  the overlays also `minio-data` and `redis-data`; `caddy-data` holds Caddy's
-  certificates). `docker compose down` keeps them; `down -v` deletes them.
+- **Data** lives in the named volumes `postgres-data` and `blob-data`
+  (`caddy-data` holds Caddy's certificates). `docker compose down` keeps them; `down -v` deletes them.
 
 ### Integrations
 
@@ -289,9 +276,9 @@ format that is recognised: [forbidden-rules.md](forbidden-rules.md).
 
 ### Using your own Postgres / S3 / Pusher
 
-Leave the overlay out of `COMPOSE_FILE` and set the matching variables in
-`.env` (`REDIS_URL`; `BLOB_STORAGE=s3` with `S3_*`; `PUSHER_*` and
-`NEXT_PUBLIC_PUSHER_*` — see `.env.example`). For your own Postgres edit
+Set the matching variables in `.env` (`REDIS_URL`; `BLOB_STORAGE=s3` with
+`S3_*`; for your own Pusher-protocol server `PUSHER_*` and
+`NEXT_PUBLIC_PUSHER_*` without `--realtime` — see `.env.example`). For your own Postgres edit
 the entries under `x-app-env` in `docker-compose.yml` (keep a **direct**
 connection for `WORKFLOW_POSTGRES_URL`, and drop `sslmode=disable` if the
 server has TLS).

@@ -1,12 +1,12 @@
 # Lumo — one-command self-hosting (LUM-1028, LUM-1325, LUM-1332).
 #
-#   scripts/self-host/setup.sh --url https://lumo.example.com [--with all]
+#   scripts/self-host/setup.sh --url https://lumo.example.com [--realtime]
 #   docker compose up -d                    # pulls the prebuilt images
 #   docker compose --profile caddy up -d    # …plus HTTPS on that domain
 #
-# This file is the minimal stack: Postgres, the app (files on a local volume)
-# and the scheduler. Redis, MinIO and realtime (Soketi) are overlay files in
-# deploy/self-host/compose.<name>.yml; setup.sh --with lists them in
+# Three services: Postgres, the app (it migrates on start; files on a local
+# volume) and the scheduler. Realtime (Soketi) is the optional overlay
+# deploy/self-host/compose.realtime.yml — setup.sh --realtime adds it to
 # COMPOSE_FILE in .env, which `docker compose` reads by itself.
 #
 # `docker compose up -d --build` builds the images from this checkout instead
@@ -21,7 +21,7 @@
 # release with LUMO_IMAGE=ghcr.io/lumo-workspace/lumo:<version> (and
 # LUMO_CRON_IMAGE). Compose pulls the image and builds it only when the pull
 # fails or `--build` is passed.
-x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
+x-app-build: &app-build
   image: ${LUMO_IMAGE:-ghcr.io/lumo-workspace/lumo:latest}
   build:
     context: .
@@ -63,8 +63,8 @@ x-app-env: &app-env
     AUTH_PROVIDER: better-auth
     BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -hex 32)}
     BETTER_AUTH_URL: ${BETTER_AUTH_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
-    # Files on the blob-data volume. The minio overlay switches to S3; for
-    # your own S3 set BLOB_STORAGE=s3 and S3_* in .env.
+    # Files on the blob-data volume; for your own S3 set BLOB_STORAGE=s3 and
+    # S3_* in .env (REDIS_URL in .env likewise moves rate limits to Redis).
     BLOB_STORAGE: ${BLOB_STORAGE:-disk}
     LOCAL_BLOB_DIR: /var/lib/lumo/blobs
     # This deployment's public URL, read at runtime (LUM-1325) and served to
@@ -90,34 +90,14 @@ services:
       timeout: 5s
       retries: 30
 
-  # One-shot: schema migrations, then the workflow World's own schemas.
-  # Runs on every `up`; both steps are idempotent.
-  migrate:
-    <<: *app-env
-    image: ${LUMO_IMAGE:-ghcr.io/lumo-workspace/lumo:latest}
-    # Refuses to run when .env still holds MinIO's password but the minio
-    # overlay is not loaded: the app would store files on disk and could no
-    # longer read the ones in MinIO (scripts/self-host/setup.sh fixes it).
-    command:
-      - sh
-      - -c
-      - |
-        if [ "$$BLOB_STORAGE" = disk ] && [ -n "$${MINIO_ROOT_PASSWORD:-}" ]; then
-          echo 'MINIO_ROOT_PASSWORD is set but MinIO is not loaded: run scripts/self-host/setup.sh (docs/self-hosting/README.md#upgrading)' >&2
-          exit 1
-        fi
-        npx prisma migrate deploy && npm run workflow:bootstrap
-    depends_on:
-      postgres: { condition: service_healthy }
-    restart: 'no'
-
   app:
     <<: [*app-build, *app-env]
     restart: unless-stopped
     ports: ['${LUMO_PORT:-3000}:3000']
     volumes: [blob-data:/var/lib/lumo/blobs]
+    # The image runs the migrations before `next start` (Dockerfile CMD).
     depends_on:
-      migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
     healthcheck:
       test:
         - CMD
@@ -127,7 +107,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 12
-      start_period: 30s
+      # The first start applies every migration before it listens.
+      start_period: 120s
 
   # Scheduled jobs (docs/self-hosting/cron.md): supercronic runs
   # deploy/self-host/crontab, each line calling the app with CRON_SECRET.

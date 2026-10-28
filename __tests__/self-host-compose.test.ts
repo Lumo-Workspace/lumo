@@ -22,7 +22,7 @@ const cronDockerfile = read('deploy/self-host/cron.Dockerfile')
 const envExample = read('.env.example')
 const runner = read('deploy/self-host/cron-run.sh')
 const guide = read('docs/self-hosting/README.md')
-const OVERLAYS = ['redis', 'minio', 'realtime'] as const
+const OVERLAYS = ['realtime'] as const
 const overlays = Object.fromEntries(
   OVERLAYS.map(name => [name, read(`deploy/self-host/compose.${name}.yml`)])
 ) as Record<(typeof OVERLAYS)[number], string>
@@ -165,12 +165,13 @@ describe('self-host compose: app wiring', () => {
     }
   })
 
-  it('migrations run before the app starts, then the World bootstrap', () => {
-    expect(serviceBlock('migrate')).toContain(
-      'npx prisma migrate deploy && npm run workflow:bootstrap'
+  it('the app migrates, then bootstraps the World, then starts — no separate migrate service', () => {
+    const cmd = dockerfile.match(/^CMD (.*)$/m)?.[1] ?? ''
+    expect(cmd).toMatch(
+      /npx prisma migrate deploy && npm run workflow:bootstrap && exec node node_modules\/next\/dist\/bin\/next start/
     )
     expect(serviceBlock('app')).toMatch(
-      /migrate: \{ condition: service_completed_successfully \}/
+      /postgres: \{ condition: service_healthy \}/
     )
     expect(serviceBlock('postgres')).toContain('pgvector/pgvector:pg16')
   })
@@ -206,10 +207,9 @@ describe('self-host compose: app wiring', () => {
 describe('self-host compose: minimal base + optional overlays (LUM-1332)', () => {
   const env = appEnvironment()
 
-  it('the base runs only Postgres, migrate, the app and cron (caddy / mailpit are profiles)', () => {
+  it('the base runs only Postgres, the app and cron (caddy / mailpit are profiles)', () => {
     expect(serviceNames(compose)).toEqual([
       'postgres',
-      'migrate',
       'app',
       'cron',
       'caddy',
@@ -242,33 +242,15 @@ describe('self-host compose: minimal base + optional overlays (LUM-1332)', () =>
     )
   })
 
-  it('each overlay adds its service and the app wiring for it', () => {
-    expect(serviceNames(overlays.redis)).toEqual(['redis', 'app'])
-    expect(overlayEnvironment(overlays.redis, 'app').get('REDIS_URL')).toBe(
-      'redis://redis:6379'
-    )
-    expect(serviceNames(overlays.minio)).toEqual([
-      'minio',
-      'minio-init',
-      'migrate',
-      'app',
-    ])
-    const minio = overlayEnvironment(overlays.minio, 'app')
-    expect(minio.get('BLOB_STORAGE')).toBe('s3')
-    expect(minio.get('S3_ENDPOINT')).toBe('http://minio:9000')
-    expect(
-      overlayEnvironment(overlays.minio, 'migrate').get('BLOB_STORAGE')
-    ).toBe('s3')
+  it('the realtime overlay adds Soketi and the app wiring for it', () => {
     expect(serviceNames(overlays.realtime)).toEqual(['soketi', 'app'])
     expect(
       overlayEnvironment(overlays.realtime, 'app').get('PUSHER_HOST')
     ).toBe('soketi')
   })
 
-  it('migrate refuses a .env that still holds MinIO files when the overlay is missing', () => {
-    expect(serviceBlock('migrate')).toContain(
-      'if [ "$$BLOB_STORAGE" = disk ] && [ -n "$${MINIO_ROOT_PASSWORD:-}" ]; then'
-    )
+  it('own S3 / Redis come from .env: compose does not pin the storage backend', () => {
+    expect(env.get('BLOB_STORAGE')).toBe('${BLOB_STORAGE:-disk}')
   })
 })
 

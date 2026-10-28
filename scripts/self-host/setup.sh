@@ -1,23 +1,18 @@
 #!/bin/sh
 # LUM-1325, LUM-1332 — prepare .env for `docker compose up -d` (self-hosting).
 #
-#   scripts/self-host/setup.sh [--url https://lumo.example.com] [--with <components>]
+#   scripts/self-host/setup.sh [--url https://lumo.example.com] [--realtime | --no-realtime]
 #
 # - Copies .env.example to .env when .env does not exist yet.
-# - Picks the optional components (--with, comma-separated: redis, minio,
-#   realtime, all or none) and writes COMPOSE_FILE so a plain
-#   `docker compose up -d` loads their overlay files from deploy/self-host/.
-#   Without --with, an existing choice is kept. A .env from before LUM-1332
-#   (it holds MINIO_ROOT_PASSWORD or SOKETI_APP_SECRET) keeps all three, so
-#   files stored in MinIO stay reachable; a fresh .env gets none of them.
-# - Fills every secret the chosen components need with `openssl rand -hex 32`.
-#   A secret that already has a value is never replaced: rotating
-#   BETTER_AUTH_SECRET signs everybody out, and POSTGRES_PASSWORD /
-#   MINIO_ROOT_PASSWORD must keep matching the data volumes.
+# - Fills every secret the stack needs with `openssl rand -hex 32`. A secret
+#   that already has a value is never replaced: rotating BETTER_AUTH_SECRET
+#   signs everybody out, and POSTGRES_PASSWORD must keep matching its volume.
 # - With --url (or the prompt on a terminal), points NEXT_PUBLIC_APP_URL at
 #   that URL; compose derives LUMO_PUBLIC_URL and BETTER_AUTH_URL from it.
-#   With realtime on, the browser's realtime connection goes to the same
-#   origin behind HTTPS (served under /app/ by the caddy profile).
+# - --realtime adds deploy/self-host/compose.realtime.yml (Soketi) to
+#   COMPOSE_FILE and points the browser's realtime connection at the URL's
+#   origin (served under /app/ by the caddy profile behind HTTPS);
+#   --no-realtime removes it. Other COMPOSE_FILE entries are left alone.
 # - Warns when no email is configured (invites need it).
 #
 # Safe to re-run. POSIX sh; works with the macOS and GNU userlands.
@@ -26,35 +21,35 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 ENV_FILE="$ROOT/.env"
 EXAMPLE_FILE="$ROOT/.env.example"
-BASE_SECRETS="BETTER_AUTH_SECRET CRON_SECRET WORKFLOW_SECRET POSTGRES_PASSWORD"
-ALL_COMPONENTS="redis minio realtime"
+SECRETS="BETTER_AUTH_SECRET CRON_SECRET WORKFLOW_SECRET POSTGRES_PASSWORD"
+BASE_FILE=docker-compose.yml
+REALTIME_FILE=deploy/self-host/compose.realtime.yml
 
 usage() {
-  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--with redis,minio,realtime|all|none]" >&2
+  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime]" >&2
   exit 2
 }
 
 URL=
-WITH=
-WITH_SET=
+REALTIME=
 while [ $# -gt 0 ]; do
   case "$1" in
     --url) [ $# -ge 2 ] || usage; URL=$2; shift 2 ;;
     --url=*) URL=${1#--url=}; shift ;;
-    --with) [ $# -ge 2 ] || usage; WITH=$2; WITH_SET=1; shift 2 ;;
-    --with=*) WITH=${1#--with=}; WITH_SET=1; shift ;;
+    --realtime) REALTIME=on; shift ;;
+    --no-realtime) REALTIME=off; shift ;;
     -h|--help) usage ;;
     *) echo "setup.sh: unknown argument: $1" >&2; usage ;;
   esac
 done
 
-# A bad --url fails before .env is touched at all.
 check_url() {
   case "$1" in
     http://?*|https://?*) ;;
     *) echo "setup.sh: --url must start with http:// or https:// (got: $1)" >&2; exit 2 ;;
   esac
 }
+# A bad argument fails before .env is touched at all.
 [ -z "$URL" ] || check_url "$URL"
 
 command -v openssl >/dev/null 2>&1 || {
@@ -95,10 +90,6 @@ ensure_secret() {
   fi
 }
 
-has_component() {
-  case " $COMPONENTS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
-}
-
 if [ ! -f "$ENV_FILE" ]; then
   [ -f "$EXAMPLE_FILE" ] || { echo "setup.sh: $EXAMPLE_FILE not found" >&2; exit 1; }
   cp "$EXAMPLE_FILE" "$ENV_FILE"
@@ -108,48 +99,20 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "Created .env from .env.example"
 fi
 
-# Optional components: --with, else the COMPOSE_FILE written by an earlier
-# run, else everything for a pre-LUM-1332 .env, else none.
-COMPONENTS=
-if [ -n "$WITH_SET" ]; then
-  for c in $(printf '%s' "$WITH" | tr ',' ' '); do
-    case "$c" in
-      all) COMPONENTS=$ALL_COMPONENTS ;;
-      none) ;;
-      redis|minio|realtime) has_component "$c" || COMPONENTS="$COMPONENTS $c" ;;
-      *) echo "setup.sh: unknown component: $c (redis, minio, realtime, all, none)" >&2; exit 2 ;;
-    esac
-  done
-else
-  current_files=$(get_var COMPOSE_FILE)
-  if [ -n "$current_files" ]; then
-    for c in $ALL_COMPONENTS; do
-      case "$current_files" in *"compose.$c.yml"*) COMPONENTS="$COMPONENTS $c" ;; esac
-    done
-  elif [ -n "$(get_var MINIO_ROOT_PASSWORD)" ] || [ -n "$(get_var SOKETI_APP_SECRET)" ]; then
-    COMPONENTS=$ALL_COMPONENTS
-    echo "Kept redis, minio and realtime from the earlier setup of this .env"
-  fi
+# COMPOSE_FILE: add or drop only the realtime overlay, keeping any file the
+# operator listed there themselves.
+files=$(get_var COMPOSE_FILE)
+case ":$files:" in *":$REALTIME_FILE:"*) realtime_on=1 ;; *) realtime_on= ;; esac
+if [ "$REALTIME" = on ] && [ -z "$realtime_on" ]; then
+  set_var COMPOSE_FILE "${files:-$BASE_FILE}:$REALTIME_FILE"
+  realtime_on=1
+elif [ "$REALTIME" = off ] && [ -n "$realtime_on" ]; then
+  set_var COMPOSE_FILE "$(printf '%s' ":$files:" | sed "s|:$REALTIME_FILE:|:|; s|^:||; s|:$||")"
+  realtime_on=
 fi
+echo "Realtime: $([ -n "$realtime_on" ] && echo on || echo off)"
 
-# Dropping MinIO would leave its files unreachable: the app then stores new
-# files on disk and cannot read the old ones. The migrate service refuses to
-# start in that state too.
-if ! has_component minio && [ -n "$(get_var MINIO_ROOT_PASSWORD)" ]; then
-  echo "setup.sh: this .env stores files in MinIO (MINIO_ROOT_PASSWORD is set)." >&2
-  echo "  Keep it with --with minio (or --with all). To stop using MinIO, move the" >&2
-  echo "  files first, then delete MINIO_ROOT_PASSWORD from .env." >&2
-  exit 2
-fi
-
-files=docker-compose.yml
-for c in $COMPONENTS; do files="$files:deploy/self-host/compose.$c.yml"; done
-set_var COMPOSE_FILE "$files"
-echo "Optional components: $(echo $COMPONENTS | tr ' ' ',' | sed 's/^$/none/')"
-
-SECRETS=$BASE_SECRETS
-has_component minio && SECRETS="$SECRETS MINIO_ROOT_PASSWORD"
-has_component realtime && SECRETS="$SECRETS SOKETI_APP_SECRET"
+[ -z "$realtime_on" ] || SECRETS="$SECRETS SOKETI_APP_SECRET"
 for name in $SECRETS; do ensure_secret "$name"; done
 
 if [ -z "$URL" ] && [ -t 0 ]; then
@@ -164,7 +127,7 @@ fi
 # The realtime settings follow the URL when it changes, and are filled in
 # once when realtime is turned on for a .env that has none yet.
 EFFECTIVE_URL=$URL
-if [ -z "$EFFECTIVE_URL" ] && has_component realtime && [ -z "$(get_var SOKETI_PUBLIC_HOST)" ]; then
+if [ -z "$EFFECTIVE_URL" ] && [ -n "$realtime_on" ] && [ -z "$(get_var SOKETI_PUBLIC_HOST)" ]; then
   EFFECTIVE_URL=$(get_var NEXT_PUBLIC_APP_URL)
   EFFECTIVE_URL=${EFFECTIVE_URL:-http://localhost:3000}
 fi
@@ -189,18 +152,13 @@ if [ -n "$EFFECTIVE_URL" ]; then
   esac
   if [ -n "$URL" ]; then
     set_var NEXT_PUBLIC_APP_URL "$EFFECTIVE_URL"
-    # Compose derives both from NEXT_PUBLIC_APP_URL; a value an earlier
-    # init.sh wrote would otherwise keep pointing at the old URL.
-    for name in LUMO_PUBLIC_URL BETTER_AUTH_URL; do
-      [ -z "$(get_var "$name")" ] || set_var "$name" "$EFFECTIVE_URL"
-    done
     case "$EFFECTIVE_URL" in
       https://*) set_var LUMO_DOMAIN "$hostname" ;;
       *) [ -z "$(get_var LUMO_DOMAIN)" ] || set_var LUMO_DOMAIN "" ;;
     esac
     echo "Public URL set to $EFFECTIVE_URL"
   fi
-  if has_component realtime; then
+  if [ -n "$realtime_on" ]; then
     case "$EFFECTIVE_URL" in
       https://*)
         # Behind the caddy profile (or any proxy sending /app/ to Soketi):

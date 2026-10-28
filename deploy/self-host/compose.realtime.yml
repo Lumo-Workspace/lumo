@@ -1,6 +1,6 @@
 # Optional overlay (LUM-1332): realtime updates on Soketi (Pusher protocol).
 # Without it the UI refetches when the window regains focus and every minute.
-# Loaded through COMPOSE_FILE (scripts/self-host/setup.sh --with realtime).
+# Loaded through COMPOSE_FILE (scripts/self-host/setup.sh --realtime).
 # Behind HTTPS (the caddy profile) the browser reaches Soketi at /app/ on the
 # app's origin; on plain HTTP it connects to the published port directly.
 services:
