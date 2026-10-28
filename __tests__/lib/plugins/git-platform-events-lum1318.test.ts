@@ -61,6 +61,16 @@ describe('git.* events', () => {
     })
   })
 
+  it.each(Object.entries(GITHUB_TO_GIT_EVENT))(
+    '%s is delivered as %s with provider github',
+    (github, git) => {
+      const payload = { probe: github } as never
+      emitCoreEvent(github as 'github.push', payload)
+      const twin = seen.filter(([name]) => name === git)
+      expect(twin).toEqual([[git, { probe: github, provider: 'github' }]])
+    }
+  )
+
   it('a git.* event from another platform keeps its provider and is not echoed under github.*', () => {
     emitCoreEvent('git.push', { ...PUSH, provider: 'codeup' })
     expect(seen).toEqual([['git.push', { ...PUSH, provider: 'codeup' }]])
