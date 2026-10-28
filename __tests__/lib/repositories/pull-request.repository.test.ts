@@ -74,3 +74,28 @@ describe('pullRequestRepository.countTaskLinkedWorkspaces', () => {
     })
   })
 })
+
+describe('pullRequestRepository.findForSecurityImport (LUM-1321)', () => {
+  it('looks the GitHub PR up inside the caller workspace only', async () => {
+    const findFirst = prisma.pullRequest.findFirst as jest.Mock
+    findFirst.mockResolvedValue(null)
+    await expect(
+      pullRequestRepository.findForSecurityImport('ws1', 'acme/app', 7)
+    ).resolves.toBeNull()
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        workspaceId: 'ws1',
+        provider: 'github',
+        repo: 'acme/app',
+        number: 7,
+      },
+      select: {
+        id: true,
+        repo: true,
+        number: true,
+        state: true,
+        headSha: true,
+      },
+    })
+  })
+})

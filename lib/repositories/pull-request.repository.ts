@@ -209,6 +209,27 @@ export const pullRequestRepository = {
   },
 
   /**
+   * LUM-1321 — the GitHub PR a `lumo security import` targets, scoped by the
+   * caller's workspace (another workspace's PR is simply not found).
+   */
+  async findForSecurityImport(
+    workspaceId: string,
+    repo: string,
+    number: number
+  ) {
+    return prisma.pullRequest.findFirst({
+      where: { workspaceId, provider: GITHUB_PROVIDER, repo, number },
+      select: {
+        id: true,
+        repo: true,
+        number: true,
+        state: true,
+        headSha: true,
+      },
+    })
+  },
+
+  /**
    * LUM-1189 — every PR linked to a task in this workspace, in the same shape
    * as `findByNumberInWorkspace`, for the task-level scan read-out
    * (`lumo task scans`). The workspace filter is belt and braces: the route
