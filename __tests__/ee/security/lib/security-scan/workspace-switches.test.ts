@@ -3,8 +3,10 @@
  */
 import {
   DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+  AI_REVIEW_DEFAULT_OFF_SINCE,
   platformSecurityCeiling,
   resolveSecurityLayers,
+  switchDefaultsFor,
 } from '@/ee/security/security-scan/workspace-switches'
 
 const ALL_ON = {
@@ -268,5 +270,22 @@ describe('LUM-1260 reward-hack rollout stage (dogfood)', () => {
     expect(
       resolveSecurityLayers({ ...ALL_ON }, legacy, 'ws-c').rewardHack
     ).toBe(false)
+  })
+})
+
+describe('LUM-1328 switchDefaultsFor', () => {
+  it('a workspace created before the change started with AI review and hunt on', () => {
+    const before = new Date(AI_REVIEW_DEFAULT_OFF_SINCE.getTime() - 1)
+    expect(switchDefaultsFor(before)).toEqual({
+      ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+  })
+  it('a newer (or unknown) workspace has the current defaults', () => {
+    expect(switchDefaultsFor(AI_REVIEW_DEFAULT_OFF_SINCE)).toEqual(
+      DEFAULT_WORKSPACE_SECURITY_SWITCHES
+    )
+    expect(switchDefaultsFor(null)).toEqual(DEFAULT_WORKSPACE_SECURITY_SWITCHES)
   })
 })

@@ -25,8 +25,8 @@ import { gitOutput } from '../lib/worktree'
  * developer ran in Claude Code or Codex to the branch's open PR scan. The
  * file is SARIF 2.1.0 or the Lumo JSON (`lib/agent-review-format.ts`). The
  * server keeps the results on lines the PR changed; they are advisory unless
- * the workspace policy opts in to blocking on them (LUM-1328). Importing again for the same tool and head replaces the
- * earlier import.
+ * the workspace policy opts in to blocking on them (LUM-1328). Importing
+ * again for the same tool and head replaces the earlier import.
  */
 
 export const SECURITY_IMPORT_PATH = '/api/workspaces/me/security-scan/import'

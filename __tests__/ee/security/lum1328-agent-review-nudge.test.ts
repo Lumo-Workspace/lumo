@@ -10,6 +10,10 @@ const layers = jest.fn()
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: (...a: unknown[]) => layers(...a),
 }))
+const confirmedRepos = jest.fn()
+jest.mock('@/lib/integrations/github/confirmed-repositories', () => ({
+  loadConfirmedRepositories: (...a: unknown[]) => confirmedRepos(...a),
+}))
 jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { findLatestByPullRequestIds: jest.fn() },
 }))
@@ -40,7 +44,12 @@ import {
 import { resolveSecurityLayers } from '@/ee/security/security-scan/workspace-switches'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { pushTestCaseActions } from '@/cli/src/commands/task-status'
+import {
+  formatTaskStatus,
+  pushAgentReviewActions,
+  splitNextActions,
+  type TaskStatusResponse,
+} from '@/cli/src/commands/task-status'
 
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
@@ -85,6 +94,9 @@ const switches = (over: object = {}) =>
 beforeEach(() => {
   jest.clearAllMocks()
   layers.mockResolvedValue(switches())
+  confirmedRepos.mockResolvedValue((repo: string) =>
+    repo === 'o/r' ? repo : null
+  )
 })
 
 describe('hasAgentReviewOnHead', () => {
@@ -147,6 +159,29 @@ describe('loadOpenFindingsForTask — agentReviewMissing', () => {
   })
 })
 
+describe('loadOpenFindingsForTask — repositories an import would be refused for', () => {
+  it('a PR in a repository not confirmed in the workspace is not nudged', async () => {
+    prs.mockResolvedValue([pr({ repo: 'o/unconfirmed' })])
+    latest.mockResolvedValue([])
+    const s = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(s.agentReviewMissing).toEqual([])
+  })
+  it('a failed confirmed-list read nudges for none and keeps the rest of the read', async () => {
+    prs.mockResolvedValue([pr()])
+    latest.mockResolvedValue([scan()])
+    confirmedRepos.mockRejectedValue(new Error('db down'))
+    const s = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(s.agentReviewMissing).toEqual([])
+    expect(s.scans).toHaveLength(1)
+  })
+  it('the confirmed list is not read when no PR needs a nudge', async () => {
+    prs.mockResolvedValue([pr({ state: 'merged' })])
+    latest.mockResolvedValue([scan()])
+    await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(confirmedRepos).not.toHaveBeenCalled()
+  })
+})
+
 describe('securityTaskStatusSection — AGENT_REVIEW_MISSING', () => {
   it('adds one advisory row per PR, after the findings, with the import command', async () => {
     prs.mockResolvedValue([pr()])
@@ -176,7 +211,7 @@ describe('securityTaskStatusSection — AGENT_REVIEW_MISSING', () => {
 describe('CLI rendering', () => {
   it('prints the row as [SECURITY REVIEW] with the command on its own line', () => {
     const lines: string[] = []
-    pushTestCaseActions(
+    pushAgentReviewActions(
       lines,
       [
         {
@@ -194,5 +229,37 @@ describe('CLI rendering', () => {
       '  • [SECURITY REVIEW] PR #12 has no security review (advisory) — run:',
       '    lumo security import <file>',
     ])
+  })
+
+  it('keeps agent-review rows out of the test-case bucket and leads the advisory section with them', () => {
+    const row = {
+      kind: 'AGENT_REVIEW_MISSING' as const,
+      prNumber: 12,
+      lumoAiReviewOn: true,
+      statement: 'PR #12 has no agent security review',
+      command: 'lumo security import <file>',
+      advisory: true as const,
+    }
+    const testCase = {
+      kind: 'TEST_CASE' as const,
+      statement: 'no test case recorded yet',
+      command: 'lumo task testcase add',
+      advisory: true as const,
+    }
+    const split = splitNextActions([testCase, row])
+    expect(split.agentReview).toEqual([row])
+    expect(split.testCase).toEqual([testCase])
+    const out = formatTaskStatus(
+      {
+        version: 2,
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
+        nextActions: [testCase, row],
+      } as unknown as TaskStatusResponse,
+      { width: 200 }
+    )
+    expect(out).toContain('Next actions (advisory only)')
+    expect(out.indexOf('[SECURITY REVIEW]')).toBeLessThan(
+      out.indexOf('[TEST CASE]')
+    )
   })
 })

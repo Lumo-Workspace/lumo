@@ -39,6 +39,10 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecuritySwitches: jest.fn(),
+    // LUM-1328: created after the AI review / hunt defaults turned off.
+    findWorkspaceCreatedAt: jest
+      .fn()
+      .mockResolvedValue(new Date('2026-11-01T00:00:00Z')),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findAllowAuthorApproval: jest.fn().mockResolvedValue(true),
   },
@@ -250,6 +254,26 @@ describe('@uselumo configuration (service)', () => {
 })
 
 describe('prConfigurationService.forPullRequest', () => {
+  test('LUM-1328: an older workspace still on the earlier defaults reads them as default', async () => {
+    ;(
+      securityColumnsRepository.findWorkspaceCreatedAt as jest.Mock
+    ).mockResolvedValueOnce(new Date('2026-01-01T00:00:00Z'))
+    findSwitches.mockResolvedValueOnce({
+      ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    const body = buildConfigurationReply(
+      await prConfigurationService.forPullRequest({
+        workspaceId: 'w1',
+        repo: 'acme/app',
+        prNumber: 9,
+      })
+    )
+    expect(body).toContain('| `aiReviewEnabled` | on | default |')
+    expect(body).toContain('| `huntEnabled` | on | default |')
+  })
+
   test("the PR's base unreadable: falls back to the default branch", async () => {
     fetchPrBase.mockRejectedValue(
       Object.assign(new Error('nope'), { status: 404 })

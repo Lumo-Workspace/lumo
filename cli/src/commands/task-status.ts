@@ -286,9 +286,10 @@ export interface TaskStatusResponse {
 
 type NextActionItem = TaskStatusResponse['nextActions'][number]
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
-type TestCaseAction = Extract<
+type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
+type AgentReviewAction = Extract<
   NextActionItem,
-  { kind: 'TEST_CASE' | 'AGENT_REVIEW_MISSING' }
+  { kind: 'AGENT_REVIEW_MISSING' }
 >
 export type TestCaseVerdictAction = Extract<
   NextActionItem,
@@ -307,29 +308,53 @@ function isTestCaseVerdictAction(
  *  kind this CLI version does not know yet — rendered generically. */
 function isAdvisoryAction(a: NextActionItem): a is TestCaseAction {
   const raw = a as { kind?: unknown; advisory?: unknown }
-  return (
-    raw.kind === 'TEST_CASE' ||
-    raw.kind === 'AGENT_REVIEW_MISSING' ||
-    raw.advisory === true
-  )
+  return raw.kind === 'TEST_CASE' || raw.advisory === true
+}
+function isAgentReviewAction(a: NextActionItem): a is AgentReviewAction {
+  return a.kind === 'AGENT_REVIEW_MISSING'
 }
 export function splitNextActions(actions: NextActionItem[]): {
   security: SecurityAction[]
+  /** LUM-1328: open PRs whose head has no imported agent review. */
+  agentReview: AgentReviewAction[]
   testCase: TestCaseAction[]
   testCaseVerdict: TestCaseVerdictAction[]
 } {
   const security: SecurityAction[] = []
+  const agentReview: AgentReviewAction[] = []
   const testCase: TestCaseAction[] = []
   const testCaseVerdict: TestCaseVerdictAction[] = []
   for (const a of actions) {
     if (isSecurityAction(a)) security.push(a)
+    else if (isAgentReviewAction(a)) agentReview.push(a)
     else if (isTestCaseVerdictAction(a)) testCaseVerdict.push(a)
     // Anything else is advisory-only (a server-side rule): a kind this CLI
     // does not know yet without the advisory flag is dropped rather than
     // guessed at, so it can never read as a DONE blocker.
     else if (isAdvisoryAction(a)) testCase.push(a)
   }
-  return { security, testCase, testCaseVerdict }
+  return { security, agentReview, testCase, testCaseVerdict }
+}
+
+/**
+ * LUM-1328 — one advisory row per open PR with no agent security review on
+ * its head, with the import command on its own line.
+ */
+export function pushAgentReviewActions(
+  lines: string[],
+  actions: AgentReviewAction[],
+  opts: LayoutOptions = {}
+): void {
+  for (const a of actions) {
+    lines.push(
+      ...bulletLines(
+        `[SECURITY REVIEW] ${sanitizeField(a.statement)} (advisory) — run:`,
+        2,
+        opts
+      )
+    )
+    lines.push(commandLine(sanitizeField(a.command), 4))
+  }
 }
 
 /**
@@ -350,7 +375,7 @@ export function pushTestCaseActions(
     const hasCommand = typeof a.command === 'string'
     lines.push(
       ...bulletLines(
-        `${a.kind === 'AGENT_REVIEW_MISSING' ? '[SECURITY REVIEW]' : '[TEST CASE]'} ${sanitizeField(statement)} (advisory)${hasCommand ? ' — run:' : ''}`,
+        `[TEST CASE] ${sanitizeField(statement)} (advisory)${hasCommand ? ' — run:' : ''}`,
         2,
         opts
       )
@@ -629,6 +654,7 @@ export function formatTaskStatus(
 
   const {
     security: securityActions,
+    agentReview: agentReviewActions,
     testCase: testCaseActions,
     testCaseVerdict: testCaseVerdictActions,
   } = splitNextActions(data.nextActions)
@@ -645,6 +671,7 @@ export function formatTaskStatus(
     pushSecurityActions(lines, securityActions, opts)
     lines.push(...securityHintLines(opts))
   } else if (
+    agentReviewActions.length === 0 &&
     testCaseActions.length === 0 &&
     testCaseVerdictActions.length === 0
   ) {
@@ -657,6 +684,8 @@ export function formatTaskStatus(
     lines.push(...sectionHeading('Next actions (advisory only)', opts))
   }
   // LUM-807: advisory last — after everything that can actually hold DONE.
+  // LUM-1328: the agent-review nudge first among them (security work).
+  pushAgentReviewActions(lines, agentReviewActions, opts)
   pushTestCaseActions(lines, testCaseActions, opts)
   // LUM-808: 判决层 advisory 读的是用例最新一次跑出来的结论。
   pushTestCaseVerdictActions(lines, testCaseVerdictActions, opts)

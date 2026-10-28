@@ -54,6 +54,29 @@ export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
 }
 
+/**
+ * LUM-1328 — workspaces created before this time started with Lumo's AI
+ * review and hunt ON (the earlier column defaults). The database cannot tell
+ * that value from an owner's choice, so readers that name a switch's source
+ * compare against the defaults the workspace was created with. A workspace
+ * created between this time and the migration's deploy started with them on
+ * too and reads as "workspace setting" — harmless, and only in that window.
+ */
+export const AI_REVIEW_DEFAULT_OFF_SINCE = new Date('2026-10-28T00:00:00Z')
+
+/** The switch defaults a workspace created at `createdAt` started with. */
+export function switchDefaultsFor(
+  createdAt: Date | null
+): WorkspaceSecuritySwitches {
+  if (createdAt !== null && createdAt < AI_REVIEW_DEFAULT_OFF_SINCE)
+    return {
+      ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    }
+  return { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES }
+}
+
 /** Which layers may run for one workspace, after the platform ceiling. */
 export interface EffectiveSecurityLayers {
   /** Master: any PR security scan at all (scan row, every layer, PR comment). */

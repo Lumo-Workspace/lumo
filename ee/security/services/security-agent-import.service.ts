@@ -7,8 +7,9 @@
  * The workflow drops a report it cannot place silently (it has no one to
  * answer); a person is waiting here, so every such refusal is made first,
  * with a reason. Every run's tool name is rewritten to the agent's slug, so
- * the rows are always `ext:<agent>:…` — advisory by `isAgentReviewRuleId`,
- * and never able to replace a CI scanner's rows.
+ * the rows are always `ext:<agent>:…` — recognised by `isAgentReviewRuleId`:
+ * advisory unless the workspace policy lists an `AGENT_REVIEW` entry
+ * (LUM-1328), and never able to replace a CI scanner's rows.
  */
 import { gzipSync } from 'node:zlib'
 import { randomBytes } from 'node:crypto'

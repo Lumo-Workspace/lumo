@@ -48,6 +48,8 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import { loadSecurityLayers } from './security-workspace-switches.service'
+import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
+import { logger } from '@/lib/logger'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import type {
   FindingDisposition,
@@ -169,6 +171,29 @@ export function hasAgentReviewOnHead(
   return (scan.agentReviewTools ?? []).length > 0
 }
 
+/**
+ * LUM-1328 — of the PRs missing an agent review, those an import would be
+ * accepted for: the repository is confirmed in the workspace (the import
+ * refuses an unconfirmed one). A failed read nudges for none — the nudge is
+ * advisory, so silence is the safe side.
+ */
+async function importablePrNumbers(
+  candidates: Array<{ number: number; repo: string }>,
+  workspaceId: string
+): Promise<number[]> {
+  if (candidates.length === 0) return []
+  try {
+    const confirmed = await loadConfirmedRepositories(workspaceId)
+    return candidates.filter(c => confirmed(c.repo) !== null).map(c => c.number)
+  } catch (error) {
+    logger.warn('securityReminder.confirmedRepos.failed', {
+      workspaceId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return []
+  }
+}
+
 function unconfirmedReason(
   scan: ScanWithFindings | undefined
 ): UnconfirmedPr['reason'] | null {
@@ -224,7 +249,7 @@ export const prSecurityReminderService = {
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
     const scanSummaries: TaskSecurityScanSummary[] = []
-    const agentReviewMissing: number[] = []
+    const agentReviewCandidates: Array<{ number: number; repo: string }> = []
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       if (
@@ -232,7 +257,7 @@ export const prSecurityReminderService = {
         !scanningOff &&
         !hasAgentReviewOnHead(scan, pr.headSha)
       ) {
-        agentReviewMissing.push(pr.number)
+        agentReviewCandidates.push({ number: pr.number, repo: pr.repo })
       }
       // LUM-775: which undispositioned, non-persisting rows have left the
       // queue (merged / closed PR), and why — computed once per row here and
@@ -338,6 +363,10 @@ export const prSecurityReminderService = {
       }
     }
     const sorted = sortReminderFindings(findings)
+    const agentReviewMissing = await importablePrNumbers(
+      agentReviewCandidates,
+      prs[0]!.workspaceId
+    )
     return {
       findings: sorted,
       blockingCount: sorted.filter(f => f.blocking).length,
