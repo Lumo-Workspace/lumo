@@ -118,7 +118,8 @@ fi
 # 4. Public-repository files present, private paths absent.
 missing=""
 for f in README.md LICENSE CONTRIBUTING.md SECURITY.md CLAUDE.md \
-  .github/workflows/dco.yml .github/scripts/check-dco.mjs; do
+  .github/workflows/dco.yml .github/workflows/images.yml \
+  .github/scripts/check-dco.mjs; do
   [ -f "$SNAP/$f" ] || missing="$missing $f"
 done
 leaked=""
