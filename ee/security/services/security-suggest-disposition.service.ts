@@ -13,12 +13,12 @@
  * the PR write-back waits for before commenting external rows inline).
  * `suggestForScan` composes them for in-process callers and tests.
  *
- * Layering: service — GitHub through `@/lib/integrations/github`, the
- * database through the repository; the LLM client only via dynamic import.
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through the repository; the LLM client only via dynamic import.
  */
 import { logger } from '@/lib/logger'
 import { scrubScanIfRepositoryUnconfirmed } from '@/ee/security/services/scan-code-retention.service'
-import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import {
   prSecurityScanRepository,
   type FindingSeverity,
@@ -113,7 +113,7 @@ export const securitySuggestDispositionService = {
     if (scan.findings.length === 0) return { enabled: true, candidates: [] }
     let diff: string
     try {
-      diff = await fetchPrDiff({
+      diff = await gitProviderFor(pr).fetchPrDiff({
         workspaceId: pr.workspaceId,
         fullName: pr.repo,
         prNumber: pr.number,

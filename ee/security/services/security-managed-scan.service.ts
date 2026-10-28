@@ -26,12 +26,9 @@ import {
   restrictSandboxEgress,
   type RepoSandbox,
 } from '@/ee/security/integrations/vercel-sandbox'
-import {
-  getRepoCloneToken,
-  revokeInstallationToken,
-} from '@/lib/integrations/github/auth'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
+import type { GitProvider } from '@/lib/integrations/git-provider'
 import { scrubSandboxCredentials } from './sandbox-credential-scrub'
-import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import {
   changedLinesOfDiff,
@@ -323,6 +320,8 @@ async function runTool(
  * contract.
  */
 async function collectReports(opts: {
+  /** LUM-1318: the platform the clone token came from (it revokes it). */
+  git: GitProvider
   repository: string
   sha: string
   token: string
@@ -356,7 +355,7 @@ async function collectReports(opts: {
     throw new Error(scrubToken(message(error), token))
   } finally {
     // Success or not, the clone is over and the token has no further use.
-    revoked = await revokeInstallationToken(token)
+    revoked = await opts.git.revokeToken(token)
   }
   // LUM-869 — a token we could not revoke is live for up to an hour, and the
   // scanners are about to read repository-controlled config on this VM. The
@@ -628,8 +627,10 @@ export const securityManagedScanService = {
       logger.info(`[security-managed-scan] superseded before run ${label}`)
       return supersededOutcome()
     }
-    const token = await getRepoCloneToken(job.pr.workspaceId, job.pr.repo)
+    const git = gitProviderFor(job.pr)
+    const token = await git.getRepoCloneToken(job.pr.workspaceId, job.pr.repo)
     const reports = await collectReports({
+      git,
       repository: job.pr.repo,
       sha: job.headSha,
       token,
@@ -649,7 +650,7 @@ export const securityManagedScanService = {
     }
     let diff: string
     try {
-      diff = await fetchPrDiff({
+      diff = await git.fetchPrDiff({
         workspaceId: job.pr.workspaceId,
         fullName: job.pr.repo,
         prNumber: job.pr.number,
@@ -683,8 +684,10 @@ export const securityManagedScanService = {
         skipped: [],
       }
     }
-    const token = await getRepoCloneToken(job.workspaceId, job.repo)
+    const git = gitProviderFor(job)
+    const token = await git.getRepoCloneToken(job.workspaceId, job.repo)
     const reports = await collectReports({
+      git,
       repository: job.repo,
       sha: job.sha,
       token,

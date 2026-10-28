@@ -15,9 +15,11 @@
  * this module, and the token minting behind them must not load (or fail to
  * load) on a path that never reads a file.
  */
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   DEFAULT_HIGH_LEVEL_SUMMARY,
   parseHighLevelSummary,
@@ -92,18 +94,20 @@ export interface EffectiveRepoConfig {
 
 export const repoConfigService = {
   /** The file at one commit. Never throws. */
-  async loadAt(input: {
-    workspaceId: string
-    repo: string
-    sha: string
-  }): Promise<RepoConfigLoad> {
+  async loadAt(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      sha: string
+    }
+  ): Promise<RepoConfigLoad> {
     const cacheable = COMMIT_SHA.test(input.sha)
     const key = cacheKey(input.workspaceId, input.repo, input.sha)
     const hit = cacheable ? cache.get(key) : undefined
     if (hit) return hit
     let load: RepoConfigLoad
     try {
-      const { readRepoFile } = await github()
+      const { readRepoFile } = gitProviderFor(input)
       const text = await readRepoFile({
         workspaceId: input.workspaceId,
         fullName: input.repo,
@@ -126,13 +130,16 @@ export const repoConfigService = {
    * there is none to apply (absent, invalid, unreadable, unknown base).
    * Never throws.
    */
-  async fileForDecision(input: {
-    workspaceId: string
-    repo: string
-    baseSha: string | null | undefined
-  }): Promise<RepoConfigFile | null> {
+  async fileForDecision(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      baseSha: string | null | undefined
+    }
+  ): Promise<RepoConfigFile | null> {
     if (!input.baseSha) return null
     const load = await repoConfigService.loadAt({
+      ...gitProviderRefOf(input),
       workspaceId: input.workspaceId,
       repo: input.repo,
       sha: input.baseSha,
@@ -145,16 +152,18 @@ export const repoConfigService = {
    * the PR's diff changes `.lumo.yaml` — its own copy at `headSha`, checked
    * but never applied. Never throws.
    */
-  async forPullRequest(input: {
-    workspaceId: string
-    repo: string
-    prNumber: number
-    headSha: string
-    diff: string
-  }): Promise<RepoConfigForPr> {
+  async forPullRequest(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      prNumber: number
+      headSha: string
+      diff: string
+    }
+  ): Promise<RepoConfigForPr> {
     let base: { ref: string; sha: string } | null = null
     try {
-      const { fetchPrBase } = await github()
+      const { fetchPrBase } = gitProviderFor(input)
       base = await fetchPrBase({
         workspaceId: input.workspaceId,
         fullName: input.repo,
@@ -167,6 +176,7 @@ export const repoConfigService = {
     }
     const baseLoad: RepoConfigLoad = base
       ? await repoConfigService.loadAt({
+          ...gitProviderRefOf(input),
           workspaceId: input.workspaceId,
           repo: input.repo,
           sha: base.sha,
@@ -175,6 +185,7 @@ export const repoConfigService = {
     const prBranch = diffTouchesRepoConfig(input.diff, REPO_CONFIG_PATH)
       ? fileStateOf(
           await repoConfigService.loadAt({
+            ...gitProviderRefOf(input),
             workspaceId: input.workspaceId,
             repo: input.repo,
             sha: input.headSha,
@@ -197,11 +208,13 @@ export const repoConfigService = {
    * from `.lumo.yaml` on the PR's base commit, else the repository's stored
    * tone, else none. Never throws (any failure = the stored tone, or none).
    */
-  async toneForPullRequest(input: {
-    workspaceId: string
-    repo: string
-    prNumber: number
-  }): Promise<string | null> {
+  async toneForPullRequest(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      prNumber: number
+    }
+  ): Promise<string | null> {
     let stored: string | null = null
     try {
       stored =
@@ -217,13 +230,14 @@ export const repoConfigService = {
       )
     }
     try {
-      const { fetchPrBase } = await github()
+      const { fetchPrBase } = gitProviderFor(input)
       const base = await fetchPrBase({
         workspaceId: input.workspaceId,
         fullName: input.repo,
         prNumber: input.prNumber,
       })
       const load = await repoConfigService.loadAt({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         repo: input.repo,
         sha: base.sha,
@@ -246,11 +260,13 @@ export const repoConfigService = {
    * the PR's base commit, else the repository's stored setting, else the
    * default. Never throws (any failure = the stored setting, or default).
    */
-  async highLevelSummaryForPullRequest(input: {
-    workspaceId: string
-    repo: string
-    prNumber: number
-  }): Promise<HighLevelSummaryMode> {
+  async highLevelSummaryForPullRequest(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      prNumber: number
+    }
+  ): Promise<HighLevelSummaryMode> {
     let stored: HighLevelSummaryMode = DEFAULT_HIGH_LEVEL_SUMMARY
     try {
       const style = await repoReviewSettingRepository.findReviewStyle(
@@ -264,13 +280,14 @@ export const repoConfigService = {
       )
     }
     try {
-      const { fetchPrBase } = await github()
+      const { fetchPrBase } = gitProviderFor(input)
       const base = await fetchPrBase({
         workspaceId: input.workspaceId,
         fullName: input.repo,
         prNumber: input.prNumber,
       })
       const load = await repoConfigService.loadAt({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         repo: input.repo,
         sha: base.sha,
@@ -294,11 +311,13 @@ export const repoConfigService = {
    * setting, else the default. Never throws (any failure = the stored
    * settings, or the defaults).
    */
-  async sequenceDiagramSettingsForPullRequest(input: {
-    workspaceId: string
-    repo: string
-    prNumber: number
-  }): Promise<{ enabled: boolean; pathFilters: string[] }> {
+  async sequenceDiagramSettingsForPullRequest(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      prNumber: number
+    }
+  ): Promise<{ enabled: boolean; pathFilters: string[] }> {
     let enabled = DEFAULT_REPO_REVIEW_SETTING.sequenceDiagrams
     let pathFilters: string[] = [...DEFAULT_REPO_REVIEW_SETTING.pathFilters]
     try {
@@ -321,13 +340,14 @@ export const repoConfigService = {
       )
     }
     try {
-      const { fetchPrBase } = await github()
+      const { fetchPrBase } = gitProviderFor(input)
       const base = await fetchPrBase({
         workspaceId: input.workspaceId,
         fullName: input.repo,
         prNumber: input.prNumber,
       })
       const load = await repoConfigService.loadAt({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         repo: input.repo,
         sha: base.sha,
@@ -353,21 +373,22 @@ export const repoConfigService = {
    * source — as of its default branch (or `sha`). For the configuration
    * views. Throws only when the repository's default branch cannot be read.
    */
-  async effective(input: {
-    workspaceId: string
-    repo: string
-    sha?: string
-  }): Promise<EffectiveRepoConfig> {
+  async effective(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      sha?: string
+    }
+  ): Promise<EffectiveRepoConfig> {
     const head = input.sha
       ? { branch: null, sha: input.sha }
-      : await (
-          await github()
-        ).fetchDefaultBranchHead({
+      : await gitProviderFor(input).fetchDefaultBranchHead({
           workspaceId: input.workspaceId,
           fullName: input.repo,
         })
     const [load, rows] = await Promise.all([
       repoConfigService.loadAt({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         repo: input.repo,
         sha: head.sha,

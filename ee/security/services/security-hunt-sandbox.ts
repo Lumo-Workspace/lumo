@@ -35,9 +35,9 @@ import {
   type RepoSandbox,
 } from '@/ee/security/integrations/vercel-sandbox'
 import {
-  getRepoCloneToken,
-  revokeInstallationToken,
-} from '@/lib/integrations/github/auth'
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   redactPrivateKeyBlocks,
   redactToolOutputLine,
@@ -87,7 +87,7 @@ export type { ScrubOptions }
 const SHELL_TIMEOUT_MS = 20_000
 const TRUNCATION_NOTE = '\n…(truncated)'
 
-export interface AttachInput {
+export interface AttachInput extends GitProviderRef {
   scanId: string
   workspaceId: string
   /** `owner/repo` */
@@ -358,7 +358,8 @@ async function waitForManagedScanDone(
  * dead before the agent's first command — or the agent gets no VM.
  */
 async function createSealed(input: AttachInput): Promise<HuntSandbox> {
-  const token = await getRepoCloneToken(input.workspaceId, input.repo)
+  const git = gitProviderFor(input)
+  const token = await git.getRepoCloneToken(input.workspaceId, input.repo)
   let handle: HuntSandbox
   let revoked = false
   try {
@@ -377,7 +378,7 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
       throw error
     }
   } finally {
-    revoked = await revokeInstallationToken(token)
+    revoked = await git.revokeToken(token)
   }
   if (!revoked) {
     logger.error(

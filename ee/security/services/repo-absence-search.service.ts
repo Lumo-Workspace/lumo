@@ -14,10 +14,16 @@
  *
  * Optional context: the caller drops it when this throws.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/contents`
- * (loaded lazily).
+ * A platform without a repository archive (`capabilities.repoArchive`) is
+ * not searched: undefined, as for no queries — absence stays unproven.
+ *
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318).
  */
-import { TarReader } from '@/lib/integrations/github/tar-reader'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   AbsenceMatcher,
   wantedByQueries,
@@ -31,22 +37,21 @@ export const ABSENCE_SEARCH_MAX_BYTES = 128 * 1024 * 1024
 export const ABSENCE_SEARCH_FILE_MAX_BYTES = 1024 * 1024
 export const ABSENCE_SEARCH_TIMEOUT_MS = 15_000
 
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
-
 export const repoAbsenceSearchService = {
   /** Search the head for `queries` (none ⇒ undefined, nothing read). */
-  async search(input: {
-    workspaceId: string
-    repo: string
-    headSha: string
-    queries: readonly AbsenceQuery[]
-  }): Promise<RepoAbsenceSearch | undefined> {
+  async search(
+    input: {
+      workspaceId: string
+      repo: string
+      headSha: string
+      queries: readonly AbsenceQuery[]
+    } & GitProviderRef
+  ): Promise<RepoAbsenceSearch | undefined> {
     if (input.queries.length === 0) return undefined
-    const gh = await github()
+    const gh = gitProviderFor(input)
+    if (!gh.capabilities.repoArchive) return undefined
     const matcher = new AbsenceMatcher(input.queries)
-    const reader = new TarReader({
+    const reader = gh.createArchiveReader({
       maxFileBytes: ABSENCE_SEARCH_FILE_MAX_BYTES,
       wantPath: path => wantedByQueries(path, input.queries),
       onFile: (path, content) => matcher.addFile(path, content),

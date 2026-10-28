@@ -20,10 +20,11 @@
  * requirements that claim something is absent across the repository
  * (`repo-absence-search.service.ts`; issues' requirements included).
  *
- * Layering: service — the database through repositories, GitHub through
- * `@/lib/integrations/github/contents` (loaded lazily).
+ * Layering: service — the database through repositories, the PR's Git
+ * platform through the `GitProvider` port (LUM-1318).
  */
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { taskDecisionRepository } from '@/lib/repositories/task-decision.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
@@ -43,10 +44,6 @@ import {
   type LinkedRequirement,
 } from '@/ee/security/security-scan/issue-assessment'
 import type { PreMergeCheckGatherInput } from '@/ee/security/security-scan/pre-merge-checks'
-
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
 
 /** LUM-1310: runs read per test case (newest first) to find one on the head. */
 const EVIDENCE_RUNS_PER_CASE = 20
@@ -71,9 +68,7 @@ export const linkedRequirementsService = {
           : null
         const quotable =
           input.setting.issueAssessment.taskDetailsOnPublicRepos ||
-          (await (
-            await github()
-          ).fetchRepoVisibility({
+          (await gitProviderFor(pr).fetchRepoVisibility({
             workspaceId: input.workspaceId,
             fullName: input.repo,
           })) === 'private'
@@ -124,9 +119,7 @@ export const linkedRequirementsService = {
     }
     const numbers = linkedIssueNumbers(input.pr.body, input.repo)
     if (numbers.length > 0) {
-      const issues = await (
-        await github()
-      ).fetchRepoIssues({
+      const issues = await gitProviderFor(pr).fetchRepoIssues({
         workspaceId: input.workspaceId,
         fullName: input.repo,
         numbers,
@@ -156,6 +149,7 @@ export const linkedRequirementsService = {
       Promise.resolve()
         .then(() =>
           repoAbsenceSearchService.search({
+            provider: pr?.provider,
             workspaceId: input.workspaceId,
             repo: input.repo,
             headSha: input.headSha,

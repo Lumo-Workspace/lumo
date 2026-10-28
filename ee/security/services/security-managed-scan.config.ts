@@ -10,6 +10,7 @@
  * `lib/integrations/configured`). Put anything that needs those heavier deps
  * in `security-managed-scan.service.ts` instead.
  */
+import type { GitProviderRef } from '@/lib/integrations/git-provider/resolve'
 import { isIntegrationConfigured } from '@/lib/integrations/configured'
 import type {
   ResolvedPr,
@@ -135,7 +136,7 @@ export type ManagedToolOutcome =
 export type ManagedScanOutcome = Record<ManagedScanTool, ManagedToolOutcome>
 
 /** LUM-738 — a managed scan of the default branch head, feeding the repository baseline. */
-export interface BaselineScanJob {
+export interface BaselineScanJob extends GitProviderRef {
   workspaceId: string
   repo: string
   sha: string

@@ -11,6 +11,11 @@
  * other repositories' learnings join them (`global`, or `auto` on a private
  * repository; a visibility GitHub did not confirm counts as public).
  */
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { logger } from '@/lib/logger'
 import { conventionContentSchema } from '@/lib/memory/schemas'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
@@ -33,17 +38,18 @@ import {
 const READ_LIMIT = 100
 
 /** The reviewed repository's visibility (LUM-1134 `auto`), read live. */
-export type RepoVisibilityReader = (opts: {
-  workspaceId: string
-  fullName: string
-}) => Promise<RepoVisibility>
+export type RepoVisibilityReader = (
+  opts: {
+    workspaceId: string
+    fullName: string
+  } & GitProviderRef
+) => Promise<RepoVisibility>
 
 const readRepoVisibility: RepoVisibilityReader = async opts => {
-  // Dynamic import keeps the GitHub App auth (ESM) out of this module's
-  // static graph — the scan service imports it statically.
-  const { fetchRepoVisibility } =
-    await import('@/lib/integrations/github/contents')
-  return fetchRepoVisibility(opts)
+  // The adapter loads the platform's token minting lazily (ESM auth stays
+  // out of the static graph).
+  const { provider, ...read } = opts
+  return gitProviderFor({ provider }).fetchRepoVisibility(read)
 }
 
 type Row = Awaited<
@@ -51,7 +57,7 @@ type Row = Awaited<
 >[number]
 
 export async function loadReviewLearnings(
-  input: {
+  input: GitProviderRef & {
     workspaceId: string
     repo: string
     /** The PR under review: its own learnings apply before it merges. */
@@ -126,6 +132,7 @@ export async function loadReviewLearnings(
     )
     if (otherStored.length > 0 && scope === 'auto') {
       const visibility = await (deps.repoVisibility ?? readRepoVisibility)({
+        ...gitProviderRefOf(input),
         workspaceId: input.workspaceId,
         fullName: input.repo,
       }).catch((): RepoVisibility => 'unknown')

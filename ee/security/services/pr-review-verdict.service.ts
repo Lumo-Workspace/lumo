@@ -16,13 +16,16 @@
  * Best effort: `apply` never throws (a failed verdict must not fail a scan's
  * write-back); the next sync decides again.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*` only.
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318) only.
  */
 import { logger } from '@/lib/logger'
 import {
-  prCommentClient,
-  type GithubApiError,
-} from '@/lib/integrations/github/pr-comment-client'
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type { GitApiError, ListedReview } from '@/lib/integrations/git-provider'
 import {
   canSubmitApproval,
   changeRequestsSupersededBy,
@@ -99,7 +102,7 @@ export function dismissMessage(headSha: string): string {
 export const WITHDRAW_MESSAGE =
   "Lumo's request-changes workflow is turned off for this workspace — this change request no longer applies."
 
-export interface VerdictSyncInput {
+export interface VerdictSyncInput extends GitProviderRef {
   repo: Repo
   prNumber: number
   /** Installation token with `pull_requests: write`. */
@@ -126,13 +129,13 @@ export type ApproveByCommandResult =
 
 /**
  * GitHub said slow down (primary or secondary rate limit): a
- * `GithubApiError` carrying the moment the limit lifts.
+ * platform API error (`GitApiError`) carrying the moment the limit lifts.
  */
 export function isRateLimited(error: unknown): boolean {
   return (
     !!error &&
     typeof error === 'object' &&
-    (error as Partial<GithubApiError>).rateLimitResetAt instanceof Date
+    (error as Partial<GitApiError>).rateLimitResetAt instanceof Date
   )
 }
 
@@ -213,7 +216,7 @@ export function isTransientGithubFailure(error: unknown): boolean {
  * Lumo approved. Throws `submitError` when no approval landed.
  */
 async function supersededChangeRequests(
-  input: {
+  input: GitProviderRef & {
     repo: Repo
     prNumber: number
     token: string
@@ -223,9 +226,9 @@ async function supersededChangeRequests(
   },
   submitError: unknown
 ): Promise<number[]> {
-  let reviews: Awaited<ReturnType<typeof prCommentClient.listReviews>>
+  let reviews: ListedReview[]
   try {
-    reviews = await prCommentClient.listReviews(input)
+    reviews = await gitProviderFor(input).comments.listReviews(input)
   } catch (error) {
     if (submitError !== null) throw submitError
     logger.warn(
@@ -255,19 +258,21 @@ async function supersededChangeRequests(
  * approval path, also when GitHub answered the submit with an error but
  * recorded the approval.
  */
-async function approveAndDismiss(input: {
-  repo: Repo
-  prNumber: number
-  token: string
-  sha: string
-  body: string
-  changesRequestedIds: number[]
-  /** Every review listed before the submit (an earlier approval is not this one). */
-  seenReviewIds: number[]
-}): Promise<void> {
+async function approveAndDismiss(
+  input: GitProviderRef & {
+    repo: Repo
+    prNumber: number
+    token: string
+    sha: string
+    body: string
+    changesRequestedIds: number[]
+    /** Every review listed before the submit (an earlier approval is not this one). */
+    seenReviewIds: number[]
+  }
+): Promise<void> {
   let submitError: unknown = null
   try {
-    await prCommentClient.submitReview({
+    await gitProviderFor(input).comments.submitReview({
       repo: input.repo,
       prNumber: input.prNumber,
       token: input.token,
@@ -282,7 +287,7 @@ async function approveAndDismiss(input: {
   const toDismiss = await supersededChangeRequests(input, submitError)
   for (const reviewId of toDismiss) {
     try {
-      await prCommentClient.dismissReview({
+      await gitProviderFor(input).comments.dismissReview({
         repo: input.repo,
         prNumber: input.prNumber,
         reviewId,
@@ -301,7 +306,7 @@ export const prReviewVerdictService = {
   async apply(input: VerdictSyncInput): Promise<VerdictOutcome> {
     const where = `pr=#${input.prNumber} head=${short(input.headSha)}`
     try {
-      const listed = await prCommentClient.listReviews({
+      const listed = await gitProviderFor(input).comments.listReviews({
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,
@@ -320,7 +325,7 @@ export const prReviewVerdictService = {
       if (verdict.kind === 'NONE') return 'none'
 
       if (verdict.kind === 'REQUEST_CHANGES') {
-        await prCommentClient.submitReview({
+        await gitProviderFor(input).comments.submitReview({
           repo: input.repo,
           prNumber: input.prNumber,
           token: input.token,
@@ -333,7 +338,7 @@ export const prReviewVerdictService = {
       }
 
       // APPROVE — the head must not have moved since this review.
-      const live = await prCommentClient.getPullRequestHead({
+      const live = await gitProviderFor(input).comments.getPullRequestHead({
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,
@@ -343,6 +348,7 @@ export const prReviewVerdictService = {
         return 'head_moved'
       }
       await approveAndDismiss({
+        ...gitProviderRefOf(input),
         repo: input.repo,
         prNumber: input.prNumber,
         token: input.token,
@@ -367,19 +373,22 @@ export const prReviewVerdictService = {
    * Throws on a GitHub failure (the command path turns that into its own
    * outcome).
    */
-  async approveByCommand(input: {
-    repo: Repo
-    prNumber: number
-    token: string
-    login: string
-    sha: string
-  }): Promise<ApproveByCommandResult> {
-    const listed = await prCommentClient.listReviews(input)
+  async approveByCommand(
+    input: GitProviderRef & {
+      repo: Repo
+      prNumber: number
+      token: string
+      login: string
+      sha: string
+    }
+  ): Promise<ApproveByCommandResult> {
+    const listed = await gitProviderFor(input).comments.listReviews(input)
     const standing = standingLumoReview(listed)
-    const live = await prCommentClient.getPullRequestHead(input)
+    const live = await gitProviderFor(input).comments.getPullRequestHead(input)
     if (!canSubmitApproval(input.sha, live))
       return { ok: false, reason: 'head_moved' }
     await approveAndDismiss({
+      ...gitProviderRefOf(input),
       repo: input.repo,
       prNumber: input.prNumber,
       token: input.token,
@@ -402,19 +411,21 @@ export const prReviewVerdictService = {
    * rest are done, so the caller's retry re-lists and dismisses what is still
    * standing (an already-dismissed review is no longer CHANGES_REQUESTED).
    */
-  async withdrawChangeRequests(input: {
-    repo: Repo
-    prNumber: number
-    token: string
-  }): Promise<number> {
+  async withdrawChangeRequests(
+    input: GitProviderRef & {
+      repo: Repo
+      prNumber: number
+      token: string
+    }
+  ): Promise<number> {
     const { changesRequestedIds } = standingLumoReview(
-      await prCommentClient.listReviews(input)
+      await gitProviderFor(input).comments.listReviews(input)
     )
     let dismissed = 0
     let transient: unknown = null
     for (const reviewId of changesRequestedIds) {
       try {
-        await prCommentClient.dismissReview({
+        await gitProviderFor(input).comments.dismissReview({
           repo: input.repo,
           prNumber: input.prNumber,
           reviewId,

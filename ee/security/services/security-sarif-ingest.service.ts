@@ -26,8 +26,11 @@ import {
   prSecurityScanRepository,
   type NewFindingInput,
 } from '@/ee/security/repositories/pr-security-scan.repository'
-import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   parseSarif,
   normalizeSarif,
@@ -77,7 +80,7 @@ export interface SarifIngestJob {
   tool: string
 }
 
-export interface ResolvedPr {
+export interface ResolvedPr extends GitProviderRef {
   id: string
   workspaceId: string
   repo: string
@@ -238,13 +241,15 @@ async function resolveScanFor(
     taskId: string | null
     repo: string
     number: number
-  },
+  } & GitProviderRef,
   job: SarifIngestJob
 ): Promise<ScanTarget | 'repo_not_confirmed' | 'workspace_scan_disabled'> {
   // LUM-889: before any scan row exists — a repository the workspace has not
   // confirmed gets no scan, rather than a PENDING row whose diff read is
   // refused and retried until the PR shows a failed external layer.
-  const confirmed = await loadConfirmedRepositories(pr.workspaceId)
+  const confirmed = await gitProviderFor(pr).loadConfirmedRepositories(
+    pr.workspaceId
+  )
   if (confirmed(pr.repo) === null) {
     logger.info(
       `[security-sarif-ingest] ${logSafe(job.repository)} is not confirmed in workspace ${pr.workspaceId} — dropping its copy of the ${logSafe(job.tool)} report`
@@ -277,6 +282,7 @@ async function resolveScanFor(
   return {
     scanId: scan.id,
     pr: {
+      ...gitProviderRefOf(pr),
       id: pr.id,
       workspaceId: pr.workspaceId,
       repo: pr.repo,
@@ -378,7 +384,7 @@ export const securitySarifIngestService = {
     // The one exception is the token layer's own refusal (LUM-889), below.
     let diff: string
     try {
-      diff = await fetchPrDiff({
+      diff = await gitProviderFor(input.pr).fetchPrDiff({
         workspaceId: input.pr.workspaceId,
         fullName: input.pr.repo,
         prNumber: input.pr.number,
