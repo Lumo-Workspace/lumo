@@ -106,12 +106,14 @@ if [ -n "$URL" ]; then
       set_var SOKETI_PUBLIC_HOST "$hostname"
       set_var SOKETI_PUBLIC_PORT 443
       set_var SOKETI_PUBLIC_TLS true
+      set_var SOKETI_PORT 6001
       ;;
     *)
       # Plain HTTP: the browser reaches Soketi directly on port 6001.
       set_var SOKETI_PUBLIC_HOST "$hostname"
       set_var SOKETI_PUBLIC_PORT 6001
       set_var SOKETI_PUBLIC_TLS false
+      set_var SOKETI_PORT 6001
       ;;
   esac
   echo "Public URL set to $URL"
