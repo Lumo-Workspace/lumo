@@ -1406,9 +1406,31 @@ describe('LUM-879 repository rename and removal', () => {
     expect(repo.renameRepository).toHaveBeenCalledWith('w1', {
       expectedUpdatedAt: STAMP,
       repositories: ['Acme/Web-App', 'acme/api'],
+      // LUM-1330: the old name is remembered for clones that still use it.
+      repositoryAliases: { 'acme/web': 'Acme/Web-App' },
       from: 'Acme/Web',
       to: 'Acme/Web-App',
     })
+  })
+
+  it('LUM-1330 renameRepository keeps earlier aliases and points them at the new name', async () => {
+    repo.findRecheckState.mockResolvedValue({
+      repositories: ['acme/web'],
+      repositoryAliases: { 'acme/site': 'acme/web', 'acme/x': 'acme/y' },
+      updatedAt: STAMP,
+    })
+    repo.renameRepository.mockResolvedValue({ pullRequests: 0, skipped: 0 })
+    await githubAppInstallService.renameRepository(77, 'acme/web', 'acme/www')
+    expect(repo.renameRepository).toHaveBeenCalledWith(
+      'w1',
+      expect.objectContaining({
+        repositoryAliases: {
+          'acme/site': 'acme/www',
+          'acme/x': 'acme/y',
+          'acme/web': 'acme/www',
+        },
+      })
+    )
   })
 
   it('renameRepository leaves a workspace that never confirmed the old name alone', async () => {

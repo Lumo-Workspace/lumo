@@ -37,6 +37,9 @@ export interface AgentImportResult {
   tool: AgentReviewTool
   /** Results in the report; the ingest keeps those on the PR's changed lines. */
   results: number
+  /** LUM-1330: the name the caller sent, when it was a renamed repository's
+   *  old name (`repository` is the current one). */
+  renamedFrom?: string
 }
 
 function fail(status: number, message: string): Error {
@@ -70,6 +73,33 @@ function importPathname(body: AgentImportBody): string {
   return `${base}-${randomBytes(12).toString('hex')}.sarif.gz`
 }
 
+/**
+ * LUM-1330 — the PR in the repository the caller named. A name renamed away
+ * (a clone keeps the old remote) means its current name first: a rename can
+ * leave a stale row under the old name (LUM-879 keeps it when the new name
+ * already had that number), and that row is no longer importable.
+ */
+async function findImportTarget(workspaceId: string, body: AgentImportBody) {
+  const current = await gitProviderFor(null).resolveRenamedRepository(
+    workspaceId,
+    body.repository
+  )
+  if (current !== null) {
+    const renamed = await pullRequestRepository.findForSecurityImport(
+      workspaceId,
+      current,
+      body.prNumber
+    )
+    if (renamed) return { pr: renamed, renamedFrom: body.repository }
+  }
+  const pr = await pullRequestRepository.findForSecurityImport(
+    workspaceId,
+    body.repository,
+    body.prNumber
+  )
+  return pr ? { pr, renamedFrom: null } : null
+}
+
 export const securityAgentImportService = {
   async import(
     caller: AgentImportCaller,
@@ -79,12 +109,13 @@ export const securityAgentImportService = {
       `member:${caller.workspaceId}:${caller.memberId}`
     )
     const ref = `${body.repository}#${body.prNumber}`
-    const pr = await pullRequestRepository.findForSecurityImport(
-      caller.workspaceId,
-      body.repository,
-      body.prNumber
-    )
-    if (!pr) throw fail(404, `No GitHub pull request ${ref} in this workspace`)
+    const found = await findImportTarget(caller.workspaceId, body)
+    if (!found)
+      throw fail(
+        404,
+        `No GitHub pull request ${ref} in this workspace (if the repository was renamed, pass its current owner/name with --repo)`
+      )
+    const { pr, renamedFrom } = found
     if (pr.state !== 'open')
       throw fail(
         409,
@@ -140,6 +171,7 @@ export const securityAgentImportService = {
       headSha: body.headSha,
       tool: body.tool,
       results,
+      ...(renamedFrom ? { renamedFrom } : {}),
     }
   },
 }

@@ -330,6 +330,15 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /** LUM-1330 — the confirmed list and the rename record, for resolving an
+   *  old repository name. */
+  async findRenameState(workspaceId: string) {
+    return prisma.gitHubAppInstallation.findUnique({
+      where: { workspaceId },
+      select: { repositories: true, repositoryAliases: true },
+    })
+  },
+
   /**
    * LUM-882 — the fields the access recheck narrows, plus the versions
    * `updateRecheckIfUnchanged` checks: `verifiedAt` (which verification the
@@ -343,6 +352,8 @@ export const githubAppInstallationRepository = {
         verifierLogin: true,
         verifiedAt: true,
         accessRemovedCount: true,
+        // LUM-1330: the rename writes it with the list.
+        repositoryAliases: true,
         updatedAt: true,
       },
     })
@@ -429,6 +440,8 @@ export const githubAppInstallationRepository = {
     input: {
       expectedUpdatedAt: Date
       repositories: string[]
+      /** LUM-1330: the rename record with `from` → `to` added. */
+      repositoryAliases: Record<string, string>
       from: string
       to: string
     }
@@ -437,7 +450,10 @@ export const githubAppInstallationRepository = {
       async tx => {
         const { count } = await tx.gitHubAppInstallation.updateMany({
           where: { workspaceId, updatedAt: input.expectedUpdatedAt },
-          data: { repositories: input.repositories },
+          data: {
+            repositories: input.repositories,
+            repositoryAliases: input.repositoryAliases,
+          },
         })
         if (count !== 1) return null
         return renameRepoRows(tx, workspaceId, input.from, input.to)

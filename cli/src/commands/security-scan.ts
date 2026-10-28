@@ -27,6 +27,7 @@ import {
   detectRepo,
   loadPrScan,
   loadScanContext,
+  originUrl,
   type ScanContextDeps,
 } from '../lib/scan-context'
 import { comparePrFindings, labelFinding } from '../lib/scan-labels'
@@ -167,6 +168,8 @@ export async function withServerContext(
               .join('; ')
           : loaded.note,
       repo: loaded.repo,
+      renamedFrom: ctx?.renamedFrom ?? null,
+      remoteUrl: input.repo === undefined ? originUrl(input.root) : null,
       fetchedAt: loaded.fetchedAt,
       pullRequest: ctx?.pullRequest?.number ?? null,
       policy: ctx?.policy ?? null,

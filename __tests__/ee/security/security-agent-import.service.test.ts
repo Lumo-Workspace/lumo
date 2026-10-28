@@ -12,9 +12,11 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findForSecurityImport: jest.fn() },
 }))
 const mockLoadConfirmedRepositories = jest.fn()
+const mockResolveRenamedRepository = jest.fn()
 jest.mock('@/lib/integrations/git-provider/resolve', () => ({
   gitProviderFor: () => ({
     loadConfirmedRepositories: mockLoadConfirmedRepositories,
+    resolveRenamedRepository: mockResolveRenamedRepository,
   }),
 }))
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
@@ -101,6 +103,7 @@ beforeEach(() => {
     headSha: HEAD,
   })
   confirmed.mockResolvedValue((r: string) => r)
+  mockResolveRenamedRepository.mockResolvedValue(null)
   layers.mockResolvedValue({ scan: true })
   rateLimit.mockResolvedValue(undefined)
   put.mockImplementation(async (pathname: string) => ({
@@ -108,6 +111,64 @@ beforeEach(() => {
     pathname,
   }))
   startRun.mockResolvedValue('run_1')
+})
+
+describe('LUM-1330 a renamed repository under its old name', () => {
+  const renamedPr = {
+    id: 'pr1',
+    repo: 'acme/app-new',
+    number: 7,
+    state: 'open',
+    headSha: HEAD,
+  }
+
+  it("finds the PR under the repository's current name and says it was renamed", async () => {
+    findPr.mockImplementation(async (_ws: string, repo: string) =>
+      repo === 'acme/app-new' ? renamedPr : null
+    )
+    mockResolveRenamedRepository.mockResolvedValue('acme/app-new')
+    const out = await securityAgentImportService.import(caller, body())
+    expect(mockResolveRenamedRepository).toHaveBeenCalledWith('ws1', 'acme/app')
+    expect(out).toMatchObject({
+      repository: 'acme/app-new',
+      renamedFrom: 'acme/app',
+    })
+    expect(startRun).toHaveBeenCalledWith(
+      expect.objectContaining({ repository: 'acme/app-new' })
+    )
+  })
+
+  it('a name that is not renamed imports into its own PR, with no renamedFrom', async () => {
+    const out = await securityAgentImportService.import(caller, body())
+    expect(mockResolveRenamedRepository).toHaveBeenCalledWith('ws1', 'acme/app')
+    expect(findPr).toHaveBeenCalledTimes(1)
+    expect(out).not.toHaveProperty('renamedFrom')
+  })
+
+  it('a stale row left under the old name loses to the current repository', async () => {
+    findPr.mockImplementation(async (_ws: string, repo: string) =>
+      repo === 'acme/app-new'
+        ? renamedPr
+        : { ...renamedPr, id: 'stale', repo: 'acme/app' }
+    )
+    mockResolveRenamedRepository.mockResolvedValue('acme/app-new')
+    const out = await securityAgentImportService.import(caller, body())
+    expect(out).toMatchObject({
+      repository: 'acme/app-new',
+      renamedFrom: 'acme/app',
+    })
+  })
+
+  it('no rename record: 404 that points at --repo', async () => {
+    findPr.mockResolvedValue(null)
+    await expect(
+      securityAgentImportService.import(caller, body())
+    ).rejects.toMatchObject({
+      status: 404,
+      message: expect.stringContaining('--repo'),
+    })
+    expect(startRun).not.toHaveBeenCalled()
+  })
 })
 
 describe('securityAgentImportService.import', () => {

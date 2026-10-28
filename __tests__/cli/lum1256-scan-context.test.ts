@@ -15,6 +15,8 @@ import {
   loadPrScan,
   loadScanContext,
   parseGithubRepo,
+  renamedRemoteLines,
+  renamedRemoteUrl,
   SCAN_CONTEXT_PATH,
   type ScanContext,
 } from '../../cli/src/lib/scan-context'
@@ -189,6 +191,37 @@ describe('loadScanContext', () => {
     })
   })
 
+  it('LUM-1330 the server followed a rename: the result carries the current name', async () => {
+    const fetch = jest.fn().mockResolvedValue(
+      json({ ...context, repo: 'acme/new', renamedFrom: 'acme/app' }, 200, {
+        etag: '"e9"',
+      })
+    )
+    const r = await loadScanContext(opts, { ...base(), fetch })
+    expect(r).toMatchObject({
+      source: 'live',
+      repo: 'acme/new',
+      context: { renamedFrom: 'acme/app' },
+    })
+    // A 304 from the cache keeps following it.
+    const again = jest
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 304 }))
+    const r2 = await loadScanContext(opts, { ...base(), fetch: again })
+    expect(r2.repo).toBe('acme/new')
+    // So do --offline and the fallback to the cache when Lumo is down.
+    const offline = await loadScanContext(
+      { ...opts, offline: true },
+      { ...base(), fetch: jest.fn() }
+    )
+    expect(offline).toMatchObject({ source: 'cache', repo: 'acme/new' })
+    const down = await loadScanContext(opts, {
+      ...base(),
+      fetch: jest.fn().mockRejectedValue(new Error('fetch failed')),
+    })
+    expect(down).toMatchObject({ source: 'cache', repo: 'acme/new' })
+  })
+
   it('a repository the workspace does not own (JSON 404) is no context', async () => {
     const fetch = jest
       .fn()
@@ -287,5 +320,61 @@ describe('loadPrScan', () => {
         fetch: jest.fn().mockResolvedValue(json({}, 500)),
       })
     ).toEqual({ ok: false, note: 'reading PR #12 failed (HTTP 500)' })
+  })
+})
+
+describe('LUM-1330 renamedRemoteUrl', () => {
+  it('swaps only owner/name and keeps the remote form', () => {
+    expect(
+      renamedRemoteUrl('git@github.com:Acme/Old.git', 'acme/old', 'acme/new')
+    ).toBe('git@github.com:acme/new.git')
+    expect(
+      renamedRemoteUrl(
+        'ssh://git@github.com:22/acme/old',
+        'acme/old',
+        'acme/new'
+      )
+    ).toBe('ssh://git@github.com:22/acme/new')
+    expect(
+      renamedRemoteUrl(
+        'https://github.com/acme/old.git',
+        'acme/old',
+        'acme/new'
+      )
+    ).toBe('https://github.com/acme/new.git')
+  })
+  it('a remote naming another repository falls back to https', () => {
+    expect(
+      renamedRemoteUrl('git@github.com:acme/other.git', 'acme/old', 'acme/new')
+    ).toBe('https://github.com/acme/new.git')
+  })
+})
+
+describe('LUM-1330 a remote URL with credentials', () => {
+  // Built at run time: no credential-shaped literal in the repository.
+  const secret = ['placeholder', 'credential'].join('-')
+  const remote = `https://x-access-token:${secret}@github.com/acme/old.git`
+  it('the suggested URL leaves the credentials out', () => {
+    expect(renamedRemoteUrl(remote, 'acme/old', 'acme/new')).toBe(
+      'https://github.com/acme/new.git'
+    )
+  })
+  it('the printed lines never contain them, and say they were left out', () => {
+    const lines = renamedRemoteLines('acme/old', 'acme/new', remote).join('\n')
+    expect(lines).not.toContain(secret)
+    expect(lines).not.toContain('x-access-token')
+    expect(lines).toContain(
+      'git remote set-url origin https://github.com/acme/new.git'
+    )
+    expect(lines).toContain('credentials; they are left out')
+  })
+  it('an ssh remote keeps its git@ user and gets no credentials line', () => {
+    const lines = renamedRemoteLines(
+      'acme/old',
+      'acme/new',
+      'git@github.com:acme/old.git'
+    ).join('\n')
+    expect(lines).toContain('git@github.com:acme/new.git')
+    expect(lines).not.toContain('credentials')
   })
 })

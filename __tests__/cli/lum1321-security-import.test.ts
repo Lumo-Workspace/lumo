@@ -165,6 +165,57 @@ describe('lumo security import', () => {
     expect(out).not.toContain('test-token')
   })
 
+  it('LUM-1330 the server found the PR under a renamed repository: says how to update the remote', async () => {
+    const answer = new Response(
+      JSON.stringify({
+        runId: 'run_1',
+        repository: 'acme/new',
+        prNumber: 12,
+        headSha: head,
+        tool: 'claude-code',
+        results: 1,
+        renamedFrom: 'acme/app',
+      }),
+      { status: 202, headers: { 'content-type': 'application/json' } }
+    )
+    const { result, out } = await run(
+      {},
+      api({ number: 12, headSha: null }, answer)
+    )
+    expect(result).toBe(0)
+    expect(out).toContain(
+      'Note: acme/app was renamed to acme/new. Update your git remote:'
+    )
+    expect(out).toContain(
+      '  git remote set-url origin https://github.com/acme/new.git'
+    )
+    expect(out).toContain('into acme/new#12')
+  })
+
+  it('LUM-1330 the old name came from --repo: says to pass the new one, not to touch the remote', async () => {
+    const answer = new Response(
+      JSON.stringify({
+        runId: 'run_1',
+        repository: 'acme/new',
+        prNumber: 12,
+        headSha: head,
+        tool: 'claude-code',
+        results: 1,
+        renamedFrom: 'acme/app',
+      }),
+      { status: 202, headers: { 'content-type': 'application/json' } }
+    )
+    const { result, out } = await run(
+      { repo: 'acme/app', pr: '12' },
+      api({ number: 12, headSha: null }, answer)
+    )
+    expect(result).toBe(0)
+    expect(out).toContain(
+      'Note: acme/app was renamed to acme/new. Pass --repo acme/new.'
+    )
+    expect(out).not.toContain('git remote set-url')
+  })
+
   it('--tool and --pr override the detection; --json prints the versioned result', async () => {
     const fetch = api(null)
     const { result, out } = await run(
