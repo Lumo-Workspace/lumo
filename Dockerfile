@@ -98,10 +98,16 @@ COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/shared ./shared
 COPY --from=builder --chown=node:node /app/lib/db/database-url.ts ./lib/db/
 COPY --from=builder --chown=node:node /app/scripts/workflow-postgres-bootstrap.mjs ./scripts/
+# LOCAL_BLOB_DIR of docker-compose.yml (LUM-1332). A new named volume takes
+# this directory's owner, so the app can write its files there.
+RUN mkdir -p /var/lib/lumo/blobs && chown node:node /var/lib/lumo/blobs
 USER node
 EXPOSE 3000
+# On every start (LUM-1332): schema migrations, then the workflow World's own
+# schemas (both idempotent), then `next start`. One app instance only — two
+# would run the migrations concurrently.
 # `next start` must listen on $PORT — the in-process workflow worker delivers
 # to WORKFLOW_LOCAL_BASE_URL, which names the same port. A Better Auth image
 # refuses to start without a usable BETTER_AUTH_SECRET instead of failing
 # every sign-in later (lib/auth/better-auth/config.ts: >= 32 characters).
-CMD ["sh", "-c", "if [ \"$AUTH_PROVIDER\" = better-auth ] && [ ${#BETTER_AUTH_SECRET} -lt 32 ]; then echo 'BETTER_AUTH_SECRET must be set to at least 32 characters (openssl rand -hex 32)' >&2; exit 1; fi; exec node node_modules/next/dist/bin/next start -p \"$PORT\""]
+CMD ["sh", "-c", "if [ \"$AUTH_PROVIDER\" = better-auth ] && [ ${#BETTER_AUTH_SECRET} -lt 32 ]; then echo 'BETTER_AUTH_SECRET must be set to at least 32 characters (openssl rand -hex 32)' >&2; exit 1; fi; npx prisma migrate deploy && npm run workflow:bootstrap && exec node node_modules/next/dist/bin/next start -p \"$PORT\""]
