@@ -27,6 +27,8 @@ x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
       # The NEXT_PUBLIC_* args are only fallbacks: the app reads the runtime
       # values below (LUM-1325), so changing them needs no rebuild.
       AUTH_PROVIDER: better-auth
+      # Node heap for `next build`; lower it on a builder with < 8 GB.
+      BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-6144}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
       NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}

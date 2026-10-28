@@ -86,7 +86,7 @@ To build both images from your checkout instead, run
 `docker compose up -d --build` (Compose also builds when it cannot pull the
 image). Building needs about **8 GB of memory** available to Docker
 (`next build` is memory-hungry) and ~10 GB of disk; on a smaller builder,
-lower the heap with `--build-arg BUILD_MAX_OLD_SPACE_SIZE=4096` (the build
+lower the heap with `BUILD_MAX_OLD_SPACE_SIZE=4096` in `.env` (the build
 may then fail). Keep secrets hex (`openssl rand -hex 32`): `WORKFLOW_SECRET`
 is embedded in a URL.
 

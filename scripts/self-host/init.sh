@@ -59,7 +59,8 @@ set_var() {
   KEY=$1 VALUE=$2 awk '
     index($0, ENVIRON["KEY"] "=") == 1 { print ENVIRON["KEY"] "=" ENVIRON["VALUE"]; found = 1; next }
     { print }
-    END { if (!found) print ENVIRON["KEY"] "=" ENVIRON["VALUE"] }' "$ENV_FILE" > "$tmp"
+    END { if (!found) print ENVIRON["KEY"] "=" ENVIRON["VALUE"] }' "$ENV_FILE" |
+    (umask 077 && cat > "$tmp")
   cat "$tmp" > "$ENV_FILE"
   rm -f "$tmp"
 }
@@ -123,7 +124,6 @@ if [ -n "$URL" ]; then
       set_var SOKETI_PUBLIC_HOST "$hostname"
       set_var SOKETI_PUBLIC_PORT "${port:-443}"
       set_var SOKETI_PUBLIC_TLS true
-      set_var SOKETI_PORT 6001
       ;;
     *)
       # Plain HTTP: the browser reaches Soketi directly on port 6001, and
@@ -132,7 +132,6 @@ if [ -n "$URL" ]; then
       set_var SOKETI_PUBLIC_HOST "$hostname"
       set_var SOKETI_PUBLIC_PORT 6001
       set_var SOKETI_PUBLIC_TLS false
-      set_var SOKETI_PORT 6001
       ;;
   esac
   echo "Public URL set to $URL"
