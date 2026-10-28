@@ -232,7 +232,38 @@ describe('settings slots', () => {
       huntAvailable: true,
       rewardHackAvailable: true,
       sandboxAvailable: false,
+      // LUM-1329: no policy on the row ⇒ agent reviews are advisory.
+      initialAgentReviewBlocking: 'off',
     })
+    // LUM-1329: the stored policy's AGENT_REVIEW entries as one level.
+    rerender(
+      <PluginSlot
+        name='settings.workspace.section'
+        props={{
+          workspace: {
+            id: 'w1',
+            securityPolicy: {
+              block: [
+                { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+                { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
+              ],
+            },
+          },
+          me: {
+            securityPlatform: {
+              managedScan: true,
+              hunt: true,
+              rewardHack: true,
+              sandbox: false,
+            },
+          },
+        }}
+      />
+    )
+    expect(
+      JSON.parse(screen.getByTestId('switches-card').dataset.props!)
+        .initialAgentReviewBlocking
+    ).toBe('high')
     // LUM-1114: the rule-coverage card sits under the switches.
     expect(screen.getByTestId('policy-coverage-card')).toBeTruthy()
     // LUM-1133: the per-repository automatic review card.

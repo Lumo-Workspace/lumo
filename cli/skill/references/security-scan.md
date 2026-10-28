@@ -157,7 +157,7 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 
 Attaches a security review **you ran in Claude Code or Codex** to the branch's open PR scan, so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
 
-- **Advisory by default** (rule ids `ext:claude-code:…` / `ext:codex:…`): they block DONE only when the workspace policy lists `{ "provenance": "AGENT_REVIEW", "severity": … }` — an owner's opt-in (`securityPolicy` via `PATCH /api/workspaces/me`); an `EXTERNAL_TOOL` entry never covers them.
+- **Advisory by default** (rule ids `ext:claude-code:…` / `ext:codex:…`): they block DONE only when the workspace policy lists `{ "provenance": "AGENT_REVIEW", "severity": … }` — an owner's opt-in: `lumo workspace security-scan update --agent-review-blocks high|medium|low` or the settings card ([workspace-settings.md](workspace-settings.md)); an `EXTERNAL_TOOL` entry never covers them.
 - **The default review.** A new workspace starts with Lumo's own AI review and hunt off ([workspace-settings.md](workspace-settings.md)); `lumo task status` lists `[SECURITY REVIEW]` for each open PR whose latest commit has no import — a clean import (empty `findings`) counts.
 - **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"; right after a push, wait a few seconds for Lumo to see it). Lumo keeps only results on lines the PR changed; the rest are dropped.
 - **Replaces** that tool's earlier import on the same head; an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.

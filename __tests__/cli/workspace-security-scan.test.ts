@@ -526,3 +526,103 @@ describe('LUM-1234 --reward-hack (Agent behavior)', () => {
     expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Agent behavior/)
   })
 })
+
+describe('LUM-1329 --agent-review-blocks', () => {
+  const withLevel = (
+    agentReviewBlocking: NonNullable<
+      SecurityScanSettingsView['agentReviewBlocking']
+    >
+  ): SecurityScanSettingsView => ({ ...ALL_ON, agentReviewBlocking })
+  const current = (s: SecurityScanSettingsView) => ({
+    ...s.switches,
+    agentReviewBlocking: s.agentReviewBlocking,
+  })
+
+  it('maps the flag (case-insensitive) and refuses a bad value or --enable-all / --disable-all', () => {
+    expect(buildSecurityScanUpdate({ agentReviewBlocks: 'Medium' })).toEqual({
+      agentReviewBlocking: 'medium',
+    })
+    expect(() =>
+      buildSecurityScanUpdate({ agentReviewBlocks: 'critical' })
+    ).toThrow(/--agent-review-blocks takes off, high, medium or low/)
+    expect(() =>
+      buildSecurityScanUpdate({ enableAll: true, agentReviewBlocks: 'high' })
+    ).toThrow(/--agent-review-blocks/)
+  })
+
+  it('turning blocking on, widening or narrowing it, and off are all gated; the same level is not', () => {
+    const on = describeGatedChanges(current(withLevel('off')), {
+      agentReviewBlocking: 'high',
+    }).join('\n')
+    expect(on).toMatch(
+      /Will change: Imported agent reviews block Done — off \(advisory only\) → HIGH/
+    )
+    expect(on).toMatch(/blocks Done until someone rules on it/)
+    const off = describeGatedChanges(current(withLevel('medium')), {
+      agentReviewBlocking: 'off',
+    }).join('\n')
+    expect(off).toMatch(/MEDIUM and HIGH → off/)
+    expect(off).toMatch(/no longer block Done/)
+    expect(
+      describeGatedChanges(current(withLevel('high')), {
+        agentReviewBlocking: 'low',
+      }).join('\n')
+    ).toMatch(/HIGH → every severity/)
+    expect(
+      describeGatedChanges(current(withLevel('custom')), {
+        agentReviewBlocking: 'high',
+      }).join('\n')
+    ).toMatch(/custom \(set through the API\) → HIGH/)
+    expect(
+      describeGatedChanges(current(withLevel('high')), {
+        agentReviewBlocking: 'high',
+      })
+    ).toEqual([])
+  })
+
+  it('--agent-review-blocks high without --confirm exits 4 and sends no PATCH', async () => {
+    serve([{ body: withLevel('off') }])
+    expect(await workspaceSecurityScan({ agentReviewBlocks: 'high' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    expect(out).toMatch(/confirmation_required/)
+    expect(out).toMatch(/off \(advisory only\) → HIGH/)
+  })
+
+  it('--agent-review-blocks high --confirm PATCHes the level and prints it', async () => {
+    serve([{ body: withLevel('off') }, { body: withLevel('high') }])
+    expect(
+      await workspaceSecurityScan({ agentReviewBlocks: 'high', confirm: true })
+    ).toBeUndefined()
+    expect(calls[1]!.init?.method).toBe('PATCH')
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      agentReviewBlocking: 'high',
+    })
+    expect(out).toMatch(/Imported agent reviews block Done: HIGH/)
+  })
+
+  it('a non-OWNER is refused before any envelope or PATCH', async () => {
+    serve([{ body: { ...withLevel('off'), canEdit: false } }])
+    expect(await workspaceSecurityScan({ agentReviewBlocks: 'high' })).toBe(1)
+    expect(calls).toHaveLength(1)
+    expect(err).toMatch(/only workspace owners/)
+  })
+
+  it('an older server without the setting refuses the flag and prints no line', async () => {
+    serve([{ body: ALL_ON }])
+    expect(
+      await workspaceSecurityScan({ agentReviewBlocks: 'high', confirm: true })
+    ).toBe(1)
+    expect(calls).toHaveLength(1)
+    expect(err).toMatch(/does not support --agent-review-blocks/)
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/agent reviews/)
+  })
+
+  it('show prints the current level', () => {
+    expect(formatSecurityScanSettings(withLevel('off'))).toMatch(
+      /Imported agent reviews block Done: off \(advisory only\)/
+    )
+    expect(formatSecurityScanSettings(withLevel('medium'))).toMatch(
+      /Imported agent reviews block Done: MEDIUM and HIGH/
+    )
+  })
+})

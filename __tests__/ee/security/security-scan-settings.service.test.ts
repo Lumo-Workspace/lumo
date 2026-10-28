@@ -12,6 +12,7 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecuritySwitches: jest.fn(),
+    findSecurityPolicy: jest.fn(async () => null),
   },
 }))
 
@@ -51,6 +52,8 @@ const ALL_OFF = {
 
 beforeEach(() => {
   m(securityColumnsRepository.findSecuritySwitches).mockReset()
+  m(securityColumnsRepository.findSecurityPolicy).mockReset()
+  m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(null)
   m(workspaceRepository.update).mockReset()
   m(miscRepository.findMemberRoleById).mockReset()
   m(workspaceService.updateWorkspace).mockClear()
@@ -279,6 +282,104 @@ describe('LUM-1137 review pause-after setting', () => {
     await expect(
       securityScanSettingsService.update(CALLER, {
         securityReviewAutoPauseAfter: 0,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(workspaceRepository.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-1329 agent-review blocking', () => {
+  const OWN_POLICY = {
+    block: [
+      { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+      { provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' },
+      { provenance: 'AGENT_REVIEW', severity: 'LOW' },
+    ],
+  }
+
+  it('reads off by default, and the stored level', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    expect(
+      (await securityScanSettingsService.get(CALLER)).agentReviewBlocking
+    ).toBe('off')
+    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue({
+      block: [
+        { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+        { provenance: 'AGENT_REVIEW', severity: 'MEDIUM' },
+        { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
+      ],
+    })
+    expect(
+      (await securityScanSettingsService.get(CALLER)).agentReviewBlocking
+    ).toBe('medium')
+    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(
+      OWN_POLICY
+    )
+    expect(
+      (await securityScanSettingsService.get(CALLER)).agentReviewBlocking
+    ).toBe('custom')
+  })
+
+  it('an OWNER write replaces only the AGENT_REVIEW entries and keeps every other one', async () => {
+    m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(
+      OWN_POLICY
+    )
+    await securityScanSettingsService.update(CALLER, {
+      agentReviewBlocking: 'high',
+    })
+    const written = m(workspaceService.updateWorkspace).mock.calls[0]![3]
+    expect(written.securityPolicy).toEqual({
+      block: [
+        { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+        { provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' },
+        { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
+      ],
+    })
+  })
+
+  it('turning it off back to exactly the default writes null (follows the default again)', async () => {
+    m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue({
+      block: [
+        { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+        { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
+      ],
+    })
+    await securityScanSettingsService.update(CALLER, {
+      agentReviewBlocking: 'off',
+    })
+    expect(
+      m(workspaceService.updateWorkspace).mock.calls[0]![3].securityPolicy
+    ).toBeNull()
+  })
+
+  it('the stored level, or no agent-review change, writes no policy (no audit noise)', async () => {
+    m(workspaceService.updateWorkspace)
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+    await securityScanSettingsService.update(CALLER, {
+      agentReviewBlocking: 'off',
+    })
+    await securityScanSettingsService.update(CALLER, {
+      securityHuntEnabled: false,
+    })
+    for (const call of m(workspaceService.updateWorkspace).mock.calls)
+      expect(call[3].securityPolicy).toBeUndefined()
+  })
+
+  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+    m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
+    await expect(
+      securityScanSettingsService.update(CALLER, {
+        agentReviewBlocking: 'low',
       })
     ).rejects.toMatchObject({ status: 403 })
     expect(workspaceRepository.update).not.toHaveBeenCalled()

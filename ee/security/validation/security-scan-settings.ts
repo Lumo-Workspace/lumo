@@ -17,6 +17,7 @@ import {
 } from '@/ee/security/security-scan/path-instructions'
 import { REVIEW_PROFILES } from '@/ee/security/security-scan/review-profile'
 import { HIGH_LEVEL_SUMMARY_MODES } from '@/ee/security/security-scan/pr-description-summary'
+import { AGENT_REVIEW_BLOCKING_LEVELS } from '@/ee/security/security-scan/policy'
 
 /** LUM-1143: entries per filter list, and characters per entry. */
 export const REVIEW_FILTER_MAX_ENTRIES = 50
@@ -95,6 +96,9 @@ export const updateSecurityScanSettingsSchema = z
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).
     securityReviewAutoPauseAfter: autoPauseAfterSchema.optional(),
+    // LUM-1329: which imported agent-review findings block Done (the
+    // policy's AGENT_REVIEW entries; off | high | medium | low).
+    agentReviewBlocking: z.enum(AGENT_REVIEW_BLOCKING_LEVELS).optional(),
   })
   .strict()
   .refine(v => Object.keys(v).length > 0, {

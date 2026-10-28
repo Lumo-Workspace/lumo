@@ -11,6 +11,14 @@ import { workspaceService } from '@/lib/services/workspace.service'
 import type { AuditContext } from '@/lib/services/audit.service'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import { waitUntil } from '@/lib/runtime/wait-until'
+import {
+  agentReviewBlocking,
+  DEFAULT_SECURITY_POLICY,
+  parseSecurityPolicy,
+  withAgentReviewBlocking,
+  type AgentReviewBlocking,
+  type AgentReviewBlockingView,
+} from '@/ee/security/security-scan/policy'
 
 /**
  * LUM-1002 — the PR security-scan switches as one read/write unit, so the CLI
@@ -29,6 +37,9 @@ export interface SecurityScanSettings {
   /** Whether the caller may change the switches (OWNER) — lets the CLI refuse
    *  up front instead of asking for confirmation and then hitting a 403. */
   canEdit: boolean
+  /** LUM-1329: which imported agent-review findings block Done — the
+   *  `AGENT_REVIEW` entries of `Workspace.securityPolicy`. */
+  agentReviewBlocking: AgentReviewBlockingView
 }
 
 /** The caller a read or write is made for. */
@@ -39,8 +50,12 @@ export interface SecurityScanSettingsCaller {
 
 /** A partial switch change, or `all` to set every switch at once. */
 export type SecurityScanSettingsUpdate =
-  | (Partial<WorkspaceSecuritySwitches> & { all?: undefined })
-  | { all: boolean }
+  | (Partial<WorkspaceSecuritySwitches> & {
+      all?: undefined
+      /** LUM-1329: rewrites only the policy's `AGENT_REVIEW` entries. */
+      agentReviewBlocking?: AgentReviewBlocking | undefined
+    })
+  | { all: boolean; agentReviewBlocking?: undefined }
 
 /**
  * `all: false` = disable all, `all: true` = enable all — the four layer
@@ -88,11 +103,36 @@ async function withdrawChangeRequests(workspaceId: string): Promise<void> {
   await requestChangesOffService.withdrawAcrossWorkspace(workspaceId)
 }
 
+/**
+ * LUM-1329 — the policy to write for an agent-review change: the stored one
+ * with only its `AGENT_REVIEW` entries replaced (every other entry kept);
+ * null (back to following the default) when that is exactly the default; or
+ * undefined (nothing written, nothing audited) when there is no such change
+ * or the level is already the stored one.
+ */
+export async function policyForUpdate(
+  workspaceId: string,
+  update: SecurityScanSettingsUpdate
+) {
+  const level = update.agentReviewBlocking
+  if (level === undefined) return undefined
+  const policy = parseSecurityPolicy(
+    await securityColumnsRepository.findSecurityPolicy(workspaceId)
+  )
+  if (agentReviewBlocking(policy) === level) return undefined
+  const next = withAgentReviewBlocking(policy, level)
+  // Both are built as { provenance, severity } in that key order.
+  return JSON.stringify(next) === JSON.stringify(DEFAULT_SECURITY_POLICY)
+    ? null
+    : next
+}
+
 export const securityScanSettingsService = {
   async get(caller: SecurityScanSettingsCaller): Promise<SecurityScanSettings> {
-    const [stored, role] = await Promise.all([
+    const [stored, role, policy] = await Promise.all([
       securityColumnsRepository.findSecuritySwitches(caller.workspaceId),
       miscRepository.findMemberRoleById(caller.memberId),
+      securityColumnsRepository.findSecurityPolicy(caller.workspaceId),
     ])
     if (!stored) {
       throw Object.assign(new Error('Workspace not found'), { status: 404 })
@@ -107,6 +147,7 @@ export const securityScanSettingsService = {
         caller.workspaceId
       ),
       canEdit: role === 'OWNER',
+      agentReviewBlocking: agentReviewBlocking(parseSecurityPolicy(policy)),
     }
   },
 
@@ -128,7 +169,10 @@ export const securityScanSettingsService = {
       caller.workspaceId,
       role ?? '',
       caller.workspaceSlug,
-      switchesForUpdate(update),
+      {
+        ...switchesForUpdate(update),
+        securityPolicy: await policyForUpdate(caller.workspaceId, update),
+      },
       audit
     )
     const settings = await this.get(caller)

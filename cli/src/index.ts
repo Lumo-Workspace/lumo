@@ -2105,7 +2105,7 @@ securityScanCmd
   .command('update')
   .codex(SERVER_ONLY)
   .description(
-    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.'
+    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off (or changing what blocks Done) needs --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -2132,6 +2132,10 @@ securityScanCmd
   .option(
     '--auto-pause-after <n>',
     'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
+  )
+  .option(
+    '--agent-review-blocks <off|high|medium|low>',
+    'Which imported Claude Code / Codex findings (`lumo security import`) block Done (default off = advisory): high = HIGH, medium = MEDIUM and HIGH, low = every severity; any change needs --confirm'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')

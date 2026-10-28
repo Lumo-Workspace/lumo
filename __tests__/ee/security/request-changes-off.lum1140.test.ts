@@ -37,7 +37,11 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
-  securityColumnsRepository: { findSecuritySwitches: jest.fn() },
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+    // LUM-1329: the settings read also reports agent-review blocking.
+    findSecurityPolicy: jest.fn(async () => null),
+  },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberRoleById: jest.fn() },

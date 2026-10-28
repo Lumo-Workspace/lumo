@@ -25,6 +25,8 @@ import {
   parseSecurityPolicy,
   securityPolicySchema,
   isBlockingUnderPolicy,
+  agentReviewBlocking,
+  withAgentReviewBlocking,
   type PolicyFindingInput,
   type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
@@ -289,4 +291,77 @@ describe('LUM-740 security policy', () => {
       expect(policyOf).not.toHaveBeenCalled()
     })
   })
+})
+
+describe('LUM-1329 agent-review blocking level', () => {
+  const ar = (severity: 'LOW' | 'MEDIUM' | 'HIGH') => ({
+    provenance: 'AGENT_REVIEW' as const,
+    severity,
+  })
+  const OTHER = [
+    { provenance: 'EXTERNAL_TOOL' as const, severity: 'LOW' as const },
+    { provenance: 'DETERMINISTIC' as const, severity: 'HIGH' as const },
+  ]
+
+  it('reads off for the default, a threshold for a contiguous set, custom otherwise', () => {
+    expect(agentReviewBlocking(DEFAULT_SECURITY_POLICY)).toBe('off')
+    expect(agentReviewBlocking({ block: [...OTHER, ar('HIGH')] })).toBe('high')
+    expect(
+      agentReviewBlocking({ block: [ar('MEDIUM'), ...OTHER, ar('HIGH')] })
+    ).toBe('medium')
+    expect(
+      agentReviewBlocking({ block: [ar('LOW'), ar('HIGH'), ar('MEDIUM')] })
+    ).toBe('low')
+    expect(agentReviewBlocking({ block: [ar('MEDIUM')] })).toBe('custom')
+  })
+
+  it('replaces only the AGENT_REVIEW entries, keeping the others in order', () => {
+    const before: SecurityPolicy = { block: [ar('LOW'), ...OTHER] }
+    expect(withAgentReviewBlocking(before, 'medium')).toEqual({
+      block: [...OTHER, ar('HIGH'), ar('MEDIUM')],
+    })
+    expect(withAgentReviewBlocking(before, 'off')).toEqual({ block: OTHER })
+  })
+
+  it('round-trips each level, and the written policy passes the API schema', () => {
+    for (const level of ['off', 'high', 'medium', 'low'] as const) {
+      const p = withAgentReviewBlocking({ block: OTHER }, level)
+      expect(agentReviewBlocking(p)).toBe(level)
+      expect(securityPolicySchema.safeParse(p).success).toBe(true)
+    }
+  })
+
+  it('a written medium level makes an imported MEDIUM finding block, LOW not', () => {
+    const p = withAgentReviewBlocking(DEFAULT_SECURITY_POLICY, 'medium')
+    const f = (severity: 'LOW' | 'MEDIUM'): PolicyFindingInput => ({
+      ruleId: 'ext:claude-code:sql-injection',
+      provenance: 'EXTERNAL_TOOL',
+      severity,
+      disposition: null,
+    })
+    expect(isBlockingUnderPolicy(f('MEDIUM'), p)).toBe(true)
+    expect(isBlockingUnderPolicy(f('LOW'), p)).toBe(false)
+  })
+})
+
+it('LUM-1329 withAgentReviewBlocking drops repeated pairs so a full policy stays within the schema', () => {
+  const dup = {
+    provenance: 'DETERMINISTIC' as const,
+    severity: 'HIGH' as const,
+  }
+  const full: SecurityPolicy = {
+    block: [
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      { provenance: 'EXTERNAL_TOOL', severity: 'LOW' },
+    ],
+  }
+  const next = withAgentReviewBlocking(full, 'low')
+  expect(next.block).toHaveLength(5)
+  expect(securityPolicySchema.safeParse(next).success).toBe(true)
 })
