@@ -734,7 +734,7 @@
       "file": "README.md",
       "type": "replace",
       "pattern": "^(## Community and support\\n\\n)",
-      "replacement": "$1Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md): pull\nrequests are reviewed in this repository, and every commit needs a DCO\nsign-off (`git commit -s`). Report vulnerabilities privately as described in\n[SECURITY.md](SECURITY.md), not in a public issue.\n\n",
+      "replacement": "$1See [CONTRIBUTING.md](CONTRIBUTING.md): pull requests are reviewed in this\nrepository, and every commit needs a DCO sign-off (`git commit -s`). Report\nvulnerabilities privately as described in [SECURITY.md](SECURITY.md), not in\na public issue.\n\n",
       "reason": "LUM-1035: the public repository's contribution path (DCO, review here, patch back-port) lives in CONTRIBUTING.md from oss/overlay; LUM-1326: the README rewrite (LUM-1323) replaced the fork steps with \"Community and support\", so the pointer goes there"
     },
     {
