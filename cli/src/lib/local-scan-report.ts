@@ -69,6 +69,8 @@ export interface ServerSection {
   repo: string | null
   /** LUM-1330: the remote's name, when the server found the repo renamed. */
   renamedFrom?: string | null
+  /** LUM-1330: origin's URL when the name came from it; null for --repo. */
+  remoteUrl?: string | null
   fetchedAt: string | null
   /** The branch's open PR number, per the server. */
   pullRequest: number | null
@@ -337,7 +339,7 @@ function serverLines(r: LocalScanResult): string[] {
   return [
     `Server: ${parts.join(' · ')}`,
     ...(s.renamedFrom && s.repo
-      ? renamedRemoteLines(s.renamedFrom, s.repo)
+      ? renamedRemoteLines(s.renamedFrom, s.repo, s.remoteUrl ?? null)
       : []),
     'Local results are a preview: the PR scan stays the authority for DONE.',
   ]

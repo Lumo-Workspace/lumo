@@ -209,28 +209,29 @@ async function learningsInScope(
 }
 
 /**
- * LUM-1330 — the repository by the name the CLI sent (its git remote); when
- * that is not linked here, the current name of a repository renamed from it.
+ * LUM-1330 — the repository the CLI named (its git remote). A name renamed
+ * away means its current name first: a rename can leave a stale project
+ * repository under the old name (LUM-879 keeps it when the new name already
+ * had one).
  */
 async function linkedRepository(workspaceId: string, sent: string) {
-  const baseline = await securityColumnsRepository.findSecurityBaseline(
-    workspaceId,
-    sent
-  )
-  if (baseline !== undefined) return { repo: sent, baseline, renamedFrom: null }
   const current = await gitProviderFor(null).resolveRenamedRepository(
     workspaceId,
     sent
   )
-  if (current === null) return { repo: sent, baseline, renamedFrom: null }
-  return {
-    repo: current,
-    baseline: await securityColumnsRepository.findSecurityBaseline(
+  if (current !== null) {
+    const baseline = await securityColumnsRepository.findSecurityBaseline(
       workspaceId,
       current
-    ),
-    renamedFrom: sent,
+    )
+    if (baseline !== undefined)
+      return { repo: current, baseline, renamedFrom: sent }
   }
+  const baseline = await securityColumnsRepository.findSecurityBaseline(
+    workspaceId,
+    sent
+  )
+  return { repo: sent, baseline, renamedFrom: null }
 }
 
 export const securityScanContextService = {

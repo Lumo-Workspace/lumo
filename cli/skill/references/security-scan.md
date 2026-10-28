@@ -56,7 +56,7 @@ Run it from anywhere inside the repository; paths are repo-relative. Untracked f
 
 Each run asks the Lumo server what it already knows about this repository (`GET /api/workspaces/me/security-scan/context`, any workspace member): the default branch's **baseline** fingerprints, human **rulings** (false positive / accepted risk — who, when, on which PR), the active **review learnings** in the workspace's learnings scope, the workspace **security policy**, and the branch's open PR. Fingerprints, rule ids and statuses only — never code or evidence. It is cached by ETag under `~/.lumo/cache/scan-context/`; `--offline` reads only the cache, and an unreachable server falls back to it.
 
-A renamed repository (your `origin` still has the old name) is found under its current name when Lumo recorded the rename: the `Server:` line names the current repository and is followed by the same `Note: … Update your git remote:` lines and the `git remote set-url` command; otherwise use `--repo`.
+A renamed repository (your `origin` still has the old name) is found under its current name when Lumo recorded the rename: the `Server:` line names the current repository and is followed by the same `Note: …` lines as `import` (the remote fix, or `--repo <new>` when the old name came from `--repo`); otherwise use `--repo`.
 
 **What it sends:** two read-only `GET`s with no body. The context request carries only the repository (`owner/name`, from `origin` or `--repo`) and the checked-out branch name. With `--pr`, a second request carries that repository and the PR number the server returned (the `lumo pr show` read). No file path, line, fingerprint, evidence or file content leaves the machine; labelling happens locally. Inside Codex's no-network sandbox the requests fail fast, and the scan falls back to the cache, or to no context, with exit 0.
 
@@ -160,7 +160,7 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, ren
 Attaches a security review **you ran in Claude Code or Codex** to the branch's open PR scan, so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
 
 - **Advisory, never blocks DONE**, whatever the workspace policy lists (rule ids `ext:claude-code:…` / `ext:codex:…`).
-- **Renamed repository.** The repository is read from your `origin` remote, which keeps the old name after a GitHub rename. Lumo remembers renames made while the repository was confirmed and imports into the current name, printing `Note: <old> was renamed to <new>. Update your git remote:` and the `git remote set-url` command. A rename from before Lumo kept that record: pass `--repo <owner/new-name>`.
+- **Renamed repository.** The repository is read from your `origin` remote, which keeps the old name after a GitHub rename. Lumo remembers renames made while the repository was confirmed and imports into the current name, printing `Note: <old> was renamed to <new>. Update your git remote:` and a `git remote set-url origin …` command that keeps your remote's form (https or ssh). When the old name came from `--repo` it says to pass `--repo <new>` instead. A rename from before Lumo kept that record: pass `--repo <owner/new-name>`.
 - **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"; right after a push, wait a few seconds for Lumo to see it). Lumo keeps only results on lines the PR changed; the rest are dropped.
 - **Replaces** that tool's earlier import on the same head; an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.
 - **Sends** the report (titles, details, paths, lines) to Lumo; it is redacted like a CI report. Any workspace member may import into the workspace's PRs.
@@ -186,7 +186,7 @@ Attaches a security review **you ran in Claude Code or Codex** to the branch's o
 
 **Getting the file.** Claude Code: run `/security-review`, then write its findings to a file in this format (e.g. `/tmp/review.json`). Codex: run the review, write the findings the same way, or export SARIF.
 
-Flags: `--tool claude-code|codex` (default: the agent this shell runs in; required elsewhere), `--pr <number>` (instead of the branch's open PR), `--repo <owner/repo>`, `--json` (`{ version, runId, repository, prNumber, headSha, tool, results }`).
+Flags: `--tool claude-code|codex` (default: the agent this shell runs in; required elsewhere), `--pr <number>` (instead of the branch's open PR), `--repo <owner/repo>`, `--json` (`{ version, runId, repository, prNumber, headSha, tool, results, renamedFrom? }` — `renamedFrom` is the name you sent when Lumo followed a rename; `repository` is then the current name).
 
 ```bash
 lumo security import /tmp/review.json

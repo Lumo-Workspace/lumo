@@ -330,6 +330,7 @@ describe('report with server context', () => {
         note: null,
         repo: 'acme/new',
         renamedFrom: 'acme/old',
+        remoteUrl: 'git@github.com:acme/old.git',
         fetchedAt: 't',
         pullRequest: null,
         policy: ctx().policy,
@@ -341,9 +342,31 @@ describe('report with server context', () => {
     expect(out).toContain(
       'Note: acme/old was renamed to acme/new. Update your git remote:'
     )
+    // The remote keeps its form (ssh here), only the name changes.
     expect(out).toContain(
-      '  git remote set-url origin https://github.com/acme/new.git'
+      '  git remote set-url origin git@github.com:acme/new.git'
     )
+  })
+
+  it('LUM-1330 the old name came from --repo: says to pass the new one', () => {
+    const out = formatLocalScan(
+      result({
+        source: 'live',
+        note: null,
+        repo: 'acme/new',
+        renamedFrom: 'acme/old',
+        remoteUrl: null,
+        fetchedAt: 't',
+        pullRequest: null,
+        policy: ctx().policy,
+        pr: null,
+      }),
+      { width: 200 }
+    )
+    expect(out).toContain(
+      'Note: acme/old was renamed to acme/new. Pass --repo acme/new.'
+    )
+    expect(out).not.toContain('git remote set-url')
   })
 
   it('LUM-1330 --json carries renamedFrom (null when there was no rename)', () => {

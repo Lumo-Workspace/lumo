@@ -96,12 +96,22 @@ describe('LUM-1330 a renamed repository under its old name', () => {
     ).toHaveBeenCalledWith('ws1', 'acme/new', 'feat')
   })
 
-  it('a linked name never asks for a rename and carries no renamedFrom', async () => {
+  it('a name that is not renamed serves its own context, with no renamedFrom', async () => {
     const view = await securityScanContextService.getForRepo('ws1', {
       repo: 'acme/app',
     })
-    expect(mockResolveRenamedRepository).not.toHaveBeenCalled()
+    expect(mockResolveRenamedRepository).toHaveBeenCalledWith('ws1', 'acme/app')
+    expect(view).toMatchObject({ repo: 'acme/app' })
     expect(view).not.toHaveProperty('renamedFrom')
+  })
+
+  it('a stale project repository under the old name loses to the current one', async () => {
+    m(securityColumnsRepository.findSecurityBaseline).mockResolvedValue(null)
+    mockResolveRenamedRepository.mockResolvedValue('acme/new')
+    const view = await securityScanContextService.getForRepo('ws1', {
+      repo: 'acme/old',
+    })
+    expect(view).toMatchObject({ repo: 'acme/new', renamedFrom: 'acme/old' })
   })
 
   it('not linked and no rename record: 404 that points at --repo', async () => {

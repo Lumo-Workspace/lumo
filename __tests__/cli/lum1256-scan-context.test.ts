@@ -15,6 +15,7 @@ import {
   loadPrScan,
   loadScanContext,
   parseGithubRepo,
+  renamedRemoteUrl,
   SCAN_CONTEXT_PATH,
   type ScanContext,
 } from '../../cli/src/lib/scan-context'
@@ -318,5 +319,32 @@ describe('loadPrScan', () => {
         fetch: jest.fn().mockResolvedValue(json({}, 500)),
       })
     ).toEqual({ ok: false, note: 'reading PR #12 failed (HTTP 500)' })
+  })
+})
+
+describe('LUM-1330 renamedRemoteUrl', () => {
+  it('swaps only owner/name and keeps the remote form', () => {
+    expect(
+      renamedRemoteUrl('git@github.com:Acme/Old.git', 'acme/old', 'acme/new')
+    ).toBe('git@github.com:acme/new.git')
+    expect(
+      renamedRemoteUrl(
+        'ssh://git@github.com:22/acme/old',
+        'acme/old',
+        'acme/new'
+      )
+    ).toBe('ssh://git@github.com:22/acme/new')
+    expect(
+      renamedRemoteUrl(
+        'https://github.com/acme/old.git',
+        'acme/old',
+        'acme/new'
+      )
+    ).toBe('https://github.com/acme/new.git')
+  })
+  it('a remote naming another repository falls back to https', () => {
+    expect(
+      renamedRemoteUrl('git@github.com:acme/other.git', 'acme/old', 'acme/new')
+    ).toBe('https://github.com/acme/new.git')
   })
 })

@@ -105,11 +105,19 @@ export function parseGithubRepo(url: string): string | null {
   return `${m[1]}/${m[2]}`
 }
 
-/** The repository the scan belongs to: origin's `owner/name`, or null. */
-export function detectRepo(root: string): string | null {
+/** The `origin` remote's URL as configured, or null. */
+export function originUrl(root: string): string | null {
   const r = runGit(['remote', 'get-url', 'origin'], root)
   if (r.status !== 0) return null
-  return parseGithubRepo(r.stdout ?? '')
+  const url = (r.stdout ?? '').trim()
+  return url === '' ? null : url
+}
+
+/** The repository the scan belongs to: origin's `owner/name`, or null. */
+export function detectRepo(root: string): string | null {
+  const url = originUrl(root)
+  if (url === null) return null
+  return parseGithubRepo(url)
 }
 
 /** The checked-out branch, or null on a detached HEAD. */
@@ -322,13 +330,36 @@ function currentRepo(context: ScanContext, sent: string): string {
 }
 
 /**
- * LUM-1330 — the server found `from` under its current name `to`: say so and
- * how to point the local remote at it.
+ * LUM-1330 — `remoteUrl` with its `owner/name` swapped for `to`, keeping its
+ * form (https, ssh, scp); the https URL when `remoteUrl` names another repo.
  */
-export function renamedRemoteLines(from: string, to: string): string[] {
+export function renamedRemoteUrl(
+  remoteUrl: string,
+  from: string,
+  to: string
+): string {
+  if (parseGithubRepo(remoteUrl)?.toLowerCase() === from.toLowerCase()) {
+    const at = remoteUrl.toLowerCase().lastIndexOf(from.toLowerCase())
+    return remoteUrl.slice(0, at) + to + remoteUrl.slice(at + from.length)
+  }
+  return `https://github.com/${to}.git`
+}
+
+/**
+ * LUM-1330 — the server found `from` under its current name `to`: say so and
+ * how to fix it where the old name came from — the `origin` remote
+ * (`remoteUrl`), or `--repo` (`remoteUrl` null).
+ */
+export function renamedRemoteLines(
+  from: string,
+  to: string,
+  remoteUrl: string | null
+): string[] {
+  const note = `Note: ${sanitizeField(from)} was renamed to ${sanitizeField(to)}.`
+  if (remoteUrl === null) return [`${note} Pass --repo ${sanitizeField(to)}.`]
   return [
-    `Note: ${sanitizeField(from)} was renamed to ${sanitizeField(to)}. Update your git remote:`,
-    `  git remote set-url origin https://github.com/${sanitizeField(to)}.git`,
+    `${note} Update your git remote:`,
+    `  git remote set-url origin ${sanitizeField(renamedRemoteUrl(remoteUrl, from, to))}`,
   ]
 }
 

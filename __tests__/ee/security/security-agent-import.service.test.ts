@@ -138,10 +138,25 @@ describe('LUM-1330 a renamed repository under its old name', () => {
     )
   })
 
-  it('an exact match never asks for a rename, and the result carries no renamedFrom', async () => {
+  it('a name that is not renamed imports into its own PR, with no renamedFrom', async () => {
     const out = await securityAgentImportService.import(caller, body())
-    expect(mockResolveRenamedRepository).not.toHaveBeenCalled()
+    expect(mockResolveRenamedRepository).toHaveBeenCalledWith('ws1', 'acme/app')
+    expect(findPr).toHaveBeenCalledTimes(1)
     expect(out).not.toHaveProperty('renamedFrom')
+  })
+
+  it('a stale row left under the old name loses to the current repository', async () => {
+    findPr.mockImplementation(async (_ws: string, repo: string) =>
+      repo === 'acme/app-new'
+        ? renamedPr
+        : { ...renamedPr, id: 'stale', repo: 'acme/app' }
+    )
+    mockResolveRenamedRepository.mockResolvedValue('acme/app-new')
+    const out = await securityAgentImportService.import(caller, body())
+    expect(out).toMatchObject({
+      repository: 'acme/app-new',
+      renamedFrom: 'acme/app',
+    })
   })
 
   it('no rename record: 404 that points at --repo', async () => {

@@ -73,27 +73,30 @@ function importPathname(body: AgentImportBody): string {
 }
 
 /**
- * LUM-1330 — the PR by the name the caller sent; when that finds none, by the
- * current name of a repository renamed from it (a clone keeps the old remote).
+ * LUM-1330 — the PR in the repository the caller named. A name renamed away
+ * (a clone keeps the old remote) means its current name first: a rename can
+ * leave a stale row under the old name (LUM-879 keeps it when the new name
+ * already had that number), and that row is no longer importable.
  */
 async function findImportTarget(workspaceId: string, body: AgentImportBody) {
+  const current = await gitProviderFor(null).resolveRenamedRepository(
+    workspaceId,
+    body.repository
+  )
+  if (current !== null) {
+    const renamed = await pullRequestRepository.findForSecurityImport(
+      workspaceId,
+      current,
+      body.prNumber
+    )
+    if (renamed) return { pr: renamed, renamedFrom: body.repository }
+  }
   const pr = await pullRequestRepository.findForSecurityImport(
     workspaceId,
     body.repository,
     body.prNumber
   )
-  if (pr) return { pr, renamedFrom: null }
-  const current = await gitProviderFor(null).resolveRenamedRepository(
-    workspaceId,
-    body.repository
-  )
-  if (current === null) return null
-  const renamed = await pullRequestRepository.findForSecurityImport(
-    workspaceId,
-    current,
-    body.prNumber
-  )
-  return renamed ? { pr: renamed, renamedFrom: body.repository } : null
+  return pr ? { pr, renamedFrom: null } : null
 }
 
 export const securityAgentImportService = {
