@@ -38,6 +38,25 @@ const HUNT_CATEGORY_CLASSES: Readonly<Record<string, readonly string[]>> = {
  */
 const BROAD_HUNT_CATEGORIES: ReadonlySet<string> = new Set(['logic'])
 
+/**
+ * LUM-1321 — agent reviews often name a rule by its CWE (a real Codex run
+ * wrote `CWE-22`, `CWE-78`): the common ones, as AI review kinds.
+ */
+const CWE_KINDS: Readonly<Record<string, string>> = {
+  cwe_22: 'path_traversal',
+  cwe_77: 'command_injection',
+  cwe_78: 'command_injection',
+  cwe_79: 'xss',
+  cwe_89: 'sql_injection',
+  cwe_94: 'unsafe_eval',
+  cwe_95: 'unsafe_eval',
+  cwe_352: 'csrf',
+  cwe_502: 'insecure_deserialization',
+  cwe_601: 'open_redirect',
+  cwe_798: 'hardcoded_credential',
+  cwe_918: 'ssrf',
+}
+
 const NO_CLASS: ReadonlySet<string> = new Set()
 
 const REVIEW_KIND_SET: ReadonlySet<string> = new Set(REVIEW_KINDS)
@@ -61,7 +80,8 @@ export function issueClasses(ruleId: string): ReadonlySet<string> {
   // LUM-1321: an imported Claude Code / Codex review names its own rule; one
   // that spells an AI review kind (`command-injection`) is that kind.
   if (isAgentReviewRuleId(ruleId)) {
-    const kind = ruleId.split(':').slice(2).join(':').replace(/-/g, '_')
+    const rule = ruleId.split(':').slice(2).join(':').replace(/-/g, '_')
+    const kind = CWE_KINDS[rule] ?? rule
     return REVIEW_KIND_SET.has(kind) ? new Set([kind]) : new Set([ruleId])
   }
   return NO_CLASS

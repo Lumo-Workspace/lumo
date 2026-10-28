@@ -686,6 +686,9 @@ describe('LUM-1321 — an imported Claude Code / Codex review joins the issue', 
     expect([...issueClasses('ext:codex:path_traversal')]).toEqual([
       'path_traversal',
     ])
+    // A real Codex run named its rules by CWE (the converter slugs `CWE-78`).
+    expect([...issueClasses('ext:codex:cwe-78')]).toEqual(['command_injection'])
+    expect([...issueClasses('ext:codex:cwe-22')]).toEqual(['path_traversal'])
     expect([...issueClasses('ext:codex:leaky-logs')]).toEqual([
       'ext:codex:leaky-logs',
     ])

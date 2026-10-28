@@ -179,7 +179,7 @@ Attaches a security review **you ran in Claude Code or Codex** to the branch's o
 }
 ```
 
-`file` repo-relative (an absolute path inside the repo is accepted), `line` ≥ 1, `severity` `high` | `medium` | `low` (`critical` = high), `title` required, `detail` and `rule` optional (no `rule` = a slug of the title; keep it stable so a re-import keeps the finding's fingerprint and its ruling). At most 500 findings, 1 MiB.
+`file` repo-relative (an absolute path inside the repo is accepted), `line` ≥ 1, `severity` `high` | `medium` | `low` (`critical` = high), `title` required, `detail` and `rule` optional (a category such as `sql-injection`, or a CWE such as `CWE-89`; no `rule` = a slug of the title; keep it stable so a re-import keeps the finding's fingerprint and its ruling). A finding on the same line as Lumo's own AI review or hunt report of the same kind of issue (or another agent's) is listed under that one PR thread instead of opening a second. At most 500 findings, 1 MiB.
 
 **Getting the file.** Claude Code: run `/security-review`, then write its findings to a file in this format (e.g. `/tmp/review.json`). Codex: run the review, write the findings the same way, or export SARIF.
 
