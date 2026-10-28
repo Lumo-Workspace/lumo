@@ -120,7 +120,8 @@ describe('client calls', () => {
         'GLOBAL_COMMENT'
       )
     ).resolves.toHaveLength(100)
-    // page 1 + page 2 (nothing new) for each of resolved false / true.
+    // Unresolved: page 1 (100 new) + page 2 (nothing new, stop); resolved:
+    // page 1 brings only already-seen comments, so it stops at once.
     expect(ignored).toHaveBeenCalledTimes(3)
   })
 
