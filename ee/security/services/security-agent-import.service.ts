@@ -92,7 +92,7 @@ export const securityAgentImportService = {
     if (pr.headSha && pr.headSha !== body.headSha)
       throw fail(
         409,
-        `Pull request ${ref} head is ${pr.headSha.slice(0, 7)}, not ${body.headSha.slice(0, 7)}: push your commits, or review the PR head`
+        `Pull request ${ref} head is ${pr.headSha.slice(0, 7)}, not ${body.headSha.slice(0, 7)}: push your commits (just pushed? wait a few seconds for Lumo to see it), or review the PR head`
       )
     const confirmed = await gitProviderFor(pr).loadConfirmedRepositories(
       caller.workspaceId

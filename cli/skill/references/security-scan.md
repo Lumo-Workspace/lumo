@@ -158,7 +158,7 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 Attaches a security review **you ran in Claude Code or Codex** to the branch's open PR scan, so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
 
 - **Advisory, never blocks DONE**, whatever the workspace policy lists (rule ids `ext:claude-code:…` / `ext:codex:…`).
-- **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"). Lumo keeps only results on lines the PR changed; the rest are dropped.
+- **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"; right after a push, wait a few seconds for Lumo to see it). Lumo keeps only results on lines the PR changed; the rest are dropped.
 - **Replaces** that tool's earlier import on the same head; an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.
 - **Sends** the report (titles, details, paths, lines) to Lumo; it is redacted like a CI report. Any workspace member may import into the workspace's PRs.
 

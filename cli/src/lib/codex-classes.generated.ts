@@ -129,7 +129,7 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'security import': {
     serverOnly: false,
     localFiles: 'reads',
-    detail: '<file>',
+    detail: 'reads the report file <file> and uploads it to Lumo',
   },
   'security scan': {
     serverOnly: false,

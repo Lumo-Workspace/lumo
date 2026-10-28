@@ -3014,7 +3014,7 @@
       "codex": {
         "serverOnly": false,
         "localFiles": "reads",
-        "detail": "<file>"
+        "detail": "reads the report file <file> and uploads it to Lumo"
       }
     },
     "security scan": {

@@ -139,7 +139,7 @@ export async function securityImportCommand(
     }
     if (pr.headSha && pr.headSha !== head) {
       console.error(
-        `Error: ${repo}#${pr.number} head is ${pr.headSha.slice(0, 7)}, your HEAD is ${head.slice(0, 7)} — push first: the import is checked against the PR's own diff`
+        `Error: ${repo}#${pr.number} head is ${pr.headSha.slice(0, 7)}, your HEAD is ${head.slice(0, 7)} — push first (just pushed? wait a few seconds for Lumo to see it): the import is checked against the PR's own diff`
       )
       return EXIT_ERROR
     }
