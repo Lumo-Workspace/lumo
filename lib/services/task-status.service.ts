@@ -117,6 +117,21 @@ export interface NextActionTestCaseVerdict {
   advisory: boolean
 }
 
+/**
+ * LUM-1334: a requirement the workspace switched on that a linked PR does
+ * not meet yet — refuses DONE (the gate's DONE_REQUIREMENT blocker). Read
+ * from the same Done gate read-out, so it says "blocks" exactly when the 409
+ * would. Cleared by evidence (a passing run, a review), not by a ruling.
+ */
+export interface NextActionDoneRequirement {
+  kind: 'DONE_REQUIREMENT'
+  requirement: 'TEST_CASE' | 'REVIEW'
+  prNumber: number
+  statement: string
+  /** Always `true`. */
+  blocking: true
+}
+
 export interface NextActionTestCase {
   kind: 'TEST_CASE'
   statement: string
@@ -151,6 +166,7 @@ export type NextAction =
   | PluginNextActionKinds[keyof PluginNextActionKinds]
   | NextActionTestCaseVerdict
   | NextActionTestCase
+  | NextActionDoneRequirement
 
 export interface TaskStatusReport extends TaskStatusPluginFields {
   version: typeof TASK_STATUS_SCHEMA_VERSION
@@ -175,6 +191,16 @@ export interface TaskStatusReport extends TaskStatusPluginFields {
    * (internal roll-ups); `confirmed: false` when a plane could not be read.
    */
   doneGate?: DoneGateReadout
+}
+
+/** LUM-1334: the read-out line for one missing requirement. */
+function doneRequirementStatement(m: {
+  requirement: 'TEST_CASE' | 'REVIEW'
+  prNumber: number
+}): string {
+  return m.requirement === 'TEST_CASE'
+    ? `PR #${m.prNumber} has no passing test-case run on its latest commit — this workspace requires one before DONE. Record one with \`lumo task testcase run <task>/TC<n> --result pass --pr ${m.prNumber}\` against that commit.`
+    : `PR #${m.prNumber} has no review on its latest commit — this workspace requires one before DONE: Lumo's AI review on that commit, an imported agent review (\`lumo review import <file>\`), or a GitHub approval.`
 }
 
 /** Defensive reader for untyped activity JSON payloads. */
@@ -307,6 +333,21 @@ export const taskStatusService = {
       claimSnapshot?.claimSnapshotAt ?? null
     )
 
+    const doneGate = doneGateInputs
+      ? doneGateReadout(doneGateInputs, header.status)
+      : undefined
+    // LUM-1334: a DONE task has nothing left to require.
+    const requirementRows: NextActionDoneRequirement[] =
+      doneGate?.confirmed && header.status !== 'DONE'
+        ? (doneGate.requirements?.missing ?? []).map(m => ({
+            kind: 'DONE_REQUIREMENT' as const,
+            requirement: m.requirement,
+            prNumber: m.prNumber,
+            statement: doneRequirementStatement(m),
+            blocking: true as const,
+          }))
+        : []
+
     const report: TaskStatusReport = {
       version: TASK_STATUS_SCHEMA_VERSION,
       task: {
@@ -322,6 +363,7 @@ export const taskStatusService = {
       faithfulness,
       nextActions: [
         ...(pluginStatus.nextActions as PluginNextActionKinds[keyof PluginNextActionKinds][]),
+        ...requirementRows,
         // LUM-807: advisory-only. A missing test case never refuses DONE.
         ...(testCaseState !== null &&
         remindOnDelivery({
@@ -352,9 +394,7 @@ export const taskStatusService = {
           }
         }),
       ],
-      ...(doneGateInputs
-        ? { doneGate: doneGateReadout(doneGateInputs, header.status) }
-        : {}),
+      ...(doneGate ? { doneGate } : {}),
     }
     // Plugin fields come last and never replace a core field.
     for (const [key, value] of Object.entries(pluginStatus.fields)) {

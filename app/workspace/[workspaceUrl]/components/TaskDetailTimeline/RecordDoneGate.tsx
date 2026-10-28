@@ -71,7 +71,7 @@ function GateRow({
  */
 export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
   const intl = useIntl()
-  const { crossings, security, tests } = gate
+  const { crossings, security, tests, requirements } = gate
 
   const crossingsDetail =
     crossings.state === 'none'
@@ -122,6 +122,33 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
             { passing: tests.passing, total: tests.total }
           )
         : intl.formatMessage({ id: 'record.gate.tests.none' })
+
+  // LUM-1334: null while both switches are off — no row.
+  const requirementsDetail =
+    requirements === null
+      ? null
+      : requirements.state === 'blocked'
+        ? requirements.missing
+            .map(m =>
+              intl.formatMessage(
+                {
+                  id:
+                    m.requirement === 'TEST_CASE'
+                      ? 'record.gate.requirements.missingTestCase'
+                      : 'record.gate.requirements.missingReview',
+                },
+                { number: m.prNumber }
+              )
+            )
+            .join(' · ')
+        : intl.formatMessage({
+            id:
+              requirements.switches.testCase && requirements.switches.review
+                ? 'record.gate.requirements.clear.both'
+                : requirements.switches.testCase
+                  ? 'record.gate.requirements.clear.testCase'
+                  : 'record.gate.requirements.clear.review',
+          })
 
   if (gate.headline === 'accepted') {
     return (
@@ -193,6 +220,16 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
         detail={testsDetail}
         queueAnchor={queueAnchor}
       />
+      {requirements !== null && requirementsDetail !== null ? (
+        <GateRow
+          testId='gate-requirements'
+          label={intl.formatMessage({ id: 'record.gate.requirements.title' })}
+          blocked={requirements.state === 'blocked'}
+          detail={requirementsDetail}
+          // Nothing in Needs action clears a requirement: no link.
+          queueAnchor={null}
+        />
+      ) : null}
     </section>
   )
 }

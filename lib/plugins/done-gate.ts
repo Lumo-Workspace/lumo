@@ -41,3 +41,21 @@ export async function readDoneGatePluginRow(
     checked: checked.some(Boolean),
   }
 }
+
+/**
+ * LUM-1334 — the PR ids whose head some contributor's review covers (the
+ * union over contributors). Fail-closed: throws when a contributor does.
+ * No contributor with the method → an empty set.
+ */
+export async function collectPluginReviewedPullRequests(
+  heads: Array<{ pullRequestId: string; headSha: string }>
+): Promise<Set<string>> {
+  if (heads.length === 0) return new Set()
+  const gates = getPluginRegistry().doneGates.filter(
+    g => g.reviewedPullRequests !== undefined
+  )
+  const lists = await Promise.all(
+    gates.map(g => g.reviewedPullRequests!(heads))
+  )
+  return new Set(lists.flat())
+}

@@ -132,3 +132,51 @@ describe('deriveDoneGate', () => {
     ).toBe('clear')
   })
 })
+
+describe('deriveDoneGate — requirements row (LUM-1334)', () => {
+  const missing = [
+    { requirement: 'TEST_CASE' as const, prNumber: 12 },
+    { requirement: 'REVIEW' as const, prNumber: 12 },
+  ]
+
+  it('has no row while both switches are off or none is given', () => {
+    expect(deriveDoneGate(gaps(), { securityScanned: true }).requirements).toBe(
+      null
+    )
+    expect(
+      deriveDoneGate(gaps(), {
+        securityScanned: true,
+        requirements: {
+          switches: { testCase: false, review: false },
+          missing: [],
+        },
+      }).requirements
+    ).toBe(null)
+  })
+
+  it('blocks and counts each missing requirement', () => {
+    const gate = deriveDoneGate(gaps(), {
+      securityScanned: true,
+      requirements: { switches: { testCase: true, review: true }, missing },
+    })
+    expect(gate.headline).toBe('blocked')
+    expect(gate.blockingTotal).toBe(2)
+    expect(gate.requirements).toEqual({
+      state: 'blocked',
+      switches: { testCase: true, review: true },
+      missing,
+    })
+  })
+
+  it('is clear, and ready, when every PR meets them', () => {
+    const gate = deriveDoneGate(gaps(), {
+      securityScanned: true,
+      requirements: {
+        switches: { testCase: true, review: false },
+        missing: [],
+      },
+    })
+    expect(gate.headline).toBe('ready')
+    expect(gate.requirements?.state).toBe('clear')
+  })
+})

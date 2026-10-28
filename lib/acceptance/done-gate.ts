@@ -5,6 +5,11 @@
  * and the server's task-status read model (LUM-1186, rendered by
  * `lumo task status` / `task wrapup`) run the SAME rule and cannot disagree.
  */
+import type {
+  DoneRequirementSwitches,
+  MissingRequirement,
+} from './done-requirements'
+
 export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready'
 
 export interface CrossingsGateRow {
@@ -33,15 +38,28 @@ export interface TestsGateRow {
   total: number
 }
 
+/**
+ * LUM-1334 — the workspace's opt-in requirements (a passing test case / a
+ * review on each PR's latest commit). Only present while a switch is on.
+ */
+export interface RequirementsGateRow {
+  /** blocked: some counted PR misses a requirement · clear: none does. */
+  state: 'blocked' | 'clear'
+  switches: DoneRequirementSwitches
+  missing: MissingRequirement[]
+}
+
 export interface DoneGate {
   headline: DoneGateHeadline
   /** Items that hold Done back: blocking crossings + blocking findings +
-   *  undispositioned proven test defects. */
+   *  undispositioned proven test defects + missing requirements (LUM-1334). */
   blockingTotal: number
   crossings: CrossingsGateRow
   /** null when no plugin contributes a security check (LUM-1062). */
   security: SecurityGateRow | null
   tests: TestsGateRow
+  /** LUM-1334: null while both requirement switches are off. */
+  requirements: RequirementsGateRow | null
 }
 
 /**
@@ -70,6 +88,11 @@ export function deriveDoneGate(
     showSecurity?: boolean
     /** LUM-1011: test-case counts for the gate row's detail. */
     tests?: { total: number; passing: number }
+    /** LUM-1334: the requirement switches and what the PRs miss. */
+    requirements?: {
+      switches: DoneRequirementSwitches
+      missing: MissingRequirement[]
+    } | null
   }
 ): DoneGate {
   const advisory = gaps.crossingsOpen - gaps.crossingsBlocking
@@ -93,8 +116,21 @@ export function deriveDoneGate(
   const testsState: TestsGateRow['state'] =
     gaps.testsBlocking > 0 ? 'blocked' : testsTotal > 0 ? 'clear' : 'none'
 
+  const req = opts.requirements
+  const requirements: RequirementsGateRow | null =
+    req && (req.switches.testCase || req.switches.review)
+      ? {
+          state: req.missing.length > 0 ? 'blocked' : 'clear',
+          switches: req.switches,
+          missing: req.missing,
+        }
+      : null
+
   const blockingTotal =
-    gaps.crossingsBlocking + gaps.securityBlocking + gaps.testsBlocking
+    gaps.crossingsBlocking +
+    gaps.securityBlocking +
+    gaps.testsBlocking +
+    (requirements?.missing.length ?? 0)
 
   return {
     headline: gaps.taskDone
@@ -120,6 +156,7 @@ export function deriveDoneGate(
       passing: opts.tests?.passing ?? 0,
       total: testsTotal,
     },
+    requirements,
   }
 }
 

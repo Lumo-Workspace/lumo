@@ -36,6 +36,16 @@ export type DoneGateReadout =
         passing: number
         total: number
       }
+      /** LUM-1334: null while both requirement switches are off; absent
+       *  on an older server. */
+      requirements?: {
+        state: 'blocked' | 'clear'
+        switches: { testCase: boolean; review: boolean }
+        missing: Array<{
+          requirement: 'TEST_CASE' | 'REVIEW'
+          prNumber: number
+        }>
+      } | null
     }
   | { confirmed: false; unconfirmed: string[] }
 
@@ -89,7 +99,25 @@ export function testsRow(t: ConfirmedGate['tests']): string {
   return `✓ no proven defects · ${passing}`
 }
 
-/** The gate rows (crossings / security / tests), at `indent`. */
+/** LUM-1334: what the workspace requires on each PR's latest commit. */
+export function requirementsRow(
+  r: NonNullable<ConfirmedGate['requirements']>
+): string {
+  if (r.state === 'blocked')
+    return `✗ ${r.missing
+      .map(
+        m =>
+          `PR #${m.prNumber} needs ${m.requirement === 'TEST_CASE' ? 'a passing test case' : 'a review'}`
+      )
+      .join(' · ')}`
+  const what = [
+    ...(r.switches.testCase ? ['passing test case'] : []),
+    ...(r.switches.review ? ['review'] : []),
+  ].join(' + ')
+  return `✓ ${what} on every PR's latest commit`
+}
+
+/** The gate rows (crossings / security / tests / requirements), at `indent`. */
 export function doneGateRows(
   gate: ConfirmedGate,
   indent: number,
@@ -101,6 +129,11 @@ export function doneGateRows(
   if (gate.security !== null)
     fields.push({ label: 'Security', value: securityRow(gate.security) })
   fields.push({ label: 'Tests', value: testsRow(gate.tests) })
+  if (gate.requirements)
+    fields.push({
+      label: 'Required',
+      value: requirementsRow(gate.requirements),
+    })
   return fieldLines(fields, indent, opts)
 }
 

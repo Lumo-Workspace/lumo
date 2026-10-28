@@ -1,0 +1,103 @@
+/**
+ * LUM-1334: `pull_request_review` webhooks → stored reviews for the DONE
+ * gate's review requirement. Only human approvals, change requests and
+ * dismissals are kept.
+ */
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { findByRepoAndNumber: jest.fn() },
+}))
+jest.mock('@/lib/repositories/pull-request-review.repository', () => ({
+  pullRequestReviewRepository: { upsert: jest.fn(async () => ({ id: 'r' })) },
+}))
+
+import {
+  parseReviewPayload,
+  pullRequestReviewService,
+} from '@/lib/services/pull-request-review.service'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { pullRequestReviewRepository } from '@/lib/repositories/pull-request-review.repository'
+
+const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
+const upsert = pullRequestReviewRepository.upsert as jest.Mock
+
+function payload(review: Record<string, unknown> = {}) {
+  return {
+    action: 'submitted',
+    review: {
+      id: 987,
+      state: 'approved',
+      commit_id: 'a'.repeat(40),
+      submitted_at: '2026-10-28T10:00:00Z',
+      user: { login: 'alice', type: 'User' },
+      ...review,
+    },
+    pull_request: { number: 12 },
+    repository: { full_name: 'o/r' },
+  }
+}
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('parseReviewPayload', () => {
+  it('reads an approval', () => {
+    expect(parseReviewPayload(payload())).toEqual({
+      repo: 'o/r',
+      prNumber: 12,
+      githubReviewId: '987',
+      reviewerLogin: 'alice',
+      state: 'APPROVED',
+      commitSha: 'a'.repeat(40),
+      submittedAt: new Date('2026-10-28T10:00:00Z'),
+    })
+  })
+
+  it('keeps change requests and dismissals', () => {
+    expect(
+      parseReviewPayload(payload({ state: 'changes_requested' }))?.state
+    ).toBe('CHANGES_REQUESTED')
+    expect(parseReviewPayload(payload({ state: 'DISMISSED' }))?.state).toBe(
+      'DISMISSED'
+    )
+  })
+
+  it('skips comments, bots and malformed payloads', () => {
+    expect(parseReviewPayload(payload({ state: 'commented' }))).toBeNull()
+    expect(
+      parseReviewPayload(payload({ user: { login: 'ci[bot]', type: 'Bot' } }))
+    ).toBeNull()
+    expect(parseReviewPayload(payload({ commit_id: '' }))).toBeNull()
+    expect(parseReviewPayload(payload({ submitted_at: 'nope' }))).toBeNull()
+    expect(parseReviewPayload({ review: {} })).toBeNull()
+  })
+})
+
+describe('pullRequestReviewService.recordFromWebhook', () => {
+  it("stores the review on the workspace's PR row", async () => {
+    findPr.mockResolvedValue({ id: 'pr-1' })
+    expect(
+      await pullRequestReviewService.recordFromWebhook(payload(), 'w-1')
+    ).toBe(true)
+    expect(findPr).toHaveBeenCalledWith('w-1', 'o/r', 12)
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pullRequestId: 'pr-1',
+        githubReviewId: '987',
+        state: 'APPROVED',
+      })
+    )
+  })
+
+  it('does nothing for an unknown PR or a skipped review', async () => {
+    findPr.mockResolvedValue(null)
+    expect(
+      await pullRequestReviewService.recordFromWebhook(payload(), 'w-1')
+    ).toBe(false)
+    expect(
+      await pullRequestReviewService.recordFromWebhook(
+        payload({ state: 'commented' }),
+        'w-1'
+      )
+    ).toBe(false)
+    expect(upsert).not.toHaveBeenCalled()
+  })
+})

@@ -150,10 +150,20 @@ export function RecordTab({
     securityBlocking,
     testsBlocking,
   })
+  // LUM-1334: the requirement switches live on the server; take its row.
+  const serverRequirements = data.doneGate?.confirmed
+    ? data.doneGate.requirements
+    : null
   const gate = deriveDoneGate(gaps, {
     securityScanned,
     showSecurity: showSecurityGate,
     tests: testsSummary,
+    requirements: serverRequirements
+      ? {
+          switches: serverRequirements.switches,
+          missing: serverRequirements.missing,
+        }
+      : null,
   })
   const showSecurityQueue = gaps.securityBlocking > 0
   const showTestsQueue = gaps.testsBlocking > 0

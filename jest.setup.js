@@ -107,5 +107,10 @@ jest.mock('@prisma/client', () => ({
       findUnique: jest.fn(),
       delete: jest.fn(),
     },
+    // LUM-1334: every DONE transition reads the workspace's requirement
+    // switches; no row reads as both off.
+    workspace: {
+      findUnique: jest.fn(),
+    },
   })),
 }))

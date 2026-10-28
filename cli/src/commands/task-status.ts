@@ -203,6 +203,15 @@ export interface TaskStatusResponse {
         command: string
         advisory: true
       }
+    /** LUM-1334: a requirement the workspace switched on that a linked PR
+     *  does not meet yet — refuses DONE until the evidence exists. */
+    | {
+        kind: 'DONE_REQUIREMENT'
+        requirement: 'TEST_CASE' | 'REVIEW'
+        prNumber: number
+        statement: string
+        blocking: true
+      }
   >
   /** LUM-1186: the Done gate, derived server-side by the web Record tab's
    *  `deriveDoneGate`. Absent on an older server (rendered as "cannot
@@ -291,6 +300,10 @@ type AgentReviewAction = Extract<
   NextActionItem,
   { kind: 'AGENT_REVIEW_MISSING' }
 >
+export type DoneRequirementAction = Extract<
+  NextActionItem,
+  { kind: 'DONE_REQUIREMENT' }
+>
 export type TestCaseVerdictAction = Extract<
   NextActionItem,
   { kind: 'TEST_CASE_VERDICT' }
@@ -313,19 +326,28 @@ function isAdvisoryAction(a: NextActionItem): a is TestCaseAction {
 function isAgentReviewAction(a: NextActionItem): a is AgentReviewAction {
   return a.kind === 'AGENT_REVIEW_MISSING'
 }
+function isDoneRequirementAction(
+  a: NextActionItem
+): a is DoneRequirementAction {
+  return a.kind === 'DONE_REQUIREMENT'
+}
 export function splitNextActions(actions: NextActionItem[]): {
   security: SecurityAction[]
+  /** LUM-1334: requirements a linked PR misses — each blocks DONE. */
+  requirements: DoneRequirementAction[]
   /** LUM-1328: open PRs whose head has no imported agent review. */
   agentReview: AgentReviewAction[]
   testCase: TestCaseAction[]
   testCaseVerdict: TestCaseVerdictAction[]
 } {
   const security: SecurityAction[] = []
+  const requirements: DoneRequirementAction[] = []
   const agentReview: AgentReviewAction[] = []
   const testCase: TestCaseAction[] = []
   const testCaseVerdict: TestCaseVerdictAction[] = []
   for (const a of actions) {
     if (isSecurityAction(a)) security.push(a)
+    else if (isDoneRequirementAction(a)) requirements.push(a)
     else if (isAgentReviewAction(a)) agentReview.push(a)
     else if (isTestCaseVerdictAction(a)) testCaseVerdict.push(a)
     // Anything else is advisory-only (a server-side rule): a kind this CLI
@@ -333,7 +355,26 @@ export function splitNextActions(actions: NextActionItem[]): {
     // guessed at, so it can never read as a DONE blocker.
     else if (isAdvisoryAction(a)) testCase.push(a)
   }
-  return { security, agentReview, testCase, testCaseVerdict }
+  return { security, requirements, agentReview, testCase, testCaseVerdict }
+}
+
+/**
+ * LUM-1334 — one row per requirement a linked PR misses. Each blocks DONE;
+ * the statement names what clears it (a passing run, a review).
+ */
+export function pushDoneRequirementActions(
+  lines: string[],
+  actions: DoneRequirementAction[],
+  opts: LayoutOptions = {}
+): void {
+  for (const a of actions)
+    lines.push(
+      ...bulletLines(
+        `[REQUIRED] ${sanitizeField(a.statement)} (blocks DONE)`,
+        2,
+        opts
+      )
+    )
 }
 
 /**
@@ -654,6 +695,7 @@ export function formatTaskStatus(
 
   const {
     security: securityActions,
+    requirements: requirementActions,
     agentReview: agentReviewActions,
     testCase: testCaseActions,
     testCaseVerdict: testCaseVerdictActions,
@@ -671,18 +713,24 @@ export function formatTaskStatus(
     pushSecurityActions(lines, securityActions, opts)
     lines.push(...securityHintLines(opts))
   } else if (
+    requirementActions.length === 0 &&
     agentReviewActions.length === 0 &&
     testCaseActions.length === 0 &&
     testCaseVerdictActions.length === 0
   ) {
     lines.push(...sectionHeading('Next actions', opts))
     lines.push(`  ${emptyState('next actions')}`)
-  } else if (testCaseVerdictActions.some(testCaseVerdictBlocks)) {
+  } else if (
+    requirementActions.length > 0 ||
+    testCaseVerdictActions.some(testCaseVerdictBlocks)
+  ) {
     // LUM-1186: a proven defect holds DONE — never "advisory only".
     lines.push(...sectionHeading('Next actions', opts))
   } else {
     lines.push(...sectionHeading('Next actions (advisory only)', opts))
   }
+  // LUM-1334: requirements hold DONE — before the advisories.
+  pushDoneRequirementActions(lines, requirementActions, opts)
   // LUM-807: advisory last — after everything that can actually hold DONE.
   // LUM-1328: the agent-review nudge first among them (security work).
   pushAgentReviewActions(lines, agentReviewActions, opts)

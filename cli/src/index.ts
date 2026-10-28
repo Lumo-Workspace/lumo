@@ -127,6 +127,11 @@ import {
   workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
+import {
+  workspaceDoneRequirements,
+  workspaceDoneRequirementsUpdate,
+  type WorkspaceDoneRequirementsOptions,
+} from './commands/workspace-done-requirements'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -2241,6 +2246,46 @@ securityScanCmd
   .action(
     wrap(options =>
       workspaceSecurityScanUpdate(options as WorkspaceSecurityScanOptions)
+    )
+  )
+
+// LUM-1334: what DONE requires on each linked PR's latest commit.
+const doneRequirementsCmd = workspaceCmd
+  .command('done-requirements')
+  .description(
+    "What DONE requires on each linked PR's latest commit: a passing test case, a review"
+  )
+doneRequirementsCmd
+  .command('show')
+  .codex(SERVER_ONLY)
+  .description('Show the Done requirements. Any member may read.')
+  .option('--json', 'Emit { testCase, review, canEdit } as JSON')
+  .action(
+    wrap(options =>
+      workspaceDoneRequirements(options as WorkspaceDoneRequirementsOptions)
+    )
+  )
+doneRequirementsCmd
+  .command('update')
+  .codex(SERVER_ONLY)
+  .description(
+    'Turn the Done requirements on or off, workspace-wide. OWNER only; every change needs --confirm.'
+  )
+  .option(
+    '--test-case <on|off>',
+    "Require a passing test-case run on each linked PR's latest commit"
+  )
+  .option(
+    '--review <on|off>',
+    "Require a review on each linked PR's latest commit (Lumo AI review, an imported agent review, or a GitHub approval)"
+  )
+  .option('--confirm', 'The user approved the listed changes')
+  .option('--json', 'Emit { testCase, review, canEdit } as JSON')
+  .action(
+    wrap(options =>
+      workspaceDoneRequirementsUpdate(
+        options as WorkspaceDoneRequirementsOptions
+      )
     )
   )
 

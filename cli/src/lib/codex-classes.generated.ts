@@ -249,6 +249,11 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
     detail:
       'local-only (reads credentials, no Lumo API call; runs fine sandboxed)',
   },
+  'workspace done-requirements show': { serverOnly: true, localFiles: 'none' },
+  'workspace done-requirements update': {
+    serverOnly: true,
+    localFiles: 'none',
+  },
   'workspace security-scan show': { serverOnly: true, localFiles: 'none' },
   'workspace security-scan update': { serverOnly: true, localFiles: 'none' },
   worktree: {

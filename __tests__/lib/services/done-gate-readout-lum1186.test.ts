@@ -26,7 +26,10 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: { listForTask: jest.fn(), runsPerCase: jest.fn() },
 }))
 jest.mock('@/lib/logger', () => ({ logger: { warn: jest.fn() } }))
-jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
+// LUM-1334: the DONE requirement switches — no row reads as off.
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: { workspace: { findUnique: jest.fn(async () => null) } },
+}))
 
 import { readDoneGateInputs } from '@/lib/services/done-verdict.service'
 import { readDoneGatePluginRow } from '@/lib/plugins/done-gate'

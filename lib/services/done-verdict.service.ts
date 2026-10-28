@@ -12,12 +12,24 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import {
   collectDoneGateBlockers,
+  collectPluginReviewedPullRequests,
   readDoneGatePluginRow,
 } from '@/lib/plugins/done-gate'
+import { pullRequestReviewRepository } from '@/lib/repositories/pull-request-review.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import {
+  countedPullRequests,
+  missingDoneRequirements,
+  type PassingRun,
+} from '@/lib/acceptance/done-requirements'
 import { summarizeTestCases } from '@/lib/test-cases/case-summary'
 import type { DoneGateInputs } from '@/lib/acceptance/done-gate'
 import { logger } from '@/lib/logger'
 import { countEvidence, deriveRunCeiling } from '@/lib/test-cases/provability'
+import type {
+  TestCaseRow,
+  TestCaseRunRow,
+} from '@/lib/repositories/test-case.repository'
 import {
   computeDoneVerdict,
   type DoneVerdictSnapshot,
@@ -39,6 +51,88 @@ async function collectCrossingPlane(
   return {
     open: open.map(c => ({ category: c.category, severity: c.severity })),
     gateEnabled,
+  }
+}
+
+/** The provability ceiling of one run of this case (LUM-808). */
+function runCeiling(testCase: TestCaseRow, run: TestCaseRunRow) {
+  return deriveRunCeiling(
+    {
+      result: run.result,
+      environment: run.environment,
+      unprovenVerification: (run.unprovenVerification ??
+        []) as unknown as Array<{
+        index: number
+        text: string
+      }>,
+      evidenceCount: countEvidence(run.evidence),
+      stepResults: run.stepResults,
+    },
+    { requiredEnvironment: testCase.requiredEnvironment }
+  )
+}
+
+/**
+ * LUM-1334: the latest run of each case, when it passed and is not capped
+ * UNPROVEN — the only runs the test-case requirement accepts.
+ */
+async function readPassingRuns(taskId: string): Promise<PassingRun[]> {
+  const [cases, runsByCase] = await Promise.all([
+    testCaseRepository.listForTask(taskId),
+    testCaseRepository.runsPerCase(taskId),
+  ])
+  const out: PassingRun[] = []
+  for (const testCase of cases) {
+    const latest = (runsByCase.get(testCase.id) ?? [])[0]
+    if (!latest || latest.result !== 'PASS') continue
+    if (runCeiling(testCase, latest).effective === 'UNPROVEN') continue
+    out.push({
+      pullRequestId: latest.pullRequestId,
+      commitSha: latest.commitSha,
+      commitDirty: latest.commitDirty,
+    })
+  }
+  return out
+}
+
+/**
+ * LUM-1334: the workspace's opt-in requirements and what the task's PRs miss.
+ * With both switches off it reads only the switches. Fail-closed like the
+ * other blocking planes: a read that throws makes the gate throw.
+ */
+async function collectRequirementPlane(
+  taskId: string,
+  workspaceId: string
+): Promise<NonNullable<DoneVerdictSnapshot['requirements']>> {
+  const switches = (await workspaceRepository.findDoneRequirements(
+    workspaceId
+  )) ?? { testCase: false, review: false }
+  if (!switches.testCase && !switches.review) return { switches, missing: [] }
+  const prs = countedPullRequests(
+    await testCaseRepository.listTaskPullRequests(taskId)
+  ).sort((a, b) => a.number - b.number)
+  if (prs.length === 0) return { switches, missing: [] }
+  const heads = prs.flatMap(pr =>
+    pr.headSha ? [{ pullRequestId: pr.id, headSha: pr.headSha }] : []
+  )
+  const [passingRuns, reviews, pluginReviewed] = await Promise.all([
+    switches.testCase ? readPassingRuns(taskId) : Promise.resolve([]),
+    switches.review
+      ? pullRequestReviewRepository.listByPullRequestIds(prs.map(p => p.id))
+      : Promise.resolve([]),
+    switches.review
+      ? collectPluginReviewedPullRequests(heads)
+      : Promise.resolve(new Set<string>()),
+  ])
+  return {
+    switches,
+    missing: missingDoneRequirements({
+      switches,
+      pullRequests: prs,
+      passingRuns,
+      reviews,
+      pluginReviewed,
+    }),
   }
 }
 
@@ -73,17 +167,7 @@ async function collectTestCasePlane(
     } else if (latest.failureAttribution === 'CASE_OUTDATED') {
       signal = 'CASE_OUTDATED'
     } else {
-      const ceiling = deriveRunCeiling(
-        {
-          result: latest.result,
-          environment: latest.environment,
-          unprovenVerification: (latest.unprovenVerification ??
-            []) as unknown as Array<{ index: number; text: string }>,
-          evidenceCount: countEvidence(latest.evidence),
-          stepResults: latest.stepResults,
-        },
-        { requiredEnvironment: testCase.requiredEnvironment }
-      )
+      const ceiling = runCeiling(testCase, latest)
       if (ceiling.effective === 'UNPROVEN') {
         signal = 'UNPROVEN_PASS'
         ceilingReason = ceiling.reason
@@ -134,20 +218,23 @@ export async function readTestCaseAdvisories(
   }
 }
 
-/** 一次收齐三个 plane。 */
+/** 一次收齐四个 plane。 */
 export async function collectDoneVerdictSnapshot(
   taskId: string,
   workspaceId: string
 ): Promise<DoneVerdictSnapshot> {
-  const [crossings, securityFindings, testCases] = await Promise.all([
-    collectCrossingPlane(taskId, workspaceId),
-    // LUM-1061: plugin blockers (the security plugin's undispositioned PR
-    // findings). Fail-closed like the other blocking planes; no plugin → [].
-    collectDoneGateBlockers(taskId),
-    // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
-    collectTestCasePlane(taskId),
-  ])
-  return { crossings, securityFindings, testCases }
+  const [crossings, securityFindings, testCases, requirements] =
+    await Promise.all([
+      collectCrossingPlane(taskId, workspaceId),
+      // LUM-1061: plugin blockers (the security plugin's undispositioned PR
+      // findings). Fail-closed like the other blocking planes; no plugin → [].
+      collectDoneGateBlockers(taskId),
+      // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
+      collectTestCasePlane(taskId),
+      // LUM-1334: fail-closed too — it can refuse DONE.
+      collectRequirementPlane(taskId, workspaceId),
+    ])
+  return { crossings, securityFindings, testCases, requirements }
 }
 
 /** 收快照 + 判定，一步到位。读端（`task status`）用的就是这个。 */
@@ -220,7 +307,7 @@ export async function readDoneGateInputs(
   taskId: string,
   workspaceId: string
 ): Promise<DoneGateInputs> {
-  const [crossings, security, tests] = await Promise.all([
+  const [crossings, security, tests, requirements] = await Promise.all([
     settle(
       'boundary crossings',
       taskId,
@@ -228,15 +315,21 @@ export async function readDoneGateInputs(
     ),
     settle('security findings', taskId, readDoneGatePluginRow(taskId)),
     settle('test cases', taskId, readTestCounts(taskId)),
+    settle(
+      'done requirements',
+      taskId,
+      collectRequirementPlane(taskId, workspaceId)
+    ),
   ])
   if (
     crossings.value === null ||
     security.value === null ||
-    tests.value === null
+    tests.value === null ||
+    requirements.value === null
   ) {
     return {
       confirmed: false,
-      unconfirmed: [crossings, security, tests]
+      unconfirmed: [crossings, security, tests, requirements]
         .filter(p => p.value === null)
         .map(p => p.plane),
     }
@@ -252,6 +345,7 @@ export async function readDoneGateInputs(
       securityScanned: security.value.checked,
       showSecurity: security.value.present,
       tests: { total: tests.value.total, passing: tests.value.passing },
+      requirements: requirements.value,
     },
   }
 }

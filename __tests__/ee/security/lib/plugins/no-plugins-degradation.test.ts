@@ -91,7 +91,11 @@ jest.mock('@/lib/repositories/claim-faithfulness-verdict.repository', () => ({
   },
 }))
 jest.mock('@/lib/db/prisma', () => ({
-  prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})) },
+  prisma: {
+    $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})),
+    // LUM-1334: the DONE requirement switches — no row reads as off.
+    workspace: { findUnique: jest.fn(async () => null) },
+  },
 }))
 
 // PreToolUse hook route.

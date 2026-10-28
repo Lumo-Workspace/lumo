@@ -16,6 +16,7 @@ import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { pullRequestReviewService } from '@/lib/services/pull-request-review.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
@@ -643,4 +644,16 @@ export async function handlePullRequestReviewComment(
   // LUM-1131: any PR row Lumo holds — a scan's finding threads exist
   // wherever the scan commented, task-linked or not.
   emitReviewComment(payload, workspaceId, pr)
+}
+
+/**
+ * LUM-1334: `pull_request_review` — store a human approval / change request /
+ * dismissal and the commit it was given on, for the DONE gate's review
+ * requirement. Commented reviews and bots are skipped inside the service.
+ */
+export async function handlePullRequestReview(
+  payload: Record<string, unknown>,
+  workspaceId: string
+): Promise<void> {
+  await pullRequestReviewService.recordFromWebhook(payload, workspaceId)
 }

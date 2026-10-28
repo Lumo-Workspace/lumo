@@ -45,6 +45,8 @@ type TxCallback = (client: unknown) => unknown
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
+    // LUM-1334: the DONE requirement switches — no row reads as off.
+    workspace: { findUnique: jest.fn(async () => null) },
     $transaction: jest.fn(async (fn: TxCallback) => {
       txWrites = []
       txCommitted = false

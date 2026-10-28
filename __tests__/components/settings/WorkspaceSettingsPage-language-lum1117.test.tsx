@@ -101,7 +101,13 @@ it('shows one language setting — the default language', async () => {
 it('no longer offers the workspace briefing schedule (LUM-1228)', async () => {
   render(<WorkspaceSettingsPage />)
   await screen.findByLabelText('Default language')
-  expect(screen.queryByRole('switch')).toBeNull()
+  // LUM-1334: the only switches left are the two Done requirements.
+  expect(
+    screen
+      .queryAllByRole('switch')
+      .map(s => s.id)
+      .sort()
+  ).toEqual(['done-requirement-review', 'done-requirement-testCase'])
   expect(
     screen
       .queryAllByRole('combobox')

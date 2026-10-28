@@ -61,6 +61,9 @@ const DEVIATIONS = {
     'project unarchive',
     // LUM-1292: reads only files inside the CLI package.
     'skill read',
+    // LUM-1334: the DONE requirement switches.
+    'workspace done-requirements show',
+    'workspace done-requirements update',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   // LUM-1321 / LUM-1333: `review import` reads the report it sends.

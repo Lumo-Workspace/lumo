@@ -73,6 +73,7 @@ On a TTY the same fields are rendered as text: a header line, one `-` bullet per
 - **`project update <ref> --status <s>`** — old → new status and what it does to agents. [milestones.md](milestones.md)
 - **`worktree add <LUM-N> --verify`** — the path, branch and the exact `verifyCommand` it would run. **`worktree rm`** — path + branch, `⚠ … uncommitted changes … discarded` when dirty (then `--force --confirm`). **`worktree prune`** — per worktree of a DONE task, removed or kept with the reason; no envelope when nothing is removable. [worktree.md](worktree.md)
 - **`workspace security-scan update`** — turning a switch off and the other risky changes listed in [workspace-settings.md](workspace-settings.md).
+- **`workspace done-requirements update`** — every change (on or off), workspace-wide ([workspace-settings.md](workspace-settings.md#lumo-workspace-done-requirements-show--update--what-done-requires)).
 - **`uninstall`** — every path with its action; `⚠ committed — …` for git-tracked paths. Never commits. [onboarding.md](onboarding.md)
 
 ## When the gate is human-only: `DONE_BLOCKED`, exit code 5
@@ -107,11 +108,13 @@ When `task update <id> --status done --confirm` is refused by one of these gates
 ```
 
 - `message` — the server's 409 text, verbatim.
-- `blockers` — one entry per item holding the gate: `BOUNDARY_CROSSING` (id, ref, severity, category, detail), `SECURITY_FINDING` (findingId, severity, ruleId, filePath, line, prNumber, statement), `TEST_CASE_DEFECT` (ref `<task>/TC<n>`, number, title, url). Only crossings the server gate counts appear (advisory ones never; with the workspace gate off only HIGH ones).
+- `blockers` — one entry per item holding the gate: `BOUNDARY_CROSSING` (id, ref, severity, category, detail), `SECURITY_FINDING` (findingId, severity, ruleId, filePath, line, prNumber, statement), `TEST_CASE_DEFECT` (ref `<task>/TC<n>`, number, title, url), `DONE_REQUIREMENT` (requirement `TEST_CASE | REVIEW`, prNumber, statement). Only crossings the server gate counts appear (advisory ones never; with the workspace gate off only HIGH ones).
 - `nonBlocking` — open crossings the gate does NOT count — awareness only; do not ask the user to disposition them to get past DONE_BLOCKED.
 - `unconfirmed` — enrichment reads that failed. Non-empty means the blocker list may be incomplete — it never silently shrinks.
 - `remediation` — one line per blocker kind, naming only human-side, append-only or user-approved paths. Never a ready-to-run approval flag.
 - `dispositionUrl` — where a human rules on the web (`…#dossier-tests` when every blocker is a test-case defect, else `…#boundary-crossings`).
+
+**`DONE_REQUIREMENT` is the exception — evidence, not a ruling.** The workspace owner switched on "a passing test case" and/or "a review" on each linked PR's latest commit ([workspace-settings.md](workspace-settings.md)), and a PR lacks it. You may clear it yourself: record a real passing run on that commit (`lumo task testcase run <task>/TC<n> --result pass --pr <n>`, or with `--env local` from a clean checkout of it), import your review (`lumo review import`) or get the commit reviewed. Never fake a run. Pushing a new commit resets both. Only an owner can turn the requirement off.
 
 **Exit 4 vs exit 5:** 4 means "the user must approve, then you can proceed"; 5 means "a human must adjudicate — nothing on this command moves it". On exit 5, relay `blockers` and `remediation` to the user. Do not retry `task update`, and do not look for a flag on it. The disposition commands are themselves exit-4 commands, so the user's ruling still comes through the protocol, never from you. Once every blocker is cleared, re-run the original `task update … --confirm` (its envelope was already approved). A 409 that is not a DONE gate (e.g. a permission refusal) keeps the plain exit-1 text on stderr.
 
