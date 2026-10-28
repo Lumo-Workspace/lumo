@@ -4,6 +4,7 @@ import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 const ERROR_CODES = new Set([
   'verify_not_configured',
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
   // The redirect target comes from the membership lookup, never from the
   // state: the settings path is ours to decide, not the query string's.
-  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
+  const settingsUrl = `${resolveAppUrl()}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
 
   // No code means the user declined to authorize (`error=access_denied`):
   // without GitHub vouching for them there is nothing we may record.
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+  const redirectUri = `${resolveAppUrl()}/api/github/app/callback`
   const audit = memberAuditContext(request.headers, {
     clerkId: userId,
     memberId: ws.member.id,

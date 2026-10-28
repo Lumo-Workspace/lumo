@@ -6,6 +6,7 @@ import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
 import { memberAuditContext } from '@/lib/api/audit-context'
 import { githubService } from '@/lib/services/github.service'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/github/callback?code={code}&state={state}
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const state = searchParams.get('state')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = resolveAppUrl() ?? ''
 
   if (!code || !state) {
     return NextResponse.redirect(`${appUrl}/?github_error=1`)
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
           client_id: process.env.GITHUB_CLIENT_ID,
           client_secret: process.env.GITHUB_CLIENT_SECRET,
           code,
-          redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`,
+          redirect_uri: `${resolveAppUrl()}/api/github/callback`,
         }),
       }
     )

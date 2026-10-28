@@ -14,6 +14,7 @@ import {
   isEmailDelivered,
   sendEmail,
 } from '@/lib/integrations/email'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /** What happened to the email when an invite was resent. */
 export type InviteResendOutcome = 'sent' | 'failed' | 'skipped'
@@ -286,7 +287,7 @@ export const inviteService = {
       })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const appUrl = resolveAppUrl() ?? 'http://localhost:3000'
     const inviterFullName = invite.inviterName
     const inviterFirstName = inviterFullName.split(' ')[0] || inviterFullName
     const { subject, html } = buildInviteEmail({

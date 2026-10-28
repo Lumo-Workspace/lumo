@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * Hand one project's fold pass to the dedicated foreground worker
@@ -19,7 +20,7 @@ export async function dispatchProjectFold(
   projectId: string,
   sourceSessionId: string | null
 ): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_APP_URL
+  const base = resolveAppUrl()
   if (!base) {
     logger.warn(
       '[memory.fold] NEXT_PUBLIC_APP_URL unset — skipping fold dispatch'

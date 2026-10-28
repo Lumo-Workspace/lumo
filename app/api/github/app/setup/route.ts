@@ -6,6 +6,7 @@ import {
 } from '@/lib/integrations/oauth-state'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/github/app/setup?installation_id={id}&setup_action={action}&state={state}
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 
   // The redirect target comes from the membership lookup, never from the
   // state: the settings path is ours to decide, not the query string's.
-  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
+  const settingsUrl = `${resolveAppUrl()}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
 
   const installationId = Number(searchParams.get('installation_id'))
   if (!Number.isInteger(installationId) || installationId <= 0) {
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       githubAppInstallService.userAuthorizeUrl(
         verifyState,
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+        `${resolveAppUrl()}/api/github/app/callback`
       )
     )
   } catch (error) {

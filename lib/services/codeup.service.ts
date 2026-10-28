@@ -14,6 +14,7 @@ import {
   recordAuditEvent,
   type AuditContext,
 } from '@/lib/services/audit.service'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ type StoredConnection = NonNullable<
  * be created on Codeup and silently never deliver.
  */
 export function codeupWebhookUrl(
-  appUrl: string | undefined = process.env.NEXT_PUBLIC_APP_URL
+  appUrl: string | undefined = resolveAppUrl()
 ): string {
   const base = appUrl?.trim().replace(/\/+$/, '')
   if (!base) {

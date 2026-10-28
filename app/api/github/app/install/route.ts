@@ -3,6 +3,7 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
 import { integrationConfigStatus } from '@/lib/integrations/configured'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/github/app/install?workspaceUrl={slug}
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     )
     // A deployment without the App may lack NEXT_PUBLIC_APP_URL too; an
     // `undefined/…` redirect would throw, so fall back to the request origin.
-    const base = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
+    const base = resolveAppUrl() || request.nextUrl.origin
     return NextResponse.redirect(
       `${base}/workspace/${workspaceUrl}/settings/integrations?github_app_error=not_configured`
     )

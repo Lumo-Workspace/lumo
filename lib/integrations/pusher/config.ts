@@ -15,9 +15,10 @@
  * a connection-health signal.
  *
  * The resolvers are pure (env passed in) so they can be tested without
- * touching process.env. NEXT_PUBLIC_* vars are inlined at build time, so the
- * browser side must read them by literal name — see readClientPusherEnv.
+ * touching process.env. The browser-side values come from the runtime public
+ * config (lib/config/public-config.ts), not from build-time inlining.
  */
+import { readPublicConfig } from '@/lib/config/public-config'
 
 export interface PusherServerEnv {
   PUSHER_APP_ID?: string | undefined
@@ -143,18 +144,12 @@ export function resolveClientPusherConfig(
 }
 
 /**
- * Browser-safe env read. Each NEXT_PUBLIC_* var must be referenced by its
- * literal name for Next.js to inline it into the client bundle — don't
- * refactor this into a loop or a spread of process.env.
+ * The browser's view of the NEXT_PUBLIC_PUSHER_* vars, read at runtime
+ * (LUM-1325): the server's env on the server, `/api/public-config` in the
+ * browser, the build-time values as a last resort.
  */
 export function readClientPusherEnv(): PusherClientEnv {
-  return {
-    NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY,
-    NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-    NEXT_PUBLIC_PUSHER_HOST: process.env.NEXT_PUBLIC_PUSHER_HOST,
-    NEXT_PUBLIC_PUSHER_PORT: process.env.NEXT_PUBLIC_PUSHER_PORT,
-    NEXT_PUBLIC_PUSHER_USE_TLS: process.env.NEXT_PUBLIC_PUSHER_USE_TLS,
-  }
+  return readPublicConfig().pusher
 }
 
 /** Server-side env read (explicit fields, so the resolver stays pure). */

@@ -6,6 +6,7 @@ import { decodeOauthState } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
 import { slackService } from '@/lib/services/slack.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/slack/callback?code={code}&state={state}
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const stateParam = request.nextUrl.searchParams.get('state')
   const error = request.nextUrl.searchParams.get('error')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = resolveAppUrl() ?? ''
 
   // Handle user denial
   if (error || !code || !stateParam) {
