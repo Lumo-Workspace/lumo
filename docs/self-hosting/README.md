@@ -2,26 +2,27 @@
 
 One command starts Lumo and everything it needs on a single machine:
 
-| Service      | Image                                         | What it does                                                                                                                       |
-| ------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `app`        | built from `Dockerfile`                       | Lumo (`next start`), including the in-process workflow worker. Published on port 3000.                                             |
-| `migrate`    | same image as `app`                           | One-shot on every `up`: `prisma migrate deploy`, then `npm run workflow:bootstrap`. `app` starts only after it succeeds.           |
-| `postgres`   | `pgvector/pgvector:pg16`                      | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                               |
-| `redis`      | `redis:7-alpine`                              | Rate-limit counters (shared across restarts and instances).                                                                        |
-| `minio`      | `cgr.dev/chainguard/minio`                    | File storage (logos, test evidence, editor images, exports), S3-compatible. Not published: files are served through Lumo's routes. |
-| `minio-init` | `cgr.dev/chainguard/minio-client`             | One-shot: creates the bucket. It stays private (no public policy).                                                                 |
-| `soketi`     | `quay.io/soketi/soketi:1.6-16-debian`         | Realtime updates (Pusher protocol). Published on port 6001 because browsers connect to it directly.                                |
-| `cron`       | built from `deploy/self-host/cron.Dockerfile` | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)).                                               |
-| `mailpit`    | `axllent/mailpit` (profile `mail`)            | Development only: catches outgoing mail.                                                                                           |
+| Service      | Image                                 | What it does                                                                                                                        |
+| ------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `app`        | `ghcr.io/lumo-workspace/lumo`         | Lumo (`next start`), including the in-process workflow worker. Published on port 3000. Prebuilt; `--build` builds `Dockerfile`.     |
+| `migrate`    | same image as `app`                   | One-shot on every `up`: `prisma migrate deploy`, then `npm run workflow:bootstrap`. `app` starts only after it succeeds.            |
+| `postgres`   | `pgvector/pgvector:pg16`              | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                                |
+| `redis`      | `redis:7-alpine`                      | Rate-limit counters (shared across restarts and instances).                                                                         |
+| `minio`      | `cgr.dev/chainguard/minio`            | File storage (logos, test evidence, editor images, exports), S3-compatible. Not published: files are served through Lumo's routes.  |
+| `minio-init` | `cgr.dev/chainguard/minio-client`     | One-shot: creates the bucket. It stays private (no public policy).                                                                  |
+| `soketi`     | `quay.io/soketi/soketi:1.6-16-debian` | Realtime updates (Pusher protocol). Published on port 6001 for plain-HTTP setups; behind HTTPS browsers reach it at `/app/`.        |
+| `cron`       | `ghcr.io/lumo-workspace/lumo-cron`    | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)). Built from `deploy/self-host/cron.Dockerfile`. |
+| `caddy`      | `caddy:2.10-alpine` (profile `caddy`) | Optional HTTPS on your domain with an automatic certificate; sends `/app/` to Soketi and the rest to the app.                       |
+| `mailpit`    | `axllent/mailpit` (profile `mail`)    | Development only: catches outgoing mail.                                                                                            |
 
 Kubernetes / Helm are not provided.
 
 ## Prerequisites
 
-- Docker with Compose v2 (`docker compose version`). Building the image needs
-  about **8 GB of memory** available to Docker (`next build` is
-  memory-hungry) and ~10 GB of disk for images and build layers.
-- `openssl` (or any other way to make random hex strings).
+- Docker with Compose v2 (`docker compose version`), about 2 GB of memory
+  and ~5 GB of disk. The app and cron images are prebuilt for `linux/amd64`
+  and `linux/arm64`, so the server never runs `next build`.
+- `openssl` (used by `scripts/self-host/init.sh` to generate secrets).
 
 No third-party account is needed: users sign in with Lumo's built-in
 accounts (Better Auth, see [Sign-in](#sign-in)), stored in the bundled
@@ -30,18 +31,10 @@ Postgres.
 ## Quick start
 
 ```bash
-cp .env.example .env
-# Fill the two empty REQUIRED secrets (DATABASE_URL is ignored by compose):
-sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
-  -e "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" .env \
-  && rm .env.bak
-# Then add the compose secrets:
-for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
-  echo "$v=$(openssl rand -hex 32)"
-done >> .env
-
-docker compose up -d --build
-docker compose ps        # every service "healthy" / migrate + minio-init "exited (0)"
+git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
+scripts/self-host/init.sh          # creates .env, generates every secret
+docker compose up -d               # pulls the images and starts everything
+docker compose ps                  # every service "healthy" / migrate + minio-init "exited (0)"
 ```
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
@@ -51,32 +44,66 @@ account creation.) The first
 account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
-The first build takes a while (dependencies plus `next build`); later
-`up -d --build` runs reuse the cached layers. Keep secrets hex (`openssl rand
--hex 32`): `WORKFLOW_SECRET` is embedded in a URL.
+`init.sh` is safe to re-run: it fills only secrets that are still empty and
+never replaces one that has a value (changing `BETTER_AUTH_SECRET` signs
+everybody out; the database and MinIO passwords must keep matching their
+volumes). It warns when no email is configured.
 
-### Build-time settings (`NEXT_PUBLIC_*`)
+### On your own domain (HTTPS)
 
-`next build` inlines every `NEXT_PUBLIC_*` value into the browser bundle, so
-those are **build arguments** of the image, not runtime settings. Compose
-passes them from `.env`:
+Point the domain's DNS at the server, open ports 80 and 443, then:
 
-| `.env` setting        | Becomes                                                   | Default                 |
-| --------------------- | --------------------------------------------------------- | ----------------------- |
-| `NEXT_PUBLIC_APP_URL` | the same                                                  | `http://localhost:3000` |
-| `SOKETI_PUBLIC_HOST`  | `NEXT_PUBLIC_PUSHER_HOST`                                 | `localhost`             |
-| `SOKETI_PUBLIC_PORT`  | `NEXT_PUBLIC_PUSHER_PORT` (and the published Soketi port) | `6001`                  |
-| `SOKETI_PUBLIC_TLS`   | `NEXT_PUBLIC_PUSHER_USE_TLS`                              | `false`                 |
+```bash
+scripts/self-host/init.sh --url https://lumo.example.com
+docker compose --profile caddy up -d
+```
 
-Compose also builds with `AUTH_PROVIDER=better-auth` (static pages bake the
-auth provider in, so the build and the runtime must agree).
+`--url` sets `NEXT_PUBLIC_APP_URL`, `LUMO_PUBLIC_URL` and `BETTER_AUTH_URL`
+to that URL, `LUMO_DOMAIN` for Caddy, and points the browser's realtime
+connection at the same origin (`SOKETI_PUBLIC_HOST` = the domain, port 443,
+TLS on). The `caddy` service gets a Let's Encrypt certificate and serves
+everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
+the rest to the app.
 
-After changing any of them run `docker compose up -d --build` again. Without
-compose, pass them yourself:
-`docker build --build-arg NEXT_PUBLIC_APP_URL=https://lumo.example.com .`
-(the image defaults to `AUTH_PROVIDER=better-auth`).
-On a builder with less than 8 GB, lower the heap with
-`--build-arg BUILD_MAX_OLD_SPACE_SIZE=4096` (the build may then fail).
+With your own reverse proxy (nginx, Traefik, …) instead of the profile, run
+the same `init.sh --url` and give the proxy the same two rules: `/app/` →
+port 6001 (WebSocket upgrade on), everything else → port 3000.
+
+Changing the URL later is the same command followed by `docker compose up -d`
+— no rebuild. A plain-HTTP URL (`--url http://192.168.1.20:3000`) keeps the
+browser talking to Soketi directly on port 6001.
+
+### Image versions and building from source
+
+`docker compose up -d` uses `ghcr.io/lumo-workspace/lumo:latest` and
+`ghcr.io/lumo-workspace/lumo-cron:latest`. To pin a release, set
+`LUMO_IMAGE=ghcr.io/lumo-workspace/lumo:<version>` and
+`LUMO_CRON_IMAGE=ghcr.io/lumo-workspace/lumo-cron:<version>` in `.env`.
+
+To build both images from your checkout instead, run
+`docker compose up -d --build` (Compose also builds when it cannot pull the
+image). Building needs about **8 GB of memory** available to Docker
+(`next build` is memory-hungry) and ~10 GB of disk; on a smaller builder,
+lower the heap with `--build-arg BUILD_MAX_OLD_SPACE_SIZE=4096` (the build
+may then fail). Keep secrets hex (`openssl rand -hex 32`): `WORKFLOW_SECRET`
+is embedded in a URL.
+
+### Public URL and realtime settings
+
+The app reads these at runtime and serves the browser's share of them from
+`/api/public-config`, so they take effect on `docker compose up -d` without a
+rebuild:
+
+| `.env` setting        | Becomes                      | Default                 |
+| --------------------- | ---------------------------- | ----------------------- |
+| `NEXT_PUBLIC_APP_URL` | the same                     | `http://localhost:3000` |
+| `SOKETI_PUBLIC_HOST`  | `NEXT_PUBLIC_PUSHER_HOST`    | `localhost`             |
+| `SOKETI_PUBLIC_PORT`  | `NEXT_PUBLIC_PUSHER_PORT`    | `6001`                  |
+| `SOKETI_PUBLIC_TLS`   | `NEXT_PUBLIC_PUSHER_USE_TLS` | `false`                 |
+
+`SOKETI_PORT` (default `6001`) is the host port Soketi is published on.
+`AUTH_PROVIDER` is still fixed at build time (static pages bake it in); the
+images are built with `better-auth`.
 
 ### What compose wires for you
 
@@ -124,8 +151,8 @@ once email is configured; and **email + password**, on by default.
   the app container exits if it is shorter. Changing it signs everybody out.
 - **`BETTER_AUTH_URL`** is the public URL users reach Lumo on; it defaults to
   `NEXT_PUBLIC_APP_URL`. Sign-in requests from any other origin are refused,
-  so set it (or `NEXT_PUBLIC_APP_URL`, then rebuild) when you put Lumo behind
-  a domain or change `LUMO_PORT`.
+  so set it when you put Lumo behind a domain or change `LUMO_PORT`
+  (`scripts/self-host/init.sh --url …` sets both).
 - **Email verification.** A new account receives a verification link by
   email. Signing in works without verifying, but only a **verified** address
   can accept a workspace invite — so inviting people needs email (`SMTP_URL`
@@ -184,7 +211,8 @@ and run it with `AUTH_PROVIDER=clerk` and `CLERK_SECRET_KEY`.
 
 ```bash
 git pull
-docker compose up -d --build
+docker compose pull      # the newest images (or the release LUMO_IMAGE pins)
+docker compose up -d     # add --build if you build from source
 ```
 
 `migrate` applies new migrations (`prisma migrate deploy` only — never
@@ -202,12 +230,10 @@ migration script for this.
 
 ### Production notes
 
-- **TLS / domain**: put a reverse proxy (Caddy, nginx, Traefik) in front of
-  port 3000 and of Soketi's 6001 (or set `SOKETI_PUBLIC_HOST` to a host the
-  proxy serves with `SOKETI_PUBLIC_TLS=true`), set `NEXT_PUBLIC_APP_URL` to
-  the public URL and rebuild. Set `LUMO_PUBLIC_URL` to the same URL (no
-  rebuild): links Lumo writes outside the app — CLI output, GitHub comments,
-  notices — otherwise point at the hosted service. If you can, have the proxy refuse
+- **TLS / domain**: see [On your own domain](#on-your-own-domain-https).
+  `LUMO_PUBLIC_URL` (set by `init.sh --url`) matters even without a proxy:
+  links Lumo writes outside the app — CLI output, GitHub comments, notices —
+  otherwise point at the hosted service. If you can, have the proxy refuse
   `/.well-known/workflow/v1/flow` and `/step` from outside (they are already
   protected by `WORKFLOW_SECRET`; see [workflow.md](workflow.md)).
 - **One app instance** is what this file runs and the only setup that has
@@ -222,7 +248,7 @@ migration script for this.
   [cron.md](cron.md)).
 - **Logs**: `docker compose logs -f app cron`.
 - **Data** lives in the named volumes `postgres-data`, `redis-data` and
-  `minio-data`. `docker compose down` keeps them; `down -v` deletes them.
+  `minio-data` (plus `caddy-data`, Caddy's certificates). `docker compose down` keeps them; `down -v` deletes them.
 
 ### Integrations
 
