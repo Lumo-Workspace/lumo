@@ -99,6 +99,10 @@ describe('loadRenamedRepository', () => {
     )
     expect(findRenameState).toHaveBeenCalledWith('ws1')
   })
+  it('a failed read is no rename, never an error', async () => {
+    findRenameState.mockRejectedValue(new Error('db down'))
+    await expect(loadRenamedRepository('ws1', 'acme/old')).resolves.toBeNull()
+  })
   it('no installation, or no workspace: nothing', async () => {
     findRenameState.mockResolvedValue(null)
     await expect(loadRenamedRepository('ws1', 'acme/old')).resolves.toBeNull()

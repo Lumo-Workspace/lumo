@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 
 /**
@@ -165,14 +166,28 @@ export function resolveRenamedRepository(
     : canonicalConfirmedRepository(confirmed, target)
 }
 
-/** `resolveRenamedRepository` over one workspace's installation row. */
+/**
+ * `resolveRenamedRepository` over one workspace's installation row. A failed
+ * read is "no rename": the lookup is only a fallback for a name that found
+ * nothing, so the caller's own not-found answer stands.
+ */
 export async function loadRenamedRepository(
   workspaceId: string,
   repository: string
 ): Promise<string | null> {
-  const row = workspaceId
-    ? await githubAppInstallationRepository.findRenameState(workspaceId)
-    : null
+  if (!workspaceId) return null
+  let row: Awaited<
+    ReturnType<typeof githubAppInstallationRepository.findRenameState>
+  >
+  try {
+    row = await githubAppInstallationRepository.findRenameState(workspaceId)
+  } catch (error) {
+    logger.warn('github.renamedRepository.readFailed', {
+      workspaceId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
   if (!row) return null
   return resolveRenamedRepository(
     row.repositories,

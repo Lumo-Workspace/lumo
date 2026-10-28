@@ -150,7 +150,8 @@ it('refuses a repository not linked to the caller workspace (another workspace) 
   expect(res.status).toBe(404)
   expect(res.headers.get('content-type')).toContain('application/json')
   await expect(res.json()).resolves.toEqual({
-    error: 'Repository not linked to this workspace',
+    error:
+      'Repository not linked to this workspace (if it was renamed, pass its current owner/name with --repo)',
   })
   // The workspace came from the identity, never from the query.
   expect(securityColumnsRepository.findSecurityBaseline).toHaveBeenCalledWith(
