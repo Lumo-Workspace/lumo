@@ -21,8 +21,8 @@ jest.mock('@/lib/db/prisma', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn(
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn(
     async (ids: string[]) =>
       new Map(
         ids.map(id => [id, { name: `Name ${id}`, email: `${id}@example.com` }])

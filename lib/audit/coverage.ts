@@ -188,9 +188,7 @@ export const AUDIT_INSTRUMENTED: Readonly<
  * units, so moving the body behind a wrapper does not drop a caller check.
  */
 export const AUDIT_DELEGATES: Readonly<Record<AuditUnit, AuditUnit>> = {
-  // The Clerk webhook's entry; the provider-neutral core writes the audit.
-  'lib/services/member-deprovision.service.ts#deprovisionClerkUser':
-    'lib/services/member-deprovision.service.ts#deprovisionUser',
+  // Empty since the Clerk webhook's entry went with Clerk (LUM-1077).
 }
 
 /**

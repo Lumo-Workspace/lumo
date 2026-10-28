@@ -11,7 +11,7 @@ const generateObjectMock = jest.fn()
 jest.mock('ai', () => ({
   generateObject: (...a: unknown[]) => generateObjectMock(...a),
 }))
-jest.mock('@clerk/nextjs/server', () => ({ clerkClient: jest.fn() }))
+jest.mock('@/lib/auth/users', () => ({ clerkClient: jest.fn() }))
 jest.mock('@/lib/services/task.service', () => ({ taskService: {} }))
 jest.mock('@/lib/repositories', () => ({
   projectRepository: {},

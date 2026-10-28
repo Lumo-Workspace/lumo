@@ -16,56 +16,6 @@
       "sourceType": "github",
       "computedHash": "81af098a4ce6f0e323c1bd02b8e79df3bbaed57cbf1c4060f58ddc95de5545a1"
     },
-    "clerk": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "6108ab89edb9357a3e5991cca0cdfc5b370a1afc6ab49ce8d3ed2f31239a9e5a"
-    },
-    "clerk-backend-api": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "b550d2d1c5d41d4820268c4faa4a23fa966fe98221c068327b19760bf4937961"
-    },
-    "clerk-custom-ui": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "72dcda42d3755a468049e828180b66c25fb2ac66fd99bd1514699404445924c6"
-    },
-    "clerk-nextjs-patterns": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "722d79f7610ff60878d5b73b8f53faa51aff729c43b44222faedc7fa926e332f"
-    },
-    "clerk-orgs": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "5b6de983c683f032568ff4f8347ada85c53af852725134aeb042972097d6521e"
-    },
-    "clerk-react-patterns": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "9bbc28d1825bda0f31a33660b3e339719bc0ad2a30696dfde14ef6b9493371b0"
-    },
-    "clerk-react-router-patterns": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "9483ecb8afea7aa4dd6ae9c784b839cb9cb5948db552837a24913d5d9946c7e4"
-    },
-    "clerk-setup": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "40670b1b6e109fa1a3b2d9e111642ec920409d4b3bb9afadb58b7d2f5f1019a6"
-    },
-    "clerk-testing": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "3655e0e561d99e41ec06fea0ca39736c3ecbce8e6fb703f0a09373297e56bc82"
-    },
-    "clerk-webhooks": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "1e64996a3993027a25dcf1032a4ed13f0aa8607801fb2d1d27d653666aa9b929"
-    },
     "deep-agents-core": {
       "source": "langchain-ai/langchain-skills",
       "sourceType": "github",

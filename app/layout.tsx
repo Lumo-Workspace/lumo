@@ -6,7 +6,6 @@ import { Suspense } from 'react'
 import Script from 'next/script'
 import { Providers } from '@/components/core/Providers'
 import { Toaster } from '@/components/ui/sonner'
-import { resolveAuthProvider } from '@/lib/auth/provider'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -39,8 +38,7 @@ export default function RootLayout({
         {/* LUM-1325: runtime NEXT_PUBLIC_* values (app URL, realtime host),
             so a prebuilt image works on any domain. */}
         <Script src='/api/public-config' strategy='beforeInteractive' />
-        {/* AUTH_PROVIDER picks Clerk or Better Auth (LUM-1027). */}
-        <Providers authProvider={resolveAuthProvider()}>
+        <Providers>
           <Suspense>{children}</Suspense>
           <Toaster position='top-center' />
         </Providers>

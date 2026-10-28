@@ -331,8 +331,8 @@ describe('buildProtectedResourceMetadata', () => {
   })
 
   it('keeps the Clerk-mode fields that apply to this server', () => {
-    // Field set of @clerk/mcp-tools generateProtectedResourceMetadata
-    // (node_modules/@clerk/mcp-tools/dist/chunk-*.js), minus the entries that
+    // Field set of Clerk's MCP tools' generateProtectedResourceMetadata
+    // (the provider before LUM-1077), minus the entries that
     // describe Clerk's own services (introspection endpoint, jwks_uri,
     // service_documentation).
     const clerkApplicable = [

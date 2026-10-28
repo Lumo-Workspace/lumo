@@ -142,7 +142,7 @@ migrations) are in [CLAUDE.md](CLAUDE.md).
 
 - **Framework**: Next.js 16 (App Router), React 19, TypeScript
 - **Styling**: Tailwind CSS, shadcn/ui + Radix UI primitives
-- **Authentication**: Better Auth (self-hosted default) or Clerk (hosted service)
+- **Authentication**: Better Auth
 - **Database**: PostgreSQL 16 with pgvector, via Prisma
 - **Background jobs**: Workflow DevKit (Postgres World when self-hosted)
 - **Realtime**: Pusher protocol (Pusher Channels or Soketi)

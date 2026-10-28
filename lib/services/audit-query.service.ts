@@ -10,7 +10,7 @@
  */
 import type { AuditActorType } from '@prisma/client'
 import { logger } from '@/lib/logger'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import {
   auditEventRepository,
@@ -79,7 +79,7 @@ async function resolveActorFilter(
   const byId = members.find(m => m.id === ref)
   if (byId) return { actorType: 'MEMBER', actorId: byId.clerkId }
 
-  const profiles = await lookupClerkProfiles(members.map(m => m.clerkId))
+  const profiles = await lookupUserProfiles(members.map(m => m.clerkId))
   const field = ref.includes('@') ? 'email' : 'name'
   const matches = members.filter(
     m => profiles.get(m.clerkId)?.[field]?.toLowerCase() === lower
@@ -169,7 +169,7 @@ async function toViews(
     { name: string | null; email: string | null }
   >()
   try {
-    profiles = await lookupClerkProfiles(clerkIds)
+    profiles = await lookupUserProfiles(clerkIds)
   } catch (error) {
     // Names are a convenience; the ids are the record.
     logger.warn('[audit] actor profile lookup failed', {

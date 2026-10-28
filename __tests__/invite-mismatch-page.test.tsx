@@ -17,9 +17,9 @@ jest.mock('react-intl', () => ({
 
 const mockSignOut = jest.fn()
 const mockPush = jest.fn()
-jest.mock('@clerk/nextjs', () => ({
+jest.mock('@/lib/auth/client', () => ({
   useUser: () => ({ isLoaded: true, isSignedIn: true }),
-  useClerk: () => ({ signOut: mockSignOut }),
+  useSignOut: () => mockSignOut,
 }))
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),

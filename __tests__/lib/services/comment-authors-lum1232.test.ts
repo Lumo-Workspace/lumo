@@ -18,8 +18,8 @@ jest.mock('@/lib/repositories/actor.repository', () => ({
     return mockActors
   },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: (...a: unknown[]) => mockProfiles(...a),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: (...a: unknown[]) => mockProfiles(...a),
 }))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({

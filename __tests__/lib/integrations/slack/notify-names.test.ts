@@ -29,8 +29,8 @@ const mockGetClerkUser = jest.fn(async (id: string) => ({
   name: NAMES[id] ?? 'Unknown',
   email: '',
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  getClerkUser: (id: string) => mockGetClerkUser(id),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  getCachedUser: (id: string) => mockGetClerkUser(id),
 }))
 
 import { prisma } from '@/lib/db/prisma'

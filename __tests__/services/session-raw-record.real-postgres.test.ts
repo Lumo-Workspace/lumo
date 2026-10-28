@@ -21,8 +21,8 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  enrichClerkUsers: jest.fn(async (ids: string[]) => {
+jest.mock('@/lib/auth/user-profiles', () => ({
+  enrichUsers: jest.fn(async (ids: string[]) => {
     return new Map(
       ids.map(id => [id, { clerkId: id, name: `Name of ${id}`, imageUrl: '' }])
     )

@@ -26,8 +26,8 @@ jest.mock('@/lib/repositories/session-raw-record.repository', () => ({
     clearRawRecord: jest.fn(),
   },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  enrichClerkUsers: jest.fn(async () => new Map()),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  enrichUsers: jest.fn(async () => new Map()),
 }))
 
 import { GET, DELETE } from '@/app/api/sessions/[sessionId]/raw-record/route'

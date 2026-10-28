@@ -54,8 +54,7 @@ async function lookupSession(request: NextRequest): ReturnType<SessionLookup> {
 
 /**
  * Build the middleware. `lookup` is injectable for tests; production uses
- * the Better Auth instance (imported lazily so a Clerk deployment never
- * loads it).
+ * the Better Auth instance (imported lazily, on the first request).
  */
 export function createBetterAuthMiddleware(
   handler: AuthMiddlewareHandler,

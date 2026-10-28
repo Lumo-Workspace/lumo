@@ -17,10 +17,7 @@ jest.mock('@/lib/auth/users', () => ({
   })),
 }))
 
-import {
-  enrichClerkUsers,
-  lookupClerkProfiles,
-} from '@/lib/utils/clerk-helpers'
+import { enrichUsers, lookupUserProfiles } from '@/lib/auth/user-profiles'
 
 function user(id: string): AuthUser {
   return {
@@ -46,15 +43,15 @@ beforeEach(() => {
 })
 
 describe('callers page through the shared helper (100-id cap)', () => {
-  it('enrichClerkUsers returns all 250 users in 3 calls', async () => {
-    const map = await enrichClerkUsers(ids(250))
+  it('enrichUsers returns all 250 users in 3 calls', async () => {
+    const map = await enrichUsers(ids(250))
 
     expect(map.size).toBe(250)
     expect(mockGetUserList).toHaveBeenCalledTimes(3)
   })
 
-  it('lookupClerkProfiles returns all 250 profiles in 3 calls', async () => {
-    const map = await lookupClerkProfiles(ids(250))
+  it('lookupUserProfiles returns all 250 profiles in 3 calls', async () => {
+    const map = await lookupUserProfiles(ids(250))
 
     expect(map.size).toBe(250)
     expect(map.get('user_249')).toEqual({
@@ -65,7 +62,7 @@ describe('callers page through the shared helper (100-id cap)', () => {
   })
 
   it('still makes a single call for 100 ids or fewer', async () => {
-    await enrichClerkUsers(ids(40))
+    await enrichUsers(ids(40))
 
     expect(mockGetUserList).toHaveBeenCalledTimes(1)
   })
@@ -79,8 +76,7 @@ describe('callers page through the shared helper (100-id cap)', () => {
 describe('source guard: userId lookups go through listUsersByIds', () => {
   const ALLOWED = new Set([
     'lib/auth/user-batch.ts',
-    // Provider adapters implement the method itself.
-    'lib/auth/clerk/users.ts',
+    // The provider adapter implements the method itself.
     'lib/auth/better-auth/users.ts',
   ])
 

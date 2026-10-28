@@ -1,26 +1,17 @@
-import { getClerkUser, _clearCache } from '@/lib/utils/clerk-helpers'
+import { getCachedUser, _clearCache } from '@/lib/auth/user-profiles'
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: {
-      getUser: jest.fn(),
-    },
-  }),
+const mockGetUser = jest.fn()
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: async () => ({ getUser: mockGetUser }),
 }))
 
-import { clerkClient } from '@clerk/nextjs/server'
-
-describe('getClerkUser', () => {
-  let mockGetUser: jest.Mock
-
-  beforeEach(async () => {
+describe('getCachedUser', () => {
+  beforeEach(() => {
     _clearCache()
-    const client = await (clerkClient as unknown as jest.Mock)()
-    mockGetUser = client.users.getUser as jest.Mock
     mockGetUser.mockReset()
   })
 
-  it('returns name and email from Clerk user', async () => {
+  it('returns name and email from the directory user', async () => {
     mockGetUser.mockResolvedValue({
       firstName: 'Vincent',
       lastName: 'Mou',
@@ -28,7 +19,7 @@ describe('getClerkUser', () => {
       primaryEmailAddress: { emailAddress: 'vincent@example.com' },
     })
 
-    const result = await getClerkUser('clerk_123')
+    const result = await getCachedUser('user_123')
     expect(result).toEqual({
       name: 'Vincent Mou',
       email: 'vincent@example.com',
@@ -43,14 +34,14 @@ describe('getClerkUser', () => {
       primaryEmailAddress: { emailAddress: 'vincent@example.com' },
     })
 
-    const result = await getClerkUser('clerk_456')
+    const result = await getCachedUser('user_456')
     expect(result).toEqual({
       name: 'vincentmou',
       email: 'vincent@example.com',
     })
   })
 
-  it('caches results — second call does not hit Clerk API', async () => {
+  it('caches results — second call does not hit the directory', async () => {
     mockGetUser.mockResolvedValue({
       firstName: 'Vincent',
       lastName: 'Mou',
@@ -58,14 +49,14 @@ describe('getClerkUser', () => {
       primaryEmailAddress: { emailAddress: 'vincent@example.com' },
     })
 
-    await getClerkUser('clerk_789')
-    await getClerkUser('clerk_789')
+    await getCachedUser('user_789')
+    await getCachedUser('user_789')
     expect(mockGetUser).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to "Unknown" name and empty email on API error', async () => {
-    mockGetUser.mockRejectedValue(new Error('Clerk down'))
-    const result = await getClerkUser('clerk_err')
+    mockGetUser.mockRejectedValue(new Error('directory down'))
+    const result = await getCachedUser('user_err')
     expect(result).toEqual({ name: 'Unknown', email: '' })
   })
 })

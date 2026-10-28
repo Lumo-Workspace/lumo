@@ -140,9 +140,9 @@ the rest of the core. Features that need an outside service degrade instead of f
 
 ## Sign-in
 
-Compose runs Lumo with **Better Auth** (`AUTH_PROVIDER=better-auth`):
-accounts, sessions and verification tokens live in the bundled Postgres. No
-Clerk account or `CLERK_*` variable is involved.
+Lumo signs users in with **Better Auth**, its only auth provider: accounts,
+sessions and verification tokens live in the bundled Postgres.
+`AUTH_PROVIDER` is optional (unset or `better-auth`).
 
 The sign-in page offers, top to bottom: the GitHub / Google buttons you
 configured; **email codes** (enter an email, receive a 6-digit code valid for
@@ -201,12 +201,6 @@ once email is configured; and **email + password**, on by default.
   PKCE (S256) is required. When a client re-registers (e.g. after you change
   `BETTER_AUTH_URL`), it picks up the workspace last selected for a client
   of the same name. The Lumo CLI uses API keys.
-
-Lumo can also run with Clerk instead (the hosted service used it until
-October 2026), but `docker-compose.yml` does not support it; to run a Clerk
-image anyway, build with
-`--build-arg AUTH_PROVIDER=clerk --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_…`
-and run it with `AUTH_PROVIDER=clerk` and `CLERK_SECRET_KEY`.
 
 ## Operating it
 

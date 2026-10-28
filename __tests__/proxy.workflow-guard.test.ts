@@ -6,27 +6,22 @@ import { NextRequest } from 'next/server'
 // LUM-1031 — the workflow delivery routes (/.well-known/workflow/v1/*) are
 // public in proxy.ts so Vercel's platform can reach them. Self-hosted, the
 // Postgres World worker POSTs to them over loopback HTTP with no signature, so
-// the proxy itself has to demand a shared secret. Clerk is stubbed so these
+// the proxy itself has to demand a shared secret. Auth is stubbed so these
 // tests exercise only the proxy's own routing decision.
 
 const protect = jest.fn(async () => undefined)
-jest.mock('@clerk/nextjs/server', () => {
-  const actual = jest.requireActual<typeof import('@clerk/nextjs/server')>(
-    '@clerk/nextjs/server'
+jest.mock('@/lib/auth/middleware', () => {
+  const actual = jest.requireActual<typeof import('@/lib/auth/route-matcher')>(
+    '@/lib/auth/route-matcher'
   )
   type Handler = (
-    auth: (() => Promise<{ userId: string | null }>) & {
-      protect: typeof protect
-    },
+    auth: { userId: () => Promise<string | null>; protect: typeof protect },
     req: NextRequest
   ) => Promise<Response>
   return {
     createRouteMatcher: actual.createRouteMatcher,
-    clerkMiddleware: (handler: Handler) => (req: NextRequest) =>
-      handler(
-        Object.assign(async () => ({ userId: null }), { protect }),
-        req
-      ),
+    createAuthMiddleware: (handler: Handler) => (req: NextRequest) =>
+      handler({ userId: async () => null, protect }, req),
   }
 })
 

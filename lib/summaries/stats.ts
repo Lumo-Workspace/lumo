@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import { enrichUsers } from '@/lib/auth/user-profiles'
 import type { TaskSummaryStats, TopBlockers } from '@/types/summary'
 import { collectTopBlockers, stalledCutoff } from './top-blockers'
 import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
@@ -179,7 +179,7 @@ export async function aggregateProjectStats(
     .filter(a => a.type !== 'AGENT' && a.member?.clerkId)
     .map(a => a.member!.clerkId)
   const clerkNameMap =
-    clerkIds.length > 0 ? await enrichClerkUsers(clerkIds) : new Map()
+    clerkIds.length > 0 ? await enrichUsers(clerkIds) : new Map()
 
   for (const actor of actors) {
     let name: string

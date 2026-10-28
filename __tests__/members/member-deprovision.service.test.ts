@@ -31,9 +31,9 @@ import { memberDeprovisionService } from '@/lib/services/member-deprovision.serv
 
 const CTX = { actor: { type: 'SYSTEM' as const }, source: 'WEBHOOK' as const }
 const TRIGGER = {
-  clerkUserId: 'user_1',
-  reason: 'CLERK_USER_DELETED' as const,
-  webhookId: 'msg_1',
+  userId: 'user_1',
+  reason: 'AUTH_USER_DELETED' as const,
+  auditMetadata: { webhookId: 'msg_1' },
 }
 
 beforeEach(() => {
@@ -49,10 +49,10 @@ describe('LUM-906 deprovisioning and integration cleanup', () => {
     mockCleanup.mockResolvedValue(false)
 
     await expect(
-      memberDeprovisionService.deprovisionClerkUser(TRIGGER, CTX)
+      memberDeprovisionService.deprovisionUser(TRIGGER, CTX)
     ).rejects.toMatchObject({ status: 500 })
 
-    expect(mockDeactivate).toHaveBeenCalledWith('m1', 'CLERK_USER_DELETED')
+    expect(mockDeactivate).toHaveBeenCalledWith('m1', 'AUTH_USER_DELETED')
     expect(mockDeactivate.mock.invocationCallOrder[0]).toBeLessThan(
       mockCleanup.mock.invocationCallOrder[0]!
     )
@@ -73,7 +73,7 @@ describe('LUM-906 deprovisioning and integration cleanup', () => {
     ])
     mockCleanup.mockResolvedValue(true)
 
-    const outcomes = await memberDeprovisionService.deprovisionClerkUser(
+    const outcomes = await memberDeprovisionService.deprovisionUser(
       TRIGGER,
       CTX
     )
@@ -151,11 +151,11 @@ describe('LUM-906 deprovisioning and integration cleanup', () => {
     ])
     mockCleanup.mockResolvedValue(true)
 
-    await memberDeprovisionService.deprovisionClerkUser(TRIGGER, CTX)
+    await memberDeprovisionService.deprovisionUser(TRIGGER, CTX)
 
     expect(mockAudit.mock.calls[0]![0]).toMatchObject({
       metadata: {
-        reason: 'CLERK_USER_DELETED',
+        reason: 'AUTH_USER_DELETED',
         clerkUserId: 'user_1',
         webhookId: 'msg_1',
         role: 'MEMBER',

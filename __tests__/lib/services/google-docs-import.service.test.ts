@@ -1,5 +1,4 @@
-jest.mock('@clerk/nextjs', () => ({}))
-jest.mock('@clerk/nextjs/server', () => ({ clerkClient: async () => ({}) }))
+jest.mock('@/lib/auth/users', () => ({ getUserDirectory: async () => ({}) }))
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))

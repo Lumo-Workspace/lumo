@@ -15,7 +15,7 @@ import {
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
-import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import { enrichUsers } from '@/lib/auth/user-profiles'
 import {
   activeDurationMs,
   activeDurationMsByRun,
@@ -491,7 +491,7 @@ export const agentRunTimelineService = {
     const clerkIds = new Set<string>()
     for (const o of runOwners) if (o?.clerkId) clerkIds.add(o.clerkId)
     for (const m of memberCosts) if (m.clerkId) clerkIds.add(m.clerkId)
-    const enriched = await enrichClerkUsers([...clerkIds])
+    const enriched = await enrichUsers([...clerkIds])
 
     const display = (clerkId: string | null) => {
       const user = clerkId ? enriched.get(clerkId) : undefined

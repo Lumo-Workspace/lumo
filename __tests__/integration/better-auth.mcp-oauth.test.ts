@@ -28,21 +28,6 @@ jest.mock('next/headers', () => ({
 }))
 jest.unmock('@prisma/client')
 jest.mock('@/lib/integrations/github/auth', () => ({}))
-// The Clerk MCP helpers (ESM-only for jest) must never run in this mode.
-const clerkCalled = jest.fn()
-jest.mock('@clerk/mcp-tools/server', () => ({
-  verifyClerkToken: (...a: unknown[]) => clerkCalled(...a),
-}))
-jest.mock(
-  '@clerk/mcp-tools/next',
-  () => ({
-    authServerMetadataHandlerClerk: () => clerkCalled,
-    protectedResourceHandlerClerk: () => clerkCalled,
-    metadataCorsOptionsRequestHandler: () => clerkCalled,
-  }),
-  { virtual: true }
-)
-
 const BASE = 'http://localhost:3000'
 const RESOURCE = `${BASE}/api/mcp`
 const REDIRECT_URI = 'http://localhost:6274/oauth/callback'
@@ -230,7 +215,6 @@ describeDb('MCP OAuth on Better Auth, real database (LUM-1044)', () => {
     }
     await mod.prisma.authUser.deleteMany({ where: { email } })
     await mod.prisma.$disconnect()
-    expect(clerkCalled).not.toHaveBeenCalled()
   })
 
   // ── Schema ─────────────────────────────────────────────────────────────────

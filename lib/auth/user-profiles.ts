@@ -1,13 +1,18 @@
-import { listUsersByIds } from '@/lib/auth/user-batch'
-import { getUserDirectory } from '@/lib/auth/users'
+/**
+ * Display profiles (name, email, avatar) of users by id, read through the
+ * user directory. Moved from lib/utils/clerk-helpers (LUM-1077).
+ */
+import { logger } from '@/lib/logger'
+import { listUsersByIds } from './user-batch'
+import { getUserDirectory } from './users'
 
-export interface CachedClerkUser {
+export interface CachedUser {
   name: string
   email: string
 }
 
 interface CacheEntry {
-  user: CachedClerkUser
+  user: CachedUser
   expiresAt: number
 }
 
@@ -20,10 +25,10 @@ export function _clearCache(): void {
 }
 
 /**
- * Look up a Clerk user's display name and primary email.
+ * Look up a user's display name and primary email.
  * Results are cached in-memory for 5 minutes.
  */
-export async function getClerkUser(clerkId: string): Promise<CachedClerkUser> {
+export async function getCachedUser(clerkId: string): Promise<CachedUser> {
   const now = Date.now()
   const cached = cache.get(clerkId)
   if (cached && cached.expiresAt > now) {
@@ -32,21 +37,24 @@ export async function getClerkUser(clerkId: string): Promise<CachedClerkUser> {
 
   try {
     const client = await getUserDirectory()
-    const clerkUser = await client.getUser(clerkId)
+    const authUser = await client.getUser(clerkId)
 
-    const firstName = clerkUser.firstName ?? ''
-    const lastName = clerkUser.lastName ?? ''
+    const firstName = authUser.firstName ?? ''
+    const lastName = authUser.lastName ?? ''
     const fullName = `${firstName} ${lastName}`.trim()
 
-    const user: CachedClerkUser = {
-      name: fullName || clerkUser.username || 'Unknown',
-      email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+    const user: CachedUser = {
+      name: fullName || authUser.username || 'Unknown',
+      email: authUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
     cache.set(clerkId, { user, expiresAt: now + CACHE_TTL_MS })
     return user
   } catch (err) {
-    console.error(`[clerk-cache] Failed to fetch user ${clerkId}:`, err)
+    logger.error('[user-profiles] Failed to fetch user', {
+      userId: clerkId,
+      error: (err as Error)?.message ?? String(err),
+    })
     return { name: 'Unknown', email: '' }
   }
 }
@@ -57,7 +65,7 @@ export interface EnrichedUser {
   imageUrl: string
 }
 
-export async function enrichClerkUsers(
+export async function enrichUsers(
   clerkIds: string[]
 ): Promise<Map<string, EnrichedUser>> {
   if (clerkIds.length === 0) return new Map()
@@ -74,19 +82,19 @@ export async function enrichClerkUsers(
   return map
 }
 
-export interface ClerkProfile {
+export interface UserProfile {
   name: string | null
   email: string | null
 }
 
 /**
- * LUM-858: name + primary email for many Clerk users, paged by
- * `listUsersByIds` (LUM-1105). Users Clerk no longer knows are simply absent.
+ * LUM-858: name + primary email for many users, paged by `listUsersByIds`
+ * (LUM-1105). Users the directory no longer knows are simply absent.
  */
-export async function lookupClerkProfiles(
+export async function lookupUserProfiles(
   clerkIds: readonly string[]
-): Promise<Map<string, ClerkProfile>> {
-  const out = new Map<string, ClerkProfile>()
+): Promise<Map<string, UserProfile>> {
+  const out = new Map<string, UserProfile>()
   if (clerkIds.length === 0) return out
   const client = await getUserDirectory()
   for (const u of await listUsersByIds(client, clerkIds)) {

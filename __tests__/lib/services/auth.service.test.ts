@@ -9,24 +9,22 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
   },
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn(),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn(),
 }))
 
 import { miscRepository } from '@/lib/repositories/misc.repository'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { authService } from '@/lib/services/auth.service'
 
 const repo = miscRepository as jest.Mocked<typeof miscRepository>
-const mockClerkClient = clerkClient as jest.MockedFunction<typeof clerkClient>
+const mockGetUserDirectory = getUserDirectory as jest.Mock
 const mockGetUser = jest.fn()
 
 beforeEach(() => {
   jest.clearAllMocks()
   repo.touchApiKeyLastUsed.mockResolvedValue({} as never)
-  mockClerkClient.mockResolvedValue({
-    users: { getUser: mockGetUser },
-  } as never)
+  mockGetUserDirectory.mockResolvedValue({ getUser: mockGetUser })
 })
 
 function makeApiKey(overrides: Partial<Record<string, unknown>> = {}) {
@@ -101,12 +99,12 @@ describe('authService.verifyApiKey', () => {
     expect(result?.apiKey.scope).toBe('security:ingest')
   })
 
-  it('does NOT call Clerk (verifyApiKey is DB-only)', async () => {
+  it('does NOT call the user directory (verifyApiKey is DB-only)', async () => {
     repo.findApiKeyByHashForVerify.mockResolvedValue(makeApiKey() as never)
 
     await authService.verifyApiKey('lum_valid_token')
 
-    expect(mockClerkClient).not.toHaveBeenCalled()
+    expect(mockGetUserDirectory).not.toHaveBeenCalled()
     expect(mockGetUser).not.toHaveBeenCalled()
   })
 })

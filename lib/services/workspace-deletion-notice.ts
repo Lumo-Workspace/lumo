@@ -3,7 +3,7 @@ import {
   isEmailDelivered,
   buildWorkspaceDeletionEmail,
 } from '@/lib/integrations/email'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { logger } from '@/lib/logger'
 import { resolveAppUrl } from '@/lib/config/public-config'
 
@@ -26,7 +26,7 @@ export interface DeletionNotice {
 export async function sendDeletionNotice(
   notice: DeletionNotice
 ): Promise<{ sent: number; failed: number }> {
-  const profiles = await lookupClerkProfiles([
+  const profiles = await lookupUserProfiles([
     ...new Set([...notice.ownerClerkIds, notice.actorClerkId]),
   ])
   const actor = profiles.get(notice.actorClerkId)

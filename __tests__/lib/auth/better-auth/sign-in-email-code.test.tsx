@@ -1,7 +1,7 @@
 // LUM-1082 — the Better Auth sign-in page aligned with Clerk's: provider
 // marks on the social buttons, email-first one-time-code sign-in, and the
 // password form only when the instance keeps password sign-in on. Reached
-// through <AuthProvider provider='better-auth'> like the real page.
+// through <AuthProvider> like the real page.
 const mockSendOtp = jest.fn()
 const mockSignInEmailOtp = jest.fn()
 const mockSignInEmail = jest.fn()
@@ -24,14 +24,6 @@ const mockNavigate = jest.fn()
 jest.mock('@/lib/auth/better-auth/navigate', () => ({
   hardNavigate: (url: string) => mockNavigate(url),
 }))
-jest.mock('@clerk/nextjs', () => ({
-  ClerkProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid='clerk-provider'>{children}</div>
-  ),
-  SignIn: () => <div data-testid='clerk-sign-in' />,
-  useClerk: () => ({ signOut: jest.fn() }),
-  useUser: () => ({ isLoaded: false }),
-}))
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }, v?: Record<string, string>) =>
@@ -48,7 +40,7 @@ import type { ReactNode } from 'react'
 import { AuthProvider, SignIn } from '@/lib/auth/client'
 
 const baWrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider provider='better-auth'>{children}</AuthProvider>
+  <AuthProvider>{children}</AuthProvider>
 )
 
 /** The hosted SaaS: Google + email codes, password off. */
@@ -239,18 +231,5 @@ describe('email code flow (LUM-1082)', () => {
     expect(
       screen.getByRole('button', { name: 'auth.oauth.continueWith:Google' })
     ).toBeInTheDocument()
-  })
-})
-
-describe('Clerk mode is unchanged (LUM-1082)', () => {
-  it('renders Clerk sign-in and never asks the Better Auth config', async () => {
-    render(<SignIn />, {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <AuthProvider provider='clerk'>{children}</AuthProvider>
-      ),
-    })
-    expect(await screen.findByTestId('clerk-sign-in')).toBeInTheDocument()
-    expect(mockFetch).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText('auth.field.email')).toBeNull()
   })
 })

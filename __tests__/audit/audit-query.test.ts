@@ -22,8 +22,8 @@ jest.mock('@/lib/repositories/audit-event.repository', () => ({
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberRoleById: (...a: unknown[]) => mockRole(...a) },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: (...a: unknown[]) => mockProfiles(...a),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: (...a: unknown[]) => mockProfiles(...a),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },

@@ -14,8 +14,8 @@ import {
 /** Display name for a Clerk ID, or null when the directory cannot say. */
 async function lookupDisplayName(clerkId: string): Promise<string | null> {
   try {
-    const { getClerkUser } = await import('@/lib/utils/clerk-helpers')
-    const { name } = await getClerkUser(clerkId)
+    const { getCachedUser } = await import('@/lib/auth/user-profiles')
+    const { name } = await getCachedUser(clerkId)
     return name && name !== 'Unknown' ? name : null
   } catch {
     return null

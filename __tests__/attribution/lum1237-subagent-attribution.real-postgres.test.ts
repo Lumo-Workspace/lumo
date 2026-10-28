@@ -32,12 +32,12 @@ jest.mock('@/lib/db/prisma', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  enrichClerkUsers: jest.fn(
+jest.mock('@/lib/auth/user-profiles', () => ({
+  enrichUsers: jest.fn(
     async (ids: string[]) =>
       new Map(ids.map(id => [id, { name: `Name ${id}`, imageUrl: '' }]))
   ),
-  lookupClerkProfiles: jest.fn(async () => new Map()),
+  lookupUserProfiles: jest.fn(async () => new Map()),
 }))
 // Attach's context sections are not under test.
 jest.mock('@/lib/services/task-context.service', () => ({

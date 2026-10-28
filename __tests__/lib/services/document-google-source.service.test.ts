@@ -2,10 +2,8 @@ import { documentRepository } from '@/lib/repositories/document.repository'
 
 jest.mock('@/lib/repositories/document.repository')
 jest.mock('@/lib/repositories/tag.repository', () => ({ tagRepository: {} }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: async () => ({
-    users: { getUserList: async () => ({ data: [] }) },
-  }),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: async () => ({ getUserList: async () => ({ data: [] }) }),
 }))
 jest.mock('@/lib/runtime/wait-until', () => ({
   waitUntil: (p: Promise<unknown>) => p,

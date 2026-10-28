@@ -301,12 +301,12 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
     await seedIntegrations(WS, 'm_gone')
     const auditsBefore = (await disconnectAudits(WS)).length
     const trigger = {
-      clerkUserId: 'clerk_gone',
-      reason: 'CLERK_USER_BANNED' as const,
-      webhookId: 'msg_lc_1',
+      userId: 'clerk_gone',
+      reason: 'AUTH_USER_BANNED' as const,
+      auditMetadata: { webhookId: 'msg_lc_1' },
     }
 
-    const outcomes = await memberDeprovisionService.deprovisionClerkUser(
+    const outcomes = await memberDeprovisionService.deprovisionUser(
       trigger,
       WEBHOOK_AUDIT_CONTEXT
     )
@@ -333,7 +333,7 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
         actorType: 'SYSTEM',
         source: 'WEBHOOK',
         metadata: expect.objectContaining({
-          reason: 'CLERK_USER_BANNED',
+          reason: 'AUTH_USER_BANNED',
           webhookId: 'msg_lc_1',
           apiKeysRevoked: 1,
         }),
@@ -356,7 +356,7 @@ describe('LUM-906 member lifecycle (real Postgres)', () => {
     expect((await disconnectAudits(WS)).length).toBe(auditsBefore + 3)
 
     // Redelivery of the same event changes nothing and audits nothing.
-    const again = await memberDeprovisionService.deprovisionClerkUser(
+    const again = await memberDeprovisionService.deprovisionUser(
       trigger,
       WEBHOOK_AUDIT_CONTEXT
     )
