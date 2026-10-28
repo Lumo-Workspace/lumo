@@ -204,6 +204,10 @@ describe('runSelfHostChecks', () => {
     for (const url of ['http://lumo.localhost:3000', 'http://127.0.0.2:3000', 'http://[::1]:3000']) {
       expect(byId(await runSelfHostChecks(probes(), DISK_ENV, url)).public_url?.status).toBe('skipped')
     }
+    // A real domain that merely starts with 127. is checked.
+    expect(
+      byId(await runSelfHostChecks(probes(), DISK_ENV, 'https://127.example.com')).public_url?.status
+    ).toBe('ok')
   })
 
   it('a missing or invalid public URL fails', async () => {

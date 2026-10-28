@@ -45,7 +45,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
 
 /** A host that, from inside the container, is not this server's public face. */
 function isLocalHost(host: string): boolean {
-  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || host.startsWith('127.')
+  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || /^127(\.\d{1,3}){3}$/.test(host)
 }
 
 /** The shared Redis client waits ~2 s for its first connect; give it longer. */

@@ -7,7 +7,7 @@ import { execFileSync, spawn } from 'child_process'
 import { createServer, type Server } from 'http'
 import type { AddressInfo } from 'net'
 import { join } from 'path'
-import { pathToFileURL } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 
 const SCRIPT = pathToFileURL(
   join(__dirname, '..', '..', 'scripts', 'self-host', 'check-config.mjs')
@@ -72,7 +72,7 @@ async function report(
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address() as AddressInfo
   try {
-    const child = spawn(process.execPath, [new URL(SCRIPT).pathname, '--report'], {
+    const child = spawn(process.execPath, [fileURLToPath(SCRIPT), '--report'], {
       env: { ...process.env, PORT: String(port), CRON_SECRET: 'fixture-secret' },
     })
     let out = ''
