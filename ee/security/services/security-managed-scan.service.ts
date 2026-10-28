@@ -341,6 +341,7 @@ async function collectReports(opts: {
   try {
     sandbox = await createRepoSandbox({
       repository: opts.repository,
+      clone: opts.git.cloneSource(opts.repository),
       revision: opts.sha,
       token,
       timeoutMs: opts.keepAlive
@@ -376,7 +377,10 @@ async function collectReports(opts: {
   try {
     const cwd = repoCheckoutDir(sandbox.cwd, opts.repository)
     try {
-      await scrubSandboxCredentials({ sandbox, cwd, token }, opts.repository)
+      await scrubSandboxCredentials(
+        { sandbox, cwd, token },
+        opts.git.cloneSource(opts.repository).url
+      )
     } catch (error) {
       throw notFinishedOnOurSide(
         `our sandbox credential check failed: ${scrubToken(message(error), token)}`

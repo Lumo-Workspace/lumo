@@ -23,6 +23,7 @@
  *   npx tsx --env-file=<.env.local> scripts/security/lum852-sandbox-probe.ts <owner/repo> <sha>
  */
 /* eslint-disable no-console -- CLI probe: its output IS the evidence */
+import { githubGitProvider } from '@/lib/integrations/git-provider/github'
 import {
   createRepoSandbox,
   denySandboxEgress,
@@ -104,6 +105,7 @@ async function main(): Promise<void> {
   try {
     sandbox = await createRepoSandbox({
       repository: repository!,
+      clone: githubGitProvider.cloneSource(repository!),
       revision: sha!,
       token,
       timeoutMs: SANDBOX_TIMEOUT_MS,

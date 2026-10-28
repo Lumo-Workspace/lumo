@@ -14,7 +14,7 @@
  * concurrent claimers can still both start a run — the write is idempotent
  * and the cost is one extra sandbox, not a wrong baseline.
  *
- * Layering: service — GitHub through the integration module, the database
+ * Layering: service — the Git platform through the `GitProvider` port, the database
  * through the repository, the workflow through its start wrapper.
  */
 import { logger } from '@/lib/logger'

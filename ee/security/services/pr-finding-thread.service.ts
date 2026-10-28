@@ -1416,7 +1416,11 @@ export function mergedHistory(
 
 /** The web URL of a review comment, for the duplicate note's link. */
 function commentUrl(ctx: ThreadSyncContext, commentId: string): string {
-  return `https://github.com/${ctx.repo.owner}/${ctx.repo.name}/pull/${ctx.prNumber}#discussion_r${commentId}`
+  return gitProviderFor(ctx).links.reviewComment({
+    repo: ctx.repo,
+    prNumber: ctx.prNumber,
+    commentId,
+  })
 }
 
 /**

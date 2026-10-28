@@ -164,6 +164,27 @@ export const githubGitProvider: GitProvider = {
     return error instanceof GithubApiError
   },
 
+  // ── platform URLs (LUM-1318: exactly the strings scan code built itself) ─
+  cloneSource(repository) {
+    return {
+      url: `https://github.com/${repository}.git`,
+      username: 'x-access-token',
+    }
+  },
+  links: {
+    commit(repository, sha) {
+      if (
+        !/^[\w.-]+\/[\w.-]+$/.test(repository) ||
+        !/^[0-9a-f]{7,40}$/i.test(sha)
+      )
+        return null
+      return `https://github.com/${repository}/commit/${sha}`
+    },
+    reviewComment({ repo, prNumber, commentId }) {
+      return `https://github.com/${repo.owner}/${repo.name}/pull/${prNumber}#discussion_r${commentId}`
+    },
+  },
+
   // ── repository gating ─────────────────────────────────────────────────
   isConfirmedRepository(confirmed, repository) {
     return isConfirmedRepository(confirmed, repository)

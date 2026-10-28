@@ -170,7 +170,8 @@ describe('LUM-852 managed scan isolation order', () => {
     // The scrub runs against the token this VM was cloned with, in the checkout.
     expect(scrub).toHaveBeenCalledWith(
       { sandbox: sb, cwd: '/vercel/r', token: TOKEN },
-      'o/r'
+      // LUM-1318: the platform's credential-free clone URL.
+      'https://github.com/o/r.git'
     )
     expect(restrict).toHaveBeenCalledWith('vm1', SCAN_EGRESS_ALLOWLIST)
     const scrubAt = events.indexOf('scrub')

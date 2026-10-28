@@ -87,6 +87,55 @@ function moduleSpecifiers(fileName: string, source: string): string[] {
 }
 
 /** The GitHub-client imports of one file (repo-relative path). */
+/**
+ * LUM-1318 follow-up — GitHub-specific strings the scan must get from the
+ * port instead of spelling them: web / clone URLs (`github.com`), the clone
+ * token's basic-auth username, and the GitHub webhook's event names (the
+ * scan listens on the provider-neutral `git.*` names).
+ */
+const GITHUB_STRING = /github\.com|x-access-token/i
+const GITHUB_EVENT_NAMES = new Set([
+  'github.pullRequest',
+  'github.push',
+  'github.reviewThread',
+  'github.issueComment',
+  'github.reviewComment',
+])
+
+/** file → why it may spell a GitHub string literally. */
+const GITHUB_STRING_ALLOWLIST: Readonly<Record<string, string>> = {
+  'ee/security/security-scan/semgrep-rules.ts':
+    "Lumo's own rule pack metadata: each rule's `source` points at Lumo's public rule file, not at the scanned repository or PR",
+  'ee/security/services/security-managed-scan.config.ts':
+    'pinned release downloads of the scanner binaries (gitleaks, osv-scanner, zizmor, trivy) — where the tools are published, whatever platform the scanned PR is on',
+}
+
+/** Every string / template text in `source` (comments are not strings). */
+function stringTexts(fileName: string, source: string): string[] {
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true)
+  const out: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node)
+    )
+      out.push(node.text)
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+/** The GitHub-specific strings one file spells (URLs, clone username, event names). */
+function githubStringsOf(file: string, source: string): string[] {
+  return stringTexts(file, source).filter(
+    text => GITHUB_STRING.test(text) || GITHUB_EVENT_NAMES.has(text)
+  )
+}
+
 function githubImportsOf(file: string, source: string): string[] {
   return moduleSpecifiers(file, source).filter(s =>
     reachesGithubClient(s, file)
@@ -154,6 +203,45 @@ describe('scan / review scope never imports the GitHub client (LUM-1318)', () =>
       const source = fs.readFileSync(path.join(ROOT, file), 'utf8')
       expect(githubImportsOf(file, source).length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('scan / review scope spells no GitHub URL, clone username or event name (LUM-1318)', () => {
+  it('no module in scope builds a github.com URL, names x-access-token or listens on github.*', () => {
+    const offenders: string[] = []
+    for (const file of scanScopeFiles()) {
+      if (file in GITHUB_STRING_ALLOWLIST) continue
+      const source = fs.readFileSync(path.join(ROOT, file), 'utf8')
+      for (const text of githubStringsOf(file, source))
+        offenders.push(`${file} → ${JSON.stringify(text.slice(0, 80))}`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('every allowlisted file still exists and still needs it', () => {
+    for (const [file, reason] of Object.entries(GITHUB_STRING_ALLOWLIST)) {
+      expect(reason.length).toBeGreaterThan(0)
+      const source = fs.readFileSync(path.join(ROOT, file), 'utf8')
+      expect(githubStringsOf(file, source).length).toBeGreaterThan(0)
+    }
+  })
+
+  it.each([
+    ['a commit link', 'const u = `https://github.com/${repo}/commit/${sha}`'],
+    ['a clone URL', "const u = 'https://github.com/' + repo + '.git'"],
+    ['the clone username', "const user = 'x-access-token'"],
+    ['a GitHub event name', "api.on('github.issueComment', handler)"],
+    ['an event type key', "type E = CoreEvents['github.reviewComment']"],
+  ])('flags %s', (_label, source) => {
+    expect(githubStringsOf('ee/security/x.ts', source)).toHaveLength(1)
+  })
+
+  it.each([
+    ['a comment', '// see https://github.com/o/r'],
+    ['the neutral event', "api.on('git.issueComment', handler)"],
+    ['a github i18n key', "intl.formatMessage({ id: 'github.title' })"],
+  ])('does not flag %s', (_label, source) => {
+    expect(githubStringsOf('ee/security/x.ts', source)).toEqual([])
   })
 })
 

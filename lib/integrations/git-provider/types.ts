@@ -136,6 +136,28 @@ export interface GitProviderRepoGating {
   ): Promise<'write' | 'no_write' | 'unknown'>
 }
 
+/**
+ * LUM-1318 — where a sandbox clones the repository from: a credential-free
+ * HTTPS URL and the basic-auth username the clone token goes with. The
+ * token itself is never part of it.
+ */
+export interface GitCloneSource {
+  url: string
+  username: string
+}
+
+/** LUM-1318 — the platform's web links the scan / review output carries. */
+export interface GitProviderLinks {
+  /** The commit page; null for a repository name or sha that is not safe to link. */
+  commit(repository: string, sha: string): string | null
+  /** A review (diff) comment on the pull request. */
+  reviewComment(input: {
+    repo: { owner: string; name: string }
+    prNumber: number
+    commentId: string
+  }): string
+}
+
 export interface GitProvider
   extends GitProviderReads, GitProviderCodeDownload, GitProviderRepoGating {
   readonly id: GitProviderId
@@ -152,4 +174,7 @@ export interface GitProvider
   readonly reviewThreads: GitReviewThreadClient
   /** Whether `error` is this platform's API refusal (has `status`). */
   isApiError(error: unknown): error is GitApiError
+  /** Where a sandbox clones `repository` from (credential-free). */
+  cloneSource(repository: string): GitCloneSource
+  readonly links: GitProviderLinks
 }

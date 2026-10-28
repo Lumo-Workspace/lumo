@@ -284,6 +284,8 @@ describe('scanRepository', () => {
     expect(token).toHaveBeenCalledWith('w1', 'o/r')
     expect(create).toHaveBeenCalledWith({
       repository: 'o/r',
+      // LUM-1318: from the GitProvider port — today's GitHub values exactly.
+      clone: { url: 'https://github.com/o/r.git', username: 'x-access-token' },
       revision: JOB.headSha,
       token: TOKEN,
       timeoutMs: SANDBOX_TIMEOUT_MS,

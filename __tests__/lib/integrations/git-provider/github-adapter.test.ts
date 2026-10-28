@@ -293,3 +293,33 @@ describe('GitHub adapter — repository gating', () => {
     )
   })
 })
+
+describe('GitHub adapter — platform URLs are byte-identical to what scan code built (LUM-1318)', () => {
+  const SHA = 'a'.repeat(40)
+  it('cloneSource: the credential-free HTTPS clone URL and the token username', () => {
+    expect(githubGitProvider.cloneSource('acme/app')).toEqual({
+      url: 'https://github.com/acme/app.git',
+      username: 'x-access-token',
+    })
+  })
+  it('links.commit: the commit page, null for an unsafe repository or sha', () => {
+    expect(githubGitProvider.links.commit('acme/app', SHA)).toBe(
+      `https://github.com/acme/app/commit/${SHA}`
+    )
+    expect(githubGitProvider.links.commit('acme/app', 'abc1234')).toBe(
+      'https://github.com/acme/app/commit/abc1234'
+    )
+    expect(githubGitProvider.links.commit('acme/app) [x](y', SHA)).toBeNull()
+    expect(githubGitProvider.links.commit('acme', SHA)).toBeNull()
+    expect(githubGitProvider.links.commit('acme/app', 'not-a-sha')).toBeNull()
+  })
+  it('links.reviewComment: the PR discussion anchor', () => {
+    expect(
+      githubGitProvider.links.reviewComment({
+        repo: { owner: 'acme', name: 'app' },
+        prNumber: 12,
+        commentId: '345',
+      })
+    ).toBe('https://github.com/acme/app/pull/12#discussion_r345')
+  })
+})

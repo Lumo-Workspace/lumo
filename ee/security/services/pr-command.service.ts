@@ -81,8 +81,12 @@ import {
   type PreMergeChecksOverride,
 } from '@/ee/security/security-scan/pre-merge-checks'
 
-/** LUM-1318: no `provider` = the GitHub webhook's event (the column default). */
-export type PrCommentEvent = CoreEvents['github.issueComment'] & GitProviderRef
+/**
+ * LUM-1318: a Git platform conversation comment (`git.issueComment`); no
+ * `provider` = the GitHub webhook's event (the column default).
+ */
+export type PrCommentEvent = Omit<CoreEvents['git.issueComment'], 'provider'> &
+  GitProviderRef
 
 export type PrCommandOutcome =
   | 'ignored_action'
@@ -743,7 +747,7 @@ async function run(
 // ── Entry ───────────────────────────────────────────────────────────────────
 
 /**
- * One `github.issueComment` event. Silent outcomes (not a command, not
+ * One `git.issueComment` event. Silent outcomes (not a command, not
  * allowed, an edit, a bot) post nothing; a command, a refusal and a 4xx
  * from the control service get one reply. Never throws — an unexpected
  * failure (GitHub, database, a 5xx) is logged and gets no reply.

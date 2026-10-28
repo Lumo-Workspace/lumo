@@ -26,6 +26,9 @@ function asyncIterable<T>(items: T[]) {
   }
 }
 
+// LUM-1318: the clone source comes from the GitProvider port.
+const CLONE = { url: 'https://github.com/o/r.git', username: 'x-access-token' }
+
 beforeEach(() => jest.clearAllMocks())
 
 describe('createRepoSandbox (LUM-745 tags)', () => {
@@ -33,6 +36,7 @@ describe('createRepoSandbox (LUM-745 tags)', () => {
     create.mockResolvedValue({ cwd: '/vercel' })
     await createRepoSandbox({
       repository: 'o/r',
+      clone: CLONE,
       revision: 'a'.repeat(40),
       token: 't',
       timeoutMs: 1000,
@@ -44,12 +48,33 @@ describe('createRepoSandbox (LUM-745 tags)', () => {
     )
     await createRepoSandbox({
       repository: 'o/r',
+      clone: CLONE,
       revision: 'a'.repeat(40),
       token: 't',
       timeoutMs: 1000,
       vcpus: 2,
     })
     expect(create.mock.calls[1][0]).not.toHaveProperty('tags')
+  })
+
+  it('LUM-1318: clones from the given source with the token as the password', async () => {
+    create.mockResolvedValue({ cwd: '/vercel' })
+    await createRepoSandbox({
+      repository: 'o/r',
+      clone: { url: 'https://git.example/o/r.git', username: 'u' },
+      revision: 'a'.repeat(40),
+      token: 't',
+      timeoutMs: 1000,
+      vcpus: 2,
+    })
+    expect(create.mock.calls[0][0].source).toEqual({
+      type: 'git',
+      url: 'https://git.example/o/r.git',
+      username: 'u',
+      password: 't',
+      revision: 'a'.repeat(40),
+      depth: 1,
+    })
   })
 })
 
@@ -323,6 +348,7 @@ describe('getRepoSandbox (LUM-746 reconnect)', () => {
     create.mockResolvedValue({ cwd: '/vercel', name: 'sb-new' })
     const sandbox = await createRepoSandbox({
       repository: 'o/r',
+      clone: CLONE,
       revision: 'a'.repeat(40),
       token: 't',
       timeoutMs: 1000,
