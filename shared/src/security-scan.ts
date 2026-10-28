@@ -926,6 +926,8 @@ export function formatPrTooLarge(c: PrTooLargeInput): string {
 export const CODE_REVIEW_RULE_PREFIX = 'review:'
 
 export function isCodeReviewFinding(ruleId: string): boolean {
+  // A caller's row without the column (an old cached view) is not one.
+  if (typeof ruleId !== 'string') return false
   return ruleId.startsWith(CODE_REVIEW_RULE_PREFIX) || isAgentBugRuleId(ruleId)
 }
 

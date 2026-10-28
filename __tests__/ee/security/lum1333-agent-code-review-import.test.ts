@@ -115,6 +115,8 @@ describe('an imported bug row', () => {
     expect(isAgentBugRuleId('ext:claude-code:sqli')).toBe(false)
     expect(isAgentBugRuleId('ext:semgrep:bug:x')).toBe(false)
     expect(isAgentBugRuleId('ext:codex:bug:')).toBe(false)
+    // A caller's row without the column is not one (and never throws).
+    expect(isCodeReviewFinding(undefined as unknown as string)).toBe(false)
     expect(findingCountPhrase([ruleId, 'ext:codex:sqli'])).toBe(
       '1 security finding · 1 bug'
     )
