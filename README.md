@@ -509,6 +509,10 @@ npm run build
 npm start
 ```
 
+## 💬 Community
+
+Join the Lumo community on [Discord](https://discord.gg/D7AYBagRk) to ask questions, share feedback and follow what's shipping.
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -534,7 +538,7 @@ Lumo follows an open-core model. Pull-request vulnerability checks and the advan
 
 ## 📞 Support
 
-For support, email support@uselumo.ai or create an issue in the repository.
+For support, email support@uselumo.ai, ask in our [Discord](https://discord.gg/D7AYBagRk), or create an issue in the repository.
 
 ---
 
