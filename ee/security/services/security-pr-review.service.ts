@@ -1225,9 +1225,15 @@ export function buildScanningOffSummary(): string {
 
 // ── sync ────────────────────────────────────────────────────────────────────
 
+/**
+ * LUM-1316: split at the LAST slash — a Codeup path nests groups
+ * (`org/group/repo` → owner `org/group`); a GitHub `owner/name` is unchanged.
+ */
 function parseRepo(repo: string): { owner: string; name: string } {
-  const parts = repo.split('/')
-  return { owner: parts[0] ?? '', name: parts[1] ?? '' }
+  const at = repo.lastIndexOf('/')
+  return at < 0
+    ? { owner: repo, name: '' }
+    : { owner: repo.slice(0, at), name: repo.slice(at + 1) }
 }
 
 function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {

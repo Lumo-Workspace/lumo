@@ -111,6 +111,12 @@ export function CodeupIntegrationCard({
                 ))}
               </ul>
             )}
+            <p
+              className='text-caption text-muted-foreground'
+              data-testid='codeup-comment-author-hint'
+            >
+              {intl.formatMessage({ id: 'codeup.commentAuthorHint' })}
+            </p>
             {isOwner && (
               <div className='flex items-center pt-1'>
                 <Button

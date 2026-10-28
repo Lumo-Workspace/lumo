@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "ID организации",
   "codeup.accessTokenLabel": "Персональный токен доступа",
   "codeup.accessTokenHint": "Нужен доступ на чтение репозиториев и право управлять вебхуками. Lumo хранит токен в зашифрованном виде и больше никогда его не показывает.",
+  "codeup.commentAuthorHint": "Lumo публикует ревью в merge request от имени владельца этого токена. Используйте отдельный сервисный аккаунт, который может читать эти репозитории и комментировать merge request, а не личный аккаунт.",
   "codeup.connectSuccess": "Codeup подключён",
   "codeup.connectFailed": "Codeup отклонил ID организации или токен доступа.",
   "codeup.repositoriesTitle": "Выбрать репозитории",

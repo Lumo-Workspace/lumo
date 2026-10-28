@@ -848,7 +848,20 @@ export const prSecurityScanRepository = {
    * `repos` narrows it to the PRs of those repositories (a repo removed from
    * the installation).
    */
-  async scrubCodeForWorkspace(workspaceId: string, repos?: string[]) {
+  async scrubCodeForWorkspace(
+    workspaceId: string,
+    repos?: string[],
+    /**
+     * LUM-1316: a non-GitHub platform's repositories, matched exactly on
+     * that platform only. Absent = GitHub's case-insensitive spellings.
+     */
+    provider?: string
+  ) {
+    if (repos && provider !== undefined && provider !== GITHUB_PROVIDER)
+      return scrubCode({
+        workspaceId,
+        pullRequest: { provider, repo: { in: repos } },
+      })
     return scrubCode({
       workspaceId,
       ...(repos
@@ -983,10 +996,11 @@ export const prSecurityScanRepository = {
    * repositories workspaces actually have confirmed.
    */
   async findRepositoriesHoldingCode(): Promise<
-    { workspaceId: string; repo: string }[]
+    { workspaceId: string; repo: string; provider: string }[]
   > {
     const rows = await prisma.pullRequest.groupBy({
-      by: ['workspaceId', 'repo'],
+      // LUM-1316: per Git platform — each is checked against its own list.
+      by: ['workspaceId', 'provider', 'repo'],
       where: {
         securityScans: {
           some: {
@@ -1011,7 +1025,11 @@ export const prSecurityScanRepository = {
         },
       },
     })
-    return rows.map(row => ({ workspaceId: row.workspaceId, repo: row.repo }))
+    return rows.map(row => ({
+      workspaceId: row.workspaceId,
+      repo: row.repo,
+      provider: row.provider,
+    }))
   },
 
   /** LUM-896 — the workspace and repository a scan belongs to. */

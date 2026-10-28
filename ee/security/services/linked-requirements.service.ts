@@ -117,7 +117,10 @@ export const linkedRequirementsService = {
         )
       }
     }
-    const numbers = linkedIssueNumbers(input.pr.body, input.repo)
+    // LUM-1316: `#12` names a repository issue only where the platform has them.
+    const numbers = gitProviderFor(pr).capabilities.repoIssues
+      ? linkedIssueNumbers(input.pr.body, input.repo)
+      : []
     if (numbers.length > 0) {
       const issues = await gitProviderFor(pr).fetchRepoIssues({
         workspaceId: input.workspaceId,

@@ -81,6 +81,9 @@ export const prDescriptionSummaryService = {
       commitUrl: input.commitUrl ?? null,
     })
     if (!block) return 'no_summary'
+    // LUM-1316: a platform whose description Lumo does not write keeps the
+    // summary in its comment ('failed' = not written; the caller falls back).
+    if (!gitProviderFor(input).capabilities.descriptionWrite) return 'failed'
     const where = `pr=${input.repo.owner}/${input.repo.name}#${input.prNumber}`
     try {
       const current = await gitProviderFor(input).comments.getPullRequestBody({

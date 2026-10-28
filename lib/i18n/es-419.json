@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "ID de la organización",
   "codeup.accessTokenLabel": "Token de acceso personal",
   "codeup.accessTokenHint": "Necesita acceso de lectura a los repositorios y permiso para administrar webhooks. Lumo lo guarda cifrado y no vuelve a mostrarlo.",
+  "codeup.commentAuthorHint": "Lumo publica su revisión en las merge requests como el propietario de este token. Usa una cuenta de servicio dedicada que pueda leer estos repositorios y comentar en las merge requests, no una cuenta personal.",
   "codeup.connectSuccess": "Codeup conectado",
   "codeup.connectFailed": "Codeup rechazó el ID de la organización o el token de acceso.",
   "codeup.repositoriesTitle": "Elegir repositorios",

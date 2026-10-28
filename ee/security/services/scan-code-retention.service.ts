@@ -66,7 +66,15 @@ export async function sweepUnconfirmedScanCode(): Promise<{
 }> {
   const held = await prSecurityScanRepository.findRepositoriesHoldingCode()
   const byWorkspace = new Map<string, string[]>()
-  for (const { workspaceId, repo } of held) {
+  // LUM-1316: another platform's repositories are checked against that
+  // platform's own confirmed list (below), never GitHub's.
+  const elsewhere = new Map<string, string[]>()
+  for (const { workspaceId, repo, provider } of held) {
+    if (provider !== undefined && provider !== GITHUB_PROVIDER) {
+      const key = `${provider}\u0000${workspaceId}`
+      elsewhere.set(key, [...(elsewhere.get(key) ?? []), repo])
+      continue
+    }
     byWorkspace.set(workspaceId, [
       ...(byWorkspace.get(workspaceId) ?? []),
       repo,
@@ -104,6 +112,32 @@ export async function sweepUnconfirmedScanCode(): Promise<{
       summary.failed++
       logger.error(
         `[security-scan] backstop: workspace ${workspaceId} scrub failed; retried next run: ${String(error)}`
+      )
+    }
+  }
+  for (const [key, repos] of elsewhere) {
+    const [provider = '', workspaceId = ''] = key.split('\u0000')
+    try {
+      const git = gitProviderFor({ provider })
+      const confirmed = (await git.findConfirmedRepositories(workspaceId)) ?? []
+      const stray = repos.filter(
+        repo => !git.isConfirmedRepository(confirmed, repo)
+      )
+      if (stray.length === 0) continue
+      const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
+        workspaceId,
+        stray,
+        provider
+      )
+      summary.workspaces++
+      summary.repositories += stray.length
+      logger.info(
+        `[security-scan] backstop: workspace ${workspaceId} (${provider}): ${stray.length} repository(ies) not confirmed; scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+      )
+    } catch (error) {
+      summary.failed++
+      logger.error(
+        `[security-scan] backstop: workspace ${workspaceId} (${provider}) scrub failed; retried next run: ${String(error)}`
       )
     }
   }

@@ -3125,6 +3125,7 @@
   "codeup.organizationIdLabel": "組織 ID",
   "codeup.accessTokenLabel": "個人アクセストークン",
   "codeup.accessTokenHint": "リポジトリの読み取り権限と Webhook の管理権限が必要です。Lumo は暗号化して保存し、再表示することはありません。",
+  "codeup.commentAuthorHint": "Lumo はこのトークンの所有者としてマージリクエストにレビューを投稿します。個人アカウントではなく、これらのリポジトリを読み取り、マージリクエストにコメントできる専用のサービスアカウントを使用してください。",
   "codeup.connectSuccess": "Codeup を接続しました",
   "codeup.connectFailed": "Codeup が組織 ID またはアクセストークンを拒否しました。",
   "codeup.repositoriesTitle": "リポジトリを選択",

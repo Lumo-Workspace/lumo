@@ -86,6 +86,10 @@ describe('CodeupIntegrationCard', () => {
     expect(screen.getByTestId('codeup-repositories').textContent).toContain(
       'org-1/g/app'
     )
+    // LUM-1316: reviews post as the token owner — say so, once connected.
+    expect(screen.getByTestId('codeup-comment-author-hint').textContent).toBe(
+      'codeup.commentAuthorHint'
+    )
     fireEvent.click(screen.getByText('codeup.chooseRepositories'))
     expect(hookState.setRepositoriesOpen).toHaveBeenCalledWith(true)
   })

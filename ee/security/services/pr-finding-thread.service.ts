@@ -1648,6 +1648,9 @@ export const prFindingThreadService = {
    * reopen / record each thread against this scan. Never throws.
    */
   async reconcile(ctx: ThreadSyncContext): Promise<ThreadReconcileResult> {
+    // LUM-1316: a platform without resolvable review threads has no thread
+    // lifecycle — the inline comments are deduped by their markers alone.
+    if (!gitProviderFor(ctx).capabilities.reviewThreads) return NO_THREADS
     let rows: FindingThreadRow[]
     try {
       rows = await prFindingThreadRepository.findByPullRequest(
@@ -1858,6 +1861,8 @@ export const prFindingThreadService = {
     posted: ReviewFindingRow[],
     repost: ThreadReconcileResult['repost']
   ): Promise<void> {
+    // LUM-1316: no review threads on the platform — nothing to record.
+    if (!gitProviderFor(ctx).capabilities.reviewThreads) return
     try {
       const comments = await gitProviderFor(
         ctx

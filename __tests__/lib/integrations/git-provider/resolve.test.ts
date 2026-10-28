@@ -1,6 +1,7 @@
 /** LUM-1318 — provider resolution from a PR row. */
 import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { githubGitProvider } from '@/lib/integrations/git-provider/github'
+import { codeupGitProvider } from '@/lib/integrations/git-provider/codeup'
 
 describe('gitProviderFor', () => {
   it('resolves a github row to the GitHub adapter', () => {
@@ -12,8 +13,11 @@ describe('gitProviderFor', () => {
     expect(gitProviderFor(null)).toBe(githubGitProvider)
     expect(gitProviderFor(undefined)).toBe(githubGitProvider)
   })
+  it('LUM-1316: resolves a codeup row to the Codeup adapter', () => {
+    expect(gitProviderFor({ provider: 'codeup' })).toBe(codeupGitProvider)
+  })
   it('refuses a platform with no adapter (never falls back to GitHub)', () => {
-    expect(() => gitProviderFor({ provider: 'codeup' })).toThrow(
+    expect(() => gitProviderFor({ provider: 'gitlab' })).toThrow(
       expect.objectContaining({ status: 501, code: 'unsupported_git_provider' })
     )
     expect(() => gitProviderFor({ provider: 'toString' })).toThrow(
@@ -44,6 +48,10 @@ describe('isGitApiError', () => {
       typeof import('@/lib/integrations/github/pr-comment-client')
     >('@/lib/integrations/github/pr-comment-client')
     expect(isGitApiError(new GithubApiError(422, null))).toBe(true)
+    const { CodeupApiError } = jest.requireActual<
+      typeof import('@/lib/integrations/codeup/client')
+    >('@/lib/integrations/codeup/client')
+    expect(isGitApiError(new CodeupApiError(404, 'gone'))).toBe(true)
     expect(isGitApiError(new Error('boom'))).toBe(false)
     expect(isGitApiError(null)).toBe(false)
   })

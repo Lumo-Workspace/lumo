@@ -12,11 +12,14 @@
  * do not load an adapter.
  */
 import { githubGitProvider } from './github'
-import { GITHUB_PROVIDER, type GitProviderId } from './ids'
+import { codeupGitProvider } from './codeup'
+import { CODEUP_PROVIDER, GITHUB_PROVIDER, type GitProviderId } from './ids'
 import type { GitApiError, GitProvider } from './types'
 
 const ADAPTERS: Partial<Record<GitProviderId, GitProvider>> = {
   [GITHUB_PROVIDER]: githubGitProvider,
+  // LUM-1316: behind `codeup-integration` (its token mint checks the flag).
+  [CODEUP_PROVIDER]: codeupGitProvider,
 }
 
 /** Anything that names its Git platform the way a PR row does. */
