@@ -102,7 +102,14 @@ block a task from reaching Done is a per-workspace policy
 set through `PATCH /api/workspaces/me`); unset, only an undispositioned
 pattern-matched (deterministic) HIGH finding blocks, exactly as before. LLM
 findings — the hunt above and the LLM review — can never be configured to
-block: the API refuses the value and the reader ignores it. Every
+block: the API refuses the value and the reader ignores it. A review the
+developer ran in their own Claude Code or Codex and imported with
+`lumo security import` is advisory too, unless an owner opts in with an
+`{ "provenance": "AGENT_REVIEW", "severity": … }` entry (LUM-1328); an
+`EXTERNAL_TOOL` entry never covers it. That agent review is the default
+review: a workspace created since LUM-1328 starts with the LLM review and
+the hunt switched off, and `lumo task status` asks for an agent review on
+each open PR whose latest commit has none. Every
 external-tool finding also goes through a falsifier once (a second model
 that may only refute, never confirm — `LUMO_SECURITY_SUGGEST=off` disables
 it); a refutation becomes a _suggested_ false positive with the model's

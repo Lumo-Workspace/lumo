@@ -12,7 +12,10 @@ jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   loadSecurityLayers: async () =>
     jest
       .requireActual('@/ee/security/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
+      .resolveSecurityLayers({
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      }),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),

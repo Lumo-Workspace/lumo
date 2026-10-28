@@ -20,6 +20,7 @@ import { securityColumnsRepository } from '@/ee/security/repositories/security-c
 import {
   DEFAULT_WORKSPACE_SECURITY_SWITCHES,
   resolveSecurityLayers,
+  switchDefaultsFor,
 } from '@/ee/security/security-scan/workspace-switches'
 import type { PrConfigurationView } from '@/ee/security/security-scan/pr-configuration-reply'
 
@@ -86,9 +87,10 @@ export const prConfigurationService = {
       prNumber: number
     }
   ): Promise<PrConfigurationView> {
-    const [repo, stored] = await Promise.all([
+    const [repo, stored, createdAt] = await Promise.all([
       repoPart(input),
       securityColumnsRepository.findSecuritySwitches(input.workspaceId),
+      securityColumnsRepository.findWorkspaceCreatedAt(input.workspaceId),
     ])
     const switches = { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES, ...stored }
     // The `…TurnedOff` flags restate the switches; only what runs is shown.
@@ -100,7 +102,8 @@ export const prConfigurationService = {
     return {
       repo,
       switches: { ...switches },
-      switchDefaults: { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES },
+      // LUM-1328: "default" is what this workspace started with.
+      switchDefaults: { ...switchDefaultsFor(createdAt) },
       layers,
     }
   },

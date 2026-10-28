@@ -22,6 +22,7 @@ import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagr
 import type { ReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
+  isAgentReviewTool,
   mergePartialCauses,
   type PartialCause,
 } from '@/shared/src/security-scan'
@@ -292,6 +293,8 @@ export interface ScanWithFindings {
   codeScrubbedAt?: Date | null
   /** LUM-1148 — the pre-merge checks' results Json, raw (absent on an old mock). */
   preMergeChecks?: unknown
+  /** LUM-1328 — agent reviews imported into this head (absent on an old mock). */
+  agentReviewTools?: string[]
   findings: FindingRow[]
 }
 
@@ -1429,12 +1432,15 @@ export const prSecurityScanRepository = {
           stages: true,
           partial: true,
           partialCauses: true,
+          agentReviewTools: true,
         },
       })
       // The lock. `partial` is monotone across writers — a `false` here can
       // never clear a `true` the other writer already set (guaranteed by the
       // SERIALIZABLE isolation + P2034 retry this runs under, since the read
       // above precedes the lock).
+      // LUM-1328: record an agent review even when it found nothing.
+      const agentTools = uniqueTools.filter(isAgentReviewTool)
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
@@ -1443,6 +1449,13 @@ export const prSecurityScanRepository = {
             [stage]: 'RAN',
           },
           ...mergePartial(current, opts.partialCauses),
+          ...(agentTools.length > 0
+            ? {
+                agentReviewTools: Array.from(
+                  new Set([...(current?.agentReviewTools ?? []), ...agentTools])
+                ),
+              }
+            : {}),
         },
       })
       if (uniqueTools.length > 0) {

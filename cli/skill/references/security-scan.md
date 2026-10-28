@@ -157,7 +157,8 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 
 Attaches a security review **you ran in Claude Code or Codex** to the branch's open PR scan, so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
 
-- **Advisory, never blocks DONE**, whatever the workspace policy lists (rule ids `ext:claude-code:…` / `ext:codex:…`).
+- **Advisory by default** (rule ids `ext:claude-code:…` / `ext:codex:…`): they block DONE only when the workspace policy lists `{ "provenance": "AGENT_REVIEW", "severity": … }` — an owner's opt-in (`securityPolicy` via `PATCH /api/workspaces/me`); an `EXTERNAL_TOOL` entry never covers them.
+- **The default review.** A new workspace starts with Lumo's own AI review and hunt off ([workspace-settings.md](workspace-settings.md)); `lumo task status` lists `[SECURITY REVIEW]` for each open PR whose latest commit has no import — a clean import (empty `findings`) counts.
 - **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"; right after a push, wait a few seconds for Lumo to see it). Lumo keeps only results on lines the PR changed; the rest are dropped.
 - **Replaces** that tool's earlier import on the same head; an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.
 - **Sends** the report (titles, details, paths, lines) to Lumo; it is redacted like a CI report. Any workspace member may import into the workspace's PRs.
@@ -192,4 +193,4 @@ lumo security import results.sarif --tool codex --pr 42
 
 Exit codes: 0 sent · 1 not logged in, no open PR, `HEAD` not the PR head, unreadable or invalid file (the reason names the field, e.g. `findings[0].severity`), or the server refused (repository not confirmed, scanning off, PR not open, rate limit) · 2 usage (`--tool` missing outside an agent or not an agent, bad `--pr` / `--repo`). In Codex it reads a local file, so Codex asks first ([codex.md](codex.md)).
 
-**When to suggest:** the user asks you to security-review the branch, or ran `/security-review`, and the PR is open and pushed — offer to import the findings; never import without saying so.
+**When to suggest:** the user asks you to security-review the branch, or ran `/security-review`, or `lumo task status` lists `[SECURITY REVIEW]`, and the PR is open and pushed — offer to run the review and import the findings; never import without saying so.
