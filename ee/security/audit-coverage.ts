@@ -23,6 +23,10 @@ export const SECURITY_AUDIT_INSTRUMENTED: Readonly<
   'ee/security/services/repo-review-settings.service.ts#update': [
     'repository.review_settings_updated',
   ],
+  // LUM-1329: the agent-review level, a compare-and-set on securityPolicy
+  // after updateWorkspace's OWNER gate.
+  'ee/security/services/security-scan-settings.service.ts#writeAgentReviewBlocking':
+    ['workspace.agent_review_blocking_updated'],
 }
 
 /** OWNER-gated plugin units that are not sensitive mutations, with the reason. */

@@ -30,6 +30,9 @@ export const AUDIT_ACTIONS = [
   'workspace.retention_updated',
   // LUM-1133: per-repository automatic PR review (on/off, drafts)
   'repository.review_settings_updated',
+  // LUM-1329: which imported agent-review findings block Done (the security
+  // policy's AGENT_REVIEW entries, written as a compare-and-set)
+  'workspace.agent_review_blocking_updated',
   // Data rights
   'workspace.deletion_scheduled',
   'workspace.deletion_cancelled',

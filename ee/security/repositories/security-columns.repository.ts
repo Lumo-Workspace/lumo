@@ -14,7 +14,7 @@
  * `PATCH /api/workspaces/me` still go through the `workspaceSettings`
  * extension point (ee/security/workspace-settings.ts).
  */
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { scopedPrisma } from '@/lib/db/workspace-scope'
 import type { SecurityBaseline } from '@/ee/security/security-scan/types'
@@ -56,6 +56,33 @@ export const securityColumnsRepository = {
       select: { securityPolicy: true },
     })
     return row?.securityPolicy ?? null
+  },
+
+  /** LUM-1329: replace the policy only if it still is `expected` (as
+   *  `findSecurityPolicy` read it; null = unset) — a compare-and-set. False
+   *  when it changed meanwhile or the workspace is missing. `next` null
+   *  clears it to the default. */
+  async replaceSecurityPolicyIf(
+    id: string,
+    expected: unknown,
+    next: object | null
+  ): Promise<boolean> {
+    const res = await prisma.workspace.updateMany({
+      where: {
+        id,
+        securityPolicy: {
+          equals:
+            expected === null
+              ? Prisma.AnyNull
+              : (expected as Prisma.InputJsonValue),
+        },
+      },
+      data: {
+        securityPolicy:
+          next === null ? Prisma.DbNull : (next as Prisma.InputJsonValue),
+      },
+    })
+    return res.count === 1
   },
 
   /** LUM-1130: is the request-changes workflow on? false when the workspace

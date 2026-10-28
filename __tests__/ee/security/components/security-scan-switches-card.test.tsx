@@ -460,8 +460,10 @@ describe('LUM-1329 imported agent reviews block Done', () => {
   })
 })
 
-it('LUM-1329 an unrelated save keeps showing the stored level the server echoes', async () => {
-  renderCard(ALL_ON, true, true, true, 'medium')
+it('LUM-1329 after a save the card shows the level the server echoes, not the one it loaded with', async () => {
+  renderCard(ALL_ON, true, true, true, 'off')
+  // Set elsewhere (e.g. from the CLI) after the page loaded.
+  storedAgentReview = 'medium'
   fireEvent.click(toggle('Exploitability check'))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>

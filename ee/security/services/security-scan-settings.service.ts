@@ -8,7 +8,10 @@ import {
   type WorkspaceSecuritySwitches,
 } from '@/ee/security/security-scan/workspace-switches'
 import { workspaceService } from '@/lib/services/workspace.service'
-import type { AuditContext } from '@/lib/services/audit.service'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import { waitUntil } from '@/lib/runtime/wait-until'
 import {
@@ -18,6 +21,7 @@ import {
   withAgentReviewBlocking,
   type AgentReviewBlocking,
   type AgentReviewBlockingView,
+  type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
 
 /**
@@ -104,27 +108,70 @@ async function withdrawChangeRequests(workspaceId: string): Promise<void> {
 }
 
 /**
- * LUM-1329 — the policy to write for an agent-review change: the stored one
- * with only its `AGENT_REVIEW` entries replaced (every other entry kept);
- * null (back to following the default) when that is exactly the default; or
- * undefined (nothing written, nothing audited) when there is no such change
- * or the level is already the stored one.
+ * LUM-1329 — the policy to write for `level` over the stored `raw` one: only
+ * its `AGENT_REVIEW` entries replaced (every other entry kept); null (back
+ * to following the default) when that is exactly the default; or undefined
+ * (nothing written, nothing audited) when the level is already the stored
+ * one.
  */
-export async function policyForUpdate(
-  workspaceId: string,
-  update: SecurityScanSettingsUpdate
-) {
-  const level = update.agentReviewBlocking
-  if (level === undefined) return undefined
-  const policy = parseSecurityPolicy(
-    await securityColumnsRepository.findSecurityPolicy(workspaceId)
-  )
+export function nextAgentReviewPolicy(
+  raw: unknown,
+  level: AgentReviewBlocking
+): SecurityPolicy | null | undefined {
+  const policy = parseSecurityPolicy(raw)
   if (agentReviewBlocking(policy) === level) return undefined
   const next = withAgentReviewBlocking(policy, level)
   // Both are built as { provenance, severity } in that key order.
   return JSON.stringify(next) === JSON.stringify(DEFAULT_SECURITY_POLICY)
     ? null
     : next
+}
+
+/** Compare-and-set rounds before a concurrent policy edit wins (409). */
+const POLICY_WRITE_ATTEMPTS = 3
+
+/**
+ * LUM-1329 — write the agent-review level as a compare-and-set on the stored
+ * policy, so an edit to other entries made meanwhile (e.g. a raw
+ * `PATCH /api/workspaces/me`) is never overwritten: re-read and retry, then
+ * 409. Called only after `updateWorkspace` passed the OWNER gate; audited
+ * as its own plugin action (user ruling, LUM-1329 Decision 1): the plugin
+ * may only write plugin actions, and this write skips updateWorkspace's.
+ */
+async function writeAgentReviewBlocking(
+  workspaceId: string,
+  level: AgentReviewBlocking,
+  audit: AuditContext | undefined
+): Promise<void> {
+  for (let attempt = 0; attempt < POLICY_WRITE_ATTEMPTS; attempt++) {
+    const raw = await securityColumnsRepository.findSecurityPolicy(workspaceId)
+    const next = nextAgentReviewPolicy(raw, level)
+    if (next === undefined) return
+    if (
+      await securityColumnsRepository.replaceSecurityPolicyIf(
+        workspaceId,
+        raw,
+        next
+      )
+    ) {
+      await recordAuditEvent({
+        workspaceId,
+        action: 'workspace.agent_review_blocking_updated',
+        target: { type: 'workspace', id: workspaceId },
+        metadata: {
+          from: agentReviewBlocking(parseSecurityPolicy(raw)),
+          to: level,
+          changes: { securityPolicy: { from: raw, to: next } },
+        },
+        context: audit,
+      })
+      return
+    }
+  }
+  throw Object.assign(
+    new Error('The security policy changed while saving — try again'),
+    { status: 409 }
+  )
 }
 
 export const securityScanSettingsService = {
@@ -169,12 +216,17 @@ export const securityScanSettingsService = {
       caller.workspaceId,
       role ?? '',
       caller.workspaceSlug,
-      {
-        ...switchesForUpdate(update),
-        securityPolicy: await policyForUpdate(caller.workspaceId, update),
-      },
+      switchesForUpdate(update),
       audit
     )
+    // LUM-1329: past the OWNER gate above — the policy's AGENT_REVIEW
+    // entries, as a compare-and-set of their own.
+    if (update.agentReviewBlocking !== undefined)
+      await writeAgentReviewBlocking(
+        caller.workspaceId,
+        update.agentReviewBlocking,
+        audit
+      )
     const settings = await this.get(caller)
     // LUM-1140: the request-changes workflow went on → off — dismiss Lumo's
     // standing "changes requested" reviews on the workspace's open PRs, in

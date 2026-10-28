@@ -13,7 +13,14 @@ jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecuritySwitches: jest.fn(),
     findSecurityPolicy: jest.fn(async () => null),
+    replaceSecurityPolicyIf: jest.fn(async () => true),
   },
+}))
+
+// LUM-1329: the agent-review write records its own audit event.
+jest.mock('@/lib/services/audit.service', () => ({
+  ...jest.requireActual('@/lib/services/audit.service'),
+  recordAuditEvent: jest.fn(async () => true),
 }))
 
 jest.mock('@/lib/repositories/misc.repository', () => ({
@@ -35,6 +42,7 @@ jest.mock('@/lib/services/workspace.service', () => {
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { workspaceService } from '@/lib/services/workspace.service'
+import { recordAuditEvent } from '@/lib/services/audit.service'
 import {
   securityScanSettingsService,
   switchesForUpdate,
@@ -54,6 +62,9 @@ beforeEach(() => {
   m(securityColumnsRepository.findSecuritySwitches).mockReset()
   m(securityColumnsRepository.findSecurityPolicy).mockReset()
   m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(null)
+  m(securityColumnsRepository.replaceSecurityPolicyIf).mockReset()
+  m(securityColumnsRepository.replaceSecurityPolicyIf).mockResolvedValue(true)
+  m(recordAuditEvent).mockClear()
   m(workspaceRepository.update).mockReset()
   m(miscRepository.findMemberRoleById).mockReset()
   m(workspaceService.updateWorkspace).mockClear()
@@ -296,6 +307,20 @@ describe('LUM-1329 agent-review blocking', () => {
       { provenance: 'AGENT_REVIEW', severity: 'LOW' },
     ],
   }
+  const asOwner = () => {
+    m(workspaceService.updateWorkspace).mockResolvedValue({})
+    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
+    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+  }
+  // Back to the shipped OWNER gate for the next test.
+  afterEach(() =>
+    m(workspaceService.updateWorkspace).mockImplementation(
+      (...args: unknown[]) =>
+        jest
+          .requireActual('@/lib/services/workspace.service')
+          .workspaceService.updateWorkspace(...args)
+    )
+  )
 
   it('reads off by default, and the stored level', async () => {
     m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
@@ -321,61 +346,122 @@ describe('LUM-1329 agent-review blocking', () => {
     ).toBe('custom')
   })
 
-  it('an OWNER write replaces only the AGENT_REVIEW entries and keeps every other one', async () => {
-    m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
-    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
-    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+  it('an OWNER write compare-and-sets only the AGENT_REVIEW entries, keeping every other one, and audits it', async () => {
+    asOwner()
     m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(
       OWN_POLICY
     )
-    await securityScanSettingsService.update(CALLER, {
-      agentReviewBlocking: 'high',
-    })
-    const written = m(workspaceService.updateWorkspace).mock.calls[0]![3]
-    expect(written.securityPolicy).toEqual({
+    await securityScanSettingsService.update(
+      CALLER,
+      { agentReviewBlocking: 'high' },
+      undefined
+    )
+    // The OWNER gate ran first, with no policy in the generic write.
+    expect(
+      m(workspaceService.updateWorkspace).mock.calls[0]![3]
+    ).not.toHaveProperty('securityPolicy')
+    const next = {
       block: [
         { provenance: 'DETERMINISTIC', severity: 'HIGH' },
         { provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' },
         { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
       ],
+    }
+    expect(
+      securityColumnsRepository.replaceSecurityPolicyIf
+    ).toHaveBeenCalledWith('ws_1', OWN_POLICY, next)
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'ws_1',
+        action: 'workspace.agent_review_blocking_updated',
+        metadata: {
+          from: 'custom',
+          to: 'high',
+          changes: { securityPolicy: { from: OWN_POLICY, to: next } },
+        },
+      })
+    )
+  })
+
+  it('a concurrent edit to the policy is re-read and kept, not overwritten', async () => {
+    asOwner()
+    const edited = {
+      block: [
+        { provenance: 'DETERMINISTIC', severity: 'HIGH' },
+        { provenance: 'EXTERNAL_TOOL', severity: 'LOW' },
+      ],
+    }
+    m(securityColumnsRepository.findSecurityPolicy)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(edited)
+    m(securityColumnsRepository.replaceSecurityPolicyIf)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+    await securityScanSettingsService.update(CALLER, {
+      agentReviewBlocking: 'high',
     })
+    const calls = m(securityColumnsRepository.replaceSecurityPolicyIf).mock
+      .calls
+    expect(calls).toHaveLength(2)
+    expect(calls[1]).toEqual([
+      'ws_1',
+      edited,
+      {
+        block: [
+          ...edited.block,
+          { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
+        ],
+      },
+    ])
+    expect(recordAuditEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives up with 409 when the policy keeps changing, writing nothing', async () => {
+    asOwner()
+    m(securityColumnsRepository.replaceSecurityPolicyIf).mockResolvedValue(
+      false
+    )
+    await expect(
+      securityScanSettingsService.update(CALLER, { agentReviewBlocking: 'low' })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(
+      securityColumnsRepository.replaceSecurityPolicyIf
+    ).toHaveBeenCalledTimes(3)
+    expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
   it('turning it off back to exactly the default writes null (follows the default again)', async () => {
-    m(workspaceService.updateWorkspace).mockResolvedValueOnce({})
-    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
-    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
-    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue({
+    asOwner()
+    const stored = {
       block: [
         { provenance: 'DETERMINISTIC', severity: 'HIGH' },
         { provenance: 'AGENT_REVIEW', severity: 'HIGH' },
       ],
-    })
+    }
+    m(securityColumnsRepository.findSecurityPolicy).mockResolvedValue(stored)
     await securityScanSettingsService.update(CALLER, {
       agentReviewBlocking: 'off',
     })
     expect(
-      m(workspaceService.updateWorkspace).mock.calls[0]![3].securityPolicy
-    ).toBeNull()
+      securityColumnsRepository.replaceSecurityPolicyIf
+    ).toHaveBeenCalledWith('ws_1', stored, null)
   })
 
-  it('the stored level, or no agent-review change, writes no policy (no audit noise)', async () => {
-    m(workspaceService.updateWorkspace)
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-    m(miscRepository.findMemberRoleById).mockResolvedValue('OWNER')
-    m(securityColumnsRepository.findSecuritySwitches).mockResolvedValue(ALL_OFF)
+  it('the stored level, or no agent-review change, writes no policy and audits nothing extra', async () => {
+    asOwner()
     await securityScanSettingsService.update(CALLER, {
       agentReviewBlocking: 'off',
     })
     await securityScanSettingsService.update(CALLER, {
       securityHuntEnabled: false,
     })
-    for (const call of m(workspaceService.updateWorkspace).mock.calls)
-      expect(call[3].securityPolicy).toBeUndefined()
+    expect(
+      securityColumnsRepository.replaceSecurityPolicyIf
+    ).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('a MEMBER cannot change it (403 from the shipped OWNER gate)', async () => {
+  it('a MEMBER is refused by the OWNER gate before any policy read or write', async () => {
     m(miscRepository.findMemberRoleById).mockResolvedValue('MEMBER')
     await expect(
       securityScanSettingsService.update(CALLER, {
@@ -383,5 +469,8 @@ describe('LUM-1329 agent-review blocking', () => {
       })
     ).rejects.toMatchObject({ status: 403 })
     expect(workspaceRepository.update).not.toHaveBeenCalled()
+    expect(
+      securityColumnsRepository.replaceSecurityPolicyIf
+    ).not.toHaveBeenCalled()
   })
 })
