@@ -16,6 +16,7 @@ import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import {
   PluginSlot,
+  hasPluginSlot,
   PluginTaskDossier,
   type LumoClientPlugin,
   type MergedDossierContribution,
@@ -116,6 +117,16 @@ describe('PluginSlot', () => {
       />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+// LUM-1327: Settings → Workspace drops the Code review heading without one.
+describe('hasPluginSlot', () => {
+  it('is true only when an installed plugin fills the slot', () => {
+    const plugins = [badgePlugin('a')]
+    expect(hasPluginSlot('task.pullRequest.badge', plugins)).toBe(true)
+    expect(hasPluginSlot('settings.workspace.section', plugins)).toBe(false)
+    expect(hasPluginSlot('task.pullRequest.badge', [])).toBe(false)
   })
 })
 
