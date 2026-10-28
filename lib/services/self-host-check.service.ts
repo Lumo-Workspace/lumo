@@ -43,8 +43,19 @@ export interface SelfHostProbes {
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
 
-function errorText(err: unknown): string {
-  return (err instanceof Error ? err.message : String(err)).slice(0, 200)
+/**
+ * The error's message, plus its cause's when there is one: `fetch` rejects
+ * with a bare "fetch failed" whose cause says why (ENOTFOUND, ECONNREFUSED,
+ * a certificate error).
+ */
+export function errorText(err: unknown): string {
+  if (!(err instanceof Error)) return String(err).slice(0, 200)
+  const cause = (err as { cause?: unknown }).cause
+  const why =
+    cause instanceof Error
+      ? [(cause as { code?: unknown }).code, cause.message].filter(Boolean).join(' ')
+      : ''
+  return (why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message).slice(0, 200)
 }
 
 async function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {
@@ -123,8 +134,8 @@ async function checkEmail(probes: SelfHostProbes): Promise<CheckResult> {
       status: 'ok',
       detail:
         result.transport === 'resend_relay'
-          ? 'Resend relay: signed in (no mail sent)'
-          : 'SMTP server: connected and signed in (no mail sent)',
+          ? 'Resend relay: connection and API key accepted (no mail sent)'
+          : 'SMTP server: connection and login accepted (no mail sent)',
     }
   }
   const { code, statusCode, message } = result.error

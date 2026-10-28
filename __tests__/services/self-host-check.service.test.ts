@@ -10,6 +10,7 @@ jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
 import {
   CHECK_TIMEOUT_MS,
+  errorText,
   runSelfHostChecks,
   type CheckResult,
   type SelfHostProbes,
@@ -33,6 +34,19 @@ function probes(over: Partial<SelfHostProbes> = {}): SelfHostProbes {
 function byId(results: CheckResult[]): Record<string, CheckResult> {
   return Object.fromEntries(results.map(r => [r.id, r]))
 }
+
+describe('errorText', () => {
+  it("adds the cause of a bare 'fetch failed'", () => {
+    const cause = Object.assign(new Error('getaddrinfo ENOTFOUND lumo.example.com'), {
+      code: 'ENOTFOUND',
+    })
+    expect(errorText(Object.assign(new TypeError('fetch failed'), { cause }))).toBe(
+      'fetch failed: ENOTFOUND getaddrinfo ENOTFOUND lumo.example.com'
+    )
+    expect(errorText(new Error('plain'))).toBe('plain')
+    expect(errorText('text')).toBe('text')
+  })
+})
 
 describe('runSelfHostChecks', () => {
   it('a minimal stack: core checks ok, optional components skipped, in a fixed order', async () => {
