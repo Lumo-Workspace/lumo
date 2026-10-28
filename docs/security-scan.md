@@ -62,6 +62,17 @@ ingest never even started is swept after 48h. GitHub only issues the OIDC
 token on the `pull_request` event, and does not issue it to a fork's PR
 workflow run, so nothing is reported for fork PRs from this path.
 
+**Import a review from your coding agent (optional).** A developer who ran a
+security review in Claude Code (`/security-review`) or Codex can attach its
+findings to the branch's open PR with `lumo security import <file>` — SARIF
+2.1.0, or a small JSON list of `{ file, line, severity, title }`. Lumo runs no
+model for it. The report goes through the same diff-aware, redacted ingest as
+a CI push, under the agent's name (`claude-code` / `codex`). Its findings are
+always advisory, whatever the workspace policy lists, so they never block a
+task from reaching Done. A finding on the same line as Lumo's own review of
+the same kind of issue is listed under that one PR thread. Any member of the
+workspace can import into its pull requests, for the PR's current head only.
+
 **What the OIDC token proves — and what it doesn't.** The token identifies the
 repository, not a person, so anyone who can push a branch to the repository can
 have a workflow run push security reports for that repository's pull requests —
