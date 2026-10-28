@@ -13,10 +13,14 @@ import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
+import {
+  SettingsSection,
+  SettingsSectionNav,
+} from '../settings/SettingsSection'
 import { LoadingState } from '../AsyncContent'
 import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 import { SkeletonLine } from '../skeletons/SkeletonLine'
-import { PluginSlot } from '@/lib/plugins/client'
+import { PluginSlot, hasPluginSlot } from '@/lib/plugins/client'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 
@@ -215,164 +219,233 @@ export function WorkspaceSettingsPage() {
     )
   }
 
+  // LUM-1327: the page is grouped into titled sections with jump links.
+  // Everything past General needs the real (not cache-hydrated) row.
+  const loaded = isOwner && Boolean(workspace?.id)
+  const showCodeReview = loaded && hasPluginSlot('settings.workspace.section')
+  const sections = [
+    {
+      id: 'general',
+      label: intl.formatMessage({ id: 'workspaceSettings.section.general' }),
+    },
+    ...(showCodeReview
+      ? [
+          {
+            id: 'code-review',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.codeReview',
+            }),
+          },
+        ]
+      : []),
+    ...(loaded
+      ? [
+          {
+            id: 'data-privacy',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.dataPrivacy',
+            }),
+          },
+          {
+            id: 'danger-zone',
+            label: intl.formatMessage({ id: 'workspaceSettings.dangerZone' }),
+          },
+        ]
+      : []),
+  ]
+
   return (
     <div className='h-full overflow-y-auto'>
-      <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-heading text-foreground mb-8'>
+      <div className='max-w-2xl mx-auto px-6 pb-8'>
+        <h1 className='text-heading text-foreground pt-8 mb-4'>
           {intl.formatMessage({ id: 'workspaceSettings.title' })}
         </h1>
 
-        {/* Settings card */}
-        <div className='rounded-lg border border-border overflow-hidden mb-8'>
-          {/* Logo row */}
-          <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
-            <div>
-              <p className='text-body-strong text-foreground'>
-                {intl.formatMessage({ id: 'workspaceSettings.logo' })}
-              </p>
-              <p className='text-caption text-muted-foreground mt-0.5'>
-                {intl.formatMessage({ id: 'workspaceSettings.logoHint' })}
-              </p>
-            </div>
-            <LogoUploader
-              currentLogoUrl={workspace?.logoUrl}
-              workspaceName={workspace?.name ?? ''}
-              upload={workspacesClient.uploadLogo}
-              onUpload={url => {
-                setWorkspace(w => (w ? { ...w, logoUrl: url } : w))
-                patchWorkspaceCache({ logoUrl: url })
-              }}
-            />
-          </div>
+        {sections.length > 1 && (
+          <SettingsSectionNav
+            label={intl.formatMessage({
+              id: 'workspaceSettings.section.navLabel',
+            })}
+            items={sections}
+          />
+        )}
 
-          {/* Name row */}
-          <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-border'>
-            <Label
-              htmlFor='workspace-settings-name'
-              className='text-body-strong text-foreground shrink-0 w-16'
-            >
-              {intl.formatMessage({ id: 'workspaceSettings.name' })}
-            </Label>
-            <div className='flex items-center gap-2 flex-1 justify-end'>
-              <input
-                type='text'
-                id='workspace-settings-name'
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveName()}
-                disabled={!isOwner || savingName}
-                className='h-8 w-64 rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+        <SettingsSection
+          id='general'
+          title={intl.formatMessage({
+            id: 'workspaceSettings.section.general',
+          })}
+        >
+          <div className='rounded-lg border border-border overflow-hidden'>
+            {/* Logo row */}
+            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
+              <div>
+                <p className='text-body-strong text-foreground'>
+                  {intl.formatMessage({ id: 'workspaceSettings.logo' })}
+                </p>
+                <p className='text-caption text-muted-foreground mt-0.5'>
+                  {intl.formatMessage({ id: 'workspaceSettings.logoHint' })}
+                </p>
+              </div>
+              <LogoUploader
+                currentLogoUrl={workspace?.logoUrl}
+                workspaceName={workspace?.name ?? ''}
+                upload={workspacesClient.uploadLogo}
+                onUpload={url => {
+                  setWorkspace(w => (w ? { ...w, logoUrl: url } : w))
+                  patchWorkspaceCache({ logoUrl: url })
+                }}
               />
-              {name !== workspace?.name && (
-                <Button
-                  size='sm'
-                  onClick={handleSaveName}
-                  disabled={savingName || !name.trim()}
-                >
-                  {savingName
-                    ? intl.formatMessage({ id: 'common.saving' })
-                    : intl.formatMessage({ id: 'common.save' })}
-                </Button>
-              )}
             </div>
-          </div>
 
-          {/* URL row */}
-          <div className='flex items-center justify-between gap-4 px-5 py-4'>
-            <Label
-              htmlFor='workspace-settings-url'
-              className='text-body-strong text-foreground shrink-0 w-16'
-            >
-              {intl.formatMessage({ id: 'workspaceSettings.url' })}
-            </Label>
-            <div className='flex items-center gap-2 flex-1 justify-end'>
-              <div className='flex items-center h-8 rounded-md border border-border overflow-hidden w-64'>
-                <span className='px-2.5 text-caption text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
-                  /workspace/
-                </span>
+            {/* Name row */}
+            <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-border'>
+              <Label
+                htmlFor='workspace-settings-name'
+                className='text-body-strong text-foreground shrink-0'
+              >
+                {intl.formatMessage({ id: 'workspaceSettings.name' })}
+              </Label>
+              <div className='flex items-center gap-2 flex-1 justify-end'>
                 <input
                   type='text'
-                  id='workspace-settings-url'
-                  value={slug}
-                  onChange={e =>
-                    setSlug(
-                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
-                    )
-                  }
-                  onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
-                  disabled={!isOwner || savingSlug}
-                  className='flex-1 px-2.5 text-body text-foreground bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+                  id='workspace-settings-name'
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                  disabled={!isOwner || savingName}
+                  className='h-8 w-64 rounded-md border border-border bg-transparent px-3 text-body text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
                 />
+                {name !== workspace?.name && (
+                  <Button
+                    size='sm'
+                    onClick={handleSaveName}
+                    disabled={savingName || !name.trim()}
+                  >
+                    {savingName
+                      ? intl.formatMessage({ id: 'common.saving' })
+                      : intl.formatMessage({ id: 'common.save' })}
+                  </Button>
+                )}
               </div>
-              {slug !== workspace?.slug && (
-                <Button
-                  size='sm'
-                  onClick={handleSaveSlug}
-                  disabled={savingSlug || !slug.trim()}
-                >
-                  {savingSlug
-                    ? intl.formatMessage({ id: 'common.saving' })
-                    : intl.formatMessage({ id: 'common.save' })}
-                </Button>
-              )}
             </div>
-          </div>
-        </div>
 
-        {/* Default language (LUM-1097): Slack channel posts + DM fallback,
-            and (LUM-1117) AI summaries — the workspace's only language
-            setting. Rendered once the real workspace row is loaded. */}
-        {isOwner && workspace?.id && (
-          <div className='rounded-lg border border-border overflow-hidden mb-8'>
-            <DefaultLanguageRow
-              key={`${workspace.id}:${workspace.defaultLocale ?? 'en'}`}
-              value={workspace.defaultLocale ?? 'en'}
-              onSaved={defaultLocale =>
-                setWorkspace(prev => (prev ? { ...prev, defaultLocale } : prev))
-              }
-            />
-          </div>
-        )}
+            {/* URL row */}
+            <div
+              className={`flex items-center justify-between gap-4 px-5 py-4 ${loaded ? 'border-b border-border' : ''}`}
+            >
+              <Label
+                htmlFor='workspace-settings-url'
+                className='text-body-strong text-foreground shrink-0'
+              >
+                {intl.formatMessage({ id: 'workspaceSettings.url' })}
+              </Label>
+              <div className='flex items-center gap-2 flex-1 justify-end'>
+                <div className='flex items-center h-8 rounded-md border border-border overflow-hidden w-64'>
+                  <span className='px-2.5 text-caption text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
+                    /workspace/
+                  </span>
+                  <input
+                    type='text'
+                    id='workspace-settings-url'
+                    value={slug}
+                    onChange={e =>
+                      setSlug(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
+                      )
+                    }
+                    onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
+                    disabled={!isOwner || savingSlug}
+                    className='flex-1 px-2.5 text-body text-foreground bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+                  />
+                </div>
+                {slug !== workspace?.slug && (
+                  <Button
+                    size='sm'
+                    onClick={handleSaveSlug}
+                    disabled={savingSlug || !slug.trim()}
+                  >
+                    {savingSlug
+                      ? intl.formatMessage({ id: 'common.saving' })
+                      : intl.formatMessage({ id: 'common.save' })}
+                  </Button>
+                )}
+              </div>
+            </div>
 
-        {/* Data retention (LUM-933): one row per kind of data — rendered
-            once the real workspace row is loaded, not the cache-hydrated stub. */}
-        {isOwner && workspace?.id && (
-          <DataRetentionSection
-            key={workspace.id}
-            settings={{
-              hookEventRetentionMode: workspace.hookEventRetentionMode ?? null,
-              hookEventRetentionDays: workspace.hookEventRetentionDays ?? null,
-              crossingRawRetentionDays:
-                workspace.crossingRawRetentionDays ?? null,
-              deadLetterRetentionDays:
-                workspace.deadLetterRetentionDays ?? null,
-              aiDerivedContentEnabled:
-                workspace.aiDerivedContentEnabled ?? null,
-            }}
-            workspace={workspace}
-            workspaceName={workspace.name}
-          />
-        )}
+            {/* Default language (LUM-1097): Slack channel posts + DM fallback,
+                and (LUM-1117) AI summaries — the workspace's only language
+                setting. */}
+            {loaded && workspace && (
+              <DefaultLanguageRow
+                key={`${workspace.id}:${workspace.defaultLocale ?? 'en'}`}
+                value={workspace.defaultLocale ?? 'en'}
+                onSaved={defaultLocale =>
+                  setWorkspace(prev =>
+                    prev ? { ...prev, defaultLocale } : prev
+                  )
+                }
+              />
+            )}
+          </div>
+        </SettingsSection>
 
         {/* Plugin settings (LUM-1062; the security plugin's PR scan
-            switches, LUM-866) — same gating as above. */}
-        {isOwner && workspace?.id && (
-          <PluginSlot
-            key={workspace.id}
-            name='settings.workspace.section'
-            props={{ workspace, me }}
-          />
+            switches, LUM-866). */}
+        {showCodeReview && workspace && (
+          <SettingsSection
+            id='code-review'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.codeReview',
+            })}
+          >
+            <PluginSlot
+              key={workspace.id}
+              name='settings.workspace.section'
+              props={{ workspace, me }}
+            />
+          </SettingsSection>
         )}
 
-        {/* GDPR data export (LUM-858). */}
-        {isOwner && workspace?.id && <WorkspaceExportCard key={workspace.id} />}
+        {loaded && workspace && (
+          <SettingsSection
+            id='data-privacy'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.dataPrivacy',
+            })}
+          >
+            {/* Data retention (LUM-933): one row per kind of data. */}
+            <DataRetentionSection
+              key={`retention:${workspace.id}`}
+              settings={{
+                hookEventRetentionMode:
+                  workspace.hookEventRetentionMode ?? null,
+                hookEventRetentionDays:
+                  workspace.hookEventRetentionDays ?? null,
+                crossingRawRetentionDays:
+                  workspace.crossingRawRetentionDays ?? null,
+                deadLetterRetentionDays:
+                  workspace.deadLetterRetentionDays ?? null,
+                aiDerivedContentEnabled:
+                  workspace.aiDerivedContentEnabled ?? null,
+              }}
+              workspace={workspace}
+              workspaceName={workspace.name}
+            />
+            {/* GDPR data export (LUM-858). */}
+            <WorkspaceExportCard key={`export:${workspace.id}`} />
+          </SettingsSection>
+        )}
 
-        {/* Danger zone — 48h undo window (LUM-918) */}
-        {isOwner && workspace && (
-          <WorkspaceDeletionCard
-            workspaceName={workspace.name}
-            onDeleted={handleDeleted}
-          />
+        {/* Danger zone — 48h undo window (LUM-918); the card carries its
+            own header. */}
+        {loaded && workspace && (
+          <SettingsSection id='danger-zone'>
+            <WorkspaceDeletionCard
+              workspaceName={workspace.name}
+              onDeleted={handleDeleted}
+            />
+          </SettingsSection>
         )}
       </div>
     </div>

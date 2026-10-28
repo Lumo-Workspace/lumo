@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "断开 Codeup？",
   "codeup.disconnectDesc": "Lumo 会删除其 Webhook 和已保存的令牌。已关联的合并请求仍保留在对应任务上。",
   "codeup.disconnectSuccess": "Codeup 已断开",
-  "codeup.disconnectFailed": "断开 Codeup 失败"
+  "codeup.disconnectFailed": "断开 Codeup 失败",
+  "workspaceSettings.section.general": "通用",
+  "workspaceSettings.section.codeReview": "代码审查",
+  "workspaceSettings.section.dataPrivacy": "数据与隐私",
+  "workspaceSettings.section.navLabel": "工作区设置分组"
 }

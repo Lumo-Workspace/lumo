@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Отключить Codeup?",
   "codeup.disconnectDesc": "Lumo удалит свои вебхуки и сохранённый токен. Уже связанные merge request'ы останутся в своих задачах.",
   "codeup.disconnectSuccess": "Codeup отключён",
-  "codeup.disconnectFailed": "Не удалось отключить Codeup"
+  "codeup.disconnectFailed": "Не удалось отключить Codeup",
+  "workspaceSettings.section.general": "Общие",
+  "workspaceSettings.section.codeReview": "Ревью кода",
+  "workspaceSettings.section.dataPrivacy": "Данные и конфиденциальность",
+  "workspaceSettings.section.navLabel": "Разделы настроек рабочего пространства"
 }

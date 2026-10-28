@@ -53,7 +53,10 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/settings/WorkspaceDeletionCard',
   () => ({ WorkspaceDeletionCard: () => null })
 )
-jest.mock('@/lib/plugins/client', () => ({ PluginSlot: () => null }))
+jest.mock('@/lib/plugins/client', () => ({
+  PluginSlot: () => null,
+  hasPluginSlot: () => false,
+}))
 
 const getMe = workspacesClient.getMe as jest.Mock
 const updateMe = workspacesClient.updateMe as jest.Mock

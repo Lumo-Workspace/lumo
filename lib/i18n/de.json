@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Codeup trennen?",
   "codeup.disconnectDesc": "Lumo entfernt seine Webhooks und das gespeicherte Token. Bereits verknüpfte Merge Requests bleiben bei ihren Aufgaben.",
   "codeup.disconnectSuccess": "Codeup getrennt",
-  "codeup.disconnectFailed": "Codeup konnte nicht getrennt werden"
+  "codeup.disconnectFailed": "Codeup konnte nicht getrennt werden",
+  "workspaceSettings.section.general": "Allgemein",
+  "workspaceSettings.section.codeReview": "Code-Review",
+  "workspaceSettings.section.dataPrivacy": "Daten & Datenschutz",
+  "workspaceSettings.section.navLabel": "Abschnitte der Workspace-Einstellungen"
 }

@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Codeup डिस्कनेक्ट करें?",
   "codeup.disconnectDesc": "Lumo अपने वेबहुक और सहेजा गया टोकन हटा देता है। पहले से जुड़े मर्ज अनुरोध अपने कार्यों पर बने रहते हैं।",
   "codeup.disconnectSuccess": "Codeup डिस्कनेक्ट हो गया",
-  "codeup.disconnectFailed": "Codeup डिस्कनेक्ट नहीं हो सका"
+  "codeup.disconnectFailed": "Codeup डिस्कनेक्ट नहीं हो सका",
+  "workspaceSettings.section.general": "सामान्य",
+  "workspaceSettings.section.codeReview": "कोड समीक्षा",
+  "workspaceSettings.section.dataPrivacy": "डेटा और गोपनीयता",
+  "workspaceSettings.section.navLabel": "वर्कस्पेस सेटिंग्स के अनुभाग"
 }

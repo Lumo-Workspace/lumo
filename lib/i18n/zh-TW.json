@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "要中斷 Codeup 連線嗎？",
   "codeup.disconnectDesc": "Lumo 會刪除其 Webhook 與已儲存的權杖。已連結的合併請求仍保留在對應任務上。",
   "codeup.disconnectSuccess": "Codeup 已中斷連線",
-  "codeup.disconnectFailed": "中斷 Codeup 連線失敗"
+  "codeup.disconnectFailed": "中斷 Codeup 連線失敗",
+  "workspaceSettings.section.general": "一般",
+  "workspaceSettings.section.codeReview": "程式碼審查",
+  "workspaceSettings.section.dataPrivacy": "資料與隱私",
+  "workspaceSettings.section.navLabel": "工作區設定分組"
 }

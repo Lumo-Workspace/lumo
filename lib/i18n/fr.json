@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Déconnecter Codeup ?",
   "codeup.disconnectDesc": "Lumo supprime ses webhooks et le jeton enregistré. Les demandes de fusion déjà reliées restent sur leurs tâches.",
   "codeup.disconnectSuccess": "Codeup déconnecté",
-  "codeup.disconnectFailed": "Échec de la déconnexion de Codeup"
+  "codeup.disconnectFailed": "Échec de la déconnexion de Codeup",
+  "workspaceSettings.section.general": "Général",
+  "workspaceSettings.section.codeReview": "Revue de code",
+  "workspaceSettings.section.dataPrivacy": "Données et confidentialité",
+  "workspaceSettings.section.navLabel": "Sections des paramètres de l’espace de travail"
 }

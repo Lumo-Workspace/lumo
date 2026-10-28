@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Ngắt kết nối Codeup?",
   "codeup.disconnectDesc": "Lumo xóa các webhook của mình và mã đã lưu. Các yêu cầu hợp nhất đã liên kết vẫn ở lại công việc của chúng.",
   "codeup.disconnectSuccess": "Đã ngắt kết nối Codeup",
-  "codeup.disconnectFailed": "Không thể ngắt kết nối Codeup"
+  "codeup.disconnectFailed": "Không thể ngắt kết nối Codeup",
+  "workspaceSettings.section.general": "Chung",
+  "workspaceSettings.section.codeReview": "Đánh giá mã",
+  "workspaceSettings.section.dataPrivacy": "Dữ liệu và quyền riêng tư",
+  "workspaceSettings.section.navLabel": "Các mục cài đặt không gian làm việc"
 }

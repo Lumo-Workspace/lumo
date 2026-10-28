@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Putuskan Codeup?",
   "codeup.disconnectDesc": "Lumo menghapus webhook-nya dan token yang disimpan. Permintaan penggabungan yang sudah tertaut tetap ada di tugasnya.",
   "codeup.disconnectSuccess": "Codeup terputus",
-  "codeup.disconnectFailed": "Gagal memutuskan Codeup"
+  "codeup.disconnectFailed": "Gagal memutuskan Codeup",
+  "workspaceSettings.section.general": "Umum",
+  "workspaceSettings.section.codeReview": "Tinjauan kode",
+  "workspaceSettings.section.dataPrivacy": "Data & privasi",
+  "workspaceSettings.section.navLabel": "Bagian pengaturan ruang kerja"
 }

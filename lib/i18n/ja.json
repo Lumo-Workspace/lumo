@@ -3137,5 +3137,9 @@
   "codeup.disconnectTitle": "Codeup の接続を解除しますか?",
   "codeup.disconnectDesc": "Lumo は自身の Webhook と保存済みのトークンを削除します。すでに紐付いたマージリクエストはタスクに残ります。",
   "codeup.disconnectSuccess": "Codeup の接続を解除しました",
-  "codeup.disconnectFailed": "Codeup の接続を解除できませんでした"
+  "codeup.disconnectFailed": "Codeup の接続を解除できませんでした",
+  "workspaceSettings.section.general": "一般",
+  "workspaceSettings.section.codeReview": "コードレビュー",
+  "workspaceSettings.section.dataPrivacy": "データとプライバシー",
+  "workspaceSettings.section.navLabel": "ワークスペース設定のセクション"
 }
