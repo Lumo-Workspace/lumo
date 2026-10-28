@@ -49,7 +49,8 @@ export function RepoReviewTriggersSection({
     name: keyof FiltersDraft,
     label: string,
     placeholder: string,
-    hint?: string
+    hint?: string,
+    validate?: (value: string) => string | null
   ) => (
     <div className='flex flex-col gap-1.5'>
       <Label htmlFor={id(name)} className='text-body-strong text-foreground'>
@@ -61,6 +62,7 @@ export function RepoReviewTriggersSection({
         placeholder={placeholder}
         disabled={disabled}
         aria-describedby={hint ? id(`${name}-hint`) : undefined}
+        validate={validate}
         onChange={v => set({ [name]: v })}
       />
       {hint && (
@@ -73,6 +75,9 @@ export function RepoReviewTriggersSection({
       )}
     </div>
   )
+
+  // Skip and only are told apart by the field; a typed `!` would flip it.
+  const noBang = (v: string) => (v.startsWith('!') ? t('labelNoBang') : null)
 
   return (
     <div className='flex flex-col gap-6'>
@@ -160,7 +165,13 @@ export function RepoReviewTriggersSection({
           t('skip.titlesPlaceholder'),
           t('skip.titlesHint')
         )}
-        {chips('skipLabels', t('skip.labels'), t('labelPlaceholder'))}
+        {chips(
+          'skipLabels',
+          t('skip.labels'),
+          t('labelPlaceholder'),
+          undefined,
+          noBang
+        )}
       </div>
 
       <Separator />
@@ -170,7 +181,13 @@ export function RepoReviewTriggersSection({
         <p className='text-caption text-muted-foreground'>{t('only.hint')}</p>
       </div>
       <div className='grid gap-4 sm:grid-cols-2'>
-        {chips('onlyLabels', t('only.labels'), t('labelPlaceholder'))}
+        {chips(
+          'onlyLabels',
+          t('only.labels'),
+          t('labelPlaceholder'),
+          undefined,
+          noBang
+        )}
         <div className='flex flex-col gap-1.5'>
           <Label
             htmlFor={id('descriptionKeyword')}

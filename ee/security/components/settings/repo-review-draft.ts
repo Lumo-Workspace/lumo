@@ -131,11 +131,20 @@ export function filtersUpdate(
   d: FiltersDraft
 ): Omit<RepoReviewSettingsUpdate, 'repo'> {
   const update: Omit<RepoReviewSettingsUpdate, 'repo'> = {}
-  const baseBranches = baseBranchesFor(
-    d.branchScope,
-    d.branchPatterns,
+  // An untouched default / any scope keeps whatever list stores it (a
+  // stored ['.*'] and an all-branches [] both read "any").
+  const storedScope = branchScopeOf(
+    setting.baseBranches,
     setting.emptyBaseBranchesMeans
   )
+  const baseBranches =
+    d.branchScope === storedScope && d.branchScope !== 'patterns'
+      ? setting.baseBranches
+      : baseBranchesFor(
+          d.branchScope,
+          d.branchPatterns,
+          setting.emptyBaseBranchesMeans
+        )
   if (!sameList(baseBranches, setting.baseBranches))
     update.baseBranches = baseBranches
   const labels = joinLabels(d.onlyLabels, d.skipLabels)
@@ -319,13 +328,27 @@ export function changedCount(update: RepoReviewSettingsUpdate | null): number {
 }
 
 /** What keeps the draft from being saved (empty = savable). */
-export type DraftProblem = 'branchPatternsEmpty'
+export type DraftProblem = 'branchPatternsEmpty' | 'incompleteRows'
+
+/** Exactly one of the two halves filled: the save would silently drop it. */
+const halfFilled = (a: string, b: string) =>
+  a.trim().length > 0 !== b.trim().length > 0
 
 export function draftProblems(draft: RepoReviewDraft): DraftProblem[] {
-  return draft.filters.branchScope === 'patterns' &&
+  const problems: DraftProblem[] = []
+  if (
+    draft.filters.branchScope === 'patterns' &&
     draft.filters.branchPatterns.length === 0
-    ? ['branchPatternsEmpty']
-    : []
+  )
+    problems.push('branchPatternsEmpty')
+  if (
+    draft.style.pathInstructions.some(r =>
+      halfFilled(r.path, r.instructions)
+    ) ||
+    draft.checks.customChecks.some(c => halfFilled(c.name, c.instructions))
+  )
+    problems.push('incompleteRows')
+  return problems
 }
 
 // ── The list's one-line summary ────────────────────────────────────────

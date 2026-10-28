@@ -81,6 +81,38 @@ describe('branch scope', () => {
   })
 })
 
+describe('untouched branch scope', () => {
+  it('a stored ".*" under all-branches is not a change on open', () => {
+    const setting = {
+      ...REPO,
+      baseBranches: ['.*'],
+      emptyBaseBranchesMeans: 'all_branches' as const,
+    }
+    expect(repoReviewUpdate(setting, draftOfRepo(setting))).toBeNull()
+  })
+})
+
+describe('incomplete rows', () => {
+  it('a row with one half filled blocks the save; an empty one does not', () => {
+    const draft = draftOfRepo(REPO)
+    const withRow = (path: string, instructions: string) => ({
+      ...draft,
+      style: { ...draft.style, pathInstructions: [{ path, instructions }] },
+    })
+    expect(draftProblems(withRow('', ''))).toEqual([])
+    expect(draftProblems(withRow('scripts/**', ''))).toEqual(['incompleteRows'])
+    expect(
+      draftProblems({
+        ...draft,
+        checks: {
+          ...draft.checks,
+          customChecks: [{ name: '', mode: 'error', instructions: 'x' }],
+        },
+      })
+    ).toEqual(['incompleteRows'])
+  })
+})
+
 describe('labels', () => {
   it('splits `!label` into skip and joins back', () => {
     expect(splitLabels(['bug', '!wip', 'ready'])).toEqual({

@@ -26,7 +26,7 @@ import type {
   RepoReviewSettingsUpdate,
 } from '@/ee/security/services/repo-review-settings.service'
 
-/** Above this many repositories the list gets a filter box. */
+/** From this many repositories on, the list gets a filter box. */
 const FILTER_FROM = 6
 
 interface RepoRowProps {
@@ -123,14 +123,17 @@ export function RepoReviewSettingsCard() {
   const t = (id: string, values?: Record<string, number>) =>
     intl.formatMessage({ id: `workspaceSettings.repoReview.${id}` }, values)
 
-  const save = async (change: RepoReviewSettingsUpdate): Promise<boolean> => {
+  /** The saved setting of the changed repository; null when it failed. */
+  const save = async (
+    change: RepoReviewSettingsUpdate
+  ): Promise<RepoReviewSettingView | null> => {
     try {
-      await update.mutateAsync(change)
+      const saved = await update.mutateAsync(change)
       toast.success(t('updated'))
-      return true
+      return saved.repositories.find(r => r.repo === change.repo) ?? null
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('updateFailed'))
-      return false
+      return null
     }
   }
 

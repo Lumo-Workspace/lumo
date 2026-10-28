@@ -45,8 +45,10 @@ interface RepoReviewSettingsSheetProps {
   canEdit: boolean
   saving: boolean
   onClose: () => void
-  /** Resolves true once saved. */
-  onSave: (update: RepoReviewSettingsUpdate) => Promise<boolean>
+  /** Resolves to the saved setting, or null when the save failed. */
+  onSave: (
+    update: RepoReviewSettingsUpdate
+  ) => Promise<RepoReviewSettingView | null>
 }
 
 interface SheetBodyProps extends Omit<RepoReviewSettingsSheetProps, 'setting'> {
@@ -70,14 +72,21 @@ function SheetBody({
       { id: `workspaceSettings.repoReview.sheet.${id}` },
       values
     )
+  // The values the draft started from. A refetch while the sheet is open
+  // (window focus) never resets the draft; only this sheet's own save moves
+  // the baseline, so a PATCH carries just what this owner changed.
+  const [baseline, setBaseline] = useState(setting)
   const [draft, setDraft] = useState<RepoReviewDraft>(() =>
     draftOfRepo(setting)
   )
   const [section, setSection] = useState<Section>('when')
   const [confirmClose, setConfirmClose] = useState(false)
-  const update = repoReviewUpdate(setting, draft)
-  const changes = changedCount(update)
-  const blocked = draftProblems(draft).length > 0
+  const update = repoReviewUpdate(baseline, draft)
+  const problems = draftProblems(draft)
+  const blocked = problems.length > 0
+  // A half-filled row is unsaved work even though the PATCH would drop it.
+  const changes =
+    changedCount(update) + (problems.includes('incompleteRows') ? 1 : 0)
   const disabled = !canEdit || saving
   const idBase = `repo-review-${setting.repo.replace(/[^\w-]/g, '-')}`
 
@@ -89,9 +98,10 @@ function SheetBody({
 
   const save = async () => {
     if (!update || blocked) return
-    // The sheet remounts on the saved setting (its key), so the draft and
-    // the stored values agree again.
-    await onSave(update)
+    const saved = await onSave(update)
+    if (!saved) return
+    setBaseline(saved)
+    setDraft(draftOfRepo(saved))
   }
 
   return (
@@ -129,7 +139,7 @@ function SheetBody({
           <TabsContent value='when' className='mt-0'>
             <RepoReviewTriggersSection
               idBase={`${idBase}-when`}
-              emptyBaseBranchesMeans={setting.emptyBaseBranchesMeans}
+              emptyBaseBranchesMeans={baseline.emptyBaseBranchesMeans}
               draft={draft.filters}
               disabled={disabled}
               onChange={filters => setDraft(d => ({ ...d, filters }))}
@@ -155,16 +165,27 @@ function SheetBody({
       </Tabs>
 
       <div className='flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-3'>
-        <p className='text-caption text-muted-foreground' aria-live='polite'>
+        <p
+          className={
+            problems.includes('incompleteRows')
+              ? 'text-caption text-danger-text'
+              : 'text-caption text-muted-foreground'
+          }
+          aria-live='polite'
+        >
           {canEdit &&
-            (changes > 0 ? t('unsaved', { count: changes }) : t('noChanges'))}
+            (problems.includes('incompleteRows')
+              ? t('incompleteRows')
+              : changes > 0
+                ? t('unsaved', { count: changes })
+                : t('noChanges'))}
         </p>
         {canEdit ? (
           <div className='flex gap-2'>
             <Button
               variant='ghost'
               disabled={saving || changes === 0}
-              onClick={() => setDraft(draftOfRepo(setting))}
+              onClick={() => setDraft(draftOfRepo(baseline))}
             >
               {t('discard')}
             </Button>
@@ -231,8 +252,8 @@ export function RepoReviewSettingsSheet({
     >
       {setting && (
         <SheetBody
-          // A saved change comes back as a new setting: start from it.
-          key={`${setting.repo}:${JSON.stringify(setting)}`}
+          // One body per repository; it keeps its draft across refetches.
+          key={setting.repo}
           setting={setting}
           closeRequest={closeRequest}
           {...rest}

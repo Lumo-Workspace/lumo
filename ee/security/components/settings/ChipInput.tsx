@@ -18,8 +18,8 @@ interface ChipInputProps {
 }
 
 /**
- * LUM-1331 — a list setting as chips: Enter, a comma or a paste of several
- * lines adds; each chip removes on its ×; Backspace in the empty field
+ * LUM-1331 — a list setting as chips: Enter or a paste of several lines
+ * adds; each chip removes on its ×; Backspace in the empty field
  * removes the last one. Blanks and repeats are never added.
  */
 export function ChipInput({
@@ -54,7 +54,8 @@ export function ChipInput({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
+    // Enter only: a comma is part of a regex quantifier ({1,3}) or a title.
+    if (e.key === 'Enter') {
       e.preventDefault()
       if (add([text])) setText('')
     } else if (e.key === 'Backspace' && text === '' && values.length > 0) {
@@ -64,9 +65,9 @@ export function ChipInput({
 
   const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData('text')
-    if (!/[\n,]/.test(pasted)) return
+    if (!pasted.includes('\n')) return
     e.preventDefault()
-    if (add(pasted.split(/[\n,]/))) setText('')
+    if (add(pasted.split('\n'))) setText('')
   }
 
   return (
