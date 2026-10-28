@@ -8,7 +8,7 @@
  * DEFAULT_WORKSPACE_SECURITY_SWITCHES), and scans get an empty
  * `agentReviewTools`.
  */
-import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
+import { createPgliteHarness } from '../../../scripts/test-support/pglite-harness'
 import { DEFAULT_WORKSPACE_SECURITY_SWITCHES } from '@/ee/security/security-scan/workspace-switches'
 
 const { PrismaClient } =

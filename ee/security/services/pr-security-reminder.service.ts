@@ -48,7 +48,7 @@ import {
 } from '@/ee/security/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/ee/security/security-scan/size-caps'
 import { loadSecurityLayers } from './security-workspace-switches.service'
-import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { logger } from '@/lib/logger'
 import { prFindingThreadRepository } from '@/ee/security/repositories/pr-finding-thread.repository'
 import type {
@@ -175,8 +175,8 @@ export function hasAgentReviewOnHead(
  * LUM-1328 — of the PRs missing an agent review, those an import would be
  * accepted for: the repository is confirmed in the workspace (the import
  * refuses an unconfirmed one). A failed read nudges for none — the nudge is
- * advisory, so silence is the safe side. The GitHub list is the import's own
- * check for these rows: `findManyForSecurityByTaskId` reads GitHub PRs only.
+ * advisory, so silence is the safe side. Read through the PRs' provider, as
+ * the import does (`findManyForSecurityByTaskId` reads GitHub PRs only).
  */
 async function importablePrNumbers(
   candidates: Array<{ number: number; repo: string }>,
@@ -184,7 +184,8 @@ async function importablePrNumbers(
 ): Promise<number[]> {
   if (candidates.length === 0) return []
   try {
-    const confirmed = await loadConfirmedRepositories(workspaceId)
+    const confirmed =
+      await gitProviderFor(null).loadConfirmedRepositories(workspaceId)
     return candidates.filter(c => confirmed(c.repo) !== null).map(c => c.number)
   } catch (error) {
     logger.warn('securityReminder.confirmedRepos.failed', {
