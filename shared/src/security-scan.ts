@@ -57,8 +57,8 @@ export function isAgentReviewRuleId(ruleId: string): boolean {
 
 /**
  * LUM-1333 — a code review a developer imported with `lumo review import
- * --kind bug`: its rows are `ext:<agent>:bug:<kind>` (kind one of the AI
- * review's bug kinds), stored as CORRECTNESS. Like Lumo's own `review:<kind>`
+ * --kind bug`: its rows are `ext:<agent>:bug:<kind>[:<rule>]` (kind one of
+ * the AI review's bug kinds), stored as CORRECTNESS. Like Lumo's own `review:<kind>`
  * bugs they are tagged `[BUG]` and never block DONE. A security import's own
  * rule ids never start with `bug:` (the server renames them).
  */

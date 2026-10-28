@@ -2009,7 +2009,9 @@ export const securityPrReviewService = {
         if (
           f.provenance === 'EXTERNAL_TOOL' &&
           tool &&
-          f.kind !== 'DEPENDENCY'
+          f.kind !== 'DEPENDENCY' &&
+          // LUM-1333: an imported code review's bugs count as bugs.
+          f.kind !== 'CORRECTNESS'
         ) {
           externalCounts[tool] = (externalCounts[tool] ?? 0) + 1
         }

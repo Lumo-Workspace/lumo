@@ -1469,13 +1469,14 @@ export const prSecurityScanRepository = {
       // a code review (bugs) is not the security review the nudge asks for.
       const agentTools =
         opts.agentKind === 'bug' ? [] : uniqueTools.filter(isAgentReviewTool)
+      // LUM-1333: a code review is no security scanner run either — its
+      // bugs leave the external layer's state alone.
+      const stages = (current?.stages as ScanStages | null) ?? {}
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
-          stages: {
-            ...((current?.stages as ScanStages | null) ?? {}),
-            [stage]: 'RAN',
-          },
+          stages:
+            opts.agentKind === 'bug' ? stages : { ...stages, [stage]: 'RAN' },
           ...mergePartial(current, opts.partialCauses),
           ...(agentTools.length > 0
             ? {
@@ -1995,7 +1996,12 @@ export const prSecurityScanRepository = {
 
   async countExternalFindings(scanId: string): Promise<number> {
     return prisma.prSecurityFinding.count({
-      where: { scanId, provenance: 'EXTERNAL_TOOL' },
+      // LUM-1333: an imported code review's bugs are no scanner's findings.
+      where: {
+        scanId,
+        provenance: 'EXTERNAL_TOOL',
+        kind: { not: 'CORRECTNESS' },
+      },
     })
   },
 

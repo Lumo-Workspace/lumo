@@ -9,6 +9,7 @@
 import {
   agentReviewSarif,
   bugKindOf,
+  importedBugKind,
 } from '@/ee/security/security-scan/agent-review-sarif'
 import {
   findingCountPhrase,
@@ -64,14 +65,50 @@ describe('bugKindOf', () => {
   })
 })
 
+/** A report with one result per [rule, title, message], all in app/x.ts. */
+const multi = (entries: [string, string, string][]) => ({
+  version: '2.1.0',
+  runs: [
+    {
+      tool: {
+        driver: {
+          name: 'claude-code',
+          rules: [...new Map(entries.map(([id, title]) => [id, title]))].map(
+            ([id, title]) => ({ id, shortDescription: { text: title } })
+          ),
+        },
+      },
+      results: entries.map(([ruleId, , text]) => ({
+        ruleId,
+        level: 'warning',
+        message: { text },
+        locations: [
+          {
+            physicalLocation: {
+              artifactLocation: { uri: 'app/x.ts' },
+              region: { startLine: 3 },
+            },
+          },
+        ],
+      })),
+    },
+  ],
+})
+
+const ingest = (doc: Record<string, unknown>) =>
+  normalizeSarif(parseSarif(agentReviewSarif(doc, 'bug')), {
+    toolHint: 'claude-code',
+    changedLines: null,
+  }).findings
+
 describe('agentReviewSarif', () => {
-  it('a code review: rules become bug:<kind>, and the message keys the fingerprint', () => {
+  it('a code review: a rule that is a bug kind becomes bug:<kind>, any other bug:<kind>:<rule>', () => {
     const run = firstRun(agentReviewSarif(report('error-handling'), 'bug'))
     expect(run.tool.driver.rules).toEqual([{ id: 'bug:error_handling' }])
     expect(run.results[0]!.ruleId).toBe('bug:error_handling')
     expect(
-      run.results[0]!.locations[0]!.physicalLocation.region.snippet
-    ).toEqual({ text: 'q reaches a raw query' })
+      firstRun(agentReviewSarif(report('off-by-one'), 'bug')).results[0]!.ruleId
+    ).toBe('bug:logic_error:off-by-one')
   })
   it('a security review keeps its rules but never the reserved bug: segment', () => {
     expect(
@@ -82,19 +119,35 @@ describe('agentReviewSarif', () => {
         .ruleId
     ).toBe('bug-sqli')
   })
-  it('two bugs of one kind in one file stay two rows after the ingest', () => {
-    const doc = report('logic-error', 'first')
-    const run = (doc.runs[0]!.results as unknown[]).concat({
-      ...doc.runs[0]!.results[0]!,
-      message: { text: 'second' },
-    })
-    doc.runs[0]!.results = run as (typeof doc.runs)[0]['results']
-    const n = normalizeSarif(parseSarif(agentReviewSarif(doc, 'bug')), {
-      toolHint: 'claude-code',
-      changedLines: null,
-    })
-    expect(n.findings).toHaveLength(2)
-    expect(n.dropped.duplicate).toBe(0)
+  it('bugs of one kind from different rules keep their own titles', () => {
+    const rows = ingest(
+      multi([
+        ['off-by-one', 'Loop skips the last item', 'first'],
+        ['missing-await', 'Promise is never awaited', 'second'],
+      ])
+    )
+    expect(rows.map(r => r.title)).toEqual([
+      'Loop skips the last item',
+      'Promise is never awaited',
+    ])
+    expect(rows.map(r => r.ruleId)).toEqual([
+      'ext:claude-code:bug:logic_error:off-by-one',
+      'ext:claude-code:bug:logic_error:missing-await',
+    ])
+  })
+  it('two bugs of one rule in one file stay two rows', () => {
+    const rows = ingest(
+      multi([
+        ['logic-error', 'Wrong branch', 'first'],
+        ['logic-error', 'Wrong branch', 'second'],
+      ])
+    )
+    expect(rows).toHaveLength(2)
+  })
+  it("a lone bug's fingerprint survives a re-run that rewords it", () => {
+    const [a] = ingest(multi([['logic-error', 'Wrong branch', 'first']]))
+    const [b] = ingest(multi([['logic-error', 'Wrong branch', 'reworded']]))
+    expect(a!.fingerprint).toBe(b!.fingerprint)
   })
 })
 
@@ -144,6 +197,11 @@ describe('an imported bug row', () => {
 
   it("groups with Lumo's own review of the same bug kind", () => {
     expect([...issueClasses(ruleId)]).toEqual(['logic_error'])
+    expect([
+      ...issueClasses('ext:claude-code:bug:concurrency:data-race'),
+    ]).toEqual(['concurrency'])
+    expect(importedBugKind('ext:codex:bug:api_misuse:x')).toBe('api_misuse')
+    expect(importedBugKind('ext:codex:sqli')).toBeNull()
     expect([...issueClasses('review:logic_error')]).toEqual(['logic_error'])
   })
 })

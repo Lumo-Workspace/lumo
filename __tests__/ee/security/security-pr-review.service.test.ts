@@ -988,6 +988,15 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
             ruleId: 'ext:osv-scanner:GHSA-2',
             line: null,
             persisting: true,
+          }), // LUM-1333: an imported code review's bug is no scanner finding.
+          finding({
+            id: 'bug',
+            kind: 'CORRECTNESS',
+            fingerprint: 'fpBug',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:claude-code:bug:logic_error',
+            line: null,
+            persisting: false,
           }),
         ],
       })
@@ -1003,7 +1012,8 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
     expect(body).toContain(
       `- **Dependencies** (checked · 1 vulnerable dependency (1 already on main)): ${D.supplyChain}`
     )
-    expect(body).toContain('**2 open findings**')
+    // The imported bug is counted as a bug, not under the scanners.
+    expect(body).toContain('**3 open findings** (1 is a bug')
   })
 })
 

@@ -69,7 +69,7 @@ findings to the branch's open PR with `lumo review import <file>` — SARIF
 model for it. The report goes through the same diff-aware, redacted ingest as
 a CI push, under the agent's name (`claude-code` / `codex`). With `--kind bug`
 the file is the agent's code review (`/code-review`): each finding becomes one
-of the AI review's bug kinds (`ext:<agent>:bug:<kind>`, shown as a bug like
+of the AI review's bug kinds (`ext:<agent>:bug:<kind>[:<rule>]`, shown as a bug like
 Lumo's own review's, never blocking Done), and a code-review import and a
 security-review import of the same head never replace each other
 (LUM-1333; the command was `lumo security import`). Its findings are

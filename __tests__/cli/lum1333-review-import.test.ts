@@ -85,6 +85,7 @@ describe('lumo review import', () => {
             prNumber: body.prNumber,
             headSha: body.headSha,
             tool: body.tool,
+            ...(body.kind ? { kind: body.kind } : {}),
             results: 1,
           }),
           { status: 202, headers: { 'content-type': 'application/json' } }
@@ -177,10 +178,25 @@ describe('lumo review import', () => {
     expect(out).toContain('never block DONE')
   })
 
+  it('LUM-1333 a server without --kind refuses a code review with a hint', async () => {
+    // A pre-LUM-1333 server's strict schema refuses the unknown field.
+    const fetch = api(
+      { number: 12, headSha: null },
+      new Response(JSON.stringify({ error: 'Unrecognized key: "kind"' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+    const { result, err } = await run({ kind: 'bug' }, fetch)
+    expect(result).toBe(1)
+    expect(err).toContain('may predate code-review imports')
+  })
+
   it('LUM-1333 --kind is security by default and anything else is a usage error', async () => {
     const fetch = api({ number: 12, headSha: null })
     await run({}, fetch)
-    expect(JSON.parse(importCall(fetch)![1].body).kind).toBe('security')
+    // Sent without a kind, so a pre-LUM-1333 server still accepts it.
+    expect(JSON.parse(importCall(fetch)![1].body)).not.toHaveProperty('kind')
     const bad = api({ number: 12, headSha: null })
     const { result, err } = await run({ kind: 'style' }, bad)
     expect(result).toBe(2)

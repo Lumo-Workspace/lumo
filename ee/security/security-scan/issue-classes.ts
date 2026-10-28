@@ -5,6 +5,7 @@
  */
 import { REVIEW_KINDS } from '@/ee/security/security-scan/review-kinds'
 import { isAgentReviewRuleId } from '@/shared/src/security-scan'
+import { importedBugKind } from '@/ee/security/security-scan/agent-review-sarif'
 
 /** The AI review kinds that the hunt's `injection` category covers (CWE-74 family). */
 const INJECTION_KINDS = [
@@ -79,14 +80,11 @@ export function issueClasses(ruleId: string): ReadonlySet<string> {
   }
   // LUM-1321: an imported Claude Code / Codex review names its own rule; one
   // that spells an AI review kind (`command-injection`) is that kind.
-  // LUM-1333: an imported bug (`bug:<kind>`) is its bug kind.
+  // LUM-1333: an imported bug (`bug:<kind>[:<rule>]`) is its bug kind.
+  const bugKind = importedBugKind(ruleId)
+  if (bugKind !== null) return new Set([bugKind])
   if (isAgentReviewRuleId(ruleId)) {
-    const rule = ruleId
-      .split(':')
-      .slice(2)
-      .join(':')
-      .replace(/^bug:/, '')
-      .replace(/-/g, '_')
+    const rule = ruleId.split(':').slice(2).join(':').replace(/-/g, '_')
     const kind = CWE_KINDS[rule] ?? rule
     return REVIEW_KIND_SET.has(kind) ? new Set([kind]) : new Set([ruleId])
   }

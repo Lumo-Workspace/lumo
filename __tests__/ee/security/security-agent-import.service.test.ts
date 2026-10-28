@@ -120,10 +120,10 @@ describe('LUM-1333 a code review (kind bug)', () => {
     expect(out).toMatchObject({ kind: 'bug', results: 1 })
     const [, gz] = put.mock.calls[0]!
     const stored = JSON.parse(gunzipSync(gz).toString('utf8'))
-    // `sqli` is no bug kind: it becomes logic_error.
-    expect(stored.runs[0].results[0].ruleId).toBe('bug:logic_error')
+    // `sqli` is no bug kind: it becomes logic_error, keeping its own rule.
+    expect(stored.runs[0].results[0].ruleId).toBe('bug:logic_error:sqli')
     expect(stored.runs[0].tool.driver.rules).toEqual([
-      { id: 'bug:logic_error' },
+      { id: 'bug:logic_error:sqli' },
     ])
     expect(startRun).toHaveBeenCalledWith(
       expect.objectContaining({ agentKind: 'bug' })

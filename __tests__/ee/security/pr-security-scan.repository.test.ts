@@ -476,7 +476,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
   test("LUM-1333: a code-review import replaces only that agent's bug rows and is not the security review", async () => {
     mockScan.findUnique.mockResolvedValueOnce({
       status: 'RUNNING',
-      stages: null,
+      stages: { judge: 'RAN' },
       partial: false,
       agentReviewTools: [],
     })
@@ -486,6 +486,10 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       [],
       { partialCauses: [], agentKind: 'bug' }
     )
+    // No security scanner ran: the external layer keeps its state.
+    expect(mockScan.update.mock.calls[0]![0].data.stages).toEqual({
+      judge: 'RAN',
+    })
     expect(mockFinding.deleteMany).toHaveBeenCalledWith({
       where: {
         scanId: 's1',
@@ -935,11 +939,15 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     expect(mockTransaction).toHaveBeenCalledTimes(3)
   })
 
-  test('countExternalFindings counts EXTERNAL_TOOL rows of the scan', async () => {
+  test("countExternalFindings counts the scan's EXTERNAL_TOOL rows, not imported bugs", async () => {
     mockFinding.count.mockResolvedValueOnce(3)
     expect(await prSecurityScanRepository.countExternalFindings('s1')).toBe(3)
     expect(mockFinding.count).toHaveBeenCalledWith({
-      where: { scanId: 's1', provenance: 'EXTERNAL_TOOL' },
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        kind: { not: 'CORRECTNESS' },
+      },
     })
   })
 

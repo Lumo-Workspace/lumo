@@ -170,7 +170,9 @@ export async function reviewImportCommand(
     prNumber,
     headSha: head,
     tool,
-    kind,
+    // A server before LUM-1333 refuses an unknown field, so a security
+    // review (its default) is sent without one.
+    ...(kind === 'bug' ? { kind } : {}),
     sarif: converted.sarif,
   })
   // The server caps the request body, which is larger than the file once a
@@ -213,6 +215,10 @@ export async function reviewImportCommand(
     console.error(
       `Error: ${detail ? sanitizeField(detail) : httpFailed('review import', res.status)}`
     )
+    if (kind === 'bug' && res.status === 400)
+      console.error(
+        'This Lumo server may predate code-review imports (--kind bug); a security review imports without --kind.'
+      )
     return EXIT_ERROR
   }
   const out = (await res.json()) as ImportResponse
@@ -222,7 +228,8 @@ export async function reviewImportCommand(
     return 0
   }
   const ref = `${sanitizeField(out.repository)}#${out.prNumber}`
-  const bugs = (out.kind ?? kind) === 'bug'
+  // Only a server that knows `--kind bug` answers with a kind.
+  const bugs = out.kind === 'bug'
   const what = bugs ? 'code review' : 'security review'
   console.log(
     `Imported ${out.results} ${bugs ? 'bug' : 'result'}${out.results === 1 ? '' : 's'} from ${out.tool}'s ${what} into ${ref} @ ${out.headSha.slice(0, 7)}`
