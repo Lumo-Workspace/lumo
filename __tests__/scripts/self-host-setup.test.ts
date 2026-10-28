@@ -261,6 +261,11 @@ describe('scripts/self-host/setup.sh', () => {
     expect(countLines('COMPOSE_FILE')).toBe(1)
   })
 
+  it('a bad --url on a fresh checkout writes nothing', () => {
+    expect(() => run('--with', 'all', '--url', 'lumo.example.com')).toThrow()
+    expect(() => statSync(join(dir, '.env'))).toThrow()
+  })
+
   it('rejects a URL without a scheme and leaves .env URL untouched', () => {
     run()
     expect(() => run('--url', 'lumo.example.com')).toThrow()

@@ -48,6 +48,15 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# A bad --url fails before .env is touched at all.
+check_url() {
+  case "$1" in
+    http://?*|https://?*) ;;
+    *) echo "setup.sh: --url must start with http:// or https:// (got: $1)" >&2; exit 2 ;;
+  esac
+}
+[ -z "$URL" ] || check_url "$URL"
+
 command -v openssl >/dev/null 2>&1 || {
   echo "setup.sh: openssl is required to generate secrets" >&2
   exit 1
@@ -162,10 +171,8 @@ fi
 
 if [ -n "$EFFECTIVE_URL" ]; then
   EFFECTIVE_URL=$(printf '%s' "$EFFECTIVE_URL" | sed 's:/*$::')
-  case "$EFFECTIVE_URL" in
-    http://?*|https://?*) ;;
-    *) echo "setup.sh: --url must start with http:// or https:// (got: $EFFECTIVE_URL)" >&2; exit 2 ;;
-  esac
+  # Also covers a URL typed at the prompt or one already in .env.
+  check_url "$EFFECTIVE_URL"
   host=${EFFECTIVE_URL#*://}
   host=${host%%/*}
   host=${host##*@}
