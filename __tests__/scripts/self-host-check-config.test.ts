@@ -32,7 +32,7 @@ describe('check-config.mjs formatReport', () => {
     expect(lines[1]).toMatch(/^ {2}– Email +not configured$/)
     expect(lines[2]?.trim()).toBe('set SMTP_URL')
     expect(lines).not.toContain('unused')
-    expect(lines.at(-1)).toBe('Configuration check passed.')
+    expect(lines[lines.length - 1]).toBe('Configuration check passed.')
   })
 
   it('a failed check exits 1 and says how many failed', () => {
@@ -42,7 +42,7 @@ describe('check-config.mjs formatReport', () => {
     ])
     expect(exitCode).toBe(1)
     expect(lines[0]).toContain('✗ Redis')
-    expect(lines.at(-1)).toContain('2 failed')
+    expect(lines[lines.length - 1]).toContain('2 failed')
   })
 
   it('importing it runs nothing (only --report does)', () => {
