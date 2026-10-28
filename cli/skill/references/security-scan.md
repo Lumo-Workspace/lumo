@@ -1,4 +1,4 @@
-# Local security scans — `lumo security scan`
+# Local security scans — `lumo security scan` / `import`
 
 `lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
 
@@ -152,3 +152,44 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 - After `npm install` / a dependency bump, or before pushing a lockfile change — "did that upgrade pull in anything vulnerable?": `lumo security scan --deps`.
 - For the whole tree or a non-npm project: `lumo security scan --deps --full` (needs osv-scanner on PATH).
 - Not for reading what the PR scan found — that is `lumo pr show <number>` ([pr-scan.md](pr-scan.md)).
+
+## `lumo security import <file>` — attach a Claude Code / Codex review
+
+Attaches a security review **you ran in Claude Code or Codex** to the branch's open PR scan, so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
+
+- **Advisory, never blocks DONE**, whatever the workspace policy lists (rule ids `ext:claude-code:…` / `ext:codex:…`).
+- **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"). Lumo keeps only results on lines the PR changed; the rest are dropped.
+- **Replaces** that tool's earlier import on the same head; an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.
+- **Sends** the report (titles, details, paths, lines) to Lumo; it is redacted like a CI report. Any workspace member may import into the workspace's PRs.
+
+**File format** — SARIF 2.1.0 as is (e.g. a Codex Security `export --export-format sarif`), or:
+
+```json
+{
+  "findings": [
+    {
+      "file": "app/api/search/route.ts",
+      "line": 12,
+      "severity": "high",
+      "title": "SQL injection in search",
+      "detail": "q reaches $queryRawUnsafe",
+      "rule": "sql-injection"
+    }
+  ]
+}
+```
+
+`file` repo-relative (an absolute path inside the repo is accepted), `line` ≥ 1, `severity` `high` | `medium` | `low` (`critical` = high), `title` required, `detail` and `rule` optional (no `rule` = a slug of the title; keep it stable so a re-import keeps the finding's fingerprint and its ruling). At most 500 findings, 1 MiB.
+
+**Getting the file.** Claude Code: run `/security-review`, then write its findings to a file in this format (e.g. `/tmp/review.json`). Codex: run the review, write the findings the same way, or export SARIF.
+
+Flags: `--tool claude-code|codex` (default: the agent this shell runs in; required elsewhere), `--pr <number>` (instead of the branch's open PR), `--repo <owner/repo>`, `--json` (`{ version, runId, repository, prNumber, headSha, tool, results }`).
+
+```bash
+lumo security import /tmp/review.json
+lumo security import results.sarif --tool codex --pr 42
+```
+
+Exit codes: 0 sent · 1 not logged in, no open PR, `HEAD` not the PR head, unreadable or invalid file (the reason names the field, e.g. `findings[0].severity`), or the server refused (repository not confirmed, scanning off, PR not open, rate limit) · 2 usage (`--tool` missing outside an agent or not an agent, bad `--pr` / `--repo`). In Codex it reads a local file, so Codex asks first ([codex.md](codex.md)).
+
+**When to suggest:** the user asks you to security-review the branch, or ran `/security-review`, and the PR is open and pushed — offer to import the findings; never import without saying so.

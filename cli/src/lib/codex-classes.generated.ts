@@ -126,6 +126,11 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'project show': { serverOnly: true, localFiles: 'none' },
   'project unarchive': { serverOnly: true, localFiles: 'none' },
   'project update': { serverOnly: true, localFiles: 'none' },
+  'security import': {
+    serverOnly: false,
+    localFiles: 'reads',
+    detail: '<file>',
+  },
   'security scan': {
     serverOnly: false,
     localFiles: 'none',

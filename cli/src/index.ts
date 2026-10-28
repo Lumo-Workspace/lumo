@@ -119,6 +119,10 @@ import {
   type SecurityScanOptions,
 } from './commands/security-scan'
 import {
+  securityImportCommand,
+  type SecurityImportOptions,
+} from './commands/security-import'
+import {
   workspaceSecurityScan,
   workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
@@ -816,7 +820,7 @@ pr.command('review <number>')
 const security = program
   .command('security')
   .description(
-    'Run Lumo security scans on your local changes before you push. Read-only; the PR scan stays the authority for DONE.'
+    "Run Lumo security scans on your local changes before you push (read-only), or import a Claude Code / Codex security review into the branch's PR scan. The PR scan stays the authority for DONE."
   )
 
 security
@@ -878,6 +882,34 @@ security
     "The repository to read server context for, instead of origin's"
   )
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
+
+security
+  .command('import <file>')
+  .codex(readsLocalFile('<file>'))
+  .description(
+    'Attach a security review you ran in Claude Code or Codex to the branch\'s open PR scan. <file> is SARIF 2.1.0 or { "findings": [{ file, line, severity, title, detail?, rule? }] }. Advisory: never blocks DONE.'
+  )
+  .option(
+    '--tool <tool>',
+    'The agent that ran the review: claude-code | codex (default: the agent this shell runs in)'
+  )
+  .option(
+    '--pr <number>',
+    "The pull request to import into, instead of the branch's open one"
+  )
+  .option(
+    '--repo <owner/repo>',
+    "The repository of the pull request, instead of origin's"
+  )
+  .option(
+    '--json',
+    'Emit the result ({ version, runId, repository, prNumber, headSha, tool, results })'
+  )
+  .action(
+    wrap((file, options) =>
+      securityImportCommand(file as string, options as SecurityImportOptions)
+    )
+  )
 
 const session = program
   .command('session')
