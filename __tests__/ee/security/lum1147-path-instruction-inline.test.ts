@@ -134,6 +134,7 @@ describe('verifyPathInstructionClaim — never trust an unmatched claim', () => 
 
 describe('the profile rule for path-instruction findings', () => {
   const f = (over: Partial<ProfileFinding> = {}): ProfileFinding => ({
+    ruleId: 'vuln:sql_injection',
     line: 3,
     severity: 'LOW',
     provenance: 'LLM_JUDGE',

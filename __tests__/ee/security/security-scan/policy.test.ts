@@ -40,8 +40,9 @@ const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const policyOf = securityColumnsRepository.findSecurityPolicy as jest.Mock
 
-type OpenFinding = PolicyFindingInput & { ruleId?: string; filePath?: string }
+type OpenFinding = PolicyFindingInput & { filePath?: string }
 const open = (over: Partial<OpenFinding>): OpenFinding => ({
+  ruleId: 'ext:semgrep:js.sqli',
   provenance: 'EXTERNAL_TOOL',
   severity: 'MEDIUM',
   disposition: null,
@@ -155,6 +156,26 @@ describe('LUM-740 security policy', () => {
         false
       )
     })
+    it('LUM-1321: an imported Claude Code / Codex review finding never blocks, even when the policy lists EXTERNAL_TOOL', () => {
+      const everyExternal: SecurityPolicy = {
+        block: [
+          { provenance: 'EXTERNAL_TOOL', severity: 'LOW' },
+          { provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' },
+          { provenance: 'EXTERNAL_TOOL', severity: 'HIGH' },
+        ],
+      }
+      for (const ruleId of ['ext:claude-code:sqli', 'ext:codex:idor']) {
+        for (const severity of ['LOW', 'MEDIUM', 'HIGH'] as const) {
+          expect(
+            isBlockingUnderPolicy(open({ ruleId, severity }), everyExternal)
+          ).toBe(false)
+        }
+      }
+      // A CI scanner's EXTERNAL_TOOL row still blocks under the same policy.
+      expect(
+        isBlockingUnderPolicy(open({ severity: 'HIGH' }), everyExternal)
+      ).toBe(true)
+    })
     it('an LLM_JUDGE finding never blocks even when a caller smuggles the pair in', () => {
       expect(
         isBlockingUnderPolicy(
@@ -169,6 +190,7 @@ describe('LUM-740 security policy', () => {
     it('keeps the 732 behaviour with no policy argument', () => {
       expect(
         isBlockingFinding({
+          ruleId: 'secret:aws',
           provenance: 'DETERMINISTIC',
           severity: 'HIGH',
           disposition: null,

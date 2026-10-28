@@ -2319,6 +2319,7 @@ export const prSecurityScanService = {
       const blocksDone = rows.some(r =>
         isBlockingFinding(
           {
+            ruleId: r.ruleId,
             provenance: r.provenance,
             severity: r.severity,
             disposition: r.disposition ?? null,

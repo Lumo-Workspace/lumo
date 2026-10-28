@@ -213,6 +213,7 @@ export const prSecurityReminderService = {
       const resolvedFps = resolvedOnGithub.get(pr.id)
       const closedOnGithub = (f: {
         fingerprint: string
+        ruleId: string
         provenance: FindingProvenance
         severity: FindingSeverity
         disposition: FindingDisposition | null
