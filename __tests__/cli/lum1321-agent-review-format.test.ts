@@ -266,6 +266,26 @@ describe('SARIF', () => {
       )
   })
 
+  it.each([
+    [`file://localhost${ROOT}/app/page.tsx`, 'app/page.tsx'],
+    [`file://${ROOT}/app/a%20b.ts`, 'app/a b.ts'],
+  ])('reads the file URI %s as %s', (uri, rel) => {
+    const { sarif: out } = ok(sarif(uri))
+    expect(
+      out.runs[0]!.results[0]!.locations[0]!.physicalLocation.artifactLocation
+        .uri
+    ).toBe(rel)
+  })
+
+  it.each([
+    'file://otherhost/work/app/a.ts',
+    'https://github.com/acme/app/blob/main/a.ts',
+  ])('rejects %s as outside the repository', uri => {
+    const out = convert(sarif(uri))
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toMatch(/outside the repository/)
+  })
+
   it('rejects another SARIF version', () => {
     const out = convert({ ...sarif('a.ts'), version: '2.0.0' })
     expect(out.ok).toBe(false)

@@ -1,4 +1,5 @@
 import * as path from 'path'
+import { fileURLToPath } from 'url'
 import {
   AGENT_REVIEW_TOOLS,
   type AgentReviewTool,
@@ -49,17 +50,27 @@ export function detectAgentTool(
   return null
 }
 
+/** A local path for `file`: a path as is, a `file:` URI decoded; null for anything else. */
+function localPath(file: string): string | null {
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(file) || /^[a-z]:[\\/]/i.test(file))
+    return file // a path (a Windows drive letter is not a scheme)
+  if (!/^file:/i.test(file)) return null // https:, git:, …
+  try {
+    return fileURLToPath(file) // localhost, %20, Windows drives
+  } catch (err) {
+    // Another machine's file is not in this checkout.
+    if ((err as { code?: string }).code === 'ERR_INVALID_FILE_URL_HOST')
+      return null
+    // A malformed escape (`100%.ts`): use the path as written.
+    return file.replace(/^file:\/\/(localhost)?/i, '')
+  }
+}
+
 /** `path` relative to `root`, or null when it is outside the repository. */
 function repoRelative(file: string, root: string): string | null {
-  let stripped = file
-  if (file.startsWith('file://')) {
-    try {
-      stripped = decodeURIComponent(file.slice('file://'.length))
-    } catch {
-      stripped = file.slice('file://'.length) // malformed escape: use as written
-    }
-  }
-  const abs = path.resolve(root, stripped)
+  const local = localPath(file)
+  if (local === null) return null
+  const abs = path.resolve(root, local)
   const rel = path.relative(root, abs)
   if (
     rel === '' ||
