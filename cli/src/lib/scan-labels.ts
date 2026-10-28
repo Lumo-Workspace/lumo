@@ -1,5 +1,8 @@
 import { matchPathGlob } from '../../../shared/src/path-glob'
-import { isAgentReviewRuleId } from '../../../shared/src/security-scan'
+import {
+  isAgentReviewRuleId,
+  isCodeReviewFinding,
+} from '../../../shared/src/security-scan'
 import type { LocalScanner } from './local-scan-report'
 import type { ScanContext } from './scan-context'
 
@@ -76,6 +79,8 @@ export function isBlockingUnderPolicy(
 ): boolean {
   if (f.disposition !== null || f.persisting) return false
   if (f.provenance === 'LLM_JUDGE') return false
+  // LUM-1333: an imported code review's bugs are advisory, like Lumo's own.
+  if (isCodeReviewFinding(f.ruleId)) return false
   const provenance = isAgentReviewRuleId(f.ruleId)
     ? 'AGENT_REVIEW'
     : f.provenance

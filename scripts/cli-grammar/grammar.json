@@ -2965,14 +2965,14 @@
       "description": "Update a project (name or slug): --name, --description, --owner, --start/--target (YYYY-MM-DD) — \"\" clears each; --status is a human ruling: without --confirm it exits 4 with an envelope.",
       "codex": { "serverOnly": true, "localFiles": "none" }
     },
-    "security": {
+    "review": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Run Lumo security scans on your local changes before you push (read-only), or import a Claude Code / Codex security review into the branch's PR scan. The PR scan stays the authority for DONE."
+      "description": "Reviews you ran in your own coding agent, attached to the branch's PR scan"
     },
-    "security import": {
+    "review import": {
       "arguments": [{ "name": "file", "required": true, "variadic": false }],
       "flags": {
         "--json": {
@@ -2981,7 +2981,15 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Emit the result ({ version, runId, repository, prNumber, headSha, tool, results })"
+          "description": "Emit the result ({ version, runId, repository, prNumber, headSha, tool, kind, results })"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What the file holds: security (a security review, default) | bug (a code review; each rule becomes one of the AI review bug kinds)"
         },
         "--pr": {
           "long": "--pr",
@@ -3010,12 +3018,19 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory unless the workspace policy blocks DONE on agent reviews.",
+      "description": "Attach a Claude Code / Codex review to the branch's open PR scan: a security review (default) or a code review (--kind bug). <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] })",
       "codex": {
         "serverOnly": false,
         "localFiles": "reads",
         "detail": "reads the report file <file> and uploads it to Lumo"
       }
+    },
+    "security": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Run Lumo security scans on your local changes before you push (read-only), or import a Claude Code / Codex security review into the branch's PR scan. The PR scan stays the authority for DONE."
     },
     "security scan": {
       "arguments": [],

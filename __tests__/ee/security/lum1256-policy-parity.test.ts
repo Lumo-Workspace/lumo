@@ -34,7 +34,12 @@ describe('isBlockingUnderPolicy parity with the server', () => {
     },
   ]
   // LUM-1321: a CI scanner's row and an imported agent review's row.
-  const ruleIds = ['ext:semgrep:js.sqli', 'ext:claude-code:sqli'] as const
+  // LUM-1333: and an imported code review's bug.
+  const ruleIds = [
+    'ext:semgrep:js.sqli',
+    'ext:claude-code:sqli',
+    'ext:codex:bug:logic_error',
+  ] as const
   it('agrees on every rule × provenance × severity × disposition × persisting × policy', () => {
     let n = 0
     for (const ruleId of ruleIds)
@@ -53,6 +58,6 @@ describe('isBlockingUnderPolicy parity with the server', () => {
                 expect(cliPredicate(f, policy)).toBe(serverPredicate(f, policy))
                 n++
               }
-    expect(n).toBe(648)
+    expect(n).toBe(972)
   })
 })

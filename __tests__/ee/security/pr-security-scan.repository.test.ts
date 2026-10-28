@@ -473,6 +473,61 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     expect(data).not.toHaveProperty('agentReviewTools')
   })
 
+  test("LUM-1333: a code-review import replaces only that agent's bug rows and is not the security review", async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: null,
+      partial: false,
+      agentReviewTools: [],
+    })
+    await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['claude-code'],
+      [],
+      { partialCauses: [], agentKind: 'bug' }
+    )
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        OR: [{ ruleId: { startsWith: 'ext:claude-code:bug:' } }],
+      },
+    })
+    expect(mockScan.update.mock.calls[0]![0].data).not.toHaveProperty(
+      'agentReviewTools'
+    )
+  })
+
+  test("LUM-1333: a security-review import keeps that agent's bug rows", async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: null,
+      partial: false,
+      agentReviewTools: [],
+    })
+    await prSecurityScanRepository.ingestExternalFindings('s1', ['codex'], [], {
+      partialCauses: [],
+      agentKind: 'security',
+    })
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        OR: [
+          {
+            AND: [
+              { ruleId: { startsWith: 'ext:codex:' } },
+              { NOT: { ruleId: { startsWith: 'ext:codex:bug:' } } },
+            ],
+          },
+        ],
+      },
+    })
+    expect(mockScan.update.mock.calls[0]![0].data).toMatchObject({
+      agentReviewTools: ['codex'],
+    })
+  })
+
   test('ingestExternalFindings takes the scan-row lock BEFORE touching findings', async () => {
     // LUM-735 review C1: two completion paths (onUploadCompleted + /complete)
     // dispatch the same job milliseconds apart, so two ingests run at once.

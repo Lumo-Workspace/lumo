@@ -22,8 +22,10 @@ import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagr
 import type { ReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
+  AGENT_BUG_RULE_SEGMENT,
   isAgentReviewTool,
   mergePartialCauses,
+  type AgentReviewKind,
   type PartialCause,
 } from '@/shared/src/security-scan'
 import type { ReliabilityScanRow } from '@/ee/security/security-scan/reliability'
@@ -845,6 +847,28 @@ function toRetentionCandidate(
   return { ...row, status: row.status as ScanStatus }
 }
 
+/**
+ * LUM-1333 — the rows a report of `tool` replaces: all of them (a CI push),
+ * or only its security review's / only its code review's (`ext:<tool>:bug:…`)
+ * for an agent import, so the two never wipe each other.
+ */
+function replacedRows(
+  tool: string,
+  agentKind: AgentReviewKind | undefined
+): Prisma.PrSecurityFindingWhereInput {
+  const prefix = `ext:${tool}:`
+  const bugs = `${prefix}${AGENT_BUG_RULE_SEGMENT}`
+  if (agentKind === 'bug') return { ruleId: { startsWith: bugs } }
+  if (agentKind === 'security')
+    return {
+      AND: [
+        { ruleId: { startsWith: prefix } },
+        { NOT: { ruleId: { startsWith: bugs } } },
+      ],
+    }
+  return { ruleId: { startsWith: prefix } }
+}
+
 export const prSecurityScanRepository = {
   /**
    * LUM-855 — scrub every scan a workspace owns (see `scrubCode`). LUM-872 —
@@ -1418,6 +1442,8 @@ export const prSecurityScanRepository = {
     opts: {
       partialCauses: PartialCause[]
       stage?: 'external' | 'supplyChain'
+      /** LUM-1333: an agent import replaces only its own kind's rows. */
+      agentKind?: AgentReviewKind | undefined
     }
   ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
@@ -1439,8 +1465,10 @@ export const prSecurityScanRepository = {
       // never clear a `true` the other writer already set (guaranteed by the
       // SERIALIZABLE isolation + P2034 retry this runs under, since the read
       // above precedes the lock).
-      // LUM-1328: record an agent review even when it found nothing.
-      const agentTools = uniqueTools.filter(isAgentReviewTool)
+      // LUM-1328: record an agent review even when it found nothing. LUM-1333:
+      // a code review (bugs) is not the security review the nudge asks for.
+      const agentTools =
+        opts.agentKind === 'bug' ? [] : uniqueTools.filter(isAgentReviewTool)
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
@@ -1463,7 +1491,7 @@ export const prSecurityScanRepository = {
           where: {
             scanId,
             provenance: 'EXTERNAL_TOOL',
-            OR: uniqueTools.map(t => ({ ruleId: { startsWith: `ext:${t}:` } })),
+            OR: uniqueTools.map(t => replacedRows(t, opts.agentKind)),
           },
         })
       }

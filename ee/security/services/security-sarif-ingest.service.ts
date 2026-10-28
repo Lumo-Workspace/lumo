@@ -53,6 +53,7 @@ import {
   listSarifBlobs,
 } from './security-sarif-blob'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import type { AgentReviewKind } from '@/shared/src/security-scan'
 
 export const SARIF_MAX_GZ_BYTES = 100 * 1024 * 1024
 export const SARIF_MAX_RAW_BYTES = 400 * 1024 * 1024
@@ -78,6 +79,12 @@ export interface SarifIngestJob {
   headSha: string
   prNumber: number
   tool: string
+  /**
+   * LUM-1333 — set by `lumo review import`: which of the agent's rows this
+   * report replaces (its security review or its code review). Absent for a
+   * CI push, whose report replaces every row of its tool.
+   */
+  agentKind?: AgentReviewKind | undefined
 }
 
 export interface ResolvedPr extends GitProviderRef {
@@ -144,6 +151,8 @@ export interface PersistInput {
   stage?: 'external' | 'supplyChain'
   tool: string
   tools: string[]
+  /** LUM-1333: see `SarifIngestJob.agentKind`. */
+  agentKind?: AgentReviewKind | undefined
   findings: RawSarifFinding[]
   truncated: boolean
   dropped: NormalizeResult['dropped']
@@ -478,6 +487,7 @@ export const securitySarifIngestService = {
           // scanner's or the repository's.
           partialCauses: input.truncated ? ['EXTERNAL_TRUNCATED'] : [],
           stage,
+          agentKind: input.agentKind,
         }
       )
     // LUM-896: the repository may have left the confirmed list mid-scan.

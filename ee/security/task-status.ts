@@ -39,7 +39,7 @@ export interface NextActionSecurityFinding {
 /**
  * LUM-1328 — the task's open PR has no agent security review on its head:
  * run `/security-review` (Claude Code) or a Codex review, then
- * `lumo security import`. Advisory only — it never holds DONE.
+ * `lumo review import`. Advisory only — it never holds DONE.
  */
 export interface NextActionAgentReview {
   kind: 'AGENT_REVIEW_MISSING'
@@ -52,7 +52,7 @@ export interface NextActionAgentReview {
   advisory: true
 }
 
-export const AGENT_REVIEW_IMPORT_COMMAND = 'lumo security import <file>'
+export const AGENT_REVIEW_IMPORT_COMMAND = 'lumo review import <file>'
 
 /** LUM-1328 — the wording of the nudge, with or without Lumo's AI review. */
 export function agentReviewStatement(

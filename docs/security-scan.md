@@ -64,10 +64,15 @@ workflow run, so nothing is reported for fork PRs from this path.
 
 **Import a review from your coding agent (optional).** A developer who ran a
 security review in Claude Code (`/security-review`) or Codex can attach its
-findings to the branch's open PR with `lumo security import <file>` — SARIF
+findings to the branch's open PR with `lumo review import <file>` — SARIF
 2.1.0, or a small JSON list of `{ file, line, severity, title }`. Lumo runs no
 model for it. The report goes through the same diff-aware, redacted ingest as
-a CI push, under the agent's name (`claude-code` / `codex`). Its findings are
+a CI push, under the agent's name (`claude-code` / `codex`). With `--kind bug`
+the file is the agent's code review (`/code-review`): each finding becomes one
+of the AI review's bug kinds (`ext:<agent>:bug:<kind>`, shown as a bug like
+Lumo's own review's, never blocking Done), and a code-review import and a
+security-review import of the same head never replace each other
+(LUM-1333; the command was `lumo security import`). Its findings are
 always advisory, whatever the workspace policy lists, so they never block a
 task from reaching Done. A finding on the same line as Lumo's own review of
 the same kind of issue is listed under that one PR thread. Any member of the
@@ -104,7 +109,7 @@ pattern-matched (deterministic) HIGH finding blocks, exactly as before. LLM
 findings — the hunt above and the LLM review — can never be configured to
 block: the API refuses the value and the reader ignores it. A review the
 developer ran in their own Claude Code or Codex and imported with
-`lumo security import` is advisory too, unless an owner opts in with an
+`lumo review import` is advisory too, unless an owner opts in with an
 `{ "provenance": "AGENT_REVIEW", "severity": … }` entry (LUM-1328); an
 `EXTERNAL_TOOL` entry never covers it. That agent review is the default
 review: a workspace created since LUM-1328 starts with the LLM review and

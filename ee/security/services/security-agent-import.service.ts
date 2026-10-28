@@ -1,5 +1,5 @@
 /**
- * LUM-1321 — `lumo security import`: a security review the developer ran in
+ * LUM-1321 — `lumo review import`: a security review the developer ran in
  * Claude Code or Codex joins the PR scan through the same durable SARIF
  * ingest run a CI push starts (diff-aware, redacted, replaces this tool's
  * earlier rows on the head).
@@ -22,7 +22,11 @@ import { deleteBlob, putPrivateSarifBlob } from './security-sarif-blob'
 import { startSecuritySarifIngest } from './security-sarif-ingest-start'
 import { expectedSarifPathname } from '@/ee/security/validation/security-sarif'
 import type { AgentImportBody } from '@/ee/security/validation/security-agent-import'
-import type { AgentReviewTool } from '@/shared/src/security-scan'
+import { agentReviewSarif } from '@/ee/security/security-scan/agent-review-sarif'
+import type {
+  AgentReviewKind,
+  AgentReviewTool,
+} from '@/shared/src/security-scan'
 
 export interface AgentImportCaller {
   workspaceId: string
@@ -36,6 +40,8 @@ export interface AgentImportResult {
   headSha: string
   tool: AgentReviewTool
   /** Results in the report; the ingest keeps those on the PR's changed lines. */
+  /** LUM-1333: what the import replaced — a security review or a code review. */
+  kind: AgentReviewKind
   results: number
 }
 
@@ -106,7 +112,8 @@ export const securityAgentImportService = {
     if (!(await loadSecurityLayers(caller.workspaceId)).scan)
       throw fail(409, 'Security scanning is turned off for this workspace')
 
-    const doc = renameTool(body.sarif, body.tool)
+    // LUM-1333: a code review's rules become bug kinds (`bug:<kind>`).
+    const doc = agentReviewSarif(renameTool(body.sarif, body.tool), body.kind)
     const results = parseSarif(doc).reduce(
       (n, run) => n + run.results.length,
       0
@@ -123,6 +130,7 @@ export const securityAgentImportService = {
       headSha: body.headSha,
       prNumber: pr.number,
       tool: body.tool,
+      agentKind: body.kind,
     })
     if (!runId) {
       // Nothing will read it; the orphan sweep is only the backstop.
@@ -139,6 +147,7 @@ export const securityAgentImportService = {
       prNumber: pr.number,
       headSha: body.headSha,
       tool: body.tool,
+      kind: body.kind,
       results,
     }
   },

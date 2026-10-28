@@ -79,8 +79,14 @@ export function issueClasses(ruleId: string): ReadonlySet<string> {
   }
   // LUM-1321: an imported Claude Code / Codex review names its own rule; one
   // that spells an AI review kind (`command-injection`) is that kind.
+  // LUM-1333: an imported bug (`bug:<kind>`) is its bug kind.
   if (isAgentReviewRuleId(ruleId)) {
-    const rule = ruleId.split(':').slice(2).join(':').replace(/-/g, '_')
+    const rule = ruleId
+      .split(':')
+      .slice(2)
+      .join(':')
+      .replace(/^bug:/, '')
+      .replace(/-/g, '_')
     const kind = CWE_KINDS[rule] ?? rule
     return REVIEW_KIND_SET.has(kind) ? new Set([kind]) : new Set([ruleId])
   }

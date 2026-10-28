@@ -119,9 +119,9 @@ import {
   type SecurityScanOptions,
 } from './commands/security-scan'
 import {
-  securityImportCommand,
-  type SecurityImportOptions,
-} from './commands/security-import'
+  reviewImportCommand,
+  type ReviewImportOptions,
+} from './commands/review-import'
 import {
   workspaceSecurityScan,
   workspaceSecurityScanUpdate,
@@ -883,15 +883,26 @@ security
   )
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
-security
+// LUM-1333: was `security import` (tombstoned in removed-commands.ts).
+const review = program
+  .command('review')
+  .description(
+    "Reviews you ran in your own coding agent, attached to the branch's PR scan"
+  )
+
+review
   .command('import <file>')
   .codex(readsLocalFile('reads the report file <file> and uploads it to Lumo'))
   .description(
-    "Attach a Claude Code / Codex security review to the branch's open PR scan. <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] }). Advisory unless the workspace policy blocks DONE on agent reviews."
+    "Attach a Claude Code / Codex review to the branch's open PR scan: a security review (default) or a code review (--kind bug). <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] })"
   )
   .option(
     '--tool <tool>',
     'The agent that ran the review: claude-code | codex (case-insensitive; default: the agent this shell runs in)'
+  )
+  .option(
+    '--kind <kind>',
+    'What the file holds: security (a security review, default) | bug (a code review; each rule becomes one of the AI review bug kinds)'
   )
   .option(
     '--pr <number>',
@@ -903,11 +914,11 @@ security
   )
   .option(
     '--json',
-    'Emit the result ({ version, runId, repository, prNumber, headSha, tool, results })'
+    'Emit the result ({ version, runId, repository, prNumber, headSha, tool, kind, results })'
   )
   .action(
     wrap((file, options) =>
-      securityImportCommand(file as string, options as SecurityImportOptions)
+      reviewImportCommand(file as string, options as ReviewImportOptions)
     )
   )
 

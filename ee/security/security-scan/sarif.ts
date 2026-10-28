@@ -17,6 +17,7 @@ import type {
 } from './types'
 import { redactKnownSecrets } from '@/lib/security-scan/scan-secrets'
 import { addedLinesWithNumbers, splitDiffByFile } from './diff-lines'
+import { isAgentBugRuleId } from '@/shared/src/security-scan'
 import {
   dependencyFingerprint,
   sarifFingerprint,
@@ -551,7 +552,11 @@ export function normalizeSarif(
         continue
       }
       findings.push({
-        kind: supplyChain ? 'DEPENDENCY' : sarifKind(runTool, rule),
+        kind: supplyChain
+          ? 'DEPENDENCY'
+          : isAgentBugRuleId(ruleId)
+            ? 'CORRECTNESS'
+            : sarifKind(runTool, rule),
         ruleId,
         // OSV `MAL-*` = a known-malicious package: HIGH regardless of score.
         severity:

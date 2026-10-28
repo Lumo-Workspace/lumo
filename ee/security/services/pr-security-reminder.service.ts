@@ -141,7 +141,7 @@ export interface TaskSecurityOpenState {
    *  `latestScans`, open or closed PRs alike). */
   scans: TaskSecurityScanSummary[]
   /** LUM-1328 — open PRs whose head has no imported agent review
-   *  (`lumo security import`); empty while scanning is off. */
+   *  (`lumo review import`); empty while scanning is off. */
   agentReviewMissing: number[]
   /** LUM-1328 — Lumo's own AI review runs for this workspace. */
   lumoAiReviewOn: boolean
@@ -158,7 +158,7 @@ const EMPTY_STATE: TaskSecurityOpenState = {
 }
 
 /**
- * LUM-1328 — an agent review (`lumo security import`) was imported into the
+ * LUM-1328 — an agent review (`lumo review import`) was imported into the
  * PR's current head. A scan of an older head does not count; a PR whose head
  * Lumo has not recorded yet trusts its latest scan.
  */

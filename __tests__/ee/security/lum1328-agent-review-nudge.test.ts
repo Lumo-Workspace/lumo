@@ -193,7 +193,7 @@ describe('securityTaskStatusSection — AGENT_REVIEW_MISSING', () => {
         prNumber: 12,
         lumoAiReviewOn: false,
         statement: agentReviewStatement(12, false),
-        command: 'lumo security import <file>',
+        command: 'lumo review import <file>',
         advisory: true,
       },
     ])
@@ -219,7 +219,7 @@ describe('CLI rendering', () => {
           prNumber: 12,
           lumoAiReviewOn: false,
           statement: 'PR #12 has no security review',
-          command: 'lumo security import <file>',
+          command: 'lumo review import <file>',
           advisory: true,
         },
       ],
@@ -227,7 +227,7 @@ describe('CLI rendering', () => {
     )
     expect(lines).toEqual([
       '  • [SECURITY REVIEW] PR #12 has no security review (advisory) — run:',
-      '    lumo security import <file>',
+      '    lumo review import <file>',
     ])
   })
 
@@ -237,7 +237,7 @@ describe('CLI rendering', () => {
       prNumber: 12,
       lumoAiReviewOn: true,
       statement: 'PR #12 has no agent security review',
-      command: 'lumo security import <file>',
+      command: 'lumo review import <file>',
       advisory: true as const,
     }
     const testCase = {

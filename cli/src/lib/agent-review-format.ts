@@ -6,7 +6,7 @@ import {
 } from '../../../shared/src/security-scan'
 
 /**
- * LUM-1321 — what `lumo security import` reads: SARIF 2.1.0 as it is (e.g.
+ * LUM-1321 — what `lumo review import` reads: SARIF 2.1.0 as it is (e.g.
  * a Codex Security export), or the small Lumo JSON an agent writes after a
  * security review:
  *
