@@ -8,12 +8,7 @@
  * <data_dir>/emb_ids.json (issue number per row). Resumable: rows already in
  * the files are kept.
  */
-import {
-  appendFileSync,
-  existsSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { EMBEDDING_DIM, embedTexts } from '@/lib/ai/embedding'
 
 const dir = process.argv[2]
@@ -42,9 +37,7 @@ const todo = [...byNumber.entries()].filter(([n]) => !seen.has(n))
 
 const BATCH = 96
 async function main() {
-  process.stderr.write(
-    `${dir}: ${byNumber.size} titles, ${todo.length} to embed\n`
-  )
+  process.stderr.write(`${dir}: ${byNumber.size} titles, ${todo.length} to embed\n`)
   for (let i = 0; i < todo.length; i += BATCH) {
     const chunk = todo.slice(i, i + BATCH)
     let vecs: number[][] | null = null
@@ -52,17 +45,13 @@ async function main() {
       try {
         vecs = await embedTexts(chunk.map(([, t]) => t))
       } catch (e) {
-        process.stderr.write(
-          `  retry ${attempt + 1}: ${(e as Error).message.slice(0, 120)}\n`
-        )
+        process.stderr.write(`  retry ${attempt + 1}: ${(e as Error).message.slice(0, 120)}\n`)
         await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
       }
     }
     if (!vecs) throw new Error('embedding failed after retries')
     const buf = Buffer.alloc(vecs.length * EMBEDDING_DIM * 4)
-    vecs.forEach((v, r) =>
-      v.forEach((x, c) => buf.writeFloatLE(x, (r * EMBEDDING_DIM + c) * 4))
-    )
+    vecs.forEach((v, r) => v.forEach((x, c) => buf.writeFloatLE(x, (r * EMBEDDING_DIM + c) * 4)))
     appendFileSync(vecPath, buf)
     done.push(...chunk.map(([n]) => n))
     writeFileSync(idsPath, JSON.stringify(done))

@@ -25,9 +25,7 @@ jest.mock('@/lib/services/mention-notify.service', () => ({
   notifyMentionDelta: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/services/dependency-detection.service', () => ({
-  dependencyDetectionService: {
-    detectForTask: jest.fn().mockResolvedValue(undefined),
-  },
+  dependencyDetectionService: { detectForTask: jest.fn().mockResolvedValue(undefined) },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findActorWithMember: jest.fn().mockResolvedValue(null) },
@@ -66,12 +64,7 @@ const settle = () => Promise.all(waitUntilPromises)
 describe('title embedding scheduling (LUM-1286)', () => {
   it('stamps the new task title on create', async () => {
     dispatchCreateTaskSideEffects({
-      task: {
-        id: 't-1',
-        title: 'Add Google OAuth login',
-        teamIdentifier: 'LUM',
-        number: 1,
-      },
+      task: { id: 't-1', title: 'Add Google OAuth login', teamIdentifier: 'LUM', number: 1 },
       projectId: 'p-1',
       projectName: 'Lumo',
       workspaceId: 'ws-1',

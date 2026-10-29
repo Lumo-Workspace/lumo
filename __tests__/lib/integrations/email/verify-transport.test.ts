@@ -10,12 +10,7 @@ jest.mock('nodemailer', () => ({
   createTransport: () => ({ verify: () => mockVerify() }),
 }))
 jest.mock('@/lib/logger', () => ({
-  logger: {
-    warn: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-  },
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() },
 }))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
@@ -53,19 +48,13 @@ describe('verifyEmailTransport', () => {
   it('ok when the server accepts the connection and credentials', async () => {
     process.env.SMTP_HOST = 'smtp.example.com'
     mockVerify.mockResolvedValue(true)
-    expect(await verifyEmailTransport()).toEqual({
-      status: 'ok',
-      transport: 'smtp',
-    })
+    expect(await verifyEmailTransport()).toEqual({ status: 'ok', transport: 'smtp' })
   })
 
   it('a rejected login comes back as a redacted error, not a throw', async () => {
     process.env.SMTP_URL = `smtps://user:${PASS}@smtp.example.com:465`
     mockVerify.mockRejectedValue(
-      Object.assign(new Error(`Invalid login for ${PASS}`), {
-        code: 'EAUTH',
-        responseCode: 535,
-      })
+      Object.assign(new Error(`Invalid login for ${PASS}`), { code: 'EAUTH', responseCode: 535 })
     )
     const result = await verifyEmailTransport()
     expect(result).toMatchObject({

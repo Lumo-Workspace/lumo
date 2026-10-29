@@ -25,9 +25,7 @@ async function main() {
   const batchSize = flag('batch-size', 96)
   if (args.includes('--dry-run')) {
     const rows = await taskRepository.findMissingTitleEmbeddings(limit)
-    process.stdout.write(
-      `dry run: ${rows.length} live task(s) without a title embedding\n`
-    )
+    process.stdout.write(`dry run: ${rows.length} live task(s) without a title embedding\n`)
     return
   }
   const started = Date.now()

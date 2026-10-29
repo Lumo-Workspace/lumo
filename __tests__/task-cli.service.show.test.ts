@@ -289,12 +289,7 @@ describe('taskCliService.showFromCli — createdBy (LUM-1283)', () => {
 describe('taskCliService.showFromCli — possible duplicates (LUM-1286)', () => {
   it('includes the likely originals from the background duplicate check', async () => {
     mockPossibleDuplicates.mockResolvedValueOnce([
-      {
-        identifier: 'LUM-2',
-        title: 'Export burndown',
-        status: 'TODO',
-        score: 0.95,
-      },
+      { identifier: 'LUM-2', title: 'Export burndown', status: 'TODO', score: 0.95 },
     ])
 
     const out = await taskCliService.showFromCli({
@@ -305,12 +300,7 @@ describe('taskCliService.showFromCli — possible duplicates (LUM-1286)', () => 
 
     expect(mockPossibleDuplicates).toHaveBeenCalledWith('task_1')
     expect(out.possibleDuplicates).toEqual([
-      {
-        identifier: 'LUM-2',
-        title: 'Export burndown',
-        status: 'TODO',
-        score: 0.95,
-      },
+      { identifier: 'LUM-2', title: 'Export burndown', status: 'TODO', score: 0.95 },
     ])
   })
 

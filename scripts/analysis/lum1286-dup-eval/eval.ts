@@ -52,9 +52,7 @@ interface Case {
 const POOL = 200
 const [dir, mode, ...rest] = process.argv.slice(2)
 if (!dir || (mode !== 'prefilter' && mode !== 'gate')) {
-  throw new Error(
-    'usage: eval.ts <data_dir> <prefilter|gate> [--pos N] [--neg N] [--concurrency N] [--seed S]'
-  )
+  throw new Error('usage: eval.ts <data_dir> <prefilter|gate> [--pos N] [--neg N] [--concurrency N] [--seed S]')
 }
 const flag = (name: string, dflt: number) => {
   const i = rest.indexOf(`--${name}`)
@@ -70,7 +68,7 @@ const indexOf = new Map(issues.map((x, i) => [x.number, i]))
 
 // Deterministic shuffle so --pos/--neg samples are reproducible.
 let seed = flag('seed', 1286)
-const rand = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31)
 const shuffle = <T>(xs: T[]) => {
   const a = [...xs]
   for (let i = a.length - 1; i > 0; i--) {
@@ -92,7 +90,9 @@ for (const d of dups) {
   const inWindow = window.some(x => x.number === d.canonical.number)
   // Swap the canonical in (it is often older than the window): this measures
   // "if the canonical is among the 200 candidates, does the gate catch it".
-  const pool = inWindow ? window : [...window.slice(1), d.canonical]
+  const pool = inWindow
+    ? window
+    : [...window.slice(1), d.canonical]
   cases.push({
     id: `pos-${d.number}`,
     kind: 'pos',
@@ -109,10 +109,7 @@ for (const d of dups) {
 const dupNumbers = new Set(dups.map(d => d.number))
 const negatives = issues
   .map((x, i) => ({ x, i }))
-  .filter(
-    ({ x, i }) =>
-      i >= POOL && !labelled.has(x.number) && !dupNumbers.has(x.number)
-  )
+  .filter(({ x, i }) => i >= POOL && !labelled.has(x.number) && !dupNumbers.has(x.number))
 for (const { x, i } of negatives) {
   cases.push({
     id: `neg-${x.number}`,
@@ -126,25 +123,14 @@ for (const { x, i } of negatives) {
   })
 }
 
-const pos = shuffle(cases.filter(c => c.kind === 'pos' && !c.meta)).slice(
-  0,
-  flag('pos', 1e9)
-)
-const posMeta = shuffle(cases.filter(c => c.kind === 'pos' && c.meta)).slice(
-  0,
-  flag('pos', 1e9)
-)
-const neg = shuffle(cases.filter(c => c.kind === 'neg')).slice(
-  0,
-  flag('neg', 1e9)
-)
-const selected =
-  mode === 'prefilter' ? [...pos, ...posMeta] : [...pos, ...posMeta, ...neg]
+const pos = shuffle(cases.filter(c => c.kind === 'pos' && !c.meta)).slice(0, flag('pos', 1e9))
+const posMeta = shuffle(cases.filter(c => c.kind === 'pos' && c.meta)).slice(0, flag('pos', 1e9))
+const neg = shuffle(cases.filter(c => c.kind === 'neg')).slice(0, flag('neg', 1e9))
+const selected = mode === 'prefilter' ? [...pos, ...posMeta] : [...pos, ...posMeta, ...neg]
 
 const recallIdx = rest.indexOf('--recall')
 const recall = recallIdx >= 0 ? rest[recallIdx + 1] : 'bigram'
-if (recall !== 'bigram' && recall !== 'embedding')
-  throw new Error('--recall bigram|embedding')
+if (recall !== 'bigram' && recall !== 'embedding') throw new Error('--recall bigram|embedding')
 const out = `${dir}/${mode}${recall === 'embedding' ? '-embedding' : ''}.jsonl`
 const done = new Set<string>(
   existsSync(out)
@@ -173,26 +159,15 @@ const vectors = new Map<number, Float32Array>()
 if (recall === 'embedding') {
   const ids: number[] = JSON.parse(readFileSync(`${dir}/emb_ids.json`, 'utf8'))
   const raw = readFileSync(`${dir}/emb.f32`)
-  const all = new Float32Array(
-    raw.buffer,
-    raw.byteOffset,
-    ids.length * EMBEDDING_DIM
-  )
+  const all = new Float32Array(raw.buffer, raw.byteOffset, ids.length * EMBEDDING_DIM)
   ids.forEach((n, i) => {
     const v = all.slice(i * EMBEDDING_DIM, (i + 1) * EMBEDDING_DIM)
     const norm = Math.hypot(...v)
-    vectors.set(
-      n,
-      v.map(x => x / norm)
-    )
+    vectors.set(n, v.map(x => x / norm))
   })
 }
 const repo = taskRepository as unknown as Record<string, unknown>
-repo.findNearestByTitleEmbedding = async (
-  p: string,
-  q: number[],
-  k: number
-) => {
+repo.findNearestByTitleEmbedding = async (p: string, q: number[], k: number) => {
   if (recall !== 'embedding') return []
   const qn = Math.hypot(...q)
   return (histories.get(p) ?? [])
@@ -222,8 +197,7 @@ const toRow = (x: Issue) => ({
   team: { identifier: 'VSC' },
   assignee: null,
 })
-repo.findForDuplicateCheck = async (p: string) =>
-  (pools.get(p) ?? []).map(toRow)
+repo.findForDuplicateCheck = async (p: string) => (pools.get(p) ?? []).map(toRow)
 
 async function runGate(c: Case) {
   pools.set(c.id, c.pool)
@@ -232,9 +206,7 @@ async function runGate(c: Case) {
   // Same bounds as findLikelyDuplicates, but keep every score for analysis.
   const signal = AbortSignal.timeout(CLI_DUPLICATE_TIMEOUT_MS)
   const timedOut = new Promise<never>((_, reject) =>
-    signal.addEventListener('abort', () => reject(signal.reason), {
-      once: true,
-    })
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
   )
   try {
     const matches = await Promise.race([
@@ -287,8 +259,7 @@ async function main() {
       }
       const row = mode === 'gate' ? { ...base, ...(await runGate(c)) } : base
       appendFileSync(out, JSON.stringify(row) + '\n')
-      if (++finished % 10 === 0)
-        process.stderr.write(`  ${finished}/${todo.length}\n`)
+      if (++finished % 10 === 0) process.stderr.write(`  ${finished}/${todo.length}\n`)
     }
   }
   await Promise.all(

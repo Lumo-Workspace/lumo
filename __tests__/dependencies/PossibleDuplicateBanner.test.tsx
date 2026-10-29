@@ -88,17 +88,11 @@ describe('PossibleDuplicateBanner', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'task.possibleDuplicate.confirm' })
     )
-    expect(patch.mutate).toHaveBeenCalledWith({
-      depId: 'd1',
-      action: 'confirm',
-    })
+    expect(patch.mutate).toHaveBeenCalledWith({ depId: 'd1', action: 'confirm' })
 
     fireEvent.click(
       screen.getByRole('button', { name: 'task.possibleDuplicate.dismiss' })
     )
-    expect(patch.mutate).toHaveBeenCalledWith({
-      depId: 'd1',
-      action: 'dismiss',
-    })
+    expect(patch.mutate).toHaveBeenCalledWith({ depId: 'd1', action: 'dismiss' })
   })
 })

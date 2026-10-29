@@ -22,17 +22,12 @@ function request(auth?: string): NextRequest {
   })
 }
 
-const saved = {
-  CRON_SECRET: process.env.CRON_SECRET,
-  VERCEL: process.env.VERCEL,
-}
+const saved = { CRON_SECRET: process.env.CRON_SECRET, VERCEL: process.env.VERCEL }
 
 beforeEach(() => {
   process.env.CRON_SECRET = SECRET
   delete process.env.VERCEL
-  mockRun
-    .mockReset()
-    .mockResolvedValue([{ id: 'database', status: 'ok', detail: 'connected' }])
+  mockRun.mockReset().mockResolvedValue([{ id: 'database', status: 'ok', detail: 'connected' }])
 })
 
 afterAll(() => {

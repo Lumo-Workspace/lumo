@@ -92,20 +92,13 @@ describe('formatTaskShow — possible duplicates (LUM-1286)', () => {
       ...base,
       description: 'Body',
       possibleDuplicates: [
-        {
-          identifier: 'LUM-2',
-          title: 'Export burndown',
-          status: 'TODO',
-          score: 0.95,
-        },
+        { identifier: 'LUM-2', title: 'Export burndown', status: 'TODO', score: 0.95 },
       ],
     })
 
     expect(out).toMatch(/Possible duplicate/)
     expect(out).toMatch(/LUM-2 {2}"Export burndown" {2}TODO · 95% match/)
-    expect(out).toMatch(
-      /Confirm duplicate: {2}lumo task dep confirm LUM-1 LUM-2/
-    )
+    expect(out).toMatch(/Confirm duplicate: {2}lumo task dep confirm LUM-1 LUM-2/)
     expect(out).toMatch(/Not a duplicate: {4}lumo task dep dismiss LUM-1 LUM-2/)
     // Before the description, right under the fields.
     expect(out.indexOf('Possible duplicate')).toBeLessThan(

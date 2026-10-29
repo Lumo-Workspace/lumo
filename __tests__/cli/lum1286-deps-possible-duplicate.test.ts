@@ -11,11 +11,7 @@ it('shows a suggested duplicate with its score as evidence', () => {
     source: 'DETECTED',
     reason: 'possible_duplicate',
     detail: { score: 0.9 },
-    other: {
-      identifier: 'LUM-12',
-      title: 'Add Google OAuth login',
-      status: 'TODO',
-    },
+    other: { identifier: 'LUM-12', title: 'Add Google OAuth login', status: 'TODO' },
   } as unknown as DepEdge
 
   const out = formatDepsList('LUM-50', [edge])

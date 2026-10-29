@@ -13,10 +13,7 @@ const SCRIPT = pathToFileURL(
   join(__dirname, '..', '..', 'scripts', 'self-host', 'check-config.mjs')
 ).href
 
-function formatReport(checks: unknown[]): {
-  lines: string[]
-  exitCode: number
-} {
+function formatReport(checks: unknown[]): { lines: string[]; exitCode: number } {
   const code = `const m = await import(${JSON.stringify(SCRIPT)});
 process.stdout.write(JSON.stringify(m.formatReport(${JSON.stringify(checks)})))`
   return JSON.parse(
@@ -30,12 +27,7 @@ describe('check-config.mjs formatReport', () => {
   it('all usable: marks each line, prints hints only for what is not ok, exits 0', () => {
     const { lines, exitCode } = formatReport([
       { id: 'database', status: 'ok', detail: 'connected', hint: 'unused' },
-      {
-        id: 'email',
-        status: 'skipped',
-        detail: 'not configured',
-        hint: 'set SMTP_URL',
-      },
+      { id: 'email', status: 'skipped', detail: 'not configured', hint: 'set SMTP_URL' },
     ])
     expect(exitCode).toBe(0)
     expect(lines[0]).toMatch(/^ {2}✓ Database +connected$/)
@@ -47,12 +39,7 @@ describe('check-config.mjs formatReport', () => {
 
   it('a failed check exits 1 and says how many failed', () => {
     const { lines, exitCode } = formatReport([
-      {
-        id: 'redis',
-        status: 'failed',
-        detail: 'closed',
-        hint: 'check REDIS_URL',
-      },
+      { id: 'redis', status: 'failed', detail: 'closed', hint: 'check REDIS_URL' },
       { id: 'public_url', status: 'failed', detail: 'ENOTFOUND' },
     ])
     expect(exitCode).toBe(1)
@@ -64,11 +51,7 @@ describe('check-config.mjs formatReport', () => {
     expect(
       execFileSync(
         process.execPath,
-        [
-          '--input-type=module',
-          '-e',
-          `await import(${JSON.stringify(SCRIPT)})`,
-        ],
+        ['--input-type=module', '-e', `await import(${JSON.stringify(SCRIPT)})`],
         { encoding: 'utf8' }
       )
     ).toBe('')
@@ -90,18 +73,12 @@ async function report(
   const { port } = server.address() as AddressInfo
   try {
     const child = spawn(process.execPath, [fileURLToPath(SCRIPT), '--report'], {
-      env: {
-        ...process.env,
-        PORT: String(port),
-        CRON_SECRET: 'fixture-secret',
-      },
+      env: { ...process.env, PORT: String(port), CRON_SECRET: 'fixture-secret' },
     })
     let out = ''
     child.stdout.on('data', d => (out += d))
     child.stderr.on('data', d => (out += d))
-    const code = await new Promise<number | null>(resolve =>
-      child.on('close', resolve)
-    )
+    const code = await new Promise<number | null>(resolve => child.on('close', resolve))
     return { code, out, auth }
   } finally {
     server.close()
@@ -112,9 +89,7 @@ describe('check-config.mjs --report', () => {
   it('prints the report and exits with its code, sending the cron secret', async () => {
     const res = await report(
       200,
-      JSON.stringify({
-        checks: [{ id: 'database', status: 'failed', detail: 'down' }],
-      })
+      JSON.stringify({ checks: [{ id: 'database', status: 'failed', detail: 'down' }] })
     )
     expect(res.code).toBe(1)
     expect(res.out).toContain('✗ Database')

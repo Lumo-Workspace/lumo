@@ -6,28 +6,28 @@ Replays the `lumo task create` duplicate gate on public GitHub duplicates. A pai
 
 7 repos, fetched with `fetch.py`, 1,555 duplicate pairs (Meta tracker issues excluded):
 
-| Repo                      | Window            | Issues | Pairs |
-| ------------------------- | ----------------- | ------ | ----- |
-| microsoft/vscode          | 2026-03 → 04      | 9,763  | 444   |
-| golang/go                 | 2025-11 → 2026-04 | 2,549  | 289   |
-| flutter/flutter           | 2025-11 → 2026-04 | 2,999  | 312   |
-| home-assistant/core       | 2025-11 → 2026-04 | 5,401  | 182   |
-| rust-lang/rust            | 2025-11 → 2026-04 | 2,214  | 121   |
-| 1Panel-dev/1Panel (zh/en) | 2025-05 → 2026-04 | 2,013  | 131   |
-| siyuan-note/siyuan (zh)   | 2025-05 → 2026-04 | 2,357  | 76    |
+| Repo | Window | Issues | Pairs |
+|---|---|---|---|
+| microsoft/vscode | 2026-03 → 04 | 9,763 | 444 |
+| golang/go | 2025-11 → 2026-04 | 2,549 | 289 |
+| flutter/flutter | 2025-11 → 2026-04 | 2,999 | 312 |
+| home-assistant/core | 2025-11 → 2026-04 | 5,401 | 182 |
+| rust-lang/rust | 2025-11 → 2026-04 | 2,214 | 121 |
+| 1Panel-dev/1Panel (zh/en) | 2025-05 → 2026-04 | 2,013 | 131 |
+| siyuan-note/siyuan (zh) | 2025-05 → 2026-04 | 2,357 | 76 |
 
 `probe_repos.py` checks a repo's yield before you fetch it. TypeScript, kubernetes and react close almost nothing as a duplicate, so they yield no pairs.
 
 ## Scripts
 
-| Script                                            | What it does                                                                                                                |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `fetch.py <out> <start> <end>` (env `REPO`)       | issues + duplicate pairs via `gh api graphql`                                                                               |
-| `eval.ts <dir> prefilter`                         | bigram top-k rank of the canonical (no LLM)                                                                                 |
+| Script | What it does |
+|---|---|
+| `fetch.py <out> <start> <end>` (env `REPO`) | issues + duplicate pairs via `gh api graphql` |
+| `eval.ts <dir> prefilter` | bigram top-k rank of the canonical (no LLM) |
 | `eval.ts <dir> gate [--recall bigram\|embedding]` | the shipped `checkDuplicates` (prompt, timeout, 0.7 suggest score). It swaps only the repository reads for the case's pool. |
-| `embed.ts <dir>`                                  | embeds every title with the production model (`EMBEDDING_MODEL`)                                                            |
-| `embed_analyze.py <root>`                         | offline embedding recall and cosine-only gate, vs bigram                                                                    |
-| `report.py <root>`                                | per-repo tables from the `gate` runs                                                                                        |
+| `embed.ts <dir>` | embeds every title with the production model (`EMBEDDING_MODEL`) |
+| `embed_analyze.py <root>` | offline embedding recall and cosine-only gate, vs bigram |
+| `report.py <root>` | per-repo tables from the `gate` runs |
 
 Run the gate at `--concurrency 2` or lower. At 6, the gateway returned empty objects (`AI_NoObjectGeneratedError`) for 69% of calls.
 
@@ -49,12 +49,12 @@ Recall was the main loss. The bigram top-20 held the canonical for **69%** of pa
 
 Top-20 recall of the canonical, with the same 200-issue pool as step 1:
 
-|                  | bigram | embedding |
-| ---------------- | ------ | --------- |
-| all 1,555 pairs  | 69%    | 79%       |
-| CJK titles (130) | 42%    | 87%       |
-| 1Panel (zh/en)   | 53%    | 91%       |
-| siyuan (zh)      | 43%    | 84%       |
+| | bigram | embedding |
+|---|---|---|
+| all 1,555 pairs | 69% | 79% |
+| CJK titles (130) | 42% | 87% |
+| 1Panel (zh/en) | 53% | 91% |
+| siyuan (zh) | 43% | 84% |
 
 Taking the bigram top-20 and the embedding top-20 together (40 candidates) reaches 84%.
 
@@ -71,10 +71,10 @@ That is why step 2 keeps the LLM judge and replaces only the candidate recall. C
 Paired results, 90 positives and 62 negatives where neither call errored:
 
 | block score | caught: bigram | caught: embedding | negatives blocked: bigram | negatives blocked: embedding |
-| ----------- | -------------- | ----------------- | ------------------------- | ---------------------------- |
-| 0.70        | 32             | 36                | 20                        | 35                           |
-| 0.85        | 28             | 33                | 16                        | 26                           |
-| 0.90        | 20             | 30                | 12                        | 22                           |
+|---|---|---|---|---|
+| 0.70 | 32 | 36 | 20 | 35 |
+| 0.85 | 28 | 33 | 16 | 26 |
+| 0.90 | 20 | 30 | 12 | 22 |
 
 The bigram column is optimistic. The eval swapped the canonical into the recent-200 pool, but it was really there for only 35 of the 90 pairs (pool ordered by creation time). Counting the other 55 as misses, bigram would have caught **11/90**.
 

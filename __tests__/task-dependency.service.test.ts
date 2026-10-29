@@ -390,18 +390,8 @@ describe('taskDependencyService.listPossibleDuplicates (LUM-1286)', () => {
     await expect(
       taskDependencyService.listPossibleDuplicates('task1')
     ).resolves.toEqual([
-      {
-        identifier: 'LUM-2',
-        title: '导出冲刺燃尽图为 CSV',
-        status: 'TODO',
-        score: 0.95,
-      },
-      {
-        identifier: 'LUM-2',
-        title: '导出冲刺燃尽图为 CSV',
-        status: 'TODO',
-        score: null,
-      },
+      { identifier: 'LUM-2', title: '导出冲刺燃尽图为 CSV', status: 'TODO', score: 0.95 },
+      { identifier: 'LUM-2', title: '导出冲刺燃尽图为 CSV', status: 'TODO', score: null },
     ])
   })
 })

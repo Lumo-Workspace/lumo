@@ -45,11 +45,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
 
 /** A host that, from inside the container, is not this server's public face. */
 function isLocalHost(host: string): boolean {
-  return (
-    LOCAL_HOSTS.has(host) ||
-    host.endsWith('.localhost') ||
-    /^127(\.\d{1,3}){3}$/.test(host)
-  )
+  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || /^127(\.\d{1,3}){3}$/.test(host)
 }
 
 /** The shared Redis client waits ~2 s for its first connect; give it longer. */
@@ -65,19 +61,13 @@ const PUBLIC_URL_BODY_BYTES = 4096
  * a certificate error).
  */
 export function errorText(err: unknown): string {
-  if (!(err instanceof Error))
-    return String(err)
-      .replace(/\/\/[^@\s/]*@/g, '//***@')
-      .slice(0, 200)
+  if (!(err instanceof Error)) return String(err).replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
   const cause = (err as { cause?: unknown }).cause
   const why =
     cause instanceof Error
-      ? [(cause as { code?: unknown }).code, cause.message]
-          .filter(Boolean)
-          .join(' ')
+      ? [(cause as { code?: unknown }).code, cause.message].filter(Boolean).join(' ')
       : ''
-  const text =
-    why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message
+  const text = why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message
   // A driver may echo a connection URL; never its userinfo (password).
   return text.replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
 }
@@ -86,12 +76,7 @@ async function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () =>
-        reject(
-          new Error(
-            `${label} did not answer within ${CHECK_TIMEOUT_MS / 1000}s`
-          )
-        ),
+      () => reject(new Error(`${label} did not answer within ${CHECK_TIMEOUT_MS / 1000}s`)),
       CHECK_TIMEOUT_MS
     )
   })
@@ -128,11 +113,7 @@ async function checkStorage(
   }
   try {
     await withTimeout(probes.roundTripBlob(), 'file storage')
-    return {
-      id: 'storage',
-      status: 'ok',
-      detail: `${backend}: write, read and delete work`,
-    }
+    return { id: 'storage', status: 'ok', detail: `${backend}: write, read and delete work` }
   } catch (err) {
     return {
       id: 'storage',
@@ -151,10 +132,7 @@ async function checkEmail(probes: SelfHostProbes): Promise<CheckResult> {
   try {
     result = await withTimeout(probes.verifyEmail(), 'the SMTP server')
   } catch (err) {
-    result = {
-      status: 'failed',
-      error: { name: 'Error', message: errorText(err) },
-    }
+    result = { status: 'failed', error: { name: 'Error', message: errorText(err) } }
   }
   if (result.status === 'not_configured') {
     return {
@@ -192,11 +170,7 @@ async function checkRedis(
 ): Promise<CheckResult> {
   const url = env.REDIS_URL?.trim()
   if (!url) {
-    return {
-      id: 'redis',
-      status: 'skipped',
-      detail: 'not configured (rate limits kept in memory)',
-    }
+    return { id: 'redis', status: 'skipped', detail: 'not configured (rate limits kept in memory)' }
   }
   try {
     await withTimeout(probes.pingRedis(url), 'Redis')
@@ -226,11 +200,7 @@ async function checkRealtime(probes: SelfHostProbes): Promise<CheckResult> {
     }
   }
   if (result.status === 'ok') {
-    return {
-      id: 'realtime',
-      status: 'ok',
-      detail: 'server reachable, credentials accepted',
-    }
+    return { id: 'realtime', status: 'ok', detail: 'server reachable, credentials accepted' }
   }
   return {
     id: 'realtime',
@@ -276,11 +246,7 @@ async function checkPublicUrl(
       appUrl
     )
     if (res.status === 200 && res.body.includes(PUBLIC_CONFIG_GLOBAL)) {
-      return {
-        id: 'public_url',
-        status: 'ok',
-        detail: `${appUrl} serves this Lumo`,
-      }
+      return { id: 'public_url', status: 'ok', detail: `${appUrl} serves this Lumo` }
     }
     return {
       id: 'public_url',
@@ -346,11 +312,8 @@ export const defaultSelfHostProbes: SelfHostProbes = {
       contentType: 'text/plain',
     })
     try {
-      const opened = await storage.get(stored.pathname, 'private', {
-        noCache: true,
-      })
-      if (!opened)
-        throw new Error('the file just written could not be read back')
+      const opened = await storage.get(stored.pathname, 'private', { noCache: true })
+      if (!opened) throw new Error('the file just written could not be read back')
       await opened.stream.cancel()
     } finally {
       await storage.delete(stored.pathname, 'private')
@@ -368,9 +331,7 @@ export const defaultSelfHostProbes: SelfHostProbes = {
         return
       } catch (err) {
         if (Date.now() + REDIS_CONNECT_RETRY_MS >= deadline) throw err
-        await new Promise(resolve =>
-          setTimeout(resolve, REDIS_CONNECT_RETRY_MS)
-        )
+        await new Promise(resolve => setTimeout(resolve, REDIS_CONNECT_RETRY_MS))
       }
     }
   },
@@ -382,9 +343,6 @@ export const defaultSelfHostProbes: SelfHostProbes = {
       // Closes the socket when the check gives up on it.
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
     })
-    return {
-      status: res.status,
-      body: await readStart(res, PUBLIC_URL_BODY_BYTES),
-    }
+    return { status: res.status, body: await readStart(res, PUBLIC_URL_BODY_BYTES) }
   },
 }
