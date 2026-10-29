@@ -112,36 +112,78 @@ export function writeLoginStore(store: LoginStore): void {
       // Best-effort perms tightening; continue if filesystem doesn't support chmod
     }
   }
+  // Write a temp file and rename it over the store, so a concurrent reader
+  // (a hook, another command) sees the old or the new file — never a torn one.
   const p = credentialsPath()
-  fs.writeFileSync(p, JSON.stringify(store, null, 2), { mode: 0o600 })
+  const tmp = `${p}.${process.pid}.tmp`
   try {
-    fs.chmodSync(p, 0o600)
-  } catch {
-    // Best-effort perms tightening
+    fs.writeFileSync(tmp, JSON.stringify(store, null, 2), { mode: 0o600 })
+    try {
+      fs.chmodSync(tmp, 0o600)
+    } catch {
+      // Best-effort perms tightening
+    }
+    fs.renameSync(tmp, p)
+  } catch (err) {
+    try {
+      fs.rmSync(tmp, { force: true })
+    } catch {
+      // keep the original error
+    }
+    throw err
   }
+}
+
+export interface RepoLookup {
+  /** The repository key, or null outside a git repository (or on `error`). */
+  key: string | null
+  /** Why git could not answer (not "outside a repository"), for a note. */
+  error?: string
 }
 
 /**
  * The key a repository's binding is stored under: the main work tree of the
  * git repository containing `cwd` (realpath), so its worktrees share it.
- * Null outside a git repository.
+ * `--absolute-git-dir` (git 2.13+) gives this work tree's git dir; a linked
+ * worktree's git dir names the shared one in its `commondir` file.
  */
-export function repoKey(cwd: string): string | null {
-  const res = spawnSync(
-    'git',
-    ['rev-parse', '--path-format=absolute', '--git-common-dir'],
-    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
-  )
-  if (res.error || res.status !== 0) return null
-  const common = res.stdout.trim()
-  if (!common) return null
+export function lookupRepoKey(cwd: string): RepoLookup {
+  const res = spawnSync('git', ['rev-parse', '--absolute-git-dir'], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (res.error)
+    return { key: null, error: `git did not run (${res.error.message})` }
+  if (res.status !== 0) {
+    const stderr = (res.stderr ?? '').trim()
+    if (/not a git repository/i.test(stderr)) return { key: null }
+    return {
+      key: null,
+      error: `git rev-parse failed in ${cwd}: ${stderr.split('\n')[0] || `exit ${res.status}`}`,
+    }
+  }
+  const gitDir = res.stdout.trim()
+  if (!gitDir) return { key: null }
+  let common = gitDir
+  try {
+    const rel = fs.readFileSync(path.join(gitDir, 'commondir'), 'utf8').trim()
+    if (rel) common = path.resolve(gitDir, rel)
+  } catch {
+    // no commondir file: this is the main work tree's git dir
+  }
   // `<root>/.git` for a normal repo; a bare repo's common dir is itself.
   const root = path.basename(common) === '.git' ? path.dirname(common) : common
   try {
-    return fs.realpathSync(root)
+    return { key: fs.realpathSync(root) }
   } catch {
-    return root
+    return { key: root }
   }
+}
+
+/** `lookupRepoKey(cwd).key`: null outside a git repository. */
+export function repoKey(cwd: string): string | null {
+  return lookupRepoKey(cwd).key
 }
 
 /**
@@ -161,10 +203,14 @@ export function resolveLogin(
   const envKey = loginKey(process.env.LUMO_API_URL ?? '')
   const envLogin = envKey ? store.logins[envKey] : undefined
   // Skip git entirely when no repository is bound — the common case.
-  const repo = Object.keys(store.repos).length > 0 ? repoKey(cwd) : null
+  const lookup: RepoLookup =
+    Object.keys(store.repos).length > 0 ? lookupRepoKey(cwd) : { key: null }
+  const repo = lookup.key
   if (envLogin) return { creds: envLogin, source: 'env', repo }
 
-  let note: string | undefined
+  let note: string | undefined = lookup.error
+    ? `${lookup.error}; repository bindings ignored, using the default login`
+    : undefined
   const bound = repo ? store.repos[repo] : undefined
   if (bound) {
     const creds = store.logins[bound]
@@ -224,12 +270,19 @@ export function saveLogin(
   return { key, isDefault, boundRepo }
 }
 
+export interface RemovedLogin {
+  removed: Credentials
+  /** The login that became the default because the removed one was it. */
+  newDefault: string | null
+}
+
 /**
  * Remove the login to one server and every repository binding that pointed
- * at it. When the default goes and exactly one login remains, that one
- * becomes the default. Returns the removed login, or null if there was none.
+ * at it. When the default goes and other logins remain, the first of them
+ * (by server URL) becomes the default, so unbound repositories stay logged
+ * in. Returns null if there was no such login.
  */
-export function removeLogin(key: string): Credentials | null {
+export function removeLogin(key: string): RemovedLogin | null {
   const store = readLoginStore()
   const removed = store.logins[key]
   if (!removed) return null
@@ -237,14 +290,15 @@ export function removeLogin(key: string): Credentials | null {
   for (const [repo, bound] of Object.entries(store.repos)) {
     if (bound === key) delete store.repos[repo]
   }
+  let newDefault: string | null = null
   if (store.default === key) {
-    const rest = Object.keys(store.logins)
-    store.default = rest.length === 1 ? rest[0]! : null
+    newDefault = Object.keys(store.logins).sort()[0] ?? null
+    store.default = newDefault
   }
   if (Object.keys(store.logins).length === 0) {
     fs.unlinkSync(credentialsPath())
   } else {
     writeLoginStore(store)
   }
-  return removed
+  return { removed, newDefault }
 }

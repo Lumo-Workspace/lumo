@@ -15,6 +15,7 @@ import * as path from 'path'
 import {
   credentialsPath,
   loginKey,
+  lookupRepoKey,
   readCredentials,
   readLoginStore,
   removeLogin,
@@ -124,6 +125,20 @@ describe('loginKey / repoKey', () => {
     expect(repoKey(wt)).toBe(repoA)
     expect(repoKey(tmp)).toBeNull()
   })
+
+  it('outside a repository is not an error; a git failure is, and becomes a note', () => {
+    expect(lookupRepoKey(tmp)).toEqual({ key: null })
+    const missing = lookupRepoKey(path.join(tmp, 'does-not-exist'))
+    expect(missing.key).toBeNull()
+    expect(missing.error).toEqual(expect.stringContaining('git did not run'))
+
+    saveLogin(login(HOSTED, 'hosted'))
+    saveLogin(login(LOCAL, 'local'), { bindCwd: repoA })
+    expect(resolveLogin(path.join(tmp, 'does-not-exist'))).toMatchObject({
+      source: 'default',
+      note: expect.stringContaining('repository bindings ignored'),
+    })
+  })
 })
 
 describe('upgrade from a single-login credentials.json', () => {
@@ -219,7 +234,7 @@ describe('saveLogin / removeLogin', () => {
 
   it('removes only the targeted login and the bindings to it', () => {
     twoLogins()
-    expect(removeLogin(LOCAL)?.email).toBe('local@example.com')
+    expect(removeLogin(LOCAL)?.removed.email).toBe('local@example.com')
     const store = readLoginStore()
     expect(Object.keys(store.logins)).toEqual([HOSTED])
     expect(store.repos).toEqual({})
@@ -233,6 +248,34 @@ describe('saveLogin / removeLogin', () => {
     removeLogin(LOCAL)
     expect(fs.existsSync(credentialsPath())).toBe(false)
     expect(removeLogin(LOCAL)).toBeNull()
+  })
+
+  it('removing the default with several logins left promotes the first by URL', () => {
+    twoLogins()
+    saveLogin(login('https://lumo.example.com', 'third'))
+    expect(removeLogin(HOSTED)?.newDefault).toBe(LOCAL)
+    expect(readLoginStore().default).toBe(LOCAL)
+    expect(readCredentials(repoB)?.apiUrl).toBe(LOCAL)
+  })
+
+  it('a non-default removal promotes nothing', () => {
+    twoLogins()
+    expect(removeLogin(LOCAL)?.newDefault).toBeNull()
+    expect(readLoginStore().default).toBe(HOSTED)
+  })
+
+  it('writes through a temp file: a failed write leaves the old file intact', () => {
+    saveLogin(login(HOSTED, 'hosted'))
+    const before = fs.readFileSync(credentialsPath(), 'utf8')
+    expect(fs.readdirSync(path.dirname(credentialsPath()))).toEqual([
+      'credentials.json',
+    ])
+    // Block the temp path so the write fails before the rename.
+    const blocker = `${credentialsPath()}.${process.pid}.tmp`
+    fs.mkdirSync(blocker)
+    expect(() => saveLogin(login(LOCAL, 'local'))).toThrow()
+    expect(fs.readFileSync(credentialsPath(), 'utf8')).toBe(before)
+    fs.rmdirSync(blocker)
   })
 
   it('writes the file 0600', () => {
@@ -288,11 +331,14 @@ describe('lumo auth logout', () => {
     expect(Object.keys(readLoginStore().logins)).toEqual([HOSTED])
   })
 
-  it('--url removes that server', async () => {
+  it('--url removes that server; removing the default names the new one', async () => {
     twoLogins()
     cwd.mockReturnValue(repoA)
     await authLogout({ url: HOSTED })
     expect(readCredentials(repoA)?.apiUrl).toBe(LOCAL)
+    expect(log.mock.calls.flat().join('\n')).toContain(
+      `Default login is now ${LOCAL}`
+    )
   })
 
   it('--url of a server not logged in is a no-op', async () => {

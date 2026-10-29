@@ -20,12 +20,17 @@ export async function authLogout(
     const login = resolveLogin()
     key = login ? loginKey(login.creds.apiUrl) : null
   }
-  const removed = key ? removeLogin(key) : null
-  if (!removed) {
+  const result = key ? removeLogin(key) : null
+  if (!result) {
     console.log(
       opts.url !== undefined ? `Not logged in to ${key}` : 'Not logged in'
     )
     return 0
   }
-  console.log(`✓ Logged out of ${key} (${sanitizeField(removed.email)})`)
+  console.log(`✓ Logged out of ${key} (${sanitizeField(result.removed.email)})`)
+  if (result.newDefault) {
+    console.log(
+      `  Default login is now ${result.newDefault} (to change it: lumo auth use <url> --default)`
+    )
+  }
 }
