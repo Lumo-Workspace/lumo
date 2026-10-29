@@ -474,6 +474,12 @@ model Workspace {
   doneRequiresTestCase Boolean @default(false)
   doneRequiresReview   Boolean @default(false)
 
+  // LUM-1338: the AI feature switches (master / group / feature), sparse —
+  // only switches an OWNER turned off are stored ({} = all on). Parsed and
+  // resolved by lib/ai-features/registry.ts; a feature also needs a model
+  // configured on the deployment.
+  aiFeatureSwitches Json @default("{}")
+
   // LUM-911: how long a scan keeps the code it quoted (finding evidence, call
   // chain, LLM text; the scan's hunt audit, hunt job and PR summary) once it
   // is used up — its PR merged or closed and every scan of it final. OWNER

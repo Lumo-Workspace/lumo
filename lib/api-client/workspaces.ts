@@ -2,6 +2,8 @@ import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { WorkspaceExportView } from '@/lib/services/workspace-export.service'
 import type { MemberConnectionsView } from '@/lib/services/member-connection.service'
+import type { AiFeaturesStatus } from '@/lib/services/ai-features.service'
+import type { AiSwitchKey } from '@/lib/ai-features/registry'
 import type {
   AiDerivedContentStatus,
   AiDerivedPurgeResult,
@@ -104,6 +106,19 @@ export const workspacesClient = {
     return apiFetch<AiDerivedPurgeResult>(API.workspaces.aiDerivedContent, {
       method: 'POST',
       body: { confirmName },
+    })
+  },
+
+  /** LUM-1338: the AI feature switches and each feature's state (any member). */
+  getAiFeatures() {
+    return apiFetch<AiFeaturesStatus>(API.workspaces.aiFeatures)
+  },
+
+  /** LUM-1338: set one AI feature switch (OWNER only). */
+  setAiFeature(key: AiSwitchKey, enabled: boolean) {
+    return apiFetch<AiFeaturesStatus>(API.workspaces.aiFeatures, {
+      method: 'PATCH',
+      body: { ...key, enabled },
     })
   },
 

@@ -5,7 +5,9 @@ import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 
 import { requireAuth } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { loadProjectAndMember, requireUserWorkspace } from '@/lib/api/helpers'
+import { aiFeaturesService } from '@/lib/services'
+import { logger } from '@/lib/logger'
 import { suggestPrioritySchema } from '@/lib/validation/schemas'
 import type { TaskPriorityValue } from '@/lib/task/priority'
 import {
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
       const { project } = projectResult
 
       projectName = project.name
+      await aiFeaturesService.assertEnabled({ projectId }, 'prioritySuggestion')
 
       historicalTasks = await taskRepository.findHistoricalByProject(
         projectId,
@@ -64,6 +67,15 @@ export async function POST(request: Request) {
         userId,
         projectId,
         30
+      )
+    }
+
+    if (!projectId) {
+      const ws = await requireUserWorkspace(userId)
+      if (ws instanceof NextResponse) return ws
+      await aiFeaturesService.assertEnabled(
+        { workspaceId: ws.workspaceId },
+        'prioritySuggestion'
       )
     }
 
@@ -84,7 +96,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json(object)
   } catch (error) {
-    console.error('POST /api/tasks/suggest-priority error:', error)
+    const { status, code } = error as { status?: number; code?: string }
+    // LUM-1338: switched off / no model — the UI shows no suggestion.
+    if (status === 409 || status === 503) {
+      return NextResponse.json(
+        { error: (error as Error).message, ...(code && { code }) },
+        { status }
+      )
+    }
+    logger.error('POST /api/tasks/suggest-priority error:', error)
     return NextResponse.json(
       { error: 'Failed to generate priority suggestion' },
       { status: 500 }

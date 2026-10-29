@@ -489,15 +489,23 @@ export const lineageEdgeRepository = {
    */
   async listUnvotedSessionIdsForDoneTasks(
     limit: number,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    /** LUM-1338: leave out tasks of these workspaces. */
+    opts: { excludeWorkspaceIds?: string[] } = {}
   ): Promise<string[]> {
     const client = tx ?? prisma
+    const exclude = opts.excludeWorkspaceIds ?? []
     const rows = await client.lineageEdge.groupBy({
       by: ['sessionId'],
       where: {
         sessionId: { not: null },
         usedAt: null,
-        task: { status: 'DONE' },
+        task: {
+          status: 'DONE',
+          ...(exclude.length > 0 && {
+            project: { workspaceId: { notIn: exclude } },
+          }),
+        },
       },
       orderBy: { sessionId: 'asc' },
       take: limit,

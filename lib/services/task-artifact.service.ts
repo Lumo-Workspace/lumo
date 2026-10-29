@@ -48,7 +48,7 @@ export const taskArtifactService = {
     // errors so a summarization failure never surfaces to the caller.
     waitUntil(
       contentSummaryService
-        .summarize(created.content, 'artifact')
+        .summarize(created.content, 'artifact', { taskId: input.taskId })
         .then(s =>
           s ? taskArtifactRepository.updateSummary(created.id, s) : undefined
         )

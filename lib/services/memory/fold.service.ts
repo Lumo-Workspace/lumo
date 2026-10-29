@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { MemoryWriteGate } from '@/lib/services/memory/write-gate'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /** Target resident ACTIVE PROJECT memory budget — the MEMORY.md-style cap the
  *  fold pass shrinks a project back down to (best-effort; fold-only can't always
@@ -45,6 +46,7 @@ export interface TriggerResult {
     | 'locked'
     /** LUM-917: the workspace turned AI-derived content off. */
     | 'ai-derived-off'
+    | 'ai-feature-off'
     /** LUM-1314: the global memory pipeline switch is on. */
     | 'memory-pipeline-off'
   error?: boolean
@@ -181,6 +183,15 @@ export const foldService = {
       }
       if (!(await aiDerivedContentService.isEnabled({ projectId }))) {
         return { folded: 0, pruned: 0, skipped: 'ai-derived-off' }
+      }
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled(
+          { projectId },
+          'memoryConsolidation'
+        ))
+      ) {
+        return { folded: 0, pruned: 0, skipped: 'ai-feature-off' }
       }
       const active = await memoryRepository.findActiveProjectMemories(projectId)
       // Hysteresis: only run once GROWN past the high-water mark.

@@ -1,6 +1,7 @@
 import { embedTexts } from '@/lib/ai/embedding'
 import { logger } from '@/lib/logger'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * LUM-1286 step 2: keep Task.titleEmbedding current so duplicate checks can
@@ -14,6 +15,9 @@ export async function stampTaskTitleEmbedding(
 ): Promise<void> {
   if (!title.trim()) return
   try {
+    // LUM-1338: the embedding only serves the duplicate check.
+    if (!(await aiFeaturesService.isEnabled({ taskId }, 'duplicateCheck')))
+      return
     const [vector] = await embedTexts([title])
     if (vector) await taskRepository.setTitleEmbedding(taskId, vector)
   } catch (err) {

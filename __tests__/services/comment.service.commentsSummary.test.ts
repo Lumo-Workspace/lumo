@@ -81,7 +81,8 @@ describe('comments summary scheduling on create', () => {
 
     expect(spy).toHaveBeenCalledWith(
       'a1: one\na2: two\na1: three\na3: four',
-      'comments'
+      'comments',
+      { taskId: 't1' }
     )
     expect(updateSummary).toHaveBeenCalledWith('t1', 'sum')
     spy.mockRestore()

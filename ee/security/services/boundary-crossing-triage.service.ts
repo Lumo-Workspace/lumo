@@ -26,6 +26,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
 import { CROSSING_TRIAGE_MODEL } from '@/lib/ai/models'
 import { evaluateBoolean } from '@/ee/security/ai/evaluation'
+import { resolveAiRoute } from '@/lib/ai/routing'
 import { logger } from '@/lib/logger'
 import {
   PAUSE_WINDOW_DAYS,
@@ -55,6 +56,8 @@ export interface TriageDeps {
     { category: string; disposition: string | null; _count: { _all: number } }[]
   >
   isAiReviewOn: (workspaceId: string) => Promise<boolean>
+  /** LUM-1338: whether evaluation calls can be made at all (default: yes). */
+  gatewayAvailable?: () => boolean
   score: (state: string) => Promise<number>
   recordTriage: typeof boundaryCrossingRepository.recordTriage
   markSkipped: typeof boundaryCrossingRepository.markTriageSkipped
@@ -121,6 +124,9 @@ export function createBoundaryCrossingTriageService(deps: TriageDeps) {
         pausedCategories: [...paused].sort(),
       }
       const switches = new Map<string, boolean>()
+      // LUM-1338: evaluation models exist only on the AI Gateway. Without it
+      // every row would error and be retried every run — leave them OPEN.
+      if (deps.gatewayAvailable && !deps.gatewayAvailable()) return summary
 
       for (const row of rows) {
         try {
@@ -198,6 +204,7 @@ export const boundaryCrossingTriageService =
     // triage sends crossing evidence to a model, so it is part of AI review.
     isAiReviewOn: async workspaceId =>
       (await loadSecurityLayers(workspaceId)).aiReview,
+    gatewayAvailable: () => resolveAiRoute().kind === 'gateway',
     score: async state =>
       (
         await evaluateBoolean({

@@ -59,6 +59,8 @@ export const API = {
     exports: '/api/workspaces/me/exports',
     deletion: '/api/workspaces/me/deletion',
     aiDerivedContent: '/api/workspaces/me/ai-derived-content',
+    // LUM-1338: the AI feature switches.
+    aiFeatures: '/api/workspaces/me/ai-features',
     // LUM-1002: the PR security-scan switches (also `lumo workspace security-scan`).
     exportDownload: (id: string) =>
       `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,

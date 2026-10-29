@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { checkDuplicatesSchema } from '@/lib/validation/schemas'
 import { checkDuplicates } from '@/lib/services/duplicate-check.service'
+import { aiFeaturesService } from '@/lib/services'
 import { logger } from '@/lib/logger'
 
 export async function POST(request: Request) {
@@ -19,6 +20,10 @@ export async function POST(request: Request) {
 
     const projectResult = await loadProjectAndMember(projectId, userId)
     if (projectResult instanceof NextResponse) return projectResult
+
+    // LUM-1338: switched off (or no model) = no duplicates to show.
+    if (!(await aiFeaturesService.isEnabled({ projectId }, 'duplicateCheck')))
+      return NextResponse.json({ matches: [] })
 
     const matches = await checkDuplicates(title, projectId)
     return NextResponse.json({ matches })

@@ -17,6 +17,7 @@ import {
 import { DescriptionEditor } from './DescriptionEditorLazy'
 import { useMentionSources } from '../hooks/useMentionSources'
 import { AiDescriptionPrompt } from './AiDescriptionPrompt'
+import { useAiFeatures } from '@/hooks/use-ai-features'
 import { TypographyH3 } from '@/components/ui/typography'
 import { Spinner } from '@/components/ui/spinner'
 // AgentPanel hidden — agent features disabled for now
@@ -152,6 +153,8 @@ export function TaskDetailPanel({
     onExternalUpdate: onUpdate,
   })
 
+  // LUM-1338: the AI description helper follows the workspace's switches.
+  const aiDescriptionOn = useAiFeatures().isOn('taskDescription')
   const desc = useTaskDescription({
     taskId: initialTask.id,
     cachedDescription,
@@ -265,7 +268,7 @@ export function TaskDetailPanel({
             <Spinner className='size-4 text-muted-foreground' />
           ) : (
             <>
-              {!task.description && (
+              {!task.description && aiDescriptionOn && (
                 <div className='mb-2'>
                   <AiDescriptionPrompt
                     title={task.title}
@@ -284,7 +287,7 @@ export function TaskDetailPanel({
                 onCommit={commitDescription}
                 mentionSources={mentionSources}
               />
-              {task.description && (
+              {task.description && aiDescriptionOn && (
                 <div className='mt-1 flex justify-end'>
                   <AiDescriptionPrompt
                     title={task.title}

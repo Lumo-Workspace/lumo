@@ -51,6 +51,38 @@ jest.mock('next/image', () => ({
   },
 }))
 
+// LUM-1338: every AI feature asks aiFeaturesService (server) or
+// useAiFeatures (client) before it calls a model or shows an AI entry point.
+// Tests of those features run with every switch on — the test env has no
+// model configured, which would otherwise switch them all off. Tests of the
+// switches themselves `jest.unmock` these modules.
+jest.mock('@/lib/services/ai-features.service', () => {
+  const actual = jest.requireActual('@/lib/services/ai-features.service')
+  return {
+    ...actual,
+    aiFeaturesService: {
+      ...actual.aiFeaturesService,
+      isEnabled: jest.fn(async () => true),
+      isAiConfigured: jest.fn(() => true),
+      workspaceIdsWithFeatureOff: jest.fn(async () => []),
+      assertEnabled: jest.fn(async () => undefined),
+    },
+  }
+})
+jest.mock('@/hooks/use-ai-features', () => {
+  const actual = jest.requireActual('@/hooks/use-ai-features')
+  return {
+    ...actual,
+    useAiFeatures: () => ({
+      status: null,
+      isLoading: false,
+      error: null,
+      isOn: () => true,
+    }),
+    useSetAiFeature: () => ({ mutate: jest.fn(), isPending: false }),
+  }
+})
+
 // Mock environment variables
 process.env.NEXTAUTH_URL = 'http://localhost:3000'
 process.env.NEXTAUTH_SECRET = 'test-secret'

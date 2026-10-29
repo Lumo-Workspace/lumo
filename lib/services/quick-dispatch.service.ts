@@ -4,6 +4,10 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { isAiUnavailableError } from '@/lib/ai/routing'
+import {
+  aiFeaturesService,
+  aiFeatureUnavailableError,
+} from '@/lib/services/ai-features.service'
 import { listUsersByIds } from '@/lib/auth/user-batch'
 import { getUserDirectory } from '@/lib/auth/users'
 import { taskService } from '@/lib/services/task.service'
@@ -208,9 +212,16 @@ export const quickDispatchService = {
     // deployment cannot serve the model (no AI backend, or a direct provider
     // with no mapping for it) the rule-parsed actions still go through; with
     // none, the 503 says why. `gateway()` throws before any request is sent.
+    // LUM-1338: the same holds when the workspace switched the feature off.
     let aiActions: QuickAction[] = []
     let model: ReturnType<typeof gateway> | null = null
-    if (ruleResult.unparsed) {
+    if (
+      ruleResult.unparsed &&
+      !(await aiFeaturesService.isEnabled({ workspaceId }, 'quickDispatch'))
+    ) {
+      if (ruleResult.actions.length === 0)
+        throw aiFeatureUnavailableError('quickDispatch')
+    } else if (ruleResult.unparsed) {
       try {
         model = gateway(GENERATION_MODEL)
       } catch (err) {

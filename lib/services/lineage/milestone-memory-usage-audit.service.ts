@@ -14,6 +14,7 @@ import {
 import { logger } from '@/lib/logger'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * Audit one steward session: of the prior-milestone memories injected into it,
@@ -98,6 +99,14 @@ export const milestoneMemoryUsageAuditService = {
         milestone.projectId
       )
       if (!project) return
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled(
+          { workspaceId: project.workspaceId },
+          'memoryConsolidation'
+        ))
+      )
+        return
       const scope: ConstitutionScope = {
         projectId: milestone.projectId,
         workspaceId: project.workspaceId,

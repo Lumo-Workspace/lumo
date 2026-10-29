@@ -90,6 +90,8 @@ it('groups the settings into titled sections with jump links', async () => {
     ['General', '#general'],
     // LUM-1334
     ['Done requirements', '#done-requirements'],
+    // LUM-1338: the AI feature switches.
+    ['AI features', '#ai-features'],
     ['Code review', '#code-review'],
     ['Data & privacy', '#data-privacy'],
     ['Danger zone', '#danger-zone'],

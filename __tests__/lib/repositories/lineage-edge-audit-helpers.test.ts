@@ -46,4 +46,24 @@ describe('listUnvotedSessionIdsForDoneTasks', () => {
     })
     expect(arg.take).toBe(50)
   })
+
+  it('LUM-1338: leaves out the given workspaces by id, and nothing when none', async () => {
+    ;(prisma.lineageEdge.groupBy as jest.Mock).mockResolvedValue([])
+    await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
+      50,
+      undefined,
+      { excludeWorkspaceIds: ['w_off'] }
+    )
+    await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
+      50,
+      undefined,
+      { excludeWorkspaceIds: [] }
+    )
+    const calls = (prisma.lineageEdge.groupBy as jest.Mock).mock.calls
+    expect(calls[calls.length - 2][0].where.task).toEqual({
+      status: 'DONE',
+      project: { workspaceId: { notIn: ['w_off'] } },
+    })
+    expect(calls[calls.length - 1][0].where.task).toEqual({ status: 'DONE' })
+  })
 })

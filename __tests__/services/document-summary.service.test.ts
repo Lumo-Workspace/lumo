@@ -36,7 +36,8 @@ describe('scheduleDocumentSummary', () => {
 
     expect(contentSummaryService.summarize).toHaveBeenCalledWith(
       'the document body',
-      'document'
+      'document',
+      { workspaceId: 'ws1' }
     )
     expect(repo.updateSummary).toHaveBeenCalledWith('doc1', 'ws1', 'sum')
   })

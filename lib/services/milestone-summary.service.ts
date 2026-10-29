@@ -6,6 +6,7 @@ import {
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { callMilestoneSummaryLLM } from '@/lib/llm/milestone-summary-client'
 import { taskStatusService } from '@/lib/services/task-status.service'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -34,13 +35,27 @@ export const milestoneSummaryService = {
         tasks.map(t => t.id)
       )
 
-      const { tldr, report } = await callMilestoneSummaryLLM({
-        subject: milestone.name,
-        window: { start: milestone.startDate, target: milestone.targetDate },
-        stats,
-        tasks,
-        struggle,
-      })
+      // LUM-1338: retro summaries switched off (or no model) — the stats
+      // still save, a write-up generated earlier is kept, and nothing new is
+      // distilled below.
+      const retroOn = await aiFeaturesService.isEnabled(
+        { projectId: milestone.projectId },
+        'retroSummary'
+      )
+      const { tldr, report } = retroOn
+        ? await callMilestoneSummaryLLM({
+            subject: milestone.name,
+            window: {
+              start: milestone.startDate,
+              target: milestone.targetDate,
+            },
+            stats,
+            tasks,
+            struggle,
+          })
+        : ((await milestoneSummaryRepository.findByMilestoneId(
+            milestoneId
+          )) ?? { tldr: '', report: '' })
 
       const savedSummary = await milestoneSummaryRepository.save(milestoneId, {
         stats,
@@ -60,9 +75,11 @@ export const milestoneSummaryService = {
       // AFTER the summary is saved (it reads the persisted report as its source)
       // and is best-effort — it owns its own error handling and never throws, so
       // a distillation failure can't fail the retro generation or the retry job.
-      const { milestoneDistillService } =
-        await import('@/lib/services/memory/milestone-distill.service')
-      await milestoneDistillService.triggerForMilestoneClose(milestoneId)
+      if (retroOn) {
+        const { milestoneDistillService } =
+          await import('@/lib/services/memory/milestone-distill.service')
+        await milestoneDistillService.triggerForMilestoneClose(milestoneId)
+      }
 
       // LUM-648: audit how much of the PRIOR milestones' distilled learning
       // this milestone's steward sessions actually used — the milestone-close

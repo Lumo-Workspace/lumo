@@ -2,6 +2,7 @@ import {
   workspaceRepository,
   type WorkspaceUpdateData,
 } from '@/lib/repositories/workspace.repository'
+import type { AiFeatureSwitches } from '@/lib/ai-features/registry'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import {
   nextSessionRecordCutoff,
@@ -58,6 +59,8 @@ interface CoreWorkspaceSettingsInput {
   /** LUM-1334: DONE requires a passing test case / a review on each PR head. */
   doneRequiresTestCase?: boolean | undefined
   doneRequiresReview?: boolean | undefined
+  /** LUM-1338: the AI feature switches (set by aiFeaturesService only). */
+  aiFeatureSwitches?: AiFeatureSwitches | undefined
 }
 
 // ── Retention changes (LUM-933) ─────────────────────────────────────────────
@@ -203,6 +206,8 @@ export const workspaceService = {
       data.doneRequiresTestCase = input.doneRequiresTestCase
     if (input.doneRequiresReview !== undefined)
       data.doneRequiresReview = input.doneRequiresReview
+    if (input.aiFeatureSwitches !== undefined)
+      data.aiFeatureSwitches = input.aiFeatureSwitches
     // LUM-1062: plugin-owned columns (e.g. the security plugin's policy,
     // evidence retention and scan switches) go in the same update + audit.
     Object.assign(data, pluginWorkspaceWrites(input))

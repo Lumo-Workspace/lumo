@@ -16,6 +16,7 @@ import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionRow } from '../settings/WorkspaceDeletionRow'
 import { AiDerivedContentDeleteRow } from '../settings/AiDerivedContentDeleteRow'
 import { DangerZoneCard } from '../settings/DangerZoneCard'
+import { AiFeaturesSection } from '../settings/AiFeaturesSection'
 import {
   SettingsSection,
   SettingsSectionNav,
@@ -241,6 +242,12 @@ export function WorkspaceSettingsPage() {
               id: 'workspaceSettings.section.doneRequirements',
             }),
           },
+          {
+            id: 'ai-features',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.aiFeatures',
+            }),
+          },
         ]
       : []),
     ...(showCodeReview
@@ -418,6 +425,18 @@ export function WorkspaceSettingsPage() {
               testCase={workspace.doneRequiresTestCase ?? null}
               review={workspace.doneRequiresReview ?? null}
             />
+          </SettingsSection>
+        )}
+
+        {/* AI feature switches (LUM-1338): master, groups, features. */}
+        {loaded && workspace && (
+          <SettingsSection
+            id='ai-features'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.aiFeatures',
+            })}
+          >
+            <AiFeaturesSection />
           </SettingsSection>
         )}
 

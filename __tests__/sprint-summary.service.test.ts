@@ -3,6 +3,7 @@ import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 const mockFindSprint = jest.fn()
 const mockComputeStatsData = jest.fn()
 const mockSave = jest.fn()
+const mockFindBySprintId = jest.fn()
 const mockLLM = jest.fn()
 const mockFindPendingSprintJob = jest.fn()
 const mockMarkCompleted = jest.fn()
@@ -23,6 +24,7 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
 jest.mock('@/lib/repositories/sprint-summary.repository', () => ({
   sprintSummaryRepository: {
     save: (...a: any[]) => mockSave(...a),
+    findBySprintId: (...a: any[]) => mockFindBySprintId(...a),
     computeStatsData: (...a: any[]) => mockComputeStatsData(...a),
   },
 }))
@@ -70,6 +72,7 @@ beforeEach(() => {
 const CLOSED_SPRINT = {
   id: 'sprint-1',
   teamId: 'team-1',
+  team: { id: 'team-1', name: 'Core', workspaceId: 'ws-1' },
   name: 'Sprint 3',
   status: 'CLOSED',
   startDate: new Date('2026-04-06'),
@@ -134,6 +137,53 @@ describe('sprintSummaryService.generate', () => {
     expect(result).toEqual({ id: 'summary-1' })
     expect(mockMarkCompleted).not.toHaveBeenCalled()
     expect(mockMarkFailed).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1338: retro write-ups off — saves the figures without calling the model', async () => {
+    const { aiFeaturesService } = jest.requireMock(
+      '@/lib/services/ai-features.service'
+    )
+    aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockSave.mockResolvedValueOnce({ id: 'summary-1' })
+
+    await sprintSummaryService.generate('sprint-1')
+
+    expect(aiFeaturesService.isEnabled).toHaveBeenCalledWith(
+      { workspaceId: 'ws-1' },
+      'retroSummary'
+    )
+    expect(mockLLM).not.toHaveBeenCalled()
+    expect(mockSave).toHaveBeenCalledWith('sprint-1', {
+      stats: STATS_DATA.stats,
+      tldr: '',
+      report: '',
+    })
+    expect(mockMarkFailed).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1338: retro write-ups off — a write-up generated earlier is kept, not blanked', async () => {
+    const { aiFeaturesService } = jest.requireMock(
+      '@/lib/services/ai-features.service'
+    )
+    aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockFindBySprintId.mockResolvedValueOnce({
+      tldr: 'old tldr',
+      report: 'old report',
+    })
+    mockSave.mockResolvedValueOnce({ id: 'summary-1' })
+
+    await sprintSummaryService.generate('sprint-1')
+
+    expect(mockLLM).not.toHaveBeenCalled()
+    expect(mockSave).toHaveBeenCalledWith('sprint-1', {
+      stats: STATS_DATA.stats,
+      tldr: 'old tldr',
+      report: 'old report',
+    })
   })
 
   it('marks pending GenerationJob as completed with summaryId on success', async () => {

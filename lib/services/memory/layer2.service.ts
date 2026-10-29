@@ -14,6 +14,7 @@ import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
 import { embedTexts } from '@/lib/ai/embedding'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -91,6 +92,18 @@ export const layer2Service = {
       ) {
         logger.debug(
           `[memory.layer2] skip project=${input.projectId} reason=ai-derived-off`
+        )
+        return
+      }
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled(
+          { projectId: input.projectId },
+          'memoryConsolidation'
+        ))
+      ) {
+        logger.debug(
+          `[memory.layer2] skip project=${input.projectId} reason=ai-feature-off`
         )
         return
       }

@@ -25,6 +25,7 @@ import {
 } from '../fields'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
+import { useAiFeatures } from '@/hooks/use-ai-features'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import { usePrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import { useFormRecovery } from '../../hooks/useFormRecovery'
@@ -169,6 +170,8 @@ export function NewTaskModal({
 
   const effectiveProjectId = projectId || defaultProjectId || ''
   const { clientMatches } = useDuplicateCheck(title, tasks, effectiveProjectId)
+  // LUM-1338: AI entry points follow the workspace's AI feature switches.
+  const { status: aiStatus, isOn: isAiOn } = useAiFeatures()
 
   const {
     suggestion: prioritySuggestion,
@@ -178,6 +181,7 @@ export function NewTaskModal({
     reset: resetPrioritySuggestion,
   } = usePrioritySuggestion({
     projectId: effectiveProjectId,
+    enabled: isAiOn('prioritySuggestion'),
   })
 
   const projectName =
@@ -332,7 +336,12 @@ export function NewTaskModal({
       return
     }
 
-    // Phase 2: AI semantic matching on submit
+    // Phase 2: AI semantic matching on submit (LUM-1338: when switched on)
+    // Not loaded yet → still ask: the server answers [] when switched off.
+    if (aiStatus !== null && !isAiOn('duplicateCheck')) {
+      doCreate()
+      return
+    }
     setPhase('checking')
     try {
       const data = await apiFetch<{ matches?: DuplicateMatch[] }>(
@@ -455,21 +464,23 @@ export function NewTaskModal({
               workspaceUrl={workspaceUrl}
               projects={projects}
             />
-            <AiDescriptionPrompt
-              title={title}
-              projectId={projectId || defaultProjectId || ''}
-              workspaceUrl={workspaceUrl}
-              existingDescription={descriptionValue}
-              onAccept={html => {
-                descriptionRef.current = html
-                setDescriptionValue(html)
-              }}
-              onProjectSuggested={suggested => {
-                if (!projectId && !defaultProjectId) {
-                  setProjectId(suggested.id)
-                }
-              }}
-            />
+            {isAiOn('taskDescription') && (
+              <AiDescriptionPrompt
+                title={title}
+                projectId={projectId || defaultProjectId || ''}
+                workspaceUrl={workspaceUrl}
+                existingDescription={descriptionValue}
+                onAccept={html => {
+                  descriptionRef.current = html
+                  setDescriptionValue(html)
+                }}
+                onProjectSuggested={suggested => {
+                  if (!projectId && !defaultProjectId) {
+                    setProjectId(suggested.id)
+                  }
+                }}
+              />
+            )}
             <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
               <DescriptionEditor
                 value={descriptionValue}

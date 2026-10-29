@@ -3,6 +3,7 @@ import type {
   Prisma,
   SummaryFrequency,
 } from '@prisma/client'
+import type { AiFeatureSwitches } from '@/lib/ai-features/registry'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -40,6 +41,8 @@ export interface WorkspaceUpdateData {
   /** LUM-1334: the DONE requirement switches. */
   doneRequiresTestCase?: boolean
   doneRequiresReview?: boolean
+  /** LUM-1338: the AI feature switches (sparse; absent = on). */
+  aiFeatureSwitches?: AiFeatureSwitches
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────

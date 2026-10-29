@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { LineageFragmentType } from '@prisma/client'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * Audit one session: which injected fragments did the agent actually use?
@@ -103,6 +104,11 @@ export const fragmentUsageAuditService = {
     // LUM-1314: the global memory pipeline switch is on.
     if (isMemoryPipelineDisabled()) return
     try {
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled({ taskId }, 'memoryConsolidation'))
+      )
+        return
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return
       const sessions = await sessionRepository.listForTask(taskId)
@@ -135,8 +141,22 @@ export const fragmentUsageAuditService = {
   ): Promise<{ processed: number; sessionIds: string[] }> {
     // LUM-1314: the global memory pipeline switch is on.
     if (isMemoryPipelineDisabled()) return { processed: 0, sessionIds: [] }
+    // LUM-1338: no model — nothing to judge with. Workspaces that switched
+    // memory consolidation off are left out by the query itself, so their
+    // sessions never fill the batch.
+    if (!aiFeaturesService.isAiConfigured())
+      return { processed: 0, sessionIds: [] }
     const sessionIds =
-      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
+      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
+        limit,
+        undefined,
+        {
+          excludeWorkspaceIds:
+            await aiFeaturesService.workspaceIdsWithFeatureOff(
+              'memoryConsolidation'
+            ),
+        }
+      )
     for (const id of sessionIds) {
       try {
         const edges = await lineageEdgeRepository.findSessionFragmentEdges(id)

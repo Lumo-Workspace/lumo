@@ -38,10 +38,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result)
   } catch (error) {
-    const err = error as Error & { status?: number }
-    // 503 = AI not configured on this deployment (LUM-1019).
-    if (err.status === 404 || err.status === 503) {
-      return NextResponse.json({ error: err.message }, { status: err.status })
+    const err = error as Error & { status?: number; code?: string }
+    // 503 = AI not configured on this deployment (LUM-1019); 409 = the
+    // workspace switched the feature off (LUM-1338).
+    if (err.status === 404 || err.status === 409 || err.status === 503) {
+      return NextResponse.json(
+        { error: err.message, ...(err.code && { code: err.code }) },
+        { status: err.status }
+      )
     }
     console.error('POST /api/tasks/parse-quick-dispatch error:', error)
     return NextResponse.json(

@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger'
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { bigramSimilarity } from '@/lib/similarity'
 import { embedTexts } from '@/lib/ai/embedding'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 const matchSchema = z.object({
   matches: z.array(
@@ -289,6 +290,14 @@ export async function suggestDuplicateEdges(input: {
   workspaceId: string
 }): Promise<void> {
   try {
+    // LUM-1338: switched off (or no model) — suggest nothing.
+    if (
+      !(await aiFeaturesService.isEnabled(
+        { workspaceId: input.workspaceId },
+        'duplicateCheck'
+      ))
+    )
+      return
     const matches = await findLikelyDuplicates(input.title, input.projectId, {
       excludeTaskId: input.taskId,
     })

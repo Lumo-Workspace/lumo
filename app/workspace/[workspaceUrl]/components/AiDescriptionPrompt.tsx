@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card'
 import { CircleAlert } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '@/lib/api-client'
+import { apiFetch, ApiClientError } from '@/lib/api-client'
+import { isAiOffCode } from '@/lib/ai-features/registry'
 import { RichHtml } from '@/components/RichHtml'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -69,10 +70,24 @@ export function AiDescriptionPrompt({
         onProjectSuggested(data.suggestedProject)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      // LUM-1338: AI switched off or not configured — say so, not the raw error.
+      setError(
+        err instanceof ApiClientError && isAiOffCode(err.code)
+          ? intl.formatMessage({ id: 'aiFeatures.error.unavailable' })
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong'
+      )
       setState('idle')
     }
-  }, [title, projectId, workspaceUrl, existingDescription, onProjectSuggested])
+  }, [
+    title,
+    projectId,
+    workspaceUrl,
+    existingDescription,
+    onProjectSuggested,
+    intl,
+  ])
 
   const handleAccept = useCallback(() => {
     if (preview) {

@@ -147,7 +147,9 @@ export const commentService = {
     if (recapInput.length === 0) return
     waitUntil(
       contentSummaryService
-        .summarize(buildCommentsSummaryInput(recapInput), 'comments')
+        .summarize(buildCommentsSummaryInput(recapInput), 'comments', {
+          taskId,
+        })
         .then(s =>
           s ? taskRepository.updateCommentsSummary(taskId, s) : undefined
         )
