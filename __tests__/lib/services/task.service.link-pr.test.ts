@@ -106,7 +106,6 @@ describe('taskService.linkPullRequest', () => {
     expect(result).toEqual({
       id: 'pr-1',
       taskId: 'task-1',
-      sharedWithOtherWorkspaces: false,
     })
   })
 
@@ -128,7 +127,6 @@ describe('taskService.linkPullRequest', () => {
     expect(result).toEqual({
       id: 'pr-1',
       taskId: 'task-1',
-      sharedWithOtherWorkspaces: false,
     })
   })
 
@@ -176,7 +174,6 @@ describe('taskService.linkPullRequest', () => {
     expect(result).toEqual({
       id: 'pr-1',
       taskId: 'task-1',
-      sharedWithOtherWorkspaces: false,
     })
   })
 

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import { prisma } from '@/lib/db/prisma'
 import {
   parseEmptyBaseBranchesMeans,
@@ -224,6 +225,7 @@ export const repoReviewSettingRepository = {
     const row = await prisma.pullRequest.findFirst({
       where: {
         workspaceId: { not: workspaceId },
+        provider: GITHUB_PROVIDER,
         repo: { equals: repoLower, mode: 'insensitive' },
         number,
         taskId: { not: null },

@@ -18,21 +18,18 @@
  *
  * Best effort: GitHub / model / storage failures are logged, never thrown.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*`, the
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the
  * database through repositories, the model through a dynamically imported
  * client.
  */
 import { createHash } from 'node:crypto'
 import { logger } from '@/lib/logger'
-import { getRepoToken } from '@/lib/integrations/github/auth'
-import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
-import { checkRepositoryWriteAccess } from '@/lib/integrations/github/collaborator-access'
-import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 import {
-  fetchPrDiff,
-  fetchPrHeadSha,
-  readRepoFile,
-} from '@/lib/integrations/github/contents'
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import type { CoreEvents } from '@/lib/plugins/types'
 import { renderToneInstructions } from '@/ee/security/security-scan/path-instructions'
 import {
@@ -74,7 +71,7 @@ export type ChatOutcome =
   | 'unavailable'
   | 'failed'
 
-export interface ChatQuestion {
+export interface ChatQuestion extends GitProviderRef {
   workspaceId: string
   pullRequestId: string
   repo: string
@@ -105,15 +102,26 @@ function sha(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 12)
 }
 
+/**
+ * LUM-1318 — a Git platform comment event (`git.*`); no `provider` = the
+ * GitHub webhook's (the column default).
+ */
+type PlatformEvent<E extends 'git.reviewComment' | 'git.issueComment'> = Omit<
+  CoreEvents[E],
+  'provider'
+> &
+  GitProviderRef
+
 async function hasWriteAccess(q: ChatQuestion): Promise<boolean> {
   try {
-    const token = await getRepoToken(
+    const git = gitProviderFor(q)
+    const token = await git.getRepoToken(
       q.workspaceId,
       q.repo,
-      REPO_TOKEN_PERMISSIONS.collaboratorPermission
+      'collaboratorPermission'
     )
     return (
-      (await checkRepositoryWriteAccess(token, q.repo, q.login)) === 'write'
+      (await git.checkRepositoryWriteAccess(token, q.repo, q.login)) === 'write'
     )
   } catch (error) {
     logger.warn(
@@ -129,19 +137,20 @@ async function loadContext(q: ChatQuestion): Promise<{
   diff: string
   file: string
 }> {
+  const git = gitProviderFor(q)
   const ref = {
     workspaceId: q.workspaceId,
     fullName: q.repo,
     prNumber: q.prNumber,
   }
   const [headSha, diff] = await Promise.all([
-    fetchPrHeadSha(ref).catch((error: unknown) => {
+    git.fetchPrHeadSha(ref).catch((error: unknown) => {
       logger.warn(
         `[pr-chat] head unreadable pr=${q.repo}#${q.prNumber}: ${describe(error)}`
       )
       return null
     }),
-    fetchPrDiff(ref).catch((error: unknown) => {
+    git.fetchPrDiff(ref).catch((error: unknown) => {
       logger.warn(
         `[pr-chat] diff unreadable pr=${q.repo}#${q.prNumber}: ${describe(error)}`
       )
@@ -155,7 +164,7 @@ async function loadContext(q: ChatQuestion): Promise<{
   if (q.focus && headSha) {
     try {
       file =
-        (await readRepoFile({
+        (await git.readRepoFile({
           workspaceId: q.workspaceId,
           fullName: q.repo,
           path: q.focus.path,
@@ -295,10 +304,10 @@ export async function answerQuestion(q: ChatQuestion): Promise<ChatOutcome> {
   }
 
   try {
-    const token = await getRepoToken(
+    const token = await gitProviderFor(q).getRepoToken(
       q.workspaceId,
       q.repo,
-      REPO_TOKEN_PERMISSIONS.pullRequestWrite
+      'pullRequestWrite'
     )
 
     const since = new Date(Date.now() - PR_CHAT_WINDOW_MS)
@@ -376,7 +385,7 @@ function isHuman(user: { login?: string; type?: string } | null): user is {
  * through the thread-reply service). Answered in the same thread.
  */
 export async function applyLineMention(
-  event: CoreEvents['github.reviewComment']
+  event: PlatformEvent<'git.reviewComment'>
 ): Promise<ChatOutcome | 'ignored'> {
   if (event.action !== 'created') return 'ignored'
   const handle = prCommandHandle()
@@ -386,6 +395,7 @@ export async function applyLineMention(
   const repo = parseRepo(event.repo)
   const threadRoot = event.comment.inReplyToId ?? event.comment.id
   return answerQuestion({
+    ...gitProviderRefOf(event),
     workspaceId: event.workspaceId,
     pullRequestId: event.pullRequestId,
     repo: event.repo,
@@ -405,7 +415,7 @@ export async function applyLineMention(
     blockingFindingId: null,
     marker: CHAT_ANSWER_MARKER,
     post: async (body, token) => {
-      await prCommentClient.createReviewLineReply({
+      await gitProviderFor(event).comments.createReviewLineReply({
         repo,
         prNumber: event.prNumber,
         inReplyTo: threadRoot,
@@ -421,7 +431,7 @@ export async function applyLineMention(
  * (`routeConversationComment` decided). Answered with a conversation comment.
  */
 export async function applyConversationQuestion(
-  event: CoreEvents['github.issueComment']
+  event: PlatformEvent<'git.issueComment'>
 ): Promise<ChatOutcome | 'ignored'> {
   if (event.action !== 'created') return 'ignored'
   const handle = prCommandHandle()
@@ -430,6 +440,7 @@ export async function applyConversationQuestion(
   if (!mentionsHandle(event.comment.body, handle)) return 'ignored'
   const repo = parseRepo(event.repo)
   return answerQuestion({
+    ...gitProviderRefOf(event),
     workspaceId: event.workspaceId,
     pullRequestId: event.pullRequestId,
     repo: event.repo,
@@ -443,7 +454,7 @@ export async function applyConversationQuestion(
     blockingFindingId: null,
     marker: CHAT_ANSWER_MARKER,
     post: async (body, token) => {
-      await prCommentClient.createIssueComment({
+      await gitProviderFor(event).comments.createIssueComment({
         repo,
         prNumber: event.prNumber,
         body,

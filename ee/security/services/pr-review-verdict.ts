@@ -27,7 +27,7 @@
  * GitHub side lives in `pr-review-verdict.service.ts`.
  */
 import { isLumoActor } from '@/ee/security/services/pr-finding-thread.service'
-import type { ListedReview } from '@/lib/integrations/github/pr-comment-client'
+import type { ListedReview } from '@/lib/integrations/git-provider'
 import type { ScanStatus } from '@/ee/security/repositories/pr-security-scan.repository'
 import type {
   ScanStageState,

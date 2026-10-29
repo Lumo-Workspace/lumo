@@ -71,7 +71,6 @@ function renderSection(settings = DEFAULTS) {
       settings={settings}
       // LUM-1062: the plugin rows (scan evidence) read the workspace row.
       workspace={settings}
-      workspaceName='Acme'
     />
   )
 }

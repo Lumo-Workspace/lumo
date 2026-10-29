@@ -24,8 +24,8 @@ jest.mock('@/lib/db/prisma', () => ({
     return holder.client
   },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn().mockResolvedValue(new Map()),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn().mockResolvedValue(new Map()),
 }))
 
 import { buildWorkspaceArchive } from '@/lib/services/workspace-export.service'

@@ -208,7 +208,7 @@ describe('renderPreToolUseSecurityReminder', () => {
       identifier: 'LUM-7',
     })
     expect(out).toContain(
-      '⚠ Lumo security scan found 2 undispositioned findings on PR #12 (head abcdef0) — 1 blocks DONE:'
+      '⚠ Lumo review found 2 undispositioned findings on PR #12 (head abcdef0) — 1 blocks DONE:'
     )
     expect(out).toContain('  - [HIGH] DETERMINISTIC secret:aws-access-key-id')
     expect(out).toContain(
@@ -269,7 +269,7 @@ describe('LUM-988 code-review findings in the agent reminders', () => {
       identifier: 'LUM-9',
     })!
     expect(pre).toContain(
-      '⚠ Lumo security scan found 2 undispositioned findings (1 security finding · 1 bug) on PR #12 (head abcdef0) — 1 blocks DONE:'
+      '⚠ Lumo review found 2 undispositioned findings (1 security finding · 1 bug) on PR #12 (head abcdef0) — 1 blocks DONE:'
     )
     const start = renderSessionStartSecuritySection({
       findings: [f(), bug],

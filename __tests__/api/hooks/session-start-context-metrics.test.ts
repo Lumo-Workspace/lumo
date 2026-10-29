@@ -8,7 +8,7 @@
 
 // task.service transitively imports @octokit/auth-app (ESM) via
 // task-pr-sync.service → lib/integrations/github — mock the whole module to
-// keep jest in CJS-land. document.service pulls in @clerk/nextjs — same story.
+// keep jest in CJS-land.
 jest.mock('@/lib/services/task.service', () => ({
   taskService: { resolveIdentifier: jest.fn() },
 }))
@@ -121,9 +121,14 @@ function bindTask() {
 /** Stamped payload of the (single) setContextInjectionMetrics call. */
 function stampedPayload(): Record<string, unknown> {
   expect(mockStamp).toHaveBeenCalledTimes(1)
-  const call = mockStamp.mock.calls[0] as [string, Record<string, unknown>]
-  expect(call[0]).toBe('he_1')
-  return call[1]
+  const call = mockStamp.mock.calls[0] as [
+    string,
+    string,
+    Record<string, unknown>,
+  ]
+  expect(call[0]).toBe(identity.workspace.id)
+  expect(call[1]).toBe('he_1')
+  return call[2]
 }
 
 describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => {

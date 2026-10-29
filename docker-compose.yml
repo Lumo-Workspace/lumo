@@ -1,22 +1,39 @@
-# Lumo — one-command self-hosting (LUM-1028).
+# Lumo — one-command self-hosting (LUM-1028, LUM-1325, LUM-1332).
 #
-#   cp .env.example .env      # fill the "Required" section, then
-#   docker compose up -d --build
+#   scripts/self-host/setup.sh --url https://lumo.example.com [--realtime]
+#   docker compose up -d                    # pulls the prebuilt images
+#   docker compose --profile caddy up -d    # …plus HTTPS on that domain
+#
+# Three services: Postgres, the app (it migrates on start; files on a local
+# volume) and the scheduler. Realtime (Soketi) is the optional overlay
+# deploy/self-host/compose.realtime.yml — setup.sh --realtime adds it to
+# COMPOSE_FILE in .env, which `docker compose` reads by itself.
+#
+# `docker compose up -d --build` builds the images from this checkout instead
+# (needs ~8 GB of memory for Docker).
 #
 # Full guide: docs/self-hosting/README.md. Values come from `.env` (read by
 # compose for ${...} below and passed to the app via env_file). The service
-# wiring (database, Redis, MinIO, Soketi, workflows) is fixed here and
-# overrides whatever `.env` says for those variables.
+# wiring (database, storage, workflows) is fixed here and overrides whatever
+# `.env` says for those variables.
 
-x-app-build: &app-build # Built once (by `app`); `migrate` runs the same image.
-  image: ${LUMO_IMAGE:-lumo-app:local}
+# Prebuilt images come from the public repository's Images workflow; pin a
+# release with LUMO_IMAGE=ghcr.io/lumo-workspace/lumo:<version> (and
+# LUMO_CRON_IMAGE). Compose pulls the image and builds it only when the pull
+# fails or `--build` is passed.
+x-app-build: &app-build
+  image: ${LUMO_IMAGE:-ghcr.io/lumo-workspace/lumo:latest}
   build:
     context: .
     dockerfile: Dockerfile
     args:
-      # Better Auth: no Clerk account needed (LUM-1043). Must match the
+      # Better Auth (LUM-1043). Must match the
       # runtime AUTH_PROVIDER below — static pages bake it in at build time.
+      # The NEXT_PUBLIC_* args are only fallbacks: the app reads the runtime
+      # values below (LUM-1325), so changing them needs no rebuild.
       AUTH_PROVIDER: better-auth
+      # Node heap for `next build`; lower it on a builder with < 8 GB.
+      BUILD_MAX_OLD_SPACE_SIZE: ${BUILD_MAX_OLD_SPACE_SIZE:-6144}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
       NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
@@ -46,24 +63,16 @@ x-app-env: &app-env
     AUTH_PROVIDER: better-auth
     BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -hex 32)}
     BETTER_AUTH_URL: ${BETTER_AUTH_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
-    # Rate limits shared across restarts / instances.
-    REDIS_URL: redis://redis:6379
-    # File storage on MinIO (private bucket, created by minio-init).
-    BLOB_STORAGE: s3
-    S3_BUCKET: ${S3_BUCKET:-lumo}
-    S3_REGION: us-east-1
-    S3_ENDPOINT: http://minio:9000
-    S3_FORCE_PATH_STYLE: 'true'
-    S3_ACCESS_KEY_ID: lumo
-    S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
-    # Realtime on Soketi. The server reaches it inside the network; browsers
-    # use the NEXT_PUBLIC_PUSHER_* build args above.
-    PUSHER_APP_ID: lumo
-    PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
-    PUSHER_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
-    PUSHER_HOST: soketi
-    PUSHER_PORT: '6001'
-    PUSHER_USE_TLS: 'false'
+    # Files on the blob-data volume; for your own S3 set BLOB_STORAGE=s3 and
+    # S3_* in .env (REDIS_URL in .env likewise moves rate limits to Redis).
+    BLOB_STORAGE: ${BLOB_STORAGE:-disk}
+    LOCAL_BLOB_DIR: /var/lib/lumo/blobs
+    # This deployment's public URL, read at runtime (LUM-1325) and served to
+    # browsers by /api/public-config. Links that leave the app (CLI output,
+    # GitHub comments) use LUMO_PUBLIC_URL, which otherwise points at the
+    # hosted service.
+    NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    LUMO_PUBLIC_URL: ${LUMO_PUBLIC_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}
 
 services:
   postgres:
@@ -81,85 +90,14 @@ services:
       timeout: 5s
       retries: 30
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
-    volumes: [redis-data:/data]
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 5s
-      retries: 30
-
-  minio:
-    image: cgr.dev/chainguard/minio:latest
-    restart: unless-stopped
-    command: ['server', '/data']
-    environment:
-      MINIO_ROOT_USER: lumo
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
-    volumes: [minio-data:/data]
-    healthcheck:
-      # The image has bash but no curl: probe the liveness endpoint over /dev/tcp.
-      test:
-        - CMD
-        - bash
-        - -c
-        - 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /minio/health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && read -r s <&3 && [[ $$s == *" 200 "* ]]'
-      interval: 5s
-      timeout: 5s
-      retries: 30
-
-  # Creates the private bucket once (no public policy: every read goes
-  # through Lumo's authenticated routes). Idempotent.
-  minio-init:
-    image: cgr.dev/chainguard/minio-client:latest
-    environment:
-      MC_HOST_lumo: http://lumo:${MINIO_ROOT_PASSWORD}@minio:9000
-    command: ['mb', '--ignore-existing', 'lumo/${S3_BUCKET:-lumo}']
-    depends_on:
-      minio: { condition: service_healthy }
-    restart: 'no'
-
-  soketi:
-    image: quay.io/soketi/soketi:1.6-16-debian
-    restart: unless-stopped
-    environment:
-      SOKETI_DEFAULT_APP_ID: lumo
-      SOKETI_DEFAULT_APP_KEY: ${SOKETI_APP_KEY:-lumo}
-      SOKETI_DEFAULT_APP_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
-    ports: ['${SOKETI_PUBLIC_PORT:-6001}:6001']
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "require('http').get('http://127.0.0.1:6001/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
-      interval: 5s
-      timeout: 5s
-      retries: 30
-
-  # One-shot: schema migrations, then the workflow World's own schemas.
-  # Runs on every `up`; both steps are idempotent.
-  migrate:
-    <<: *app-env
-    image: ${LUMO_IMAGE:-lumo-app:local}
-    command:
-      ['sh', '-c', 'npx prisma migrate deploy && npm run workflow:bootstrap']
-    depends_on:
-      postgres: { condition: service_healthy }
-    restart: 'no'
-
   app:
     <<: [*app-build, *app-env]
     restart: unless-stopped
     ports: ['${LUMO_PORT:-3000}:3000']
+    volumes: [blob-data:/var/lib/lumo/blobs]
+    # The image runs the migrations before `next start` (Dockerfile CMD).
     depends_on:
-      migrate: { condition: service_completed_successfully }
-      minio-init: { condition: service_completed_successfully }
-      redis: { condition: service_healthy }
-      soketi: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     healthcheck:
       test:
         - CMD
@@ -169,12 +107,13 @@ services:
       interval: 10s
       timeout: 10s
       retries: 12
-      start_period: 30s
+      # The first start applies every migration before it listens.
+      start_period: 120s
 
   # Scheduled jobs (docs/self-hosting/cron.md): supercronic runs
   # deploy/self-host/crontab, each line calling the app with CRON_SECRET.
   cron:
-    image: ${LUMO_CRON_IMAGE:-lumo-cron:local}
+    image: ${LUMO_CRON_IMAGE:-ghcr.io/lumo-workspace/lumo-cron:latest}
     build:
       context: deploy/self-host
       dockerfile: cron.Dockerfile
@@ -184,6 +123,24 @@ services:
       APP_URL: http://app:3000
       TZ: UTC
       LUMO_CRON_DISABLED: ${LUMO_CRON_DISABLED:-}
+    depends_on:
+      app: { condition: service_healthy }
+
+  # Optional HTTPS front door (LUM-1325): `docker compose --profile caddy up -d`.
+  # Serves LUMO_DOMAIN with an automatic Let's Encrypt certificate (ports 80
+  # and 443 must be reachable), proxying /app/ to Soketi (realtime overlay)
+  # and the rest to the app — one origin, one port. setup.sh --url sets it up.
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: [caddy]
+    restart: unless-stopped
+    environment:
+      LUMO_DOMAIN: ${LUMO_DOMAIN:-localhost}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./deploy/self-host/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
     depends_on:
       app: { condition: service_healthy }
 
@@ -198,5 +155,6 @@ services:
 
 volumes:
   postgres-data:
-  redis-data:
-  minio-data:
+  blob-data:
+  caddy-data:
+  caddy-config:

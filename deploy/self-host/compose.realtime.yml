@@ -1,0 +1,41 @@
+# Optional overlay (LUM-1332): realtime updates on Soketi (Pusher protocol).
+# Without it the UI refetches when the window regains focus and every minute.
+# Loaded through COMPOSE_FILE (scripts/self-host/setup.sh --realtime).
+# Behind HTTPS (the caddy profile) the browser reaches Soketi at /app/ on the
+# app's origin; on plain HTTP it connects to the published port directly.
+services:
+  soketi:
+    image: quay.io/soketi/soketi:1.6-16-debian
+    restart: unless-stopped
+    environment:
+      SOKETI_DEFAULT_APP_ID: lumo
+      SOKETI_DEFAULT_APP_KEY: ${SOKETI_APP_KEY:-lumo}
+      SOKETI_DEFAULT_APP_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
+    ports: ['${SOKETI_PORT:-6001}:6001']
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:6001/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    environment:
+      # The server reaches Soketi inside the network…
+      PUSHER_APP_ID: lumo
+      PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
+      PUSHER_SECRET: ${SOKETI_APP_SECRET:?set SOKETI_APP_SECRET in .env}
+      PUSHER_HOST: soketi
+      PUSHER_PORT: '6001'
+      PUSHER_USE_TLS: 'false'
+      # …the browser on the host and port setup.sh derives from the URL
+      # (runtime, served by /api/public-config).
+      NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}
+      NEXT_PUBLIC_PUSHER_HOST: ${SOKETI_PUBLIC_HOST:-localhost}
+      NEXT_PUBLIC_PUSHER_PORT: ${SOKETI_PUBLIC_PORT:-6001}
+      NEXT_PUBLIC_PUSHER_USE_TLS: ${SOKETI_PUBLIC_TLS:-false}
+    depends_on:
+      soketi: { condition: service_healthy }

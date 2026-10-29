@@ -209,6 +209,11 @@ enum TaskActivityType {
   // rulings additionally carry the handshake's shown / read-acknowledged times in
   // metadata (same shape as SECURITY_FINDING_DISPOSITIONED, LUM-750).
   TEST_CASE_DEFECT_DISPOSITIONED
+  // LUM-1303: a task decision was recorded / edited / deleted (Decisions tab or
+  // `lumo task decide`). Payload carries the text so the trail survives a delete.
+  DECISION_ADDED
+  DECISION_UPDATED
+  DECISION_REMOVED
 }
 
 enum BoundaryCrossingCategory {
@@ -366,6 +371,8 @@ model Workspace {
   slackIntegration        SlackIntegration?
   sentryIntegration       SentryIntegration?
   gitHubAppInstallation   GitHubAppInstallation?
+  /// LUM-1315 — the workspace's Codeup (center edition) connection.
+  codeupConnection        CodeupConnection?
   /// LUM-1133 — per-repository automatic PR review settings.
   repoReviewSettings      RepositoryReviewSetting[]
   actors                  Actor[]
@@ -377,11 +384,13 @@ model Workspace {
   tags                    Tag[]
   mcpConnections          McpConnection[]          @relation("WorkspaceMcpConnections")
   hookEvents              HookEvent[]
+  dataKeys                WorkspaceDataKey[]
   sessions                Session[]
   worktrees               Worktree[]
   memories                Memory[]
   taskSlackContexts       TaskSlackContext[]
   taskWebLinks            TaskWebLink[]
+  taskDecisions           TaskDecision[]
   prCommentSyncJobs       PrCommentSyncJob[]
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
@@ -465,13 +474,15 @@ model Workspace {
   // after it finished whatever this says (lib/security-scan/evidence-retention.ts).
   scanEvidenceRetentionDays Int @default(7)
 
-  // LUM-866: per-workspace switches for the PR security scan. All on by
-  // default; the platform env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays
-  // the ceiling — a workspace can only turn a layer off, never on. Scan off =
-  // no scan row, no layer, no PR comment for this workspace's PRs.
+  // LUM-866: per-workspace switches for the PR security scan; the platform
+  // env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays the ceiling — a
+  // workspace can only turn a layer off, never on. Scan off = no scan row, no
+  // layer, no PR comment for this workspace's PRs. LUM-1328: a new workspace
+  // starts with Lumo's AI review and hunt off — the developer's own agent
+  // review (`lumo review import`) is the default; an owner turns ours on.
   securityScanEnabled     Boolean           @default(true)
-  securityAiReviewEnabled Boolean           @default(true)
-  securityHuntEnabled     Boolean           @default(true)
+  securityAiReviewEnabled Boolean           @default(false)
+  securityHuntEnabled     Boolean           @default(false)
   // LUM-1234: the reward-hack layer (platform LUMO_REWARD_HACK is the ceiling).
   securityRewardHackEnabled Boolean         @default(true)
   // LUM-1130: the PR reviewer's request-changes workflow.
@@ -780,6 +791,7 @@ model WorkspaceMember {
   slackInstalled          SlackIntegration[]       @relation("SlackInstaller")
   sentryInstalled         SentryIntegration[]      @relation("SentryInstaller")
   gitHubAppInstalls       GitHubAppInstallation[]  @relation("GitHubAppInstaller")
+  codeupConnections       CodeupConnection[]       @relation("CodeupConnector")
   actor                   Actor?
   agentProfiles           AgentProfile[]
   apiKeys                 ApiKey[]
@@ -791,6 +803,7 @@ model WorkspaceMember {
   documentEdits           DocumentEditor[]
   createdSlackContexts    TaskSlackContext[]       @relation("TaskSlackContextCreator")
   createdWebLinks         TaskWebLink[]            @relation("TaskWebLinkCreator")
+  createdTaskDecisions    TaskDecision[]           @relation("TaskDecisionCreator")
   createdMemories         Memory[]                 @relation("MemoryCreator")
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
@@ -997,6 +1010,9 @@ model CrossingSuppressionRule {
 model ProjectRepository {
   id                String    @id @default(cuid())
   projectId         String
+  // LUM-1315: the Git host this repository lives on — 'github' | 'codeup'.
+  // Every GitHub API reader filters on 'github'.
+  provider          String    @default("github")
   fullName          String // "owner/repo"
   name              String // short repo name
   isDefault         Boolean   @default(false)
@@ -1013,7 +1029,7 @@ model ProjectRepository {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, fullName])
+  @@unique([projectId, provider, fullName])
   @@index([projectId])
   @@map("project_repositories")
 }
@@ -1078,6 +1094,12 @@ model Task {
   trashRootId      String?
   deletedByClerkId String?
 
+  /// LUM-1286: 1024-dim embedding of the title (alibaba/qwen3-embedding-0.6b),
+  /// for duplicate-check candidate recall. Read/written ONLY via parameterized
+  /// raw SQL in task.repository.ts — Prisma can't touch Unsupported columns.
+  /// NULL until stamped (create/rename, or the backfill script).
+  titleEmbedding   Unsupported("vector(1024)")?
+
   // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
   // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
   // one carrying a MERGED lineage edge (DB fact of delivery), else the latest
@@ -1121,6 +1143,7 @@ model Task {
   memories                Memory[]
   slackContexts           TaskSlackContext[]
   webLinks                TaskWebLink[]
+  decisions               TaskDecision[]
   figmaLinks              TaskFigmaLink[]
   artifacts               TaskArtifact[]
   complexity              TaskComplexity?
@@ -1967,6 +1990,10 @@ model PrSecurityScan {
   // as our fault or coverage still owed; neither is ever the customer's.
   // Union across writers, like `partial`.
   partialCauses     String[]               @default([])
+  // LUM-1328: the agent reviews (`lumo review import`, slugs `claude-code` /
+  // `codex`) imported into this head — kept even when an import had zero
+  // findings, so `lumo task status` can tell a clean review from none.
+  agentReviewTools  String[]               @default([])
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
   detectorVersion   String
   error             String?
@@ -2268,6 +2295,11 @@ model GitHubAppInstallation {
   /// permissions not yet accepted). Cleared by the next successful mint;
   /// past three days it raises an ops alert and a notice on the settings card.
   tokenFailingSince   DateTime?
+  /// LUM-1330 — repositories renamed while confirmed here: old `owner/name`
+  /// (lower-cased) → the name it was renamed to. Written with every rename
+  /// (LUM-879) so a CLI whose git remote still has the old name finds the
+  /// repository; a name that is confirmed again is never redirected.
+  repositoryAliases   Json             @default("{}")
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
@@ -2275,6 +2307,52 @@ model GitHubAppInstallation {
 
   @@index([installationId])
   @@map("github_app_installations")
+}
+
+/// LUM-1315 — a workspace's Codeup (Alibaba Cloud Yunxiao, center edition)
+/// connection. Codeup has no app identity: every API call runs as the owner
+/// of the personal access token, which is stored encrypted and never returned.
+model CodeupConnection {
+  id             String           @id @default(cuid())
+  workspaceId    String           @unique
+  organizationId String
+  accessToken    String // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  connectedBy    String?
+  connector      WorkspaceMember? @relation("CodeupConnector", fields: [connectedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  repositories CodeupRepository[]
+
+  @@index([organizationId])
+  @@map("codeup_connections")
+}
+
+/// LUM-1315 — a Codeup repository a workspace confirmed. Each confirmation
+/// creates the workspace's own repository webhook with its own random token
+/// (stored as a SHA-256 hash), so a delivery authenticates to exactly one
+/// workspace even when several confirmed the same repository (LUM-924).
+model CodeupRepository {
+  id                String    @id @default(cuid())
+  connectionId      String
+  /// Codeup's numeric repository id (`project_id` in webhook payloads).
+  repositoryId      Int
+  /// Full path, nested groups included (`org/group/sub/repo`).
+  pathWithNamespace String
+  webUrl            String
+  webhookId         Int?
+  webhookTokenHash  String
+  /// null = no longer confirmed: deliveries still authenticate but are ignored.
+  confirmedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  connection CodeupConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, repositoryId])
+  @@index([repositoryId])
+  @@map("codeup_repositories")
 }
 
 model SlackIntegration {
@@ -2334,6 +2412,10 @@ model PullRequest {
   workspaceId    String
   taskId         String?
   integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)
+  // LUM-1315: the Git host — 'github' | 'codeup' (a Codeup merge request:
+  // `repo` is its full path, which may hold nested groups, `number` its iid).
+  // Every reader that calls the GitHub API with `repo` filters on 'github'.
+  provider       String    @default("github")
   repo           String // "owner/repo"
   number         Int
   title          String
@@ -2383,7 +2465,7 @@ model PullRequest {
 
   // LUM-924: one row per workspace — workspaces sharing a GitHub App
   // installation can each confirm the same repository and track its PRs.
-  @@unique([workspaceId, repo, number])
+  @@unique([workspaceId, provider, repo, number])
   @@index([workspaceId])
   @@index([taskId])
   @@index([integrationId])
@@ -2393,6 +2475,8 @@ model PullRequest {
 model TaskBranch {
   id                String    @id @default(cuid())
   taskId            String
+  // LUM-1315: the Git host — 'github' | 'codeup'.
+  provider          String    @default("github")
   repo              String // "owner/repo"
   branchName        String
   lastCommitSha     String?
@@ -2403,7 +2487,7 @@ model TaskBranch {
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  @@unique([taskId, repo, branchName])
+  @@unique([taskId, provider, repo, branchName])
   @@index([taskId])
   @@map("task_branches")
 }
@@ -2985,50 +3069,64 @@ enum HookEventType {
 }
 
 model HookEvent {
-  id                 String        @id @default(cuid())
-  workspaceId        String
-  workspaceMemberId  String
-  sessionId          String? // Claude Code session UUID, FK to Session.id
-  taskId             String? // associated Lumo task
-  type               HookEventType
-  toolName           String? // extracted from payload.tool_name when present
+  id                     String        @id @default(cuid())
+  workspaceId            String
+  workspaceMemberId      String
+  sessionId              String? // Claude Code session UUID, FK to Session.id
+  taskId                 String? // associated Lumo task
+  type                   HookEventType
+  toolName               String? // extracted from payload.tool_name when present
   /// LUM-840: finer bucket under `toolName` for operation-cost attribution —
   /// for Bash, the command's purpose slug (read / test / lumo / … see
   /// lib/agent-run/bash-category.ts), set at record time and backfilled for
   /// history. Null for every other tool and for unreadable commands.
-  toolDetail         String?
+  toolDetail             String?
   /// LUM-840: the command that decided `toolDetail` for Bash — the winning
   /// segment's verb (+ subcommand for git/gh/lumo/npm-style tools), e.g.
   /// `jest`, `git show`. Safe charset, <= 40 chars. Drives the per-command
   /// cost drill-down. Null for every other tool.
-  toolVerb           String?
+  toolVerb               String?
   // File this event touched, lifted out of the raw payload at record time
   // (tool_input.file_path / tool_response.filePath / top-level path|file_path).
   // Null for events that carry no file path (Bash, Stop, prompts). Indexed for
   // cross-session "who else is touching this file" lookups and LUM-146's
   // "last file changed" — both impossible while the path lived only in JSON.
-  filePath           String?
-  payload            Json // raw hook body from Claude Code
+  filePath               String?
+  payload                Json // raw hook body from Claude Code
   // LLM-generated one-line summary of what Claude did in the turn that
   // just ended. Populated only on STOP / STOP_FAILURE rows, written
   // async by the turn-summary service. Null on every other event type
   // and on pre-feature historical rows; UI falls back to a first-
   // sentence excerpt of payload.last_assistant_message in that case.
-  turnSummary        String?
+  turnSummary            String?
   /// Per-turn per-model token delta (LUM-298) = this STOP's cumulative minus the
   /// previous STOP's. JSON map keyed by raw model string ->
   /// { input, output, cacheRead, cacheCreation }. Written only on STOP /
   /// STOP_FAILURE rows; null everywhere else and on historical rows.
-  usageByModel       Json?
+  usageByModel           Json?
   /// LUM-932 P2: task-identification signals lifted out of the payload at
   /// record time (see lib/attribution/signals.ts). A derived column, so it
   /// survives payload pruning. `[]` = computed, nothing found; NULL = never
   /// computed (rows recorded before P2).
-  attributionSignals Json?
+  attributionSignals     Json?
   /// LUM-859: when the retention sweep replaced `payload` with the pruned
   /// marker. Null = payload still holds the (redacted) original.
-  payloadPrunedAt    DateTime?
-  createdAt          DateTime      @default(now())
+  payloadPrunedAt        DateTime?
+  /// LUM-1302: the pruned marker's `reason` (RETENTION_POLICY / USED_UP /
+  /// USER_DELETED), lifted out so it stays queryable once `payload` is
+  /// encrypted. Null while the payload is whole.
+  payloadPrunedReason    String?
+  /// LUM-1302: the WorkspaceDataKey that encrypted `payload`
+  /// (lib/db/hook-payload-encryption.ts). Null = stored as plaintext: a row
+  /// written before encryption, or by a deployment without ENCRYPTION_KEY.
+  payloadKeyId           String?
+  /// LUM-1302: `payload.tool_use_id`, lifted out at record time for the
+  /// Pre→Post tool-use task match. Null when the event carries none.
+  toolUseId              String?
+  /// LUM-1302: a USER_PROMPT_SUBMIT whose prompt carries a background task's
+  /// `<task-notification>`, lifted out at record time for attribution.
+  promptTaskNotification Boolean       @default(false)
+  createdAt              DateTime      @default(now())
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
@@ -3042,6 +3140,26 @@ model HookEvent {
   // before the time-range scan.
   @@index([workspaceId, filePath, createdAt])
   @@map("hook_events")
+}
+
+/// LUM-1302: a workspace's data-encryption key (envelope encryption). The
+/// 32-byte key is stored wrapped by ENCRYPTION_KEY (lib/crypto.ts); each
+/// HookEvent payload is encrypted with its workspace's latest key and names
+/// the key it used (`HookEvent.payloadKeyId`). Rotating ENCRYPTION_KEY only
+/// re-wraps these rows; deleting a workspace deletes its keys.
+model WorkspaceDataKey {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// 1, 2, … per workspace; the highest is the one new writes use.
+  version     Int
+  /// `lib/crypto.ts` encrypt() of the key's hex — never the raw key.
+  wrappedKey  String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, version])
+  @@map("workspace_data_keys")
 }
 
 // LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound
@@ -3503,6 +3621,41 @@ model TaskWebLink {
   @@index([taskId, createdAt])
   @@index([workspaceId])
   @@map("task_web_links")
+}
+
+/// LUM-1303: a ruling made on a task ("do X, not Y"), recorded in its own
+/// table and shown on the task's Decisions tab. Replaces the LUM-970
+/// `## Decisions` section of the description. `text` is inline Markdown
+/// (`code`, **bold**, links); `rationale` is the optional "why".
+model TaskDecision {
+  id              String   @id @default(cuid())
+  taskId          String
+  workspaceId     String
+  /// 1-based within the task ("Decision 3"), assigned max+1 and never reused:
+  /// a delete leaves a tombstone (`deletedAt`), so the max still counts it.
+  number          Int
+  text            String
+  rationale       String?
+  /// Who recorded it (a CLI write is the member whose API key ran it). Null
+  /// for rows backfilled from a description, whose author is unknown.
+  createdById     String?
+  /// The agent session that recorded it via `lumo task decide`, if any. No
+  /// FK: sessions are pruned independently.
+  sourceSessionId String?
+  /// Tombstone: a deleted decision keeps its row so its number stays taken.
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  task      Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy WorkspaceMember? @relation("TaskDecisionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, number])
+  @@index([taskId, createdAt])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@map("task_decisions")
 }
 
 enum TaskArtifactAgent {

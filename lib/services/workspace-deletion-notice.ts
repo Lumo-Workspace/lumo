@@ -3,8 +3,9 @@ import {
   isEmailDelivered,
   buildWorkspaceDeletionEmail,
 } from '@/lib/integrations/email'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 export interface DeletionNotice {
   kind: 'scheduled' | 'cancelled'
@@ -25,12 +26,12 @@ export interface DeletionNotice {
 export async function sendDeletionNotice(
   notice: DeletionNotice
 ): Promise<{ sent: number; failed: number }> {
-  const profiles = await lookupClerkProfiles([
+  const profiles = await lookupUserProfiles([
     ...new Set([...notice.ownerClerkIds, notice.actorClerkId]),
   ])
   const actor = profiles.get(notice.actorClerkId)
   const actorName = actor?.name ?? actor?.email ?? 'A workspace owner'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = resolveAppUrl() ?? 'http://localhost:3000'
   const { subject, html } = buildWorkspaceDeletionEmail({
     kind: notice.kind,
     workspaceName: notice.workspaceName,

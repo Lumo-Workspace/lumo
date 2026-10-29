@@ -115,6 +115,8 @@ describe('BlockingSecurityFindings', () => {
 
     const box = screen.getByTestId('security-blocking-findings')
     expect(box).toHaveTextContent('2 findings block Done')
+    // LUM-1296: headed like the PR comment ("Lumo review").
+    expect(box).toHaveTextContent('Lumo review')
     expect(screen.getByTestId('security-finding-b1')).toBeInTheDocument()
     expect(screen.getByTestId('security-finding-b2')).toBeInTheDocument()
     expect(screen.queryByTestId('security-finding-nb')).toBeNull()

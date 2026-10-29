@@ -79,7 +79,7 @@ describe('backticked paths in requirements stay readable', () => {
   it('the summary block and the review comment render them as code spans', () => {
     const block = formatRequirementsBlock(assessed)!
     expect(block).toContain(
-      '**LUM-1201 · Done when 1**: `src/probe/clamp.ts` exports `clamp(value, min, max)` that returns `value` limited'
+      '**LUM-1201 · Requirement 1 of 2**: `src/probe/clamp.ts` exports `clamp(value, min, max)` that returns `value` limited'
     )
     const review = buildUnmetRequirementsReview({
       assessments: assessed,
@@ -149,7 +149,7 @@ describe('every requirement gets an answer', () => {
   it('the material names every id the model must answer, the Goal included', () => {
     const m = requirementsMaterial(REQS)
     expect(m.split('\n')[0]).toBe(
-      "Answer each of these 3 requirement ids exactly once: task:goal, task:done:1, task:done:2. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear."
+      "Answer each of these 3 requirement ids exactly once: task:goal, task:done:1, task:done:2. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear."
     )
     expect(m).toContain('- [task:goal] (LUM-1201 · Goal) Throwaway')
   })

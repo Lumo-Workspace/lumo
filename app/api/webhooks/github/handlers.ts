@@ -16,7 +16,6 @@ import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
@@ -452,14 +451,9 @@ export async function handleCheckSuite(
   }
 }
 
-// ── Comment mirror handlers ───────────────────────────────────────────────────
-
-type InboundAction =
-  | 'created'
-  | 'edited'
-  | 'deleted'
-  | 'submitted'
-  | 'dismissed'
+// ── Comment event handlers ────────────────────────────────────────────────────
+// LUM-1313: PR comments are no longer mirrored into task comments (nor task
+// comments onto the PR); these only hand comment events to the plugins.
 
 export async function handleIssueComment(
   payload: Record<string, unknown>,
@@ -482,7 +476,7 @@ export async function handleIssueComment(
     repo,
     issue.number
   )
-  // A PR Lumo holds no row for: nothing to mirror, nothing to command.
+  // A PR Lumo holds no row for: nothing to command.
   if (!pr) return
   // LUM-1129: any PR row — `@<app> review` must work on a PR with no task.
   const comment = (payload.comment ?? {}) as {
@@ -515,41 +509,6 @@ export async function handleIssueComment(
         typeof issue.user?.login === 'string' ? issue.user.login : null,
     })
   }
-  if (!pr.taskId) return
-  await prCommentMirrorService.runInbound({
-    event: 'issue_comment',
-    action: (payload.action as InboundAction) ?? 'created',
-    workspaceId,
-    taskId: pr.taskId,
-    pullRequestId: pr.id,
-    raw: payload,
-  })
-}
-
-export async function handlePullRequestReview(
-  payload: Record<string, unknown>,
-  workspaceId: string,
-  _integrationId: string | null
-): Promise<void> {
-  const prRef = payload.pull_request as { number: number } | undefined
-  if (!prRef) return
-  const repo = (payload.repository as { full_name?: string } | undefined)
-    ?.full_name
-  if (!repo) return
-  const pr = await pullRequestRepository.findByRepoAndNumber(
-    workspaceId,
-    repo,
-    prRef.number
-  )
-  if (!pr?.taskId) return
-  await prCommentMirrorService.runInbound({
-    event: 'pull_request_review',
-    action: (payload.action as InboundAction) ?? 'submitted',
-    workspaceId,
-    taskId: pr.taskId,
-    pullRequestId: pr.id,
-    raw: payload,
-  })
 }
 
 /**
@@ -684,13 +643,4 @@ export async function handlePullRequestReviewComment(
   // LUM-1131: any PR row Lumo holds — a scan's finding threads exist
   // wherever the scan commented, task-linked or not.
   emitReviewComment(payload, workspaceId, pr)
-  if (!pr.taskId) return
-  await prCommentMirrorService.runInbound({
-    event: 'pull_request_review_comment',
-    action: (payload.action as InboundAction) ?? 'created',
-    workspaceId,
-    taskId: pr.taskId,
-    pullRequestId: pr.id,
-    raw: payload,
-  })
 }

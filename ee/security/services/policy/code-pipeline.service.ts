@@ -15,9 +15,9 @@
 
 import { policyCompilerService } from './policy-compiler.service'
 import {
-  fetchPrDiff,
-  addedLinesFromDiff,
-} from '@/lib/integrations/github/contents'
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { matchDiffRegex } from './predicate-eval'
 import { neutralizeMovedLines } from './moved-lines'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
@@ -25,7 +25,7 @@ import { isReversible } from '@/lib/services/boundary-detector.service'
 import { loadSecurityLayers } from '@/ee/security/services/security-workspace-switches.service'
 import type { EffectiveSecurityLayers } from '@/ee/security/security-scan/workspace-switches'
 
-export interface CodePipelineInput {
+export interface CodePipelineInput extends GitProviderRef {
   taskId: string
   projectId: string
   workspaceId: string
@@ -75,15 +75,16 @@ export const codePipelineService = {
 
     // LUM-1114: lines the PR only moves are context, not additions — both the
     // diff-regex pass and the judge below read this diff.
+    const git = gitProviderFor(input)
     const diff = neutralizeMovedLines(
-      await fetchPrDiff({
+      await git.fetchPrDiff({
         workspaceId: input.workspaceId,
         fullName: input.fullName,
         prNumber: input.prNumber,
       })
     )
 
-    const perFile = addedLinesFromDiff(diff)
+    const perFile = await git.addedLinesFromDiff(diff)
     const allAdded = perFile.flatMap(f => f.addedLines)
 
     // ── Deterministic diff-regex pass ─────────────────────────────────────────

@@ -276,6 +276,8 @@ const TASK_DETAIL_INCLUDE = {
   pullRequests: {
     select: {
       id: true,
+      // LUM-1315: 'github' | 'codeup' — only GitHub PRs are re-synced.
+      provider: true,
       number: true,
       title: true,
       url: true,
@@ -294,6 +296,7 @@ const TASK_DETAIL_INCLUDE = {
   branches: {
     select: {
       id: true,
+      provider: true,
       repo: true,
       branchName: true,
       lastCommitSha: true,
@@ -606,7 +609,7 @@ export const taskRepository = {
     })
   },
 
-  /** LUM-970: just the stored (HTML) description, for `task decide`. */
+  /** Just the stored (HTML) description of a task in `workspaceId`. */
   async findDescription(id: string, workspaceId: string) {
     return prisma.task.findUnique({
       where: { id, workspaceId },
@@ -855,6 +858,78 @@ export const taskRepository = {
       orderBy: { updatedAt: 'desc' },
       take: 200,
     })
+  },
+
+  /** LUM-1286: duplicate-check rows for the given ids, in the given order. */
+  async findForDuplicateCheckByIds(projectId: string, ids: string[]) {
+    if (ids.length === 0) return []
+    const rows = await followUp('tasks of an authorized project').task.findMany(
+      {
+        where: { projectId, id: { in: ids } },
+        select: TASK_DUPLICATE_CHECK_SELECT,
+      }
+    )
+    const byId = new Map(rows.map(r => [r.id, r]))
+    return ids.flatMap(id => {
+      const row = byId.get(id)
+      return row ? [row] : []
+    })
+  },
+
+  // ---------------------------------------------------------------------------
+  // LUM-1286: pgvector raw SQL for Task.titleEmbedding — the same deliberate
+  // exception to the "no raw SQL" rule as memory.repository.ts. The column is
+  // `Unsupported` in Prisma; every value is bound via Prisma.sql parameters.
+  // Raw SQL bypasses the soft-delete extension, so reads filter "deletedAt".
+  // ---------------------------------------------------------------------------
+
+  /** Write (or overwrite) a task's title embedding. */
+  async setTitleEmbedding(id: string, vector: number[]): Promise<void> {
+    const lit = `[${vector.join(',')}]`
+    await systemJob('stamp a task title embedding').$executeRaw(
+      PrismaSql.sql`UPDATE "tasks" SET "titleEmbedding" = ${lit}::vector WHERE "id" = ${id}`
+    )
+  },
+
+  /**
+   * Ids of a project's live tasks nearest to `vector` by cosine distance,
+   * closest first. Tasks without an embedding are not candidates.
+   */
+  async findNearestByTitleEmbedding(
+    projectId: string,
+    vector: number[],
+    k: number
+  ): Promise<string[]> {
+    const lit = `[${vector.join(',')}]`
+    const rows = await followUp('tasks of an authorized project').$queryRaw<
+      { id: string }[]
+    >(
+      PrismaSql.sql`
+        SELECT "id" FROM "tasks"
+        WHERE "projectId" = ${projectId}
+          AND "deletedAt" IS NULL
+          AND "titleEmbedding" IS NOT NULL
+        ORDER BY "titleEmbedding" <=> ${lit}::vector
+        LIMIT ${k}
+      `
+    )
+    return rows.map(r => r.id)
+  },
+
+  /** Live tasks still missing a title embedding, newest first (backfill). */
+  async findMissingTitleEmbeddings(
+    limit: number
+  ): Promise<{ id: string; title: string }[]> {
+    return systemJob('backfill task title embeddings').$queryRaw<
+      { id: string; title: string }[]
+    >(
+      PrismaSql.sql`
+        SELECT "id", "title" FROM "tasks"
+        WHERE "titleEmbedding" IS NULL AND "deletedAt" IS NULL
+        ORDER BY "createdAt" DESC
+        LIMIT ${limit}
+      `
+    )
   },
 
   /** Find recent tasks in a project (for AI context). */

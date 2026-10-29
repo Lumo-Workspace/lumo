@@ -37,15 +37,13 @@ jest.mock('@/lib/repositories/github.repository', () => ({
   },
 }))
 // Mock Clerk to avoid server-side import issues
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: {
-      getUser: jest.fn().mockResolvedValue({
-        firstName: 'Someone',
-        lastName: null,
-        emailAddresses: [],
-      }),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({
+    getUser: jest.fn().mockResolvedValue({
+      firstName: 'Someone',
+      lastName: null,
+      emailAddresses: [],
+    }),
   }),
 }))
 

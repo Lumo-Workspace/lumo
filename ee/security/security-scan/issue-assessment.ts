@@ -19,7 +19,7 @@
  * Privacy: a Lumo task is private to its workspace. Its text is quoted on a
  * pull request only when the repository is private (or the workspace owner
  * turned `taskDetailsOnPublicRepos` on); otherwise GitHub shows only which
- * item (e.g. "LUM-12 · Done when 2") and its outcome — never the text nor
+ * item (e.g. "LUM-12 · Requirement 2 of 3") and its outcome — never the text nor
  * the model's explanation of it. Issue text comes from the same repository,
  * so it is shown wherever the issue itself is visible.
  *
@@ -28,8 +28,21 @@
 import { sanitizeField } from '@/shared/src/sanitize'
 import { redactSummaryText } from '@/lib/security-scan/scan-secrets'
 import { neutralizeSummaryText } from './pr-summary'
+import {
+  testCaseEvidenceMaterial,
+  type TestCaseEvidence,
+} from './test-case-evidence'
+import {
+  absenceSearchMaterial,
+  type RepoAbsenceSearch,
+} from './repo-absence-search'
+import {
+  SINCE_LAST_MATERIAL_MAX,
+  sinceLastAssessmentMaterial,
+  type SinceLastAssessment,
+} from './since-last-assessment'
 
-export const ISSUE_ASSESSMENT_CHECK_ID = 'issue_assessment'
+export { ISSUE_ASSESSMENT_CHECK_ID } from '@/shared/src/pre-merge-checks'
 export const ISSUE_ASSESSMENT_CHECK_NAME = 'Issue assessment'
 
 /** Requirements read from one task (Goal + Done when items), at most. */
@@ -48,12 +61,37 @@ export interface LinkedRequirement {
   /** Stable key: `task:goal`, `task:done:2`, `task:description`, `issue:45`. */
   id: string
   source: RequirementSource
-  /** Which item, e.g. "LUM-12 · Done when 2" or "#45" — always safe to show. */
+  /** Which item, e.g. "LUM-12 · Requirement 2 of 3" or "#45" — always safe to show. */
   label: string
   /** The requirement itself (untrusted; fenced for the model). */
   text: string
   /** May the text (and the explanation of it) be shown on the PR? */
   quotable: boolean
+}
+
+/** Context is model-only; it never creates assessment ids or public text. */
+export interface TaskAssessmentContext {
+  decisions: string[]
+  mergedPrCount: number
+  mergedPrs: Array<{ repo: string; number: number; title: string }>
+  /** LUM-1310: the linked task's test-case runs on the PR's head commit. */
+  testCases?: TestCaseEvidence
+  /** LUM-1310: the bounded search of the head for repo-wide absence claims. */
+  repoSearch?: RepoAbsenceSearch
+  /** LUM-1312: on a re-assessment, what changed since the previous one. */
+  sinceLast?: SinceLastAssessment
+}
+
+/**
+ * LUM-1310: the assessment's whole material (requirements + context), at
+ * most. LUM-1312: plus the "since the last assessment" section's own
+ * budget, so it never takes room from the evidence.
+ */
+export const REQUIREMENTS_MATERIAL_MAX = 20_000 + SINCE_LAST_MATERIAL_MAX
+
+export interface GatheredRequirements {
+  requirements: LinkedRequirement[]
+  context?: TaskAssessmentContext
 }
 
 export const REQUIREMENT_OUTCOMES = [
@@ -94,11 +132,12 @@ const ITEM_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*)$/
  */
 const HINT_RE = /^\s*\\?_[^_].*\\?_\s*$/
 
-function sectionKey(heading: string): 'goal' | 'done' | null {
+function sectionKey(heading: string): 'goal' | 'done' | 'decisions' | null {
   const h = heading
     .replace(/[*_`:]/g, '')
     .trim()
     .toLowerCase()
+  if (h === 'decisions') return 'decisions'
   if (h === 'goal' || h === 'goals') return 'goal'
   if (h === 'done when' || h === 'acceptance criteria') return 'done'
   return null
@@ -108,22 +147,35 @@ function sectionKey(heading: string): 'goal' | 'done' | null {
 function sections(markdown: string): {
   goal: string[] | null
   done: string[] | null
+  decisions: string[] | null
+  description: string[]
 } {
-  const out: { goal: string[] | null; done: string[] | null } = {
+  const out: {
+    goal: string[] | null
+    done: string[] | null
+    decisions: string[] | null
+    description: string[]
+  } = {
     goal: null,
     done: null,
+    decisions: null,
+    description: [],
   }
-  let current: 'goal' | 'done' | null = null
+  let current: 'goal' | 'done' | 'decisions' | null = null
+  let inDecisions = false
   let inFence = false
   for (const line of markdown.split('\n')) {
     if (/^\s*(```|~~~)/.test(line)) inFence = !inFence
     const h = inFence ? null : HEADING_RE.exec(line)
     if (h) {
       const key = sectionKey(h[2] ?? '')
+      inDecisions = key === 'decisions'
+      if (!inDecisions) out.description.push(line)
       current = key && out[key] === null ? key : null
       if (current) out[current] = []
       continue
     }
+    if (!inDecisions) out.description.push(line)
     if (current) out[current]!.push(line)
   }
   return out
@@ -163,7 +215,7 @@ export function extractTaskRequirements(input: {
   quotable: boolean
 }): LinkedRequirement[] {
   const md = (input.markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
-  const { goal, done } = sections(md)
+  const { goal, done, description } = sections(md)
   const out: LinkedRequirement[] = []
   const add = (id: string, label: string, text: string) => {
     if (text.length === 0 || out.length >= TASK_REQUIREMENTS_MAX) return
@@ -180,12 +232,12 @@ export function extractTaskRequirements(input: {
     const items = listItems(done)
     if (items.length > 0)
       items.forEach((t, i) =>
-        add(`task:done:${i + 1}`, `Done when ${i + 1}`, t)
+        add(`task:done:${i + 1}`, `Requirement ${i + 1} of ${items.length}`, t)
       )
-    else add('task:done:1', 'Done when', prose(done))
+    else add('task:done:1', 'Requirement 1 of 1', prose(done))
   }
   if (out.length === 0 && goal === null && done === null) {
-    const body = collapse(md)
+    const body = collapse(description.join(' '))
     if (body.length > 0)
       add(
         'task:description',
@@ -194,6 +246,35 @@ export function extractTaskRequirements(input: {
       )
   }
   return out
+}
+
+/**
+ * PURE — bounded recorded decisions (the newest ones), separate from
+ * requirement ids. LUM-1303: decisions live in the TaskDecision table
+ * (`recorded`, oldest first; a rationale rides along as "— why: …"); a
+ * description that still has its LUM-970 `## Decisions` section (not yet
+ * backfilled) contributes those lines first, as the older ones.
+ */
+export function extractTaskDecisions(
+  markdown: string | null,
+  recorded: ReadonlyArray<{ text: string; rationale: string | null }> = []
+): string[] {
+  const { decisions } = sections(
+    (markdown ?? '').replace(/<!--[\s\S]*?-->/g, '')
+  )
+  const legacy = decisions
+    ? (() => {
+        const items = listItems(decisions)
+        return items.length ? items : [prose(decisions)]
+      })()
+    : []
+  const rows = recorded.map(d =>
+    collapse(d.rationale ? `${d.text} — why: ${d.rationale}` : d.text)
+  )
+  return [...legacy, ...rows]
+    .filter(Boolean)
+    .slice(-TASK_REQUIREMENTS_MAX) // decisions are appended: keep the newest
+    .map(text => capText(text, REQUIREMENT_TEXT_MAX))
 }
 
 const CLOSING_RE =
@@ -256,15 +337,64 @@ export function issueRequirement(issue: {
  * PURE — the requirements as the model reads them (one per line, by id),
  * under a line naming every id it must answer. Without that line the model
  * often left out a broad requirement it could not tie to code — a task's
- * Goal — which then read as "no answer" on the PR.
+ * Goal — which then read as "no answer" on the PR. Task context follows the
+ * requirements, newest decision first, so the runner's material cap trims
+ * context (oldest first) before it can cut a requirement the model must answer.
+ * LUM-1310: the runtime evidence (test-case runs at the head) and the
+ * repository search follow, each capped on its own. LUM-1312: on a
+ * re-assessment, the "since the last assessment" section comes right after
+ * the requirements — where the judge looks first — capped on its own.
  */
 export function requirementsMaterial(
-  requirements: readonly LinkedRequirement[]
+  requirements: readonly LinkedRequirement[],
+  context?: TaskAssessmentContext
 ): string {
   const ids = requirements.map(r => r.id).join(', ')
   return [
-    `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.`,
+    `Answer each of these ${requirements.length} requirement ids exactly once: ${ids}. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear.`,
     ...requirements.map(r => `- [${r.id}] (${r.label}) ${collapse(r.text)}`),
+    ...[
+      sinceLastAssessmentMaterial(
+        context?.sinceLast,
+        requirements.map(r => r.id),
+        context?.testCases
+      ),
+    ].filter((t): t is string => t !== null),
+    ...(context?.decisions.length
+      ? [
+          'Recorded task Decisions, newest first (overriding context for conflicting task requirements, not additional requirements; never quote or restate this context in explanations):',
+          capText(
+            context.decisions
+              .slice(-TASK_REQUIREMENTS_MAX)
+              .reverse()
+              .map(d => `- ${capText(collapse(d), REQUIREMENT_TEXT_MAX)}`)
+              .join('\n'),
+            1200
+          ),
+        ]
+      : []),
+    ...(context && context.mergedPrCount > 0
+      ? [
+          `This task has ${context.mergedPrCount} other merged PRs. Judge this PR by its own scope. A task requirement covered outside this PR is unclear, not not_addressed. Titles alone are not proof of delivery; do not mark addressed without evidence in this diff. Never quote or restate this context in explanations.`,
+          capText(
+            context.mergedPrs
+              .slice(0, TASK_REQUIREMENTS_MAX)
+              .map(
+                p =>
+                  `- ${collapse(p.repo)}#${p.number}: ${capText(collapse(p.title), REQUIREMENT_TEXT_MAX)}`
+              )
+              .join('\n'),
+            1200
+          ),
+        ]
+      : []),
+    ...[
+      testCaseEvidenceMaterial(
+        context?.testCases,
+        requirements.map(r => r.text)
+      ),
+      absenceSearchMaterial(context?.repoSearch),
+    ].filter((t): t is string => t !== null),
   ].join('\n')
 }
 
@@ -408,7 +538,7 @@ export function assessmentSummary(
     return {
       explanation,
       resolution:
-        'Check the requirements marked Unclear; the diff alone did not show whether they are met.',
+        'Check the requirements marked Unclear: neither the diff nor a test-case run on this head showed whether they are met. A requirement that needs runtime evidence is judged from a passing Lumo test-case run recorded on this head commit.',
     }
   return { explanation, resolution: null }
 }

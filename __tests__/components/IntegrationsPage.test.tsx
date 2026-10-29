@@ -18,6 +18,7 @@ const messages: Record<string, string> = {
   // Registry order is slack/sentry/github, so alphabetical (GitHub < Sentry <
   // Slack) is a genuine reordering, not a coincidence of declaration order.
   'github.title': 'GitHub',
+  'codeup.title': 'Codeup',
   'slack.title': 'Slack',
   'sentry.title': 'Sentry',
   'figma.title': 'Figma',
@@ -74,6 +75,10 @@ jest.mock(
   () => ({ SentryIntegrationCard: mockCard('sentry') })
 )
 jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/CodeupIntegrationCard',
+  () => ({ CodeupIntegrationCard: mockCard('codeup') })
+)
+jest.mock(
   '@/app/workspace/[workspaceUrl]/components/GitHubAccountCard',
   () => ({ GitHubAccountCard: mockCard('githubAccount') })
 )
@@ -91,6 +96,7 @@ import { IntegrationsPage } from '@/app/workspace/[workspaceUrl]/components/page
 import type { IntegrationId } from '@/lib/integrations/registry'
 
 const ALL_CONFIGURED: Record<IntegrationId, boolean> = {
+  codeup: true,
   github: true,
   githubAccount: true,
   slack: true,
@@ -297,5 +303,43 @@ describe('LUM-1025 IntegrationsPage — integrations not configured on this depl
   it('shows no note when every integration is configured', () => {
     render(<IntegrationsPage isOwner configured={ALL_CONFIGURED} />)
     expect(screen.queryByText(/Not available on this deployment/)).toBeNull()
+  })
+})
+
+describe('LUM-1315 IntegrationsPage — integrations behind a rollout flag', () => {
+  beforeEach(() => {
+    for (const k of Object.keys(CONNECTED)) delete CONNECTED[k]
+  })
+
+  it('renders the Codeup card in the TEAM section when it is released', () => {
+    const { container } = render(
+      <IntegrationsPage isOwner configured={ALL_CONFIGURED} />
+    )
+    const team = container.querySelectorAll('section')[0]!
+    expect(team.querySelector('[data-testid="card-codeup"]')).toBeTruthy()
+  })
+
+  it('neither renders nor names an unreleased integration', () => {
+    render(
+      <IntegrationsPage
+        isOwner
+        configured={{ ...ALL_CONFIGURED, codeup: false }}
+        unreleased={['codeup']}
+      />
+    )
+    expect(screen.queryByTestId('card-codeup')).toBeNull()
+    expect(screen.queryByText(/Codeup/)).toBeNull()
+  })
+
+  it('hides an unreleased card even when it is configured', () => {
+    render(
+      <IntegrationsPage
+        isOwner
+        configured={ALL_CONFIGURED}
+        unreleased={['codeup']}
+      />
+    )
+    expect(screen.queryByTestId('card-codeup')).toBeNull()
+    expect(screen.getByTestId('card-github')).toBeInTheDocument()
   })
 })

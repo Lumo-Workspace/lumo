@@ -16,6 +16,8 @@ import {
   assessmentVerdict,
   buildUnmetRequirementsReview,
   extractTaskRequirements,
+  extractTaskDecisions,
+  REQUIREMENT_TEXT_MAX,
   formatRequirementsBlock,
   hasUnmetMarker,
   issueRequirement,
@@ -84,9 +86,9 @@ describe('extractTaskRequirements', () => {
     const reqs = task(BRIEF)
     expect(reqs.map(r => [r.id, r.label])).toEqual([
       ['task:goal', 'LUM-12 · Goal'],
-      ['task:done:1', 'LUM-12 · Done when 1'],
-      ['task:done:2', 'LUM-12 · Done when 2'],
-      ['task:done:3', 'LUM-12 · Done when 3'],
+      ['task:done:1', 'LUM-12 · Requirement 1 of 3'],
+      ['task:done:2', 'LUM-12 · Requirement 2 of 3'],
+      ['task:done:3', 'LUM-12 · Requirement 3 of 3'],
     ])
     expect(reqs[0]!.text).toBe('Export invoices as CSV from the billing page.')
     expect(reqs[2]!.text).toBe(
@@ -129,6 +131,16 @@ describe('extractTaskRequirements', () => {
     const reqs = task(many, false)
     expect(reqs).toHaveLength(TASK_REQUIREMENTS_MAX)
     expect(reqs.every(r => !r.quotable)).toBe(true)
+    expect(reqs[0]!.label).toBe('LUM-12 · Requirement 1 of 30')
+  })
+
+  it('a Done-when section without list items is requirement 1 of 1', () => {
+    expect(
+      task('## Done when\n\nThe export opens in Excel.').map(r => [
+        r.id,
+        r.label,
+      ])
+    ).toEqual([['task:done:1', 'LUM-12 · Requirement 1 of 1']])
   })
 })
 
@@ -178,14 +190,14 @@ const REQS: LinkedRequirement[] = [
   {
     id: 'task:done:1',
     source: 'task',
-    label: 'LUM-12 · Done when 1',
+    label: 'LUM-12 · Requirement 1 of 2',
     text: 'A CSV download button',
     quotable: true,
   },
   {
     id: 'task:done:2',
     source: 'task',
-    label: 'LUM-12 · Done when 2',
+    label: 'LUM-12 · Requirement 2 of 2',
     text: 'Amounts have two decimals',
     quotable: true,
   },
@@ -253,7 +265,7 @@ describe('each outcome', () => {
 
   it('the material lists each requirement by id for the model', () => {
     expect(requirementsMaterial(REQS)).toBe(
-      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that the diff alone cannot show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Done when 1) A CSV download button\n- [task:done:2] (LUM-12 · Done when 2) Amounts have two decimals"
+      "Answer each of these 2 requirement ids exactly once: task:done:1, task:done:2. A broad requirement (such as a task's Goal) that neither the diff nor the evidence below can show is still answered — as unclear.\n- [task:done:1] (LUM-12 · Requirement 1 of 2) A CSV download button\n- [task:done:2] (LUM-12 · Requirement 2 of 2) Amounts have two decimals"
     )
   })
 })
@@ -433,9 +445,11 @@ describe('on GitHub — summary and review comment', () => {
     const block = formatRequirementsBlock(assessed(true))!
     expect(block).toMatch(/Linked requirements/)
     expect(block).toMatch(
-      /✅ Addressed — \*\*LUM-12 · Done when 1\*\*: A CSV download button — _Adds the button._/
+      /✅ Addressed — \*\*LUM-12 · Requirement 1 of 2\*\*: A CSV download button — _Adds the button._/
     )
-    expect(block).toMatch(/❌ Not addressed — \*\*LUM-12 · Done when 2\*\*/)
+    expect(block).toMatch(
+      /❌ Not addressed — \*\*LUM-12 · Requirement 2 of 2\*\*/
+    )
     expect(block).not.toContain(WITHHELD_NOTE)
     // All addressed ⇒ folded.
     const all = assessed(true).map(a => ({
@@ -454,7 +468,7 @@ describe('on GitHub — summary and review comment', () => {
     const block = formatRequirementsBlock(a)!
     expect(block).not.toMatch(/CSV download|two decimals|Adds the button|raw/)
     expect(block).toMatch(
-      /❌ Not addressed — \*\*LUM-12 · Done when 2\*\* \(details in Lumo\)/
+      /❌ Not addressed — \*\*LUM-12 · Requirement 2 of 2\*\* \(details in Lumo\)/
     )
     expect(block).toContain(WITHHELD_NOTE)
     const review = buildUnmetRequirementsReview({
@@ -475,9 +489,9 @@ describe('on GitHub — summary and review comment', () => {
     })!
     expect(review).toMatch(/1 linked requirement not addressed\*\* · `abcdef1`/)
     expect(review).toMatch(
-      /LUM-12 · Done when 2\*\*: Amounts have two decimals/
+      /LUM-12 · Requirement 2 of 2\*\*: Amounts have two decimals/
     )
-    expect(review).not.toMatch(/Done when 1/)
+    expect(review).not.toMatch(/Requirement 1 of 2/)
     expect(review).toMatch(/`error`/)
     const key = unmetKey(a)!
     expect(review).toContain(unmetMarker(key))
@@ -541,5 +555,150 @@ describe('on GitHub — summary and review comment', () => {
     )!
     expect(text).toMatch(/\| Issue assessment \| ⚠️ Warning \|/)
     expect(text).toMatch(/\*\*Linked requirements:\*\*/)
+  })
+})
+
+describe('LUM-1297 recorded Decisions and follow-up scope', () => {
+  it('caps context so oversized decisions and PR titles leave room for requirements', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown: '## Goal\nUse size-2.5.',
+      quotable: false,
+    })
+    const material = requirementsMaterial(requirements, {
+      decisions: Array.from({ length: 30 }, () => 'x'.repeat(900)),
+      mergedPrCount: 30,
+      mergedPrs: Array.from({ length: 30 }, (_, number) => ({
+        repo: 'acme/app',
+        number,
+        title: 'y'.repeat(900),
+      })),
+    })
+    expect(material.length).toBeLessThan(4000)
+    expect(material).toContain('[task:goal] (LUM-702 · Goal) Use size-2.5.')
+    expect(material).toContain('30 other merged PRs')
+  })
+
+  it('keeps every requirement inside the runner cap when context is maxed out', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown:
+        '## Done when\n' +
+        Array.from(
+          { length: 12 },
+          (_, i) => `- req${i} ${'r'.repeat(560)}`
+        ).join('\n'),
+      quotable: false,
+    })
+    expect(requirements).toHaveLength(TASK_REQUIREMENTS_MAX)
+    const material = requirementsMaterial(requirements, {
+      decisions: Array.from({ length: 30 }, () => 'x'.repeat(900)),
+      mergedPrCount: 30,
+      mergedPrs: Array.from({ length: 30 }, (_, number) => ({
+        repo: 'acme/app',
+        number,
+        title: 'y'.repeat(900),
+      })),
+    }).slice(0, 8000)
+    for (const r of requirements) expect(material).toContain(`[${r.id}]`)
+    expect(material).toContain('req11 ')
+  })
+
+  it('newest decisions survive the caps', () => {
+    const markdown =
+      '## Decisions\n' +
+      Array.from({ length: 20 }, (_, i) => `- d${i} ${'z'.repeat(300)}`).join(
+        '\n'
+      )
+    const decisions = extractTaskDecisions(markdown)
+    expect(decisions).toHaveLength(TASK_REQUIREMENTS_MAX)
+    expect(decisions[0]).toMatch(/^d8 /)
+    expect(decisions[decisions.length - 1]).toMatch(/^d19 /)
+    const material = requirementsMaterial(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: '## Goal\nGoal.',
+        quotable: false,
+      }),
+      { decisions, mergedPrCount: 0, mergedPrs: [] }
+    )
+    expect(material).toContain('- d19 ')
+    expect(material.indexOf('- d19 ')).toBeLessThan(material.indexOf('- d18 '))
+    expect(material).not.toContain('- d8 ')
+  })
+
+  it('extracts decisions as bounded context, without creating requirement ids', () => {
+    const markdown =
+      '## Goal\nUse size-2.5.\n## Decisions\n- Use size-3 instead.\n  User approved.\n- ' +
+      'x'.repeat(900) +
+      '\n## Notes\nNot a decision.'
+    expect(extractTaskDecisions(markdown)).toEqual([
+      'Use size-3 instead. User approved.',
+      'x'.repeat(REQUIREMENT_TEXT_MAX - 1) + '…',
+    ])
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown,
+        quotable: false,
+      }).map(r => r.id)
+    ).toEqual(['task:goal'])
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: 'Description.\n## Decisions\n- Use size-3.',
+        quotable: false,
+      })[0]!.text
+    ).toBe('Dot: Description.')
+    expect(
+      extractTaskRequirements({
+        identifier: 'LUM-702',
+        title: 'Dot',
+        markdown: '## Decisions\n- Use size-3.',
+        quotable: false,
+      })
+    ).toEqual([])
+    expect(extractTaskDecisions(null)).toEqual([])
+    expect(extractTaskDecisions('## Decisions\nUse size-3.')).toEqual([
+      'Use size-3.',
+    ])
+    expect(
+      extractTaskDecisions(
+        '## Decisions\n' +
+          Array.from({ length: 30 }, () => '- decision').join('\n')
+      )
+    ).toHaveLength(TASK_REQUIREMENTS_MAX)
+    expect(extractTaskDecisions('<!-- ## Decisions\n- hidden -->')).toEqual([])
+  })
+
+  it('includes decisions and merged PR provenance without adding answer ids', () => {
+    const requirements = extractTaskRequirements({
+      identifier: 'LUM-702',
+      title: 'Dot',
+      markdown: '## Goal\nUse size-2.5.',
+      quotable: false,
+    })
+    const material = requirementsMaterial(requirements, {
+      decisions: ['Use size-3 instead.'],
+      mergedPrCount: 2,
+      mergedPrs: [
+        { repo: 'acme/app', number: 864, title: 'Priority menu' },
+        { repo: 'acme/app', number: 865, title: 'Priority dots' },
+      ],
+    })
+    expect(material).toContain(
+      'Answer each of these 1 requirement ids exactly once: task:goal.'
+    )
+    expect(material).toContain('overriding context')
+    expect(material).toContain('Use size-3 instead.')
+    expect(material).toContain('2 other merged PRs')
+    expect(material).toContain('acme/app#864: Priority menu')
+    expect(material).toContain('acme/app#865: Priority dots')
+    expect(material).toContain('unclear, not not_addressed')
   })
 })

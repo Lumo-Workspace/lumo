@@ -6,8 +6,7 @@ import { MESSAGES } from '@/lib/i18n/messages'
  *
  * LUM-973 (v2): the body is content, not UI copy, so it is English in every
  * locale — like the system doc templates in `lib/editor/templates/`. Only the
- * template's name and description are localized. The section headings are
- * the brief's protocol (`lumo task decide` appends under `## Decisions`).
+ * template's name and description are localized.
  *
  * LUM-976 (v2.1): hints absorb the LUM-973 / LUM-974 pilot feedback.
  */
@@ -34,12 +33,13 @@ export const BRIEF_SECTIONS = [
     heading: 'Done when',
     hint: 'Each item objectively checkable, naming its evidence (test, command, screenshot). For a bug fix, the check must fail before the fix. Spell out interaction details (when it shows, conflicts) and edge cases: missing or invalid input, permissions, limits, scope.',
   },
-  {
-    heading: 'Decisions',
-    hint: 'Dated rulings, appended as work goes with `lumo task decide <id> "…"`.',
-  },
 ] as const
 
+/**
+ * LUM-1303: decisions have their own tab (`lumo task decide`), so the brief no
+ * longer carries a Decisions section. This is the LUM-970 section's heading,
+ * still recognised in older descriptions (backfill, pre-merge assessment).
+ */
 export const DECISIONS_HEADING = 'Decisions'
 
 export interface SystemTaskTemplate {

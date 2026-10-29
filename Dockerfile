@@ -8,12 +8,10 @@
 # so they are BUILD arguments: changing one means rebuilding the image.
 # Everything else is read at runtime from the container environment.
 #
-# Auth (LUM-1043): the image signs users in with Better Auth by default — no
-# Clerk account, no CLERK_* variables. AUTH_PROVIDER is a build argument AND
-# the runtime value (static pages bake it in at build time, so the two must
-# match); the runtime needs BETTER_AUTH_SECRET (>= 32 chars). A Clerk image
-# is the same build with `--build-arg AUTH_PROVIDER=clerk --build-arg
-# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` (plus CLERK_SECRET_KEY at runtime).
+# Auth (LUM-1043): the image signs users in with Better Auth, the only
+# provider (Clerk was removed, LUM-1077); the runtime needs BETTER_AUTH_SECRET
+# (>= 32 chars). AUTH_PROVIDER stays a build argument and runtime value for
+# compatibility; only "better-auth" is accepted.
 #
 # Not `output: 'standalone'`: the Workflow runtime loads its backend by name
 # at runtime (`require(WORKFLOW_TARGET_WORLD)` from the working directory, see
@@ -23,7 +21,7 @@
 # dependency tree (`npm ci`, then `npm prune --omit=dev`) next to the built `.next`.
 
 ARG NODE_IMAGE=node:24-bookworm-slim
-# better-auth (self-hosted default) | clerk. Build and runtime use the same value.
+# Only better-auth is accepted (LUM-1077). Build and runtime use the same value.
 ARG AUTH_PROVIDER=better-auth
 
 # ---- base: OS packages shared by every stage --------------------------------
@@ -31,7 +29,7 @@ FROM ${NODE_IMAGE} AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 # openssl: Prisma's schema engine (migrate deploy). ca-certificates: outbound
-# TLS (Clerk, AI providers, SMTP).
+# TLS (AI providers, SMTP).
 RUN apt-get -o Acquire::Retries=5 update \
  && apt-get -o Acquire::Retries=5 install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
@@ -62,12 +60,6 @@ FROM deps AS builder
 COPY . .
 ARG AUTH_PROVIDER
 ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
-# Clerk only (AUTH_PROVIDER=clerk); ignored by a Better Auth image.
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/signin
-ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
-ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/workspace
-ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/onboarding
 ARG NEXT_PUBLIC_PUSHER_KEY=
 ARG NEXT_PUBLIC_PUSHER_CLUSTER=
 ARG NEXT_PUBLIC_PUSHER_HOST=
@@ -78,11 +70,6 @@ ARG NEXT_PUBLIC_PUSHER_USE_TLS=
 ARG BUILD_MAX_OLD_SPACE_SIZE=6144
 ENV AUTH_PROVIDER=$AUTH_PROVIDER \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
-    NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL \
-    NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL \
-    NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL \
-    NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL \
     NEXT_PUBLIC_PUSHER_KEY=$NEXT_PUBLIC_PUSHER_KEY \
     NEXT_PUBLIC_PUSHER_CLUSTER=$NEXT_PUBLIC_PUSHER_CLUSTER \
     NEXT_PUBLIC_PUSHER_HOST=$NEXT_PUBLIC_PUSHER_HOST \
@@ -90,9 +77,7 @@ ENV AUTH_PROVIDER=$AUTH_PROVIDER \
     NEXT_PUBLIC_PUSHER_USE_TLS=$NEXT_PUBLIC_PUSHER_USE_TLS
 RUN case "$AUTH_PROVIDER" in \
       better-auth) ;; \
-      clerk) test -n "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
-        || { echo 'AUTH_PROVIDER=clerk needs build arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY' >&2; exit 1; } ;; \
-      *) echo "build arg AUTH_PROVIDER must be better-auth or clerk, got '$AUTH_PROVIDER'" >&2; exit 1 ;; \
+      *) echo "build arg AUTH_PROVIDER must be better-auth, got '$AUTH_PROVIDER'" >&2; exit 1 ;; \
     esac
 RUN npx prisma generate \
  && npm run build:shared \
@@ -113,10 +98,16 @@ COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/shared ./shared
 COPY --from=builder --chown=node:node /app/lib/db/database-url.ts ./lib/db/
 COPY --from=builder --chown=node:node /app/scripts/workflow-postgres-bootstrap.mjs ./scripts/
+# LOCAL_BLOB_DIR of docker-compose.yml (LUM-1332). A new named volume takes
+# this directory's owner, so the app can write its files there.
+RUN mkdir -p /var/lib/lumo/blobs && chown node:node /var/lib/lumo/blobs
 USER node
 EXPOSE 3000
+# On every start (LUM-1332): schema migrations, then the workflow World's own
+# schemas (both idempotent), then `next start`. One app instance only — two
+# would run the migrations concurrently.
 # `next start` must listen on $PORT — the in-process workflow worker delivers
 # to WORKFLOW_LOCAL_BASE_URL, which names the same port. A Better Auth image
 # refuses to start without a usable BETTER_AUTH_SECRET instead of failing
 # every sign-in later (lib/auth/better-auth/config.ts: >= 32 characters).
-CMD ["sh", "-c", "if [ \"$AUTH_PROVIDER\" = better-auth ] && [ ${#BETTER_AUTH_SECRET} -lt 32 ]; then echo 'BETTER_AUTH_SECRET must be set to at least 32 characters (openssl rand -hex 32)' >&2; exit 1; fi; exec node node_modules/next/dist/bin/next start -p \"$PORT\""]
+CMD ["sh", "-c", "if [ \"$AUTH_PROVIDER\" = better-auth ] && [ ${#BETTER_AUTH_SECRET} -lt 32 ]; then echo 'BETTER_AUTH_SECRET must be set to at least 32 characters (openssl rand -hex 32)' >&2; exit 1; fi; npx prisma migrate deploy && npm run workflow:bootstrap && exec node node_modules/next/dist/bin/next start -p \"$PORT\""]

@@ -3,7 +3,7 @@
  * to the owners of every workspace, as DPA 7.2 promises. Run by an operator
  * from their own terminal; nothing runs it on merge or deploy.
  *
- * Usage (DATABASE_URL, CLERK_SECRET_KEY and — for --confirm — RESEND_API_KEY or SMTP_*
+ * Usage (DATABASE_URL and — for --confirm — RESEND_API_KEY or SMTP_*
  * come from the env file you pass; nothing is loaded implicitly):
  *
  *   # 1. dry run: the change, owners per workspace, the email; sends nothing
@@ -29,7 +29,7 @@ import {
   sendSubprocessorNotice,
   type NoticeDeps,
 } from '@/lib/services/subprocessor-notice.service'
-import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
+import { lookupUserProfiles } from '@/lib/auth/user-profiles'
 import {
   USAGE,
   formatNoticePlan,
@@ -71,7 +71,7 @@ async function main() {
   const deps: NoticeDeps = {
     now: new Date(),
     lookupEmails: async ids => {
-      const profiles = await lookupClerkProfiles(ids)
+      const profiles = await lookupUserProfiles(ids)
       return new Map(ids.map(id => [id, profiles.get(id)?.email ?? null]))
     },
     sendEmail: async message => {

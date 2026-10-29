@@ -60,6 +60,7 @@ import {
   parseFingerprintMarkers,
   provenanceLabel,
   findingKindLabel,
+  alsoReportedLine,
   type InlineFinding,
   fingerprintMarker,
   SUMMARY_MARKER,
@@ -174,6 +175,20 @@ describe('pure builders', () => {
     ).toBe('LLM review')
   })
 
+  it('LUM-1321: an imported review listed under another thread names its agent', () => {
+    const line = alsoReportedLine({
+      fingerprint: 'fp-cc',
+      ruleId: 'ext:claude-code:command-injection',
+      provenance: 'EXTERNAL_TOOL',
+      kind: 'VULNERABILITY',
+      severity: 'HIGH',
+      title: 'Command injection in makeThumbnail',
+    } as Parameters<typeof alsoReportedLine>[0])
+    expect(line).toMatch(
+      /^Same issue also reported by \*\*claude-code\*\* · HIGH — Command injection in makeThumbnail\n/
+    )
+  })
+
   it('builds the inline body for a blocking deterministic finding', () => {
     expect(buildInlineComment(finding())).toBe(
       [
@@ -249,7 +264,7 @@ describe('pure builders', () => {
       })
     ).toBe(
       [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**4 open findings** (1 blocking DONE)',
         '',
@@ -325,7 +340,7 @@ describe('pure builders', () => {
       })
     ).toBe(
       [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**No open findings on lines this PR added.**',
         '',
@@ -417,7 +432,7 @@ describe('securityPrReviewService.sync', () => {
       prNumber: 945,
       token: 'tok',
       body: [
-        '### 🛡️ Lumo security scan',
+        '### 🔍 Lumo review',
         '',
         '**1 open finding** (1 blocking DONE)',
         '',
@@ -973,6 +988,15 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
             ruleId: 'ext:osv-scanner:GHSA-2',
             line: null,
             persisting: true,
+          }), // LUM-1333: an imported code review's bug is no scanner finding.
+          finding({
+            id: 'bug',
+            kind: 'CORRECTNESS',
+            fingerprint: 'fpBug',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:claude-code:bug:logic_error',
+            line: null,
+            persisting: false,
           }),
         ],
       })
@@ -988,7 +1012,8 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
     expect(body).toContain(
       `- **Dependencies** (checked · 1 vulnerable dependency (1 already on main)): ${D.supplyChain}`
     )
-    expect(body).toContain('**2 open findings**')
+    // The imported bug is counted as a bug, not under the scanners.
+    expect(body).toContain('**3 open findings** (1 is a bug')
   })
 })
 

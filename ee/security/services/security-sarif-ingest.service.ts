@@ -26,8 +26,11 @@ import {
   prSecurityScanRepository,
   type NewFindingInput,
 } from '@/ee/security/repositories/pr-security-scan.repository'
-import { fetchPrDiff } from '@/lib/integrations/github/contents'
-import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   parseSarif,
   normalizeSarif,
@@ -50,6 +53,7 @@ import {
   listSarifBlobs,
 } from './security-sarif-blob'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import type { AgentReviewKind } from '@/shared/src/security-scan'
 
 export const SARIF_MAX_GZ_BYTES = 100 * 1024 * 1024
 export const SARIF_MAX_RAW_BYTES = 400 * 1024 * 1024
@@ -75,9 +79,15 @@ export interface SarifIngestJob {
   headSha: string
   prNumber: number
   tool: string
+  /**
+   * LUM-1333 — set by `lumo review import`: which of the agent's rows this
+   * report replaces (its security review or its code review). Absent for a
+   * CI push, whose report replaces every row of its tool.
+   */
+  agentKind?: AgentReviewKind | undefined
 }
 
-export interface ResolvedPr {
+export interface ResolvedPr extends GitProviderRef {
   id: string
   workspaceId: string
   repo: string
@@ -141,6 +151,8 @@ export interface PersistInput {
   stage?: 'external' | 'supplyChain'
   tool: string
   tools: string[]
+  /** LUM-1333: see `SarifIngestJob.agentKind`. */
+  agentKind?: AgentReviewKind | undefined
   findings: RawSarifFinding[]
   truncated: boolean
   dropped: NormalizeResult['dropped']
@@ -238,13 +250,15 @@ async function resolveScanFor(
     taskId: string | null
     repo: string
     number: number
-  },
+  } & GitProviderRef,
   job: SarifIngestJob
 ): Promise<ScanTarget | 'repo_not_confirmed' | 'workspace_scan_disabled'> {
   // LUM-889: before any scan row exists — a repository the workspace has not
   // confirmed gets no scan, rather than a PENDING row whose diff read is
   // refused and retried until the PR shows a failed external layer.
-  const confirmed = await loadConfirmedRepositories(pr.workspaceId)
+  const confirmed = await gitProviderFor(pr).loadConfirmedRepositories(
+    pr.workspaceId
+  )
   if (confirmed(pr.repo) === null) {
     logger.info(
       `[security-sarif-ingest] ${logSafe(job.repository)} is not confirmed in workspace ${pr.workspaceId} — dropping its copy of the ${logSafe(job.tool)} report`
@@ -277,6 +291,7 @@ async function resolveScanFor(
   return {
     scanId: scan.id,
     pr: {
+      ...gitProviderRefOf(pr),
       id: pr.id,
       workspaceId: pr.workspaceId,
       repo: pr.repo,
@@ -378,7 +393,7 @@ export const securitySarifIngestService = {
     // The one exception is the token layer's own refusal (LUM-889), below.
     let diff: string
     try {
-      diff = await fetchPrDiff({
+      diff = await gitProviderFor(input.pr).fetchPrDiff({
         workspaceId: input.pr.workspaceId,
         fullName: input.pr.repo,
         prNumber: input.pr.number,
@@ -472,6 +487,7 @@ export const securitySarifIngestService = {
           // scanner's or the repository's.
           partialCauses: input.truncated ? ['EXTERNAL_TRUNCATED'] : [],
           stage,
+          agentKind: input.agentKind,
         }
       )
     // LUM-896: the repository may have left the confirmed list mid-scan.

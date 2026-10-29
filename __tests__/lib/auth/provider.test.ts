@@ -1,25 +1,26 @@
 /**
  * @jest-environment node
  */
-// LUM-1027 — AUTH_PROVIDER selects the auth implementation; Clerk stays the
-// default so the SaaS deployment is unchanged.
-import {
-  hasPasswordReset,
-  isBetterAuth,
-  resolveAuthProvider,
-} from '@/lib/auth/provider'
+// LUM-1027 / LUM-1077 — Better Auth is the only provider; AUTH_PROVIDER is
+// optional, and a leftover value such as "clerk" fails loudly.
+import { hasPasswordReset, resolveAuthProvider } from '@/lib/auth/provider'
 
 describe('resolveAuthProvider', () => {
-  it('defaults to clerk when unset or blank', () => {
-    expect(resolveAuthProvider({})).toBe('clerk')
-    expect(resolveAuthProvider({ AUTH_PROVIDER: '' })).toBe('clerk')
-    expect(resolveAuthProvider({ AUTH_PROVIDER: '  ' })).toBe('clerk')
+  it('defaults to better-auth when unset or blank', () => {
+    expect(resolveAuthProvider({})).toBe('better-auth')
+    expect(resolveAuthProvider({ AUTH_PROVIDER: '' })).toBe('better-auth')
+    expect(resolveAuthProvider({ AUTH_PROVIDER: '  ' })).toBe('better-auth')
   })
 
-  it('accepts both providers, case- and whitespace-insensitively', () => {
-    expect(resolveAuthProvider({ AUTH_PROVIDER: 'clerk' })).toBe('clerk')
+  it('accepts better-auth, case- and whitespace-insensitively', () => {
     expect(resolveAuthProvider({ AUTH_PROVIDER: ' Better-Auth ' })).toBe(
       'better-auth'
+    )
+  })
+
+  it('rejects clerk, saying its support was removed', () => {
+    expect(() => resolveAuthProvider({ AUTH_PROVIDER: 'clerk' })).toThrow(
+      /Unknown AUTH_PROVIDER "clerk" \(Clerk support was removed, LUM-1077\)/
     )
   })
 
@@ -28,23 +29,12 @@ describe('resolveAuthProvider', () => {
       /Unknown AUTH_PROVIDER "authjs"/
     )
   })
-
-  it('isBetterAuth reflects the resolved provider', () => {
-    expect(isBetterAuth({ AUTH_PROVIDER: 'better-auth' })).toBe(true)
-    expect(isBetterAuth({})).toBe(false)
-  })
 })
 
 describe('hasPasswordReset (LUM-1082)', () => {
-  it('only Better Auth with password sign-in on', () => {
-    expect(hasPasswordReset({})).toBe(false) // Clerk
-    expect(hasPasswordReset({ AUTH_PROVIDER: 'clerk' })).toBe(false)
+  it('follows password sign-in', () => {
+    expect(hasPasswordReset({})).toBe(true)
     expect(hasPasswordReset({ AUTH_PROVIDER: 'better-auth' })).toBe(true)
-    expect(
-      hasPasswordReset({
-        AUTH_PROVIDER: 'better-auth',
-        AUTH_DISABLE_PASSWORD: 'true',
-      })
-    ).toBe(false)
+    expect(hasPasswordReset({ AUTH_DISABLE_PASSWORD: 'true' })).toBe(false)
   })
 })

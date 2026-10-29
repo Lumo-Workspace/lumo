@@ -241,8 +241,19 @@ describe('githubAppInstallationRepository', () => {
           verifierLogin: true,
           verifiedAt: true,
           accessRemovedCount: true,
+          // LUM-1330: the rename writes it with the list.
+          repositoryAliases: true,
           updatedAt: true,
         },
+      })
+    })
+
+    it('LUM-1330 findRenameState reads only the list and the rename record', async () => {
+      prismaMock.gitHubAppInstallation.findUnique.mockResolvedValue(null)
+      await githubAppInstallationRepository.findRenameState('ws_1')
+      expect(prismaMock.gitHubAppInstallation.findUnique).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws_1' },
+        select: { repositories: true, repositoryAliases: true },
       })
     })
 

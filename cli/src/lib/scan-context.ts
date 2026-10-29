@@ -5,6 +5,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { configDir, readCredentials, type Credentials } from './config'
 import { isMissingPluginRoute } from './plugin-route'
 import type { ServerPrFinding } from './scan-labels'
+import { sanitizeField } from './sanitize'
 import { runGit } from './worktree'
 
 /**
@@ -49,11 +50,16 @@ export interface ScanContext {
   learningsScope: string
   policy: {
     block: Array<{
-      provenance: 'DETERMINISTIC' | 'EXTERNAL_TOOL'
+      /** LUM-1328: `AGENT_REVIEW` = the workspace opted in to blocking on
+       *  imported Claude Code / Codex findings. */
+      provenance: 'DETERMINISTIC' | 'EXTERNAL_TOOL' | 'AGENT_REVIEW'
       severity: 'LOW' | 'MEDIUM' | 'HIGH'
     }>
   }
   pullRequest: { number: number; headSha: string | null } | null
+  /** LUM-1330: the name this CLI sent, when the server found the repository
+   *  under its current name `repo` (a rename). Absent on an older server. */
+  renamedFrom?: string
 }
 
 /** Where the context came from: the server now, the cache, or nowhere. */
@@ -101,11 +107,19 @@ export function parseGithubRepo(url: string): string | null {
   return `${m[1]}/${m[2]}`
 }
 
-/** The repository the scan belongs to: origin's `owner/name`, or null. */
-export function detectRepo(root: string): string | null {
+/** The `origin` remote's URL as configured, or null. */
+export function originUrl(root: string): string | null {
   const r = runGit(['remote', 'get-url', 'origin'], root)
   if (r.status !== 0) return null
-  return parseGithubRepo(r.stdout ?? '')
+  const url = (r.stdout ?? '').trim()
+  return url === '' ? null : url
+}
+
+/** The repository the scan belongs to: origin's `owner/name`, or null. */
+export function detectRepo(root: string): string | null {
+  const url = originUrl(root)
+  if (url === null) return null
+  return parseGithubRepo(url)
 }
 
 /** The checked-out branch, or null on a detached HEAD. */
@@ -202,7 +216,7 @@ function fromCache(
   return {
     source: 'cache',
     note: `${note} — using the context cached ${entry.fetchedAt}`,
-    repo,
+    repo: currentRepo(entry.context, repo),
     fetchedAt: entry.fetchedAt,
     context: entry.context,
   }
@@ -244,7 +258,7 @@ export async function loadScanContext(
       ? {
           source: 'cache',
           note: `--offline — using the context cached ${cached.fetchedAt}`,
-          repo,
+          repo: currentRepo(cached.context, repo),
           fetchedAt: cached.fetchedAt,
           context: cached.context,
         }
@@ -276,7 +290,7 @@ export async function loadScanContext(
     return {
       source: 'live',
       note: null,
-      repo,
+      repo: currentRepo(cached.context, repo),
       fetchedAt: now,
       context: cached.context,
     }
@@ -303,7 +317,65 @@ export async function loadScanContext(
     return fromCache(cached, 'Lumo sent a context of an unknown version', repo)
   const etag = res.headers.get('etag')
   if (etag) writeCache(file, { etag, fetchedAt: now, context: body })
-  return { source: 'live', note: null, repo, fetchedAt: now, context: body }
+  return {
+    source: 'live',
+    note: null,
+    repo: currentRepo(body, repo),
+    fetchedAt: now,
+    context: body,
+  }
+}
+
+/** LUM-1330 — the repository's current name when the server followed a rename. */
+function currentRepo(context: ScanContext, sent: string): string {
+  return context.renamedFrom ? context.repo : sent
+}
+
+/**
+ * LUM-1330 — `remoteUrl` with its `owner/name` swapped for `to`, keeping its
+ * form (https, ssh, scp); the https URL when `remoteUrl` names another repo.
+ */
+export function renamedRemoteUrl(
+  remoteUrl: string,
+  from: string,
+  to: string
+): string {
+  if (parseGithubRepo(remoteUrl)?.toLowerCase() === from.toLowerCase()) {
+    const url = withoutHttpCredentials(remoteUrl)
+    const at = url.toLowerCase().lastIndexOf(from.toLowerCase())
+    return url.slice(0, at) + to + url.slice(at + from.length)
+  }
+  return `https://github.com/${to}.git`
+}
+
+/** An http(s) remote's `user[:token]@` — a credential, never printed. */
+const HTTP_USERINFO = /^(https?:\/\/)[^@/]+@/i
+
+function withoutHttpCredentials(url: string): string {
+  return url.replace(HTTP_USERINFO, '$1')
+}
+
+/**
+ * LUM-1330 — the server found `from` under its current name `to`: say so and
+ * how to fix it where the old name came from — the `origin` remote
+ * (`remoteUrl`), or `--repo` (`remoteUrl` null).
+ */
+export function renamedRemoteLines(
+  from: string,
+  to: string,
+  remoteUrl: string | null
+): string[] {
+  const note = `Note: ${sanitizeField(from)} was renamed to ${sanitizeField(to)}.`
+  if (remoteUrl === null) return [`${note} Pass --repo ${sanitizeField(to)}.`]
+  return [
+    `${note} Update your git remote:`,
+    `  git remote set-url origin ${sanitizeField(renamedRemoteUrl(remoteUrl, from, to))}`,
+    ...(HTTP_USERINFO.test(remoteUrl)
+      ? [
+          '  (your remote URL holds credentials; they are left out — use a git credential helper rather than a token in the URL)',
+        ]
+      : []),
+  ]
 }
 
 /** The latest server scan of a PR, as `--pr` reads it. */

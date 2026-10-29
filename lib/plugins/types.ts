@@ -16,6 +16,7 @@
  * `lib/plugins/client.tsx`, so no server code reaches the browser bundle.
  */
 import type { ZodType } from 'zod'
+import type { GitProviderId } from '@/lib/integrations/git-provider'
 import type { AuditedWorkspaceSettings } from '@/lib/audit/workspace-settings'
 import type {
   CrossingDetector,
@@ -244,6 +245,18 @@ export interface CoreEvents {
       diffHunk?: string | null
     }
   }
+  /**
+   * LUM-1318 — the same five events, provider-neutral: the payload plus the
+   * Git platform it came from. Plugins subscribe to these; a platform's
+   * webhook emits them (the GitHub webhook still emits `github.*`, which
+   * `emitCoreEvent` also delivers here with `provider: 'github'` — see
+   * `GITHUB_TO_GIT_EVENT`). In-process only: no event name is persisted.
+   */
+  'git.pullRequest': GitPlatformEvent<'github.pullRequest'>
+  'git.push': GitPlatformEvent<'github.push'>
+  'git.reviewThread': GitPlatformEvent<'github.reviewThread'>
+  'git.issueComment': GitPlatformEvent<'github.issueComment'>
+  'git.reviewComment': GitPlatformEvent<'github.reviewComment'>
   /** A PR was linked to a task by hand (`lumo pr link`, the web UI). */
   'task.prLinked': { taskId: string; pullRequestId: string }
   /** LUM-1063: a task's status changed (after the update committed). */
@@ -256,6 +269,19 @@ export interface CoreEvents {
  * `waitUntil` from `@/lib/runtime/wait-until`. A handler that throws is
  * logged and never breaks the caller.
  */
+/** LUM-1318 — the GitHub webhook's event names, kept for its emitters. */
+export type GithubCoreEvent =
+  | 'github.pullRequest'
+  | 'github.push'
+  | 'github.reviewThread'
+  | 'github.issueComment'
+  | 'github.reviewComment'
+
+/** LUM-1318 — a Git platform event: the payload and the platform it came from. */
+export type GitPlatformEvent<E extends GithubCoreEvent> = CoreEvents[E] & {
+  provider: GitProviderId
+}
+
 export type CoreEventHandler<E extends keyof CoreEvents> = (
   payload: CoreEvents[E]
 ) => void

@@ -9,29 +9,33 @@
  * Never throws for GitHub: when neither the PR's base nor the default
  * branch can be read, the repository part is null and the reply says so.
  */
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { logger } from '@/lib/logger'
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
 import {
   DEFAULT_WORKSPACE_SECURITY_SWITCHES,
   resolveSecurityLayers,
+  switchDefaultsFor,
 } from '@/ee/security/security-scan/workspace-switches'
 import type { PrConfigurationView } from '@/ee/security/security-scan/pr-configuration-reply'
-
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function repoPart(input: {
-  workspaceId: string
-  repo: string
-  prNumber: number
-}): Promise<PrConfigurationView['repo']> {
-  const { fetchPrBase, fetchDefaultBranchHead } = await github()
+async function repoPart(
+  input: GitProviderRef & {
+    workspaceId: string
+    repo: string
+    prNumber: number
+  }
+): Promise<PrConfigurationView['repo']> {
+  const { fetchPrBase, fetchDefaultBranchHead } = gitProviderFor(input)
   // Only GitHub reads are caught: the PR's base (what a review applies),
   // else the default branch, said so in the reply; neither → null.
   let at: { ref: string; sha: string; fromDefaultBranch: boolean } | null = null
@@ -63,6 +67,7 @@ async function repoPart(input: {
   // throws: a failure here is the database's and propagates (logged, no
   // reply) rather than being reported as a GitHub problem.
   const effective = await repoConfigService.effective({
+    ...gitProviderRefOf(input),
     workspaceId: input.workspaceId,
     repo: input.repo,
     sha: at.sha,
@@ -75,14 +80,17 @@ async function repoPart(input: {
 }
 
 export const prConfigurationService = {
-  async forPullRequest(input: {
-    workspaceId: string
-    repo: string
-    prNumber: number
-  }): Promise<PrConfigurationView> {
-    const [repo, stored] = await Promise.all([
+  async forPullRequest(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      prNumber: number
+    }
+  ): Promise<PrConfigurationView> {
+    const [repo, stored, createdAt] = await Promise.all([
       repoPart(input),
       securityColumnsRepository.findSecuritySwitches(input.workspaceId),
+      securityColumnsRepository.findWorkspaceCreatedAt(input.workspaceId),
     ])
     const switches = { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES, ...stored }
     // The `…TurnedOff` flags restate the switches; only what runs is shown.
@@ -94,7 +102,8 @@ export const prConfigurationService = {
     return {
       repo,
       switches: { ...switches },
-      switchDefaults: { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES },
+      // LUM-1328: "default" is what this workspace started with.
+      switchDefaults: { ...switchDefaultsFor(createdAt) },
       layers,
     }
   },

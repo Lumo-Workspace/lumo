@@ -26,6 +26,7 @@
  * Layering: service — the database through repositories, GitHub (repo
  * visibility, `auto` scope only) through an injectable reader.
  */
+import { gitProviderFor } from '@/lib/integrations/git-provider/resolve'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { createSlidingWindowRateLimiter } from '@/lib/services/sliding-window-rate-limit'
@@ -82,6 +83,9 @@ export interface ScanContextLearning {
 export interface ScanContextView {
   version: typeof SCAN_CONTEXT_VERSION
   repo: string
+  /** LUM-1330: the name the CLI sent, when it was a renamed repository's old
+   *  name (`repo` is the current one). Absent otherwise. */
+  renamedFrom?: string
   baseline: {
     sha: string
     at: string
@@ -136,10 +140,10 @@ export function latestRulings(
 }
 
 const readRepoVisibility: RepoVisibilityReader = async opts => {
-  // Dynamic import keeps the GitHub App auth (ESM) out of the static graph.
-  const { fetchRepoVisibility } =
-    await import('@/lib/integrations/github/contents')
-  return fetchRepoVisibility(opts)
+  // The adapter loads the platform's token minting lazily (ESM auth stays
+  // out of the static graph).
+  const { provider, ...read } = opts
+  return gitProviderFor({ provider }).fetchRepoVisibility(read)
 }
 
 /** The ACTIVE learnings a review of this repository would read, keys only. */
@@ -204,6 +208,32 @@ async function learningsInScope(
     }))
 }
 
+/**
+ * LUM-1330 — the repository the CLI named (its git remote). A name renamed
+ * away means its current name first: a rename can leave a stale project
+ * repository under the old name (LUM-879 keeps it when the new name already
+ * had one).
+ */
+async function linkedRepository(workspaceId: string, sent: string) {
+  const current = await gitProviderFor(null).resolveRenamedRepository(
+    workspaceId,
+    sent
+  )
+  if (current !== null) {
+    const baseline = await securityColumnsRepository.findSecurityBaseline(
+      workspaceId,
+      current
+    )
+    if (baseline !== undefined)
+      return { repo: current, baseline, renamedFrom: sent }
+  }
+  const baseline = await securityColumnsRepository.findSecurityBaseline(
+    workspaceId,
+    sent
+  )
+  return { repo: sent, baseline, renamedFrom: null }
+}
+
 export const securityScanContextService = {
   /**
    * The context of `repo` (owner/name) in the caller's workspace. 404 when
@@ -215,13 +245,15 @@ export const securityScanContextService = {
     input: { repo: string; branch?: string | undefined },
     deps: { repoVisibility?: RepoVisibilityReader } = {}
   ): Promise<ScanContextView> {
-    const baseline = await securityColumnsRepository.findSecurityBaseline(
+    const { repo, baseline, renamedFrom } = await linkedRepository(
       workspaceId,
       input.repo
     )
     if (baseline === undefined) {
       throw Object.assign(
-        new Error('Repository not linked to this workspace'),
+        new Error(
+          'Repository not linked to this workspace (if it was renamed, pass its current owner/name with --repo)'
+        ),
         { status: 404 }
       )
     }
@@ -230,13 +262,13 @@ export const securityScanContextService = {
       securityColumnsRepository.findSecurityPolicy(workspaceId),
       securityScanContextRepository.findRulingRows(
         workspaceId,
-        input.repo,
+        repo,
         SCAN_CONTEXT_RULING_ROWS
       ),
       input.branch
         ? securityScanContextRepository.findOpenPullRequestByBranch(
             workspaceId,
-            input.repo,
+            repo,
             input.branch
           )
         : Promise.resolve(null),
@@ -250,18 +282,13 @@ export const securityScanContextService = {
     ]
     const [names, learnings] = await Promise.all([
       memberRepository.labelsByIds(memberIds),
-      learningsInScope(
-        workspaceId,
-        input.repo,
-        scope,
-        openPr?.id ?? null,
-        deps
-      ),
+      learningsInScope(workspaceId, repo, scope, openPr?.id ?? null, deps),
     ])
 
     return {
       version: SCAN_CONTEXT_VERSION,
-      repo: input.repo,
+      repo,
+      ...(renamedFrom ? { renamedFrom } : {}),
       baseline:
         baseline && baseline.at !== null
           ? {

@@ -260,3 +260,15 @@ is how often placement itself is what failed.
 
 Finding `evidence` (the redacted triggering line) is **not** in the payload
 by construction — the server never loads the column for this read.
+
+### Pre-merge checks
+
+`pr show` and `task show --scans` include non-passing pre-merge checks
+(`failed` or `inconclusive`) and append a count of pre-merge checks not passed to the scan
+heading, including when the finding scan is CLEAN. Each check shows its name,
+verdict, configured mode, explanation and resolution, followed by unmet or
+unclear linked requirements. Requirement labels and outcomes are always shown;
+text and explanations appear only when quotable. Checks are scoped to the
+current PR head (the scan head when the PR head is unavailable); stale checks
+are omitted. This is display only and does not add a DONE gate. JSON exposes
+these results as `scans[].preMergeChecks`; older servers may omit the field.

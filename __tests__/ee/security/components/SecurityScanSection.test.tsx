@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/workspace/acme/tasks/LUM-1',
@@ -7,8 +13,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 const messages: Record<string, string> = {
-  'securityScan.section.title': 'Security scan',
-  'securityScan.banner.blocking': 'blocking {count}',
+  'securityScan.section.title': 'Lumo review',
   'securityScan.severity.HIGH': 'High',
   'securityScan.severity.LOW': 'Low',
   'securityScan.provenance.DETERMINISTIC': 'Pattern match',
@@ -49,11 +54,39 @@ const messages: Record<string, string> = {
   'securityScan.finding.persisting': 'already on the default branch',
   'securityScan.finding.dependency': 'Vulnerable dependency',
   'securityScan.result.verifierDismissed': '{count} dismissed by verifier',
+  'record.security.preMergeNotPassed': '{count} pre-merge check not passed',
   'securityScan.result.noOpen': 'No open findings',
   'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
     "Part of this scan hasn't finished on our side yet. We aren't counting it as checked, and we won't call it clean.",
   'securityScan.external.failedReason': 'External scanner failed:',
+  'lumoReview.check.secrets': 'Leaked secrets',
+  'lumoReview.check.external': 'Risky code patterns',
+  'lumoReview.check.supplyChain': 'Vulnerable packages',
+  'lumoReview.check.judge': 'AI code review',
+  'lumoReview.check.rewardHack': 'Matches the task',
+  'lumoReview.check.hunt': 'Attack paths',
+  'lumoReview.result.found': '{count} found',
+  'lumoReview.result.files': '{covered} of {total} files',
+  'lumoReview.result.nothingFound': 'Nothing found',
+  'lumoReview.result.off': 'Off',
+  'lumoReview.result.didntFinish': "Didn't finish",
+  'lumoReview.result.partlyChecked': 'Partly checked',
+  'lumoReview.result.scanning': 'Scanning',
+  'lumoReview.pr.view': 'View #{number}',
+  'lumoReview.pr.moreClean': '{count} more pull requests',
+  'securityScan.status.CLEAN': 'Clean',
+  'securityScan.group.ruled': 'Decided',
+  'lumoReview.uncovered.title': "{count} checks didn't fully run",
+  'lumoReview.reviewAgain': 'Review again',
+  'lumoReview.progress': '{done} of {total} checks done',
+  'lumoReview.check.moreEmpty': '{count} more checks · nothing found',
+  'lumoReview.pr.state.open': 'Open',
+  'lumoReview.pr.state.merged': 'Merged',
+  'lumoReview.result.requirementsUnclear': '{count} requirements unclear',
+  'lumoReview.result.requirementsNotMet': '{count} requirements not met',
+  'lumoReview.result.late': 'No report yet',
+  'lumoReview.result.tooLarge': 'Too large to check',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -179,6 +212,14 @@ const pr = {
 }
 const wrapper = ({ children }: { children: React.ReactNode }) => <>{children}</>
 
+/** LUM-1308: open a check's fold, then (optionally) a quiet group in it. */
+function openCheck(key: string) {
+  fireEvent.click(screen.getByTestId(`check-${key}-toggle`))
+}
+function openGroup(testId: string) {
+  fireEvent.click(within(screen.getByTestId(testId)).getAllByRole('button')[0]!)
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
 })
@@ -215,7 +256,7 @@ test('says so when the scans could not be loaded, instead of rendering nothing',
   expect(screen.queryByTestId('security-scan-panel')).toBeNull()
 })
 
-test('shows the blocking banner, the owned unfinished notice for a judge outage, and finding rows', () => {
+test('shows the owned unfinished notice for a judge outage and finding rows, with no blocking banner (the header badge says it)', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -233,9 +274,8 @@ test('shows the blocking banner, the owned unfinished notice for a judge outage,
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  expect(screen.getByTestId('security-blocking-banner')).toHaveTextContent(
-    'blocking 1'
-  )
+  // LUM-1308: the card header's verdict badge carries the blocking count.
+  expect(screen.queryByTestId('security-blocking-banner')).toBeNull()
   // LUM-832: one owned line, not a judge-specific verdict.
   expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
   expect(screen.getByTestId('security-finding-f1')).toHaveAttribute(
@@ -289,9 +329,10 @@ test('a dispositioned finding shows its disposition and no action buttons', () =
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  // Every finding is dispositioned and the external stage didn't fail, so the
-  // row defaults to collapsed (LUM-496) — expand it to reach the finding.
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  // LUM-1308: a ruled finding needs no decision, so its check stays folded
+  // and it sits in the check's "Decided" group — open both to reach it.
+  openCheck('secrets')
+  openGroup('finding-group-ruled')
   expect(screen.getByTestId('finding-disposition')).toHaveTextContent(
     'False positive · carried over'
   )
@@ -317,7 +358,8 @@ test('LUM-1128: the web panel can correct an existing (e.g. CLI) ruling', async 
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  openCheck('secrets')
+  openGroup('finding-group-ruled')
   if (!screen.queryByTestId('finding-change-ruling'))
     fireEvent.click(screen.getByText('AWS access key ID'))
   fireEvent.click(screen.getByTestId('finding-change-ruling'))
@@ -355,7 +397,8 @@ test('LUM-1128 follow-up: the web panel can reopen a ruled finding (no note sent
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  openCheck('secrets')
+  openGroup('finding-group-ruled')
   if (!screen.queryByTestId('finding-change-ruling'))
     fireEvent.click(screen.getByText('AWS access key ID'))
   fireEvent.click(screen.getByTestId('finding-change-ruling'))
@@ -380,7 +423,7 @@ test('an open finding offers no Reopen', () => {
     isLoading: false,
   })
   render(<SecurityScanSection taskId='t1' />)
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
   expect(screen.queryByTestId('finding-reopen')).toBeNull()
 })
 
@@ -430,35 +473,38 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // Review F1: the scan did not complete, so the row opens on its own — the
-  // stage notes are the reason the summary above cannot claim a clean result.
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
+  // LUM-1308: nothing to decide on, so the checks that did not cover the PR
+  // are said once, above the rows, with their short reason — and their rows
+  // wait to be opened.
+  const summary = screen.getByTestId('lumo-review-uncovered')
+  expect(summary).toHaveTextContent("2 checks didn't fully run")
+  expect(summary).toHaveTextContent('Risky code patterns — Off')
+  expect(summary).toHaveTextContent("AI code review — Didn't finish")
+  expect(within(summary).getByTestId('scan-unfinished')).toBeInTheDocument()
+  expect(screen.getByTestId('check-external-toggle')).toHaveAttribute(
     'aria-expanded',
-    'true'
+    'false'
   )
-  // LUM-1012: one checklist cell per layer, its state in words on the label.
-  expect(screen.getByTestId('stage-external')).toHaveAttribute(
-    'aria-label',
-    'External scanner: not configured'
+  expect(screen.getByTestId('check-judge-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
   )
-  expect(screen.getByTestId('stage-judge')).toHaveAttribute(
-    'aria-label',
-    'LLM review: failed'
-  )
-  // LUM-740: every layer gets a cell, RAN ones included.
-  expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
-    'aria-label',
-    expect.stringContaining('Secret patterns:')
-  )
+  // One row per check, its result in words on the label — checked ones too.
+  expect(screen.getByLabelText('Risky code patterns: Off')).toBeInTheDocument()
+  expect(
+    screen.getByLabelText("AI code review: Didn't finish")
+  ).toBeInTheDocument()
+  expect(
+    screen.getByLabelText('Leaked secrets: Nothing found')
+  ).toBeInTheDocument()
+  openCheck('external')
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
   expect(links).toHaveLength(1)
   expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
-  expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
-    'data-state',
-    'incomplete'
-  )
+  // A single PR draws no result badge — the card header's verdict says it.
+  expect(screen.queryByTestId('security-scan-badge')).toBeNull()
 })
 
 test('external stage FAILED renders the prefixed failure reason even when the scan itself is not FAILED', () => {
@@ -484,6 +530,7 @@ test('external stage FAILED renders the prefixed failure reason even when the sc
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
+  openCheck('external')
   const reason = screen.getByTestId('external-failed-reason')
   expect(reason).toHaveTextContent('External scanner failed: semgrep exit 90')
   // Not the FAILED-scan branch too — the reason renders exactly once.
@@ -519,7 +566,7 @@ test('P8: an external failure whose error lacks the prefix renders no reason at 
   expect(screen.queryByText(/TypeError: boom/)).toBeNull()
   // The layer's cell still says it failed — the fact, not the text.
   expect(screen.getByTestId('stage-external')).toHaveAttribute(
-    'data-state',
+    'data-check-state',
     'FAILED'
   )
 })
@@ -545,6 +592,7 @@ test('a FAILED scan whose external stage also FAILED renders the reason once, pr
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
+  openCheck('external')
   expect(screen.getAllByText(/semgrep exit 90/)).toHaveLength(1)
   expect(screen.getByTestId('external-failed-reason')).toHaveTextContent(
     'External scanner failed: semgrep exit 90'
@@ -571,10 +619,9 @@ test('a complete scan renders no stages line; partial renders the budget notice'
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
-  expect(screen.getByTestId('stage-external')).toHaveAttribute(
-    'aria-label',
-    'External scanner: partial'
-  )
+  expect(
+    screen.getByLabelText('Risky code patterns: Partly checked')
+  ).toBeInTheDocument()
 })
 
 test('a PENDING external stage renders "scanning" and no external-late warning', () => {
@@ -598,12 +645,9 @@ test('a PENDING external stage renders "scanning" and no external-late warning',
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // Review F1: an unfinished scan opens by default, so "scanning" is visible
-  // without a click.
-  expect(screen.getByTestId('stage-external')).toHaveAttribute(
-    'aria-label',
-    'External scanner: scanning'
-  )
+  expect(
+    screen.getByLabelText('Risky code patterns: Scanning')
+  ).toBeInTheDocument()
   expect(screen.queryByTestId('external-late')).toBeNull()
 })
 
@@ -628,7 +672,12 @@ test('externalLate renders a warning that the scanner has not reported in 30 min
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // Same as above: the scan is incomplete, so the row is already open.
+  // LUM-1308: a late scanner is a warning — said in the summary, the full
+  // note one click away in its row.
+  expect(screen.getByTestId('lumo-review-uncovered')).toHaveTextContent(
+    'Risky code patterns — No report yet'
+  )
+  openCheck('external')
   expect(screen.getByTestId('external-late')).toHaveTextContent(
     'Push a new commit to start a fresh scan'
   )
@@ -669,11 +718,13 @@ test('an EXTERNAL_TOOL finding links to the GitHub alert and shows no evidence b
   )
   expect(row.querySelector('pre')).toBeNull()
   expect(row).toHaveTextContent('External tool')
+  // LUM-1308: the code scan holds several kinds, so the category shows.
+  expect(row.querySelector('[data-testid="finding-kind"]')).not.toBeNull()
 })
 
 // LUM-496 Task 3 — summary line + collapsible per-PR rows.
 
-test('an incomplete scan expands its row by default (review F1)', () => {
+test('an incomplete scan opens the check that did not finish (review F1)', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -694,53 +745,120 @@ test('an incomplete scan expands its row by default (review F1)', () => {
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'true'
+  // LUM-1308: with nothing to decide on, the summary names it instead.
+  expect(
+    within(screen.getByTestId('lumo-review-uncovered')).getByTestId(
+      'scan-unfinished'
+    )
+  ).toBeInTheDocument()
+  expect(screen.getByTestId('lumo-review-uncovered')).toHaveTextContent(
+    'Risky code patterns'
   )
-  expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
 })
 
-// Review F2 (a11y): the toggle's only content is a chevron icon.
-test('the per-PR toggle has an accessible name naming the PR it opens', () => {
+// LUM-1308: one PR is shown as is, with a link to it on the PR's header.
+test('a single PR has no tab or toggle, and its header links to the PR', () => {
   useSecurityScans.mockReturnValue({
     data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
     isLoading: false,
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByRole('button', { name: '#9 feat' })).toBe(
-    screen.getByTestId('security-pr-9-toggle')
+  expect(screen.getByTestId('security-pr-9')).toBeInTheDocument()
+  expect(screen.queryByTestId('security-pr-9-toggle')).toBeNull()
+  expect(screen.getByRole('link', { name: 'View #9' })).toHaveAttribute(
+    'href',
+    'https://github.com/o/r/pull/9'
+  )
+  // The finding's location links to the PR's changed files.
+  expect(screen.getByTestId('finding-location')).toHaveAttribute(
+    'href',
+    'https://github.com/o/r/pull/9/files'
   )
 })
 
-test('a PR row with an undispositioned finding is expanded by default', () => {
+// LUM-1308 review: a fold opened from first-render data must follow a
+// refresh — a new finding on a check that was clean opens that check.
+test('a check that gains an open finding on refresh opens', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [{ pr, latest: scan({ findings: [], status: 'CLEAN' }) }],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  const { rerender } = render(<SecurityScanSection taskId='t1' />, {
+    wrapper,
+  })
+  expect(screen.queryByTestId('check-secrets-toggle')).toBeNull()
   useSecurityScans.mockReturnValue({
     data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
     isLoading: false,
     isError: false,
   })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
+  rerender(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
     'aria-expanded',
     'true'
   )
   expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
 })
 
-test('a clean PR row is collapsed by default', () => {
+// LUM-1308 review: ruling on the last open finding must not snap the check
+// shut — the human keeps seeing what they just decided.
+test('a check stays open when its last open finding is ruled on', () => {
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+    isError: false,
+  })
+  const { rerender } = render(<SecurityScanSection taskId='t1' />, {
+    wrapper,
+  })
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
         {
           pr,
-          // judgeStatus UNAVAILABLE gives ScanDetails something to show, so
-          // this asserts the row is actually collapsed — not just that a
-          // clean scan happens to have nothing to render either way.
           latest: scan({
+            findings: [
+              finding({ disposition: 'FALSE_POSITIVE', blocking: false }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  rerender(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(screen.getByTestId('finding-group-ruled')).toBeInTheDocument()
+})
+
+// P8 follow-up: a FAILED scan's prefixed error is still said when the
+// external stage did not fail (so no scanner reason shows it).
+test('a FAILED scan shows its prefixed error when the external stage did not fail', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'FAILED',
             findings: [],
-            status: 'CLEAN',
-            judgeStatus: 'UNAVAILABLE',
+            stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+            complete: false,
+            error: 'external: ingest key revoked',
           }),
         },
       ],
@@ -750,14 +868,127 @@ test('a clean PR row is collapsed by default', () => {
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'false'
-  )
-  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+  expect(screen.queryByTestId('external-failed-reason')).toBeNull()
+  expect(screen.getAllByText(/ingest key revoked/)).toHaveLength(1)
 })
 
-test('an external-failed row with an error is expanded by default', () => {
+test('a check with an undispositioned finding is open by default', () => {
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('check-secrets-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  // The row's own data-state stays Collapsible's open/closed.
+  expect(screen.getByTestId('stage-secrets')).toHaveAttribute(
+    'data-state',
+    'open'
+  )
+  expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
+  // A clean check has nothing to fold.
+  expect(screen.queryByTestId('check-judge-toggle')).toBeNull()
+})
+
+test('a clean scan is one line per check with nothing folded; scan-wide notes stay in view', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({ findings: [], status: 'CLEAN', fixed: 1 }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.queryByTestId('check-secrets-toggle')).toBeNull()
+  expect(
+    screen.getByLabelText('Leaked secrets: Nothing found')
+  ).toBeInTheDocument()
+  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+  expect(screen.getByTestId('scan-fixed')).toBeInTheDocument()
+})
+
+// LUM-1308: three or more PRs are listed by how much they need a look — the
+// first one open — and the clean ones fold into one row.
+test('three or more PRs: attention order, the first open, clean ones folded', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr: { ...pr, id: 'pr2', number: 10 },
+          latest: scan({ id: 's2', findings: [], status: 'CLEAN' }),
+        },
+        { pr, latest: null },
+        {
+          pr: { ...pr, id: 'pr3', number: 11 },
+          latest: scan({ id: 's3' }),
+        },
+        {
+          pr: { ...pr, id: 'pr4', number: 12 },
+          latest: scan({ id: 's4', findings: [], status: 'CLEAN', fixed: 2 }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const blocking = screen.getByTestId('security-pr-11-toggle')
+  const unscanned = screen.getByTestId('security-pr-9-toggle')
+  expect(blocking).toHaveAttribute('aria-expanded', 'true')
+  expect(unscanned).toHaveAttribute('aria-expanded', 'false')
+  expect(
+    blocking.compareDocumentPosition(unscanned) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  // Clean PRs are folded into one row until it is opened.
+  const clean = screen.getByTestId('security-pr-clean')
+  expect(clean).toHaveTextContent('2 more pull requests')
+  expect(screen.queryByTestId('security-pr-10-toggle')).toBeNull()
+  openGroup('security-pr-clean')
+  expect(screen.getByTestId('security-pr-10-toggle')).toBeInTheDocument()
+  expect(screen.getByTestId('security-pr-12-toggle')).toBeInTheDocument()
+})
+
+test('in the many-PR list, a PR says its state and folds its empty checks into one row', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        { pr: { ...pr, id: 'pr2', number: 10 }, latest: null },
+        { pr: { ...pr, id: 'pr4', number: 12 }, latest: null },
+        {
+          pr: { ...pr, id: 'pr3', number: 11, state: 'merged' },
+          latest: scan({ id: 's3' }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const report = screen.getByTestId('security-pr-11')
+  expect(report).toHaveTextContent('Merged')
+  // Leaked secrets has the finding; the two checks that found nothing fold.
+  expect(within(report).getByTestId('stage-secrets')).toBeInTheDocument()
+  const empty = within(report).getByTestId('lumo-review-empty-checks')
+  expect(empty).toHaveTextContent('2 more checks · nothing found')
+  expect(within(report).queryByTestId('stage-external')).toBeNull()
+  fireEvent.click(within(empty).getAllByRole('button')[0]!)
+  expect(within(report).getByTestId('stage-external')).toBeInTheDocument()
+  expect(within(report).getByTestId('stage-judge')).toBeInTheDocument()
+})
+
+test('an external-failed check with an error is summarized, its reason one click away', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -777,23 +1008,24 @@ test('an external-failed row with an error is expanded by default', () => {
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
+  expect(screen.getByTestId('check-external-toggle')).toHaveAttribute(
     'aria-expanded',
-    'true'
+    'false'
   )
+  openCheck('external')
   expect(screen.getByTestId('external-failed-reason')).toBeInTheDocument()
 })
 
-test('a manual toggle sticks: collapsing an expanded row hides its details, expanding a collapsed one shows them', () => {
+// LUM-1308: two PRs sit in tabs, the one that needs a look selected first.
+test('two PRs: tabs, the PR that needs a look selected first', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
-        // #9 defaults open (undispositioned finding); #10 defaults collapsed.
-        { pr, latest: scan({}) },
         {
           pr: { ...pr, id: 'pr2', number: 10 },
-          latest: scan({ id: 's2', findings: [], status: 'CLEAN' }),
+          latest: scan({ id: 's2', findings: [], status: 'CLEAN', fixed: 1 }),
         },
+        { pr, latest: scan({}) },
       ],
       blocking: { count: 1 },
     },
@@ -801,35 +1033,19 @@ test('a manual toggle sticks: collapsing an expanded row hides its details, expa
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-
+  const first = screen.getByTestId('security-pr-9-toggle')
+  const second = screen.getByTestId('security-pr-10-toggle')
+  expect(first).toHaveAttribute('role', 'tab')
+  expect(first).toHaveAttribute('aria-selected', 'true')
+  // Tabs follow attention order, so the selected tab is also the first one,
+  // even though #10 came first in the data.
+  expect(screen.getAllByRole('tab')[0]).toBe(first)
+  expect(first).toHaveTextContent('#9')
   expect(screen.getByTestId('security-finding-f1')).toBeInTheDocument()
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
-  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'false'
-  )
+  fireEvent.mouseDown(second, { button: 0 })
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByTestId('scan-fixed')).toBeInTheDocument()
   expect(screen.queryByTestId('security-finding-f1')).toBeNull()
-
-  expect(screen.getByTestId('security-pr-10-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'false'
-  )
-  fireEvent.click(screen.getByTestId('security-pr-10-toggle'))
-  expect(screen.getByTestId('security-pr-10-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'true'
-  )
-})
-
-test('every PR row keeps its data-testid and gets a toggle testid alongside it', () => {
-  useSecurityScans.mockReturnValue({
-    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
-    isLoading: false,
-    isError: false,
-  })
-  render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('security-pr-9')).toBeInTheDocument()
-  expect(screen.getByTestId('security-pr-9-toggle')).toBeInTheDocument()
 })
 
 // LUM-738 — persisting (already on the default branch) vs new dependency rows.
@@ -884,6 +1100,10 @@ test('LUM-738 supplyChain surface — a persisting dependency finding is muted, 
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
+  // LUM-1308: both sit under Vulnerable packages; the quiet one is folded in
+  // its "already on main" group.
+  expect(screen.queryByTestId('security-finding-dep-old')).toBeNull()
+  openGroup('finding-group-persisting')
   const fresh = screen.getByTestId('security-finding-dep-new')
   const old = screen.getByTestId('security-finding-dep-old')
   expect(fresh).toHaveAttribute('data-persisting', 'false')
@@ -929,10 +1149,9 @@ test('a batched hunt shows its covered share next to its state', () => {
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('stage-hunt')).toHaveAttribute(
-    'aria-label',
-    'Exploit paths: scanning · 40/120 source files'
-  )
+  expect(
+    screen.getByLabelText('Attack paths: 40 of 120 files')
+  ).toBeInTheDocument()
   // Queued batches are "in progress" — never the owned-unfinished line.
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })
@@ -993,6 +1212,11 @@ test('a PR with only verifier-rejected findings reads "dismissed by verifier", f
             ],
           }),
         },
+        // Two PRs: each tab carries its PR's result cell.
+        {
+          pr: { ...pr, id: 'pr2', number: 10 },
+          latest: scan({ status: 'CLEAN', findings: [] }),
+        },
       ],
       blocking: { count: 0 },
     },
@@ -1043,5 +1267,178 @@ test('LUM-1234: a REWARD_HACK row shows the server-read evidence, never the raw 
   expect(stub).toHaveAttribute('data-finding', 'rh1')
   expect(screen.getByTestId('security-finding-rh1')).not.toHaveTextContent(
     'ev1'
+  )
+})
+
+test('LUM-1298: a clean scan with an unmet goal shows a warning and expandable checks', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            preMergeChecks: [
+              {
+                id: 'issue-assessment',
+                name: 'Issue assessment',
+                mode: 'warning',
+                verdict: 'failed',
+                explanation: 'One goal is unmet',
+                resolution: 'Implement the goal',
+                requirements: [
+                  {
+                    id: 'goal',
+                    label: 'LUM-702 · Goal',
+                    outcome: 'not_addressed',
+                    quotable: false,
+                    text: 'Hidden goal',
+                    explanation: 'Hidden explanation',
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  // A pre-merge check of the repo's own stays above the checks.
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'One goal is unmet'
+  )
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'Implement the goal'
+  )
+  expect(screen.getByTestId('pre-merge-check')).toHaveTextContent(
+    'LUM-702 · Goal'
+  )
+  expect(screen.queryByText(/Hidden/)).toBeNull()
+})
+
+// LUM-1308: the built-in issue assessment belongs with the reward-hacking
+// check — both ask whether the change does what the task asked.
+test('the issue assessment sits under "Matches the task", open, and not above the checks', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: {
+              secrets: 'RAN',
+              external: 'RAN',
+              judge: 'RAN',
+              rewardHack: 'RAN',
+            },
+            preMergeChecks: [
+              {
+                id: 'issue_assessment',
+                name: 'Issue assessment',
+                mode: 'warning',
+                verdict: 'inconclusive',
+                explanation: 'Check the requirements marked Unclear',
+                resolution: null,
+                requirements: [
+                  {
+                    id: 'r1',
+                    label: 'LUM-1308 · Requirement 1 of 4',
+                    outcome: 'unclear',
+                    quotable: true,
+                    text: 'Three states',
+                    explanation: 'Needs a screenshot',
+                  },
+                  {
+                    id: 'r2',
+                    label: 'LUM-1308 · Requirement 2 of 4',
+                    outcome: 'addressed',
+                    quotable: true,
+                    text: 'Done',
+                    explanation: '',
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const row = screen.getByTestId('stage-rewardHack')
+  expect(
+    screen.getByLabelText('Matches the task: 1 requirements unclear')
+  ).toBeInTheDocument()
+  expect(screen.getByTestId('check-rewardHack-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(within(row).getByTestId('pre-merge-check')).toHaveTextContent(
+    'Check the requirements marked Unclear'
+  )
+  expect(within(row).getByTestId('pre-merge-check')).toHaveTextContent(
+    'LUM-1308 · Requirement 1 of 4'
+  )
+  // Only inside the row — not also above the checks.
+  expect(screen.getAllByTestId('pre-merge-check')).toHaveLength(1)
+})
+
+test('a single open PR whose checks did not cover it offers "Review again"', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr: { ...pr, repo: 'o/r' },
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'RAN', judge: 'FAILED' },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('lumo-review-again')).toHaveTextContent(
+    'Review again'
+  )
+})
+
+test('a scan still running shows how many checks are done', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'RUNNING',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'PENDING' },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('lumo-review-progress')).toHaveTextContent(
+    '1 of 3 checks done'
   )
 })

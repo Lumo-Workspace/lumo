@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import type { TrashItemView } from '@/lib/services/trash.service'
 import { useTrash } from '../../hooks/useTrash'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 /**
  * LUM-918 — settings → Trash. Deleted tasks (the whole workspace's) and the
@@ -66,138 +68,151 @@ export function TrashSettingsPage() {
   }
 
   return (
-    <div className='max-w-2xl mx-auto px-8 py-10'>
-      <h1 className='text-heading text-foreground mb-1'>
-        {intl.formatMessage({ id: 'settings.trash.title' })}
-      </h1>
-      <p className='text-body text-muted-foreground mb-6'>
-        {intl.formatMessage({ id: 'settings.trash.description' })}
-      </p>
+    <div className='h-full overflow-y-auto'>
+      <div className='max-w-2xl mx-auto px-8 py-10'>
+        <h1 className='text-heading text-foreground mb-1'>
+          {intl.formatMessage({ id: 'settings.trash.title' })}
+        </h1>
+        <p className='text-body text-muted-foreground mb-6'>
+          {intl.formatMessage({ id: 'settings.trash.description' })}
+        </p>
 
-      {isLoading ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'common.loading' })}
-        </div>
-      ) : isError ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'settings.trash.loadFailed' })}
-        </div>
-      ) : items.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <Trash2 />
-            </EmptyMedia>
-            <EmptyTitle>
-              {intl.formatMessage({ id: 'settings.trash.empty' })}
-            </EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <ul className='rounded-lg border border-border divide-y divide-border'>
-          {items.map(item => (
-            <li
-              key={`${item.kind}:${item.id}`}
-              className='flex items-center gap-3 px-4 py-3'
-            >
-              {item.kind === 'task' ? (
-                <ListTodo
-                  size={16}
-                  className='shrink-0 text-muted-foreground'
-                />
-              ) : (
-                <FileText
-                  size={16}
-                  className='shrink-0 text-muted-foreground'
-                />
-              )}
-              <div className='min-w-0 flex-1'>
-                <p className='text-body text-foreground truncate'>
-                  {item.kind === 'task' && (
-                    <span className='text-muted-foreground mr-1.5'>
-                      {item.label}
-                    </span>
-                  )}
-                  {item.emoji && <span className='mr-1'>{item.emoji}</span>}
-                  {item.title ||
-                    intl.formatMessage({ id: 'settings.trash.untitled' })}
-                </p>
-                <p className='text-caption text-muted-foreground mt-0.5'>
-                  {intl.formatMessage(
-                    { id: 'settings.trash.meta' },
-                    {
-                      deleted: formatDate(item.deletedAt),
-                      purge: formatDate(item.purgeAt),
-                    }
-                  )}
-                  {item.descendantCount > 0 &&
-                    ` · ${intl.formatMessage(
+        <AsyncContent
+          loading={isLoading}
+          error={
+            isError
+              ? intl.formatMessage({ id: 'settings.trash.loadFailed' })
+              : null
+          }
+          empty={items.length === 0}
+          loadingState={
+            <RowListSkeleton
+              rows={4}
+              leading='icon'
+              subtitle
+              divided
+              rowClassName='px-4 py-3'
+              className='rounded-lg border border-border'
+            />
+          }
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <Trash2 />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {intl.formatMessage({ id: 'settings.trash.empty' })}
+                </EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          }
+        >
+          <ul className='rounded-lg border border-border divide-y divide-border'>
+            {items.map(item => (
+              <li
+                key={`${item.kind}:${item.id}`}
+                className='flex items-center gap-3 px-4 py-3'
+              >
+                {item.kind === 'task' ? (
+                  <ListTodo
+                    size={16}
+                    className='shrink-0 text-muted-foreground'
+                  />
+                ) : (
+                  <FileText
+                    size={16}
+                    className='shrink-0 text-muted-foreground'
+                  />
+                )}
+                <div className='min-w-0 flex-1'>
+                  <p className='text-body text-foreground truncate'>
+                    {item.kind === 'task' && (
+                      <span className='text-muted-foreground mr-1.5'>
+                        {item.label}
+                      </span>
+                    )}
+                    {item.emoji && <span className='mr-1'>{item.emoji}</span>}
+                    {item.title ||
+                      intl.formatMessage({ id: 'settings.trash.untitled' })}
+                  </p>
+                  <p className='text-caption text-muted-foreground mt-0.5'>
+                    {intl.formatMessage(
+                      { id: 'settings.trash.meta' },
                       {
-                        id:
-                          item.kind === 'task'
-                            ? 'settings.trash.withSubtasks'
-                            : 'settings.trash.withSubpages',
-                      },
-                      { count: item.descendantCount }
-                    )}`}
-                </p>
-              </div>
-              <div className='flex shrink-0 gap-2'>
-                <Button
-                  size='sm'
-                  variant='outline'
-                  disabled={busyId === item.id}
-                  onClick={() => void handleRestore(item)}
-                >
-                  {intl.formatMessage({ id: 'settings.trash.restore' })}
-                </Button>
-                <Button
-                  size='sm'
-                  variant='ghost'
-                  className='text-danger-text hover:text-danger-text'
-                  disabled={busyId === item.id}
-                  onClick={() => setPurging(item)}
-                >
-                  {intl.formatMessage({ id: 'settings.trash.deleteForever' })}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                        deleted: formatDate(item.deletedAt),
+                        purge: formatDate(item.purgeAt),
+                      }
+                    )}
+                    {item.descendantCount > 0 &&
+                      ` · ${intl.formatMessage(
+                        {
+                          id:
+                            item.kind === 'task'
+                              ? 'settings.trash.withSubtasks'
+                              : 'settings.trash.withSubpages',
+                        },
+                        { count: item.descendantCount }
+                      )}`}
+                  </p>
+                </div>
+                <div className='flex shrink-0 gap-2'>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    disabled={busyId === item.id}
+                    onClick={() => void handleRestore(item)}
+                  >
+                    {intl.formatMessage({ id: 'settings.trash.restore' })}
+                  </Button>
+                  <Button
+                    size='sm'
+                    variant='ghost'
+                    className='text-danger-text hover:text-danger-text'
+                    disabled={busyId === item.id}
+                    onClick={() => setPurging(item)}
+                  >
+                    {intl.formatMessage({ id: 'settings.trash.deleteForever' })}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </AsyncContent>
 
-      <AlertDialog
-        open={purging !== null}
-        onOpenChange={open => {
-          if (!open) setPurging(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {intl.formatMessage({ id: 'settings.trash.purgeTitle' })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {intl.formatMessage(
-                { id: 'settings.trash.purgeDesc' },
-                { name: purging?.title ?? '' }
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busyId !== null}>
-              {intl.formatMessage({ id: 'common.cancel' })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              disabled={busyId !== null}
-              onClick={() => void handlePurge()}
-            >
-              {intl.formatMessage({ id: 'settings.trash.deleteForever' })}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog
+          open={purging !== null}
+          onOpenChange={open => {
+            if (!open) setPurging(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {intl.formatMessage({ id: 'settings.trash.purgeTitle' })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {intl.formatMessage(
+                  { id: 'settings.trash.purgeDesc' },
+                  { name: purging?.title ?? '' }
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busyId !== null}>
+                {intl.formatMessage({ id: 'common.cancel' })}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                disabled={busyId !== null}
+                onClick={() => void handlePurge()}
+              >
+                {intl.formatMessage({ id: 'settings.trash.deleteForever' })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }

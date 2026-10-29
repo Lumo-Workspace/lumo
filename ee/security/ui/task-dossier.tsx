@@ -8,13 +8,18 @@
  */
 import { useIntl } from 'react-intl'
 import type { ClientSlotProps } from '@/lib/plugins/client'
+import type { TaskSecurityScans } from '@/ee/security/services/pr-security-scan.service'
 import { useSecurityScans } from '@/ee/security/hooks/useSecurityScans'
 import {
   BlockingSecurityFindings,
   SecurityScanSection,
 } from '@/ee/security/components/TaskDetailTimeline/SecurityScanSection'
 import { RecordRow } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordRow'
-import { formatSecurityVerdict } from '@/ee/security/components/TaskDetailTimeline/security-summary-line'
+import {
+  CopyReviewForAgent,
+  LumoReviewSummary,
+} from '@/ee/security/components/TaskDetailTimeline/LumoReviewHeader'
+import { reviewVerdict } from '@/ee/security/components/TaskDetailTimeline/lumo-review-checks'
 
 export function SecurityTaskDossier({
   taskId,
@@ -35,33 +40,20 @@ export function SecurityTaskDossier({
   // has a PR (or the read failed — said out loud inside, review I4).
   const showRecord = securityError || (securityScans?.prs.length ?? 0) > 0
 
-  const verdict = securityScans
-    ? formatSecurityVerdict(intl, securityScans)
-    : null
-
   // LUM-1009: the full scan report as a Records row — never moves, whether
   // or not a finding blocks (blocking findings also come up in Needs action).
   const record = showRecord ? (
     <RecordRow
       id='dossier-security'
       title={intl.formatMessage({ id: 'securityScan.section.title' })}
-      {...(verdict
+      {...(securityScans
         ? {
-            summary: (
-              <>
-                {verdict.text}
-                {verdict.caveats.map(c => (
-                  <span
-                    key={c.text}
-                    className={
-                      c.tone === 'warning' ? 'text-warning-text' : undefined
-                    }
-                  >
-                    {` · ${c.text}`}
-                  </span>
-                ))}
-              </>
-            ),
+            // LUM-1308: the verdict as one badge; the header also carries
+            // "Copy for agent" for every finding still to decide on.
+            summary: <LumoReviewSummary data={securityScans} />,
+            ...(hasFindingsToDecide(securityScans)
+              ? { actions: <CopyReviewForAgent data={securityScans} /> }
+              : {}),
           }
         : {})}
       expanded={expanded}
@@ -81,4 +73,10 @@ export function SecurityTaskDossier({
       })}
     </>
   )
+}
+
+/** Something to copy for an agent: a finding still to decide on. */
+function hasFindingsToDecide(data: TaskSecurityScans): boolean {
+  const { kind } = reviewVerdict(data)
+  return kind === 'blocking' || kind === 'open'
 }

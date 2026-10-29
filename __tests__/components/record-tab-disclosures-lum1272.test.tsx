@@ -181,8 +181,12 @@ it('toggles the lineage fragment list with Enter and Space', async () => {
   trigger.focus()
   await user.keyboard('{Enter}')
   expect(screen.getByText(/Only fragment/)).toBeInTheDocument()
-  // The outcome chip is the shared Badge, not a hand-made pill.
-  expect(screen.getByText('MERGED')).toHaveAttribute('data-slot', 'badge')
+  // The outcome chip is the shared Badge, not a hand-made pill — shown once
+  // in the header (LUM-1294), not on the fragment row.
+  expect(screen.getByText('Task outcome: merged')).toHaveAttribute(
+    'data-slot',
+    'badge'
+  )
   await user.keyboard(' ')
   expect(screen.queryByText(/Only fragment/)).not.toBeInTheDocument()
 })

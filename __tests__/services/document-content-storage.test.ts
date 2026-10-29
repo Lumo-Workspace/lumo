@@ -11,21 +11,19 @@
  *   escape every char, and write back `<p>{escaped-json}</p>` on the next
  *   user edit. These tests pin down "must be HTML, not JSON".
  */
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn(async () => ({
-    users: {
-      getUserList: jest.fn(async () => ({
-        data: [
-          {
-            id: 'user_1',
-            firstName: 'CLI',
-            lastName: null,
-            imageUrl: null,
-            emailAddresses: [{ emailAddress: 'cli@uselumo.ai' }],
-          },
-        ],
-      })),
-    },
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn(async () => ({
+    getUserList: jest.fn(async () => ({
+      data: [
+        {
+          id: 'user_1',
+          firstName: 'CLI',
+          lastName: null,
+          imageUrl: null,
+          emailAddresses: [{ emailAddress: 'cli@uselumo.ai' }],
+        },
+      ],
+    })),
   })),
 }))
 jest.mock('@/lib/repositories/document.repository', () => ({

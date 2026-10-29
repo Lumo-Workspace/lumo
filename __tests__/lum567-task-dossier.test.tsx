@@ -32,6 +32,8 @@ describe('taskTabs exposes a single dossier tab and drops delivery memory lineag
       'activity',
       'comments',
       'context',
+      // LUM-1303
+      'decisions',
       'dossier',
     ])
   })
@@ -189,7 +191,9 @@ describe('TaskDossier renders the evidence as collapsed Records rows', () => {
     // LUM-1009: flat Records rows — no "Evidence & causality" wrapper.
     expect(screen.queryByText('Evidence & causality')).toBeNull()
     const runsBtn = screen.getByRole('button', { name: /Agent runs/ })
-    const lineageBtn = screen.getByRole('button', { name: /Lineage causality/ })
+    const lineageBtn = screen.getByRole('button', {
+      name: /Context fed to agents/,
+    })
     const memoryBtn = screen.getByRole('button', {
       name: /Injected team memory/,
     })
@@ -209,7 +213,9 @@ describe('dossier renders the cost total once and not in the evidence and causal
 
     // Expand all three ④ sub-sections so their bodies mount and can be inspected.
     fireEvent.click(screen.getByRole('button', { name: /Agent runs/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Lineage causality/ }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /Context fed to agents/ })
+    )
     fireEvent.click(
       screen.getByRole('button', { name: /Injected team memory/ })
     )

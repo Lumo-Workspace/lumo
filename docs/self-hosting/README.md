@@ -1,27 +1,36 @@
 # Self-hosting Lumo with Docker Compose
 
-One command starts Lumo and everything it needs on a single machine:
+One command starts Lumo on a single machine. The default stack is the
+minimum Lumo needs:
 
-| Service      | Image                                         | What it does                                                                                                                       |
-| ------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `app`        | built from `Dockerfile`                       | Lumo (`next start`), including the in-process workflow worker. Published on port 3000.                                             |
-| `migrate`    | same image as `app`                           | One-shot on every `up`: `prisma migrate deploy`, then `npm run workflow:bootstrap`. `app` starts only after it succeeds.           |
-| `postgres`   | `pgvector/pgvector:pg16`                      | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                               |
-| `redis`      | `redis:7-alpine`                              | Rate-limit counters (shared across restarts and instances).                                                                        |
-| `minio`      | `cgr.dev/chainguard/minio`                    | File storage (logos, test evidence, editor images, exports), S3-compatible. Not published: files are served through Lumo's routes. |
-| `minio-init` | `cgr.dev/chainguard/minio-client`             | One-shot: creates the bucket. It stays private (no public policy).                                                                 |
-| `soketi`     | `quay.io/soketi/soketi:1.6-16-debian`         | Realtime updates (Pusher protocol). Published on port 6001 because browsers connect to it directly.                                |
-| `cron`       | built from `deploy/self-host/cron.Dockerfile` | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)).                                               |
-| `mailpit`    | `axllent/mailpit` (profile `mail`)            | Development only: catches outgoing mail.                                                                                           |
+| Service    | Image                                 | What it does                                                                                                                                                                 |
+| ---------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`      | `ghcr.io/lumo-workspace/lumo`         | Lumo (`next start`), including the in-process workflow worker. Published on port 3000. Applies migrations on every start, then serves. Files live on the `blob-data` volume. |
+| `postgres` | `pgvector/pgvector:pg16`              | The database. Lumo's migrations need the `vector` extension, so plain `postgres` images do not work.                                                                         |
+| `cron`     | `ghcr.io/lumo-workspace/lumo-cron`    | supercronic running `deploy/self-host/crontab` against the app ([cron.md](cron.md)). Built from `deploy/self-host/cron.Dockerfile`.                                          |
+| `caddy`    | `caddy:2.10-alpine` (profile `caddy`) | Optional HTTPS on your domain with an automatic certificate; sends `/app/` to Soketi (realtime) and the rest to the app.                                                     |
+| `mailpit`  | `axllent/mailpit` (profile `mail`)    | Development only: catches outgoing mail.                                                                                                                                     |
+
+**Realtime updates** (Soketi, Pusher protocol) are optional:
+`scripts/self-host/setup.sh --realtime` adds `deploy/self-host/compose.realtime.yml`
+to `COMPOSE_FILE` in `.env`, which `docker compose` reads by itself, so every
+command stays a plain `docker compose …`. Without it the UI refetches when the
+window regains focus and every minute. (`COMPOSE_FILE` separates files with
+`:`; on Windows outside WSL also set `COMPOSE_PATH_SEPARATOR=:` in `.env`.)
+
+Rate limits are counted in the app's memory and files are stored on the
+`blob-data` volume — enough for the one app instance compose runs. To use
+your own Redis or S3 instead, set `REDIS_URL` or `BLOB_STORAGE=s3` with
+`S3_*` in `.env` (see `.env.example`).
 
 Kubernetes / Helm are not provided.
 
 ## Prerequisites
 
-- Docker with Compose v2 (`docker compose version`). Building the image needs
-  about **8 GB of memory** available to Docker (`next build` is
-  memory-hungry) and ~10 GB of disk for images and build layers.
-- `openssl` (or any other way to make random hex strings).
+- Docker with Compose v2 (`docker compose version`), about 2 GB of memory
+  and ~5 GB of disk. The app and cron images are prebuilt for `linux/amd64`
+  and `linux/arm64`, so the server never runs `next build`.
+- `openssl` (used by `scripts/self-host/setup.sh` to generate secrets).
 
 No third-party account is needed: users sign in with Lumo's built-in
 accounts (Better Auth, see [Sign-in](#sign-in)), stored in the bundled
@@ -30,19 +39,35 @@ Postgres.
 ## Quick start
 
 ```bash
-cp .env.example .env
-# Fill the two empty REQUIRED secrets (DATABASE_URL is ignored by compose):
-sed -i.bak -e "s/^CRON_SECRET=$/CRON_SECRET=$(openssl rand -hex 32)/" \
-  -e "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" .env \
-  && rm .env.bak
-# Then add the compose secrets:
-for v in WORKFLOW_SECRET POSTGRES_PASSWORD MINIO_ROOT_PASSWORD SOKETI_APP_SECRET; do
-  echo "$v=$(openssl rand -hex 32)"
-done >> .env
-
-docker compose up -d --build
-docker compose ps        # every service "healthy" / migrate + minio-init "exited (0)"
+git clone https://github.com/Lumo-Workspace/lumo.git && cd lumo
+scripts/self-host/setup.sh         # writes .env, starts the stack, checks the configuration
 ```
+
+`setup.sh` does three things:
+
+1. Writes `.env`: copies `.env.example` the first time and generates the
+   secrets.
+2. Runs `docker compose up -d` (pulls the images, applies the migrations)
+   and waits until postgres, app and cron are healthy.
+3. Checks the configuration from inside the app container, with the app's
+   own env and network, and prints one line per component:
+
+```
+  ✓ Database      connected, schema present
+  ✓ File storage  disk: write, read and delete work
+  – Email         not configured
+                  Invites cannot be accepted without email: set SMTP_URL, SMTP_HOST or RESEND_API_KEY.
+  – Redis         not configured (rate limits kept in memory)
+  – Realtime      off (the UI refreshes on focus and every minute)
+  – Public URL    http://localhost:3000 is local to this machine; open it in a browser
+```
+
+`✓` works, `–` not configured (fine for optional components), `✗` configured
+but not working, with what to fix. Email is checked by signing in to the
+SMTP server (or the Resend relay) without sending anything; S3 by writing,
+reading and deleting one object; the public URL by fetching it from the
+server. `setup.sh` exits non-zero when any check fails. `--no-start` stops
+after writing `.env`; `--check` only re-runs the check on the running stack.
 
 Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 create an account with your email and a password, then create a workspace,
@@ -51,32 +76,80 @@ account creation.) The first
 account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
-The first build takes a while (dependencies plus `next build`); later
-`up -d --build` runs reuse the cached layers. Keep secrets hex (`openssl rand
--hex 32`): `WORKFLOW_SECRET` is embedded in a URL.
+Optional components (email, your own Redis or S3, OAuth, AI keys) are
+configured after the first start: set them in `.env` and run `setup.sh`
+again, which restarts what changed and checks it.
 
-### Build-time settings (`NEXT_PUBLIC_*`)
+`setup.sh` creates `.env` readable by its owner only (mode 600) and is safe
+to re-run: it keeps realtime and caddy as chosen earlier unless you pass
+`--realtime` / `--no-realtime` or `--caddy` / `--no-caddy`, fills only
+secrets that are still empty and never replaces one that has a value
+(changing `BETTER_AUTH_SECRET` signs everybody out; the database password
+must keep matching its volume).
+`scripts/self-host/setup.sh --help` lists every option.
 
-`next build` inlines every `NEXT_PUBLIC_*` value into the browser bundle, so
-those are **build arguments** of the image, not runtime settings. Compose
-passes them from `.env`:
+### On your own domain (HTTPS)
 
-| `.env` setting        | Becomes                                                   | Default                 |
-| --------------------- | --------------------------------------------------------- | ----------------------- |
-| `NEXT_PUBLIC_APP_URL` | the same                                                  | `http://localhost:3000` |
-| `SOKETI_PUBLIC_HOST`  | `NEXT_PUBLIC_PUSHER_HOST`                                 | `localhost`             |
-| `SOKETI_PUBLIC_PORT`  | `NEXT_PUBLIC_PUSHER_PORT` (and the published Soketi port) | `6001`                  |
-| `SOKETI_PUBLIC_TLS`   | `NEXT_PUBLIC_PUSHER_USE_TLS`                              | `false`                 |
+Point the domain's DNS at the server, open ports 80 and 443, then:
 
-Compose also builds with `AUTH_PROVIDER=better-auth` (static pages bake the
-auth provider in, so the build and the runtime must agree).
+```bash
+scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
+```
 
-After changing any of them run `docker compose up -d --build` again. Without
-compose, pass them yourself:
-`docker build --build-arg NEXT_PUBLIC_APP_URL=https://lumo.example.com .`
-(the image defaults to `AUTH_PROVIDER=better-auth`).
-On a builder with less than 8 GB, lower the heap with
-`--build-arg BUILD_MAX_OLD_SPACE_SIZE=4096` (the build may then fail).
+`--url` sets `NEXT_PUBLIC_APP_URL` — compose derives `LUMO_PUBLIC_URL` and
+`BETTER_AUTH_URL` from it — and `LUMO_DOMAIN` for Caddy. With realtime on it
+also points the browser's realtime connection at the same origin
+(`SOKETI_PUBLIC_HOST` = the domain, the URL's port or 443, TLS on).
+`--caddy` adds the `caddy` profile to `COMPOSE_PROFILES` in `.env`; that
+service gets a Let's Encrypt certificate and serves
+everything on that one origin: `/app/*` (the realtime socket) goes to Soketi,
+the rest to the app. Leave `--realtime` out if you don't need live updates.
+
+With your own reverse proxy (nginx, Traefik, …) instead, run the same
+`setup.sh --url` without `--caddy` and give the proxy the same two rules: `/app/` →
+port 6001 (WebSocket upgrade on), everything else → port 3000.
+
+Changing the URL later is the same command — no rebuild. The public-URL
+check then fetches the new URL from the server, so a DNS, port or proxy
+problem shows up right away. A plain-HTTP URL (`--url http://192.168.1.20:3000`) keeps the
+browser talking to Soketi directly on port 6001.
+
+### Image versions and building from source
+
+`docker compose up -d` uses `ghcr.io/lumo-workspace/lumo:latest` and
+`ghcr.io/lumo-workspace/lumo-cron:latest`. To pin a release, set
+`LUMO_IMAGE=ghcr.io/lumo-workspace/lumo:<version>` and
+`LUMO_CRON_IMAGE=ghcr.io/lumo-workspace/lumo-cron:<version>` in `.env`.
+
+To build both images from your checkout instead, run
+`docker compose up -d --build` (Compose also builds when it cannot pull the
+image). Building needs about **8 GB of memory** available to Docker
+(`next build` is memory-hungry) and ~10 GB of disk; on a smaller builder,
+lower the heap with `BUILD_MAX_OLD_SPACE_SIZE=4096` in `.env` (the build
+may then fail). Keep secrets hex (`openssl rand -hex 32`): `WORKFLOW_SECRET`
+is embedded in a URL.
+
+### Public URL and realtime settings
+
+The app reads these at runtime and serves the browser's share of them from
+`/api/public-config`, so they take effect on `docker compose up -d` without a
+rebuild:
+
+| `.env` setting        | Becomes                                 | Default                 |
+| --------------------- | --------------------------------------- | ----------------------- |
+| `NEXT_PUBLIC_APP_URL` | the same                                | `http://localhost:3000` |
+| `LUMO_PUBLIC_URL`     | the same (links that leave the app)     | `NEXT_PUBLIC_APP_URL`   |
+| `BETTER_AUTH_URL`     | the same (sign-in origin, MCP issuer)   | `NEXT_PUBLIC_APP_URL`   |
+| `SOKETI_PUBLIC_HOST`  | `NEXT_PUBLIC_PUSHER_HOST` (realtime)    | `localhost`             |
+| `SOKETI_PUBLIC_PORT`  | `NEXT_PUBLIC_PUSHER_PORT` (realtime)    | `6001`                  |
+| `SOKETI_PUBLIC_TLS`   | `NEXT_PUBLIC_PUSHER_USE_TLS` (realtime) | `false`                 |
+
+Set `LUMO_PUBLIC_URL` / `BETTER_AUTH_URL` only when they differ from the app
+URL.
+
+`SOKETI_PORT` (default `6001`) is the host port Soketi is published on.
+`AUTH_PROVIDER` is still fixed at build time (static pages bake it in); the
+images are built with `better-auth`.
 
 ### What compose wires for you
 
@@ -86,17 +159,19 @@ Postgres has no TLS, and Lumo otherwise insists on a verified TLS
 connection), the Postgres World (`WORKFLOW_TARGET_WORLD`,
 `WORKFLOW_POSTGRES_URL` — a direct connection — and `WORKFLOW_LOCAL_BASE_URL`
 carrying `WORKFLOW_SECRET`, see [workflow.md](workflow.md)), `PORT`,
-`REDIS_URL`, the MinIO `S3_*` settings with `BLOB_STORAGE=s3`, the
-server-side `PUSHER_*` settings for Soketi, and `AUTH_PROVIDER=better-auth`
-with `BETTER_AUTH_URL` (from `.env` if set, else `NEXT_PUBLIC_APP_URL`).
+`LOCAL_BLOB_DIR`, and `AUTH_PROVIDER=better-auth`. It defaults
+`BLOB_STORAGE` to `disk`, and `LUMO_PUBLIC_URL` and `BETTER_AUTH_URL` to
+`NEXT_PUBLIC_APP_URL`, unless `.env` sets them. The realtime overlay adds the
+`PUSHER_*` settings for Soketi.
 Everything else in `.env` is passed
 to the app unchanged, so the optional features below are turned on by
-editing `.env` and running `docker compose up -d`.
+editing `.env` and running `scripts/self-host/setup.sh` (or `docker compose up -d`).
 
 ## What works without optional services
 
-Only Postgres is strictly required (sign-in uses it too); compose provides
-the rest of the core. Features that need an outside service degrade instead of failing:
+Only Postgres is strictly required (sign-in uses it too); the default stack
+provides the rest of the core, and the optional components are listed
+[above](#self-hosting-lumo-with-docker-compose). Features that need an outside service degrade instead of failing:
 
 | Feature                                                                        | Needs                                                                              | Without it                                                                                                                     |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -106,13 +181,14 @@ the rest of the core. Features that need an outside service degrade instead of f
 | GitHub / Slack / Figma / Google Drive / Sentry                                 | their variables plus `ENCRYPTION_KEY` ([integrations.md](integrations.md))         | The integration is hidden; its routes answer 404 `integration_not_configured`.                                                 |
 | Managed PR security scan, L3 hunt, review verifier                             | a Vercel Sandbox (Vercel OIDC credentials)                                         | Off; the settings page marks them unavailable.                                                                                 |
 | SARIF upload from your own CI (`POST /api/integrations/security/sarif/upload`) | Vercel Blob (the CI uploads straight to the store)                                 | Answers 501 on MinIO / disk storage.                                                                                           |
+| `lumo review import` (a Claude Code / Codex review into the PR scan)           | GitHub integration; any blob backend (the server stores the report)                | Works on MinIO / disk storage too. Without GitHub, there is no PR to import into.                                              |
 | Link previews of sites that block plain fetches                                | a Chromium (`CHROME_PATH`)                                                         | Previews use the plain fetch only.                                                                                             |
 
 ## Sign-in
 
-Compose runs Lumo with **Better Auth** (`AUTH_PROVIDER=better-auth`):
-accounts, sessions and verification tokens live in the bundled Postgres. No
-Clerk account or `CLERK_*` variable is involved.
+Lumo signs users in with **Better Auth**, its only auth provider: accounts,
+sessions and verification tokens live in the bundled Postgres.
+`AUTH_PROVIDER` is optional (unset or `better-auth`).
 
 The sign-in page offers, top to bottom: the GitHub / Google buttons you
 configured; **email codes** (enter an email, receive a 6-digit code valid for
@@ -124,8 +200,8 @@ once email is configured; and **email + password**, on by default.
   the app container exits if it is shorter. Changing it signs everybody out.
 - **`BETTER_AUTH_URL`** is the public URL users reach Lumo on; it defaults to
   `NEXT_PUBLIC_APP_URL`. Sign-in requests from any other origin are refused,
-  so set it (or `NEXT_PUBLIC_APP_URL`, then rebuild) when you put Lumo behind
-  a domain or change `LUMO_PORT`.
+  so set it when you put Lumo behind a domain or change `LUMO_PORT`
+  (`scripts/self-host/setup.sh --url …` sets the app URL it defaults to).
 - **Email verification.** A new account receives a verification link by
   email. Signing in works without verifying, but only a **verified** address
   can accept a workspace invite — so inviting people needs email (`SMTP_URL`
@@ -172,55 +248,50 @@ once email is configured; and **email + password**, on by default.
   `BETTER_AUTH_URL`), it picks up the workspace last selected for a client
   of the same name. The Lumo CLI uses API keys.
 
-Lumo can also run with Clerk instead (the hosted service used it until
-October 2026), but `docker-compose.yml` does not support it; to run a Clerk
-image anyway, build with
-`--build-arg AUTH_PROVIDER=clerk --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_…`
-and run it with `AUTH_PROVIDER=clerk` and `CLERK_SECRET_KEY`.
-
 ## Operating it
 
 ### Upgrading
 
 ```bash
 git pull
-docker compose up -d --build
+docker compose pull      # the newest images (or the release LUMO_IMAGE pins)
+scripts/self-host/setup.sh   # restarts on the new images and re-checks
 ```
 
-`migrate` applies new migrations (`prisma migrate deploy` only — never
-`migrate dev` or `db push`) and upgrades the workflow schemas before the new
-app starts. Back up the `postgres-data` and `minio-data` volumes first
+The new app container applies new migrations (`prisma migrate deploy` only —
+never `migrate dev` or `db push`) and upgrades the workflow schemas before it
+starts serving. Back up the `postgres-data` and `blob-data` volumes first
 (`docker compose exec postgres pg_dump -U lumo lumo > lumo.sql`).
 
 ### Moving from Vercel (or another storage backend)
 
 Switching storage does **not** move files. Vercel Blob URLs already stored in
 the database (test evidence, editor images, exports, workspace logos) cannot be
-read through MinIO until the objects are copied and the references rewritten —
+read from disk or S3 until the objects are copied and the references rewritten —
 see [uploaded-files.md](../privacy/uploaded-files.md). The repository ships no
 migration script for this.
 
 ### Production notes
 
-- **TLS / domain**: put a reverse proxy (Caddy, nginx, Traefik) in front of
-  port 3000 and of Soketi's 6001 (or set `SOKETI_PUBLIC_HOST` to a host the
-  proxy serves with `SOKETI_PUBLIC_TLS=true`), set `NEXT_PUBLIC_APP_URL` to
-  the public URL and rebuild. If you can, have the proxy refuse
+- **TLS / domain**: see [On your own domain](#on-your-own-domain-https).
+  Links Lumo writes outside the app — CLI output, GitHub comments, notices —
+  use `LUMO_PUBLIC_URL`, which compose defaults to the app URL. If you can,
+  have the proxy refuse
   `/.well-known/workflow/v1/flow` and `/step` from outside (they are already
   protected by `WORKFLOW_SECRET`; see [workflow.md](workflow.md)).
 - **One app instance** is what this file runs and the only setup that has
-  been tested. The app container keeps no files of its own (data is in
-  Postgres and MinIO, rate limits in Redis), but every instance also runs a
-  workflow worker and re-enqueues active runs when it boots; running several
-  replicas is untested. Never drop `REDIS_URL` with more than one instance:
+  been tested: every start runs the migrations, files are on the app's
+  `blob-data` volume, and every instance also runs a workflow worker and
+  re-enqueues active runs when it boots. Several replicas would need shared
+  storage (`BLOB_STORAGE=s3`) and `REDIS_URL`, and are untested. Never drop `REDIS_URL` with more than one instance:
   the in-memory fallback counts per process (the effective limit becomes N ×
   the configured one) and resets on every restart.
 - **Scheduled jobs** run in `cron` against `http://app:3000`. Turn jobs off
   with `LUMO_CRON_DISABLED=<name>,<name>` in `.env` (details in
   [cron.md](cron.md)).
 - **Logs**: `docker compose logs -f app cron`.
-- **Data** lives in the named volumes `postgres-data`, `redis-data` and
-  `minio-data`. `docker compose down` keeps them; `down -v` deletes them.
+- **Data** lives in the named volumes `postgres-data` and `blob-data`
+  (`caddy-data` holds Caddy's certificates). `docker compose down` keeps them; `down -v` deletes them.
 
 ### Integrations
 
@@ -236,6 +307,9 @@ format that is recognised: [forbidden-rules.md](forbidden-rules.md).
 
 ### Using your own Postgres / S3 / Pusher
 
-Edit `docker-compose.yml`: drop the bundled service and change the matching
-entries under `x-app-env` (for Postgres keep a **direct** connection for
-`WORKFLOW_POSTGRES_URL`, and drop `sslmode=disable` if the server has TLS).
+Set the matching variables in `.env` (`REDIS_URL`; `BLOB_STORAGE=s3` with
+`S3_*`; for your own Pusher-protocol server `PUSHER_*` and
+`NEXT_PUBLIC_PUSHER_*` without `--realtime` — see `.env.example`). For your own Postgres edit
+the entries under `x-app-env` in `docker-compose.yml` (keep a **direct**
+connection for `WORKFLOW_POSTGRES_URL`, and drop `sslmode=disable` if the
+server has TLS).

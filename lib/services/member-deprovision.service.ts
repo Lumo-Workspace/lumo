@@ -1,26 +1,23 @@
 /**
  * LUM-906 PR2 — identity-provider deprovisioning.
  *
- * When Clerk deletes a user, or bans one (what Directory Sync does on IdP
- * deprovisioning), that person loses every Lumo workspace: each active
- * membership is deactivated (API keys revoked first, authorship and session
- * history kept) and audited with a WEBHOOK actor carrying the delivery's
- * svix-id. Never on `locked`: that is Clerk's temporary password lockout,
- * which a third party can trigger by failing sign-ins.
+ * When a user is deleted or banned, that person loses every Lumo workspace:
+ * each active membership is deactivated (API keys revoked first, authorship
+ * and session history kept) and audited. Originally driven by Clerk's user
+ * webhook (removed with Clerk, LUM-1077); historical rows keep the
+ * CLERK_USER_* reasons.
  *
  * Last OWNER: a workspace is never left without an OWNER — the row stays,
  * but the person's API keys are revoked, audited and a warning logged.
  *
- * Idempotent by construction: a redelivered event finds the memberships
- * already deactivated (or no live key) and changes nothing; if a personal
- * integration cleanup failed, the delivery fails and the retry finishes it.
+ * Idempotent by construction: a repeated run finds the memberships already
+ * deactivated (or no live key) and changes nothing; if a personal
+ * integration cleanup failed, the call fails and a retry finishes it.
  * Re-enabling a banned user restores nothing; only a new invite does.
  *
- * LUM-1071: the same deprovisioning serves Better Auth mode, where an
- * operator bans or removes a user (lib/services/auth-user-admin.service.ts,
- * reasons AUTH_USER_BANNED / AUTH_USER_DELETED). `deprovisionUser` is the
- * provider-neutral core; `deprovisionClerkUser` is the webhook's entry and
- * behaves exactly as before.
+ * LUM-1071: an operator bans or removes a user through
+ * lib/services/auth-user-admin.service.ts (reasons AUTH_USER_BANNED /
+ * AUTH_USER_DELETED), which calls `deprovisionUser`.
  */
 import { logger } from '@/lib/logger'
 import type { MemberDeactivationReason } from '@/lib/members/deactivation'
@@ -37,14 +34,10 @@ export interface UserDeprovisionTrigger {
   userId: string
   reason: Extract<
     MemberDeactivationReason,
-    | 'CLERK_USER_DELETED'
-    | 'CLERK_USER_BANNED'
-    | 'AUTH_USER_DELETED'
-    | 'AUTH_USER_BANNED'
+    'AUTH_USER_DELETED' | 'AUTH_USER_BANNED'
   >
   /**
-   * Audit metadata naming the trigger (the webhook's svix-id, the operator
-   * script…); merged after `reason` and `clerkUserId`. Never personal data.
+   * Audit metadata naming the trigger (the operator script…); merged after `reason` and `clerkUserId`. Never personal data.
    */
   auditMetadata: Record<string, string | null>
 }
@@ -55,43 +48,6 @@ export interface DeprovisionPlanEntry {
   memberId: string
   role: string
   action: 'deactivate' | 'keep_last_owner' | 'none'
-}
-
-export interface ClerkDeprovisionTrigger {
-  clerkUserId: string
-  reason: Extract<
-    MemberDeactivationReason,
-    'CLERK_USER_DELETED' | 'CLERK_USER_BANNED'
-  >
-  /** The delivery's svix-id, recorded in the audit metadata. */
-  webhookId: string | null
-}
-
-/** The fields of a verified Clerk webhook event this module reads. */
-export interface ClerkUserEventLike {
-  type: string
-  data: unknown
-}
-
-/**
- * The deprovisioning a verified Clerk event asks for, or null when it asks
- * for none: `user.deleted`, and `user.updated` with `banned: true`. Every
- * other event — including `locked` and un-banning — is ignored.
- */
-export function deprovisionTriggerFromClerkEvent(
-  event: ClerkUserEventLike,
-  webhookId: string | null
-): ClerkDeprovisionTrigger | null {
-  const data = (event.data ?? {}) as { id?: unknown; banned?: unknown }
-  const clerkUserId = typeof data.id === 'string' && data.id ? data.id : null
-  if (!clerkUserId) return null
-  if (event.type === 'user.deleted') {
-    return { clerkUserId, reason: 'CLERK_USER_DELETED', webhookId }
-  }
-  if (event.type === 'user.updated' && data.banned === true) {
-    return { clerkUserId, reason: 'CLERK_USER_BANNED', webhookId }
-  }
-  return null
 }
 
 export type DeprovisionOutcome =
@@ -110,24 +66,6 @@ export type DeprovisionOutcome =
   | { workspaceId: string; memberId: string; outcome: 'already_deactivated' }
 
 export const memberDeprovisionService = {
-  /**
-   * Deactivate every active membership of a Clerk user (see the module
-   * comment). Returns one outcome per membership touched.
-   */
-  async deprovisionClerkUser(
-    trigger: ClerkDeprovisionTrigger,
-    audit: AuditContext
-  ): Promise<DeprovisionOutcome[]> {
-    return memberDeprovisionService.deprovisionUser(
-      {
-        userId: trigger.clerkUserId,
-        reason: trigger.reason,
-        auditMetadata: { webhookId: trigger.webhookId },
-      },
-      audit
-    )
-  },
-
   /**
    * What `deprovisionUser` would do to each membership of `userId`, without
    * writing anything (the operator scripts' dry run). Same last-OWNER rule.
@@ -257,9 +195,9 @@ export const memberDeprovisionService = {
       })
     }
     if (cleanupFailed) {
-      // Fail the delivery so Clerk retries (or the operator re-runs the
-      // script); the retry only finishes the integration cleanup
-      // (deactivation is already done and idempotent).
+      // Fail the call so the operator re-runs the script; the retry only
+      // finishes the integration cleanup (deactivation is already done and
+      // idempotent).
       throw Object.assign(
         new Error('Personal integration cleanup failed; will retry'),
         { status: 500 }

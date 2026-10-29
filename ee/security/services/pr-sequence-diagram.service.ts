@@ -16,9 +16,14 @@
  *    comment is refreshed from it.
  *
  * Never throws: every failure is a reply. Layering: service — the model
- * behind a dynamic import, GitHub through `@/lib/integrations/github`, the
- * database through the repository.
+ * behind a dynamic import, the PR's Git platform through the `GitProvider`
+ * port (LUM-1318), the database through the repository.
  */
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { logger } from '@/lib/logger'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
@@ -48,22 +53,20 @@ export type DiagramCommandResult =
   | { kind: 'failed' }
   | { kind: 'drawn'; sha: string; posted: boolean }
 
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
-
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
 export const prSequenceDiagramService = {
-  async regenerate(input: {
-    workspaceId: string
-    pullRequestId: string
-    /** `owner/name`. */
-    repo: string
-    prNumber: number
-  }): Promise<DiagramCommandResult> {
+  async regenerate(
+    input: GitProviderRef & {
+      workspaceId: string
+      pullRequestId: string
+      /** `owner/name`. */
+      repo: string
+      prNumber: number
+    }
+  ): Promise<DiagramCommandResult> {
     const where = `pr=${input.repo}#${input.prNumber}`
     try {
       const scan = await prSecurityScanRepository.findLatestForDiagram(
@@ -72,12 +75,13 @@ export const prSequenceDiagramService = {
       if (!scan) return { kind: 'no_review' }
       const settings =
         await repoConfigService.sequenceDiagramSettingsForPullRequest({
+          ...gitProviderRefOf(input),
           workspaceId: input.workspaceId,
           repo: input.repo,
           prNumber: input.prNumber,
         })
       if (!settings.enabled) return { kind: 'off' }
-      const gh = await github()
+      const gh = gitProviderFor(input)
       const target = {
         workspaceId: input.workspaceId,
         fullName: input.repo,

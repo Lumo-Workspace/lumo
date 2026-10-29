@@ -11,6 +11,7 @@ import {
   type ConstitutionScope,
 } from '@/lib/services/memory/constitution'
 import { logger } from '@/lib/logger'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { LineageFragmentType } from '@prisma/client'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
 
@@ -99,6 +100,8 @@ export const fragmentUsageAuditService = {
    * cron backstop). Idempotent via the voted-session guard. Best-effort.
    */
   async auditForTask(taskId: string): Promise<void> {
+    // LUM-1314: the global memory pipeline switch is on.
+    if (isMemoryPipelineDisabled()) return
     try {
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return
@@ -130,6 +133,8 @@ export const fragmentUsageAuditService = {
   async auditDoneTaskSessions(
     limit: number
   ): Promise<{ processed: number; sessionIds: string[] }> {
+    // LUM-1314: the global memory pipeline switch is on.
+    if (isMemoryPipelineDisabled()) return { processed: 0, sessionIds: [] }
     const sessionIds =
       await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
     for (const id of sessionIds) {

@@ -21,8 +21,8 @@ jest.mock('@/lib/repositories/actor.repository', () => ({
   },
 }))
 const mockProfiles = jest.fn()
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: (...a: unknown[]) => mockProfiles(...a),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: (...a: unknown[]) => mockProfiles(...a),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },

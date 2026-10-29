@@ -121,7 +121,7 @@ export const securityPlugin: LumoServerPlugin = {
     // the workspace confirmed the repository and its per-repository settings
     // allow it (default: on, drafts wait for ready_for_review). The decision
     // reads the database, so it loads lazily, off the webhook's static graph.
-    api.on('github.pullRequest', event => {
+    api.on('git.pullRequest', event => {
       const { action, state, pullRequestId, taskId, workspaceId } = event
       // LUM-1131: a merged PR's thread learnings become repository-wide.
       // Idempotent; a missed event is covered at read time (the review
@@ -190,7 +190,7 @@ export const securityPlugin: LumoServerPlugin = {
     // LUM-1127: a human resolving / unresolving one of Lumo's finding
     // threads on GitHub. Dynamic import keeps the thread service (and its
     // GitHub clients) off the webhook's static graph.
-    api.on('github.reviewThread', event => {
+    api.on('git.reviewThread', event => {
       waitUntil(
         (async () => {
           try {
@@ -211,7 +211,7 @@ export const securityPlugin: LumoServerPlugin = {
     // question, answered by the chat service. The ordinary comment is dropped
     // here, synchronously; a command or a question loads its service (GitHub
     // clients, the model) lazily.
-    api.on('github.issueComment', event => {
+    api.on('git.issueComment', event => {
       if (event.action !== 'created') return
       const handle = prCommandHandle()
       if (!handle) return
@@ -248,7 +248,7 @@ export const securityPlugin: LumoServerPlugin = {
     // LUM-1154: a question in such a thread gets a grounded answer, and a
     // review-line comment elsewhere that mentions the App is answered too.
     // Dynamic import: the reply and chat services reach the model client.
-    api.on('github.reviewComment', event => {
+    api.on('git.reviewComment', event => {
       if (event.action !== 'created') return
       const handle = prCommandHandle()
       const mentioned =
@@ -282,10 +282,16 @@ export const securityPlugin: LumoServerPlugin = {
     // the baseline service reaches github/contents → auth (octokit, ESM) and
     // the workflow start, which the webhook handlers must stay loadable
     // without.
-    api.on('github.push', ({ isDefaultBranch, workspaceId, repo, headSha }) => {
-      if (!isDefaultBranch) return
-      waitUntil(requestBaseline({ workspaceId, repo, sha: headSha }))
-    })
+    // LUM-1318: the provider-neutral event; its platform rides along.
+    api.on(
+      'git.push',
+      ({ isDefaultBranch, workspaceId, repo, headSha, provider }) => {
+        if (!isDefaultBranch) return
+        waitUntil(
+          requestBaseline({ provider, workspaceId, repo, sha: headSha })
+        )
+      }
+    )
 
     // LUM-1063 (PR4): boundary crossings. The advanced detectors and the
     // LUM-466 prose confirmation (LLM), the compiled project policy rules
@@ -369,6 +375,7 @@ export const securityPlugin: LumoServerPlugin = {
 }
 
 async function requestBaseline(input: {
+  provider: string
   workspaceId: string
   repo: string
   sha: string

@@ -1,6 +1,6 @@
 # Lumo CLI guide
 
-Served by `lumo skill read`: the core workflow, the rules that matter most, and a map of the references. **Before composing a command whose flags or edge cases matter, read its reference** (`lumo skill read references/<file>.md`) — don't run from memory.
+Served by `lumo skill read`: the core workflow, the rules that matter most, and a map of the references. **Before composing a command whose flags or edge cases matter, read its reference** — don't run from memory.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the Lumo Sess
 
 ## How this skill is organized
 
-[Core workflow](#core-workflow) and its golden rules first (starting, resuming or finishing a task); then the [Reference map](#reference-map) — open the matching reference before running a command in that domain. `lumo <command> --help` lists any command's flags.
+[Core workflow](#core-workflow) first, then the [Reference map](#reference-map). `lumo <command> --help` lists any command's flags.
 
 ## Core workflow
 
@@ -24,7 +24,8 @@ Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the Lumo Sess
 2. `lumo task show LUM-42 --full` — load background; review unresolved items, PR-review todos, the description
 3. Do the work
 4. **Before claiming done: run the real checks and record them** — tests/tsc/the actual path, then `lumo task testcase add/run` with evidence ([test-cases.md](references/test-cases.md))
-5. **Near the end: `lumo task status`** — what still blocks DONE; when READY it also shows what DONE would change and the one command to run ([task-status.md](references/task-status.md))
+5. **PR pushed:** `/security-review` (Claude Code) or a Codex review → `lumo review import <file>` ([security-scan.md](references/security-scan.md))
+6. **Near the end: `lumo task status`** — what still blocks DONE; when READY it also shows what DONE would change and the one command to run ([task-status.md](references/task-status.md))
 
 **Resuming / after a review bounce** — `lumo task status` **before** re-reading code or planning: it tells you what still stands between the task and DONE. A bounce means **fix in place — do not spin off a new task** (`task create` mid-task requires `--rework-of <id>` or `--new-scope`).
 
@@ -73,7 +74,7 @@ Read with `lumo skill read references/<file>`:
 - [worktree.md](references/worktree.md) — `worktree add/rm/list/prune`
 - [pr-scan.md](references/pr-scan.md) — `pr show`, `pr review`, `task show --scans`, `finding disposition`
 - [pr-scan-output.md](references/pr-scan-output.md) — reading a scan: layers, findings, hunt, size caps
-- [security-scan.md](references/security-scan.md) — `security scan`, git scan hooks, local scan log
+- [security-scan.md](references/security-scan.md) · [scan-log.md](references/scan-log.md) — `security scan`, `review import`, git scan hooks
 - [workspace-settings.md](references/workspace-settings.md) — `workspace security-scan show/update`
 - [repo-review-settings.md](references/repo-review-settings.md) — per-repo filters, pre-merge checks, review style
 - [members.md](references/members.md) · [tags.md](references/tags.md) · [audit.md](references/audit.md) · [feedback.md](references/feedback.md) — `member list`, `tag list/create`, `audit list` (OWNER), `feedback create/list/show`
@@ -87,7 +88,7 @@ Read with `lumo skill read references/<file>`:
 ## Common mistakes
 
 - No subtasks / `--parent` — use a milestone, `task dep add`, or fold follow-ups into the original task.
-- No `session start` / `session detach` / steward role switch.
+- No `session start` / `session detach`.
 - No `--yes`, no prompts — approval is `--confirm`, only after the user approves. Sole exception: `lumo init` outside a git repo asks `[y/N]` (stdin; EOF/60 s = no); relay it to the user, never answer it.
 - `lumo task update LUM-N --status done` is one direct call — don't walk `in_progress → in_review → done`.
 - Evidence is `lumo task testcase`; a PR's scans are `lumo pr show`. Comment bodies are positional (`task comment add "<body>"`).

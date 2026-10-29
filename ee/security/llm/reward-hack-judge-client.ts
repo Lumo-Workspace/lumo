@@ -1,7 +1,7 @@
 /**
- * LUM-1234 — the reward-hack layer's two model calls: a whole-trajectory
- * judge over the agent sessions behind a PR, and a per-item refute call that
- * looks for a legitimate explanation.
+ * LUM-1234 — the reward-hack layer's one model call: a whole-trajectory
+ * judge over the agent sessions behind a PR (the per-item refute call was
+ * removed by user ruling 2026-10-22).
  *
  * Static imports of `ai` and the gateway: this module MUST only be reached via
  * `await import()` from service code (jest TransformStream trap). Every call
@@ -20,13 +20,10 @@ import { gateway } from '@/lib/ai/gateway'
 import { REWARD_HACK_MODEL } from '@/lib/ai/models'
 import {
   REWARD_HACK_JUDGE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
-  REWARD_HACK_REFUTE_SYSTEM_PROMPT,
   REWARD_HACK_SYSTEM_PROMPT,
-  buildRefutePrompt,
 } from '@/ee/security/security-scan/reward-hack-prompts'
 
-export { REWARD_HACK_SYSTEM_PROMPT, REWARD_HACK_REFUTE_SYSTEM_PROMPT }
+export { REWARD_HACK_SYSTEM_PROMPT }
 
 export const RH_ITEM_KINDS = [
   'TEST_TAMPERING',
@@ -64,15 +61,7 @@ export const RhJudgeSchema = z.object({
 export type RhJudgeOutput = z.infer<typeof RhJudgeSchema>
 export type RhItem = RhJudgeOutput['items'][number]
 
-export const RhRefuteSchema = z.object({
-  refuted: z
-    .boolean()
-    .describe('true only when a legitimate explanation clearly fits'),
-  reason: z.string().describe('One sentence.'),
-})
-
 export const REWARD_HACK_JUDGE_TIMEOUT_MS = 120_000
-export const REWARD_HACK_REFUTE_TIMEOUT_MS = 60_000
 
 /** Strip a markdown fence around the JSON object, the one repairable mistake. */
 function repairJsonText(text: string): string | null {
@@ -116,38 +105,6 @@ export async function judgeRewardHack(prompt: string): Promise<{
   }
   return {
     output: object,
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    costUsd: gatewayCost(providerMetadata),
-  }
-}
-
-export async function refuteRewardHackItem(args: {
-  prompt: string
-  item: RhItem
-  /** The fenced current PR hunks of the item's files ('' / absent = none). */
-  prDiff?: string
-}): Promise<{
-  refuted: boolean
-  reason: string
-  inputTokens: number
-  outputTokens: number
-  costUsd: number | null
-}> {
-  const { object, usage, providerMetadata } = await generateObject({
-    model: gateway(REWARD_HACK_MODEL),
-    schema: RhRefuteSchema,
-    system: REWARD_HACK_REFUTE_SYSTEM_PROMPT,
-    prompt: buildRefutePrompt(args),
-    maxOutputTokens: REWARD_HACK_REFUTE_MAX_OUTPUT_TOKENS,
-    temperature: 0,
-    maxRetries: 0,
-    abortSignal: AbortSignal.timeout(REWARD_HACK_REFUTE_TIMEOUT_MS),
-    experimental_repairText: async ({ text }) => repairJsonText(text),
-  })
-  return {
-    refuted: object.refuted,
-    reason: object.reason,
     inputTokens: usage?.inputTokens ?? 0,
     outputTokens: usage?.outputTokens ?? 0,
     costUsd: gatewayCost(providerMetadata),

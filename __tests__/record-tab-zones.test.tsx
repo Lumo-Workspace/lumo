@@ -143,6 +143,8 @@ describe('the Done gate', () => {
     expect(screen.getByTestId('gate-security')).toHaveTextContent(
       'Not scanned — no linked pull request yet'
     )
+    // LUM-1296: the row is named like the PR comment heading.
+    expect(screen.getByTestId('gate-security')).toHaveTextContent('Lumo review')
   })
 
   // LUM-1009: the old strip only counted crossings and returned null without

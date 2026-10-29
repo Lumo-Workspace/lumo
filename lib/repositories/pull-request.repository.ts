@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 
 interface PrStateUpdate {
   state: string
@@ -39,6 +40,8 @@ export const pullRequestRepository = {
     return prisma.pullRequest.findFirst({
       where: {
         workspaceId,
+        // LUM-1315: the revert feed reads GitHub pushes.
+        provider: GITHUB_PROVIDER,
         state: 'merged',
         mergeCommitSha: sha,
         taskId: { not: null },
@@ -56,17 +59,23 @@ export const pullRequestRepository = {
    */
   async findStaleOpenByProject(projectId: string, cutoff: Date, take: number) {
     return prisma.pullRequest.findMany({
-      where: { task: { projectId }, state: 'open', createdAt: { lt: cutoff } },
+      where: {
+        task: { projectId },
+        // LUM-1315: re-checked against GitHub — never a Codeup row.
+        provider: GITHUB_PROVIDER,
+        state: 'open',
+        createdAt: { lt: cutoff },
+      },
       select: { id: true, repo: true, number: true },
       orderBy: { createdAt: 'asc' },
       take,
     })
   },
 
-  /** Find the most recent open PR for a task. */
+  /** Find the most recent open GitHub PR for a task (the GitHub code pipeline). */
   async findActivePr(taskId: string) {
     return prisma.pullRequest.findFirst({
-      where: { taskId, state: 'open' },
+      where: { taskId, provider: GITHUB_PROVIDER, state: 'open' },
       orderBy: { createdAt: 'desc' },
     })
   },
@@ -116,6 +125,7 @@ export const pullRequestRepository = {
     // so one workspace can hold case-variant rows for the same PR.
     const rows = await prisma.pullRequest.findMany({
       where: {
+        provider: GITHUB_PROVIDER,
         repo: { equals: repo, mode: 'insensitive' },
         number,
         taskId: { not: null },
@@ -133,7 +143,14 @@ export const pullRequestRepository = {
    */
   async findByRepoAndNumber(workspaceId: string, repo: string, number: number) {
     return prisma.pullRequest.findUnique({
-      where: { workspaceId_repo_number: { workspaceId, repo, number } },
+      where: {
+        workspaceId_provider_repo_number: {
+          workspaceId,
+          provider: GITHUB_PROVIDER,
+          repo,
+          number,
+        },
+      },
       include: {
         task: {
           select: {
@@ -154,7 +171,7 @@ export const pullRequestRepository = {
    */
   async findAllByRepoAndNumber(repo: string, number: number) {
     return prisma.pullRequest.findMany({
-      where: { repo, number },
+      where: { provider: GITHUB_PROVIDER, repo, number },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -179,9 +196,43 @@ export const pullRequestRepository = {
     repo: string | null
   ) {
     return prisma.pullRequest.findMany({
-      where: { workspaceId, number, ...(repo ? { repo } : {}) },
+      where: {
+        workspaceId,
+        // LUM-1315: the scan read-out and review controls act on GitHub PRs.
+        provider: GITHUB_PROVIDER,
+        number,
+        ...(repo ? { repo } : {}),
+      },
       orderBy: { repo: 'asc' },
       select: SCAN_READOUT_PR_SELECT,
+    })
+  },
+
+  /**
+   * LUM-1321 — the GitHub PR a `lumo review import` targets, scoped by the
+   * caller's workspace (another workspace's PR is simply not found).
+   */
+  async findForSecurityImport(
+    workspaceId: string,
+    repo: string,
+    number: number
+  ) {
+    return prisma.pullRequest.findFirst({
+      where: {
+        workspaceId,
+        provider: GITHUB_PROVIDER,
+        // GitHub names are case-insensitive; origin may be cased differently.
+        repo: { equals: repo, mode: 'insensitive' },
+        number,
+      },
+      select: {
+        id: true,
+        provider: true,
+        repo: true,
+        number: true,
+        state: true,
+        headSha: true,
+      },
     })
   },
 
@@ -193,7 +244,7 @@ export const pullRequestRepository = {
    */
   async findManyForScanReadoutByTaskId(workspaceId: string, taskId: string) {
     return prisma.pullRequest.findMany({
-      where: { workspaceId, taskId },
+      where: { workspaceId, taskId, provider: GITHUB_PROVIDER },
       orderBy: [{ number: 'desc' }, { repo: 'asc' }],
       select: SCAN_READOUT_PR_SELECT,
     })
@@ -211,7 +262,7 @@ export const pullRequestRepository = {
   async findIdsByRepos(workspaceId: string, repos: string[]) {
     if (repos.length === 0) return []
     const rows = await prisma.pullRequest.findMany({
-      where: { workspaceId, repo: { in: repos } },
+      where: { workspaceId, provider: GITHUB_PROVIDER, repo: { in: repos } },
       select: { id: true },
     })
     return rows.map(row => row.id)
@@ -255,10 +306,16 @@ export const pullRequestRepository = {
     return prisma.pullRequest.update({ where: { id: prId }, data: { taskId } })
   },
 
-  /** Find the most recently updated PR linked to a task. */
-  async findByTaskId(taskId: string) {
+  /**
+   * The most recently updated PR linked to a task. LUM-1315: `githubOnly`
+   * for callers that act on the PR through the GitHub API.
+   */
+  async findByTaskId(taskId: string, opts: { githubOnly?: boolean } = {}) {
     return prisma.pullRequest.findFirst({
-      where: { taskId },
+      where: {
+        taskId,
+        ...(opts.githubOnly ? { provider: GITHUB_PROVIDER } : {}),
+      },
       orderBy: { updatedAt: 'desc' },
     })
   },
@@ -274,7 +331,7 @@ export const pullRequestRepository = {
     headBranch: string
   ) {
     return prisma.pullRequest.findFirst({
-      where: { workspaceId, repo, headBranch },
+      where: { workspaceId, provider: GITHUB_PROVIDER, repo, headBranch },
       orderBy: { updatedAt: 'desc' },
       select: { number: true },
     })
@@ -286,7 +343,9 @@ export const pullRequestRepository = {
    */
   async findManyForSecurityByTaskId(taskId: string) {
     return prisma.pullRequest.findMany({
-      where: { taskId },
+      // LUM-1315: only GitHub PRs are scanned (Codeup scans are phase 3), so
+      // a Codeup MR never reads as a pending scan.
+      where: { taskId, provider: GITHUB_PROVIDER },
       orderBy: { number: 'desc' },
       select: {
         id: true,
@@ -329,7 +388,7 @@ export const pullRequestRepository = {
    */
   async listRepoAndNumberByTask(taskId: string) {
     return prisma.pullRequest.findMany({
-      where: { taskId },
+      where: { taskId, provider: GITHUB_PROVIDER },
       select: { workspaceId: true, repo: true, number: true, state: true },
       orderBy: { number: 'asc' },
     })
@@ -407,6 +466,8 @@ export const pullRequestRepository = {
   async listMergedTaskBoundMissingChangeVolume() {
     return prisma.pullRequest.findMany({
       where: {
+        // LUM-1315: backfilled from the GitHub pulls API.
+        provider: GITHUB_PROVIDER,
         state: 'merged',
         taskId: { not: null },
         OR: [{ additions: null }, { deletions: null }, { changedFiles: null }],
@@ -444,7 +505,8 @@ export const pullRequestRepository = {
    */
   async listMergedByTask(taskId: string) {
     return prisma.pullRequest.findMany({
-      where: { taskId, state: 'merged' },
+      // LUM-1315: the resolver fetches each diff from GitHub.
+      where: { taskId, provider: GITHUB_PROVIDER, state: 'merged' },
       select: {
         workspaceId: true,
         repo: true,

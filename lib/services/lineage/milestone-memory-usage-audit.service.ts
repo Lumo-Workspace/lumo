@@ -12,6 +12,7 @@ import {
   type ConstitutionScope,
 } from '@/lib/services/memory/constitution'
 import { logger } from '@/lib/logger'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
 
 /**
@@ -88,6 +89,8 @@ export const milestoneMemoryUsageAuditService = {
    * can't fail the retro / distillation that runs alongside it at close.
    */
   async auditForMilestoneClose(milestoneId: string): Promise<void> {
+    // LUM-1314: the global memory pipeline switch is on.
+    if (isMemoryPipelineDisabled()) return
     try {
       const milestone = await milestoneRepository.findById(milestoneId)
       if (!milestone) return

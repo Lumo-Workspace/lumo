@@ -110,7 +110,8 @@ export interface SarifRun {
 
 /** An EXTERNAL_TOOL finding row, redacted and safe to persist as-is. */
 export interface RawSarifFinding {
-  kind: 'SECRET' | 'VULNERABILITY' | 'DEPENDENCY'
+  /** LUM-1333: CORRECTNESS = an imported agent code review's bug. */
+  kind: 'SECRET' | 'VULNERABILITY' | 'DEPENDENCY' | 'CORRECTNESS'
   /** `ext:<tool>:<ruleId>` */
   ruleId: string
   severity: SecuritySeverity

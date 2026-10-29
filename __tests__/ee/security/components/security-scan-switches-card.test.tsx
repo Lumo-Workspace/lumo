@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * LUM-866 — the settings card for the PR security-scan switches.
- * LUM-1002 — saves go to /api/workspaces/me/security-scan; disable all /
- * enable all saves every switch at once.
+ * LUM-1002 — saves go to /api/workspaces/me/security-scan. LUM-1327: the
+ * scan switch sits in the card header (no more disable/enable all).
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
@@ -34,6 +34,7 @@ jest.mock('@/ee/security/api-client', () => ({
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { securityScanClient } from '@/ee/security/api-client'
 import type { WorkspaceSecuritySwitches } from '@/ee/security/security-scan/workspace-switches'
+import type { AgentReviewBlockingView } from '@/ee/security/security-scan/policy'
 
 const updateSecurityScan = securityScanClient.updateSecurityScan as jest.Mock
 
@@ -49,18 +50,24 @@ const ALL_ON = {
   securityLocalScanLogEnabled: false,
 }
 
+/** LUM-1329 — the level the fake server holds (what renderCard started with). */
+let storedAgentReview: AgentReviewBlockingView = 'off'
+
 function renderCard(
   initial: WorkspaceSecuritySwitches = ALL_ON,
   huntAvailable = true,
   sandboxAvailable = true,
-  rewardHackAvailable = true
+  rewardHackAvailable = true,
+  agentReviewBlocking: AgentReviewBlockingView = 'off'
 ) {
+  storedAgentReview = agentReviewBlocking
   return render(
     <SecurityScanSwitchesCard
       initial={initial}
       huntAvailable={huntAvailable}
       rewardHackAvailable={rewardHackAvailable}
       sandboxAvailable={sandboxAvailable}
+      initialAgentReviewBlocking={agentReviewBlocking}
     />
   )
 }
@@ -69,45 +76,65 @@ const toggle = (name: string | RegExp) => screen.getByRole('switch', { name })
 
 beforeEach(() => {
   jest.clearAllMocks()
-  updateSecurityScan.mockImplementation(async (u: Record<string, boolean>) => ({
-    switches:
-      'all' in u
-        ? {
-            securityScanEnabled: u.all,
-            securityAiReviewEnabled: u.all,
-            securityHuntEnabled: u.all,
-            securityRewardHackEnabled: u.all,
-            securityRequestChangesEnabled: false,
-            securityAllowAuthorApproval: true,
-            securityLearningsScope: 'auto' as const,
-            securityReviewAutoPauseAfter: 5,
-            securityLocalScanLogEnabled: false,
-          }
-        : { ...ALL_ON, ...u },
-  }))
+  updateSecurityScan.mockImplementation(
+    async ({ agentReviewBlocking, ...u }: Record<string, unknown>) => {
+      // LUM-1329: the server holds the level it was sent, else the one it had.
+      if (agentReviewBlocking !== undefined)
+        storedAgentReview = agentReviewBlocking as AgentReviewBlockingView
+      return {
+        agentReviewBlocking: storedAgentReview,
+        switches:
+          'all' in u
+            ? {
+                securityScanEnabled: u.all,
+                securityAiReviewEnabled: u.all,
+                securityHuntEnabled: u.all,
+                securityRewardHackEnabled: u.all,
+                securityRequestChangesEnabled: false,
+                securityAllowAuthorApproval: true,
+                securityLearningsScope: 'auto' as const,
+                securityReviewAutoPauseAfter: 5,
+                securityLocalScanLogEnabled: false,
+              }
+            : { ...ALL_ON, ...u },
+      }
+    }
+  )
 })
 
 describe('LUM-866 SecurityScanSwitchesCard', () => {
   it('renders the three switches from the stored values', () => {
     renderCard({ ...ALL_ON, securityAiReviewEnabled: false })
-    expect(toggle('Security scan')).toHaveAttribute('aria-checked', 'true')
+    expect(toggle('Pull request review')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
     expect(toggle('AI review')).toHaveAttribute('aria-checked', 'false')
-    expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'true')
+    expect(toggle('Exploitability check')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
   })
 
   it('turning the scan off shows AI review and hunt off and locked', () => {
     renderCard()
-    fireEvent.click(toggle('Security scan'))
+    fireEvent.click(toggle('Pull request review'))
     expect(toggle('AI review')).toBeDisabled()
     expect(toggle('AI review')).toHaveAttribute('aria-checked', 'false')
-    expect(toggle('Exploit-path hunt')).toBeDisabled()
-    expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'false')
+    expect(toggle('Exploitability check')).toBeDisabled()
+    expect(toggle('Exploitability check')).toHaveAttribute(
+      'aria-checked',
+      'false'
+    )
   })
 
   it('a hunt the platform turned off is off, locked and explained', () => {
     renderCard(ALL_ON, false)
-    expect(toggle('Exploit-path hunt')).toBeDisabled()
-    expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'false')
+    expect(toggle('Exploitability check')).toBeDisabled()
+    expect(toggle('Exploitability check')).toHaveAttribute(
+      'aria-checked',
+      'false'
+    )
     expect(
       screen.getByText('Currently turned off for all workspaces by Lumo.')
     ).toBeInTheDocument()
@@ -115,7 +142,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
 
   it('save sends every switch to the workspace settings API', async () => {
     renderCard()
-    fireEvent.click(toggle('Exploit-path hunt'))
+    fireEvent.click(toggle('Exploitability check'))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(updateSecurityScan).toHaveBeenCalledWith({
@@ -132,46 +159,45 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
     )
   })
 
-  it('LUM-1002 disable all saves { all: false } and then offers enable all', async () => {
+  it('LUM-1327 Save shows only once something changed', () => {
     renderCard()
-    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
-    await waitFor(() =>
-      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
-    )
-    expect(
-      await screen.findByRole('button', { name: 'Enable all' })
-    ).toBeInTheDocument()
-    expect(toggle('Security scan')).toHaveAttribute('aria-checked', 'false')
-    expect(toggle('AI review')).toHaveAttribute('aria-checked', 'false')
-    expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    fireEvent.click(toggle('AI review'))
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    fireEvent.click(toggle('AI review'))
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
   })
 
-  it('LUM-1002 enable all saves { all: true } when every switch is off', async () => {
-    renderCard({
-      securityScanEnabled: false,
-      securityAiReviewEnabled: false,
-      securityHuntEnabled: false,
-      securityRewardHackEnabled: false,
-      securityRequestChangesEnabled: false,
-      securityAllowAuthorApproval: true,
-      securityLearningsScope: 'auto',
-      securityReviewAutoPauseAfter: 5,
-      securityLocalScanLogEnabled: false,
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
+  it('LUM-1327 the header switch replaces "Disable all" and turns everything off', async () => {
+    renderCard()
+    expect(screen.queryByRole('button', { name: 'Disable all' })).toBeNull()
+    fireEvent.click(toggle('Pull request review'))
+    expect(toggle('AI review')).toHaveAttribute('aria-checked', 'false')
+    expect(toggle('Agent shortcut check')).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
-      expect(updateSecurityScan).toHaveBeenCalledWith({ all: true })
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ securityScanEnabled: false })
+      )
     )
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    )
+  })
+
+  it('LUM-1327 groups the rows under two sub-headings', () => {
+    renderCard()
     expect(
-      await screen.findByRole('button', { name: 'Disable all' })
+      screen.getByText('Extra checks on each pull request')
     ).toBeInTheDocument()
+    expect(screen.getByText('How Lumo reviews')).toBeInTheDocument()
   })
 })
 
 describe('LUM-1025 SecurityScanSwitchesCard without Vercel Sandbox', () => {
   it('locks the hunt and says the deployment lacks Sandbox, not that Lumo turned it off', () => {
     renderCard(ALL_ON, false, false)
-    expect(toggle('Exploit-path hunt')).toBeDisabled()
+    expect(toggle('Exploitability check')).toBeDisabled()
     expect(
       screen.getByText(
         'Not available on this deployment: Vercel Sandbox is not configured.'
@@ -214,22 +240,14 @@ describe('LUM-1130 request-changes workflow switch', () => {
   it('reads off and locked with the scan off', () => {
     renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
     expect(rc()).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(toggle('Security scan'))
+    fireEvent.click(toggle('Pull request review'))
     expect(rc()).toBeDisabled()
     expect(rc()).toHaveAttribute('aria-checked', 'false')
-  })
-
-  it('disable all leaves it as it is (it is not a layer)', async () => {
-    renderCard({ ...ALL_ON, securityRequestChangesEnabled: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
-    await waitFor(() =>
-      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
-    )
   })
 })
 
 describe('LUM-1142 author approval switch', () => {
-  const aa = () => toggle('PR authors may resolve and approve by command')
+  const aa = () => toggle('Let PR authors resolve and approve')
 
   it('is on by default and an OWNER turns it off with Save', async () => {
     renderCard()
@@ -242,20 +260,12 @@ describe('LUM-1142 author approval switch', () => {
       )
     )
   })
-
-  it('disable all leaves it as it is', async () => {
-    renderCard()
-    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
-    await waitFor(() =>
-      expect(updateSecurityScan).toHaveBeenCalledWith({ all: false })
-    )
-  })
 })
 
 describe('LUM-1134 learnings scope', () => {
   const scope = () =>
     screen.getByRole('combobox', {
-      name: 'Learnings scope',
+      name: 'Learnings to use',
     }) as HTMLSelectElement
 
   it('shows the stored scope with all three choices, auto by default', () => {
@@ -283,7 +293,7 @@ describe('LUM-1134 learnings scope', () => {
     renderCard({ ...ALL_ON, securityLearningsScope: 'local' })
     expect(scope().value).toBe('local')
     expect(scope()).not.toBeDisabled()
-    fireEvent.click(toggle('Security scan'))
+    fireEvent.click(toggle('Pull request review'))
     expect(scope()).toBeDisabled()
   })
 })
@@ -291,7 +301,7 @@ describe('LUM-1134 learnings scope', () => {
 it('LUM-1134 choosing global warns that public repositories may draw on private ones', () => {
   renderCard()
   expect(screen.queryByTestId('learnings-scope-global-warning')).toBeNull()
-  fireEvent.change(screen.getByRole('combobox', { name: 'Learnings scope' }), {
+  fireEvent.change(screen.getByRole('combobox', { name: 'Learnings to use' }), {
     target: { value: 'global' },
   })
   expect(
@@ -338,13 +348,13 @@ describe('LUM-1137 pause automatic review after N reviewed commits', () => {
     renderCard()
     fireEvent.change(pauseAfter(), { target: { value: '250' } })
     expect(pauseAfter().value).toBe('100')
-    fireEvent.click(toggle('Security scan'))
+    fireEvent.click(toggle('Pull request review'))
     expect(pauseAfter()).toBeDisabled()
   })
 })
 
 describe('LUM-1234 agent behavior (reward-hack) switch', () => {
-  const rh = () => toggle(/^Agent behavior$/)
+  const rh = () => toggle(/^Agent shortcut check$/)
 
   it('is on by default and saved with the other switches', async () => {
     renderCard()
@@ -379,4 +389,94 @@ describe('LUM-1234 agent behavior (reward-hack) switch', () => {
       screen.getByText('Currently turned off for all workspaces by Lumo.')
     ).toBeInTheDocument()
   })
+})
+
+describe('LUM-1329 imported agent reviews block Done', () => {
+  const level = () =>
+    screen.getByRole('combobox', {
+      name: 'Imported agent reviews block Done',
+    }) as HTMLSelectElement
+
+  it('is off by default with the four levels, and warns only while a level blocks', () => {
+    renderCard()
+    expect(level().value).toBe('off')
+    expect([...level().options].map(o => o.value)).toEqual([
+      'off',
+      'high',
+      'medium',
+      'low',
+    ])
+    expect(screen.queryByTestId('agent-review-blocking-warning')).toBeNull()
+    fireEvent.change(level(), { target: { value: 'medium' } })
+    expect(
+      screen.getByTestId('agent-review-blocking-warning')
+    ).toHaveTextContent(/blocks Done on every member’s task/)
+  })
+
+  it('changing it shows Save; an OWNER turns it on and it is saved with the switches', async () => {
+    renderCard()
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    fireEvent.change(level(), { target: { value: 'high' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ agentReviewBlocking: 'high' })
+      )
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+    )
+    expect(level().value).toBe('high')
+  })
+
+  it('turns it back off', async () => {
+    renderCard(ALL_ON, true, true, true, 'low')
+    expect(level().value).toBe('low')
+    fireEvent.change(level(), { target: { value: 'off' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateSecurityScan).toHaveBeenCalledWith(
+        expect.objectContaining({ agentReviewBlocking: 'off' })
+      )
+    )
+  })
+
+  it('an unrelated save does not send the level, so a newer level set elsewhere is kept', async () => {
+    renderCard(ALL_ON, true, true, true, 'off')
+    fireEvent.click(toggle('Exploitability check'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(updateSecurityScan).toHaveBeenCalled())
+    expect(updateSecurityScan.mock.calls[0]![0]).not.toHaveProperty(
+      'agentReviewBlocking'
+    )
+  })
+
+  it('a custom policy shows as custom and is not rewritten by an unrelated save', async () => {
+    renderCard(ALL_ON, true, true, true, 'custom')
+    expect(level().value).toBe('custom')
+    fireEvent.click(toggle('Exploitability check'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(updateSecurityScan).toHaveBeenCalled())
+    expect(updateSecurityScan.mock.calls[0]![0]).not.toHaveProperty(
+      'agentReviewBlocking'
+    )
+  })
+})
+
+it('LUM-1329 after a save the card shows the level the server echoes, not the one it loaded with', async () => {
+  renderCard(ALL_ON, true, true, true, 'off')
+  // Set elsewhere (e.g. from the CLI) after the page loaded.
+  storedAgentReview = 'medium'
+  fireEvent.click(toggle('Exploitability check'))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+  )
+  expect(
+    (
+      screen.getByRole('combobox', {
+        name: 'Imported agent reviews block Done',
+      }) as HTMLSelectElement
+    ).value
+  ).toBe('medium')
 })

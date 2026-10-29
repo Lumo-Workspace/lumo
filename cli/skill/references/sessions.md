@@ -17,7 +17,7 @@ What it does:
 - Reads the session id from the environment: in Codex `CODEX_SESSION_ID` / `CODEX_THREAD_ID` (see [codex.md](codex.md)), otherwise `CLAUDE_CODE_SESSION_ID` (Claude Code sets it automatically); errors out when neither is set — must run from inside a Claude Code or Codex session.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
-- Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning and **undispositioned security findings**.
+- Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning, **possible duplicates** (each likely original with its confirm / not-a-duplicate commands; ask the user before working), and **undispositioned security findings**.
 - Does **not** print team memory or the `## Test cases` nudge — `lumo task show --full` prints both, and attach output is re-read on every later step. Instead one line: ``Hint: run `lumo task show LUM-42 --full` for background (team memory, test cases, sources, prior sessions)``.
 
 After attaching, always run `lumo task show <identifier> --full` to load the task background — memory and the test-case nudge live there.

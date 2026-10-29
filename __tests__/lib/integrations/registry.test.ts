@@ -10,6 +10,7 @@ describe('integration registry', () => {
     'sentry',
     'github',
     'githubAccount',
+    'codeup',
     'figma',
     'googleDrive',
   ]
@@ -27,6 +28,7 @@ describe('integration registry', () => {
     expect(getIntegrationKind('sentry')).toBe('TEAM')
     expect(getIntegrationKind('github')).toBe('TEAM')
     expect(getIntegrationKind('githubAccount')).toBe('PERSONAL')
+    expect(getIntegrationKind('codeup')).toBe('TEAM')
     expect(getIntegrationKind('figma')).toBe('PERSONAL')
     expect(getIntegrationKind('googleDrive')).toBe('PERSONAL')
   })

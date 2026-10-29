@@ -144,7 +144,7 @@ const ANTHROPIC = {
   location: 'globalRouting',
 } as const
 
-/** The Clerk registry entry, unchanged by the 2026-10-12 purpose correction. */
+/** The Clerk registry entry (2026-10-12 purpose correction, 2026-10-28 removal). */
 const CLERK = {
   id: 'clerk',
   entity: 'Clerk Inc.',
@@ -228,5 +228,17 @@ export const SUBPROCESSOR_CHANGES: readonly SubprocessorChange[] = [
       "Anthropic (AI model hosting): purpose extended from AI code review to AI code review and security hunt of pull requests, because the model the hunt ran on through Alibaba Cloud was withdrawn. Hunt requests go only to Anthropic's own API under zero data retention; no subprocessor is added.",
     before: { list: 'aiHost', entry: ANTHROPIC },
     after: { list: 'aiHost', entry: ANTHROPIC },
+  },
+  {
+    // LUM-1076 / LUM-1077: the user deleted the Clerk production instance on
+    // 2026-10-28, ahead of the 2026-11-11 deadline in 2026-10-12-clerk-purpose,
+    // after the Clerk code was removed (PR 1718). A removal needs no notice.
+    id: '2026-10-28-clerk-removed',
+    kind: 'removed',
+    announcedAt: '2026-10-28',
+    effectiveAt: '2026-10-28',
+    summary:
+      'Clerk (authentication) removed: its instance, and with it the account data it still held from before Lumo moved sign-in to its own authentication service, was deleted on 2026-10-28.',
+    before: { list: 'infrastructure', entry: CLERK },
   },
 ]

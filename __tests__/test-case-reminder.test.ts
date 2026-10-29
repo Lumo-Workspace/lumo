@@ -20,8 +20,8 @@ import {
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-// task-context.service eagerly imports document.service → @clerk/nextjs, whose
-// ESM build jest cannot parse. The section under test never touches documents.
+// task-context.service eagerly imports document.service; the section under
+// test never touches documents.
 jest.mock('@/lib/services/document.service', () => ({
   documentService: {},
 }))

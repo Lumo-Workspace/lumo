@@ -6,7 +6,6 @@
 jest.mock('@/lib/services/task.service', () => ({
   taskService: { resolveIdentifier: jest.fn() },
 }))
-// document.service pulls in @clerk/nextjs — same story.
 jest.mock('@/lib/services/document.service', () => ({
   scheduleDocumentSummary: jest.fn(),
 }))

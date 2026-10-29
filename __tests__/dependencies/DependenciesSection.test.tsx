@@ -170,3 +170,21 @@ it('embedded variant hides its own h3 title (dialog supplies it)', () => {
   expect(screen.queryByText('task.dependencies.title')).not.toBeInTheDocument()
   expect(screen.getByText('Add dependency')).toBeInTheDocument()
 })
+
+it('labels a suggested duplicate with its score (LUM-1286)', () => {
+  renderSection([
+    edge({
+      id: 'd',
+      kind: 'DUPLICATES',
+      status: 'SUGGESTED',
+      source: 'DETECTED',
+      reason: 'possible_duplicate',
+      detail: { score: 0.9 },
+    }),
+  ])
+  expect(
+    screen.getByText('task.dependencies.evidence.possibleDuplicate', {
+      exact: false,
+    })
+  ).toBeInTheDocument()
+})

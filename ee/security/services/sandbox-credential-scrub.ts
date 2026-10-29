@@ -85,7 +85,8 @@ export interface ScrubOptions {
  */
 export async function scrubSandboxCredentials(
   handle: ScrubTarget,
-  repo: string,
+  /** LUM-1318: the credential-free clone URL (`GitProvider.cloneSource`). */
+  remoteUrl: string,
   opts: ScrubOptions = {}
 ): Promise<void> {
   const { sandbox, cwd, token } = handle
@@ -93,12 +94,7 @@ export async function scrubSandboxCredentials(
 
   const configPath = `${cwd}/.git/config`
   if (carriesToken(await waitForCheckoutConfig(handle, opts), token)) {
-    await run(
-      sandbox,
-      'git',
-      ['remote', 'set-url', 'origin', `https://github.com/${repo}.git`],
-      cwd
-    )
+    await run(sandbox, 'git', ['remote', 'set-url', 'origin', remoteUrl], cwd)
     // The local half of a `credential.helper store` / extraHeader setup. The
     // global half lives in `$HOME/.gitconfig` and is checked below.
     await run(

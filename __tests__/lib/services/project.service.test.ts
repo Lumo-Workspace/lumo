@@ -23,10 +23,8 @@ jest.mock('@/lib/repositories/member.repository', () => ({
   },
 }))
 
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn().mockResolvedValue({
-    users: { getUserList: jest.fn() },
-  }),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn().mockResolvedValue({ getUserList: jest.fn() }),
 }))
 
 // LUM-916: project deletion sweeps its tasks' evidence blobs.
@@ -49,7 +47,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { getDefaultTeam } from '@/lib/team'
 import { projectService } from '@/lib/services/project.service'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 
 const mockFindByWorkspace = projectRepository.findByWorkspace as jest.Mock
 const mockCountTasksByStatus = projectRepository.countTasksByStatus as jest.Mock
@@ -61,11 +59,11 @@ const mockGetDefaultTeam = getDefaultTeam as jest.Mock
 const mockMemberFindByActorId = memberRepository.findByActorId as jest.Mock
 const mockMemberFindById = memberRepository.findById as jest.Mock
 
-let mockClerkGetUserList: jest.Mock
+let mockGetUserList: jest.Mock
 beforeEach(async () => {
   jest.clearAllMocks()
-  const c = await (clerkClient as unknown as jest.Mock)()
-  mockClerkGetUserList = c.users.getUserList as jest.Mock
+  const directory = await (getUserDirectory as jest.Mock)()
+  mockGetUserList = directory.getUserList as jest.Mock
   // Default: caller's member is in workspace 'ws-1'. Tests that need a
   // cross-workspace scenario override this explicitly.
   mockMemberFindById.mockResolvedValue({
@@ -102,7 +100,7 @@ describe('listProjects', () => {
     mockCountTasksByStatus.mockResolvedValue(
       new Map([['p1', { TODO: 2, IN_PROGRESS: 3, IN_REVIEW: 1, DONE: 0 }]])
     )
-    mockClerkGetUserList.mockResolvedValue({
+    mockGetUserList.mockResolvedValue({
       data: [
         {
           id: 'user_alice',
@@ -140,7 +138,7 @@ describe('listProjects', () => {
         owner: null,
       })
     )
-    expect(mockClerkGetUserList).toHaveBeenCalledWith({
+    expect(mockGetUserList).toHaveBeenCalledWith({
       userId: ['user_alice'],
       limit: 1,
     })
@@ -161,7 +159,7 @@ describe('listProjects', () => {
     const result = await projectService.listProjects('ws-1', 'member-1')
 
     expect(result[0]!.owner).toBeNull()
-    expect(mockClerkGetUserList).not.toHaveBeenCalled()
+    expect(mockGetUserList).not.toHaveBeenCalled()
   })
 })
 

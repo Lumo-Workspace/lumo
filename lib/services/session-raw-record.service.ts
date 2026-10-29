@@ -7,7 +7,7 @@ import {
   buildUserDeletedPayload,
   PRUNED_PAYLOAD_KEY,
 } from '@/lib/hook-event/retention'
-import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import { enrichUsers } from '@/lib/auth/user-profiles'
 import { logger } from '@/lib/logger'
 import {
   recordAuditEvent,
@@ -105,7 +105,7 @@ async function displayNameOf(
     const clerkId =
       await sessionRawRecordRepository.findMemberClerkId(workspaceMemberId)
     if (!clerkId) return null
-    return (await enrichClerkUsers([clerkId])).get(clerkId)?.name ?? null
+    return (await enrichUsers([clerkId])).get(clerkId)?.name ?? null
   } catch (err) {
     // The name is a nicety on the status line; the marker keeps the member id.
     logger.warn('[session-raw-record] deleter name lookup failed', { err })
@@ -247,6 +247,7 @@ export const sessionRawRecordService = {
       )
       result.keptForCrossings += kept.size
       result.deleted += await sessionRawRecordRepository.clearRawRecord(
+        workspaceId,
         ids.filter(id => !kept.has(id)),
         marker,
         now

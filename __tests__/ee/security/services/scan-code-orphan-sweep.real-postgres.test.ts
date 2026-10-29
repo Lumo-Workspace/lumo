@@ -38,12 +38,18 @@ async function seedWorkspace(workspaceId: string, repositories?: string[]) {
 }
 
 /** One PR in `repo` with a scan and a finding, all holding code. */
-async function seedScan(p: string, workspaceId: string, repo: string) {
+async function seedScan(
+  p: string,
+  workspaceId: string,
+  repo: string,
+  provider = 'github'
+) {
   const number = ++prNumber
   await harness.prisma!.pullRequest.create({
     data: {
       id: `${p}pr`,
       workspaceId,
+      provider,
       repo,
       number,
       title: `PR ${number}`,
@@ -118,6 +124,39 @@ beforeAll(async () => {
   // c: confirms `acme/payroll` — another workspace's list never counts.
   await seedWorkspace('ws_c', ['acme/payroll'])
   await seedScan('c_', 'ws_c', 'acme/payroll')
+  // LUM-1316: ws_a also connected Codeup and confirmed `org/group/api`.
+  // Codeup scans are checked against Codeup's list, never GitHub's: one in
+  // a confirmed Codeup repository is kept, one in a repository that left
+  // it is scrubbed — even when its path is a GitHub name ws_a confirmed.
+  await harness.prisma!.codeupConnection.create({
+    data: {
+      id: 'cc_a',
+      workspaceId: 'ws_a',
+      organizationId: 'org',
+      accessToken: 'enc',
+      repositories: {
+        create: [
+          {
+            repositoryId: 1,
+            pathWithNamespace: 'org/group/api',
+            webUrl: 'https://codeup.aliyun.com/org/group/api',
+            webhookTokenHash: 'h1',
+            confirmedAt: new Date(),
+          },
+          {
+            repositoryId: 2,
+            pathWithNamespace: 'org/group/old',
+            webUrl: 'https://codeup.aliyun.com/org/group/old',
+            webhookTokenHash: 'h2',
+            confirmedAt: null,
+          },
+        ],
+      },
+    },
+  })
+  await seedScan('a_cu_kept_', 'ws_a', 'org/group/api', 'codeup')
+  await seedScan('a_cu_gone_', 'ws_a', 'org/group/old', 'codeup')
+  await seedScan('a_cu_ghname_', 'ws_a', 'acme/api', 'codeup')
 })
 
 afterAll(async () => {
@@ -132,7 +171,11 @@ describe('LUM-902 sweepUnconfirmedScanCode', () => {
     expect(await holdsCode('b_')).toBe(false)
     expect(await holdsCode('a_kept_')).toBe(true)
     expect(await holdsCode('c_')).toBe(true)
-    expect(summary).toEqual({ workspaces: 2, repositories: 2, failed: 0 })
+    // LUM-1316: Codeup by Codeup's list; the GitHub `acme/api` scan stays.
+    expect(await holdsCode('a_cu_kept_')).toBe(true)
+    expect(await holdsCode('a_cu_gone_')).toBe(false)
+    expect(await holdsCode('a_cu_ghname_')).toBe(false)
+    expect(summary).toEqual({ workspaces: 3, repositories: 4, failed: 0 })
 
     // Rows survive the scrub, and a second run finds nothing left to do.
     expect(

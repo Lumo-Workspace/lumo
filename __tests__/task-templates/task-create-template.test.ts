@@ -25,6 +25,11 @@ jest.mock('@/lib/repositories/preference.repository', () => ({
   preferenceRepository: { findByMemberId: jest.fn() },
 }))
 
+// LUM-1286: no LLM duplicate check in these template tests.
+jest.mock('@/lib/services/duplicate-check.service', () => ({
+  suggestDuplicateEdges: jest.fn(async () => undefined),
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -79,7 +84,8 @@ describe('createFromCli — templateKey', () => {
     await create({ templateKey: 'agent-brief' })
     const description = createTask.mock.calls[0][1].description as string
     expect(description).toMatch(/^## Context\n/)
-    expect(description).toContain('## Decisions')
+    // LUM-1303: decisions have their own tab, not a brief section.
+    expect(description).not.toContain('## Decisions')
   })
 
   it('a workspace template key resolves in the caller workspace', async () => {

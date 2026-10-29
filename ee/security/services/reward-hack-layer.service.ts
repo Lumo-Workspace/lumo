@@ -8,11 +8,11 @@
  * Flow: scan + PR + workspace switches → the task's sessions inside this PR's
  * window that edit a file the PR changes → reuse the previous scan's verdict
  * when the sessions have not moved on → the monthly spend ceiling → the
- * judge, the evidence gates, a refute call per item (at most
- * `REWARD_HACK_MAX_REFUTES`, in parallel) → findings, state → stage → the PR
- * summary. Every call's estimated cost is charged to the monthly ledger
- * BEFORE it is made and settled to its reported cost after, so the cap holds
- * even for a run the platform kills mid-call.
+ * judge and the evidence / diff gates (every gated item is reported; the
+ * refute call was removed by user ruling 2026-10-22) → findings, state →
+ * stage → the PR summary. The judge call's estimated cost is charged to the
+ * monthly ledger BEFORE it is made and settled to its reported cost after, so
+ * the cap holds even for a run the platform kills mid-call.
  *
  * The reuse cache is keyed on the session watermark (sessionId → last
  * in-window event) and the prompt version: a human commit on its own does
@@ -28,7 +28,10 @@
  */
 import { logger } from '@/lib/logger'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { fetchPrFiles } from '@/lib/integrations/github/contents'
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -54,7 +57,6 @@ import {
   decideRewardHack,
   type RhCallCost,
   type RhJudgeFn,
-  type RhRefuteFn,
   type RhSpendGate,
   rewardHackFindingRow,
   uniqueByFingerprint,
@@ -72,20 +74,20 @@ export type { RewardHackState }
 // existing callers.
 export {
   REWARD_HACK_MAX_INPUT_CHARS,
-  REWARD_HACK_MAX_REFUTES,
   rewardHackFindingRow,
   rewardHackFingerprint,
 } from '@/ee/security/security-scan/reward-hack-decide'
 
 export interface RhDeps {
   judge: RhJudgeFn
-  refute: RhRefuteFn
   /** The PR's changed files (path + hunks) at its head. Throws when unreadable. */
-  listPrFiles: (pr: {
-    workspaceId: string
-    repo: string
-    number: number
-  }) => Promise<RhPrFile[]>
+  listPrFiles: (
+    pr: {
+      workspaceId: string
+      repo: string
+      number: number
+    } & GitProviderRef
+  ) => Promise<RhPrFile[]>
   now: () => Date
 }
 
@@ -97,13 +99,8 @@ const defaultDeps: RhDeps = {
       await import('@/ee/security/llm/reward-hack-judge-client')
     return judgeRewardHack(prompt)
   },
-  async refute(args) {
-    const { refuteRewardHackItem } =
-      await import('@/ee/security/llm/reward-hack-judge-client')
-    return refuteRewardHackItem(args)
-  },
   async listPrFiles(pr) {
-    const files = await fetchPrFiles({
+    const files = await gitProviderFor(pr).fetchPrFiles({
       workspaceId: pr.workspaceId,
       fullName: pr.repo,
       prNumber: pr.number,
@@ -266,9 +263,6 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     const rows = inheritDispositions(uniqueByFingerprint(copied), prior)
     const causes: PartialCause[] = [
       ...(previousState.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
-      ...(previousState.refuteCapped
-        ? (['REWARD_HACK_REFUTE_CAP'] as const)
-        : []),
       ...prunedCauses,
     ]
     return settle(ctx, {
@@ -281,7 +275,6 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
         findingFingerprints: rows.map(r => r.fingerprint),
         costUsd: 0,
         truncated: previousState.truncated,
-        ...(previousState.refuteCapped ? { refuteCapped: true } : {}),
       },
     })
   }
@@ -305,14 +298,13 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
     taskId
   )
   const ledger = new SpendLedger(workspaceId, cap, now)
-  // Judge → gates → refute: the shared core (also run by the offline
-  // calibration). It reserves each call's estimate on the ledger first.
+  // Judge → gates: the shared core (also run by the offline calibration).
+  // It reserves the judge call's estimate on the ledger first.
   const decision = await decideRewardHack({
     sessions: selected.included,
     prFileList,
     requirement,
     judge: deps.judge,
-    refute: deps.refute,
     spend: ledger,
     diffView,
   })
@@ -334,7 +326,6 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
             gated: decision.gated.length,
           }
         : {}),
-      ...(decision.outcome === 'judged' ? { kept: decision.kept.length } : {}),
     })
   )
   if (decision.outcome === 'overCap')
@@ -344,16 +335,16 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       state: 'PARTIAL',
       causes: ['REWARD_HACK_INPUT_CAP', ...prunedCauses],
     })
-  // No room left (for the judge, or for the refutes — an unrefuted item is
-  // never reported): told as not checked.
+  // No room left for the judge: told as not checked.
   if (decision.outcome === 'capped') return settle(ctx, capped)
-  const { built, kept, refuteCapped } = decision
+  // Every item past the threshold, evidence and diff gates is reported.
+  const { built, gated } = decision
   const costUsd = Math.round(ledger.bookedUsd * 1e6) / 1e6
 
   const eventSession = sessionOfEvent(selected.included)
   const rows = inheritDispositions(
     uniqueByFingerprint(
-      kept.map(item =>
+      gated.map(item =>
         rewardHackFindingRow({
           scanId,
           item,
@@ -367,7 +358,6 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
   )
   const causes: PartialCause[] = [
     ...(built.truncated ? (['REWARD_HACK_INPUT_CAP'] as const) : []),
-    ...(refuteCapped ? (['REWARD_HACK_REFUTE_CAP'] as const) : []),
     ...prunedCauses,
   ]
   return settle(ctx, {
@@ -380,7 +370,6 @@ async function runLayer(ctx: RunContext, deps: RhDeps): Promise<void> {
       findingFingerprints: rows.map(r => r.fingerprint),
       costUsd,
       truncated: built.truncated,
-      ...(refuteCapped ? { refuteCapped: true } : {}),
     },
   })
 }

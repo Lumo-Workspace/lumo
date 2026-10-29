@@ -25,23 +25,39 @@ describe('isBlockingUnderPolicy parity with the server', () => {
         { provenance: 'DETERMINISTIC' as const, severity: 'MEDIUM' as const },
       ],
     },
+    // LUM-1328: a workspace that opted in to blocking on agent reviews.
+    {
+      block: [
+        { provenance: 'AGENT_REVIEW' as const, severity: 'HIGH' as const },
+        { provenance: 'EXTERNAL_TOOL' as const, severity: 'HIGH' as const },
+      ],
+    },
   ]
-  it('agrees on every provenance × severity × disposition × persisting × policy', () => {
+  // LUM-1321: a CI scanner's row and an imported agent review's row.
+  // LUM-1333: and an imported code review's bug.
+  const ruleIds = [
+    'ext:semgrep:js.sqli',
+    'ext:claude-code:sqli',
+    'ext:codex:bug:logic_error',
+  ] as const
+  it('agrees on every rule × provenance × severity × disposition × persisting × policy', () => {
     let n = 0
-    for (const provenance of provenances)
-      for (const severity of severities)
-        for (const disposition of dispositions)
-          for (const persisting of [false, true, undefined])
-            for (const policy of policies) {
-              const f = {
-                provenance,
-                severity,
-                disposition,
-                ...(persisting === undefined ? {} : { persisting }),
+    for (const ruleId of ruleIds)
+      for (const provenance of provenances)
+        for (const severity of severities)
+          for (const disposition of dispositions)
+            for (const persisting of [false, true, undefined])
+              for (const policy of policies) {
+                const f = {
+                  ruleId,
+                  provenance,
+                  severity,
+                  disposition,
+                  ...(persisting === undefined ? {} : { persisting }),
+                }
+                expect(cliPredicate(f, policy)).toBe(serverPredicate(f, policy))
+                n++
               }
-              expect(cliPredicate(f, policy)).toBe(serverPredicate(f, policy))
-              n++
-            }
-    expect(n).toBe(243)
+    expect(n).toBe(972)
   })
 })

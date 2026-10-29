@@ -123,6 +123,13 @@ export const STOCK_TABLES: readonly StockTable[] = [
     workspaceField: 'workspaceId',
   },
   {
+    // LUM-1303: decisions moved out of Task.description into their own rows.
+    label: 'TaskDecision',
+    delegate: 'taskDecision',
+    fields: ['text', 'rationale'],
+    workspaceField: 'workspaceId',
+  },
+  {
     label: 'TaskWebLink',
     delegate: 'taskWebLink',
     fields: ['title', 'description', 'note', 'body'],

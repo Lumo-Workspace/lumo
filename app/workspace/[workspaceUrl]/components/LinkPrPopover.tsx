@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { Link as LinkIcon } from 'lucide-react'
-import { toast } from 'sonner'
 import {
   Popover,
   PopoverContent,
@@ -73,14 +72,9 @@ export function LinkPrPopover({
     async (payload: { prId?: string; url?: string; force?: boolean }) => {
       setLinking(true)
       try {
-        const result = await tasksClient.linkPr(taskId, payload)
+        await tasksClient.linkPr(taskId, payload)
         setOpen(false)
         onLinked()
-        // LUM-929: linking claims the PR, so this task's comments are posted
-        // to it on GitHub — say so when another workspace also uses the repo.
-        if (result.sharedWithOtherWorkspaces) {
-          toast.warning(intl.formatMessage({ id: 'linkPr.sharedRepoWarning' }))
-        }
       } catch (err) {
         if (
           err instanceof ApiClientError &&
@@ -107,7 +101,7 @@ export function LinkPrPopover({
         setLinking(false)
       }
     },
-    [taskId, onLinked, intl]
+    [taskId, onLinked]
   )
 
   const handleForceLink = useCallback(async () => {

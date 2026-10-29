@@ -60,11 +60,6 @@ const customJestConfig = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
-    // @clerk/mcp-tools only ships an ESM `import` condition; map the server
-    // entry to its dist file (and carve it into transformIgnorePatterns below)
-    // so tests can exercise the REAL verifyClerkToken (LUM-1047).
-    '^@clerk/mcp-tools/server$':
-      '<rootDir>/node_modules/@clerk/mcp-tools/dist/server.js',
     // LUM-735 v4: the `workflow` package is ESM-only (its `require` condition
     // is a TypeScript plugin) — stub it; see __stubs__/workflow.ts.
     '^workflow$': '<rootDir>/__stubs__/workflow.ts',
@@ -88,7 +83,7 @@ module.exports = async () => {
     // htmlparser2 12 + its nested dom* / entities deps are ESM-only
     // (sanitize-html, LUM-916).
     // better-auth 1.7 and its runtime deps are ESM-only too (LUM-1027).
-    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop|htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities|better-auth|@better-auth|better-call|@better-fetch|jose|nanostores|@noble|kysely|rou3|uncrypto|defu|@clerk/mcp-tools)/)',
+    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop|htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities|better-auth|@better-auth|better-call|@better-fetch|jose|nanostores|@noble|kysely|rou3|uncrypto|defu)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ]
   return config

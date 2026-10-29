@@ -7,6 +7,7 @@ import {
 import { groundCandidates } from './ground-candidates'
 import { applyMilestoneDistillOperations } from './milestone-distill-apply'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 
 export interface MilestoneDistillResult {
   added: number
@@ -30,6 +31,13 @@ export interface MilestoneDistillResult {
 export const milestoneDistillService = {
   async triggerForMilestoneClose(milestoneId: string): Promise<void> {
     try {
+      // LUM-1314: the global memory pipeline switch is on.
+      if (isMemoryPipelineDisabled()) {
+        logger.debug(
+          `[memory.milestone-distill] skip milestone=${milestoneId} reason=memory-pipeline-off`
+        )
+        return
+      }
       // LUM-917: the workspace turned AI-derived content off.
       if (!(await aiDerivedContentService.isEnabled({ milestoneId }))) {
         logger.debug(

@@ -177,6 +177,26 @@ function getSmtp(): Transporter {
   return _smtp
 }
 
+/**
+ * LUM-1332 — connect to the configured SMTP server and authenticate without
+ * sending anything (nodemailer `verify`), for the self-host config check.
+ * Never throws: a failure comes back as a redacted `SendEmailError`.
+ */
+export async function verifyEmailTransport(): Promise<
+  | { status: 'ok'; transport: Exclude<EmailTransportKind, 'none'> }
+  | { status: 'not_configured' }
+  | { status: 'failed'; error: SendEmailError }
+> {
+  const transport = resolveEmailTransport()
+  if (transport === 'none') return { status: 'not_configured' }
+  try {
+    await getSmtp().verify()
+    return { status: 'ok', transport }
+  } catch (e) {
+    return { status: 'failed', error: toEmailError(e) }
+  }
+}
+
 /** Test seam: drop cached transports so env changes take effect. */
 export function resetEmailTransportForTests(): void {
   _smtp = null

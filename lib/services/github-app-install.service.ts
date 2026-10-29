@@ -25,7 +25,11 @@ import {
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
-import { canonicalConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
+import {
+  canonicalConfirmedRepository,
+  nextRepositoryAliases,
+  parseRepositoryAliases,
+} from '@/lib/integrations/github/confirmed-repositories'
 import { scrubMirroredCommentCode } from '@/lib/services/pr-comment-code-scrub.service'
 
 interface InstallInput {
@@ -395,6 +399,12 @@ async function renameForWorkspace(
       {
         expectedUpdatedAt: state.updatedAt,
         repositories,
+        // LUM-1330: remember the old name for clones that still use it.
+        repositoryAliases: nextRepositoryAliases(
+          parseRepositoryAliases(state.repositoryAliases),
+          stored,
+          to
+        ),
         from: stored,
         to,
       }

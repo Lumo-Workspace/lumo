@@ -105,13 +105,6 @@ export const INFRASTRUCTURE_SUBPROCESSORS: readonly InfrastructureSubprocessor[]
       region: 'AWS us-east-1',
     },
     {
-      id: 'clerk',
-      entity: 'Clerk Inc.',
-      docService: 'Authentication',
-      product: 'Clerk',
-      location: 'us',
-    },
-    {
       id: 'pusher',
       entity: 'Pusher Ltd.',
       docService: 'Pusher Channels',

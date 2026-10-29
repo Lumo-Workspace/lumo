@@ -26,14 +26,23 @@ jest.mock('@/lib/services/auth.service', () => ({
   },
 }))
 
+jest.mock('@/lib/services/task-dependency.service', () => ({
+  taskDependencyService: { listPossibleDuplicates: jest.fn() },
+}))
+
 import { taskService } from '@/lib/services/task.service'
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 
 const mockResolveIdentifier = taskService.resolveIdentifier as jest.Mock
 const mockGetDetail = taskService.getTaskDetail as jest.Mock
 
+const mockPossibleDuplicates =
+  taskDependencyService.listPossibleDuplicates as jest.Mock
+
 beforeEach(() => {
   jest.clearAllMocks()
+  mockPossibleDuplicates.mockResolvedValue([])
   mockResolveIdentifier.mockResolvedValue({
     id: 'task_1',
     identifier: 'LUM-48',
@@ -274,5 +283,47 @@ describe('taskCliService.showFromCli — createdBy (LUM-1283)', () => {
   it('returns null when no creator is recorded', async () => {
     await detailWith(null)
     expect((await show()).createdBy).toBeNull()
+  })
+})
+
+describe('taskCliService.showFromCli — possible duplicates (LUM-1286)', () => {
+  it('includes the likely originals from the background duplicate check', async () => {
+    mockPossibleDuplicates.mockResolvedValueOnce([
+      {
+        identifier: 'LUM-2',
+        title: 'Export burndown',
+        status: 'TODO',
+        score: 0.95,
+      },
+    ])
+
+    const out = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'lumo',
+      identifier: 'LUM-48',
+    })
+
+    expect(mockPossibleDuplicates).toHaveBeenCalledWith('task_1')
+    expect(out.possibleDuplicates).toEqual([
+      {
+        identifier: 'LUM-2',
+        title: 'Export burndown',
+        status: 'TODO',
+        score: 0.95,
+      },
+    ])
+  })
+
+  it('still shows the task when the lookup fails', async () => {
+    mockPossibleDuplicates.mockRejectedValueOnce(new Error('db down'))
+
+    const out = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'lumo',
+      identifier: 'LUM-48',
+    })
+
+    expect(out.identifier).toBe('LUM-48')
+    expect(out.possibleDuplicates).toEqual([])
   })
 })

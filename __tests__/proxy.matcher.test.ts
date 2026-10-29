@@ -2,12 +2,7 @@
  * @jest-environment node
  */
 
-// clerkMiddleware() validates that Clerk keys are present at call time, so we
-// set fake keys before importing `@/proxy` (which builds the middleware at
-// module scope). No real Clerk calls happen in this test — we only inspect
-// the exported `config.matcher`.
-process.env.CLERK_SECRET_KEY = 'sk_test_dummy'
-process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_dummy'
+// Only the exported `config.matcher` is inspected; no request runs.
 
 import { config } from '@/proxy'
 

@@ -59,9 +59,11 @@ function addHost(over: Partial<SubprocessorChange> = {}): SubprocessorChange {
   }
 }
 
+// The shipped changes stay in place (the registry already reflects them,
+// e.g. the 2026-10-28 Clerk removal); `changes` are appended after them.
 const withHost = (changes: SubprocessorChange[]): ChangeLogInput => ({
   ...REAL,
-  changes,
+  changes: [...SUBPROCESSOR_CHANGES, ...changes],
   aiHosts: [...AI_HOST_SUBPROCESSORS, NEW_HOST],
 })
 
@@ -139,6 +141,7 @@ describe('subprocessor change log guard (LUM-919)', () => {
       checkSubprocessorChangeLog({
         ...REAL,
         changes: [
+          ...SUBPROCESSOR_CHANGES,
           {
             id: '2026-11-01-wafer-removed',
             kind: 'removed',
@@ -163,7 +166,7 @@ describe('subprocessor change log guard (LUM-919)', () => {
     }
     const problems = checkSubprocessorChangeLog({
       ...REAL,
-      changes: [moved],
+      changes: [...SUBPROCESSOR_CHANGES, moved],
       infrastructure: INFRASTRUCTURE_SUBPROCESSORS.map(s =>
         s.id === 'neon' ? NEON_EU : s
       ),

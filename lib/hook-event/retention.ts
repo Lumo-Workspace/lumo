@@ -181,6 +181,18 @@ export function isPrunedPayload(payload: unknown): boolean {
   return !!marker && typeof marker === 'object'
 }
 
+/**
+ * LUM-1302: the `reason` of a pruned-payload marker (stored beside the
+ * payload as `HookEvent.payloadPrunedReason`); null for any other payload.
+ */
+export function prunedReasonOf(payload: unknown): string | null {
+  if (!isPrunedPayload(payload)) return null
+  const reason = (payload as Record<string, Record<string, unknown>>)[
+    PRUNED_PAYLOAD_KEY
+  ]!.reason
+  return typeof reason === 'string' ? reason : null
+}
+
 /** LUM-944: true when the payload was cleared by a member's delete, not by a sweep. */
 export function isUserDeletedPayload(payload: unknown): boolean {
   if (!isPrunedPayload(payload)) return false

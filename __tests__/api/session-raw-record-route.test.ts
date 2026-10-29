@@ -26,8 +26,8 @@ jest.mock('@/lib/repositories/session-raw-record.repository', () => ({
     clearRawRecord: jest.fn(),
   },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  enrichClerkUsers: jest.fn(async () => new Map()),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  enrichUsers: jest.fn(async () => new Map()),
 }))
 
 import { GET, DELETE } from '@/app/api/sessions/[sessionId]/raw-record/route'
@@ -75,7 +75,7 @@ beforeEach(() => {
   repo.findOpenCrossingEventIds!.mockResolvedValue(['e2'])
   repo.countEvents!.mockResolvedValue({ total: 3, userDeleted: 0 })
   repo.findLatestUserDeletion!.mockResolvedValue(null)
-  prune.mockImplementation(async (ids: string[]) => ids.length)
+  prune.mockImplementation(async (_ws: string, ids: string[]) => ids.length)
 })
 
 describe('raw-record route (LUM-944)', () => {
@@ -89,14 +89,15 @@ describe('raw-record route (LUM-944)', () => {
       done: true,
       cursor: null,
     })
-    expect(prune.mock.calls[0]![0]).toEqual(['e1', 'e3'])
+    expect(prune.mock.calls[0]![0]).toBe('w1')
+    expect(prune.mock.calls[0]![1]).toEqual(['e1', 'e3'])
   })
 
   it('workspace owner deletes another member session raw record through the route', async () => {
     asMember('m_owner', 'OWNER')
     const res = await DELETE(del({ after: null }), params)
     expect(res.status).toBe(200)
-    expect(prune.mock.calls[0]![1]).toMatchObject({
+    expect(prune.mock.calls[0]![2]).toMatchObject({
       _lumo_pruned: { reason: 'USER_DELETED', by: 'm_owner' },
     })
   })

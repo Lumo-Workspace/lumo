@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import {
   PrCommentSource,
   DiffSide,
@@ -247,6 +248,7 @@ export const prCommentMirrorRepository = {
         ...(input.afterPullRequestId
           ? { id: { gt: input.afterPullRequestId } }
           : {}),
+        provider: GITHUB_PROVIDER,
         mirroredComments: { some: UNKNOWN_ASSOCIATION_WHERE },
       },
       select: { id: true, workspaceId: true, repo: true, number: true },

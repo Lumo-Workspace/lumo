@@ -15,6 +15,7 @@
  */
 
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ import { logger } from '@/lib/logger'
  * Any fetch error is caught and logged — never re-thrown.
  */
 export async function dispatchPolicyCheck(taskId: string): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_APP_URL
+  const base = resolveAppUrl()
   if (!base) {
     logger.warn(
       '[policy-check] NEXT_PUBLIC_APP_URL unset — skipping policy-check dispatch'

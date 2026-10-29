@@ -10,6 +10,7 @@ jest.mock('@/lib/repositories/task-dependency.repository', () => ({
   taskDependencyRepository: {
     findLiveBlockersForTask: jest.fn(),
     countSuggestedForTask: jest.fn(),
+    findSuggestedDuplicatesForTask: jest.fn(async () => []),
   },
 }))
 jest.mock('@/lib/auth/identity', () => ({ requireIdentity: jest.fn() }))

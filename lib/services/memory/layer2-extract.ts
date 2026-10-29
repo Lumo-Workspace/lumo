@@ -1,4 +1,5 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -95,6 +96,7 @@ export async function extractLayer2Candidates(
   try {
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: layer2CandidatesOutputSchema,
       system,
       prompt: user,
@@ -135,6 +137,7 @@ export async function reconcileLayer2Candidates(
     // generateObject, then strict per-element validation (alias + drop garbage).
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
+      ...structuredOutputCallOptions(MODEL_ID),
       schema: LOOSE_RECONCILE_OUTPUT,
       system,
       prompt: user,

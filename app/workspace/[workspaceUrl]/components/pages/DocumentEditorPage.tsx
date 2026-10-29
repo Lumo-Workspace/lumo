@@ -56,7 +56,8 @@ import {
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
-import { Spinner } from '@/components/ui/spinner'
+import { LoadingState } from '../AsyncContent'
+import { DocumentEditorSkeleton } from '../skeletons/DocumentSkeletons'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -433,9 +434,9 @@ export function DocumentEditorPage({
   // First load with no cache at all — full-page loading
   if (loading && !doc) {
     return (
-      <div className='flex-1 flex items-center justify-center'>
-        <Spinner className='size-5 text-muted-foreground' />
-      </div>
+      <LoadingState className='flex-1 overflow-y-auto'>
+        <DocumentEditorSkeleton />
+      </LoadingState>
     )
   }
 

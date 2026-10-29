@@ -206,24 +206,6 @@ export const githubService = {
   },
 
   /**
-   * LUM-929 — whether any other workspace has confirmed this repository, i.e.
-   * the same PR may be tracked (and discussed) by another team as well.
-   */
-  async isRepoConfirmedElsewhere(
-    repo: string,
-    workspaceId: string
-  ): Promise<boolean> {
-    const target = repo.toLowerCase()
-    const others =
-      await githubAppInstallationRepository.findConfirmedListsExcept(
-        workspaceId
-      )
-    return others.some(o =>
-      o.repositories.some(name => name.toLowerCase() === target)
-    )
-  },
-
-  /**
    * Install / re-verify backfill (LUM-929): upsert this workspace's row for
    * each listed PR and link it to a task by branch name through the same
    * ambiguity-checked lookup the webhook uses. An unmatched or ambiguous

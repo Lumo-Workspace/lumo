@@ -105,11 +105,21 @@ it('is the one installed plugin and registers every server extension point', () 
     'localScanLog',
     'scanEvidence',
   ])
-  expect(registry.handlersFor('github.pullRequest')).toHaveLength(1)
-  expect(registry.handlersFor('github.push')).toHaveLength(1)
-  expect(registry.handlersFor('github.reviewThread')).toHaveLength(1)
-  expect(registry.handlersFor('github.reviewComment')).toHaveLength(1)
-  expect(registry.handlersFor('github.issueComment')).toHaveLength(1)
+  // LUM-1318: the plugin listens on the provider-neutral event.
+  expect(registry.handlersFor('git.pullRequest')).toHaveLength(1)
+  expect(registry.handlersFor('github.pullRequest')).toHaveLength(0)
+  // LUM-1318: the plugin listens on the provider-neutral event.
+  expect(registry.handlersFor('git.push')).toHaveLength(1)
+  expect(registry.handlersFor('github.push')).toHaveLength(0)
+  // LUM-1318: the plugin listens on the provider-neutral event.
+  expect(registry.handlersFor('git.reviewThread')).toHaveLength(1)
+  expect(registry.handlersFor('github.reviewThread')).toHaveLength(0)
+  // LUM-1318: the plugin listens on the provider-neutral event.
+  expect(registry.handlersFor('git.reviewComment')).toHaveLength(1)
+  expect(registry.handlersFor('github.reviewComment')).toHaveLength(0)
+  // LUM-1318: the plugin listens on the provider-neutral event.
+  expect(registry.handlersFor('git.issueComment')).toHaveLength(1)
+  expect(registry.handlersFor('github.issueComment')).toHaveLength(0)
   expect(registry.handlersFor('task.prLinked')).toHaveLength(1)
 })
 
@@ -253,6 +263,7 @@ describe('events', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
     expect(securityBaselineService.requestFromPush).toHaveBeenCalledWith({
+      provider: 'github',
       workspaceId: 'w-1',
       repo: 'o/r',
       sha: 'abc',
@@ -271,7 +282,10 @@ describe('events', () => {
     emitCoreEvent('github.reviewThread', event)
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
-    expect(applyReviewThreadEvent).toHaveBeenCalledWith(event)
+    expect(applyReviewThreadEvent).toHaveBeenCalledWith({
+      ...event,
+      provider: 'github',
+    })
   })
 
   it('LUM-1131: a merged PR promotes its learnings, with waitUntil; other states do not', async () => {
@@ -321,7 +335,10 @@ describe('events', () => {
     emitCoreEvent('github.reviewComment', event)
     expect(mockWaitUntil).toHaveBeenCalledTimes(1)
     await mockWaitUntil.mock.results[0]!.value
-    expect(applyThreadReply).toHaveBeenCalledWith(event)
+    expect(applyThreadReply).toHaveBeenCalledWith({
+      ...event,
+      provider: 'github',
+    })
 
     mockWaitUntil.mockClear()
     emitCoreEvent('github.reviewComment', { ...event, action: 'edited' })
@@ -367,7 +384,10 @@ describe('events', () => {
       emitCoreEvent('github.reviewComment', event)
       await settle()
       expect(applyThreadReply).not.toHaveBeenCalled()
-      expect(applyLineMention).toHaveBeenCalledWith(event)
+      expect(applyLineMention).toHaveBeenCalledWith({
+        ...event,
+        provider: 'github',
+      })
     })
 
     it('a reply goes to the thread-reply service first; only outside a Lumo thread to the chat', async () => {
@@ -443,7 +463,10 @@ describe('events', () => {
       emitCoreEvent('github.issueComment', event)
       expect(mockWaitUntil).toHaveBeenCalledTimes(1)
       await mockWaitUntil.mock.results[0]!.value
-      expect(applyPrCommentCommand).toHaveBeenCalledWith(event)
+      expect(applyPrCommentCommand).toHaveBeenCalledWith({
+        ...event,
+        provider: 'github',
+      })
     })
 
     it('an ordinary comment, an edit, or no configured slug loads nothing', () => {

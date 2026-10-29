@@ -10,6 +10,10 @@ import type { ClientSlotProps } from '@/lib/plugins/client'
 import type { PlatformSecurityCeiling } from '@/ee/security/security-scan/workspace-switches'
 import { parseLearningsScope } from '@/ee/security/security-scan/learnings-scope'
 import { parseAutoPauseAfter } from '@/ee/security/security-scan/review-control'
+import {
+  agentReviewBlocking,
+  parseSecurityPolicy,
+} from '@/ee/security/security-scan/policy'
 import { SecurityScanSwitchesCard } from '@/ee/security/components/settings/SecurityScanSwitchesCard'
 import { ScanEvidenceRetentionRow } from '@/ee/security/components/settings/ScanEvidenceRetentionRow'
 import { PolicyCoverageCard } from '@/ee/security/components/settings/PolicyCoverageCard'
@@ -74,6 +78,10 @@ export function SecuritySettingsSection({
         huntAvailable={platform.hunt}
         rewardHackAvailable={platform.rewardHack}
         sandboxAvailable={platform.sandbox}
+        // LUM-1329: the policy's AGENT_REVIEW entries (off by default).
+        initialAgentReviewBlocking={agentReviewBlocking(
+          parseSecurityPolicy(workspace.securityPolicy)
+        )}
       />
       {/* LUM-1133: automatic review per connected repository. */}
       <RepoReviewSettingsCard />

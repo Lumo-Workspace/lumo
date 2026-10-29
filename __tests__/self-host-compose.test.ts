@@ -22,6 +22,39 @@ const cronDockerfile = read('deploy/self-host/cron.Dockerfile')
 const envExample = read('.env.example')
 const runner = read('deploy/self-host/cron-run.sh')
 const guide = read('docs/self-hosting/README.md')
+const OVERLAYS = ['realtime'] as const
+const overlays = Object.fromEntries(
+  OVERLAYS.map(name => [name, read(`deploy/self-host/compose.${name}.yml`)])
+) as Record<(typeof OVERLAYS)[number], string>
+
+/** Top-level service names of a compose file. */
+function serviceNames(text: string): string[] {
+  const body = text.slice(text.indexOf('\nservices:\n'))
+  const end = body.indexOf('\nvolumes:')
+  return [
+    ...(end < 0 ? body : body.slice(0, end)).matchAll(
+      /^ {2}([a-z][a-z0-9-]*):$/gm
+    ),
+  ].map(m => m[1]!)
+}
+
+/** `KEY: value` entries under one service's `environment:` in an overlay. */
+function overlayEnvironment(
+  text: string,
+  service: string
+): Map<string, string> {
+  const lines = text.split('\n')
+  const start = lines.indexOf(`  ${service}:`)
+  const env = new Map<string, string>()
+  let inEnv = false
+  for (const line of lines.slice(start + 1)) {
+    if (/^ {0,2}\S/.test(line)) break
+    if (/^ {4}\S/.test(line)) inEnv = line === '    environment:'
+    const m = /^ {6}([A-Z][A-Z0-9_]*): (.*)$/.exec(line)
+    if (inEnv && m) env.set(m[1]!, m[2]!.replace(/^'(.*)'$/, '$1'))
+  }
+  return env
+}
 
 /** The indented block of one top-level compose service. */
 function serviceBlock(name: string): string {
@@ -132,12 +165,13 @@ describe('self-host compose: app wiring', () => {
     }
   })
 
-  it('migrations run before the app starts, then the World bootstrap', () => {
-    expect(serviceBlock('migrate')).toContain(
-      'npx prisma migrate deploy && npm run workflow:bootstrap'
+  it('the app migrates, then bootstraps the World, then starts — no separate migrate service', () => {
+    const cmd = dockerfile.match(/^CMD (.*)$/m)?.[1] ?? ''
+    expect(cmd).toMatch(
+      /npx prisma migrate deploy && npm run workflow:bootstrap && exec node node_modules\/next\/dist\/bin\/next start/
     )
     expect(serviceBlock('app')).toMatch(
-      /migrate: \{ condition: service_completed_successfully \}/
+      /postgres: \{ condition: service_healthy \}/
     )
     expect(serviceBlock('postgres')).toContain('pgvector/pgvector:pg16')
   })
@@ -148,14 +182,75 @@ describe('self-host compose: app wiring', () => {
     expect(missing).toEqual([])
   })
 
+  it('every app variable an overlay sets is documented in .env.example', () => {
+    const documented = documentedEnvNames()
+    const set = OVERLAYS.flatMap(name => [
+      ...overlayEnvironment(overlays[name], 'app').keys(),
+    ])
+    expect(set.length).toBeGreaterThan(0)
+    expect(set.filter(n => !documented.has(n))).toEqual([])
+  })
+
   it('every ${VAR} compose reads from .env is mentioned in .env.example', () => {
     const vars = new Set(
-      [...compose.matchAll(/\$\{([A-Z][A-Z0-9_]*)[:}-]/g)].map(m => m[1]!)
+      [compose, ...Object.values(overlays)].flatMap(text =>
+        [...text.matchAll(/\$\{([A-Z][A-Z0-9_]*)[:}-]/g)].map(m => m[1]!)
+      )
     )
     const missing = [...vars].filter(
       v => !new RegExp(`\\b${v}\\b`).test(envExample)
     )
     expect(missing).toEqual([])
+  })
+})
+
+describe('self-host compose: minimal base + optional overlays (LUM-1332)', () => {
+  const env = appEnvironment()
+
+  it('the base runs only Postgres, the app and cron (caddy / mailpit are profiles)', () => {
+    expect(serviceNames(compose)).toEqual([
+      'postgres',
+      'app',
+      'cron',
+      'caddy',
+      'mailpit',
+    ])
+    for (const name of [
+      'REDIS_URL',
+      'S3_BUCKET',
+      'PUSHER_HOST',
+      'NEXT_PUBLIC_PUSHER_HOST',
+    ]) {
+      expect(env.has(name)).toBe(false)
+    }
+  })
+
+  it('the base stores files on the blob-data volume, in the directory the image owns', () => {
+    expect(env.get('BLOB_STORAGE')).toBe('${BLOB_STORAGE:-disk}')
+    expect(env.get('LOCAL_BLOB_DIR')).toBe('/var/lib/lumo/blobs')
+    expect(serviceBlock('app')).toContain(
+      'volumes: [blob-data:/var/lib/lumo/blobs]'
+    )
+    expect(dockerfile).toContain(
+      'mkdir -p /var/lib/lumo/blobs && chown node:node /var/lib/lumo/blobs'
+    )
+  })
+
+  it('links that leave the app default to the app URL, not the hosted service', () => {
+    expect(env.get('LUMO_PUBLIC_URL')).toBe(
+      '${LUMO_PUBLIC_URL:-${NEXT_PUBLIC_APP_URL:-http://localhost:3000}}'
+    )
+  })
+
+  it('the realtime overlay adds Soketi and the app wiring for it', () => {
+    expect(serviceNames(overlays.realtime)).toEqual(['soketi', 'app'])
+    expect(
+      overlayEnvironment(overlays.realtime, 'app').get('PUSHER_HOST')
+    ).toBe('soketi')
+  })
+
+  it('own S3 / Redis come from .env: compose does not pin the storage backend', () => {
+    expect(env.get('BLOB_STORAGE')).toBe('${BLOB_STORAGE:-disk}')
   })
 })
 
@@ -193,7 +288,11 @@ describe('self-host image: NEXT_PUBLIC_* build args', () => {
     }
     // Server and browser must agree on the Soketi app key.
     expect(build).toContain('NEXT_PUBLIC_PUSHER_KEY: ${SOKETI_APP_KEY:-lumo}')
-    expect(appEnvironment().get('PUSHER_KEY')).toBe('${SOKETI_APP_KEY:-lumo}')
+    const realtime = overlayEnvironment(overlays.realtime, 'app')
+    expect(realtime.get('PUSHER_KEY')).toBe('${SOKETI_APP_KEY:-lumo}')
+    expect(realtime.get('NEXT_PUBLIC_PUSHER_KEY')).toBe(
+      '${SOKETI_APP_KEY:-lumo}'
+    )
   })
 })
 
@@ -216,7 +315,7 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
     )
   })
 
-  it('the image defaults to better-auth at build AND runtime, and needs the Clerk key only for a Clerk build', () => {
+  it('the image defaults to better-auth at build AND runtime and accepts nothing else', () => {
     expect(dockerfile).toMatch(/^ARG AUTH_PROVIDER=better-auth$/m)
     const builder = dockerfile.slice(
       dockerfile.indexOf('AS builder'),
@@ -227,11 +326,9 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
       expect(stage).toMatch(/^ARG AUTH_PROVIDER$/m)
       expect(stage).toMatch(/AUTH_PROVIDER=\$AUTH_PROVIDER\b/)
     }
-    // The Clerk key is optional unless AUTH_PROVIDER=clerk.
-    expect(builder).toMatch(/^ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$/m)
-    expect(builder).toMatch(
-      /clerk\) test -n "\$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"/
-    )
+    // LUM-1077: Clerk is gone — no Clerk build args, no clerk branch.
+    expect(dockerfile).not.toMatch(/CLERK|clerk\)/)
+    expect(builder).toMatch(/must be better-auth, got/)
   })
 
   it('the app refuses to start with a BETTER_AUTH_SECRET shorter than the library minimum', () => {
@@ -239,12 +336,11 @@ describe('self-host auth: Better Auth, no Clerk account (LUM-1043)', () => {
     expect(cmd).toContain(`\${#BETTER_AUTH_SECRET} -lt ${MIN_SECRET_LENGTH}`)
   })
 
-  it('.env.example makes Better Auth the required provider and leaves Clerk optional', () => {
+  it('.env.example makes Better Auth the provider and has no Clerk variables', () => {
     const required = envExample.slice(0, envExample.indexOf('# 2. OPTIONAL'))
     expect(required).toMatch(/^AUTH_PROVIDER=better-auth$/m)
     expect(required).toMatch(/^BETTER_AUTH_SECRET=$/m)
-    expect(required).not.toMatch(/^[A-Z_]*CLERK[A-Z_]*=/m)
-    expect(required).toMatch(/^# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=/m)
+    expect(envExample).not.toMatch(/CLERK[A-Z_]*=/)
   })
 
   it('the self-hosting guide no longer requires Clerk and documents the auth setup', () => {

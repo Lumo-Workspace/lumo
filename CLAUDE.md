@@ -3,7 +3,7 @@
 ## Project
 
 This is Lumo - a project management tool for small dev teams.
-Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, Tailwind CSS, shadcn/ui.
+Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Better Auth, Tailwind CSS, shadcn/ui.
 
 ## Code Style
 
@@ -22,7 +22,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 ## Testing
 
 - Use Jest; new tests go under `__tests__/` (a small legacy `tests/` tree also runs)
-- File naming: \*.test.ts
+- File naming: \*.test.ts (\*.test.tsx when the test renders JSX)
 - Run tests: npm test
 - Every new function needs at least one test
 

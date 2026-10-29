@@ -5,7 +5,7 @@
  * GET /api/tags opened to CLI bearer auth (search --tag, tag list).
  */
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
-jest.mock('@clerk/nextjs/server', () => ({ clerkClient: jest.fn() }))
+jest.mock('@/lib/auth/users', () => ({ getUserDirectory: jest.fn() }))
 jest.mock('@/lib/actor', () => ({ getOrCreateHumanActor: jest.fn() }))
 jest.mock('@/lib/services/member.service', () => ({
   memberService: { listMembers: jest.fn(), getAgentActors: jest.fn() },
@@ -16,7 +16,7 @@ jest.mock('@/lib/services', () => ({
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
-import { clerkClient } from '@clerk/nextjs/server'
+import { getUserDirectory } from '@/lib/auth/users'
 import { memberService } from '@/lib/services/member.service'
 import { tagService } from '@/lib/services'
 import { GET as getMembers } from '@/app/api/workspaces/members/route'
@@ -37,7 +37,7 @@ beforeEach(() => {
 })
 
 describe('GET /api/workspaces/members', () => {
-  it('returns the primary email (not merely the first) and asks Clerk for every member', async () => {
+  it('returns the primary email (not merely the first) and asks the directory for every member', async () => {
     ;(memberService.listMembers as jest.Mock).mockResolvedValue([
       {
         id: 'm1',
@@ -70,7 +70,7 @@ describe('GET /api/workspaces/members', () => {
         },
       ],
     })
-    ;(clerkClient as jest.Mock).mockResolvedValue({ users: { getUserList } })
+    ;(getUserDirectory as jest.Mock).mockResolvedValue({ getUserList })
 
     const res = await getMembers(req('/api/workspaces/members'))
     const body = await res.json()

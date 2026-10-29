@@ -12,14 +12,17 @@
  *   service; spy captures calls without replacing the whole module)
  */
 
-// LUM-866: every workspace here has the default switches (all on) unless a test
+// LUM-866: every workspace here has AI review and hunt on (off by default since LUM-1328) unless a test
 // says otherwise (LUM-892 overrides it below).
 jest.mock('@/ee/security/services/security-workspace-switches.service', () => ({
   // A plain function, not jest.fn: survives resetAllMocks.
   loadSecurityLayers: async () =>
     jest
       .requireActual('@/ee/security/security-scan/workspace-switches')
-      .resolveSecurityLayers(null),
+      .resolveSecurityLayers({
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      }),
 }))
 
 import { codePipelineService } from '@/ee/security/services/policy/code-pipeline.service'

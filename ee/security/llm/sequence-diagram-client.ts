@@ -17,6 +17,7 @@
  * validated by `cleanSequenceDiagram` before it is stored or shown.
  */
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -72,6 +73,7 @@ export async function drawSequenceDiagram(
 ): Promise<unknown> {
   const { object } = await generateObject({
     model: gateway(MEMORY_JUDGE_MODEL),
+    ...structuredOutputCallOptions(MEMORY_JUDGE_MODEL),
     schema: SequenceDiagramOnlySchema,
     system: SEQUENCE_DIAGRAM_SYSTEM_PROMPT,
     prompt: buildSequenceDiagramPrompt(input),

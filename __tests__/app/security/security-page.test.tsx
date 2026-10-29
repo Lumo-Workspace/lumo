@@ -2,10 +2,6 @@
  * @jest-environment node
  */
 
-// clerkMiddleware() checks for keys at import time (see proxy.matcher.test.ts).
-process.env.CLERK_SECRET_KEY = 'sk_test_dummy'
-process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_dummy'
-
 // LUM-1064: plugin cases live in __tests__/ee/security/app/security/security-page.test.tsx.
 // LUM-1064: core test, run without the security plugin (the OSS build).
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
@@ -13,7 +9,7 @@ jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-import { createRouteMatcher } from '@clerk/nextjs/server'
+import { createRouteMatcher } from '@/lib/auth/route-matcher'
 import { NextRequest } from 'next/server'
 import { renderToStaticMarkup } from 'react-dom/server'
 

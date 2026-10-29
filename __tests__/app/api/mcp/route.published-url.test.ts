@@ -10,8 +10,8 @@
  * `basePath: '/api/mcp'` made mcp-handler match only `/api/mcp/mcp`, so a
  * request Next delivered to this file got 404.
  *
- * Clerk verification is mocked to an authenticated principal for the fixture
- * bearer token only (no token → undefined, like the real verifyClerkToken).
+ * Token verification is mocked to an authenticated principal for the fixture
+ * bearer token only (no token → undefined, like the real verifier).
  */
 import fs from 'fs'
 import path from 'path'
@@ -42,16 +42,20 @@ jest.mock('@/lib/mcp/audit', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock('@clerk/mcp-tools/server', () => ({
-  verifyClerkToken: jest.fn((_auth: unknown, token: string | undefined) =>
+jest.mock('@/lib/auth/mcp', () => ({
+  isMcpOAuthSupported: () => true,
+  mcpOAuthUnsupportedResponse: () => new Response(null, { status: 501 }),
+  verifyMcpAccessToken: jest.fn(async (token: string | undefined) =>
     token === 'fixture-bearer-token'
-      ? { token, clientId: 'test_client', scopes: [] }
+      ? {
+          token,
+          clientId: 'test_client',
+          scopes: [],
+          userId: 'test_user_clerk_id',
+          extra: { userId: 'test_user_clerk_id' },
+        }
       : undefined
   ),
-}))
-
-jest.mock('@clerk/nextjs/server', () => ({
-  auth: jest.fn().mockResolvedValue({ userId: 'test_user_clerk_id' }),
 }))
 
 import { POST } from '@/app/api/mcp/route'

@@ -22,8 +22,8 @@ jest.mock('@/lib/db/prisma', () => ({
     comment: { findMany: jest.fn() },
   },
 }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn(),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn(),
 }))
 
 import { prisma } from '@/lib/db/prisma'

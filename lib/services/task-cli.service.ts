@@ -4,7 +4,12 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
-import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import {
+  taskDependencyService,
+  type PossibleDuplicate,
+} from '@/lib/services/task-dependency.service'
+import { suggestDuplicateEdges } from '@/lib/services/duplicate-check.service'
+import { waitUntil } from '@/lib/runtime/wait-until'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -188,6 +193,9 @@ async function createFromCli(args: {
   nextSteps: NextStep[]
   /** LUM-1285: e.g. the project is PAUSED. Empty when nothing to say. */
   warnings: string[]
+  /** LUM-1286: a background duplicate check runs after the response; any
+   *  likely duplicate becomes a suggested DUPLICATES edge on the task. */
+  duplicateCheck: 'scheduled'
 }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
 
@@ -327,6 +335,17 @@ async function createFromCli(args: {
     }
   }
 
+  // LUM-1286: create first, flag later — the check runs after the response
+  // and leaves suggested DUPLICATES edges for a human to confirm or dismiss.
+  waitUntil(
+    suggestDuplicateEdges({
+      taskId: task.id,
+      title: task.title,
+      projectId,
+      workspaceId,
+    })
+  )
+
   return {
     id: task.id,
     identifier,
@@ -335,6 +354,7 @@ async function createFromCli(args: {
     teamId: task.teamId,
     taskTags,
     warnings,
+    duplicateCheck: 'scheduled',
     // A brand-new task: no crossings yet — the only unknown is whether this session can still be attached.
     nextSteps: computeNextSteps({
       taskIdentifier: identifier,
@@ -691,8 +711,24 @@ export interface ShowTaskFromCliResult {
     /** LUM-825: the PR's current head commit; null when never synced. */
     headSha: string | null
   }>
+  /**
+   * LUM-1286: tasks this one likely duplicates (suggested by the background
+   * check after `task create`). Empty when there are none or the read failed.
+   */
+  possibleDuplicates: PossibleDuplicate[]
   /** LUM-821: due instant (local midnight of the due day) or null. */
   dueDate: string | null
+}
+
+/** LUM-1286: best-effort — a failed read must not hide the task itself. */
+async function possibleDuplicatesOrNone(
+  taskId: string
+): Promise<PossibleDuplicate[]> {
+  try {
+    return await taskDependencyService.listPossibleDuplicates(taskId)
+  } catch {
+    return []
+  }
 }
 
 async function showFromCli(args: {
@@ -714,9 +750,10 @@ async function showFromCli(args: {
 
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${resolved.identifier}`
 
-  const [assignee, createdBy] = await Promise.all([
+  const [assignee, createdBy, possibleDuplicates] = await Promise.all([
     describeActorForCli(detail.assignee),
     describeMemberForCli(detail.createdBy),
+    possibleDuplicatesOrNone(detail.id),
   ])
 
   return withMarkdown({
@@ -740,6 +777,7 @@ async function showFromCli(args: {
       headSha: pr.headSha ?? null,
     })),
     dueDate: detail.dueDate ? new Date(detail.dueDate).toISOString() : null,
+    possibleDuplicates,
   })
 }
 

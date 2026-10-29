@@ -107,6 +107,11 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/slack.service.ts#upsertIntegration': ['slack.connected'],
   'lib/services/slack.service.ts#deleteIntegration': ['slack.disconnected'],
   'lib/services/sentry.service.ts#connectIntegration': ['sentry.connected'],
+  'lib/services/codeup.service.ts#connect': ['codeup.connected'],
+  'lib/services/codeup.service.ts#disconnect': ['codeup.disconnected'],
+  'lib/services/codeup.service.ts#updateRepositories': [
+    'codeup.repositories_updated',
+  ],
   'lib/services/sentry.service.ts#disconnectIntegration': [
     'sentry.disconnected',
   ],
@@ -183,9 +188,7 @@ export const AUDIT_INSTRUMENTED: Readonly<
  * units, so moving the body behind a wrapper does not drop a caller check.
  */
 export const AUDIT_DELEGATES: Readonly<Record<AuditUnit, AuditUnit>> = {
-  // The Clerk webhook's entry; the provider-neutral core writes the audit.
-  'lib/services/member-deprovision.service.ts#deprovisionClerkUser':
-    'lib/services/member-deprovision.service.ts#deprovisionUser',
+  // Empty since the Clerk webhook's entry went with Clerk (LUM-1077).
 }
 
 /**
@@ -214,6 +217,8 @@ export const AUDIT_PLUGIN_ACTIONS: readonly AuditAction[] = [
   'security_finding.suggestions_confirmed',
   // LUM-1133: per-repository automatic PR review settings
   'repository.review_settings_updated',
+  // LUM-1329: agent-review blocking (the policy's AGENT_REVIEW entries)
+  'workspace.agent_review_blocking_updated',
 ]
 
 /**
@@ -241,6 +246,7 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
     'computes a document role (document owner, not workspace OWNER)',
   'lib/services/ai-derived-content.service.ts#getStatus': READ_ONLY,
   'lib/services/github-app-install.service.ts#getStatus': READ_ONLY,
+  'lib/services/codeup.service.ts#listRepositories': READ_ONLY,
   'lib/services/github-app-install.service.ts#startReverify':
     'read-only gate before the GitHub round trip; reverify is audited',
   'lib/services/workspace-export.service.ts#listExports': READ_ONLY,

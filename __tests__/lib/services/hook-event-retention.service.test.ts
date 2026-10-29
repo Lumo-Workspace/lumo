@@ -122,7 +122,7 @@ beforeEach(() => {
     async (ids: string[]) => ids.filter(id => crossings.includes(id))
   )
   ;(repo.prunePayloads as jest.Mock).mockImplementation(
-    async (ids: string[], payload: unknown, at: Date) => {
+    async (_workspaceId: string, ids: string[], payload: unknown, at: Date) => {
       let n = 0
       for (const e of events) {
         if (ids.includes(e.id) && e.prunedAt === null) {

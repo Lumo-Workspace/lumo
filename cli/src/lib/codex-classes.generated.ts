@@ -126,6 +126,11 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'project show': { serverOnly: true, localFiles: 'none' },
   'project unarchive': { serverOnly: true, localFiles: 'none' },
   'project update': { serverOnly: true, localFiles: 'none' },
+  'review import': {
+    serverOnly: false,
+    localFiles: 'reads',
+    detail: 'reads the report file <file> and uploads it to Lumo',
+  },
   'security scan': {
     serverOnly: false,
     localFiles: 'writes',

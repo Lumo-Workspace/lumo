@@ -52,11 +52,9 @@ const AUTH_GUARDS = new Set([
   'ee/security/auth/sarif-ingest-auth#authenticateSarifIngest',
   'lib/integrations/github#verifyGitHubSignature',
   'lib/integrations/github/verify#verifyGitHubSignature',
-  // LUM-906: Clerk webhook — Svix signature via Clerk's verifyWebhook.
-  'lib/auth/clerk-webhook#verifyClerkWebhook',
   'lib/services/auth.service#authService.verifyApiKey',
   // app/api/mcp: passed to `withMcpAuth(..., { required: true })`.
-  // LUM-1026: the @/lib/auth wrapper around Clerk's verifyClerkToken.
+  // LUM-1026: the @/lib/auth wrapper around MCP OAuth token verification.
   'lib/auth/mcp#verifyMcpAccessToken',
 ])
 
@@ -78,6 +76,11 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
     reason:
       'Sentry webhook: handleWebhook verifies the sentry-hook-signature HMAC with the stored client secret before acting (401 otherwise)',
   },
+  'app/api/webhooks/codeup/route.ts': {
+    call: 'lib/services/codeup-webhook.service#codeupWebhookService.handleDelivery',
+    reason:
+      'Codeup webhook (LUM-1315): handleDelivery compares X-Codeup-Token, in constant time, with the hash of the per-repository token Lumo created for the hook (401 otherwise); the matched hook names the workspace',
+  },
   'app/api/webhooks/slack/route.ts': {
     call: 'lib/integrations/slack/request#verifySlackSignature',
     reason:
@@ -90,6 +93,8 @@ const ALLOW_LISTED: Record<string, string> = {
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
   'app/api/blob/public/[...path]/route.ts':
     'Intentionally public (LUM-1021): serves workspace logos on S3/disk storage; reads only the public namespace and logo-shaped paths',
+  'app/api/public-config/route.ts':
+    'Intentionally public (LUM-1325): the runtime NEXT_PUBLIC_* values every page loads before sign-in; no secrets, no database',
 }
 
 type RouteScan = {

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { checkDuplicatesSchema } from '@/lib/validation/schemas'
 import { checkDuplicates } from '@/lib/services/duplicate-check.service'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const matches = await checkDuplicates(title, projectId)
     return NextResponse.json({ matches })
   } catch (error) {
-    console.error('[check-duplicates] error:', error)
+    logger.error('[check-duplicates] error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

@@ -25,6 +25,8 @@ import {
   parseSecurityPolicy,
   securityPolicySchema,
   isBlockingUnderPolicy,
+  agentReviewBlocking,
+  withAgentReviewBlocking,
   type PolicyFindingInput,
   type SecurityPolicy,
 } from '@/ee/security/security-scan/policy'
@@ -40,8 +42,9 @@ const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const policyOf = securityColumnsRepository.findSecurityPolicy as jest.Mock
 
-type OpenFinding = PolicyFindingInput & { ruleId?: string; filePath?: string }
+type OpenFinding = PolicyFindingInput & { filePath?: string }
 const open = (over: Partial<OpenFinding>): OpenFinding => ({
+  ruleId: 'ext:semgrep:js.sqli',
   provenance: 'EXTERNAL_TOOL',
   severity: 'MEDIUM',
   disposition: null,
@@ -155,6 +158,63 @@ describe('LUM-740 security policy', () => {
         false
       )
     })
+    it('LUM-1321: an imported Claude Code / Codex review finding never blocks, even when the policy lists EXTERNAL_TOOL', () => {
+      const everyExternal: SecurityPolicy = {
+        block: [
+          { provenance: 'EXTERNAL_TOOL', severity: 'LOW' },
+          { provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' },
+          { provenance: 'EXTERNAL_TOOL', severity: 'HIGH' },
+        ],
+      }
+      for (const ruleId of ['ext:claude-code:sqli', 'ext:codex:idor']) {
+        for (const severity of ['LOW', 'MEDIUM', 'HIGH'] as const) {
+          expect(
+            isBlockingUnderPolicy(open({ ruleId, severity }), everyExternal)
+          ).toBe(false)
+        }
+      }
+      // A CI scanner's EXTERNAL_TOOL row still blocks under the same policy.
+      expect(
+        isBlockingUnderPolicy(open({ severity: 'HIGH' }), everyExternal)
+      ).toBe(true)
+    })
+    it('LUM-1328: an AGENT_REVIEW entry opts in to blocking on imported agent findings of that severity only', () => {
+      const agentHigh: SecurityPolicy = {
+        block: [{ provenance: 'AGENT_REVIEW', severity: 'HIGH' }],
+      }
+      for (const ruleId of ['ext:claude-code:sqli', 'ext:codex:idor']) {
+        expect(
+          isBlockingUnderPolicy(open({ ruleId, severity: 'HIGH' }), agentHigh)
+        ).toBe(true)
+        expect(
+          isBlockingUnderPolicy(open({ ruleId, severity: 'MEDIUM' }), agentHigh)
+        ).toBe(false)
+        // Still off by default, and a ruling still clears it.
+        expect(
+          isBlockingUnderPolicy(
+            open({ ruleId, severity: 'HIGH' }),
+            DEFAULT_SECURITY_POLICY
+          )
+        ).toBe(false)
+        expect(
+          isBlockingUnderPolicy(
+            open({ ruleId, severity: 'HIGH', disposition: 'ACCEPTED_RISK' }),
+            agentHigh
+          )
+        ).toBe(false)
+      }
+      // The entry does not reach a CI scanner's EXTERNAL_TOOL row.
+      expect(isBlockingUnderPolicy(open({ severity: 'HIGH' }), agentHigh)).toBe(
+        false
+      )
+    })
+    it('LUM-1328: the API edge and the reader accept AGENT_REVIEW', () => {
+      const policy = {
+        block: [{ provenance: 'AGENT_REVIEW', severity: 'HIGH' }],
+      }
+      expect(securityPolicySchema.safeParse(policy).success).toBe(true)
+      expect(parseSecurityPolicy(policy)).toEqual(policy)
+    })
     it('an LLM_JUDGE finding never blocks even when a caller smuggles the pair in', () => {
       expect(
         isBlockingUnderPolicy(
@@ -169,6 +229,7 @@ describe('LUM-740 security policy', () => {
     it('keeps the 732 behaviour with no policy argument', () => {
       expect(
         isBlockingFinding({
+          ruleId: 'secret:aws',
           provenance: 'DETERMINISTIC',
           severity: 'HIGH',
           disposition: null,
@@ -230,4 +291,77 @@ describe('LUM-740 security policy', () => {
       expect(policyOf).not.toHaveBeenCalled()
     })
   })
+})
+
+describe('LUM-1329 agent-review blocking level', () => {
+  const ar = (severity: 'LOW' | 'MEDIUM' | 'HIGH') => ({
+    provenance: 'AGENT_REVIEW' as const,
+    severity,
+  })
+  const OTHER = [
+    { provenance: 'EXTERNAL_TOOL' as const, severity: 'LOW' as const },
+    { provenance: 'DETERMINISTIC' as const, severity: 'HIGH' as const },
+  ]
+
+  it('reads off for the default, a threshold for a contiguous set, custom otherwise', () => {
+    expect(agentReviewBlocking(DEFAULT_SECURITY_POLICY)).toBe('off')
+    expect(agentReviewBlocking({ block: [...OTHER, ar('HIGH')] })).toBe('high')
+    expect(
+      agentReviewBlocking({ block: [ar('MEDIUM'), ...OTHER, ar('HIGH')] })
+    ).toBe('medium')
+    expect(
+      agentReviewBlocking({ block: [ar('LOW'), ar('HIGH'), ar('MEDIUM')] })
+    ).toBe('low')
+    expect(agentReviewBlocking({ block: [ar('MEDIUM')] })).toBe('custom')
+  })
+
+  it('replaces only the AGENT_REVIEW entries, keeping the others in order', () => {
+    const before: SecurityPolicy = { block: [ar('LOW'), ...OTHER] }
+    expect(withAgentReviewBlocking(before, 'medium')).toEqual({
+      block: [...OTHER, ar('HIGH'), ar('MEDIUM')],
+    })
+    expect(withAgentReviewBlocking(before, 'off')).toEqual({ block: OTHER })
+  })
+
+  it('round-trips each level, and the written policy passes the API schema', () => {
+    for (const level of ['off', 'high', 'medium', 'low'] as const) {
+      const p = withAgentReviewBlocking({ block: OTHER }, level)
+      expect(agentReviewBlocking(p)).toBe(level)
+      expect(securityPolicySchema.safeParse(p).success).toBe(true)
+    }
+  })
+
+  it('a written medium level makes an imported MEDIUM finding block, LOW not', () => {
+    const p = withAgentReviewBlocking(DEFAULT_SECURITY_POLICY, 'medium')
+    const f = (severity: 'LOW' | 'MEDIUM'): PolicyFindingInput => ({
+      ruleId: 'ext:claude-code:sql-injection',
+      provenance: 'EXTERNAL_TOOL',
+      severity,
+      disposition: null,
+    })
+    expect(isBlockingUnderPolicy(f('MEDIUM'), p)).toBe(true)
+    expect(isBlockingUnderPolicy(f('LOW'), p)).toBe(false)
+  })
+})
+
+it('LUM-1329 withAgentReviewBlocking drops repeated pairs so a full policy stays within the schema', () => {
+  const dup = {
+    provenance: 'DETERMINISTIC' as const,
+    severity: 'HIGH' as const,
+  }
+  const full: SecurityPolicy = {
+    block: [
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      dup,
+      { provenance: 'EXTERNAL_TOOL', severity: 'LOW' },
+    ],
+  }
+  const next = withAgentReviewBlocking(full, 'low')
+  expect(next.block).toHaveLength(5)
+  expect(securityPolicySchema.safeParse(next).success).toBe(true)
 })

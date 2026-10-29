@@ -1,6 +1,6 @@
-# Local security scans — `lumo security scan`
+# Local security scans — `lumo security scan` / `lumo review import`
 
-`lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only unless you pass `--log`: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). With `--log` (opt-in, [below](#local-scan-log---log)) each scanned commit's result is recorded on the server. The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
+`lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only unless you pass `--log`: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). With `--log` (opt-in, [scan-log.md](scan-log.md)) each scanned commit's result is recorded on the server. The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
 
 Scanners today: `SECRETS` (`--secrets`) and `DEPS` (`--deps`). With no scanner flag, every local scanner runs.
 
@@ -38,7 +38,7 @@ Known-vulnerable and **known-malicious** dependencies, with the managed PR scan'
 - `--pr` — When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).
 - `--repo <owner/repo>` — The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).
 - `--commit <ref>` — Scan one commit against its first parent (a root commit: all of it). Merge commits are skipped. Not with `--staged`, `--since`, `--until` or `--pr`. Each finding names its `Commit`.
-- `--log` — Record each scanned commit's result on the Lumo server ([below](#local-scan-log---log)). Needs `--commit <ref>`, or `--until <ref>` (with or without `--since`) — then every non-merge commit of the range is scanned on its own (at most 50, newest kept). Not with `--staged`, `--pr` or `--full`.
+- `--log` — Record each scanned commit on the Lumo server; needs `--commit` or `--until` ([scan-log.md](scan-log.md)).
 
 ```bash
 lumo security scan
@@ -51,8 +51,6 @@ lumo security scan --staged --offline --fail-on high
 lumo security scan --staged --fail-on done --timeout 2     # what the pre-commit hook runs
 lumo security scan --since origin/feature --until HEAD     # the commits a push would send
 lumo security scan --commit HEAD                           # one commit against its parent
-lumo security scan --commit HEAD --log                     # …and record it on the server (opt-in)
-lumo security scan --since origin/main --until HEAD --log  # record each unpushed commit
 ```
 
 Run it from anywhere inside the repository; paths are repo-relative. Untracked files that are binary, symlinks, unreadable or over 2 MiB are skipped and listed on a `Skipped …` line.
@@ -60,6 +58,8 @@ Run it from anywhere inside the repository; paths are repo-relative. Untracked f
 ## Server context
 
 Each run asks the Lumo server what it already knows about this repository (`GET /api/workspaces/me/security-scan/context`, any workspace member): the default branch's **baseline** fingerprints, human **rulings** (false positive / accepted risk — who, when, on which PR), the active **review learnings** in the workspace's learnings scope, the workspace **security policy**, and the branch's open PR. Fingerprints, rule ids and statuses only — never code or evidence. It is cached by ETag under `~/.lumo/cache/scan-context/`; `--offline` reads only the cache, and an unreachable server falls back to it.
+
+A renamed repository (your `origin` still has the old name) is found under its current name when Lumo recorded the rename: the `Server:` line names the current repository and is followed by the same `Note: …` lines as `import` (the remote fix, or `--repo <new>` when the old name came from `--repo`); otherwise use `--repo`.
 
 **What it sends:** two read-only `GET`s with no body. The context request carries only the repository (`owner/name`, from `origin` or `--repo`) and the checked-out branch name. With `--pr`, a second request carries that repository and the PR number the server returned (the `lumo pr show` read). No file path, line, fingerprint, evidence or file content leaves the machine; labelling happens locally. Inside Codex's no-network sandbox the requests fail fast, and the scan falls back to the cache, or to no context, with exit 0.
 
@@ -122,9 +122,9 @@ Local results are a preview: the PR scan stays the authority for DONE.
 
 Declared finding fields: `scanner`, `kind` (`SECRET` | `DEPENDENCY`), `ruleId`, `severity` (`LOW|MEDIUM|HIGH`), `title`, `filePath`, `line` (`null` for DEPENDENCY), `evidence` (redacted; `null` for DEPENDENCY), `fingerprint` (the server's), `detail`, `downgrade` (`PLACEHOLDER_VALUE` | `DOWNGRADED_PATH` | `null`), `server` (`null` without context, else `{ status: NEW|ON_MAIN|FALSE_POSITIVE|ACCEPTED_RISK|LEARNING, by, at, pullRequest, carriesOver, learningId, wouldBlockDone }`). A DEPENDENCY finding adds `dependency: { ecosystem, name, version, osvId, aliases, malicious, fixedVersion, score, url, ignoreExpired }`.
 
-Per-commit runs (`--commit` / `--log`) add `commitSha` to each finding, and a `log` sibling with `--log` (`null` otherwise): `{ commits: [sha…], skipped, sent, created, duplicates, queued, flushed, note }`.
+Per-commit runs (`--commit` / `--log`) add `commitSha` to each finding; `--log` adds a `log` sibling ([scan-log.md](scan-log.md#--json)).
 
-Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fetchedAt, pullRequest, policy, pr }` (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
+Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, renamedFrom, fetchedAt, pullRequest, policy, pr }` (`renamedFrom`: the remote's old name when Lumo followed a rename, else `null`) (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
 
 ## Exit codes
 
@@ -134,19 +134,6 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, fet
 - 3 — `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open
 
 4 and 5 stay the confirmation and DONE gates' codes ([confirmation.md](confirmation.md)).
-
-## Local scan log (`--log`)
-
-Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace security-scan update --local-scan-log on --confirm`, [workspace-settings.md](workspace-settings.md)); until then the server refuses every upload and the CLI drops it (`Log: … — local scan logging is off for this workspace`). Each scanned commit becomes one run (`POST /api/workspaces/me/security-scan/local-runs`, your normal CLI key, any member; the repository must be linked to the workspace).
-
-- **Scanners:** every selected scanner runs per commit (`SECRETS` on the commit's added lines, `DEPS` in fast mode on its lockfile changes; `--full` is refused). A scanner that could not finish for a commit is left out of that commit's recorded scanners.
-- **Sent per commit:** repository, sha, first parent, `git patch-id --stable`, branch, actor (`AGENT` when a Claude Code / Codex session variable is set, with that session id — the server keeps it, and its bound task, only when the session is yours; else `USER`), trigger (`POST_COMMIT` / `PRE_PUSH` / `MANUAL`), scanners and versions, CLI version, files scanned, and per finding (at most 200, most severe first; the count covers all): scanner, fingerprint, rule, severity, file:line, the scanner's redacted title and its `Server:` label. **Never** the evidence line, a raw secret, code or the commit message. The server redacts titles again and drops any other field.
-- **Dedupe:** an identical result for the same commit (same findings, labels and scanner versions) is answered `already logged` and not stored again — the pre-push run after a post-commit run costs nothing. A changed result is a new run.
-- **Amend / rebase:** the patch-id stays the same when the diff does (a reworded amend, a clean rebase), so a PR head links to the runs of the same change under its old sha.
-- **Offline:** no network, not logged in, a 5xx or a rate limit (30 calls a minute) → the runs are queued in `<git common dir>/lumo/scan-log-queue.json` (at most 500) and sent first by the next `--log` run that reaches the server (`… · 1 from the queue`). `--offline` (no network call at all) only queues. A refusal drops only what it refused: a malformed batch, or every run of a repository the workspace does not have (404); logging off for the workspace, or a server without the security plugin, drops the whole queue.
-- **Never fails the scan:** the upload outcome is the `Log:` line (and `log` in `--json`); the exit code is the scan's (`--fail-on`) only.
-- **Retention:** logged runs (and their findings) follow the workspace's session record setting (Settings → Data retention): a day tier deletes runs that arrived longer ago than it, used-up mode after 30 days, keep-forever keeps them; a stricter setting applies only to runs that arrive after the change. Turning the log off keeps what was logged; deleting the workspace deletes it.
-- **Trust:** results are client-reported and labelled **LOCAL** — nothing proves a clean local scan happened; they never block or clear DONE and cannot be ruled on. `lumo pr show` prints `⚠ Flagged locally at <sha> and pushed anyway (…)` when a run for the PR head (or the same change before an amend / rebase) had findings ([pr-scan.md](pr-scan.md)).
 
 ## Git hooks
 
@@ -161,7 +148,7 @@ Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace se
 - **Time budget:** `--timeout 2` caps each network wait — the Lumo server (then the cache) and the whole api.osv.dev lookup; the rest is local (typically 0.3–0.8 s a hook on a small change).
 - **pre-push range:** a new branch, or a remote sha this clone has not fetched, starts at the merge-base with the default branch (`--until` alone). Branch deletions and tags are skipped. If an earlier part of the hook consumed stdin, it scans `@{upstream}` (else the merge-base) → `HEAD`.
 - `git commit --no-verify` / `git push --no-verify` skip them; `lumo doctor` lists them (kind `scan-hook`), `lumo uninstall` removes only their blocks.
-- **`--scan-log`** (with `--scan-hooks`) also turns on the local scan log for this repo: a `post-commit` block (`# >>> lumo post-commit >>>`) runs `lumo security scan --commit <sha> --log` with the real sha, and the `pre-push` block runs `--log` over each pushed range — both in the background (output discarded), so a commit or push never waits on it or fails because of it; `git commit --no-verify` does not skip post-commit. The switch is the repo-local git config `lumo.scanLog` (`git config lumo.scanLog false` pauses it; `lumo uninstall` unsets it with the post-commit block).
+- **`--scan-log`** also logs each commit's scan on the server ([scan-log.md](scan-log.md#git-hooks---scan-log)).
 
 ## When to suggest
 
@@ -172,5 +159,50 @@ Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace se
 - After fixing findings on a PR's branch — `lumo security scan --pr` shows what the next push clears.
 - After `npm install` / a dependency bump, or before pushing a lockfile change — "did that upgrade pull in anything vulnerable?": `lumo security scan --deps`.
 - For the whole tree or a non-npm project: `lumo security scan --deps --full` (needs osv-scanner on PATH).
-- "Keep a record of what was flagged before each push", "show which commits were pushed with a known secret" — the local scan log: `lumo init --scope project --scan-hooks --scan-log`, after an OWNER opted the workspace in (`--local-scan-log on`).
+- "Keep a record of what was flagged before each push" — the per-commit scan log ([scan-log.md](scan-log.md)).
 - Not for reading what the PR scan found — that is `lumo pr show <number>` ([pr-scan.md](pr-scan.md)).
+
+## `lumo review import <file>` — attach a Claude Code / Codex review
+
+Was `lumo security import` (removed; the old name prints the new one). Attaches a review **you ran in Claude Code or Codex** to the branch's open PR scan — its **security review** (`--kind security`, the default) or its **code review** (`--kind bug`) — so its findings show in `lumo pr show`, on the PR and in the task record, and can be ruled with `lumo finding disposition`. Lumo runs no model for it; the review is yours.
+
+- **Code review (`--kind bug`).** Each finding is a bug, tagged `[BUG]` everywhere (like Lumo's own AI review), **never blocks DONE**, and its `rule` becomes one of the AI review's bug kinds — `logic_error`, `null_or_undefined`, `concurrency`, `error_handling`, `api_misuse`, `data_integrity`, `performance`, `doc_mismatch`, `test_defect` (hyphens accepted; anything else = `logic_error`) — so a bug Lumo's review also reported on that line joins its PR thread. Rule ids `ext:<agent>:bug:<kind>`, plus `:<rule>` when your rule is not the kind itself (each rule keeps its own title). It does not count as the security review `lumo task status` asks for.
+- **Security review — advisory by default** (rule ids `ext:claude-code:…` / `ext:codex:…`): they block DONE only when the workspace policy lists `{ "provenance": "AGENT_REVIEW", "severity": … }` — an owner's opt-in: `lumo workspace security-scan update --agent-review-blocks high|medium|low` or the settings card ([workspace-settings.md](workspace-settings.md)); an `EXTERNAL_TOOL` entry never covers them.
+- **The default review.** A new workspace starts with Lumo's own AI review and hunt off ([workspace-settings.md](workspace-settings.md)); `lumo task status` lists `[SECURITY REVIEW]` for each open PR whose latest commit has no import — a clean import (empty `findings`) counts.
+- **Renamed repository.** The repository is read from your `origin` remote, which keeps the old name after a GitHub rename. Lumo remembers renames made while the repository was confirmed and imports into the current name, printing `Note: <old> was renamed to <new>. Update your git remote:` and a `git remote set-url origin …` command that keeps your remote's form (https or ssh; credentials in an https URL are never printed — the command leaves them out and says so). When the old name came from `--repo` it says to pass `--repo <new>` instead. A rename from before Lumo kept that record: pass `--repo <owner/new-name>`.
+- **Pushed code only.** The PR must be open and its head must be your `HEAD` (else exit 1, "push first"; right after a push, wait a few seconds for Lumo to see it). Lumo keeps only results on lines the PR changed; the rest are dropped.
+- **Replaces** that tool's earlier import **of the same kind** on the same head (a code review never wipes the security review, or the reverse); an empty `findings` list clears it. It runs in the background: the result shows in `lumo pr show <n>` within a minute.
+- **Sends** the report (titles, details, paths, lines) to Lumo; it is redacted like a CI report. Any workspace member may import into the workspace's PRs.
+
+**File format** — SARIF 2.1.0 as is (e.g. a Codex Security `export --export-format sarif`), or:
+
+```json
+{
+  "findings": [
+    {
+      "file": "app/api/search/route.ts",
+      "line": 12,
+      "severity": "high",
+      "title": "SQL injection in search",
+      "detail": "q reaches $queryRawUnsafe",
+      "rule": "sql-injection"
+    }
+  ]
+}
+```
+
+`file` repo-relative (an absolute path inside the repo is accepted), `line` ≥ 1, `severity` `high` | `medium` | `low` (`critical` = high), `title` required, `detail` and `rule` optional (a category such as `sql-injection`, or a CWE such as `CWE-89`; no `rule` = a slug of the title; keep it stable so a re-import keeps the finding's fingerprint and its ruling). A finding on the same line as Lumo's own AI review or hunt report of the same kind of issue (or another agent's) is listed under that one PR thread instead of opening a second. At most 500 findings, 1 MiB.
+
+**Getting the file.** Claude Code: run `/security-review` (or `/code-review` for `--kind bug`), then write its findings to a file in this format (e.g. `/tmp/review.json`). Codex: run the review, write the findings the same way, or export SARIF.
+
+Flags: `--tool claude-code|codex` (default: the agent this shell runs in; required elsewhere), `--kind security|bug` (default `security`), `--pr <number>` (instead of the branch's open PR), `--repo <owner/repo>`, `--json` (`{ version, runId, repository, prNumber, headSha, tool, kind, results, renamedFrom? }` — `kind` is absent from an older server; `renamedFrom` is the name you sent when Lumo followed a rename; `repository` is then the current name).
+
+```bash
+lumo review import /tmp/review.json
+lumo review import /tmp/code-review.json --kind bug
+lumo review import results.sarif --tool codex --pr 42
+```
+
+Exit codes: 0 sent · 1 not logged in, no open PR, `HEAD` not the PR head, unreadable or invalid file (the reason names the field, e.g. `findings[0].severity`), or the server refused (repository not confirmed, scanning off, PR not open, rate limit) · 2 usage (`--tool` missing outside an agent or not an agent, `--kind` not `security` / `bug`, bad `--pr` / `--repo`). In Codex it reads a local file, so Codex asks first ([codex.md](codex.md)).
+
+**When to suggest:** the user asks you to security-review (or code-review) the branch, or ran `/security-review` / `/code-review` (then `--kind bug`), or `lumo task status` lists `[SECURITY REVIEW]`, and the PR is open and pushed — offer to run the review and import the findings; never import without saying so.

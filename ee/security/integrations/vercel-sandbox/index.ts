@@ -2,7 +2,7 @@
  * LUM-735 v5 — the only file that imports `@vercel/sandbox` (CLAUDE.md DIP
  * rule). A `RepoSandbox` is a one-shot Firecracker microVM booted from a
  * depth-1 clone of one revision; callers run commands, read files back and
- * MUST `stop()` it (billing runs until they do). The GitHub token only ever
+ * MUST `stop()` it (billing runs until they do). The clone token only ever
  * lives in the `Sandbox.create` call — the SDK sends it as git basic auth,
  * and nothing in THIS module writes it into the sandbox filesystem.
  *
@@ -21,11 +21,16 @@ import { Sandbox } from '@vercel/sandbox'
 import { logger } from '@/lib/logger'
 
 export interface RepoSandboxOptions {
-  /** `owner/repo` on github.com */
+  /** `owner/repo` on the PR's Git platform */
   repository: string
+  /**
+   * LUM-1318: where to clone it from — the platform's credential-free URL and
+   * the basic-auth username its token goes with (`GitProvider.cloneSource`).
+   */
+  clone: { url: string; username: string }
   /** commit sha to check out */
   revision: string
-  /** GitHub App installation token (read access to the repository) */
+  /** The platform's clone token (read access to the repository) */
   token: string
   timeoutMs: number
   vcpus: number
@@ -77,8 +82,8 @@ export async function createRepoSandbox(
     // not a nested `{ git: … }` object.
     source: {
       type: 'git',
-      url: `https://github.com/${opts.repository}.git`,
-      username: 'x-access-token',
+      url: opts.clone.url,
+      username: opts.clone.username,
       password: opts.token,
       revision: opts.revision,
       depth: 1,

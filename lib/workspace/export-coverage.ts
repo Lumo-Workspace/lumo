@@ -24,6 +24,8 @@ export const EXPORTED_MODELS = [
   'Tag',
   'Memory',
   'TaskArtifact',
+  // LUM-1303: task decisions (formerly a section of the description).
+  'TaskDecision',
   'TaskDependency',
   // LUM-907: the workspace audit log.
   'AuditEvent',
@@ -46,10 +48,14 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   DocumentRevision: 'edit history; the current document is exported',
   WorkspaceSummary: 'AI-generated digest, derived from exported data',
   WorkspaceInvite: 'pending invitation tokens — secrets',
+  // LUM-1302: HookEvent (session records) is not exported, so neither are
+  // the keys it is encrypted with.
+  WorkspaceDataKey: 'wrapped encryption keys — secrets',
   GitHubIntegration: INTEGRATION,
   GitHubAppInstallation: INTEGRATION,
   SlackIntegration: INTEGRATION,
   SentryIntegration: INTEGRATION,
+  CodeupConnection: INTEGRATION,
   FigmaIntegration: INTEGRATION,
   GoogleDriveIntegration: INTEGRATION,
   PullRequest: MIRROR,

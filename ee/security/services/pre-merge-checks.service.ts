@@ -24,10 +24,24 @@
  * enabled check has nothing linked makes no call at all). Its requirements
  * ride in the same call as material, answered one by one.
  *
- * Layering: service — GitHub through `@/lib/integrations/github/*` (loaded
- * lazily), the database through repositories, the model client by dynamic
+ * LUM-1312 — on a re-assessment (an earlier scan of this PR assessed a
+ * different head), the assessment's material also says what changed since:
+ * the diff from that head (a GitHub compare, path-filtered, masked, capped),
+ * the runs recorded since and the previous outcomes — context, never
+ * evidence. A previous head that is not an ancestor (force-push, rebase) or
+ * an unreadable compare makes it say "from scratch"; a failed read of the
+ * earlier scans drops the section.
+ *
+ * Layering: service — the PR's Git platform through the `GitProvider` port
+ * (LUM-1318), the database through repositories, the model client by dynamic
  * import.
  */
+import {
+  gitProviderFor,
+  gitProviderRefOf,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
+import type { GitProvider } from '@/lib/integrations/git-provider'
 import { logger } from '@/lib/logger'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -35,6 +49,7 @@ import { repoReviewSettingRepository } from '@/ee/security/repositories/repo-rev
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { repoConfigService } from '@/ee/security/services/repo-config.service'
 import { linkedRequirementsService } from '@/ee/security/services/linked-requirements.service'
+import { capScreenshotAnswers } from '@/ee/security/security-scan/test-case-evidence'
 import { DEFAULT_REPO_REVIEW_SETTING } from '@/ee/security/security-scan/auto-review-policy'
 import { authoredDescription } from '@/ee/security/security-scan/pr-description-summary'
 import { prCommandHandle } from '@/ee/security/services/pr-command-parse'
@@ -52,6 +67,7 @@ import {
   inconclusiveResults,
   keepEarlierFailures,
   notApplicableResult,
+  parsePreMergeChecksRecord,
   planPreMergeChecks,
   resultsFromAnswers,
   unansweredRequirementsByCheck,
@@ -64,9 +80,17 @@ import {
   type PreMergeChecksSetting,
 } from '@/ee/security/security-scan/pre-merge-checks'
 import {
+  REQUIREMENTS_MATERIAL_MAX,
   requirementsMaterial,
+  type TaskAssessmentContext,
   type LinkedRequirement,
 } from '@/ee/security/security-scan/issue-assessment'
+import {
+  SINCE_LAST_DIFF_MAX,
+  SINCE_LAST_RECORDS_MAX,
+  previousAssessment,
+  type SinceLastAssessment,
+} from '@/ee/security/security-scan/since-last-assessment'
 
 /**
  * LUM-1149 — the built-ins as the runner uses them: the pure registry with
@@ -90,10 +114,6 @@ export function isPreMergeChecksEnabled(): boolean {
   return process.env.LUMO_PRE_MERGE_CHECKS?.trim().toLowerCase() !== 'off'
 }
 
-async function github() {
-  return import('@/lib/integrations/github/contents')
-}
-
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -104,7 +124,64 @@ function cap(text: string, max: number): { text: string; cut: boolean } {
     : { text: text.slice(0, max), cut: true }
 }
 
-export interface ChecksTarget {
+/**
+ * LUM-1312 — what changed since the previous assessment of `checkId` on
+ * another head; undefined when there was none. Throws only when the
+ * earlier scans cannot be read (the caller drops the section).
+ */
+async function sinceLastAssessment(
+  gh: GitProvider,
+  target: ChecksTarget,
+  checkId: string,
+  isReviewable: ReturnType<typeof reviewablePathPredicate>
+): Promise<SinceLastAssessment | undefined> {
+  const records = await prSecurityScanRepository.listRecentPreMergeChecks(
+    target.pullRequestId,
+    target.scanId,
+    SINCE_LAST_RECORDS_MAX
+  )
+  const previous = previousAssessment(
+    records.map(parsePreMergeChecksRecord),
+    checkId,
+    target.headSha
+  )
+  if (!previous) return undefined
+  const where = `scan=${target.scanId} pr=#${target.prNumber} previous=${previous.headSha.slice(0, 7)}`
+  let compared: Awaited<ReturnType<typeof gh.fetchCompareDiff>>
+  try {
+    compared = await gh.fetchCompareDiff({
+      workspaceId: target.workspaceId,
+      fullName: target.repo,
+      base: previous.headSha,
+      head: target.headSha,
+    })
+  } catch (error) {
+    logger.info(
+      `[pre-merge-checks] since-last compare unreadable ${where}; judging from scratch: ${describe(error)}`
+    )
+    return { kind: 'from_scratch', previous, reason: 'unreadable' }
+  }
+  if (!compared.ancestor) {
+    logger.info(
+      `[pre-merge-checks] since-last ${where} not an ancestor (${compared.status}); judging from scratch`
+    )
+    return { kind: 'from_scratch', previous, reason: 'not_ancestor' }
+  }
+  const filtered = filterReviewableDiff(compared.diff, isReviewable)
+  // Mask first, then cut (as for the PR diff).
+  const guarded = guardInjectedText(filtered.diff)
+  const cut = cap(guarded.text, SINCE_LAST_DIFF_MAX)
+  return {
+    kind: 'since',
+    previous,
+    aheadBy: compared.aheadBy,
+    diff: cut.text,
+    diffFiles: filtered.kept.length,
+    diffCut: cut.cut || guarded.truncatedLines > 0 || !compared.complete,
+  }
+}
+
+export interface ChecksTarget extends GitProviderRef {
   scanId: string
   pullRequestId: string
   workspaceId: string
@@ -123,11 +200,13 @@ export const preMergeChecksService = {
    * The repository's checks: its Lumo setting, `.lumo.yaml` at `baseSha`
    * applied over it. A failed settings read falls back to the defaults.
    */
-  async resolveSetting(input: {
-    workspaceId: string
-    repo: string
-    baseSha: string | null
-  }): Promise<ResolvedPreMergeSetting> {
+  async resolveSetting(
+    input: GitProviderRef & {
+      workspaceId: string
+      repo: string
+      baseSha: string | null
+    }
+  ): Promise<ResolvedPreMergeSetting> {
     let row:
       | Awaited<
           ReturnType<typeof repoReviewSettingRepository.findSettings>
@@ -144,6 +223,7 @@ export const preMergeChecksService = {
       )
     }
     const file = await repoConfigService.fileForDecision({
+      ...gitProviderRefOf(input),
       workspaceId: input.workspaceId,
       repo: input.repo,
       baseSha: input.baseSha,
@@ -174,7 +254,7 @@ export const preMergeChecksService = {
     if (!isPreMergeChecksEnabled()) return null
     let record: PreMergeChecksRecord | null = null
     try {
-      const gh = await github()
+      const gh = gitProviderFor(target)
       const pr = await gh.fetchPrDetails({
         workspaceId: target.workspaceId,
         fullName: target.repo,
@@ -182,6 +262,7 @@ export const preMergeChecksService = {
       })
       const { setting, pathFilters } =
         await preMergeChecksService.resolveSetting({
+          ...gitProviderRefOf(target),
           workspaceId: target.workspaceId,
           repo: target.repo,
           baseSha: pr.baseSha,
@@ -227,12 +308,17 @@ export const preMergeChecksService = {
       // LUM-1149: what each requirements check judges. Nothing linked ⇒ not
       // applicable (left out of the call); a failed read ⇒ inconclusive.
       const linked = new Map<string, LinkedRequirement[]>()
+      const contexts = new Map<string, TaskAssessmentContext>()
       const notApplicable = new Map<string, PreMergeCheckResult>()
       const unreadable = new Set<string>()
       for (const p of planned) {
         if (!p.assessesRequirements) continue
         try {
-          const reqs = p.requirements ? await p.requirements(gatherInput) : []
+          const gathered = p.requirements
+            ? await p.requirements(gatherInput)
+            : { requirements: [] }
+          const reqs = gathered.requirements
+          if (gathered.context) contexts.set(p.id, gathered.context)
           if (reqs.length > 0) linked.set(p.id, reqs)
           else notApplicable.set(p.id, notApplicableResult(p))
         } catch (error) {
@@ -274,17 +360,49 @@ export const preMergeChecksService = {
         // prefix too short for its pattern, and that prefix unmasked.
         const guardedDiff = guardInjectedText(reviewable)
         const cutDiff = cap(guardedDiff.text, PRE_MERGE_DIFF_MAX_CHARS)
+        // LUM-1312: on a re-assessment, what changed since the previous one.
+        for (const p of judged) {
+          if (!linked.has(p.id)) continue
+          try {
+            const sinceLast = await sinceLastAssessment(
+              gh,
+              target,
+              p.id,
+              reviewablePathPredicate(pathFilters)
+            )
+            if (!sinceLast) continue
+            contexts.set(p.id, {
+              ...(contexts.get(p.id) ?? {
+                decisions: [],
+                mergedPrCount: 0,
+                mergedPrs: [],
+              }),
+              sinceLast,
+            })
+            logger.info(
+              `[pre-merge-checks] since-last ${where} ${p.id} previous=${sinceLast.previous.headSha.slice(0, 7)} ${sinceLast.kind === 'since' ? `files=${sinceLast.diffFiles} cut=${sinceLast.diffCut}` : `from_scratch=${sinceLast.reason}`}`
+            )
+          } catch (error) {
+            logger.warn(
+              `[pre-merge-checks] earlier assessments unreadable ${where}; judging without them: ${describe(error)}`
+            )
+          }
+        }
         const materialOf = async (
           p: (typeof judged)[number],
           reqs: readonly LinkedRequirement[] | undefined
         ): Promise<string | null> => {
           const text = reqs
-            ? requirementsMaterial(reqs)
+            ? requirementsMaterial(reqs, contexts.get(p.id))
             : p.gather
               ? await p.gather(gatherInput).catch(() => null)
               : null
           if (!text) return null
-          const g = guardInjectedText(cap(text, PRE_MERGE_TEXT_MAX_CHARS).text)
+          // LUM-1310: the assessment's material carries its evidence too.
+          const max = reqs
+            ? REQUIREMENTS_MATERIAL_MAX
+            : PRE_MERGE_TEXT_MAX_CHARS
+          const g = guardInjectedText(cap(text, max).text)
           return [...g.notices, g.text].join('\n')
         }
         const { runPreMergeChecksModel } =
@@ -344,6 +462,20 @@ export const preMergeChecksService = {
             )
           }
         }
+        // LUM-1310: a screenshot is never taken on the model's word.
+        answers = answers.map(a => {
+          const reqs = linked.get(a.id)
+          return reqs && a.requirements
+            ? {
+                ...a,
+                requirements: capScreenshotAnswers(
+                  reqs,
+                  a.requirements,
+                  contexts.get(a.id)?.testCases
+                ),
+              }
+            : a
+        })
         return resultsFromAnswers(judged, answers, linked)
       }
       let results: PreMergeCheckResult[]
@@ -412,6 +544,7 @@ export const preMergeChecksService = {
       if (pr.headSha && scan.headSha !== pr.headSha) return 'skipped'
       await preMergeChecksService.run(
         {
+          provider: pr.provider,
           scanId: scan.id,
           pullRequestId,
           workspaceId: pr.workspaceId,

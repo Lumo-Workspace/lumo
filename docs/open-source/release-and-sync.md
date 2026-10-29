@@ -9,7 +9,7 @@
 
 标记说明:**【用户】** = 需要 GitHub 组织/仓库管理员权限或个人凭据的步骤,只能由用户(或用户明确授权的人)执行;agent 不建库、不推送、不改仓库设置、不下载 gitleaks。没有标记的步骤可以在私有仓的 worktree 里做。
 
-公开仓里由私有仓 overlay 提供、私有仓根目录**没有**的文件:`oss/overlay/` 下的 `CONTRIBUTING.md`、`SECURITY.md`、`CLAUDE.md`(对外版)、`LICENSE`(纯 MIT)、`.github/workflows/dco.yml`、`.github/scripts/check-dco.mjs`、`lib/plugins/installed*.ts`(空插件列表)。私有仓不跑 GitHub Actions,`.github/` 只在快照里存在。
+公开仓里由私有仓 overlay 提供、私有仓根目录**没有**的文件:`oss/overlay/` 下的 `CONTRIBUTING.md`、`SECURITY.md`、`CLAUDE.md`(对外版)、`LICENSE`(纯 MIT)、`.github/workflows/dco.yml`、`.github/workflows/images.yml`(LUM-1325:打 tag 时构建并推送自托管镜像到 GHCR)、`.github/scripts/check-dco.mjs`、`lib/plugins/installed*.ts`(空插件列表)。私有仓不跑 GitHub Actions,`.github/` 只在快照里存在。
 
 ---
 

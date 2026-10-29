@@ -10,8 +10,10 @@
  *  - `buildRhUserPrompt`: the fenced task requirement plus every fenced
  *    session, cut to `maxChars` (earliest tool results first, then earliest
  *    tool calls, then the bodies of the earliest prompts / stop messages —
- *    their markers always stay), with the ids and edited files that made it
- *    into the prompt, and `overCap` when even that cannot fit.
+ *    their markers always stay; given the PR's files, every tool block that
+ *    wrote none of them goes before any that did), with the ids and edited
+ *    files that made it into the prompt, and `overCap` when even that cannot
+ *    fit.
  *  - `rhWatermark`: sessionId → last event id, to tell whether a re-run sees
  *    new activity.
  *
@@ -956,6 +958,12 @@ export function buildRhUserPrompt(args: {
   transcripts: { sessionId: string; events: RhEvent[] }[]
   maxChars: number
   caps?: RhCaps
+  /**
+   * The PR's files (repo-relative). When given, the cut keeps the tool
+   * blocks that wrote one of them longest: every other tool block's result,
+   * then its call, goes first.
+   */
+  prFiles?: string[]
 }): {
   prompt: string
   truncated: boolean
@@ -993,21 +1001,31 @@ export function buildRhUserPrompt(args: {
 
   // Cut order: earliest tool results, then earliest tool calls (whole
   // blocks), then — last resort — the bodies of the earliest prompts / stop
-  // messages, which always keep their marker.
+  // messages, which always keep their marker. Given the PR's files, the tool
+  // blocks that wrote none of them go first (results, then calls), and only
+  // then those that did: the edits the judge must see are the last cut.
   const tools = sessions
     .flatMap(s => s.blocks)
     .filter(b => b.kind === 'tool')
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-  const units: { block: RhBlock; result: boolean; size: number }[] = [
-    ...tools
-      .filter(b => b.result.length > 0)
-      .map(b => ({ block: b, result: true, size: b.result.length + 1 })),
-    ...tools.map(b => ({
-      block: b,
-      result: false,
-      size: b.head.length + b.body.length + 3,
-    })),
-  ]
+  const prFiles = args.prFiles
+  const touchesPr = (b: RhBlock) =>
+    prFiles !== undefined &&
+    b.filePaths.some(p => prFiles.some(f => pathMatchesPrFile(p, f)))
+  const toolTiers = prFiles
+    ? [tools.filter(b => !touchesPr(b)), tools.filter(touchesPr)]
+    : [tools]
+  const units: { block: RhBlock; result: boolean; size: number }[] =
+    toolTiers.flatMap(tier => [
+      ...tier
+        .filter(b => b.result.length > 0)
+        .map(b => ({ block: b, result: true, size: b.result.length + 1 })),
+      ...tier.map(b => ({
+        block: b,
+        result: false,
+        size: b.head.length + b.body.length + 3,
+      })),
+    ])
 
   const state: CutState = {
     droppedResults: new Set(),
@@ -1088,37 +1106,6 @@ export function buildRhUserPrompt(args: {
     overCap,
     requirementTruncated,
   }
-}
-
-// ─── the PR diff for the refute call ───────────────────────────────────────
-
-/** Our caps on the diff the refute call sees (per file, and in total). */
-export const RH_PR_DIFF_FILE_MAX_CHARS = 8_000
-export const RH_PR_DIFF_MAX_CHARS = 24_000
-
-/**
- * The current PR hunks of the files `paths` name, each fenced as untrusted
- * text — what will merge, so the refute call can tell an edit that is still
- * there from one later corrected. '' when no such file has hunks.
- */
-export function buildRhPrDiffBlock(
-  prFiles: RhPrFile[],
-  paths: string[]
-): string {
-  const parts: string[] = []
-  let left = RH_PR_DIFF_MAX_CHARS
-  for (const f of prFiles) {
-    if (left <= 0) break
-    if (f.patch === null) continue
-    if (!paths.some(p => pathMatchesPrFile(p, f.filename))) continue
-    const body = cut(
-      defang(sanitizeField(f.patch)),
-      Math.min(RH_PR_DIFF_FILE_MAX_CHARS, left)
-    )
-    left -= body.length
-    parts.push(fence('pr-diff', `file="${attrValue(f.filename)}"`, body))
-  }
-  return parts.join('\n\n')
 }
 
 // ─── watermark ──────────────────────────────────────────────────────────────

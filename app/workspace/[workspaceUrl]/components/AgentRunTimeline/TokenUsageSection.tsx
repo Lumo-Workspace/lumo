@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl'
 import { Bot } from 'lucide-react'
 import type { AgentRunTimelineResponse } from '../../types'
 import { TokenUsageBreakdown } from './TokenUsageBreakdown'
+import { LoadingState } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 
 interface TokenUsageSectionProps {
   data: AgentRunTimelineResponse | null | undefined
@@ -25,12 +27,18 @@ export function TokenUsageSection({
 
   if (loading && !data) {
     return (
-      <div className='py-6 text-center text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'agentRun.loading',
-          defaultMessage: '加载中…',
-        })}
-      </div>
+      <LoadingState
+        className='py-2'
+        label={intl.formatMessage({ id: 'agentRun.loading' })}
+      >
+        <RowListSkeleton
+          rows={2}
+          leading='icon'
+          subtitle
+          rowClassName='rounded-lg border border-border px-4 py-3'
+          className='space-y-2'
+        />
+      </LoadingState>
     )
   }
   if (error) {

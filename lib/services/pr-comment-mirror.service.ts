@@ -140,7 +140,9 @@ async function runOutboundCreate(commentId: string) {
   if (!comment) return
   if (comment.type === 'AGENT') return
 
-  const pr = await pullRequestRepository.findByTaskId(comment.taskId)
+  const pr = await pullRequestRepository.findByTaskId(comment.taskId, {
+    githubOnly: true,
+  })
   if (!pr) return
   if (await isLinkedInSeveralWorkspaces(pr)) return
 
@@ -316,7 +318,9 @@ async function runOutboundUpdate(commentId: string) {
   const mirror = await prCommentMirrorRepository.findByCommentId(commentId)
   if (!mirror) return // never mirrored — nothing to push
 
-  const pr = await pullRequestRepository.findByTaskId(comment.taskId)
+  const pr = await pullRequestRepository.findByTaskId(comment.taskId, {
+    githubOnly: true,
+  })
   if (!pr) return
   if (await isLinkedInSeveralWorkspaces(pr)) return
   const repo = parseRepo(pr.repo)
@@ -376,7 +380,9 @@ async function runOutboundDelete(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
 
-  const pr = await pullRequestRepository.findByTaskId(comment.taskId)
+  const pr = await pullRequestRepository.findByTaskId(comment.taskId, {
+    githubOnly: true,
+  })
   if (!pr) return
 
   const repo = parseRepo(pr.repo)

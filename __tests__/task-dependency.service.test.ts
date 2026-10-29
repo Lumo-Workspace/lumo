@@ -9,6 +9,7 @@ jest.mock('@/lib/repositories/task-dependency.repository', () => ({
     delete: jest.fn(),
     findLiveBlockersForTask: jest.fn(),
     countSuggestedForTask: jest.fn(),
+    findSuggestedDuplicatesForTask: jest.fn(),
   },
 }))
 
@@ -18,7 +19,12 @@ import { taskDependencyService } from '@/lib/services/task-dependency.service'
 const repo = taskDependencyRepository as jest.Mocked<
   typeof taskDependencyRepository
 >
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  ;(
+    taskDependencyRepository.findSuggestedDuplicatesForTask as jest.Mock
+  ).mockResolvedValue([])
+})
 
 /** Helper: build a full edge object with sensible defaults, override via `over`. */
 const edge = (over: Record<string, unknown> = {}) => ({
@@ -359,4 +365,109 @@ describe('taskDependencyService.buildBlockerWarningSectionForTask', () => {
       )
     expect(result).toBe('')
   })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LUM-1286: possible duplicates from the background check
+// ─────────────────────────────────────────────────────────────────────────────
+const dupRow = (over: Record<string, unknown> = {}) => ({
+  detail: { score: 0.95 },
+  blockingTask: {
+    number: 2,
+    title: '导出冲刺燃尽图为 CSV',
+    status: 'TODO',
+    team: { identifier: 'LUM' },
+  },
+  ...over,
+})
+
+describe('taskDependencyService.listPossibleDuplicates (LUM-1286)', () => {
+  it('maps suggested duplicates to the likely original and its score', async () => {
+    ;(
+      taskDependencyRepository.findSuggestedDuplicatesForTask as jest.Mock
+    ).mockResolvedValueOnce([dupRow(), dupRow({ detail: null })])
+
+    await expect(
+      taskDependencyService.listPossibleDuplicates('task1')
+    ).resolves.toEqual([
+      {
+        identifier: 'LUM-2',
+        title: '导出冲刺燃尽图为 CSV',
+        status: 'TODO',
+        score: 0.95,
+      },
+      {
+        identifier: 'LUM-2',
+        title: '导出冲刺燃尽图为 CSV',
+        status: 'TODO',
+        score: null,
+      },
+    ])
+  })
+})
+
+describe('buildBlockerWarningSectionForTask — possible duplicates (LUM-1286)', () => {
+  it('names each likely original with confirm / dismiss commands, apart from other suggestions', async () => {
+    repo.findLiveBlockersForTask.mockResolvedValueOnce([])
+    repo.countSuggestedForTask.mockResolvedValueOnce(3)
+    ;(
+      taskDependencyRepository.findSuggestedDuplicatesForTask as jest.Mock
+    ).mockResolvedValueOnce([dupRow()])
+
+    const out = await taskDependencyService.buildBlockerWarningSectionForTask(
+      'task1',
+      'LUM-50'
+    )
+
+    expect(out).toContain('Possible duplicate')
+    expect(out).toContain('LUM-2 "导出冲刺燃尽图为 CSV" (95% match)')
+    expect(out).toContain('lumo task deps confirm LUM-50 LUM-2')
+    expect(out).toContain('lumo task deps dismiss LUM-50 LUM-2')
+    expect(out).toMatch(/ask the user/i)
+    // 3 suggestions, 1 of them the duplicate → 2 other candidates.
+    expect(out).toContain('Detected 2 candidate dependencies')
+  })
+
+  it('omits the generic line when the duplicates are the only suggestions', async () => {
+    repo.findLiveBlockersForTask.mockResolvedValueOnce([])
+    repo.countSuggestedForTask.mockResolvedValueOnce(1)
+    ;(
+      taskDependencyRepository.findSuggestedDuplicatesForTask as jest.Mock
+    ).mockResolvedValueOnce([dupRow()])
+
+    const out = await taskDependencyService.buildBlockerWarningSectionForTask(
+      'task1',
+      'LUM-50'
+    )
+
+    expect(out).toContain('Possible duplicate')
+    expect(out).not.toContain('candidate dependencies')
+  })
+})
+
+it('keeps the blocker warning when the duplicate read fails (LUM-1286)', async () => {
+  repo.findLiveBlockersForTask.mockResolvedValueOnce([
+    {
+      blockingTask: {
+        id: 'x',
+        number: 9,
+        title: 'Fix auth',
+        status: 'IN_PROGRESS',
+        team: { identifier: 'LUM' },
+        pullRequests: [],
+      },
+    },
+  ] as any)
+  repo.countSuggestedForTask.mockResolvedValueOnce(0)
+  ;(
+    taskDependencyRepository.findSuggestedDuplicatesForTask as jest.Mock
+  ).mockRejectedValueOnce(new Error('db down'))
+
+  const out = await taskDependencyService.buildBlockerWarningSectionForTask(
+    'task1',
+    'LUM-1'
+  )
+
+  expect(out).toContain('LUM-9')
+  expect(out).not.toContain('Possible duplicate')
 })

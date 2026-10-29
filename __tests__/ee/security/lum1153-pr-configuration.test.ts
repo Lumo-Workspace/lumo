@@ -39,6 +39,10 @@ jest.mock('@/ee/security/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
   securityColumnsRepository: {
     findSecuritySwitches: jest.fn(),
+    // LUM-1328: created after the AI review / hunt defaults turned off.
+    findWorkspaceCreatedAt: jest
+      .fn()
+      .mockResolvedValue(new Date('2026-11-01T00:00:00Z')),
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
     findAllowAuthorApproval: jest.fn().mockResolvedValue(true),
   },
@@ -140,7 +144,8 @@ beforeEach(() => {
   ])
   findSwitches.mockResolvedValue({
     ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
-    securityHuntEnabled: false,
+    // LUM-1328: AI review is off by default; this workspace turned it on.
+    securityAiReviewEnabled: true,
   })
 })
 
@@ -205,9 +210,10 @@ describe('@uselumo configuration (service)', () => {
     )
 
     // Workspace switches with their source; the layers that run.
-    expect(row(body, 'huntEnabled')).toBe(
-      '| `huntEnabled` | off | workspace setting |'
+    expect(row(body, 'aiReviewEnabled')).toBe(
+      '| `aiReviewEnabled` | on | workspace setting |'
     )
+    expect(row(body, 'huntEnabled')).toBe('| `huntEnabled` | off | default |')
     expect(row(body, 'scanEnabled')).toBe('| `scanEnabled` | on | default |')
     expect(body).toMatch(/Running on this deployment: .*hunt: off/)
     // The reply carries its redelivery marker.
@@ -248,6 +254,26 @@ describe('@uselumo configuration (service)', () => {
 })
 
 describe('prConfigurationService.forPullRequest', () => {
+  test('LUM-1328: an older workspace still on the earlier defaults reads them as default', async () => {
+    ;(
+      securityColumnsRepository.findWorkspaceCreatedAt as jest.Mock
+    ).mockResolvedValueOnce(new Date('2026-01-01T00:00:00Z'))
+    findSwitches.mockResolvedValueOnce({
+      ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    })
+    const body = buildConfigurationReply(
+      await prConfigurationService.forPullRequest({
+        workspaceId: 'w1',
+        repo: 'acme/app',
+        prNumber: 9,
+      })
+    )
+    expect(body).toContain('| `aiReviewEnabled` | on | default |')
+    expect(body).toContain('| `huntEnabled` | on | default |')
+  })
+
   test("the PR's base unreadable: falls back to the default branch", async () => {
     fetchPrBase.mockRejectedValue(
       Object.assign(new Error('nope'), { status: 404 })
@@ -297,7 +323,7 @@ describe('prConfigurationService.forPullRequest', () => {
       "couldn't read this repository's review configuration"
     )
     // The workspace part is still there.
-    expect(body).toContain('| `huntEnabled` | off | workspace setting |')
+    expect(body).toContain('| `aiReviewEnabled` | on | workspace setting |')
   })
 })
 

@@ -8,6 +8,10 @@
  * the data layer and outbound side effects are stubbed.
  */
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: (p: unknown) => p }))
+jest.mock('@/lib/plugins/events', () => ({
+  ...jest.requireActual('@/lib/plugins/events'),
+  emitCoreEvent: jest.fn(),
+}))
 jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
 }))
@@ -58,6 +62,7 @@ import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
+import { emitCoreEvent } from '@/lib/plugins/events'
 
 const verify = verifyGitHubSignature as jest.Mock
 const findWebhooks = githubService.findWebhooksByRepo as jest.Mock
@@ -201,7 +206,7 @@ describe('LUM-924 App delivery fan-out', () => {
   })
 
   it('webhook handlers only touch the delivering workspace pull request row', async () => {
-    // A PR comment is mirrored into each workspace's own task, off its own row.
+    // A PR comment reaches the plugins once per workspace, off its own row.
     await POST(
       makeRequest('issue_comment', {
         action: 'created',
@@ -216,15 +221,18 @@ describe('LUM-924 App delivery fan-out', () => {
       ['w-b', REPO, 7],
     ])
     expect(
-      runInbound.mock.calls.map(c => ({
-        workspaceId: c[0].workspaceId,
-        taskId: c[0].taskId,
-        pullRequestId: c[0].pullRequestId,
-      }))
+      (emitCoreEvent as jest.Mock).mock.calls
+        .filter(c => c[0] === 'github.issueComment')
+        .map(c => ({
+          workspaceId: c[1].workspaceId,
+          pullRequestId: c[1].pullRequestId,
+        }))
     ).toEqual([
-      { workspaceId: 'w-a', taskId: 'task-a', pullRequestId: 'pr-a' },
-      { workspaceId: 'w-b', taskId: 'task-b', pullRequestId: 'pr-b' },
+      { workspaceId: 'w-a', pullRequestId: 'pr-a' },
+      { workspaceId: 'w-b', pullRequestId: 'pr-b' },
     ])
+    // LUM-1313: no longer mirrored into either workspace's task.
+    expect(runInbound).not.toHaveBeenCalled()
 
     // CI status lands on each workspace's own row.
     await POST(

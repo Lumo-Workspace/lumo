@@ -1,7 +1,7 @@
 /** @jest-environment node */
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
-jest.mock('@/lib/utils/clerk-helpers', () => ({
-  lookupClerkProfiles: jest.fn(),
+jest.mock('@/lib/auth/user-profiles', () => ({
+  lookupUserProfiles: jest.fn(),
 }))
 
 import { canViewSessionDetail } from '@/lib/services/session-detail.service'

@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  */
-// LUM-1027 — /api/auth/[...all] serves Better Auth only when selected; under
-// Clerk (the SaaS default) every path is a 404.
+// LUM-1027 — /api/auth/[...all] serves Better Auth, with or without
+// AUTH_PROVIDER set (Clerk was removed, LUM-1077).
 const mockHandler = jest.fn(async () => new Response('ba', { status: 200 }))
 jest.mock('@/lib/auth/better-auth/server', () => ({
   getBetterAuth: () => ({ handler: mockHandler }),
@@ -18,11 +18,11 @@ afterEach(() => {
 })
 
 describe('/api/auth/[...all]', () => {
-  it('is a 404 under Clerk and never loads Better Auth', async () => {
+  it('hands requests to Better Auth when AUTH_PROVIDER is unset', async () => {
     delete process.env.AUTH_PROVIDER
     const res = await GET(new Request('http://localhost/api/auth/get-session'))
-    expect(res.status).toBe(404)
-    expect(mockHandler).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(mockHandler).toHaveBeenCalledTimes(1)
   })
 
   it('hands GET and POST to the Better Auth handler under better-auth', async () => {

@@ -9,6 +9,7 @@ import { lineageService } from '@/lib/services/lineage.service'
 import type { FoldProposal } from '@/lib/memory/fold-schemas'
 import { logger } from '@/lib/logger'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { MemoryWriteGate } from '@/lib/services/memory/write-gate'
 
 /** Target resident ACTIVE PROJECT memory budget — the MEMORY.md-style cap the
@@ -44,6 +45,8 @@ export interface TriggerResult {
     | 'locked'
     /** LUM-917: the workspace turned AI-derived content off. */
     | 'ai-derived-off'
+    /** LUM-1314: the global memory pipeline switch is on. */
+    | 'memory-pipeline-off'
   error?: boolean
   /** LUM-555 guardrail: fold should have produced cards (it had proposals, or
    *  its LLM pipeline degraded) but folded nothing — prune was deliberately
@@ -173,6 +176,9 @@ export const foldService = {
     sourceSessionId: string | null = null
   ): Promise<TriggerResult> {
     try {
+      if (isMemoryPipelineDisabled()) {
+        return { folded: 0, pruned: 0, skipped: 'memory-pipeline-off' }
+      }
       if (!(await aiDerivedContentService.isEnabled({ projectId }))) {
         return { folded: 0, pruned: 0, skipped: 'ai-derived-off' }
       }

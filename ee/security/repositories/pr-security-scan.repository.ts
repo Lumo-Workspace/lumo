@@ -3,6 +3,7 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import { GITHUB_PROVIDER } from '@/lib/integrations/git-provider'
 import {
   activityRepository,
   type CreateActivityData,
@@ -21,7 +22,10 @@ import type { SequenceDiagram } from '@/ee/security/security-scan/sequence-diagr
 import type { ReviewPathSkips } from '@/ee/security/security-scan/reviewable-path'
 import type { CodeSuggestion } from '@/ee/security/security-scan/code-suggestion'
 import {
+  AGENT_BUG_RULE_SEGMENT,
+  isAgentReviewTool,
   mergePartialCauses,
+  type AgentReviewKind,
   type PartialCause,
 } from '@/shared/src/security-scan'
 import type { ReliabilityScanRow } from '@/ee/security/security-scan/reliability'
@@ -291,6 +295,8 @@ export interface ScanWithFindings {
   codeScrubbedAt?: Date | null
   /** LUM-1148 — the pre-merge checks' results Json, raw (absent on an old mock). */
   preMergeChecks?: unknown
+  /** LUM-1328 — agent reviews imported into this head (absent on an old mock). */
+  agentReviewTools?: string[]
   findings: FindingRow[]
 }
 
@@ -333,6 +339,8 @@ export interface ScanReadoutRow {
   huntJob: unknown
   /** LUM-1215 — raw Json (`parseReviewPathSkips`); absent on older fixtures. */
   reviewPathSkips?: unknown
+  /** LUM-1298 — the pre-merge checks' results Json, raw (absent on an old mock). */
+  preMergeChecks?: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -432,6 +440,8 @@ export interface ScanForReview {
   pullRequest: {
     id: string
     repo: string
+    /** LUM-1318: the Git platform (`gitProviderFor`); absent in older fixtures = GitHub. */
+    provider?: string | null
     headSha?: string | null
     number: number
     /** "open" | "closed" | "merged" (optional: older fixtures omit it). */
@@ -668,7 +678,13 @@ export interface SuggestionCandidateRow {
 
 export interface ScanForSuggestion {
   id: string
-  pullRequest: { workspaceId: string; repo: string; number: number }
+  pullRequest: {
+    workspaceId: string
+    repo: string
+    number: number
+    /** LUM-1318: the Git platform (`gitProviderFor`). */
+    provider: string
+  }
   findings: SuggestionCandidateRow[]
 }
 
@@ -831,13 +847,48 @@ function toRetentionCandidate(
   return { ...row, status: row.status as ScanStatus }
 }
 
+/**
+ * LUM-1333 — the rows a report of `tool` replaces: all of them (a CI push),
+ * or only its security review's / only its code review's (`ext:<tool>:bug:…`)
+ * for an agent import, so the two never wipe each other.
+ */
+function replacedRows(
+  tool: string,
+  agentKind: AgentReviewKind | undefined
+): Prisma.PrSecurityFindingWhereInput {
+  const prefix = `ext:${tool}:`
+  const bugs = `${prefix}${AGENT_BUG_RULE_SEGMENT}`
+  if (agentKind === 'bug') return { ruleId: { startsWith: bugs } }
+  if (agentKind === 'security')
+    return {
+      AND: [
+        { ruleId: { startsWith: prefix } },
+        { NOT: { ruleId: { startsWith: bugs } } },
+      ],
+    }
+  return { ruleId: { startsWith: prefix } }
+}
+
 export const prSecurityScanRepository = {
   /**
    * LUM-855 — scrub every scan a workspace owns (see `scrubCode`). LUM-872 —
    * `repos` narrows it to the PRs of those repositories (a repo removed from
    * the installation).
    */
-  async scrubCodeForWorkspace(workspaceId: string, repos?: string[]) {
+  async scrubCodeForWorkspace(
+    workspaceId: string,
+    repos?: string[],
+    /**
+     * LUM-1316: a non-GitHub platform's repositories, matched exactly on
+     * that platform only. Absent = GitHub's case-insensitive spellings.
+     */
+    provider?: string
+  ) {
+    if (repos && provider !== undefined && provider !== GITHUB_PROVIDER)
+      return scrubCode({
+        workspaceId,
+        pullRequest: { provider, repo: { in: repos } },
+      })
     return scrubCode({
       workspaceId,
       ...(repos
@@ -972,10 +1023,11 @@ export const prSecurityScanRepository = {
    * repositories workspaces actually have confirmed.
    */
   async findRepositoriesHoldingCode(): Promise<
-    { workspaceId: string; repo: string }[]
+    { workspaceId: string; repo: string; provider: string }[]
   > {
     const rows = await prisma.pullRequest.groupBy({
-      by: ['workspaceId', 'repo'],
+      // LUM-1316: per Git platform — each is checked against its own list.
+      by: ['workspaceId', 'provider', 'repo'],
       where: {
         securityScans: {
           some: {
@@ -1000,19 +1052,31 @@ export const prSecurityScanRepository = {
         },
       },
     })
-    return rows.map(row => ({ workspaceId: row.workspaceId, repo: row.repo }))
+    return rows.map(row => ({
+      workspaceId: row.workspaceId,
+      repo: row.repo,
+      provider: row.provider,
+    }))
   },
 
   /** LUM-896 — the workspace and repository a scan belongs to. */
   async findScanRepository(
     scanId: string
-  ): Promise<{ workspaceId: string; repo: string } | null> {
+  ): Promise<{ workspaceId: string; repo: string; provider: string } | null> {
     const row = await prisma.prSecurityScan.findUnique({
       where: { id: scanId },
-      select: { workspaceId: true, pullRequest: { select: { repo: true } } },
+      select: {
+        workspaceId: true,
+        pullRequest: { select: { repo: true, provider: true } },
+      },
     })
     return row
-      ? { workspaceId: row.workspaceId, repo: row.pullRequest.repo }
+      ? {
+          workspaceId: row.workspaceId,
+          repo: row.pullRequest.repo,
+          // LUM-1318: the Git platform whose confirmed list gates the scan.
+          provider: row.pullRequest.provider,
+        }
       : null
   },
 
@@ -1378,6 +1442,8 @@ export const prSecurityScanRepository = {
     opts: {
       partialCauses: PartialCause[]
       stage?: 'external' | 'supplyChain'
+      /** LUM-1333: an agent import replaces only its own kind's rows. */
+      agentKind?: AgentReviewKind | undefined
     }
   ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
@@ -1392,20 +1458,33 @@ export const prSecurityScanRepository = {
           stages: true,
           partial: true,
           partialCauses: true,
+          agentReviewTools: true,
         },
       })
       // The lock. `partial` is monotone across writers — a `false` here can
       // never clear a `true` the other writer already set (guaranteed by the
       // SERIALIZABLE isolation + P2034 retry this runs under, since the read
       // above precedes the lock).
+      // LUM-1328: record an agent review even when it found nothing. LUM-1333:
+      // a code review (bugs) is not the security review the nudge asks for.
+      const agentTools =
+        opts.agentKind === 'bug' ? [] : uniqueTools.filter(isAgentReviewTool)
+      // LUM-1333: a code review is no security scanner run either — its
+      // bugs leave the external layer's state alone.
+      const stages = (current?.stages as ScanStages | null) ?? {}
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
-          stages: {
-            ...((current?.stages as ScanStages | null) ?? {}),
-            [stage]: 'RAN',
-          },
+          stages:
+            opts.agentKind === 'bug' ? stages : { ...stages, [stage]: 'RAN' },
           ...mergePartial(current, opts.partialCauses),
+          ...(agentTools.length > 0
+            ? {
+                agentReviewTools: Array.from(
+                  new Set([...(current?.agentReviewTools ?? []), ...agentTools])
+                ),
+              }
+            : {}),
         },
       })
       if (uniqueTools.length > 0) {
@@ -1413,7 +1492,7 @@ export const prSecurityScanRepository = {
           where: {
             scanId,
             provenance: 'EXTERNAL_TOOL',
-            OR: uniqueTools.map(t => ({ ruleId: { startsWith: `ext:${t}:` } })),
+            OR: uniqueTools.map(t => replacedRows(t, opts.agentKind)),
           },
         })
       }
@@ -1917,7 +1996,12 @@ export const prSecurityScanRepository = {
 
   async countExternalFindings(scanId: string): Promise<number> {
     return prisma.prSecurityFinding.count({
-      where: { scanId, provenance: 'EXTERNAL_TOOL' },
+      // LUM-1333: an imported code review's bugs are no scanner's findings.
+      where: {
+        scanId,
+        provenance: 'EXTERNAL_TOOL',
+        kind: { not: 'CORRECTNESS' },
+      },
     })
   },
 
@@ -1998,6 +2082,7 @@ export const prSecurityScanRepository = {
           select: {
             id: true,
             repo: true,
+            provider: true,
             headSha: true,
             number: true,
             // LUM-1140: the off-mode withdrawal only touches an open PR.
@@ -2121,6 +2206,7 @@ export const prSecurityScanRepository = {
         partialCauses: true,
         huntJob: true,
         reviewPathSkips: true,
+        preMergeChecks: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -2291,7 +2377,12 @@ export const prSecurityScanRepository = {
       select: {
         id: true,
         pullRequest: {
-          select: { workspaceId: true, repo: true, number: true },
+          select: {
+            workspaceId: true,
+            repo: true,
+            number: true,
+            provider: true,
+          },
         },
         findings: {
           where: {
@@ -2537,7 +2628,12 @@ export const prSecurityScanRepository = {
     })
     if (!pr) return false
     const others = await prisma.pullRequest.count({
-      where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+      where: {
+        provider: GITHUB_PROVIDER,
+        repo: pr.repo,
+        number: pr.number,
+        id: { not: pullRequestId },
+      },
     })
     return others > 0
   },
@@ -2552,7 +2648,8 @@ export const prSecurityScanRepository = {
     limit: number
   ): Promise<Array<{ id: string; repo: string; number: number }>> {
     return prisma.pullRequest.findMany({
-      where: { workspaceId, state: 'open' },
+      // LUM-1315: withdrawn through the GitHub API.
+      where: { workspaceId, provider: GITHUB_PROVIDER, state: 'open' },
       orderBy: { updatedAt: 'desc' },
       take: limit,
       select: { id: true, repo: true, number: true },
@@ -2572,6 +2669,7 @@ export const prSecurityScanRepository = {
   }): Promise<boolean> {
     const others = await prisma.pullRequest.count({
       where: {
+        provider: GITHUB_PROVIDER,
         repo: pr.repo,
         number: pr.number,
         id: { not: pr.id },
@@ -2622,6 +2720,29 @@ export const prSecurityScanRepository = {
       orderBy: { startedAt: 'desc' },
       select: { id: true, headSha: true, preMergeChecks: true },
     })
+  },
+
+  /**
+   * LUM-1312: the PR's stored pre-merge check results, newest scan first
+   * (raw), other than `scanId`'s — read to find the previous assessment of
+   * a different head.
+   */
+  async listRecentPreMergeChecks(
+    pullRequestId: string,
+    scanId: string,
+    take: number
+  ): Promise<unknown[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        pullRequestId,
+        id: { not: scanId },
+        preMergeChecks: { not: Prisma.DbNull },
+      },
+      orderBy: { startedAt: 'desc' },
+      take,
+      select: { preMergeChecks: true },
+    })
+    return rows.map(r => r.preMergeChecks)
   },
 
   /** LUM-1146 — how `.lumo.yaml` was read for this scan (for the summary). */

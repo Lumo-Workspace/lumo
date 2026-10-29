@@ -58,8 +58,8 @@ jest.mock('@/lib/integrations/github/pr-comment-client')
 jest.mock('@/lib/utils/buildTaskUrl', () => ({
   buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/t/LUM-1'),
 }))
-jest.mock('@clerk/nextjs/server', () => ({
-  clerkClient: jest.fn(),
+jest.mock('@/lib/auth/users', () => ({
+  getUserDirectory: jest.fn(),
 }))
 
 import { createAppAuth } from '@octokit/auth-app'

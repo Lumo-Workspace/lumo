@@ -33,6 +33,8 @@ import {
 import { tagsClient } from '@/lib/api-client'
 import type { ApiTagWithCounts } from '../../types'
 import { TagBadgeNew } from '../document/TagPicker'
+import { AsyncContent } from '../AsyncContent'
+import { RowListSkeleton } from '../skeletons/RowListSkeleton'
 import { PRESET_COLORS, CUSTOM_COLOR_PLACEHOLDER } from './tag-color-presets'
 
 interface TagFormState {
@@ -149,239 +151,249 @@ export function TagsSettingsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className='max-w-2xl mx-auto px-8 py-10'>
-      {/* Header */}
-      <div className='flex items-center justify-between mb-1'>
-        <h1 className='text-heading text-foreground'>
-          {intl.formatMessage({ id: 'settings.tags.title' })}
-        </h1>
-        <Button size='sm' className='gap-1.5' onClick={openCreate}>
-          <Plus size={14} />
-          {intl.formatMessage({ id: 'settings.tags.createTag' })}
-        </Button>
-      </div>
-      <p className='text-body text-muted-foreground mb-6'>
-        {intl.formatMessage({ id: 'settings.tags.description' })}
-      </p>
-
-      {/* List */}
-      {loading ? (
-        <div className='text-body text-muted-foreground'>
-          {intl.formatMessage({ id: 'common.loading' })}
+    <div className='h-full overflow-y-auto'>
+      <div className='max-w-2xl mx-auto px-8 py-10'>
+        {/* Header */}
+        <div className='flex items-center justify-between mb-1'>
+          <h1 className='text-heading text-foreground'>
+            {intl.formatMessage({ id: 'settings.tags.title' })}
+          </h1>
+          <Button size='sm' className='gap-1.5' onClick={openCreate}>
+            <Plus size={14} />
+            {intl.formatMessage({ id: 'settings.tags.createTag' })}
+          </Button>
         </div>
-      ) : tags.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <TagIcon />
-            </EmptyMedia>
-            <EmptyTitle>
-              {intl.formatMessage({ id: 'settings.tags.empty' })}
-            </EmptyTitle>
-            <EmptyDescription>
-              {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <div className='border rounded-lg divide-y divide-border border-border'>
-          {tags.map(tag => (
-            <div
-              key={tag.id}
-              className='flex items-center gap-3 px-4 py-3 group'
-            >
-              <TagBadgeNew tag={tag} />
-              <span className='flex-1' />
-              <span className='text-caption text-muted-foreground'>
-                {tag.taskCount === 0 && tag.documentCount === 0
-                  ? intl.formatMessage({ id: 'settings.tags.unused' })
-                  : `${intl.formatMessage(
-                      { id: 'settings.tags.tasks' },
-                      { count: tag.taskCount }
-                    )} · ${intl.formatMessage(
-                      { id: 'settings.tags.docs' },
-                      { count: tag.documentCount }
-                    )}`}
-              </span>
-              <button
-                onClick={() => openEdit(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground transition-all'
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => setDeleteTag(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-danger-text transition-all'
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+        <p className='text-body text-muted-foreground mb-6'>
+          {intl.formatMessage({ id: 'settings.tags.description' })}
+        </p>
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className='max-w-sm'>
-          <DialogHeader>
-            <DialogTitle>
-              {editingTag
-                ? intl.formatMessage({ id: 'settings.tags.editTag' })
-                : intl.formatMessage({ id: 'settings.tags.createTag' })}
-            </DialogTitle>
-          </DialogHeader>
-          <div className='space-y-4 py-2'>
-            {/* Name */}
-            <div>
-              <Label
-                htmlFor='tag-form-name'
-                className='text-caption text-muted-foreground mb-1.5 block'
-              >
-                {intl.formatMessage({ id: 'settings.tags.name' })}
-              </Label>
-              <Input
-                id='tag-form-name'
-                value={form.name}
-                onChange={e => {
-                  setForm(prev => ({ ...prev, name: e.target.value }))
-                  setFormError(null)
-                }}
-                placeholder={intl.formatMessage({
-                  id: 'settings.tags.namePlaceholder',
-                })}
-                maxLength={30}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleSave()
-                  }
-                }}
-              />
-              {formError && (
-                <p className='text-caption text-danger-text mt-1'>
-                  {formError}
-                </p>
-              )}
-            </div>
-            {/* Color */}
-            <div>
-              <p
-                id='tag-form-color'
-                className='text-caption text-muted-foreground mb-1.5'
-              >
-                {intl.formatMessage({ id: 'settings.tags.color' })}
-              </p>
+        {/* List */}
+        <AsyncContent
+          loading={loading}
+          empty={tags.length === 0}
+          loadingState={
+            <RowListSkeleton
+              rows={4}
+              divided
+              rowClassName='px-4 py-3'
+              className='rounded-lg border border-border'
+            />
+          }
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <TagIcon />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {intl.formatMessage({ id: 'settings.tags.empty' })}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {intl.formatMessage({ id: 'settings.tags.emptyDescription' })}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          }
+        >
+          <div className='border rounded-lg divide-y divide-border border-border'>
+            {tags.map(tag => (
               <div
-                role='group'
-                aria-labelledby='tag-form-color'
-                className='flex items-center gap-2 flex-wrap'
+                key={tag.id}
+                className='flex items-center gap-3 px-4 py-3 group'
               >
-                {/* No color (auto) */}
+                <TagBadgeNew tag={tag} />
+                <span className='flex-1' />
+                <span className='text-caption text-muted-foreground'>
+                  {tag.taskCount === 0 && tag.documentCount === 0
+                    ? intl.formatMessage({ id: 'settings.tags.unused' })
+                    : `${intl.formatMessage(
+                        { id: 'settings.tags.tasks' },
+                        { count: tag.taskCount }
+                      )} · ${intl.formatMessage(
+                        { id: 'settings.tags.docs' },
+                        { count: tag.documentCount }
+                      )}`}
+                </span>
                 <button
-                  onClick={() => setForm(prev => ({ ...prev, color: null }))}
-                  className={`size-6 rounded-full border-2 transition-all ${
-                    form.color === null
-                      ? 'border-foreground scale-110'
-                      : 'border-border'
-                  } bg-gradient-to-br from-muted to-muted-foreground`}
-                  title='Auto'
+                  onClick={() => openEdit(tag)}
+                  className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground transition-all'
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => setDeleteTag(tag)}
+                  className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-danger-text transition-all'
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </AsyncContent>
+
+        {/* Create / Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className='max-w-sm'>
+            <DialogHeader>
+              <DialogTitle>
+                {editingTag
+                  ? intl.formatMessage({ id: 'settings.tags.editTag' })
+                  : intl.formatMessage({ id: 'settings.tags.createTag' })}
+              </DialogTitle>
+            </DialogHeader>
+            <div className='space-y-4 py-2'>
+              {/* Name */}
+              <div>
+                <Label
+                  htmlFor='tag-form-name'
+                  className='text-caption text-muted-foreground mb-1.5 block'
+                >
+                  {intl.formatMessage({ id: 'settings.tags.name' })}
+                </Label>
+                <Input
+                  id='tag-form-name'
+                  value={form.name}
+                  onChange={e => {
+                    setForm(prev => ({ ...prev, name: e.target.value }))
+                    setFormError(null)
+                  }}
+                  placeholder={intl.formatMessage({
+                    id: 'settings.tags.namePlaceholder',
+                  })}
+                  maxLength={30}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleSave()
+                    }
+                  }}
                 />
-                {/* Presets */}
-                {PRESET_COLORS.map(c => (
+                {formError && (
+                  <p className='text-caption text-danger-text mt-1'>
+                    {formError}
+                  </p>
+                )}
+              </div>
+              {/* Color */}
+              <div>
+                <p
+                  id='tag-form-color'
+                  className='text-caption text-muted-foreground mb-1.5'
+                >
+                  {intl.formatMessage({ id: 'settings.tags.color' })}
+                </p>
+                <div
+                  role='group'
+                  aria-labelledby='tag-form-color'
+                  className='flex items-center gap-2 flex-wrap'
+                >
+                  {/* No color (auto) */}
                   <button
-                    key={c}
-                    onClick={() => setForm(prev => ({ ...prev, color: c }))}
+                    onClick={() => setForm(prev => ({ ...prev, color: null }))}
                     className={`size-6 rounded-full border-2 transition-all ${
-                      form.color === c
+                      form.color === null
                         ? 'border-foreground scale-110'
                         : 'border-border'
-                    }`}
-                    style={{ backgroundColor: c }}
+                    } bg-gradient-to-br from-muted to-muted-foreground`}
+                    title='Auto'
                   />
-                ))}
-              </div>
-              {/* Custom hex input */}
-              <div className='flex items-center gap-2 mt-2'>
-                <span className='text-caption text-muted-foreground'>
-                  {intl.formatMessage({ id: 'settings.tags.custom' })}:
-                </span>
-                <Input
-                  value={form.color ?? ''}
-                  onChange={e => {
-                    const v = e.target.value
-                    setForm(prev => ({
-                      ...prev,
-                      color: v || null,
-                    }))
-                  }}
-                  placeholder={CUSTOM_COLOR_PLACEHOLDER}
-                  className='w-28 h-7 text-caption font-mono'
-                  maxLength={7}
-                />
-                {form.color && (
-                  <span
-                    className='size-5 rounded-sm border border-border shrink-0'
-                    style={{ backgroundColor: form.color }}
+                  {/* Presets */}
+                  {PRESET_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setForm(prev => ({ ...prev, color: c }))}
+                      className={`size-6 rounded-full border-2 transition-all ${
+                        form.color === c
+                          ? 'border-foreground scale-110'
+                          : 'border-border'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                {/* Custom hex input */}
+                <div className='flex items-center gap-2 mt-2'>
+                  <span className='text-caption text-muted-foreground'>
+                    {intl.formatMessage({ id: 'settings.tags.custom' })}:
+                  </span>
+                  <Input
+                    value={form.color ?? ''}
+                    onChange={e => {
+                      const v = e.target.value
+                      setForm(prev => ({
+                        ...prev,
+                        color: v || null,
+                      }))
+                    }}
+                    placeholder={CUSTOM_COLOR_PLACEHOLDER}
+                    className='w-28 h-7 text-caption font-mono'
+                    maxLength={7}
                   />
-                )}
+                  {form.color && (
+                    <span
+                      className='size-5 rounded-sm border border-border shrink-0'
+                      style={{ backgroundColor: form.color }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={handleSave}
-              disabled={!form.name.trim() || saving}
-              size='sm'
-            >
-              {saving
-                ? intl.formatMessage({ id: 'common.saving' })
-                : editingTag
-                  ? intl.formatMessage({ id: 'common.save' })
-                  : intl.formatMessage({ id: 'common.create' })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button
+                onClick={handleSave}
+                disabled={!form.name.trim() || saving}
+                size='sm'
+              >
+                {saving
+                  ? intl.formatMessage({ id: 'common.saving' })
+                  : editingTag
+                    ? intl.formatMessage({ id: 'common.save' })
+                    : intl.formatMessage({ id: 'common.create' })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog
-        open={deleteTag !== null}
-        onOpenChange={open => {
-          if (!open) setDeleteTag(null)
-        }}
-      >
-        <AlertDialogContent className='max-w-sm'>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {intl.formatMessage({ id: 'settings.tags.deleteTag' })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTag &&
-                intl.formatMessage(
-                  { id: 'settings.tags.deleteConfirm' },
-                  {
-                    taskCount: deleteTag.taskCount,
-                    docCount: deleteTag.documentCount,
-                  }
-                )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {intl.formatMessage({ id: 'common.cancel' })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant='destructive'
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting
-                ? intl.formatMessage({ id: 'common.deleting' })
-                : intl.formatMessage({ id: 'common.delete' })}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Delete Confirmation */}
+        <AlertDialog
+          open={deleteTag !== null}
+          onOpenChange={open => {
+            if (!open) setDeleteTag(null)
+          }}
+        >
+          <AlertDialogContent className='max-w-sm'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {intl.formatMessage({ id: 'settings.tags.deleteTag' })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTag &&
+                  intl.formatMessage(
+                    { id: 'settings.tags.deleteConfirm' },
+                    {
+                      taskCount: deleteTag.taskCount,
+                      docCount: deleteTag.documentCount,
+                    }
+                  )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {intl.formatMessage({ id: 'common.cancel' })}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant='destructive'
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting
+                  ? intl.formatMessage({ id: 'common.deleting' })
+                  : intl.formatMessage({ id: 'common.delete' })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }

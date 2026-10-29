@@ -19,7 +19,7 @@ import {
   formatTaskTemplateList,
   taskTemplateList,
 } from '@/cli/src/commands/task-template-list'
-import { formatDecisionText, taskDecide } from '@/cli/src/commands/task-decide'
+import { taskDecide } from '@/cli/src/commands/task-decide'
 import { taskCreate } from '@/cli/src/commands/task-create'
 
 let out: string
@@ -126,30 +126,48 @@ describe('lumo task create --template', () => {
 })
 
 describe('lumo task decide', () => {
-  it('prefixes the local date unless the text already starts with one', () => {
-    const now = new Date(2026, 9, 4, 12)
-    expect(formatDecisionText(' keep v1 ', now)).toBe('2026-10-04 keep v1')
-    expect(formatDecisionText('2026-10-01 keep v1', now)).toBe(
-      '2026-10-01 keep v1'
-    )
-  })
-
   it('POSTs the decision with the session header and prints the task', async () => {
-    serve({
-      task: { identifier: 'LUM-42', title: 'T', url: 'https://x/LUM-42' },
-    })
-    expect(await taskDecide('LUM-42', '2026-10-04 keep v1')).toBeUndefined()
+    serve(
+      {
+        task: {
+          identifier: 'LUM-42',
+          title: 'T',
+          url: 'https://x/LUM-42/decisions',
+        },
+        decision: { number: 5 },
+      },
+      201
+    )
+    expect(await taskDecide('LUM-42', ' keep v1 ')).toBeUndefined()
     expect(calls[0]?.url).toBe(
       'https://api.lumo.test/api/tasks/by-identifier/LUM-42/decisions'
     )
     expect(calls[0]?.init?.method).toBe('POST')
+    // LUM-1303: no date prefix — the server dates the row.
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
-      text: '2026-10-04 keep v1',
+      text: 'keep v1',
     })
     expect(
       (calls[0]?.init?.headers as Record<string, string>)['X-Lumo-Session-Id']
     ).toBe('sess-1')
-    expect(out).toBe('Recorded decision on LUM-42 "T"  https://x/LUM-42\n')
+    expect(out).toBe(
+      'Recorded Decision 5 on LUM-42 "T"  https://x/LUM-42/decisions\n'
+    )
+  })
+
+  it('an older server without decision numbers still prints a line', async () => {
+    serve({ task: { identifier: 'LUM-42', title: 'T', url: 'u' } }, 201)
+    await taskDecide('LUM-42', 'keep v1')
+    expect(out).toBe('Recorded decision on LUM-42 "T"  u\n')
+  })
+
+  it('--why sends the rationale', async () => {
+    serve({ task: { identifier: 'LUM-42', title: 'T', url: 'u' } }, 201)
+    await taskDecide('LUM-42', 'keep v1', { why: ' v2 is separate ' })
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      text: 'keep v1',
+      rationale: 'v2 is separate',
+    })
   })
 
   it('missing text is a usage error', async () => {

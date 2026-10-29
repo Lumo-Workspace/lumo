@@ -11,7 +11,7 @@ import {
   listSystemTemplates,
   resolveTemplateLocale,
 } from '@/lib/task-templates/system'
-import { appendDecision } from '@/lib/task-templates/decisions'
+import { splitDecisionsSection } from '@/lib/task-templates/decisions'
 import { MESSAGES } from '@/lib/i18n/messages'
 import { normalizeRichText } from '@/lib/utils/markdown'
 
@@ -23,7 +23,7 @@ function hintOf(content: string, heading: string): string {
 }
 
 describe('system task templates', () => {
-  it('agent-brief v2 lists the six brief headings in order', () => {
+  it('agent-brief lists the five brief headings in order (LUM-1303: no Decisions)', () => {
     const [brief] = listSystemTemplates('en')
     expect(brief?.key).toBe('agent-brief')
     const headings = (brief?.content ?? '')
@@ -35,7 +35,6 @@ describe('system task templates', () => {
       '## Non-goals',
       '## Watch out',
       '## Done when',
-      '## Decisions',
     ])
   })
 
@@ -90,10 +89,6 @@ describe('system task templates', () => {
     expect(watch).toMatch(/export/i)
     expect(watch).toMatch(/migration/i)
     expect(watch).toMatch(/conflict-prone files/i)
-
-    expect(hintOf(content, 'Decisions')).toContain(
-      '`lumo task decide <id> "…"`'
-    )
   })
 
   // LUM-976 (v2.1): feedback from the LUM-973 / LUM-974 pilots.
@@ -167,9 +162,7 @@ describe('system task templates', () => {
       Object.keys(CONTEXT_WORD).sort()
     )
     const en = MESSAGES.en?.['taskTemplate.agentBrief.description']
-    expect(en).toBe(
-      'Context, goal, non-goals, stop conditions, done criteria, decisions'
-    )
+    expect(en).toBe('Context, goal, non-goals, stop conditions, done criteria')
     for (const [loc, word] of Object.entries(CONTEXT_WORD)) {
       const desc = MESSAGES[loc]?.['taskTemplate.agentBrief.description'] ?? ''
       expect({ loc, starts: desc.startsWith(word) }).toEqual({
@@ -181,25 +174,18 @@ describe('system task templates', () => {
     }
   })
 
-  it('agent-brief v2 task decide appends under Decisions and leaves the rest alone', () => {
-    const md = listSystemTemplates('zh-CN')[0]?.content ?? ''
+  it('a brief made from the LUM-970 template gives up its Decisions section and keeps the rest', () => {
+    const md = `${listSystemTemplates('zh-CN')[0]?.content ?? ''}\n## Decisions\n\n_Dated rulings, appended as work goes with \`lumo task decide <id> "…"\`._\n\n- 2026-10-04 ship \`v2\`\n`
     const html = normalizeRichText(md) ?? ''
-    const out = appendDecision(html, '2026-10-04 ship `v2`')
     const at = html.indexOf('<h2>Decisions</h2>')
     expect(at).toBeGreaterThan(html.indexOf('<h2>Context</h2>'))
+    const split = splitDecisionsSection(html)
     // Everything before the Decisions section is byte-for-byte unchanged.
-    expect(out.slice(0, at)).toBe(html.slice(0, at))
-    const tail = out.slice(at)
-    expect(tail).toContain(
-      '<code>lumo task decide &lt;id&gt; &quot;…&quot;</code>'
-    )
-    expect(
-      tail
-        .trimEnd()
-        .endsWith('<ul><li><p>2026-10-04 ship <code>v2</code></p></li></ul>')
-    ).toBe(true)
-    // Exactly one Decisions heading; the Context section did not attract it.
-    expect(out.match(/<h2>Decisions<\/h2>/g)).toHaveLength(1)
+    expect(split?.description).toBe(html.slice(0, at).trim())
+    // The template hint is dropped; the dated line becomes one decision.
+    expect(split?.decisions).toEqual([
+      { text: 'ship `v2`', date: new Date(Date.UTC(2026, 9, 4, 12)) },
+    ])
   })
 
   it('unknown / legacy locales resolve to a real catalogue', () => {

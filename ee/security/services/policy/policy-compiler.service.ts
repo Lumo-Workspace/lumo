@@ -18,6 +18,10 @@
  *   persisting is insert-or-ignore, and only the caller whose insert created
  *   the row runs `emitWeakening`. A loser serves the winner's row.
  */
+import {
+  gitProviderFor,
+  type GitProviderRef,
+} from '@/lib/integrations/git-provider/resolve'
 import { createHash } from 'crypto'
 import {
   projectPolicyRepository,
@@ -109,16 +113,17 @@ function ruleId(text: string): string {
 async function readSource(
   projectId: string,
   workspaceId: string,
-  fullName: string
+  fullName: string,
+  git: GitProviderRef = {}
 ): Promise<string | null> {
   const cached = _sourceCache.get(projectId)
   if (cached && Date.now() - cached.at < SOURCE_CACHE_TTL_MS) {
     return cached.source
   }
-  const { readRepoFile } = await import('@/lib/integrations/github/contents')
+  const provider = gitProviderFor(git)
   const [claude, agents] = await Promise.all([
-    readRepoFile({ workspaceId, fullName, path: 'CLAUDE.md' }),
-    readRepoFile({ workspaceId, fullName, path: 'AGENTS.md' }),
+    provider.readRepoFile({ workspaceId, fullName, path: 'CLAUDE.md' }),
+    provider.readRepoFile({ workspaceId, fullName, path: 'AGENTS.md' }),
   ])
   const source =
     claude == null && agents == null
@@ -425,12 +430,14 @@ export const policyCompilerService = {
    * installation token) — the state the POLICY_WEAKENING re-judge asks about.
    * Null when neither file exists or the repo is unreadable.
    */
-  async readSource(input: {
-    projectId: string
-    workspaceId: string
-    fullName: string
-  }): Promise<string | null> {
-    return readSource(input.projectId, input.workspaceId, input.fullName)
+  async readSource(
+    input: {
+      projectId: string
+      workspaceId: string
+      fullName: string
+    } & GitProviderRef
+  ): Promise<string | null> {
+    return readSource(input.projectId, input.workspaceId, input.fullName, input)
   },
 
   /**
@@ -442,17 +449,20 @@ export const policyCompilerService = {
    * once per (projectId, sourceHash), from the caller that persisted the row
    * (LUM-774).
    */
-  async ensureCompiled(input: {
-    projectId: string
-    workspaceId: string
-    fullName: string
-    taskId?: string
-  }): Promise<CompiledPolicy | null> {
+  async ensureCompiled(
+    input: {
+      projectId: string
+      workspaceId: string
+      fullName: string
+      taskId?: string
+    } & GitProviderRef
+  ): Promise<CompiledPolicy | null> {
     // 1. Read the source files — bail early if absent.
     const source = await readSource(
       input.projectId,
       input.workspaceId,
-      input.fullName
+      input.fullName,
+      input
     )
     if (source == null) return null
 

@@ -21,9 +21,10 @@ import {
 import { DEFAULT_AUTO_PAUSE_AFTER } from '@/ee/security/security-scan/review-control'
 
 /**
- * The stored workspace switches: the three layer switches (default on) and
- * LUM-1130's request-changes workflow (default OFF — it changes the PR's
- * merge UX, so a workspace opts in).
+ * The stored workspace switches: the layer switches and LUM-1130's
+ * request-changes workflow (default OFF — it changes the PR's merge UX, so a
+ * workspace opts in). LUM-1328: Lumo's own AI review and hunt also start OFF
+ * for a new workspace — the developer's own agent review is the default.
  */
 export interface WorkspaceSecuritySwitches {
   securityScanEnabled: boolean
@@ -47,14 +48,37 @@ export interface WorkspaceSecuritySwitches {
 
 export const DEFAULT_WORKSPACE_SECURITY_SWITCHES: WorkspaceSecuritySwitches = {
   securityScanEnabled: true,
-  securityAiReviewEnabled: true,
-  securityHuntEnabled: true,
+  securityAiReviewEnabled: false,
+  securityHuntEnabled: false,
   securityRewardHackEnabled: true,
   securityRequestChangesEnabled: false,
   securityAllowAuthorApproval: true,
   securityLearningsScope: DEFAULT_LEARNINGS_SCOPE,
   securityReviewAutoPauseAfter: DEFAULT_AUTO_PAUSE_AFTER,
   securityLocalScanLogEnabled: false,
+}
+
+/**
+ * LUM-1328 — workspaces created before this time started with Lumo's AI
+ * review and hunt ON (the earlier column defaults). The database cannot tell
+ * that value from an owner's choice, so readers that name a switch's source
+ * compare against the defaults the workspace was created with. A workspace
+ * created between this time and the migration's deploy started with them on
+ * too and reads as "workspace setting" — harmless, and only in that window.
+ */
+export const AI_REVIEW_DEFAULT_OFF_SINCE = new Date('2026-10-28T00:00:00Z')
+
+/** The switch defaults a workspace created at `createdAt` started with. */
+export function switchDefaultsFor(
+  createdAt: Date | null
+): WorkspaceSecuritySwitches {
+  if (createdAt !== null && createdAt < AI_REVIEW_DEFAULT_OFF_SINCE)
+    return {
+      ...DEFAULT_WORKSPACE_SECURITY_SWITCHES,
+      securityAiReviewEnabled: true,
+      securityHuntEnabled: true,
+    }
+  return { ...DEFAULT_WORKSPACE_SECURITY_SWITCHES }
 }
 
 /** Which layers may run for one workspace, after the platform ceiling. */
@@ -124,8 +148,8 @@ export function platformSecurityCeiling(
 }
 
 /**
- * A missing row (or a partial one) reads as the column defaults — all on —
- * exactly what the database would hold for it.
+ * A missing row (or a partial one) reads as the column defaults — exactly
+ * what the database would hold for a new workspace.
  */
 export function resolveSecurityLayers(
   stored: Partial<WorkspaceSecuritySwitches> | null | undefined,

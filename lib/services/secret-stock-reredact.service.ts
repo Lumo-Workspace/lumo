@@ -206,6 +206,9 @@ export const secretStockReredactService = {
             id: rewrite.id,
             columns: rewrite.columns,
             updatedAt: row.updatedAt as Date | undefined,
+            workspaceId: table.workspaceField
+              ? (row[table.workspaceField] as string)
+              : undefined,
           }))
         )
         stats.written += written

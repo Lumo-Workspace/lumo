@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import { prunedReasonOf } from '@/lib/hook-event/retention'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -262,14 +263,19 @@ export const hookEventRetentionRepository = {
    * never re-stamps. Returns the number of rows changed.
    */
   async prunePayloads(
+    workspaceId: string,
     eventIds: string[],
     prunedPayload: Prisma.InputJsonValue,
     prunedAt: Date
   ): Promise<number> {
     if (eventIds.length === 0) return 0
     const { count } = await prisma.hookEvent.updateMany({
-      where: { id: { in: eventIds }, payloadPrunedAt: null },
-      data: { payload: prunedPayload, payloadPrunedAt: prunedAt },
+      where: { workspaceId, id: { in: eventIds }, payloadPrunedAt: null },
+      data: {
+        payload: prunedPayload,
+        payloadPrunedAt: prunedAt,
+        payloadPrunedReason: prunedReasonOf(prunedPayload),
+      },
     })
     return count
   },

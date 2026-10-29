@@ -60,6 +60,8 @@ describe('LUM-738 baseline lifecycle — default-branch push', () => {
       'w1'
     )
     expect(securityBaselineService.requestFromPush).toHaveBeenCalledWith({
+      // LUM-1318: the provider-neutral push event carries its platform.
+      provider: 'github',
       workspaceId: 'w1',
       repo: 'foo/bar',
       sha: REVERT,

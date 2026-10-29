@@ -131,6 +131,7 @@ test('blocks DONE with 409 while an undispositioned deterministic HIGH finding s
 
   expect(
     isBlockingFinding({
+      ruleId: 'secret:aws',
       provenance: 'DETERMINISTIC',
       severity: 'HIGH',
       disposition: null,
@@ -138,6 +139,7 @@ test('blocks DONE with 409 while an undispositioned deterministic HIGH finding s
   ).toBe(true)
   expect(
     isBlockingFinding({
+      ruleId: 'ext:semgrep:js.sqli',
       provenance: 'EXTERNAL_TOOL',
       severity: 'HIGH',
       disposition: null,

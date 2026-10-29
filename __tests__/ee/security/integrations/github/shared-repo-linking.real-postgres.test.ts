@@ -233,11 +233,10 @@ it('an existing link keeps scanning after the repo becomes shared', async () => 
   expect(enqueueFaithfulnessJudgeOnMerge).not.toHaveBeenCalled()
 })
 
-it('manual link on a shared repo is allowed and reported', async () => {
+it('manual link on a shared repo is allowed', async () => {
   const SHARED = 'acme/manual'
-  const SOLO = 'acme/manual-solo'
   await confirm('ws-a', SHARED)
-  await confirm('ws-b', SHARED, SOLO)
+  await confirm('ws-b', SHARED)
   // Both workspaces hold an unlinked row (ambiguous branch → nobody linked).
   for (const ws of ['ws-a', 'ws-b']) {
     await handlePullRequest(
@@ -257,24 +256,9 @@ it('manual link on a shared repo is allowed and reported', async () => {
   )
   const linked = await linkPullRequest('t-ws-b-123', { prId: bRow!.id })
   expect(linked.taskId).toBe('t-ws-b-123')
-  expect(linked.sharedWithOtherWorkspaces).toBe(true)
   expect(dispatchPrSecurityScan).toHaveBeenCalledWith(bRow!.id, 'PR_LINK')
   // One linked workspace: the outbound mirror guard (> 1) lets B's comments through.
   expect(await pullRequestRepository.countTaskLinkedWorkspaces(SHARED, 9)).toBe(
     1
   )
-
-  // A repository only B confirmed is not reported as shared.
-  await handlePullRequest(
-    prEvent(SOLO, 3, 'feature/no-task', 'opened'),
-    'ws-b',
-    null
-  )
-  const soloRow = await pullRequestRepository.findByRepoAndNumber(
-    'ws-b',
-    SOLO,
-    3
-  )
-  const soloLinked = await linkPullRequest('t-ws-b-60', { prId: soloRow!.id })
-  expect(soloLinked.sharedWithOtherWorkspaces).toBe(false)
 })

@@ -1,11 +1,14 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import { ENCRYPTED_AT_REST_FIELDS } from '@/lib/db/hook-payload-encryption'
 
 /** A stored table to re-redact: the Prisma delegate, the columns, a filter. */
 export interface StockTableRef {
   label: string
   delegate: string
   fields: readonly string[]
+  /** The row's workspace column; read with the row and named on its write. */
+  workspaceField?: string
   where?: Record<string, unknown>
 }
 
@@ -67,6 +70,7 @@ export const secretStockRepository = {
     const shape = modelShape(table.delegate)
     const select: Record<string, true> = { id: true }
     for (const f of table.fields) select[f] = true
+    if (table.workspaceField) select[table.workspaceField] = true
     if (shape.updatedAtField) select[shape.updatedAtField] = true
     return delegateOf(prisma, table).findMany({
       where: {
@@ -83,8 +87,12 @@ export const secretStockRepository = {
    * Write each row's rewritten columns. The update matches only while every
    * rewritten column still holds the value that was read (and the table's
    * filter still holds — a HookEvent pruned meanwhile is left alone), so a
-   * concurrent edit is never overwritten. `updatedAt` is written back as it
-   * was: a redaction is not an edit. Small interactive transactions with an
+   * concurrent edit is never overwritten. A column encrypted at rest
+   * (HookEvent.payload, LUM-1302) cannot be compared in the database: only
+   * the table's filter guards it — for HookEvent, a payload is rewritten
+   * after insert only by being pruned (excluded by that filter) or by the
+   * SESSION_START metrics stamp moments after insert. `updatedAt` is written
+   * back as it was: a redaction is not an edit. Small interactive transactions with an
    * explicit timeout — a large one from this Mac to Neon runs past Prisma's
    * 5s default and rolls back (LUM-855). Returns how many rows were written.
    */
@@ -94,9 +102,12 @@ export const secretStockRepository = {
       id: string
       columns: StockColumnRewrite[]
       updatedAt?: Date | undefined
+      /** Required when the table has a `workspaceField`. */
+      workspaceId?: string | undefined
     }[]
   ): Promise<number> {
     const shape = modelShape(table.delegate)
+    const encrypted = new Set(ENCRYPTED_AT_REST_FIELDS[table.delegate] ?? [])
     let written = 0
     for (let i = 0; i < rows.length; i += STOCK_WRITE_CHUNK) {
       const chunk = rows.slice(i, i + STOCK_WRITE_CHUNK)
@@ -108,11 +119,14 @@ export const secretStockRepository = {
               ...(table.where ?? {}),
               id: row.id,
             }
+            if (table.workspaceField)
+              where[table.workspaceField] = row.workspaceId
             const data: Record<string, unknown> = {}
             for (const c of row.columns) {
-              where[c.field] = shape.jsonFields.has(c.field)
-                ? { equals: c.before }
-                : c.before
+              if (!encrypted.has(c.field))
+                where[c.field] = shape.jsonFields.has(c.field)
+                  ? { equals: c.before }
+                  : c.before
               data[c.field] = c.after
             }
             if (shape.updatedAtField && row.updatedAt)

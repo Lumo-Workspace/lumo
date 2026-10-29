@@ -1,4 +1,5 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { structuredOutputCallOptions } from '@/lib/ai/structured-output-routing'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
@@ -76,6 +77,7 @@ export async function explainCrossing(
 
   const { object } = await generateObject({
     model: gateway(GENERATION_MODEL),
+    ...structuredOutputCallOptions(GENERATION_MODEL),
     schema: CrossingExplainSchema,
     system: CROSSING_EXPLAIN_SYSTEM_PROMPT,
     prompt,

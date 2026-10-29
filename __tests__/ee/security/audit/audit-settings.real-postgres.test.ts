@@ -74,7 +74,8 @@ it('plugin columns are written and audited with the core settings, under the sam
     WS,
     {
       name: 'Renamed',
-      securityHuntEnabled: false,
+      // LUM-1328: a new workspace starts with the hunt off (migration default).
+      securityHuntEnabled: true,
       scanEvidenceRetentionDays: 14,
     },
     ownerContext()
@@ -82,7 +83,7 @@ it('plugin columns are written and audited with the core settings, under the sam
   const ws = await harness.prisma!.workspace.findUniqueOrThrow({
     where: { id: WS },
   })
-  expect(ws.securityHuntEnabled).toBe(false)
+  expect(ws.securityHuntEnabled).toBe(true)
   expect(ws.scanEvidenceRetentionDays).toBe(14)
   const byAction = Object.fromEntries(
     (await events()).map(r => [r.action, r.metadata])
@@ -92,7 +93,7 @@ it('plugin columns are written and audited with the core settings, under the sam
       changes: { name: { from: `WS ${WS}`, to: 'Renamed' } },
     },
     'workspace.security_settings_updated': {
-      changes: { securityHuntEnabled: { from: true, to: false } },
+      changes: { securityHuntEnabled: { from: false, to: true } },
     },
     'workspace.retention_updated': {
       changes: { scanEvidenceRetentionDays: { from: 7, to: 14 } },

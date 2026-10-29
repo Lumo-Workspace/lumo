@@ -13,6 +13,7 @@ import { NEIGHBOR_K } from './neighbor-retriever'
 import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
 import { embedTexts } from '@/lib/ai/embedding'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -75,6 +76,13 @@ export const layer2Service = {
       logger.debug(
         `[memory.layer2] triggered task=${input.taskId} project=${input.projectId}`
       )
+      // LUM-1314: the global memory pipeline switch is on.
+      if (isMemoryPipelineDisabled()) {
+        logger.debug(
+          `[memory.layer2] skip project=${input.projectId} reason=memory-pipeline-off`
+        )
+        return
+      }
       // LUM-917: the workspace turned AI-derived content off.
       if (
         !(await aiDerivedContentService.isEnabled({

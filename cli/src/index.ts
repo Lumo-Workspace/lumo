@@ -119,6 +119,10 @@ import {
   type SecurityScanOptions,
 } from './commands/security-scan'
 import {
+  reviewImportCommand,
+  type ReviewImportOptions,
+} from './commands/review-import'
+import {
   workspaceSecurityScan,
   workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
@@ -821,7 +825,7 @@ pr.command('review <number>')
 const security = program
   .command('security')
   .description(
-    'Run Lumo security scans on your local changes before you push. Read-only; the PR scan stays the authority for DONE.'
+    "Run Lumo security scans on your local changes before you push (read-only), or import a Claude Code / Codex security review into the branch's PR scan. The PR scan stays the authority for DONE."
   )
 
 security
@@ -893,6 +897,45 @@ security
   // LUM-1259: which git hook runs --log (recorded as the run's trigger).
   .addOption(new Option('--hook <name>').hideHelp())
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
+
+// LUM-1333: was `security import` (tombstoned in removed-commands.ts).
+const review = program
+  .command('review')
+  .description(
+    "Reviews you ran in your own coding agent, attached to the branch's PR scan"
+  )
+
+review
+  .command('import <file>')
+  .codex(readsLocalFile('reads the report file <file> and uploads it to Lumo'))
+  .description(
+    "Attach a Claude Code / Codex review to the branch's open PR scan: a security review (default) or a code review (--kind bug). <file>: SARIF 2.1.0 or Lumo JSON ({ findings: [...] })"
+  )
+  .option(
+    '--tool <tool>',
+    'The agent that ran the review: claude-code | codex (case-insensitive; default: the agent this shell runs in)'
+  )
+  .option(
+    '--kind <kind>',
+    'What the file holds: security (a security review, default) | bug (a code review; each rule becomes one of the AI review bug kinds)'
+  )
+  .option(
+    '--pr <number>',
+    "The pull request to import into, instead of the branch's open one"
+  )
+  .option(
+    '--repo <owner/repo>',
+    "The repository of the pull request, instead of origin's"
+  )
+  .option(
+    '--json',
+    'Emit the result ({ version, runId, repository, prNumber, headSha, tool, kind, results })'
+  )
+  .action(
+    wrap((file, options) =>
+      reviewImportCommand(file as string, options as ReviewImportOptions)
+    )
+  )
 
 const session = program
   .command('session')
@@ -1361,10 +1404,17 @@ task
   .command('decide <identifier> <text>')
   .codex(SERVER_ONLY)
   .description(
-    "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
+    "Record a ruling on the task's Decisions tab (dated by the server). Use for decisions instead of comments."
   )
+  .option('--why <reason>', 'Optional rationale: why this was decided')
   .action(
-    wrap((identifier, text) => taskDecide(identifier as string, text as string))
+    wrap((identifier, text, options) =>
+      taskDecide(
+        identifier as string,
+        text as string,
+        options as { why?: string }
+      )
+    )
   )
 
 const taskFigma = task
@@ -2081,7 +2131,7 @@ securityScanCmd
   .command('update')
   .codex(SERVER_ONLY)
   .description(
-    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off needs --confirm.'
+    'Change the PR security-scan and AI review settings, workspace-wide or for one repository (--repo). OWNER only; turning things off (or changing what blocks Done) needs --confirm.'
   )
   .option(
     '--scan <on|off>',
@@ -2112,6 +2162,10 @@ securityScanCmd
   .option(
     '--local-scan-log <on|off>',
     'Log local scan results per commit (`lumo security scan --log`, the scan-log hooks) on the server (default off); turning it on needs --confirm'
+  )
+  .option(
+    '--agent-review-blocks <off|high|medium|low>',
+    'Which imported Claude Code / Codex findings (`lumo review import`) block Done (default off = advisory): high = HIGH, medium = MEDIUM and HIGH, low = every severity; any change needs --confirm'
   )
   .option('--disable-all', 'Turn every layer switch off at once')
   .option('--enable-all', 'Turn every layer switch on at once')

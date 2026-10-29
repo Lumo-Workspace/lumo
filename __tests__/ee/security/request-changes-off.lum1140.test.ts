@@ -37,7 +37,11 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
-  securityColumnsRepository: { findSecuritySwitches: jest.fn() },
+  securityColumnsRepository: {
+    findSecuritySwitches: jest.fn(),
+    // LUM-1329: the settings read also reports agent-review blocking.
+    findSecurityPolicy: jest.fn(async () => null),
+  },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberRoleById: jest.fn() },
@@ -173,7 +177,7 @@ describe('LUM-1140 turning the request-changes workflow off', () => {
     await turnOff(ON)
     expect(mockPrisma.pullRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { workspaceId: 'ws_a', state: 'open' },
+        where: { workspaceId: 'ws_a', provider: 'github', state: 'open' },
         take: BULK_MAX_PRS,
       })
     )
@@ -190,6 +194,7 @@ describe('LUM-1140 turning the request-changes workflow off', () => {
     await turnOff(ON)
     expect(mockPrisma.pullRequest.count).toHaveBeenCalledWith({
       where: {
+        provider: 'github',
         repo: 'acme/app',
         number: 1,
         id: { not: 'pr1' },
@@ -305,7 +310,7 @@ describe('LUM-1140 repository', () => {
   it('findOpenPullRequestsOfWorkspace: open PRs of the workspace, newest first, capped', async () => {
     await prSecurityScanRepository.findOpenPullRequestsOfWorkspace('ws_a', 5)
     expect(mockPrisma.pullRequest.findMany).toHaveBeenCalledWith({
-      where: { workspaceId: 'ws_a', state: 'open' },
+      where: { workspaceId: 'ws_a', provider: 'github', state: 'open' },
       orderBy: { updatedAt: 'desc' },
       take: 5,
       select: { id: true, repo: true, number: true },

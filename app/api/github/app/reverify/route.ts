@@ -3,6 +3,7 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { encodeOauthState } from '@/lib/integrations/oauth-state'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * GET /api/github/app/reverify?workspaceUrl={slug}
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
+  const settingsUrl = `${resolveAppUrl()}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
 
   try {
     const installationId = await githubAppInstallService.startReverify(
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       githubAppInstallService.userAuthorizeUrl(
         state,
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+        `${resolveAppUrl()}/api/github/app/callback`
       )
     )
   } catch (error) {

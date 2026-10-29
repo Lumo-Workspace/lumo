@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 /**
  * Hand one task's per-session run-summary generation to the dedicated
@@ -21,7 +22,7 @@ import { logger } from '@/lib/logger'
  * completion on its own 300s budget.
  */
 export async function dispatchRunSummaries(taskId: string): Promise<void> {
-  const base = process.env.NEXT_PUBLIC_APP_URL
+  const base = resolveAppUrl()
   if (!base) {
     logger.warn(
       '[run-summary] NEXT_PUBLIC_APP_URL unset — skipping run-summary dispatch'

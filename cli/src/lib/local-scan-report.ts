@@ -6,7 +6,11 @@ import { secretDowngradeNote } from '../../../shared/src/security-scan'
 import { listEnvelope } from './json-output'
 import type { DepsScanResult } from './deps-scan'
 import type { DependencyFinding } from './osv-advisory'
-import type { ContextSource, ScanContext } from './scan-context'
+import {
+  renamedRemoteLines,
+  type ContextSource,
+  type ScanContext,
+} from './scan-context'
 import {
   describeLabel,
   type PrComparison,
@@ -81,6 +85,10 @@ export interface ServerSection {
   source: ContextSource
   note: string | null
   repo: string | null
+  /** LUM-1330: the remote's name, when the server found the repo renamed. */
+  renamedFrom?: string | null
+  /** LUM-1330: origin's URL when the name came from it; null for --repo. */
+  remoteUrl?: string | null
   fetchedAt: string | null
   /** The branch's open PR number, per the server. */
   pullRequest: number | null
@@ -375,6 +383,9 @@ function serverLines(r: LocalScanResult): string[] {
   parts.push(`${countWouldBlock(r.findings)} would block DONE`)
   return [
     `Server: ${parts.join(' · ')}`,
+    ...(s.renamedFrom && s.repo
+      ? renamedRemoteLines(s.renamedFrom, s.repo, s.remoteUrl ?? null)
+      : []),
     'Local results are a preview: the PR scan stays the authority for DONE.',
   ]
 }
@@ -512,6 +523,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
             source: r.server.source,
             note: r.server.note,
             repo: r.server.repo,
+            // LUM-1330: the remote's old name when Lumo followed a rename.
+            renamedFrom: r.server.renamedFrom ?? null,
             fetchedAt: r.server.fetchedAt,
             pullRequest: r.server.pullRequest,
             policy: r.server.policy,

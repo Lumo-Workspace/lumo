@@ -6,6 +6,7 @@ import {
   decodeOauthState,
   completeOauthFlow,
 } from '@/lib/services/figma-integration.service'
+import { resolveAppUrl } from '@/lib/config/public-config'
 
 export async function GET(request: NextRequest) {
   // LUM-1025: not configured on this deployment → 404, never a 500.
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const state = request.nextUrl.searchParams.get('state')
   const errorParam = request.nextUrl.searchParams.get('error')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = resolveAppUrl() ?? ''
 
   if (errorParam || !state) {
     return NextResponse.redirect(`${appUrl}/?figma_error=1`)

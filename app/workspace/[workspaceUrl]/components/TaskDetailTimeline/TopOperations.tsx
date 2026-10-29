@@ -14,6 +14,10 @@ import {
 import type { LineageResponse } from '../../types'
 
 type Operation = LineageResponse['totals']['topOperations'][number]
+type Precision = LineageResponse['totals']['operationsPrecision']
+
+/** Above this cache-read share the table mostly measures context size, not tools. */
+const CACHE_READ_DOMINANT = 0.9
 
 /** Most commands shown under an expanded row; the full list is in `lumo usage show`. */
 const MAX_COMMANDS = 8
@@ -24,14 +28,47 @@ const NUM = 'py-1 pl-2 pr-0 text-right tabular-nums text-muted-foreground'
 
 export function TopOperations({
   operations,
+  precision,
   taskIdentifier,
 }: {
   operations: Operation[]
+  precision: Precision
   taskIdentifier: string
 }) {
   const intl = useIntl()
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   if (operations.length === 0) return null
+
+  const title = (
+    <div className='mb-2 text-caption text-muted-foreground'>
+      {intl.formatMessage({
+        id: 'lineage.operations.title',
+        defaultMessage: 'Top operations · 按 token 成本',
+      })}
+    </div>
+  )
+  const asPct = (share: number) => Math.round(share * 100)
+
+  // LUM-1294: every token fell to the thinking bucket — a one-row table would
+  // look precise while saying nothing, so show the total as a plain line.
+  if (precision && !precision.hasToolRows) {
+    const total = operations.reduce((t, op) => t + op.total, 0)
+    return (
+      <div className='border-b border-border px-3 py-3'>
+        {title}
+        <p className='text-caption text-muted-foreground'>
+          {intl.formatMessage(
+            {
+              id: 'lineage.operations.noBreakdown',
+              defaultMessage:
+                '{total} tokens in total · no per-tool breakdown was recorded for this task.',
+            },
+            { total: intl.formatNumber(total) }
+          )}
+        </p>
+      </div>
+    )
+  }
 
   const toggle = (tool: string) =>
     setExpanded(prev => {
@@ -58,12 +95,7 @@ export function TopOperations({
 
   return (
     <div className='border-b border-border px-3 py-3'>
-      <div className='mb-2 text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'lineage.operations.title',
-          defaultMessage: 'Top operations · 按 token 成本',
-        })}
-      </div>
+      {title}
       <Table className='text-caption'>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
@@ -161,12 +193,49 @@ export function TopOperations({
           })}
         </TableBody>
       </Table>
+      {precision ? (
+        <div className='mt-2 flex flex-col gap-0.5 text-caption text-foreground'>
+          {/* null = no tool-using turns, so there is no coverage to state. */}
+          {precision.perStepPct !== null ? (
+            <p>
+              {precision.perStepPct === 1
+                ? intl.formatMessage({
+                    id: 'lineage.operations.precisionPerStep',
+                    defaultMessage: 'Measured per step.',
+                  })
+                : intl.formatMessage(
+                    {
+                      id: 'lineage.operations.precisionPerTurn',
+                      defaultMessage:
+                        'Estimated per turn: {pct}% of tool-using turns were measured per step; the rest is split evenly across the tools in the turn.',
+                    },
+                    // Round, then cap at 99: a near-complete share (0.996)
+                    // must not read "Estimated per turn: 100%" — only an exact
+                    // 1 is per step — and flooring would turn 0.29 into 28%.
+                    { pct: Math.min(99, asPct(precision.perStepPct)) }
+                  )}
+            </p>
+          ) : null}
+          {precision.cacheReadPct > CACHE_READ_DOMINANT ? (
+            <p>
+              {intl.formatMessage(
+                {
+                  id: 'lineage.operations.cacheReadDominant',
+                  defaultMessage:
+                    '{pct}% of these tokens are cache reads, the structural cost of a long context rather than of any one tool.',
+                },
+                { pct: asPct(precision.cacheReadPct) }
+              )}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <p className='mt-2 text-caption text-muted-foreground'>
         {intl.formatMessage(
           {
             id: 'lineage.operations.footnote',
             defaultMessage:
-              '归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo usage show --task {id}（CLI 1.125 及更早：lumo cost --task {id}）',
+              "Tools that run in parallel within one step share that step's tokens evenly; cache read is structural cost. Full breakdown: lumo usage show --task {id} (CLI 1.125 and older: lumo cost --task {id})",
           },
           { id: taskIdentifier }
         )}

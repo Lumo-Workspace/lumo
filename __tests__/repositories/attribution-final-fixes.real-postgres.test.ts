@@ -227,6 +227,8 @@ describe('POST events find their PRE_TOOL_USE by tool_use_id (I1a)', () => {
     const pre = (id: string, sessionId: string, toolUseId: string, at: Date) =>
       seedEvent(id, sessionId, 'task_12', {
         payload: JSON.stringify({ tool_name: 'Bash', tool_use_id: toolUseId }),
+        // LUM-1302: the recorder lifts tool_use_id into its own column.
+        toolUseId,
         createdAt: at.toISOString(),
       })
     await pre('pre_hit', 'PRE', 'toolu_1', t(10))
@@ -236,6 +238,7 @@ describe('POST events find their PRE_TOOL_USE by tool_use_id (I1a)', () => {
     await seedEvent('post_same', 'PRE', 'task_13', {
       type: 'POST_TOOL_USE',
       payload: JSON.stringify({ tool_use_id: 'toolu_4' }),
+      toolUseId: 'toolu_4',
       createdAt: t(11).toISOString(),
     })
     const find = (sessionId: string, toolUseId: string) =>
