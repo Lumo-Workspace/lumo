@@ -81,6 +81,21 @@ export function parseReviewPayload(payload: Record<string, unknown>):
 }
 
 export const pullRequestReviewService = {
+  /**
+   * Store one review, one row per GitHub review id. GitHub only ever moves a
+   * review to dismissed, so a dismissal is final: a late-delivered earlier
+   * event (the approval arriving after its dismissal) never brings the
+   * approval back.
+   */
+  async record(review: PullRequestReviewWrite): Promise<void> {
+    if (review.state === 'DISMISSED') {
+      await pullRequestReviewRepository.upsert(review)
+      return
+    }
+    await pullRequestReviewRepository.createIfAbsent(review)
+    await pullRequestReviewRepository.updateUnlessState(review, 'DISMISSED')
+  },
+
   /** Store one `pull_request_review` delivery for one workspace's PR row. */
   async recordFromWebhook(
     payload: Record<string, unknown>,
@@ -95,10 +110,7 @@ export const pullRequestReviewService = {
       prNumber
     )
     if (!pr) return false
-    await pullRequestReviewRepository.upsert({
-      ...review,
-      pullRequestId: pr.id,
-    })
+    await pullRequestReviewService.record({ ...review, pullRequestId: pr.id })
     return true
   },
 }

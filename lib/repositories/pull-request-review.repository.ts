@@ -11,34 +11,42 @@ export interface PullRequestReviewWrite {
 }
 
 export const pullRequestReviewRepository = {
-  /**
-   * One row per GitHub review id. GitHub only ever moves a review to
-   * dismissed, so a dismissal is final: a late-delivered earlier event (the
-   * approval arriving after its dismissal) never brings the approval back.
-   */
+  /** Insert the review, or overwrite every field of the stored row. */
   async upsert(review: PullRequestReviewWrite) {
     const { pullRequestId, githubReviewId, ...fields } = review
-    const where = {
-      pullRequestId_githubReviewId: { pullRequestId, githubReviewId },
-    }
-    if (review.state === 'DISMISSED')
-      return prisma.pullRequestReview.upsert({
-        where,
-        create: review,
-        update: fields,
-        select: { id: true },
-      })
-    const row = await prisma.pullRequestReview.upsert({
-      where,
+    return prisma.pullRequestReview.upsert({
+      where: {
+        pullRequestId_githubReviewId: { pullRequestId, githubReviewId },
+      },
+      create: review,
+      update: fields,
+      select: { id: true },
+    })
+  },
+
+  /** Insert the review; a row already stored for its id is left as it is. */
+  async createIfAbsent(review: PullRequestReviewWrite) {
+    const { pullRequestId, githubReviewId } = review
+    return prisma.pullRequestReview.upsert({
+      where: {
+        pullRequestId_githubReviewId: { pullRequestId, githubReviewId },
+      },
       create: review,
       update: {},
       select: { id: true },
     })
+  },
+
+  /** Overwrite the stored row's fields unless it is in state `keep`. */
+  async updateUnlessState(
+    review: PullRequestReviewWrite,
+    keep: PullRequestReviewWrite['state']
+  ) {
+    const { pullRequestId, githubReviewId, ...fields } = review
     await prisma.pullRequestReview.updateMany({
-      where: { pullRequestId, githubReviewId, state: { not: 'DISMISSED' } },
+      where: { pullRequestId, githubReviewId, state: { not: keep } },
       data: fields,
     })
-    return row
   },
 
   /** The stored reviews of these PRs, oldest first. */

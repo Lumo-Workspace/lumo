@@ -7,7 +7,11 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByRepoAndNumber: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request-review.repository', () => ({
-  pullRequestReviewRepository: { upsert: jest.fn(async () => ({ id: 'r' })) },
+  pullRequestReviewRepository: {
+    upsert: jest.fn(async () => ({ id: 'r' })),
+    createIfAbsent: jest.fn(async () => ({ id: 'r' })),
+    updateUnlessState: jest.fn(async () => undefined),
+  },
 }))
 
 import {
@@ -19,6 +23,9 @@ import { pullRequestReviewRepository } from '@/lib/repositories/pull-request-rev
 
 const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
 const upsert = pullRequestReviewRepository.upsert as jest.Mock
+const createIfAbsent = pullRequestReviewRepository.createIfAbsent as jest.Mock
+const updateUnlessState =
+  pullRequestReviewRepository.updateUnlessState as jest.Mock
 
 function payload(review: Record<string, unknown> = {}) {
   return {
@@ -92,6 +99,31 @@ describe('parseReviewPayload', () => {
   })
 })
 
+describe('pullRequestReviewService.record', () => {
+  const review = {
+    pullRequestId: 'pr-1',
+    githubReviewId: '987',
+    reviewerLogin: 'alice',
+    commitSha: 'a'.repeat(40),
+    submittedAt: new Date('2026-10-28T10:00:00Z'),
+  }
+
+  it('a dismissal overwrites whatever is stored', async () => {
+    await pullRequestReviewService.record({ ...review, state: 'DISMISSED' })
+    expect(upsert).toHaveBeenCalledWith({ ...review, state: 'DISMISSED' })
+    expect(createIfAbsent).not.toHaveBeenCalled()
+    expect(updateUnlessState).not.toHaveBeenCalled()
+  })
+
+  it('any other state never overwrites a stored dismissal', async () => {
+    const approved = { ...review, state: 'APPROVED' as const }
+    await pullRequestReviewService.record(approved)
+    expect(createIfAbsent).toHaveBeenCalledWith(approved)
+    expect(updateUnlessState).toHaveBeenCalledWith(approved, 'DISMISSED')
+    expect(upsert).not.toHaveBeenCalled()
+  })
+})
+
 describe('pullRequestReviewService.recordFromWebhook', () => {
   it("stores the review on the workspace's PR row", async () => {
     findPr.mockResolvedValue({ id: 'pr-1' })
@@ -99,7 +131,7 @@ describe('pullRequestReviewService.recordFromWebhook', () => {
       await pullRequestReviewService.recordFromWebhook(payload(), 'w-1')
     ).toBe(true)
     expect(findPr).toHaveBeenCalledWith('w-1', 'o/r', 12)
-    expect(upsert).toHaveBeenCalledWith(
+    expect(createIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({
         pullRequestId: 'pr-1',
         githubReviewId: '987',
@@ -119,6 +151,7 @@ describe('pullRequestReviewService.recordFromWebhook', () => {
         'w-1'
       )
     ).toBe(false)
+    expect(createIfAbsent).not.toHaveBeenCalled()
     expect(upsert).not.toHaveBeenCalled()
   })
 })

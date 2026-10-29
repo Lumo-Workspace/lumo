@@ -31,6 +31,7 @@ jest.mock('@/lib/logger', () => ({
 
 import { doneRequirementsSettingsService } from '@/lib/services/done-requirements-settings.service'
 import { pullRequestReviewRepository } from '@/lib/repositories/pull-request-review.repository'
+import { pullRequestReviewService } from '@/lib/services/pull-request-review.service'
 import { readDoneVerdict } from '@/lib/services/done-verdict.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
 import { taskStatusService } from '@/lib/services/task-status.service'
@@ -179,13 +180,13 @@ it('a GitHub review id keeps one row holding its latest state; a dismissal is fi
     commitSha: HEAD,
     submittedAt: new Date('2026-10-28T10:00:00Z'),
   }
-  await pullRequestReviewRepository.upsert({ ...base, state: 'APPROVED' })
-  await pullRequestReviewRepository.upsert({ ...base, state: 'DISMISSED' })
+  await pullRequestReviewService.record({ ...base, state: 'APPROVED' })
+  await pullRequestReviewService.record({ ...base, state: 'DISMISSED' })
   const rows = await pullRequestReviewRepository.listByPullRequestIds(['pr'])
   expect(rows).toHaveLength(1)
   expect(rows[0]!.state).toBe('DISMISSED')
   // A late-delivered approval never brings a dismissed review back.
-  await pullRequestReviewRepository.upsert({ ...base, state: 'APPROVED' })
+  await pullRequestReviewService.record({ ...base, state: 'APPROVED' })
   expect(
     (await pullRequestReviewRepository.listByPullRequestIds(['pr']))[0]!.state
   ).toBe('DISMISSED')
@@ -196,7 +197,7 @@ it('a GitHub review id keeps one row holding its latest state; a dismissal is fi
 })
 
 it("a person's approval on the head covers the review requirement", async () => {
-  await pullRequestReviewRepository.upsert({
+  await pullRequestReviewService.record({
     pullRequestId: 'pr',
     githubReviewId: '988',
     reviewerLogin: 'bob',
