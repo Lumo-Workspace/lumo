@@ -143,32 +143,61 @@ export function withLoginStoreLock<T>(fn: () => T): T {
   while (fd === null) {
     try {
       fd = fs.openSync(lock, 'wx', 0o600)
+      break
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-      try {
-        if (
-          Date.now() - fs.statSync(lock).mtimeMs >
-          LOGIN_STORE_LOCK_STALE_MS
-        ) {
-          fs.rmSync(lock, { force: true })
-          continue
-        }
-      } catch {
-        continue // the holder just released it
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(
-          `the Lumo credentials file is locked by another lumo process; try again (if none is running, delete ${lock})`
-        )
-      }
-      sleepSync(25)
     }
+    let age: number | null = null
+    try {
+      age = Date.now() - fs.statSync(lock).mtimeMs
+    } catch {
+      // released between the open and the stat: retry the open
+    }
+    if (age !== null && age > LOGIN_STORE_LOCK_STALE_MS) {
+      takeOverStaleLock(lock)
+      continue
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `the Lumo credentials file is locked by another lumo process; try again (if none is running, delete ${lock})`
+      )
+    }
+    if (age !== null) sleepSync(25)
   }
   try {
     return fn()
   } finally {
     fs.closeSync(fd)
     fs.rmSync(lock, { force: true })
+  }
+}
+
+/**
+ * Remove a stale lock without deleting a live one another process just
+ * created in its place: claim it by rename (only one process can), then
+ * check the claimed file is still the stale one; if it is fresh, hand it back
+ * (`link` fails if a newer lock already exists, which then wins anyway).
+ */
+function takeOverStaleLock(lock: string): void {
+  const claimed = `${lock}.${process.pid}.stale`
+  try {
+    fs.renameSync(lock, claimed)
+  } catch {
+    return // someone else claimed or released it first
+  }
+  try {
+    if (
+      Date.now() - fs.statSync(claimed).mtimeMs <=
+      LOGIN_STORE_LOCK_STALE_MS
+    ) {
+      try {
+        fs.linkSync(claimed, lock)
+      } catch {
+        // a newer lock exists; it holds the store
+      }
+    }
+  } finally {
+    fs.rmSync(claimed, { force: true })
   }
 }
 
