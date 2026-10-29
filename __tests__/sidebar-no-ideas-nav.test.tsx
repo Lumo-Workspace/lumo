@@ -59,6 +59,7 @@ jest.mock('@/components/ui/sidebar', () => {
   return {
     Sidebar: Pass,
     SidebarContent: Pass,
+    SidebarFooter: Pass,
     SidebarGroup: Pass,
     SidebarGroupContent: Pass,
     SidebarGroupLabel: Pass,
@@ -139,5 +140,14 @@ describe('workspace sidebar — Initiatives removed', () => {
     expect(
       pathToPage('/workspace/lumo/initiatives/LUM-INIT-3', 'lumo').page
     ).toBe('my-tasks')
+  })
+})
+
+// LUM-1287: the footer carries the "Send feedback" entry on every page that
+// renders the workspace sidebar.
+describe('workspace sidebar — feedback footer', () => {
+  it('renders the Send feedback entry', () => {
+    renderSidebar()
+    expect(screen.getByText('sidebar.feedback')).toBeInTheDocument()
   })
 })

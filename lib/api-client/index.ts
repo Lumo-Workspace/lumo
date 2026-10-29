@@ -27,6 +27,12 @@ export type {
   MilestoneUpdateInput,
   MilestoneListFilter,
 } from './milestones'
+export { feedbackClient } from './feedback'
+export type {
+  FeedbackCreateInput,
+  CreatedFeedback,
+  FeedbackSubmitResult,
+} from './feedback'
 export { waitlistClient } from './waitlist'
 export type { WaitlistSignupInput, WaitlistSignupResult } from './waitlist'
 export { memoriesClient } from './memories'
