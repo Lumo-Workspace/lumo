@@ -30,8 +30,16 @@ describe('safeRedirectTarget (LUM-1027)', () => {
     'javascript:alert(1)',
     'workspace',
     '/signin?redirect_url=/x',
+    // LUM-1335: dot segments that normalize to a protocol-relative `//host`.
+    '/.//evil.example',
+    '/%2e//evil.example',
+    '/a/..//evil.example',
   ])('falls back to the default for %p', raw => {
     expect(safeRedirectTarget(raw)).toBe(DEFAULT_AFTER_SIGN_IN)
+  })
+
+  it('keeps an inner double slash on this origin', () => {
+    expect(safeRedirectTarget('/workspace//acme')).toBe('/workspace//acme')
   })
 })
 

@@ -188,10 +188,14 @@ describe('local sign-in endpoint (LUM-1335)', () => {
     expect(mockDb.authSession).toHaveLength(0)
   })
 
-  it('never redirects off this origin', async () => {
+  it.each([
+    'https%3A%2F%2Fevil.example',
+    // Normalizes to the protocol-relative //evil.example.
+    '%2F.%2F%2Fevil.example',
+  ])('never redirects off this origin (%s)', async target => {
     const res = await signIn(
       rebuild({ LUMO_MODE: 'local' }),
-      '?redirect_url=https%3A%2F%2Fevil.example'
+      `?redirect_url=${target}`
     )
     expect(res.headers.get('location')).toBe('/workspace')
   })

@@ -35,6 +35,9 @@ export function safeRedirectTarget(raw: string | null | undefined): string {
   try {
     const url = new URL(raw, 'http://lumo.invalid')
     if (url.origin !== 'http://lumo.invalid') return DEFAULT_AFTER_SIGN_IN
+    // LUM-1335: dot segments (`/.//evil`, `/%2e//evil`) normalize to a
+    // protocol-relative `//host`, which a browser follows off this origin.
+    if (url.pathname.startsWith('//')) return DEFAULT_AFTER_SIGN_IN
     if (url.pathname.startsWith('/signin')) return DEFAULT_AFTER_SIGN_IN
     return url.pathname + url.search + url.hash
   } catch {
