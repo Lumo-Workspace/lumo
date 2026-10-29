@@ -150,6 +150,8 @@ export interface RepoLookup {
 export function lookupRepoKey(cwd: string): RepoLookup {
   const res = spawnSync('git', ['rev-parse', '--absolute-git-dir'], {
     cwd,
+    // Untranslated messages: "not a git repository" is matched below.
+    env: { ...process.env, LC_ALL: 'C' },
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   })

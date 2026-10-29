@@ -128,6 +128,18 @@ describe('loginKey / repoKey', () => {
 
   it('outside a repository is not an error; a git failure is, and becomes a note', () => {
     expect(lookupRepoKey(tmp)).toEqual({ key: null })
+    // A translated git locale still reads as "outside a repository".
+    const lang = { LANG: process.env.LANG, LC_ALL: process.env.LC_ALL }
+    process.env.LANG = 'de_DE.UTF-8'
+    process.env.LC_ALL = 'de_DE.UTF-8'
+    try {
+      expect(lookupRepoKey(tmp)).toEqual({ key: null })
+    } finally {
+      for (const [k, v] of Object.entries(lang)) {
+        if (v === undefined) delete process.env[k]
+        else process.env[k] = v
+      }
+    }
     const missing = lookupRepoKey(path.join(tmp, 'does-not-exist'))
     expect(missing.key).toBeNull()
     expect(missing.error).toEqual(expect.stringContaining('git did not run'))
